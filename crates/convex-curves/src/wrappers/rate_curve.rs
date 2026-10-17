@@ -55,7 +55,7 @@ impl<T: TermStructure> RateCurve<T> {
     }
 
     /// Converts a date to a tenor in years.
-    fn date_to_tenor(&self, date: Date) -> f64 {
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
         self.inner.date_to_tenor(date)
     }
 
@@ -66,7 +66,7 @@ impl<T: TermStructure> RateCurve<T> {
     /// This method handles conversion from whatever value type the
     /// underlying curve stores.
     pub fn discount_factor(&self, date: Date) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         self.discount_factor_at_tenor(t)
     }
 
@@ -115,7 +115,7 @@ impl<T: TermStructure> RateCurve<T> {
     /// * `date` - Target date
     /// * `compounding` - Desired compounding convention
     pub fn zero_rate(&self, date: Date, compounding: Compounding) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         self.zero_rate_at_tenor(t, compounding)
     }
 
@@ -213,9 +213,19 @@ impl<T: TermStructure> RateCurve<T> {
         end: Date,
         compounding: Compounding,
     ) -> CurveResult<f64> {
-        let t1 = self.date_to_tenor(start);
-        let t2 = self.date_to_tenor(end);
-        self.forward_rate_at_tenors(t1, t2, compounding)
+        let t1 = self.date_to_tenor(start)?;
+        let t2 = self.date_to_tenor(end)?;
+        let period = crate::contracts::year_fraction(start, end, self.inner.tenor_day_count())
+            .map_err(|error| CurveError::invalid_value(error.to_string()))?;
+        let start_discount = self.discount_factor_at_tenor(t1)?;
+        let end_discount = self.discount_factor_at_tenor(t2)?;
+        ValueConverter::forward_rate_from_dfs(
+            start_discount,
+            end_discount,
+            0.0,
+            period,
+            compounding,
+        )
     }
 
     /// Returns the forward rate between two tenors.
@@ -241,7 +251,7 @@ impl<T: TermStructure> RateCurve<T> {
     ///
     /// This requires the curve to support derivatives.
     pub fn instantaneous_forward(&self, date: Date) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         self.instantaneous_forward_at_tenor(t)
     }
 
@@ -313,7 +323,7 @@ impl<T: TermStructure> RateCurve<T> {
         day_count: &dyn DayCount,
     ) -> CurveResult<f64> {
         let ref_date = self.reference_date();
-        let t_mat = self.date_to_tenor(maturity);
+        let t_mat = self.date_to_tenor(maturity)?;
 
         if t_mat <= 0.0 {
             return Err(CurveError::invalid_value(
@@ -400,6 +410,14 @@ impl<T: TermStructure> TermStructure for RateCurve<T> {
 
     fn max_date(&self) -> Date {
         self.inner.max_date()
+    }
+
+    fn tenor_day_count(&self) -> convex_core::daycounts::DayCountConvention {
+        self.inner.tenor_day_count()
+    }
+
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        self.inner.date_to_tenor(date)
     }
 }
 

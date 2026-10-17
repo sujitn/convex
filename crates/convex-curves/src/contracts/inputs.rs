@@ -689,6 +689,25 @@ pub fn year_fraction(start: Date, end: Date, dc: DayCountConvention) -> Result<f
             "end must follow start within 150x366 calendar days",
         ));
     }
+    let result = date_fraction(start, end, dc)?;
+    if !result.is_finite() || result <= 0.0 {
+        return Err(Error::invalid("period", "year fraction must be positive"));
+    }
+    Ok(result)
+}
+
+/// Context-free elapsed curve time between ordered canonical dates.
+/// Unlike an annualization period, this may be zero for distinct 30/360 dates.
+/// Missing coupon or termination context is an explicit error.
+pub fn date_fraction(start: Date, end: Date, dc: DayCountConvention) -> Result<f64> {
+    validate_date(start)?;
+    validate_date(end)?;
+    if end < start || start.days_between(&end) > convex_core::cashflows::MAX_CONTRACT_DAYS {
+        return Err(Error::invalid(
+            "period",
+            "dates must be ordered within 150x366 calendar days",
+        ));
+    }
     if !matches!(
         dc,
         DayCountConvention::Act360
@@ -704,8 +723,11 @@ pub fn year_fraction(start: Date, end: Date, dc: DayCountConvention) -> Result<f
         .year_fraction(start, end)
         .to_f64()
         .ok_or_else(|| Error::Numerical("year fraction conversion".into()))?;
-    if !result.is_finite() || result <= 0.0 {
-        return Err(Error::invalid("period", "year fraction must be positive"));
+    if !result.is_finite() || result < 0.0 {
+        return Err(Error::invalid(
+            "period",
+            "curve time must be finite and nonnegative",
+        ));
     }
     Ok(result)
 }

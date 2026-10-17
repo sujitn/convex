@@ -5418,6 +5418,48 @@
         "Four native functions in three profiles:187exact scalar,12price display and25exact-bit binary64 cases.",
         "Full required native/library/assurance/private/lint/minimum-compiler/financial and actual-host replay with final bound runtimes."
       ]
+    },
+    {
+      "base_commit": "49881d069d7160da3c532ac2294ca3230ac0b08c",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Propagate checked dated curve queries through the existing raw term-structure, dynamic rate, rate/credit wrapper, engine recipe and analytics callers. Reuse the original checked day-count owner; source law, actual reference date and full time basis remain. Dated forwards annualize their actual discount ratio over the start/end period, never a difference of reference fractions. Arc, Box and borrowed sources preserve provider time and checked overrides. Remove the recipe bridge NaN fallback. Distinct future dates may have genuine zero30/360 time and unit discount; zero annualization remains invalid. Retain all85original financial observations, full Decimal90 answers, actualQuantLib1.40 corroboration and original2e-14bounds. Four new native functions cover these and date/context/provider admission. Only the two exact owner-approved unwrap adapters refresh one protected engine test. All financial inputs, assertions, expected answers, defaults and the other1927prior numerical pins remain unchanged. No new service, generic framework, dependency, database/MQ/provider abstraction or execution authority. Remaining native inverse/credit/compounding/convention/model/claim/physical/host requirements remain required, with all CTD alternatives and actual causal cash/security ownership. Only unavailable actual platform execution defers; no certification or task acceptance.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "3c82fddbfdbb0f2f4eb18856ae605044fcc0c52d8991a39077309f3271b88660",
+        "crates/convex-analytics/src/bond_quote.rs": "e689b146177a6aff88a2d8d3b0b9b5d4e9ab552c940b668bdb39ce8384887b54",
+        "crates/convex-analytics/src/pricing.rs": "09a873aeddd68f88ccb87ff1a81c68d69da5487d130c9ec803dfa12eb977a24f",
+        "crates/convex-analytics/src/spreads/asw/par_par.rs": "069a2b760062708de9ae20bd1cb8533eb063fedfd073d39e34673da9166e3ba1",
+        "crates/convex-analytics/src/spreads/ispread.rs": "a56d45a37fc19ed793cd820fa941eddb3effe386f350d6c1c99dbecc2ae94433",
+        "crates/convex-analytics/src/spreads/oas.rs": "adb498cbac449478f19e8dd7f0fe317be1661c0229cb8af2cd93e93b822c0bf5",
+        "crates/convex-analytics/src/spreads/zspread.rs": "0bf02857581f93f78b67aaaa98d64302d362fcc311d45228c4a2dd0e6efb9035",
+        "crates/convex-curves/src/contracts/inputs.rs": "72f1f61d2ba88b8c45bb466a2c758727b6b1f2422683088dc09a8f0fcedeca7a",
+        "crates/convex-curves/src/term_structure.rs": "8fcd5d18a5f51530cd91c9807abd5f499d82664321133bebc961b97fdbfbd03a",
+        "crates/convex-curves/src/wrappers/credit_curve.rs": "98245e064e7ea7f6a4ee599cacf7f2b8c7076a51051c00c00c59aebbfeabdf05",
+        "crates/convex-curves/src/wrappers/mod.rs": "159731814dab553b779e2a0542a5f4f9cfed441bcd72369928c26745455a45b5",
+        "crates/convex-curves/src/wrappers/rate_curve.rs": "948644d893274d6728da14ea736dd72f901489e2f855451c9726cbdef6484ee9",
+        "crates/convex-curves/tests/native_dated_time.rs": "cb0e40ce35186227ab9a52bac5c09f100e2333a10d5542fb76185f974fa54387",
+        "crates/convex-engine/src/curve_builder.rs": "5817e4674289aad218a007196359987781b6229e4a44b54f09b49aaaa7458363",
+        "crates/convex-engine/src/curve_replay.rs": "7e6001d9d63f35a18a267f9d257cb3d3e328ee756e79a056bafb20f497c4b31f",
+        "crates/convex-engine/tests/curve_recipe_replay.rs": "1ae2e6e255fb4f963e61e115fd29e3263e10135287fb3c89273e9e364bf0abf5",
+        "docs/ROUTE-MIGRATION.md": "a4dade37e263baccb9a9af09840498561ace59cc37e77220cb8929aa6fd95aa8",
+        "tests/fixtures/native-dated-time.json": "6411d6e08cede13f449305272b3bd501af6e028e92cf07ddfb00f7cb90bd245f",
+        "tools/assurance/inventory.json": "5260d5d92913251a4945d770e17578476842949a8b8f9bad7def6e626a117641",
+        "tools/assurance/numeric-evidence.json": "b33590a1dc6bd62b45192ff9dcab76db8076c7dbe0ccf0407a6343fa1f96220c",
+        "tools/library/library-inventory.json": "47772db706d30e2c331ac6f9bdb463fae4e39263c5e0866dc9d8592717d7fe93"
+      },
+      "tests": [
+        "All85original Decimal90 dated/forward observations at unchanged2e-14bounds in three profiles.",
+        "Provider/date/context/zero-time admission, original affected regressions and exact protected-adapter conservation.",
+        "Required assurance/library/native/lint/minimum compiler/financial/available host checks with final bound runtimes."
+      ],
+      "quantitative_review": {
+        "reviewer": "Repository owner, explicit human user reply",
+        "rationale": "Only the exact two unwrap adapters in engine curve_recipe_replay.rs, patch b4e4526b2e8e981a782f62f02ce869fa327d79e8bdeabed4be5f763fda051fa5. The human explicitly answered: Approve these two exact adapters. All original test functions, inputs, expected values, assertions, bounds and defaults remain; no broader model or production certification.",
+        "reference_evidence": [
+          ".ai/production-readiness/evidence/CVX-063-Curve-Semantics/protected-dated-time-adapters-01/actual-owner-approval.json",
+          ".ai/production-readiness/evidence/CVX-063-Curve-Semantics/protected-dated-time-adapters-01/protected-dated-time-adapters.patch"
+        ]
+      }
     }
   ]
 }

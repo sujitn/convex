@@ -130,14 +130,22 @@ impl<'a> ParParAssetSwap<'a> {
         let mut mismatch = 0.0;
         let settle_df = self
             .swap_curve
-            .discount_factor(self.swap_curve.date_to_tenor(settlement))
+            .discount_factor(
+                self.swap_curve
+                    .date_to_tenor(settlement)
+                    .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+            )
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
         if !settle_df.is_finite() || settle_df <= 0.0 {
             return Err(AnalyticsError::InvalidInput("invalid settlement DF".into()));
         }
         let mut prev_df = self
             .swap_curve
-            .discount_factor(self.swap_curve.date_to_tenor(settlement))
+            .discount_factor(
+                self.swap_curve
+                    .date_to_tenor(settlement)
+                    .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+            )
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
         for cf in &cash_flows {
@@ -147,7 +155,11 @@ impl<'a> ParParAssetSwap<'a> {
 
             let df = self
                 .swap_curve
-                .discount_factor(self.swap_curve.date_to_tenor(cf.date))
+                .discount_factor(
+                    self.swap_curve
+                        .date_to_tenor(cf.date)
+                        .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+                )
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
 
             let tau = coupon_year_fraction(day_count.as_deref(), cf, payments_per_year);
@@ -200,7 +212,11 @@ impl<'a> ParParAssetSwap<'a> {
 
             let df_f64 = self
                 .swap_curve
-                .discount_factor(self.swap_curve.date_to_tenor(cf.date))
+                .discount_factor(
+                    self.swap_curve
+                        .date_to_tenor(cf.date)
+                        .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+                )
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
             let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
             annuity += df * year_fraction;

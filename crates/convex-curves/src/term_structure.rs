@@ -131,9 +131,9 @@ pub trait TermStructure: Send + Sync {
     /// Returns the value at a specific date.
     ///
     /// Converts the date to a year fraction from the reference date.
-    fn value_at_date(&self, date: Date) -> f64 {
-        let t = self.date_to_tenor(date);
-        self.value_at(t)
+    fn value_at_date(&self, date: Date) -> CurveResult<f64> {
+        let t = self.date_to_tenor(date)?;
+        self.try_value_at(t)
     }
 
     /// Day count for date↔tenor conversions; defaults to the `ValueType`'s
@@ -149,9 +149,9 @@ pub trait TermStructure: Send + Sync {
 
     /// Converts a date to a year fraction from the reference date using the
     /// curve's day-count basis (ACT/360 for USD MM, etc.).
-    fn date_to_tenor(&self, date: Date) -> f64 {
-        let days = self.reference_date().days_between(&date);
-        days as f64 / self.tenor_day_count().nominal_days_per_year() as f64
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        crate::contracts::date_fraction(self.reference_date(), date, self.tenor_day_count())
+            .map_err(|error| crate::error::CurveError::invalid_value(error.to_string()))
     }
 
     /// Inverse of [`Self::date_to_tenor`] using the curve's day-count basis.
@@ -213,6 +213,18 @@ impl<T: TermStructure + ?Sized> TermStructure for Arc<T> {
     fn max_date(&self) -> Date {
         (**self).max_date()
     }
+
+    fn tenor_day_count(&self) -> DayCountConvention {
+        (**self).tenor_day_count()
+    }
+
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        (**self).date_to_tenor(date)
+    }
+
+    fn value_at_date(&self, date: Date) -> CurveResult<f64> {
+        (**self).value_at_date(date)
+    }
 }
 
 /// Blanket implementation allowing `Box<T>` to be used as a `TermStructure`.
@@ -244,6 +256,18 @@ impl<T: TermStructure + ?Sized> TermStructure for Box<T> {
     fn max_date(&self) -> Date {
         (**self).max_date()
     }
+
+    fn tenor_day_count(&self) -> DayCountConvention {
+        (**self).tenor_day_count()
+    }
+
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        (**self).date_to_tenor(date)
+    }
+
+    fn value_at_date(&self, date: Date) -> CurveResult<f64> {
+        (**self).value_at_date(date)
+    }
 }
 
 /// Blanket implementation allowing `&T` to be used as a `TermStructure`.
@@ -274,6 +298,18 @@ impl<T: TermStructure + ?Sized> TermStructure for &T {
 
     fn max_date(&self) -> Date {
         (**self).max_date()
+    }
+
+    fn tenor_day_count(&self) -> DayCountConvention {
+        (**self).tenor_day_count()
+    }
+
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        (**self).date_to_tenor(date)
+    }
+
+    fn value_at_date(&self, date: Date) -> CurveResult<f64> {
+        (**self).value_at_date(date)
     }
 }
 
@@ -366,7 +402,7 @@ mod tests {
         assert!((days - 365).abs() <= 1);
 
         // Roundtrip
-        let tenor = curve.date_to_tenor(one_year);
+        let tenor = curve.date_to_tenor(one_year).unwrap();
         assert!((tenor - 1.0).abs() < 0.01);
     }
 
@@ -380,7 +416,7 @@ mod tests {
         };
 
         // 360 days under ACT/360 = exactly 1.0 (would be ≈0.9863 under ACT/365).
-        let tenor = curve.date_to_tenor(today.add_days(360));
+        let tenor = curve.date_to_tenor(today.add_days(360)).unwrap();
         assert!((tenor - 1.0).abs() < 1e-12);
 
         let mut act365 = FlatCurve::new(today, 0.05, 30.0);
@@ -388,7 +424,7 @@ mod tests {
             compounding: Compounding::Continuous,
             day_count: DayCountConvention::Act365Fixed,
         };
-        assert!((tenor - act365.date_to_tenor(today.add_days(360))).abs() > 0.01);
+        assert!((tenor - act365.date_to_tenor(today.add_days(360)).unwrap()).abs() > 0.01);
     }
 
     #[test]

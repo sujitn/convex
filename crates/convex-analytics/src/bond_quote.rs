@@ -420,7 +420,7 @@ impl RateCurveDyn for Shift<'_> {
     fn max_date(&self) -> Date {
         self.base.max_date()
     }
-    fn date_to_tenor(&self, date: Date) -> f64 {
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
         self.base.date_to_tenor(date)
     }
 }

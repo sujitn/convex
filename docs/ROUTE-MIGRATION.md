@@ -954,3 +954,21 @@ fixing history, projection/discount roles and the actual quote-risk workflow;
 its complete CVX-063 qualification remains required. Existing mandatory native,
 model, calendar, operation, host, causal cash/security ownership and CTD-switch
 requirements remain unchanged. This migration grants no certification.
+# Checked dated curve queries
+
+`TermStructure::date_to_tenor`, `TermStructure::value_at_date` and
+`RateCurveDyn::date_to_tenor` now return `CurveResult`. Propagate the result
+before querying the curve. Engine recipe bridges preserve the original error.
+`Arc`, `Box` and borrowed curves retain their provider's time basis and checked
+overrides. The dynamic trait's default explicitly uses ACT/365 Fixed.
+
+The existing checked day-count owner supplies ACT/360, ACT/365 Fixed, ACT/ACT
+ISDA, US 30/360 and 30E/360 time. Context-dependent bases require the complete
+contract route. Distinct dates with zero 30/360 time retain their zero time and
+unit discount; they cannot define an annualized forward rate. Dated forwards
+use the actual start/end fraction rather than a difference of reference-based
+fractions. Tenor-based forward inputs retain their original meaning.
+
+This change does not qualify the remaining nominal inverse, credit integration,
+compounding or wider convention/model/host requirements. The existing checked
+`BuiltCurve::tenor_to_date` remains the precise inverse with explicit rounding.

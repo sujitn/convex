@@ -20,8 +20,8 @@
     },
     {
       "path": "crates/convex-analytics/src/bond_quote.rs",
-      "sha256": "ca8a6b0956446821135b79b7f12821a0b7de68b6a65bc0747bf24b2cd4ddf11a",
-      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "sha256": "e689b146177a6aff88a2d8d3b0b9b5d4e9ab552c940b668bdb39ce8384887b54",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
       "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
@@ -33,7 +33,9 @@
         "crates/convex-core/tests/support/quote_scalar_consumer.rs",
         "tests/fixtures/native-quote-scalars.json",
         "tests/fixtures/native-price-display.json",
-        "tests/fixtures/native-spread-float.json"
+        "tests/fixtures/native-spread-float.json",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -704,8 +706,8 @@
     },
     {
       "path": "crates/convex-analytics/src/pricing.rs",
-      "sha256": "40dd1343c4c8fb5955fbd344155f45aed808e1bdb8f051a9cf40ccf4ca3c0948",
-      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "sha256": "09a873aeddd68f88ccb87ff1a81c68d69da5487d130c9ec803dfa12eb977a24f",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
       "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
@@ -716,7 +718,9 @@
         "crates/convex-core/tests/support/quote_scalar_consumer.rs",
         "tests/fixtures/native-quote-scalars.json",
         "tests/fixtures/native-price-display.json",
-        "tests/fixtures/native-spread-float.json"
+        "tests/fixtures/native-spread-float.json",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -1121,8 +1125,8 @@
     },
     {
       "path": "crates/convex-analytics/src/spreads/asw/par_par.rs",
-      "sha256": "5f14b7026502d9b55fd231ce8abec7f6af978726cbe620021b83ffb3574e28bb",
-      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Checked scalar-risk/Date/HTTP continuation: Migrate the actual source-frozen two-pass/eight-fail raw-risk and one-pass/one-fail Date probes, and the actual final-bound HTTP untrusted-Origin200failure. Retire Duration/Convexity/DV01 Fromf64 zero fallbacks for checked TryFrom, using the locked Decimal total as_f64 accessor. Check scalar hedges; return Result and optional undefined weighted duration for common-unit raw portfolios, retaining signed value/DV01 and original binary64 absolute1e-10guard. Exact key-rate lookup does not substitute nearby factors. Actual normal inverse replaces interpolation between unchanged coarse constants; zero-mean Gaussian scalar P&L, absolute exposure scale, finite nonnegative daily volatility, positive days and signed loss quantiles are explicit. Historical inverse empirical CDF uses exact supplied binary64 ceil(probability*N) ranks and actual long/short loss ordering, retaining explicit IID sqrt-time scaling; 1..1000000finite returns and checked arithmetic reject invalid/overflow/underflow cases. Weekend-only Date Results use complete weeks plus at most6daily steps, retain original signed counts and valid full Gregorian range, and reject exhausted offsets including i32MINwithout panic/unbounded search. Remove unused Bond.first_settlement_date and CalendarId.to_calendar fallback with actual benchmark callers migrated to the same SIFMA selection. The user explicitly approves only the exact five mock deletions,12Date unwraps and five native-yield-risk TryFrom adapters; no operand/answer/bound or financial test is removed. Seven reviewed sections include two individual numerical artifact rows; five mock sections retain exact task-preservation review even though not individual numeric-evidence rows. Retain the installer receipt KeyError after all patches applied, original helper and full first state; completion only verifies hashes. MCP HTTP and CORS share a bounded explicit Origin list, defaulting to the actual listener origin; repeat allow-origin replaces that list, invalid config fails and unknown Origin403is required. Remove unused HTTP server instance and explicit CtrlCpanic; actual loopback protocol/full8549envelopes remain required, without claiming remote auth/TLS or frame/session/convenience certification. Server key-rate conversion requires actual prices, rejects complete invalid sets, removes invented ISIN and silent filter-map drops. Broader Holding grouping/missing coverage/weighting/presentation remain required; no whole-module qualification is claimed. Independent NormalDist/Fraction/Decimal90references precede candidate execution:25normal100parametric180historical12hedge cases and original165Date offsets, 154counts11weekday cases. New normal2e-12, VaRmax(1e-8,3e-14relative), hedge max(1e-8,1e-14relative) bounds do not change old bounds. Keep all1885original artifact paths and defaults, refresh only2exact human-approved hashes and add4controls for1889. All8549original requests/envelopes and literal30areas174combinations2154Planned80shared12native228mapped1926unmapped stay. No dependency/provider/DB/MQ/Cexport or authority change, native waiver, acceptance or certificate. All original native/date/calendar/YAS/model/calibration/claim/physical/causal/exact-operation work and CTD alternatives/switches/actual cash ownership remain required. Only unavailable actual platform execution defers; user has no Windows/Excel host or approved convention/model packs.",
+      "sha256": "069a2b760062708de9ae20bd1cb8533eb063fedfd073d39e34673da9166e3ba1",
+      "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Checked scalar-risk/Date/HTTP continuation: Migrate the actual source-frozen two-pass/eight-fail raw-risk and one-pass/one-fail Date probes, and the actual final-bound HTTP untrusted-Origin200failure. Retire Duration/Convexity/DV01 Fromf64 zero fallbacks for checked TryFrom, using the locked Decimal total as_f64 accessor. Check scalar hedges; return Result and optional undefined weighted duration for common-unit raw portfolios, retaining signed value/DV01 and original binary64 absolute1e-10guard. Exact key-rate lookup does not substitute nearby factors. Actual normal inverse replaces interpolation between unchanged coarse constants; zero-mean Gaussian scalar P&L, absolute exposure scale, finite nonnegative daily volatility, positive days and signed loss quantiles are explicit. Historical inverse empirical CDF uses exact supplied binary64 ceil(probability*N) ranks and actual long/short loss ordering, retaining explicit IID sqrt-time scaling; 1..1000000finite returns and checked arithmetic reject invalid/overflow/underflow cases. Weekend-only Date Results use complete weeks plus at most6daily steps, retain original signed counts and valid full Gregorian range, and reject exhausted offsets including i32MINwithout panic/unbounded search. Remove unused Bond.first_settlement_date and CalendarId.to_calendar fallback with actual benchmark callers migrated to the same SIFMA selection. The user explicitly approves only the exact five mock deletions,12Date unwraps and five native-yield-risk TryFrom adapters; no operand/answer/bound or financial test is removed. Seven reviewed sections include two individual numerical artifact rows; five mock sections retain exact task-preservation review even though not individual numeric-evidence rows. Retain the installer receipt KeyError after all patches applied, original helper and full first state; completion only verifies hashes. MCP HTTP and CORS share a bounded explicit Origin list, defaulting to the actual listener origin; repeat allow-origin replaces that list, invalid config fails and unknown Origin403is required. Remove unused HTTP server instance and explicit CtrlCpanic; actual loopback protocol/full8549envelopes remain required, without claiming remote auth/TLS or frame/session/convenience certification. Server key-rate conversion requires actual prices, rejects complete invalid sets, removes invented ISIN and silent filter-map drops. Broader Holding grouping/missing coverage/weighting/presentation remain required; no whole-module qualification is claimed. Independent NormalDist/Fraction/Decimal90references precede candidate execution:25normal100parametric180historical12hedge cases and original165Date offsets, 154counts11weekday cases. New normal2e-12, VaRmax(1e-8,3e-14relative), hedge max(1e-8,1e-14relative) bounds do not change old bounds. Keep all1885original artifact paths and defaults, refresh only2exact human-approved hashes and add4controls for1889. All8549original requests/envelopes and literal30areas174combinations2154Planned80shared12native228mapped1926unmapped stay. No dependency/provider/DB/MQ/Cexport or authority change, native waiver, acceptance or certificate. All original native/date/calendar/YAS/model/calibration/claim/physical/causal/exact-operation work and CTD alternatives/switches/actual cash ownership remain required. Only unavailable actual platform execution defers; user has no Windows/Excel host or approved convention/model packs. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",
       "failure_contract": "Externally driven invalid/unsupported inputs propagate checked errors. Optional unsupported measures remain absent with bounded structured errors; no implicit discount/swap/benchmark or fixing substitution.",
       "tests": [
@@ -1132,7 +1136,9 @@
         "crates/convex-analytics/tests/risk_contracts.rs",
         "crates/convex-analytics/tests/fixtures/risk-contracts.json",
         "crates/convex-core/tests/weekday_operations.rs",
-        "crates/convex-core/tests/fixtures/weekday-operations.json"
+        "crates/convex-core/tests/fixtures/weekday-operations.json",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -1157,8 +1163,8 @@
     },
     {
       "path": "crates/convex-analytics/src/spreads/zspread.rs",
-      "sha256": "bbe512b8d21ab55f4f558ca871e3692dcd62b10743c1cd39e8f6bdd230da65cd",
-      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "sha256": "0bf02857581f93f78b67aaaa98d64302d362fcc311d45228c4a2dd0e6efb9035",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
       "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
@@ -1174,7 +1180,9 @@
         "crates/convex-core/tests/support/quote_scalar_consumer.rs",
         "tests/fixtures/native-quote-scalars.json",
         "tests/fixtures/native-price-display.json",
-        "tests/fixtures/native-spread-float.json"
+        "tests/fixtures/native-spread-float.json",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -2612,8 +2620,8 @@
     },
     {
       "path": "crates/convex-curves/src/contracts/inputs.rs",
-      "sha256": "0368fac0b8847c52ab10530dbddbd4f2aebf389ea6f655eb99404a7569ba9c1a",
-      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed CVX-058 impact: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference. Reviewed CVX-024 impact: CVX-024: pure signed monetary reference risk; complete original helper/grid, quote/version/native-unit, convention/model, response and normalization keys. Five actual same-trade currency PVs, Central method, exact signed quantity scaled once and explicit versioned half-step stability. Full original rate/CDS/cash recipes rebuild every helper in dependency order at unchanged native residuals/history/publications, preserving originals and last-good inputs. Supplied-node dependents rebuild; calibrated-node rebuilding fails. Frozen survival recovery, rebuilt legal recovery, hazard, zero, residual basis, raw Z/OAS and distinct clean/dirty/native futures units remain separate. Optional OAS retains native model resolution and duration/convexity refinement at h and h/2; generic price-only OAS callbacks fail. Complete declared quote sets and informative actual node grids are required for parallel checks. Expected trade/factor manifests retain missing outcomes and unknown gross exposure with local/reporting Incomplete coverage; all-missing values absent. Exact same-snapshot positive FX pins retain induced risk-conversion exposure; no full portfolio FX delta or authorization is inferred. Earlier DV01/KRD numerics remain unchanged; no runtime/provider/host/lifecycle/execution or release certificate. Reviewed: CVX-063 complete dated Nelson-Siegel/Svensson, segmented and delegated rate DF/zero curve contracts: original native parametric mathematics and segment/delegation owners retain full supplied models, finite horizons, method/representation/time basis/role/currency/exact dependency versions, native dated observations and C0 join/fallback/source domains. Direct in-horizon instantaneous forwards use original equations; no grid or derivative proxy. Native zero fitting reuses original bounded scaled solver, closed four/six parameter bounds and every native residual, including zero-weight inputs, with unchanged undamped weighted rank/work guards. Strict shared curve/parametric_fit dispatch contains no financial formula or runtime/provider/storage/MQ/clock/authority.249 supplied engineering requests (199 successes/50 typed failures) and nine exact mappings extend33/603 to42/852. Independent Decimal(60)44 zero/DF/forward cases and40 dated observations were frozen before candidate valuation; native envelopes are transport expectations only.128 segments/32 derivations retain exact limits; selected dependency evaluation is linear in nesting and source extensions are disclosed, including raw clamp at zero while P(0)=1 consumes no source. Original277 numeric rows/bytes/defaults and6002 historical evidence files, original30areas/174combinations/2154Planned records, dependencies/146 normal packages and26Cexports remain. Parametric product-price fitting, complete method/risk/helper/market/model/hedge/workout and actual Windows/Excel/wasm32/browser qualification remain open. No independent quantitative approval/certificate/push/merge/deployment/live orders. Reviewed: CVX-063 explicit step-zero/flat-forward continuation: correct native PiecewiseConstant to bounded right-owned constants, remove older raw-flat FlatForward tail substitution, and expose complete continuous-zero rate source contracts with full actual node dates/time/units, version, role/currency, method/source and origin/domain/side/extension guards. Reuse original normalization, discrete interpolation/storage/query converters and original FlatForward integration/segment forwards. Original Nodes/product calibration constraints stay unchanged. Side-specific forwards disclose actual extension at endpoints and zero; the discount origin identity consumes no source.326 supplied engineering requests (267 successes/59 typed failures) and four exact mappings extend42/852 to46/1178; no mandatory record is promoted. Independent predeclared Decimal(60)52 model points,30 tails and original period/side controls are separate from native transport expectations. All292 prior numeric rows/bytes/defaults and6209 historical evidence files, original30areas/174combinations/2154Planned records, manifests/normal dependencies and26Cexports remain. Original positive/negative rate domains stay finite with bounded1024 nodes,150-year queries and65536 math points. Actual Windows/Excel/wasm32/browser, complete remaining methods/product-price fitting/full quote-risk rebuilding/market/model/hedge/workout qualification remain open. Existing protected math test-only manual_flatten lint is recorded separately; production math and required affected checks remain strict. No quantitative approval/certificate/push/merge/deployment/live orders. Reviewed CVX-063 UFR impact: Explicit original exponential UFR tail over a full exact-version FlatForward or original NS/Svensson continuous-zero source; actual supplied LLP, original analytic left boundary, UFR/alpha/time basis/native units/roles/versions, finite native queries and strict source/domain failures. Independent Decimal(60) controls remain separate from fresh transport expectations. No Smith-Wilson, derivative default, sampled grid, product fit/quote-risk replacement, independent approval or certificate. Reviewed CVX-063 MonotoneConvex impact: Complete original nonnegative Hagan-West native owner and full supplied continuous-zero MonotoneConvex source; weighted/endpoint estimates before simultaneous positivity bounds, all four regimes with one analytic forward/primitive, exact-axis original quadratic explicitly disclosed, no amelioration or signed-forward alias. Original nodes reprice; analytic derivatives/origin, actual dates/units/time basis/roles/versions/terminal sides and bounded work survive thin shared clients. Frozen independent Decimal(60) controls are separate from native transport. Full fits/quote-risk/engine snapshots/other UFR joins and actual Windows/Excel/browser remain owning work. No independent quantitative approval or certificate. Complete original product-parametric inputs, native mixed-unit parameters and full residual/rank/work diagnostics retained; original zero/grid owners unchanged. Complete original product-UFR inputs, native mixed-unit parameters and full residual/rank/work diagnostics retained; original zero/grid owners unchanged.",
+      "sha256": "72f1f61d2ba88b8c45bb466a2c758727b6b1f2422683088dc09a8f0fcedeca7a",
+      "invariants": "Pure immutable supplied values with explicit native quote units, exact versions, dated economics and conventions. Finite query/postcondition checks; no silent term/unit/method substitution. Product descriptions are not product calibration. Scoped deny unwrap/expect/panic and crate forbid unsafe/must_use apply. CVX-060: checked stable accumulation conversions, exact immutable views/declared rolls or native-unit bounded fit dispatch as applicable; existing quantitative bytes remain unchanged. CVX-019 reviewed impact: validated actual observation prefixes, explicit overnight projection mapping, native fitted representation construction or shared native pricing/fitting dispatch as applicable; prior quantitative bytes/defaults remain unchanged. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed CVX-058 impact: CVX-058: pure full original fixed/stepped/amortizing bond and bill clean/dirty/explicit dated-yield/bank-discount/par helpers; original settlement, entitlement/accrued and every actual cash pillar. Par coupons are not spot zeros. Government/Repo continuous-zero versus raw IssuerSpread basis grids have explicit roles/currency/versions. Named reference-only or conditional credit promised cash plus immediate recovery of current par are distinct models; residual basis affects promised cash only, recovery uses original DF/survival moments. Whole graph model/role and original contract preflight, Linear causal piecewise or identified scaled Linear global fitting, positive paired native scales/weights, explicit overlap retention and every unchanged original native quote repriced. Government and CDS-to-credit-to-basis rebuilds preserve original terms, recovery and last-good inputs; ingestion owns revised pins. Repo/carry preserves actual purchase/delivery and each coupon horizon with separate haircut funding. Exact contract Decimal serialization stays private to new helper. No provider/runtime/host/lifecycle/execution/certificate inference. Reviewed CVX-024 impact: CVX-024: pure signed monetary reference risk; complete original helper/grid, quote/version/native-unit, convention/model, response and normalization keys. Five actual same-trade currency PVs, Central method, exact signed quantity scaled once and explicit versioned half-step stability. Full original rate/CDS/cash recipes rebuild every helper in dependency order at unchanged native residuals/history/publications, preserving originals and last-good inputs. Supplied-node dependents rebuild; calibrated-node rebuilding fails. Frozen survival recovery, rebuilt legal recovery, hazard, zero, residual basis, raw Z/OAS and distinct clean/dirty/native futures units remain separate. Optional OAS retains native model resolution and duration/convexity refinement at h and h/2; generic price-only OAS callbacks fail. Complete declared quote sets and informative actual node grids are required for parallel checks. Expected trade/factor manifests retain missing outcomes and unknown gross exposure with local/reporting Incomplete coverage; all-missing values absent. Exact same-snapshot positive FX pins retain induced risk-conversion exposure; no full portfolio FX delta or authorization is inferred. Earlier DV01/KRD numerics remain unchanged; no runtime/provider/host/lifecycle/execution or release certificate. Reviewed: CVX-063 complete dated Nelson-Siegel/Svensson, segmented and delegated rate DF/zero curve contracts: original native parametric mathematics and segment/delegation owners retain full supplied models, finite horizons, method/representation/time basis/role/currency/exact dependency versions, native dated observations and C0 join/fallback/source domains. Direct in-horizon instantaneous forwards use original equations; no grid or derivative proxy. Native zero fitting reuses original bounded scaled solver, closed four/six parameter bounds and every native residual, including zero-weight inputs, with unchanged undamped weighted rank/work guards. Strict shared curve/parametric_fit dispatch contains no financial formula or runtime/provider/storage/MQ/clock/authority.249 supplied engineering requests (199 successes/50 typed failures) and nine exact mappings extend33/603 to42/852. Independent Decimal(60)44 zero/DF/forward cases and40 dated observations were frozen before candidate valuation; native envelopes are transport expectations only.128 segments/32 derivations retain exact limits; selected dependency evaluation is linear in nesting and source extensions are disclosed, including raw clamp at zero while P(0)=1 consumes no source. Original277 numeric rows/bytes/defaults and6002 historical evidence files, original30areas/174combinations/2154Planned records, dependencies/146 normal packages and26Cexports remain. Parametric product-price fitting, complete method/risk/helper/market/model/hedge/workout and actual Windows/Excel/wasm32/browser qualification remain open. No independent quantitative approval/certificate/push/merge/deployment/live orders. Reviewed: CVX-063 explicit step-zero/flat-forward continuation: correct native PiecewiseConstant to bounded right-owned constants, remove older raw-flat FlatForward tail substitution, and expose complete continuous-zero rate source contracts with full actual node dates/time/units, version, role/currency, method/source and origin/domain/side/extension guards. Reuse original normalization, discrete interpolation/storage/query converters and original FlatForward integration/segment forwards. Original Nodes/product calibration constraints stay unchanged. Side-specific forwards disclose actual extension at endpoints and zero; the discount origin identity consumes no source.326 supplied engineering requests (267 successes/59 typed failures) and four exact mappings extend42/852 to46/1178; no mandatory record is promoted. Independent predeclared Decimal(60)52 model points,30 tails and original period/side controls are separate from native transport expectations. All292 prior numeric rows/bytes/defaults and6209 historical evidence files, original30areas/174combinations/2154Planned records, manifests/normal dependencies and26Cexports remain. Original positive/negative rate domains stay finite with bounded1024 nodes,150-year queries and65536 math points. Actual Windows/Excel/wasm32/browser, complete remaining methods/product-price fitting/full quote-risk rebuilding/market/model/hedge/workout qualification remain open. Existing protected math test-only manual_flatten lint is recorded separately; production math and required affected checks remain strict. No quantitative approval/certificate/push/merge/deployment/live orders. Reviewed CVX-063 UFR impact: Explicit original exponential UFR tail over a full exact-version FlatForward or original NS/Svensson continuous-zero source; actual supplied LLP, original analytic left boundary, UFR/alpha/time basis/native units/roles/versions, finite native queries and strict source/domain failures. Independent Decimal(60) controls remain separate from fresh transport expectations. No Smith-Wilson, derivative default, sampled grid, product fit/quote-risk replacement, independent approval or certificate. Reviewed CVX-063 MonotoneConvex impact: Complete original nonnegative Hagan-West native owner and full supplied continuous-zero MonotoneConvex source; weighted/endpoint estimates before simultaneous positivity bounds, all four regimes with one analytic forward/primitive, exact-axis original quadratic explicitly disclosed, no amelioration or signed-forward alias. Original nodes reprice; analytic derivatives/origin, actual dates/units/time basis/roles/versions/terminal sides and bounded work survive thin shared clients. Frozen independent Decimal(60) controls are separate from native transport. Full fits/quote-risk/engine snapshots/other UFR joins and actual Windows/Excel/browser remain owning work. No independent quantitative approval or certificate. Complete original product-parametric inputs, native mixed-unit parameters and full residual/rank/work diagnostics retained; original zero/grid owners unchanged. Complete original product-UFR inputs, native mixed-unit parameters and full residual/rank/work diagnostics retained; original zero/grid owners unchanged. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "At most256 supplied+built curves;1024 nodes or1023 helpers+origin; model times[0,150]; min pillar separation1e-10; date years1..9999/span150x366; inverse at most16 bisections. Shared calendar/profile/fixing ceilings retained. Derived dependency depth<=32, independently of batch size. Derived views<=32; dense numerical fit parameters/observations<=128, LM/SVD budgets1..10000.",
       "failure_contract": "Typed InvalidInput/Unsupported/MissingDependency/DependencyCycle/RepricingFailure/Numerical/BoundExceeded and original shared primitive missing-fixing errors; no partial output set or last-good mutation.",
       "tests": [
@@ -2652,7 +2660,9 @@
         "crates/convex-engine/tests/product_parametric.rs",
         "crates/convex/tests/product_ufr.rs",
         "crates/convex-analytics/tests/product_ufr.rs",
-        "crates/convex-engine/tests/product_ufr.rs"
+        "crates/convex-engine/tests/product_ufr.rs",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -2939,8 +2949,8 @@
     },
     {
       "path": "crates/convex-engine/src/curve_builder.rs",
-      "sha256": "f3b46b5415c80ed5aff32d4d1ae598b2dd2814644792c6f30e03b9697aac4738",
-      "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed: Full workspace execution exposed the older engine/default/pricing/benchmark and fictional snapshot fixture selecting FlatForward while consuming flat-zero behavior. The engine now declares Flat and rejects unsupported FlatForward construction before provider/cache/graph work; snapshot reconstruction rejects a supplied FlatForward policy rather than rewriting it. Flat pricing/benchmark and constant-zero snapshot fixtures select their actual Flat/FlatZero policy, with original numeric inputs/assertions unchanged. Prior immutable captures are not edited. Complete checked flat-forward recipe integration into runtime snapshots remains an explicit gap. Reviewed curve replay impact: CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
+      "sha256": "5817e4674289aad218a007196359987781b6229e4a44b54f09b49aaaa7458363",
+      "invariants": "CVX-019: actual supplied dated swap cash, immutable exact index/collateral roles and history; full native quote repricing and actual consumed lineage. Pure numerical composition uses shared kernels. Engine delegates to analytics; older tenor-only/cache/hedge routes remain separate unqualified contracts. Reviewed CVX-021 impact: CVX-021: full native CDS running/clean/dirty helper economics, exact quote/calendar/document/entity/seniority/recovery/currency/dependency versions; piecewise/global forward-hazard fitting through the actual pricer with original native repricing postconditions. Distinct rates/quote/recovery shocks, declared frozen/rebuilt response and signed bp versus fraction derivative units. Conditional immediate default remains Pending without auction data. Bond-CDS admission requires actual legal mapping and dated residual basis/liquidity inputs. No provider/clock/runtime or external engine in the pure calculation graph. Reviewed: Full workspace execution exposed the older engine/default/pricing/benchmark and fictional snapshot fixture selecting FlatForward while consuming flat-zero behavior. The engine now declares Flat and rejects unsupported FlatForward construction before provider/cache/graph work; snapshot reconstruction rejects a supplied FlatForward policy rather than rewriting it. Flat pricing/benchmark and constant-zero snapshot fixtures select their actual Flat/FlatZero policy, with original numeric inputs/assertions unchanged. Prior immutable captures are not edited. Complete checked flat-forward recipe integration into runtime snapshots remains an explicit gap. Reviewed curve replay impact: CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Inherited product grids<=4096, total rates<=65536, profile work<=16777216; atomic fitting total helpers/parameters<=128, curves<=256, publications<=32768, helper valuations<=8192 and shared solver limits. Canonical common input manifest<=256. No latency/capacity certificate.",
       "failure_contract": "Typed validation/history/exact-version/role/domain/native-repricing/identification/convergence/work-limit failures; no partial accepted fit, synthetic fallback, inferred zero-basis mapping or manufactured par. Rounded/nonlinear inverses unavailable; existing compatibility exceptions do not qualify the new route.",
       "tests": [
@@ -2956,14 +2966,16 @@
         "crates/convex/examples/credit_calibration.rs",
         "crates/convex/examples/swap_valuation.rs",
         "tests/scripts/swap_valuation_reference.py",
-        "tests/scripts/test_isda_credit_compare.py"
+        "tests/scripts/test_isda_credit_compare.py",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-engine/src/curve_replay.rs",
-      "sha256": "9ec8b14152477a7138cdeeca3951c8da703e8d060f5fea544e73ed938b72ae31",
-      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved. Complete original product-parametric inputs, native mixed-unit parameters and full residual/rank/work diagnostics retained; original zero/grid owners unchanged. Complete original product-UFR inputs, native mixed-unit parameters and full residual/rank/work diagnostics retained; original zero/grid owners unchanged.",
+      "sha256": "7e6001d9d63f35a18a267f9d257cb3d3e328ee756e79a056bafb20f497c4b31f",
+      "invariants": "CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved. Complete original product-parametric inputs, native mixed-unit parameters and full residual/rank/work diagnostics retained; original zero/grid owners unchanged. Complete original product-UFR inputs, native mixed-unit parameters and full residual/rank/work diagnostics retained; original zero/grid owners unchanged. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Original16MiB/64totalcurves/4096totalinputs; recipe32,768JSONvalues/64levels/8192textbytes, native1024nodes/150years/32derivations and original solver limits; result lineage256. No latency certificate.",
       "failure_contract": "Strict version/unknown-field/native graph/domain/role/currency/source/time/resource errors; no partial accepted set, policy relabelling, resampling or missing-input value substitution. Native CurveReplayError preserves original diagnostics.",
       "tests": [
@@ -2976,7 +2988,9 @@
         "crates/convex-engine/tests/product_parametric.rs",
         "crates/convex/tests/product_ufr.rs",
         "crates/convex-analytics/tests/product_ufr.rs",
-        "crates/convex-engine/tests/product_ufr.rs"
+        "crates/convex-engine/tests/product_ufr.rs",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -4715,14 +4729,16 @@
     },
     {
       "path": "crates/convex-analytics/src/spreads/oas.rs",
-      "sha256": "7162e08cfd690d846c9f894d8ef2f24ed95728ec6551db464fa02e131724d8b2",
-      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics.",
+      "sha256": "adb498cbac449478f19e8dd7f0fe317be1661c0229cb8af2cd93e93b822c0bf5",
+      "invariants": "Original financial operators, arguments, terms and validation remain; shared explicitly locked IEEE primitive selection. Checked financial owners retain input/domain/finiteness and diagnostics. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Original caller bounds and work budgets; fixed binary64 primitive arithmetic. No additional runtime/provider/database/MQ dependency.",
       "failure_contract": "Existing checked financial errors remain. The low-level IEEE kernel can return NaN/infinity; no successful financial substitute.",
       "tests": [
         "crates/convex/tests/portable_math.rs",
         "tests/fixtures/library/portable_math_contract.rs",
-        "tests/scripts/portable_math_reference.py"
+        "tests/scripts/portable_math_reference.py",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -4891,8 +4907,8 @@
     },
     {
       "path": "crates/convex-curves/src/wrappers/credit_curve.rs",
-      "sha256": "b1ec0746dff574648ec0a5d106f8910c78b272ff8c1ee875b3757c1e05ec4ea3",
-      "invariants": "Pure checked conversion; actual supplied periods, analytic derivatives and supplied/normalized analytic origin information; no inferred zero or interval.",
+      "sha256": "98245e064e7ea7f6a4ee599cacf7f2b8c7076a51051c00c00c59aebbfeabdf05",
+      "invariants": "Pure checked conversion; actual supplied periods, analytic derivatives and supplied/normalized analytic origin information; no inferred zero or interval. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Existing shared contract time span and declared source domain; original independent absolute rate/factor bound 2e-14.",
       "failure_contract": "Typed error, without silent zero, invented period, finite-difference derivative, or raw-source fallback.",
       "tests": [
@@ -4902,14 +4918,16 @@
         "crates/convex-curves/tests/native_conversions.rs",
         "tests/fixtures/native-curve-conversions.json",
         "tests/fixtures/native-curve-derivatives.json",
-        "tests/fixtures/native-curve-origins.json"
+        "tests/fixtures/native-curve-origins.json",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
     {
       "path": "crates/convex-curves/src/wrappers/rate_curve.rs",
-      "sha256": "af47877a16c93d7da8a358908ef540a8ac8f1d9aab8345eacc3470181cd86b19",
-      "invariants": "Pure checked conversion; actual supplied periods, analytic derivatives and supplied/normalized analytic origin information; no inferred zero or interval.",
+      "sha256": "948644d893274d6728da14ea736dd72f901489e2f855451c9726cbdef6484ee9",
+      "invariants": "Pure checked conversion; actual supplied periods, analytic derivatives and supplied/normalized analytic origin information; no inferred zero or interval. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Existing shared contract time span and declared source domain; original independent absolute rate/factor bound 2e-14.",
       "failure_contract": "Typed error, without silent zero, invented period, finite-difference derivative, or raw-source fallback.",
       "tests": [
@@ -4925,7 +4943,9 @@
         "crates/convex-curves/tests/native_conversions.rs",
         "tests/fixtures/native-curve-conversions.json",
         "tests/fixtures/native-curve-derivatives.json",
-        "tests/fixtures/native-curve-origins.json"
+        "tests/fixtures/native-curve-origins.json",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -6111,8 +6131,8 @@
     },
     {
       "path": "crates/convex-analytics/src/spreads/ispread.rs",
-      "sha256": "08e3273a8572b1fbe80aea98c7c57736c31fed9551661104a0702248fa4b1878",
-      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged.",
+      "sha256": "a56d45a37fc19ed793cd820fa941eddb3effe386f350d6c1c99dbecc2ae94433",
+      "invariants": "Exact supplied units, retained quote metadata, explicit numeric representation and shared bounded arithmetic; existing rounded risk/currency finishing unchanged. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Native Decimal coefficient96/scale28; existing bounded Math1536-bit/scale184 owner; signed64 integer bps; exact binary64 reference bits.",
       "failure_contract": "Propagate typed errors without panic, silent zero, lost nonzero amount or incompatible spread arithmetic.",
       "tests": [
@@ -6124,7 +6144,9 @@
         "crates/convex-core/tests/support/quote_scalar_consumer.rs",
         "tests/fixtures/native-quote-scalars.json",
         "tests/fixtures/native-price-display.json",
-        "tests/fixtures/native-spread-float.json"
+        "tests/fixtures/native-spread-float.json",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },
@@ -6943,8 +6965,8 @@
     },
     {
       "path": "crates/convex-curves/src/term_structure.rs",
-      "sha256": "ddfff0b6de9457b354c104961c37c0310225e41051e76a5e40f1218ecc1d530b",
-      "invariants": "Pure checked conversion; actual supplied periods, analytic derivatives and supplied/normalized analytic origin information; no inferred zero or interval.",
+      "sha256": "8fcd5d18a5f51530cd91c9807abd5f499d82664321133bebc961b97fdbfbd03a",
+      "invariants": "Pure checked conversion; actual supplied periods, analytic derivatives and supplied/normalized analytic origin information; no inferred zero or interval. Dated queries reuse actual context-free day counts, preserve zero curve time and propagate checked source errors.",
       "bounds": "Existing shared contract time span and declared source domain; original independent absolute rate/factor bound 2e-14.",
       "failure_contract": "Typed error, without silent zero, invented period, finite-difference derivative, or raw-source fallback.",
       "tests": [
@@ -6957,7 +6979,9 @@
         "crates/convex-curves/tests/native_conversions.rs",
         "tests/fixtures/native-curve-conversions.json",
         "tests/fixtures/native-curve-derivatives.json",
-        "tests/fixtures/native-curve-origins.json"
+        "tests/fixtures/native-curve-origins.json",
+        "crates/convex-curves/tests/native_dated_time.rs",
+        "tests/fixtures/native-dated-time.json"
       ],
       "exceptions": []
     },

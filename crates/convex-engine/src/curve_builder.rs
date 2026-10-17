@@ -403,10 +403,15 @@ impl RateCurveDyn for BuiltCurve {
         }
         self.reference_date
     }
-    fn date_to_tenor(&self, date: Date) -> f64 {
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
         match self.inner.as_deref() {
             Some(BuiltCurveModel::Recipe(curve)) => curve.date_to_tenor(date),
-            _ => self.reference_date.days_between(&date) as f64 / 365.0,
+            _ => convex_curves::contracts::date_fraction(
+                self.reference_date,
+                date,
+                convex_core::daycounts::DayCountConvention::Act365Fixed,
+            )
+            .map_err(|error| CurveError::invalid_value(error.to_string())),
         }
     }
 

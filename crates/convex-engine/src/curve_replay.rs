@@ -193,7 +193,9 @@ impl RateCurveDyn for RecipeRateCurve {
     fn max_date(&self) -> convex_core::Date {
         self.maximum_date
     }
-    fn date_to_tenor(&self, date: convex_core::Date) -> f64 {
-        self.curve.date_to_tenor(date).unwrap_or(f64::NAN)
+    fn date_to_tenor(&self, date: convex_core::Date) -> CurveResult<f64> {
+        self.curve
+            .date_to_tenor(date)
+            .map_err(|error| CurveError::invalid_value(error.to_string()))
     }
 }

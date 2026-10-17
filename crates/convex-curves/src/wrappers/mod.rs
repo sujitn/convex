@@ -28,10 +28,15 @@ pub trait RateCurveDyn: Send + Sync {
     /// Latest date for which the curve is defined.
     fn max_date(&self) -> Date;
 
-    /// Date → tenor (years) using the curve's day-count basis. Default
-    /// returns `days/365`; concrete impls override to honour ACT/360 etc.
-    fn date_to_tenor(&self, date: Date) -> f64 {
-        self.reference_date().days_between(&date) as f64 / 365.0
+    /// Checked dated time. The default declares ACT/365 Fixed; providers with
+    /// another time basis override this method and retain their own diagnostics.
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        crate::contracts::date_fraction(
+            self.reference_date(),
+            date,
+            convex_core::daycounts::DayCountConvention::Act365Fixed,
+        )
+        .map_err(|error| crate::error::CurveError::invalid_value(error.to_string()))
     }
 
     /// Par swap rate on a regular schedule with `τ = 1/frequency`. The
@@ -92,7 +97,7 @@ impl<T: TermStructure> RateCurveDyn for RateCurve<T> {
         self.inner().max_date()
     }
 
-    fn date_to_tenor(&self, date: Date) -> f64 {
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
         self.inner().date_to_tenor(date)
     }
 }

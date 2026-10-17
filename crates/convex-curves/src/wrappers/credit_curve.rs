@@ -74,7 +74,7 @@ impl<T: TermStructure> CreditCurve<T> {
     }
 
     /// Converts a date to a tenor in years.
-    fn date_to_tenor(&self, date: Date) -> f64 {
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
         self.inner.date_to_tenor(date)
     }
 
@@ -90,7 +90,7 @@ impl<T: TermStructure> CreditCurve<T> {
     ///
     /// Survival probability in [0, 1].
     pub fn survival_probability(&self, date: Date) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         self.survival_probability_at_tenor(t)
     }
 
@@ -161,8 +161,8 @@ impl<T: TermStructure> CreditCurve<T> {
     ///
     /// Conditional default probability.
     pub fn conditional_default_probability(&self, start: Date, end: Date) -> CurveResult<f64> {
-        let t1 = self.date_to_tenor(start);
-        let t2 = self.date_to_tenor(end);
+        let t1 = self.date_to_tenor(start)?;
+        let t2 = self.date_to_tenor(end)?;
         self.conditional_default_probability_at_tenors(t1, t2)
     }
 
@@ -200,8 +200,8 @@ impl<T: TermStructure> CreditCurve<T> {
     ///
     /// Marginal default probability.
     pub fn marginal_default_probability(&self, start: Date, end: Date) -> CurveResult<f64> {
-        let t1 = self.date_to_tenor(start);
-        let t2 = self.date_to_tenor(end);
+        let t1 = self.date_to_tenor(start)?;
+        let t2 = self.date_to_tenor(end)?;
         self.marginal_default_probability_at_tenors(t1, t2)
     }
 
@@ -226,7 +226,7 @@ impl<T: TermStructure> CreditCurve<T> {
     ///
     /// The hazard rate.
     pub fn hazard_rate(&self, date: Date) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         self.hazard_rate_at_tenor(t)
     }
 
@@ -277,7 +277,7 @@ impl<T: TermStructure> CreditCurve<T> {
     ///
     /// The implied constant hazard rate.
     pub fn implied_hazard_rate(&self, date: Date) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         let surv = self.survival_probability_at_tenor(t)?;
         ValueConverter::implied_hazard_rate(surv, t)
     }
@@ -297,7 +297,7 @@ impl<T: TermStructure> CreditCurve<T> {
     ///
     /// The credit spread (as a decimal, e.g., 0.01 for 100bps).
     pub fn credit_spread(&self, date: Date) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         self.credit_spread_at_tenor(t)
     }
 
@@ -346,7 +346,7 @@ impl<T: TermStructure> CreditCurve<T> {
         date: Date,
         discount_curve: &crate::wrappers::RateCurve<D>,
     ) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         self.risky_discount_factor_at_tenor(t, discount_curve)
     }
 
@@ -400,7 +400,7 @@ impl<T: TermStructure> CreditCurve<T> {
     ///
     /// Annualized default probability.
     pub fn annualized_default_probability(&self, date: Date) -> CurveResult<f64> {
-        let t = self.date_to_tenor(date);
+        let t = self.date_to_tenor(date)?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -447,6 +447,14 @@ impl<T: TermStructure> TermStructure for CreditCurve<T> {
 
     fn max_date(&self) -> Date {
         self.inner.max_date()
+    }
+
+    fn tenor_day_count(&self) -> convex_core::daycounts::DayCountConvention {
+        self.inner.tenor_day_count()
+    }
+
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        self.inner.date_to_tenor(date)
     }
 }
 

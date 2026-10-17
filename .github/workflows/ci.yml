@@ -541,6 +541,15 @@ jobs:
       - name: Checked native curve conversion schemas
         run: cargo test --locked -p convex-curves --test native_conversions --features schemars
 
+      - name: Checked dated curve queries
+        run: cargo test --locked -p convex-curves --test native_dated_time
+
+      - name: Checked dated curve queries no default features
+        run: cargo test --locked -p convex-curves --test native_dated_time --no-default-features
+
+      - name: Checked dated curve query schemas
+        run: cargo test --locked -p convex-curves --test native_dated_time --features schemars
+
       - name: Qualify native discount default
         run: cargo test --locked -p convex-curves --test native_discount
 

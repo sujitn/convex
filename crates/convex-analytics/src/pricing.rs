@@ -106,7 +106,9 @@ where
                 // then yield → dirty price. z_spread_bps left None — call
                 // the Z-spread tool directly if you want the equivalent.
                 SpreadType::ISpread | SpreadType::GSpread => {
-                    let t_maturity = curve.date_to_tenor(maturity);
+                    let t_maturity = curve
+                        .date_to_tenor(maturity)
+                        .map_err(|error| AnalyticsError::CurveError(error.to_string()))?;
                     let curve_rate = curve
                         .par_swap_rate(t_maturity, quote_frequency.periods_per_year())
                         .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;

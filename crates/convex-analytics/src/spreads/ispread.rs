@@ -78,7 +78,10 @@ impl<'a> ISpreadCalculator<'a> {
             });
         }
 
-        let years_to_maturity = self.swap_curve.date_to_tenor(maturity);
+        let years_to_maturity = self
+            .swap_curve
+            .date_to_tenor(maturity)
+            .map_err(|error| AnalyticsError::CurveError(error.to_string()))?;
         let frequency = bond.coupon_frequency().max(1);
         let swap_rate = self
             .swap_curve
@@ -111,7 +114,12 @@ impl<'a> ISpreadCalculator<'a> {
     /// Useful for debugging or displaying the benchmark rate.
     pub fn swap_rate_at_maturity(&self, maturity: Date) -> AnalyticsResult<f64> {
         self.swap_curve
-            .par_swap_rate(self.swap_curve.date_to_tenor(maturity), 2)
+            .par_swap_rate(
+                self.swap_curve
+                    .date_to_tenor(maturity)
+                    .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+                2,
+            )
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))
     }
 

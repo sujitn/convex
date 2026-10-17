@@ -100,10 +100,10 @@ async fn actual_file_reopen_preserves_recipe_quotes_models_and_queries() {
         BuiltCurve::from_recipe(&reopened.content().curve_recipes[0], native.clone()).unwrap();
     let date = Date::parse("2028-10-02").unwrap();
     assert_eq!(
-        curve.date_to_tenor(date).to_bits(),
+        curve.date_to_tenor(date).unwrap().to_bits(),
         native.date_to_tenor(date).unwrap().to_bits()
     );
-    assert_ne!(curve.date_to_tenor(date), 731.0 / 365.0);
+    assert_ne!(curve.date_to_tenor(date).unwrap(), 731.0 / 365.0);
     for t in [0.0, 0.25, 1.0, 731.0 / 360.0, 5.0, 149.0] {
         assert_eq!(
             curve.discount_factor(t).unwrap().to_bits(),

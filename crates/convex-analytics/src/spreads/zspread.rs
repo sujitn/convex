@@ -20,7 +20,9 @@ fn forward_cashflows(
     cash_flows: &[convex_bonds::traits::BondCashFlow],
     settlement: Date,
 ) -> AnalyticsResult<Vec<(f64, f64, f64)>> {
-    let t_settle = curve.date_to_tenor(settlement);
+    let t_settle = curve
+        .date_to_tenor(settlement)
+        .map_err(|error| AnalyticsError::CurveError(error.to_string()))?;
     if !t_settle.is_finite() || t_settle < 0.0 {
         return Err(AnalyticsError::InvalidInput(
             "curve reference follows settlement".into(),
@@ -40,7 +42,9 @@ fn forward_cashflows(
         if cf.date <= settlement {
             continue;
         }
-        let t_cf = curve.date_to_tenor(cf.date);
+        let t_cf = curve
+            .date_to_tenor(cf.date)
+            .map_err(|error| AnalyticsError::CurveError(error.to_string()))?;
         let dt = settlement.days_between(&cf.date) as f64 / 365.0;
         let df_cf = curve
             .discount_factor(t_cf)
