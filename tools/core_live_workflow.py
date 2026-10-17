@@ -96,8 +96,8 @@ class WorkerProcess:
 
 
 @contextlib.contextmanager
-def lost_result_ack(url):
-    """Forward one actual committed native result, but withhold its HTTP receipt."""
+def lost_result_ack(url, *, path_marker='/run/'):
+    """Forward one actual committed request, but withhold its HTTP receipt."""
     blocked, release = threading.Event(), threading.Event()
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     state = dict(dropped=False)
@@ -115,7 +115,7 @@ def lost_result_ack(url):
                 raw = response.read()
                 profile = response.headers['x-convex-profile']
                 status = response.status
-            if '/run/' in self.path and not state['dropped']:
+            if path_marker in self.path and not state['dropped']:
                 state['dropped'] = True
                 blocked.set()
                 release.wait(15)

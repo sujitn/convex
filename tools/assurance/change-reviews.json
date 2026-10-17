@@ -5615,6 +5615,36 @@
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_streaming_workflow.py",
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 7d42d93f26959d32011611d4b2499d14edba04f3"
       ]
+    },
+    {
+      "base_commit": "a3bbbbca1d81490c27f8284928b57650954c3c7f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Owner requested the next simple provider-neutral core increment for position/reference updates and consistent pricing/risk/hedge/P&L with recovery. Reuse existing atomic ReferenceRepository commits and exact read receipts, full native CoreDefinitions/P&L/fill history, existing market stream and native snapshot/result ports. Add one optional complete-book release barrier and closing-position binder to the existing serial worker. Persist active book plus highest observed release hash/version in the same local atomic receipt; no queue, route, database schema, financial formula, Rust or ledger changes. Original38 tests and every1937 quantitative policy row/default/byte stay exact; all2154 literal Planned requirements and full CTD/causal ownership stay required. New holiday correction is a supplied synthetic application input and native-parity engineering check, not a changed existing fixture/default or independent reference claim. Prior automatic example changes only its generic owned acknowledgement-fault helper to cover the existing reference write API. No production/live/model/library/latency approval is inferred.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "a6376be464897558ff5a5785da5d6b3304ba1eeacb38eef8e910509def7cb852",
+        "crates/convex-server/README.md": "9a1e4f0c234082ef68aecd1f9a40941ffc0b8276a72ad6092fda7bf0db94592f",
+        "tools/MARKET-DATA-STREAM.md": "22c49640a887a9ba7609e2e1372a8ffe689f5dad10aff72f9cadc8baad118906",
+        "tools/STREAMING-ANALYTICS.md": "6843afb4d19bc5369c206ae0cbb6c15a8eed488cf61449b63d58355e965960f9",
+        "tools/BOOK-UPDATES.md": "537ffedfb71dd4fe3376d795df64c4100ab997266b020517fab04ff8303699da",
+        "tools/market_data_adapter.py": "b1bd1abba2f78c025251f3b07e2f54381f47bb205d7e4205fc494e564316ecfe",
+        "tools/market_data_stream.py": "2a5b680502180d7cab4c38dd333c8b3c75a4a02376111657ccdb0c61b39a8ca8",
+        "tools/streaming_analytics.py": "f9f2a9b4eb0283f2f6d499dbf707bf0f705de49b20e22dc3b871580389fc80f6",
+        "tools/book_updates.py": "b27dd566d42bb0cf1ba2bd6f28bbeab77cbf73fbb51894eb7eb03e1e042c078b",
+        "tools/core_live_workflow.py": "2261c0f91aef1cf435f351658c004bec72b1fd0b207467344bde37a4578e56db",
+        "tools/core_book_workflow.py": "50d3fc74bffd2292e42d061f798ba73a4b39532affea43746a00d3de3643063f",
+        "tools/tests/test_book_updates.py": "be5cfa42f35257e404f170844b0c7ca544d280ed3c2e272ee3b139ac71c5e72e",
+        "tools/assurance/check.py": "b10e7a38fce805b05bd077ef9a6ebb58ad15bc734ff34d1919bd0ff66766b061",
+        "tools/assurance/inventory.json": "5a098de74820dedc247991db2fcbf852ba8950249bd1c698c9c7386144471be5",
+        "tools/library/library-inventory.json": "8f1e454f75a3c1c1e71de3df4357ccd3ea199d138e6ef2421ac60683bbbe052a"
+      },
+      "tests": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_book_updates.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_streaming_analytics.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_book_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_live_workflow.py --binary-dir /private/tmp/convex-core-book-target/debug",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base a3bbbbca1d81490c27f8284928b57650954c3c7f"
+      ]
     }
   ]
 }

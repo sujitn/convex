@@ -2986,6 +2986,12 @@ jobs:
       - name: Run automatic streaming analytics and interrupted-work recovery
         run: python3 tools/core_live_workflow.py
 
+      - name: Check exact book release and position bindings
+        run: python3 -m unittest discover -s tools/tests -p test_book_updates.py
+
+      - name: Run core position and reference updates with recovery
+        run: python3 tools/core_book_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

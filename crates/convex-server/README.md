@@ -163,6 +163,12 @@ with freshness gating and restart recovery. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_live_workflow.py` for the complete
 synthetic example, including stale input and interrupted native-result recovery.
 
+[Complete book releases](../../tools/BOOK-UPDATES.md) add position and reference
+updates through the same reference/snapshot/result ports and worker. They bind
+current risk and hedge inputs to one complete native P&L closing point. Run
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_book_workflow.py` for fill/reference
+updates, consistency rejection, commit faults and restart recovery.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.

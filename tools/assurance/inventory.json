@@ -7237,22 +7237,23 @@
     },
     {
       "path": "tools/market_data_adapter.py",
-      "sha256": "f1396ad41a439c8d494d0601df0e7532501ac22e0fbd4626a3b4e696d4d3af32",
-      "invariants": "Provider-neutral complete curve/fixing payloads enter the existing HTTP/CurveStore/FixingRepository boundary. No financial arithmetic, source/default substitution, version synthesis, timestamp refresh, queue or cursor store. Server immutable identities own idempotent recovery. Freeze/preflight input, publish in order and acknowledge only each actual204. Credentials/provider content never enter diagnostics or redirected requests. Streaming shares the same native-payload validator and HTTP publisher; original complete-file semantics remain bounded and immutable.",
+      "sha256": "b1bd1abba2f78c025251f3b07e2f54381f47bb205d7e4205fc494e564316ecfe",
+      "invariants": "Provider-neutral complete curve/fixing payloads enter the existing HTTP/CurveStore/FixingRepository boundary. No financial arithmetic, source/default substitution, version synthesis, timestamp refresh, queue or cursor store. Server immutable identities own idempotent recovery. Freeze/preflight input, publish in order and acknowledge only each actual204. Credentials/provider content never enter diagnostics or redirected requests. Streaming shares the same native-payload validator and HTTP publisher; original complete-file semantics remain bounded and immutable. Shared bounded JSON encoding also preflights book control payloads; file-adapter kinds and financial bytes stay unchanged.",
       "bounds": "32MiB frozen capture,1..10000records,2MiB perrecord/payload,65536JSONvalues/depth64 perpayload,0.1..120seconds perHTTPrecord; destination HTTPS or explicit loopbackHTTP, no redirects/inherited proxies.",
       "failure_contract": "Malformed/ambiguous/nonfinite/oversized inputs reject before network I/O. A rejected/unconfirmed publication stops the suffix with safe line/status/priorack counts. Prior commits remain; retry identical records. Existing server financial/permission/immutable/conflict/known-time checks stay authoritative.",
       "tests": [
         "tools/tests/test_market_data_adapter.py",
         "tools/core_ingestion_workflow.py",
         "tools/tests/test_market_data_stream.py",
-        "tools/core_streaming_workflow.py"
+        "tools/core_streaming_workflow.py",
+        "tools/tests/test_book_updates.py"
       ],
       "exceptions": []
     },
     {
       "path": "tools/market_data_stream.py",
-      "sha256": "abf9f675c55beed511217355b97a48f1d7aeed75be5a320fe1c45540bf4b4de6",
-      "invariants": "One provider-neutral NDJSON pull loop publishes complete native curve/fixing records through existing HTTP storage ports. Exact source-separated subscription coverage and full-frame validation precede writes. Advance only after every record acknowledges. Gaps/session changes/truncation/EOF/timeouts/unconfirmed writes discard the suffix and require a full image on a new connection. Restart always reimages; no durable cursor, broker, queue, schema or financial default. Duplicate/heartbeat controls never refresh market fields. Continuity status is not analytics/execution readiness. An optional ordered analytics callback receives only fully acknowledged data frames; publishing status clears readiness before any port mutation. The transport owns sequencing and never implements financial calculations.",
+      "sha256": "2a5b680502180d7cab4c38dd333c8b3c75a4a02376111657ccdb0c61b39a8ca8",
+      "invariants": "One provider-neutral NDJSON pull loop publishes complete native curve/fixing records through existing HTTP storage ports. Exact source-separated subscription coverage and full-frame validation precede writes. Advance only after every record acknowledges. Gaps/session changes/truncation/EOF/timeouts/unconfirmed writes discard the suffix and require a full image on a new connection. Restart always reimages; no durable cursor, broker, queue, schema or financial default. Duplicate/heartbeat controls never refresh market fields. Continuity status is not analytics/execution readiness. An optional ordered analytics callback receives only fully acknowledged data frames; publishing status clears readiness before any port mutation. The transport owns sequencing and never implements financial calculations. Optional exact-one-book subscription adds a full committed-reference release barrier, not a market mutation. Image coverage includes the book; gaps discard its activation before callbacks. Market-only wire behavior is retained.",
       "bounds": "Subscription256KiB/256curve-sourcepairs/1024fixingkeys; frames16MiB/10000records; nativepayload2MiB/65536nodes/depth64; wireframes/run<=1000000; timeout0.1..120seconds/reconnects0..1000/delay0.01..60seconds. Separate source/sink credentials, HTTPS or loopbackHTTP, no redirects/inherited proxies.",
       "failure_contract": "Missing image, skipped/older data sequence or session change prevents publication of that update and reconnects. Malformed/incomplete/unsubscribed/conflicting data or permanent HTTP rejection stops explicitly. Partial/unconfirmed commits replay immutably through a fresh image; stopped/recovering states clear confirmation. Current backend/native admission and financial bounds remain authoritative.",
       "tests": [
@@ -7260,20 +7261,36 @@
         "tools/tests/test_market_data_adapter.py",
         "tools/core_streaming_workflow.py",
         "tools/tests/test_streaming_analytics.py",
-        "tools/core_live_workflow.py"
+        "tools/core_live_workflow.py",
+        "tools/tests/test_book_updates.py",
+        "tools/core_book_workflow.py"
       ],
       "exceptions": []
     },
     {
       "path": "tools/streaming_analytics.py",
-      "sha256": "3568cea333c5e117d07d6aee7e2d5f77f1838971bb61168b1d872c34cc7f821e",
-      "invariants": "One ordered provider-neutral worker invokes existing native snapshot/result/reference HTTP ports after confirmed stream frames. Explicit source-separated bindings preserve native curve keys, exact full reference definitions and historical causal P&L markets. All current risk curves require wall-clock source/receipt freshness. Only actual full native risk vectors enter supplied hedge policies. No financial formulas, zero fallbacks, dependency, server route, schema, queue or execution authority. Atomic local selection receipt never restores readiness without an image; native build-bound durable outputs and content-addressed reference writes supply idempotent recovery.",
+      "sha256": "f9f2a9b4eb0283f2f6d499dbf707bf0f705de49b20e22dc3b871580389fc80f6",
+      "invariants": "One ordered provider-neutral worker invokes existing native snapshot/result/reference HTTP ports after confirmed stream frames. Explicit source-separated bindings preserve native curve keys, exact full reference definitions and historical causal P&L markets. All current risk curves require wall-clock source/receipt freshness. Only actual full native risk vectors enter supplied hedge policies. No financial formulas, zero fallbacks, dependency, server route, schema, queue or execution authority. Atomic local selection receipt never restores readiness without an image; native build-bound durable outputs and content-addressed reference writes supply idempotent recovery. Optional book mode verifies exact reference commit/definition and P&L closing product/position/curve coverage before calculation. Native hedge quantities, pending state, FX and position manifest bind to that same closing point. One atomic schema2 receipt retains active release, highest observed revision/hash (including rejected releases), and market floors; full image/commit revalidation precede restart work. Confirmed market state continues advancing while a pending book is blocked. No mutable latest-reference fallback.",
       "bounds": "Workflow/state<=2MiB,65536JSONnodes/depth64; curve slots<=256; risks1..30; candidates1..256; freshness1..86400000ms; HTTPresponses<=32MiB. Stream consumer bounds request/retry/frame sizes. One Unix advisory lock per receipt, atomic replace plus file/directory fsync, one synchronous calculation chain per confirmed frame.",
       "failure_contract": "Gaps, disconnects, invalid quality, stale/future inputs, clock/source rollback, missing/mismatched native inputs, failed native envelopes, mixed builds or unconfirmed writes prevent ready completion. Recheck age around calculations and final persistence. Prior immutable results remain audit/replay data; consumers enforce valid_until and output-stream liveness. Restart requires a full image and rejects saved-selection rollback/config mismatch/corruption. Partial work reuses committed results; no order instruction or production/latency certificate.",
       "tests": [
         "tools/tests/test_streaming_analytics.py",
         "tools/core_live_workflow.py",
-        "tools/tests/test_market_data_stream.py"
+        "tools/tests/test_market_data_stream.py",
+        "tools/tests/test_book_updates.py",
+        "tools/core_book_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "tools/book_updates.py",
+      "sha256": "b27dd566d42bb0cf1ba2bd6f28bbeab77cbf73fbb51894eb7eb03e1e042c078b",
+      "invariants": "One explicit committed book revision owns full native contracts/reference inputs and complete causal P&L positions. Read exact existing reference receipt/version, never latest. Match every current risk identity, product, reference size and market to the native P&L closing point; reporting currency/entity and full coverage agree. Copy actual current/pending quantities, FX, settlement and position manifest into supplied hedge policy. No price/risk/aggregation/P&L arithmetic, version synthesis, fill/event inference, vendor mapping or execution.",
+      "bounds": "Existing wire2MiB/65536nodes/depth64, core reference definition1MiB/32calculations and HTTP32MiB limits; closing step0..15, configured risks1..30, source book versionpositiveu64. Exact immutable commit and snapshot identity equality; missing/duplicate currency or position bindings reject.",
+      "failure_contract": "Uncommitted/mismatched reference receipts, wrong book coverage/product/position/curve/units, missing FX and non-closing position selection fail before hedge construction or ready completion. Native complete causal cash/fill/lifecycle/history checks remain authoritative; no scalar-difference P&L or zero substitutes. Exceptions expose fixed safe reasons only.",
+      "tests": [
+        "tools/tests/test_book_updates.py",
+        "tools/core_book_workflow.py"
       ],
       "exceptions": []
     }

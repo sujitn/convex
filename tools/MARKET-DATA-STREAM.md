@@ -115,3 +115,9 @@ To trigger native pricing/risk, hedge proposals and causal P&L after confirmed
 frames, use the [automatic core worker](STREAMING-ANALYTICS.md).
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_live_workflow.py` checks automatic
 updates, stale-data gating and interrupted-work/server restart recovery.
+
+A subscription may also include one `book` identity. Its complete images then
+require exactly one [book release](BOOK-UPDATES.md) along with market coverage.
+Book records select an already committed reference revision for the analytics
+worker; they do not issue market writes. The file adapter remains curve/fixing
+only. Market-only subscriptions keep their existing wire and restart behavior.

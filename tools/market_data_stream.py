@@ -47,7 +47,7 @@ def subscription(path):
         if len(raw) > 256 * 1024:
             raise ValueError('subscription size')
         value = json.loads(raw, object_pairs_hook=adapter.unique_object, parse_constant=adapter.reject_constant)
-        if (set(value) != {'schema_version', 'curves', 'fixings'} or type(value['schema_version']) is not int
+        if (set(value) not in ({'schema_version', 'curves', 'fixings'}, {'schema_version', 'curves', 'fixings', 'book'}) or type(value['schema_version']) is not int
                 or value['schema_version'] != 1 or not isinstance(value['curves'], list)
                 or not isinstance(value['fixings'], list) or len(value['curves']) > 256
                 or len(value['fixings']) > 1024):
@@ -61,9 +61,28 @@ def subscription(path):
         if (len(curves) != len(value['curves']) or len(fixings) != len(value['fixings'])
                 or not (curves or fixings)):
             raise ValueError('empty/duplicate subscription')
+        if 'book' in value:
+            return curves, fixings, text_id(value['book'])
         return curves, fixings
     except (OSError, ValueError, TypeError, KeyError, UnicodeError, RecursionError):
         raise adapter.IngestionError('Invalid bounded stream subscription') from None
+
+
+def book_record(record, identity):
+    """A full book release points at an already committed reference transaction."""
+    if (set(record) != {'schema_version', 'kind', 'payload'} or type(record['schema_version']) is not int
+            or record['schema_version'] != 1 or record['kind'] != 'book'):
+        raise ValueError('book record')
+    payload = record['payload']
+    adapter.payload_bytes(payload)
+    if (set(payload) != {'id', 'version', 'reference_commit', 'workflow', 'position_step'}
+            or payload['id'] != identity or type(payload['version']) is not int
+            or not 1 <= payload['version'] <= 2**64 - 1
+            or not isinstance(payload['workflow'], dict)
+            or type(payload['position_step']) is not int or not 0 <= payload['position_step'] < 16):
+        raise ValueError('book release')
+    text_id(payload['reference_commit'])
+    return payload
 
 
 def decode(raw, stream_id, universe):
@@ -79,8 +98,15 @@ def decode(raw, stream_id, universe):
                 or not isinstance(frame['records'], list) or len(frame['records']) > adapter.MAX_RECORDS):
             raise ValueError('frame envelope')
         text_id(frame['session'])
-        messages, curves, fixings = [], set(), set()
+        messages, curves, fixings, books = [], set(), set(), []
         for record in frame['records']:
+            if isinstance(record, dict) and record.get('kind') == 'book':
+                if len(universe) != 3:
+                    raise ValueError('unsubscribed book')
+                books.append(book_record(record, universe[2]))
+                if len(books) > 1:
+                    raise ValueError('duplicate book release')
+                continue
             messages.append(adapter.encode_record(record))
             if record['kind'] == 'curve':
                 p = record['payload']
@@ -88,13 +114,14 @@ def decode(raw, stream_id, universe):
             else:
                 for p in record['payload']:
                     fixings.add(fixing_key(p['key']))
-        expected_curves, expected_fixings = universe
+        expected_curves, expected_fixings = universe[:2]
         if not curves <= expected_curves or not fixings <= expected_fixings:
             raise ValueError('unsubscribed input')
         if frame['kind'] == 'heartbeat':
-            if messages:
+            if frame['records']:
                 raise ValueError('heartbeat carries data')
-        elif not messages or (frame['kind'] == 'image' and (curves, fixings) != universe):
+        elif (not frame['records'] or (frame['kind'] == 'image' and
+                ((curves, fixings) != universe[:2] or (len(universe) == 3 and not books)))):
             raise ValueError('incomplete image/update')
         digest = hashlib.sha256(json.dumps(frame, sort_keys=True, separators=(',', ':'),
                                          allow_nan=False).encode()).hexdigest()

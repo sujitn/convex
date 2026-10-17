@@ -50,6 +50,24 @@ def reject_constant(_):
     raise ValueError('nonfinite JSON number')
 
 
+def payload_bytes(payload):
+    """Shared bounded JSON encoding; no native or provider field conversion."""
+    pending, visited = [(payload, 0)], 0
+    while pending:
+        value, depth = pending.pop()
+        visited += 1
+        if visited > 65_536 or depth > 64:
+            raise ValueError('JSON bounds')
+        if isinstance(value, dict):
+            pending.extend((v, depth + 1) for v in value.values())
+        elif isinstance(value, list):
+            pending.extend((v, depth + 1) for v in value)
+    body = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')
+    if len(body) > MAX_RECORD_BYTES:
+        raise ValueError('payload size')
+    return body
+
+
 def encode_record(record, line=None):
     """Validate one transport envelope, preserving the existing native payload."""
     try:
@@ -62,22 +80,7 @@ def encode_record(record, line=None):
         if ((record['kind'] == 'curve' and not isinstance(payload, dict))
                 or (record['kind'] == 'fixings' and (not isinstance(payload, list) or not payload))):
             raise ValueError('payload shape')
-        pending = [(payload, 0)]
-        visited = 0
-        while pending:
-            value, depth = pending.pop()
-            visited += 1
-            if visited > 65_536 or depth > 64:
-                raise ValueError('JSON bounds')
-            if isinstance(value, dict):
-                pending.extend((v, depth + 1) for v in value.values())
-            elif isinstance(value, list):
-                pending.extend((v, depth + 1) for v in value)
-        body = json.dumps(payload, ensure_ascii=False, allow_nan=False,
-                          separators=(',', ':')).encode('utf-8')
-        if len(body) > MAX_RECORD_BYTES:
-            raise ValueError('payload size')
-        return PATHS[record['kind']], body
+        return PATHS[record['kind']], payload_bytes(payload)
     except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError):
         raise IngestionError('Invalid normalized market-data record', line=line) from None
 

@@ -146,3 +146,9 @@ read; emitted results identify the processed frame and expire on original input
 times. This increment establishes correctness/recovery on the existing local
 composition. Concrete live-provider admission, multi-server ownership and
 product-specific throughput/latency measurements remain further work.
+
+[Core book releases](BOOK-UPDATES.md) add position and reference updates through
+the existing reference commit port and this same worker. Opt in with a subscribed
+book identity; a complete release binds the P&L closing positions, exact native
+definition and hedge policy. Run `python3 tools/core_book_workflow.py` to verify
+updates, consistency rejection and recovery without rewriting the boot config.

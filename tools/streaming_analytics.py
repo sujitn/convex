@@ -25,6 +25,7 @@ import urllib.request
 
 import market_data_adapter as adapter
 import market_data_stream as stream
+import book_updates
 
 MAX_JSON = 2 * 1024 * 1024
 EMPTY = dict(calendars=[], helper_calendars=[], curves=[], calibration=None, fixings=[], publications=[])
@@ -220,20 +221,46 @@ class Workflow:
         self.mode = mode
         self.emit = emit or (lambda event: print(json.dumps(event), flush=True))
         self.config_digest = digest(dict(config=config, mode=mode))
+        self.boot_config, self.universe = copy.deepcopy(config), universe
+        self.book, self.pending_book, self.reference_record = None, None, None
+        self.book_head = None
+        self.hedge_template = self.config['hedge']
+        if len(universe) == 3:
+            self.config_digest = digest(dict(config=config, mode=mode, book=universe[2]))
         self.plan = copy.deepcopy(config['plan'])
         self.bundle, self.current, self.records = None, False, {}
         self.last_clock = self.clock()
         if self.path.exists():
             prior = load(self.path)
-            if (set(prior) != {'schema_version', 'config_digest', 'plan', 'bundle'}
-                    or prior['schema_version'] != 1 or prior['config_digest'] != self.config_digest):
+            required = {'schema_version', 'config_digest', 'plan', 'bundle'}
+            if prior.get('schema_version') == 2 and len(universe) == 3:
+                required.update(['book', 'book_head'])
+            if (set(prior) != required or type(prior['schema_version']) is not int or prior['schema_version'] not in (1, 2)
+                    or prior['config_digest'] != self.config_digest):
                 raise ValueError('workflow receipt/config mismatch')
+            if 'book_head' in prior:
+                head = prior['book_head']
+                if (not isinstance(head, dict) or set(head) != {'id', 'version', 'digest'}
+                        or head['id'] != universe[2] or type(head['version']) is not int
+                        or not 1 <= head['version'] <= 2**64 - 1
+                        or not isinstance(head['digest'], str) or not re.fullmatch('[0-9a-f]{64}', head['digest'])):
+                    raise ValueError('invalid saved book high-water mark')
+                self.book_head = head
+            if prior.get('book') is not None:
+                release = stream.book_record(dict(schema_version=1, kind='book', payload=prior['book']), universe[2])
+                self.validate_book_config(release)
+                self.config = copy.deepcopy(release['workflow'])
+                self.plan = copy.deepcopy(self.config['plan'])
+                self.book = copy.deepcopy(release)
+                if (release['version'] > self.book_head['version'] or
+                        (release['version'] == self.book_head['version'] and digest(release) != self.book_head['digest'])):
+                    raise ValueError('saved active book exceeds its observed high-water mark')
             # Only version high-water marks/cutoffs are restored. A prior ready
             # flag or result is never authority to resume without an image.
             restored = prior['plan']
             baseline = copy.deepcopy(restored)
             baseline['as_of'], baseline['known_at'] = self.plan['as_of'], self.plan['known_at']
-            for binding in config['bindings']:
+            for binding in self.config['bindings']:
                 if binding['follow']:
                     p = self.pin(baseline, binding)
                     if type(p['version']) is not int or p['version'] < self.pin(self.plan, binding)['version']:
@@ -242,6 +269,7 @@ class Workflow:
             if baseline != self.plan or timestamp(restored['as_of']) < timestamp(self.plan['as_of']) or timestamp(restored['known_at']) < timestamp(self.plan['known_at']):
                 raise ValueError('workflow receipt plan mismatch')
             self.plan = restored
+        self.fixing_cutoff = timestamp(self.plan['known_at'])
         self.unavailable('awaiting_image')
 
     @staticmethod
@@ -253,7 +281,67 @@ class Workflow:
         self.emit(dict(state='unavailable', ready=False, reason=reason, mode=self.mode, execution_authority='none'))
 
     def persist(self, bundle=None):
-        save(self.path, dict(schema_version=1, config_digest=self.config_digest, plan=self.plan, bundle=bundle))
+        state = dict(schema_version=1, config_digest=self.config_digest, plan=self.plan, bundle=bundle)
+        if self.book_head is not None:
+            state.update(schema_version=2, book=self.book, book_head=self.book_head)
+        save(self.path, state)
+
+    def validate_book_config(self, release):
+        config = release['workflow']
+        validate(config, self.universe)
+        if (config['id'] != self.boot_config['id'] or config['plan']['definition']['id'] != self.boot_config['plan']['definition']['id']):
+            raise ValueError('book_scope_changed')
+
+    def observe_book(self, frame):
+        """Latch a new release before checking its market or native inputs."""
+        if len(self.universe) != 3:
+            return
+        incoming = [r['payload'] for r in frame['records'] if r['kind'] == 'book']
+        if incoming:
+            release = stream.book_record(dict(schema_version=1, kind='book', payload=incoming[0]), self.universe[2])
+            marker = dict(id=release['id'], version=release['version'], digest=digest(release))
+            latest = self.book_head
+            if latest is not None:
+                if release['version'] < latest['version']:
+                    if frame['kind'] == 'update':
+                        raise stream.Recover('book_revision_rollback')
+                    raise Blocked('book_revision_rollback')
+                if release['version'] == latest['version'] and marker['digest'] != latest['digest']:
+                    raise adapter.IngestionError('Conflicting immutable book release', http_status=409)
+            self.pending_book = copy.deepcopy(release)
+            if self.book_head != marker:
+                self.book_head = marker
+                self.persist(self.bundle)  # Even a rejected release cannot roll back after a crash.
+        if self.pending_book is None:
+            raise Blocked('book_image_required')
+
+    def select_book(self):
+        """A release barrier binds complete positions/terms/policy to one commit."""
+        if len(self.universe) != 3:
+            return
+        release = self.pending_book
+        self.validate_book_config(release)
+        record = book_updates.resolve(self.client, release)
+        config = release['workflow']
+        if config['plan']['definition']['version'] < self.plan['definition']['version']:
+            raise Blocked('book_reference_rollback')
+        if timestamp(record['recorded_at']) > self.clock():
+            raise Blocked('future_book_reference')
+        template = book_updates.bind(config, record['definition']['definition'], release['position_step'])
+        plan = copy.deepcopy(config['plan'])
+        for cutoff in ['as_of', 'known_at']:
+            plan[cutoff] = iso(max(timestamp(plan[cutoff]), timestamp(self.plan[cutoff])))
+        plan['known_at'] = iso(max(timestamp(plan['known_at']), timestamp(record['recorded_at'])))
+        old_versions = {(b['curve_id'], b['source']): self.pin(self.plan, b)['version']
+                        for b in self.config['bindings'] if b['follow']}
+        for binding in config['bindings']:
+            if binding['follow']:
+                pin = self.pin(plan, binding)
+                pin['version'] = max(pin['version'], old_versions.get((binding['curve_id'], binding['source']), 0))
+        if self.book is None or digest(self.book) != digest(release):
+            self.bundle = None
+        self.config, self.plan = copy.deepcopy(config), plan
+        self.book, self.reference_record, self.hedge_template = copy.deepcopy(release), record, template
 
     def freshness(self):
         now = self.clock()
@@ -298,7 +386,7 @@ class Workflow:
         """Called only after the entire frame acknowledges on existing ports."""
         self.unavailable('calculating')
         try:
-            plan = copy.deepcopy(self.plan)
+            self.observe_book(frame)
             if frame['kind'] == 'image':
                 self.records.clear()
             for item in frame['records']:
@@ -310,11 +398,14 @@ class Workflow:
                         raise stream.Recover('source_version_rollback')
                     if old is None or record['version'] > old['version']:
                         self.records[key] = copy.deepcopy(record)
-                else:
+                elif item['kind'] == 'fixings':
                     for fixing in item['payload']:
                         if max(timestamp(fixing['published_at']), timestamp(fixing['recorded_at'])) > self.clock():
                             raise Blocked('future_fixing')
-                        plan['known_at'] = iso(max(timestamp(plan['known_at']), timestamp(fixing['recorded_at']), timestamp(fixing['published_at'])))
+                        self.fixing_cutoff = max(self.fixing_cutoff, timestamp(fixing['recorded_at']), timestamp(fixing['published_at']))
+            self.select_book()
+            plan = copy.deepcopy(self.plan)
+            plan['known_at'] = iso(max(timestamp(plan['known_at']), self.fixing_cutoff))
             for binding in self.config['bindings']:
                 if binding['follow']:
                     record = self.records[(binding['curve_id'], binding['source'])]
@@ -364,6 +455,11 @@ class Workflow:
                 raise Blocked('server_build_changed')
             valid_until = self.freshness()  # Reject results which expired during calculation.
             self.bundle = dict(snapshot_id=snapshot, receipts=receipts, prices=prices, hedge_status=hedge['status'])
+            if self.book is not None:
+                self.bundle['book'] = dict(id=self.book['id'], version=self.book['version'],
+                    release_digest=self.book_head['digest'],
+                    reference_commit=self.book['reference_commit'], definition=self.plan['definition'],
+                    position_state=request['operation']['problem']['position_state'])
             self.persist(self.bundle)
             valid_until = self.freshness()
             self.current = True
@@ -376,6 +472,8 @@ class Workflow:
             raise
         except Blocked as error:
             self.unavailable(str(error))
+        except book_updates.BookInputError as error:
+            self.unavailable(str(error))
         except (ValueError, KeyError, TypeError, StopIteration, OverflowError):
             self.unavailable('calculation_or_input_rejected')
 
@@ -383,6 +481,8 @@ class Workflow:
         """Every curve used by current risk must have a live freshness binding."""
         content = saved['content']
         definition = content['definition']['definition']['definition']
+        if self.book is not None and content['definition'] != self.reference_record:
+            raise Blocked('book_snapshot_reference_mismatch')
         fresh = {(b['set'], b['curve_id']) for b in self.config['bindings'] if b['follow']}
         for calc in self.config['risks'].values():
             spec = definition['calculations'][calc]
@@ -395,7 +495,7 @@ class Workflow:
             raise ValueError('native P&L owner required')
 
     def hedge(self, snapshot, risks):
-        request = copy.deepcopy(self.config['hedge'])
+        request = copy.deepcopy(self.hedge_template)
         problem = request['operation']['problem']
         problem['snapshot_id'] = snapshot
         for item in [*problem['holdings'], *problem['candidates']]:
