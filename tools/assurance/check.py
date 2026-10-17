@@ -653,7 +653,11 @@ REQUIRED_RUNS = {
         'cargo build --locked --profile excel -p convex-ffi',
         'python3 tools/assurance/abi_smoke.py',
     ),
-    'test': ('cargo test --locked --all-features --workspace -- --test-threads=1',),
+    'test': (
+        'cargo test --locked --all-features --workspace -- --test-threads=1',
+        'python3 -m unittest discover -s tools/tests -p test_market_data_adapter.py',
+        'python3 tools/core_ingestion_workflow.py',
+    ),
     'production-regressions': ('cargo test --locked -p convex-server --test api_integration_tests production_readiness_ -- --include-ignored --test-threads=1',),
     'fmt': ('cargo fmt --all -- --check',),
     'clippy': ('cargo clippy --locked --all-features --workspace -- -D warnings',),
@@ -1045,6 +1049,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-ffi/src/lib.rs')
     paths.add('crates/convex-ffi/src/build.rs')
     paths.add('crates/convex-curves/src/bumping/mod.rs')
+    paths.add('tools/market_data_adapter.py')
     return paths
 
 def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None:

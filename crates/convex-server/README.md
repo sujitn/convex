@@ -142,6 +142,14 @@ This is a synthetic, persisted core workflow. Production startup, managed live
 provider composition, distributed ownership and measured latency retain their
 existing release requirements.
 
+The [provider-neutral market-data adapter](../../tools/MARKET-DATA-ADAPTER.md)
+publishes normalized JSONL curve/fixing captures through these existing write
+ports. It needs no additional server configuration or backend. Run
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_ingestion_workflow.py` for the same
+core book with adapter-delivered inputs, updates, duplicate/interrupted delivery
+and adapter/server restart checks. Provider parsing stays outside analytics;
+immutable resource replay supplies recovery without an additional checkpoint.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.

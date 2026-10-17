@@ -5540,6 +5540,28 @@
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_workflow.py",
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base dfc7f0c785fefc1bb135f467c8020d2f120a4cc9"
       ]
+    },
+    {
+      "base_commit": "30ec1c53ec594364b09d0c5d0195c8674d1d81d3",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Owner requested the next simple core ingestion increment. Reuse existing immutable curve/fixing HTTP and backend ports with a small standalone provider-neutral JSONL adapter; no new route, cursor store, queue, Rust/financial source, dependency or database schema. Existing complete native synthetic book/checks remain byte exact and are imported unchanged. Bounded full-file preflight, exact unit/source/provenance transfer, deterministic fail-stop acknowledgements and replay preserve actual server semantics. No1937 numerical pin/default changes; transport tests are engineering evidence, not a new quantitative reference pack. All2154 literal Planned records and CTD/causal ownership requirements remain required. Production/live/distributed/latency qualification is not granted.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "d5aa925c1005f02bc20921dbb93e95af97ae6dc6ddd166f6d1034fe17565e006",
+        "crates/convex-server/README.md": "39b64f73d6981c32768979a75d0ea350b62eddc0850f12d81f0b273df106de59",
+        "tools/MARKET-DATA-ADAPTER.md": "2e2475779a0f03df062b63003d41f74c1d9ddcecab579ed086238e3407faa3ec",
+        "tools/core_ingestion_workflow.py": "c240a832f1957d67bba4191e0a0dfa4f4a6696f72bc2d7a9493ab958892af257",
+        "tools/market_data_adapter.py": "0eb95ef6992630e469341f3bd304a068c977695689a538498c1bc96b513cd6b5",
+        "tools/tests/test_market_data_adapter.py": "922f15e3bed9375fe224e16739517cd69a87d8c5ebc70e6df7b7f60d4e820391",
+        "tools/assurance/check.py": "3d2e96a4604c3b16b506c59b1f0b05b8fe40e7833e0d23a35e1f51e8a0583d30",
+        "tools/assurance/inventory.json": "c55333b48d09b87609fd48aafaf761f289fcf625d7aa95d6922ce0389346b28b",
+        "tools/library/library-inventory.json": "5b08ea0b9e247f688f39541082af2ca490df25b80a6d355c7f427afb957ab1d0"
+      },
+      "tests": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_market_data_adapter.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_ingestion_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 30ec1c53ec594364b09d0c5d0195c8674d1d81d3"
+      ]
     }
   ]
 }
