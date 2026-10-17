@@ -313,6 +313,8 @@ pub struct IdentifierMapping {
     deny_unknown_fields
 )]
 pub enum MasterKey {
+    /// Complete issuer/security/default scope.
+    IssuerScope(ReferenceDataId),
     /// Full versioned native core calculation definitions.
     Calculation(ReferenceDataId),
     /// Entity key.
@@ -335,6 +337,7 @@ impl MasterKey {
     /// Stable storage key; not a query language or vendor ID.
     pub fn storage_key(&self) -> String {
         match self {
+            Self::IssuerScope(id) => format!("issuer_scope/{}", id.as_str()),
             Self::Calculation(id) => format!("calculation/{}", id.as_str()),
             Self::Entity(id) => format!("entity/{}", id.as_str()),
             Self::Calendar(id) => format!("calendar/{}", id.as_str()),
@@ -356,6 +359,8 @@ impl MasterKey {
     deny_unknown_fields
 )]
 pub enum MasterDefinition {
+    /// Explicit issuer mappings and actual default notices.
+    IssuerScope(Box<crate::issuer_reference::IssuerScopeDefinition>),
     /// Full native core contracts/settings, with market values resolved separately.
     Calculation(Box<crate::core_workflow::CoreDefinition>),
     /// Entity attributes.
@@ -378,6 +383,7 @@ impl MasterDefinition {
     /// Typed internal identity.
     pub fn key(&self) -> MasterKey {
         match self {
+            Self::IssuerScope(v) => MasterKey::IssuerScope(v.id.clone()),
             Self::Calculation(v) => MasterKey::Calculation(v.id.clone()),
             Self::Entity(v) => MasterKey::Entity(v.entity_id.clone()),
             Self::Calendar(v) => MasterKey::Calendar(v.calendar_id.clone()),
@@ -391,6 +397,7 @@ impl MasterDefinition {
     /// Economic validity.
     pub fn effective(&self) -> EffectiveInterval {
         match self {
+            Self::IssuerScope(v) => v.effective,
             Self::Calculation(v) => v.effective,
             Self::Entity(v) => v.effective,
             Self::Calendar(v) => v.effective,
@@ -405,6 +412,10 @@ impl MasterDefinition {
     pub fn validate(&self) -> Result<(), ReferenceError> {
         self.effective().validate()?;
         let provenance = match self {
+            Self::IssuerScope(v) => {
+                v.validate(None)?;
+                &v.provenance
+            }
             Self::Calculation(v) => {
                 v.validate()?;
                 &v.provenance
@@ -727,6 +738,20 @@ pub fn plan_master_changes(
             ));
         }
         let previous = current(&key)?;
+        if let MasterDefinition::IssuerScope(scope) = &change.definition {
+            scope.validate(Some(recorded_at))?;
+            if let Some(MasterRecord {
+                definition: MasterDefinition::IssuerScope(old),
+                ..
+            }) = &previous
+            {
+                scope.directory.preserves(&old.directory).map_err(|_| {
+                    ReferenceError::InvalidInput(
+                        "issuer mappings/default facts cannot be removed or reassigned",
+                    )
+                })?;
+            }
+        }
         let number = match (change.expected_version, previous) {
             (None, None) => 1,
             (Some(expected), Some(previous)) if expected == previous.version => {
@@ -822,6 +847,35 @@ pub fn validate_reference_links(
     }
     for record in &commit.master_records {
         match &record.definition {
+            MasterDefinition::IssuerScope(scope) => {
+                for issuer in &scope.directory.issuers {
+                    let value =
+                        resource(&MasterKey::Entity(issuer.entity_id.clone()), issuer.version)?;
+                    if !matches!(value.definition,MasterDefinition::Entity(ref e) if e.entity_id==issuer.entity_id
+                    && e.effective.contains(scope.effective.from)
+                    && match (scope.effective.until,e.effective.until) {
+                        (_,None)=>true,
+                        (Some(a),Some(b))=>a<=b,
+                        (None,Some(_))=>false,
+                    }) {
+                        return Err(ReferenceError::InvalidInput(
+                            "exact effective issuer entity attributes required",
+                        ));
+                    }
+                }
+            }
+            MasterDefinition::Calculation(definition) => {
+                if let Some(pin) =
+                    crate::issuer_reference::issuer_scope_pin(&definition.reference_inputs)?
+                {
+                    let value = resource(&MasterKey::IssuerScope(pin.id), pin.version)?;
+                    if !matches!(value.definition, MasterDefinition::IssuerScope(_)) {
+                        return Err(ReferenceError::InvalidInput(
+                            "exact issuer scope resource required",
+                        ));
+                    }
+                }
+            }
             MasterDefinition::Entity(entity) => {
                 let mut parent = entity.parent.clone();
                 let mut seen = BTreeSet::from([entity.entity_id.clone()]);

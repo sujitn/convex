@@ -1,5 +1,9 @@
 # Convex server configuration
 
+The [issuer-default workflow](../../tools/ISSUER-EVENTS.md) reuses this server's
+reference, curve, fixing, snapshot and result ports for bonds/CDS, risk, hedges
+and P&L, including atomic book updates and restart recovery.
+
 The server supports an explicit demo profile and loopback-only historical replay with an immutable plan and canonical quote file. Production is the default and fails before opening storage because production provider composition is not certified. Demo responses contain demonstration inputs; they do not establish production readiness. The [runtime guide](../convex-engine/RUNTIME.md) covers replay, readiness, canonical results and joined recovery.
 
 Authentication defaults to required verification. The [access guide](ACCESS.md) documents authenticated replay, exact role/book/data grants, identity/secret rotation, TLS proxy boundaries, quotas and distinct health states. For a local demonstration, run from the repository root:

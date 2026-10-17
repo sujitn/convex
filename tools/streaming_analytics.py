@@ -27,6 +27,7 @@ import market_data_adapter as adapter
 import market_data_stream as stream
 import book_updates
 import lifecycle_risk
+import issuer_scope
 
 MAX_JSON = 2 * 1024 * 1024
 EMPTY = dict(calendars=[], helper_calendars=[], curves=[], calibration=None, fixings=[], publications=[])
@@ -424,6 +425,7 @@ class Workflow:
             snapshot = self.client.assemble(self.plan)
             saved = self.client.call('GET', '/analytics/snapshots/' + urllib.parse.quote(snapshot, safe=''))
             self.check_current_sets(saved)
+            issuer = issuer_scope.captured(saved)
             receipts, risks, prices, states = {}, {}, [], {}
             for identity, calc in sorted(self.config['risks'].items()):
                 self.freshness()
@@ -440,7 +442,8 @@ class Workflow:
                 if expected_lifecycle and 'lifecycle_unpriced' in result:
                     data = definition['calculations'][self.config['pnl']]['request']['operation']['input']
                     lifecycle_risk.checked_pending(result, operation, data)
-                    raise Blocked('bond_recovery_pending' if operation['product']['kind'] == 'bond' else 'cds_recovery_pending')
+                    raise Blocked('issuer_recovery_pending' if issuer is not None else
+                        'bond_recovery_pending' if operation['product']['kind'] == 'bond' else 'cds_recovery_pending')
                 if expected_lifecycle != ('lifecycle' in result):
                     raise Blocked('lifecycle_risk_result_missing')
                 if expected_lifecycle:
@@ -452,9 +455,12 @@ class Workflow:
             checked = [lifecycle_risk.checked_state(states[k], pnl['report'],
                 definition['calculations'][self.config['risks'][k]]['request']['operation']) for k in sorted(states)]
             self.freshness()
-            request = self.hedge(snapshot, risks, checked)
+            request = self.hedge(snapshot, risks, checked, issuer)
             key = digest(dict(config=self.config_digest, request=request))
-            definition = dict(id='stream.hedge.' + key, reference_inputs=EMPTY,
+            reference_inputs = copy.deepcopy(EMPTY)
+            if issuer is not None:
+                reference_inputs['issuer_scope'] = copy.deepcopy(issuer['reference'])
+            definition = dict(id='stream.hedge.' + key, reference_inputs=reference_inputs,
                 calculations=dict(hedge=dict(request=request, curve_sets=[])),
                 effective={'from': self.config['plan']['as_of'], 'until': None},
                 provenance=dict(source=self.config['id'], evidence_reference='Confirmed native risk; proposal only'))
@@ -508,7 +514,7 @@ class Workflow:
         if definition['calculations'][self.config['pnl']]['request']['operation']['kind'] != 'book_pnl':
             raise ValueError('native P&L owner required')
 
-    def hedge(self, snapshot, risks, states=()):
+    def hedge(self, snapshot, risks, states=(), issuer=None):
         request = copy.deepcopy(self.hedge_template)
         problem = request['operation']['problem']
         problem['snapshot_id'] = snapshot
@@ -526,7 +532,7 @@ class Workflow:
                 problem['candidates'] = [c for c in problem['candidates']
                     if not any(r['entity_id'] in defaulted for r in c['risk']['credit_scope'])
                     and c['risk'].get('instrument', {}).get('id') not in instruments]
-        return request
+        return issuer_scope.hedge(request, snapshot, issuer, states) if issuer is not None else request
 
 
 def main():

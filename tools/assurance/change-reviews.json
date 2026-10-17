@@ -5812,6 +5812,50 @@
         "tools/streaming_analytics.py": "bedf4873f568186761a4f9b9c789ef2219c5b56f51f9cae9395279f4b3bdcf10",
         "tools/tests/test_bond_events.py": "b2014801d01e18e26e644953d2fc4f79ab6086579b7d5582e4bba6b16fb055a3"
       }
+    },
+    {
+      "base_commit": "68d7a0a57a1cc7de2841cb1910013e71d26ef88e",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Issuer-wide bond/CDS default through existing reference ports: explicit legal security mappings and retained actual notice, atomic scope/book CAS, captured scope, complete native contract fanout, issuer-aware constrained hedges and recovery replay. Original financial kernels, numerical rows/defaults and mandatory library records remain. Six new engineering artifacts are appended. No independent human approval, production acceptance or execution authority is claimed. The non-numerical module census admits issuer.rs while retaining all original modules and checks.",
+      "tests": [
+        "Four new native issuer controls plus13original bond/CDS/lifecycle controls in default/no-default/schema; five new reference/engine controls and existing port/backend/core/analytics/library regressions",
+        "95Python adapter/state/worker controls (8new/87old),42assurance policy/16coverage controls, normal/exact-base assurance, API conservation, strict all-feature affected Clippy and format",
+        "Independent Decimal80 signed bond35percent/CDS40percent claim cash and seven collateral price-risk fields at unchanged1e-7USD/risk bound. Initial nominal earned-cash reference error and second-contract face/payment precision repairs are retained; no old numerical artifacts or bounds change.",
+        "Eight-trade/five-factor build/run:40priced outputs+3unpriced audits; atomic issuer/book update, unknown blocking across restart, contract-specific recovery, actual partial/completion receipts, unaffected legal subsidiary, native parity, issuer exclusions and feasible hedges. Retained native raw P&L residuals use difference/addition half-ULP bounds. Committed-hedge/pre-ACK death, server restart, saved bytes/cache/recompute and unchanged prior bond workflow."
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "5bd09c33ba86cc5ac81838789edb65b4cb295ee7c08c988a8f896e0684c8c414",
+        "crates/convex-analytics/src/risk/hedging/constrained/issuer.rs": "afc5d01cb1542cc4017b694f25d4f0b83b5099fb2b44d6c50ee6d5633fc5eee5",
+        "crates/convex-analytics/src/risk/hedging/constrained/mod.rs": "01de92ca668bb5b2758dcf3031dc79ff6f8e604d3b3bb95a7d916ab32d85408c",
+        "crates/convex-core/src/contracts/issuer.rs": "7d921f6a8fcdb5cf5cff2d0784634be87360df5e69596292d422501dd5719833",
+        "crates/convex-core/src/contracts/mod.rs": "74a0b8d3a0ed9de92979cd70f94a838dea467dead8e7557425f84d18573eb467",
+        "crates/convex-engine/CORE-WORKFLOW.md": "94942afafd4a55f63d2ae5b47bdfbe016a2815427976b5d27ad6feb8dda1dca6",
+        "crates/convex-engine/src/core_workflow.rs": "bae0798ac6d90c7689605a2b374c1fd266549d14dc9612e4d4eebd70156b00cb",
+        "crates/convex-engine/src/core_workflow/issuer.rs": "8f7a43cd3643346c286bdb7cdfacc9512528afe984123a40dabdc95216655541",
+        "crates/convex-engine/tests/issuer_workflow.rs": "c4ee42600f7bad4bb10a3461cbbc040698f4f1420e6e1b0c804a2940004a5ff5",
+        "crates/convex-ports/src/core_workflow.rs": "c0014c5a760e1a1f84ce5471a4e629876d70e93f5cf19d27d53d4a3281bc2d3a",
+        "crates/convex-ports/src/issuer_reference.rs": "1483740d73cc4ca413b245730eccb39a293c97ecc9f997be735f5ee1e5662e3f",
+        "crates/convex-ports/src/lib.rs": "63f2bdc5dbb2218139661d4bb14045684a4b2fa29ba61711b278c44ed6ee527c",
+        "crates/convex-ports/src/reference_master.rs": "fcf707c49ff1b32853a932b2af56ba9ba4739c7e0aca2fefbdecbc466e4e4c5a",
+        "crates/convex-server/README.md": "6474e4bf0667b3a49697fe6a5b105f5d1526f71c9d3dd47f38851b676481edac",
+        "crates/convex/src/library/hedges.rs": "129dc71ea90cc53ee088012fa7d4f62292de6bf8388b6fc357d82800530a688d",
+        "crates/convex/tests/issuer_events.rs": "8cf020857d2bfd6ce08c207b14d686ba8039900cadfeb8c0a41b41cec13f1222",
+        "tests/fixtures/library/issuer-events-contract.json": "9aabab98b74cbe85017fc5952e3f80bb032ecfc1513c7863aa0f307486c7d00f",
+        "tests/scripts/issuer_events_reference.py": "bed4d3818ca27d50b3289c9379ba30485bb5ac4a1b3f5e6a535c24b968be2a0d",
+        "tools/ISSUER-EVENTS.md": "dfb55e1baf24aca8463b3afabc788cdacf2e31df8f72cf75f9ce6293836719b4",
+        "tools/assurance/check.py": "aa06ff8038cdfc5daef79f3e919d4f9ebd93b964f75da3271167beeeb1362fc8",
+        "tools/assurance/inventory.json": "94c65b0de8757c3f321379063095e1eb267a24a306dfdb22b7c358f251332d37",
+        "tools/assurance/numeric-evidence.json": "47e7477d7a21044155bbe007eda1e36d9a0d8abce9890c473a93499a6ab097c8",
+        "tools/assurance/test_policy.py": "3e0d84ca0e1f72f3b5374edcdb729b941ff9705d513b4b86bdd27d49b7b24a03",
+        "tools/book_events.py": "f5ee561dc9f7def2c26a13a115c11cfcf3b8df0b6f8df2fa4eb91934b927934d",
+        "tools/core_issuer_workflow.py": "cfaba64e1e823ed7a2cb999063a98e6e3ce0158eff4ff8d7bc4f229d5156ee32",
+        "tools/issuer_events.py": "5fc20b78624c0fc56f29dc7d560d63e94cf995173004d2f2b06fea5463f163eb",
+        "tools/issuer_scope.py": "3a9d99ab034fffd4057b325db768eac50120f6577ed23aeedd8e8cd8e65dcfb9",
+        "tools/library/library-inventory.json": "c423e7b5feb7125470312b7f52731a3af0c2727dd6b94087bdac7a13beb2c4ec",
+        "tools/streaming_analytics.py": "abfda82f31c7a29cf11ff701f3706711a87424fea40bc9e7fdd97912e262e411",
+        "tools/tests/test_issuer_events.py": "6c6bea0f144d3e5151a74af1851c0df1c689eacebb7f11069641e6a73110ec95"
+      }
     }
   ]
 }

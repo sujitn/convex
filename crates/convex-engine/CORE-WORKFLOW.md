@@ -5,6 +5,11 @@ executes the existing native library, and retains its exact JSON result. It adds
 no financial formulas, scheduler, broker, database dependency in pricing, or
 provider-specific instrument representation.
 
+For issuer-wide bond/CDS defaults, run
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_issuer_workflow.py`.
+The [issuer guide](../../tools/ISSUER-EVENTS.md) describes explicit legal mappings,
+atomic reference/book updates, contract-specific recovery and restart replay.
+
 Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_snapshot_workflow.py` from the
 repository root. Python 3.10+ and the repository Rust toolchain suffice. The script
 builds the existing server and the offline input importer, starts isolated demo

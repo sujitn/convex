@@ -3052,6 +3052,27 @@ jobs:
       - name: Run core bond default and recovery workflow
         run: python3 tools/core_bond_workflow.py
 
+      - name: Check declared issuer contract cash and collateral risk
+        run: python3 tests/scripts/issuer_events_reference.py check
+
+      - name: Exercise issuer scope and native hedge admission
+        run: cargo test --locked -p convex --test issuer_events
+
+      - name: Exercise issuer controls without default features
+        run: cargo test --locked -p convex --test issuer_events --no-default-features
+
+      - name: Exercise issuer controls with schema features
+        run: cargo test --locked -p convex --test issuer_events --features schemars
+
+      - name: Check atomic reference scope and saved-input recovery
+        run: cargo test --locked -p convex-engine --test issuer_workflow
+
+      - name: Check issuer event transport and complete coverage
+        run: python3 -m unittest discover -s tools/tests -p test_issuer_events.py
+
+      - name: Run issuer-wide bond CDS recovery and restart workflow
+        run: python3 tools/core_issuer_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

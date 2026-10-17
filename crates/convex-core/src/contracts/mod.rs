@@ -44,12 +44,14 @@ pub mod json;
 pub mod numeric_decimal;
 
 mod identity;
+mod issuer;
 mod results;
 mod risk;
 mod time;
 mod units;
 
 pub use identity::*;
+pub use issuer::*;
 pub use results::*;
 pub use risk::*;
 pub use time::*;

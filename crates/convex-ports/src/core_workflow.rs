@@ -24,6 +24,8 @@ pub struct CoreDefinition {
     /// Internal definition identity.
     pub id: ReferenceDataId,
     /// Shared native reference inputs (calendars/publication rules), without curve/fixing values.
+    /// Optional reserved `issuer_scope` selects an exact master resource; the
+    /// engine captures it separately before decoding the native reference inputs.
     pub reference_inputs: serde_json::Value,
     /// Explicit named calculations; no script or financial dispatch at this port.
     pub calculations: BTreeMap<String, CoreCalculation>,
@@ -147,6 +149,9 @@ pub struct CoreSnapshotContent {
     pub curves: BTreeMap<String, Vec<SnapshotCurveRecipe>>,
     /// Every eligible published revision, including original status/provenance.
     pub fixings: Vec<PublishedFixing>,
+    /// Exact resolved issuer directory when explicitly selected; absent on prior snapshots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issuer_scope: Option<MasterRecord>,
 }
 /// Content-addressed core snapshot, separate from the existing fixed-bullet schema.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

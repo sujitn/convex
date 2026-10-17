@@ -19,6 +19,13 @@ pub enum HedgeOperation {
         /// Complete native replayed risk for every affected holding.
         states: Vec<convex_analytics::risk::hedging::constrained::LifecycleHoldingRisk>,
     },
+    /// Complete captured legal issuer coverage over the original lifecycle solve.
+    SolveIssuerLifecycle {
+        /// Complete native affected holding states.
+        states: Vec<convex_analytics::risk::hedging::constrained::LifecycleHoldingRisk>,
+        /// Exact snapshot-bound issuer directory.
+        scope: Box<convex_analytics::risk::hedging::constrained::IssuerRiskScope>,
+    },
 }
 pub(super) fn hedge(
     problem: &convex_analytics::risk::hedging::constrained::HedgeProblem,
@@ -36,6 +43,14 @@ pub(super) fn hedge(
             object.insert("lifecycle_risk".into(), value(states)?);
             Ok(result)
         }
+        HedgeOperation::SolveIssuerLifecycle { states, scope } => {
+            let mut result = value(h::solve_issuer_lifecycle_hedge_proposal(
+                problem, states, scope,
+            )?)?;
+            result["lifecycle_risk"] = value(states)?;
+            result["issuer_scope"] = value(scope)?;
+            Ok(result)
+        }
     }
 }
 
@@ -49,10 +64,12 @@ pub(super) fn directional_hedge(
     match action {
         HedgeOperation::Aggregate {} => value(h::aggregate_directional_hedge_risk(problem)?),
         HedgeOperation::Solve {} => value(h::solve_directional_hedge_proposal(problem)?),
-        HedgeOperation::SolveLifecycle { .. } => Err(LibraryError::invalid(
-            "lifecycle risk",
-            "central full-state risk requires the ordinary hedge operation",
-        )),
+        HedgeOperation::SolveLifecycle { .. } | HedgeOperation::SolveIssuerLifecycle { .. } => {
+            Err(LibraryError::invalid(
+                "lifecycle risk",
+                "central full-state risk requires the ordinary hedge operation",
+            ))
+        }
     }
 }
 

@@ -157,7 +157,7 @@ class AssuranceMutations(unittest.TestCase):
                        (ROOT/'crates/convex-analytics/src/risk/hedging/constrained').glob('*.rs')}
         self.assertEqual(constrained, {
             'crates/convex-analytics/src/risk/hedging/constrained/' + name
-            for name in ['mod.rs', 'types.rs', 'admission.rs', 'solver.rs', 'evidence.rs']
+            for name in ['mod.rs', 'types.rs', 'admission.rs', 'solver.rs', 'evidence.rs', 'issuer.rs']
         })
         self.assertTrue(constrained <= check.inventory_paths(ROOT))
 

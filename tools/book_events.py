@@ -120,6 +120,12 @@ def prepare(client, batch):
                       if k[0] == 'lifecycle' and k not in before and v['event']['action']['kind'] == 'recovery']
         if not {v['state']['default_event'] for v in pending} <= set(recoveries):
             raise ValueError('default_resolution_requires_actual_recovery')
+        if 'issuer_scope' in original['reference_inputs']:
+            scoped = {(v['event']['trade_id'], v['event']['action']['terms']['default_event'])
+                for k, v in after.items() if k[0] == 'lifecycle' and k not in before
+                and v['event']['action']['kind'] == 'recovery'}
+            if not {(v['state']['trade_id'], v['state']['default_event']) for v in pending} <= scoped:
+                raise ValueError('default_resolution_requires_each_contract_recovery')
     book_updates.bind(config, proposed, len(new['steps']) - 1)
     # Include orchestration too: reusing a batch ID with changed policy, source
     # book version or economics must conflict at the durable idempotency owner.
@@ -198,6 +204,11 @@ def ingest(client, batch):
     immutable snapshots/results and the existing stream book image own recovery.
     """
     command, release = prepare(client, batch)
+    return admit(client, batch, command, release)
+
+
+def admit(client, batch, command, release):
+    """Commit an exact prepared command, then reuse native event admission."""
     commit = client.call('POST', '/reference/transactions', command)
     record = book_updates.resolve(client, release)
     expected = command['master_changes'][0]['definition']

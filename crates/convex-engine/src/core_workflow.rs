@@ -22,6 +22,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+mod issuer;
 
 /// Operational failures do not masquerade as accepted native financial results.
 #[derive(Debug, thiserror::Error)]
@@ -110,6 +111,28 @@ impl CoreWorkflow {
                 _ => TraitError::InvalidInput("core reference read failed"),
             })?
             .ok_or(CoreWorkflowError::NotFound)?;
+        let issuer_scope = if let Some(pin) = issuer::selection(&definition)? {
+            let record = self
+                .references
+                .get_master_at(
+                    &MasterKey::IssuerScope(pin.id.clone()),
+                    ReferenceLookup {
+                        as_of: plan.as_of,
+                        known_at: plan.known_at,
+                    },
+                )
+                .await
+                .map_err(|_| invalid("issuer reference read failed"))?
+                .ok_or(CoreWorkflowError::NotFound)?;
+            if record.version != pin.version {
+                return Err(invalid(
+                    "issuer scope pin is obsolete at the captured cutoff",
+                ));
+            }
+            Some(record)
+        } else {
+            None
+        };
         let mut curves = BTreeMap::new();
         for (name, pins) in &plan.curve_sets {
             let mut records = Vec::new();
@@ -140,6 +163,7 @@ impl CoreWorkflow {
             definition,
             curves,
             fixings,
+            issuer_scope,
         })?;
         validate_snapshot(&snapshot)?;
         match self.snapshots.publish_core(&snapshot).await {
@@ -236,6 +260,7 @@ fn definition(snapshot: &CoreSnapshot) -> Result<&CoreDefinition> {
 }
 fn validate_snapshot(snapshot: &CoreSnapshot) -> Result<()> {
     snapshot.verify()?;
+    issuer::validate(snapshot)?;
     let content = &snapshot.content;
     let plan = &content.plan;
     let record = &content.definition;
@@ -367,8 +392,7 @@ fn materialize(snapshot: &CoreSnapshot, name: &str) -> Result<LibraryRequest> {
         .ok_or(CoreWorkflowError::NotFound)?;
     let mut request: LibraryRequest = serde_json::from_value(calc.request.clone())
         .map_err(|_| invalid("invalid native core definition"))?;
-    let reference: LibraryInputs = serde_json::from_value(definition.reference_inputs.clone())
-        .map_err(|_| invalid("invalid core reference inputs"))?;
+    let reference = issuer::native_inputs(&definition.reference_inputs)?;
     if !reference.curves.is_empty() || !reference.fixings.is_empty() {
         return Err(invalid(
             "core reference inputs cannot contain market values",

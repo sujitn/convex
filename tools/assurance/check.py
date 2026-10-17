@@ -683,6 +683,13 @@ REQUIRED_RUNS = {
         'cargo test --locked -p convex --test bond_events --features schemars',
         'python3 -m unittest discover -s tools/tests -p test_bond_events.py',
         'python3 tools/core_bond_workflow.py',
+        'python3 tests/scripts/issuer_events_reference.py check',
+        'cargo test --locked -p convex --test issuer_events',
+        'cargo test --locked -p convex --test issuer_events --no-default-features',
+        'cargo test --locked -p convex --test issuer_events --features schemars',
+        'cargo test --locked -p convex-engine --test issuer_workflow',
+        'python3 -m unittest discover -s tools/tests -p test_issuer_events.py',
+        'python3 tools/core_issuer_workflow.py',
     ),
     'production-regressions': ('cargo test --locked -p convex-server --test api_integration_tests production_readiness_ -- --include-ignored --test-threads=1',),
     'fmt': ('cargo fmt --all -- --check',),
@@ -938,6 +945,9 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-server/src/analytics.rs')
     paths.update([
         'crates/convex-ports/src/core_workflow.rs',
+        'crates/convex-core/src/contracts/issuer.rs',
+        'crates/convex-ports/src/issuer_reference.rs',
+        'crates/convex-engine/src/core_workflow/issuer.rs',
         'crates/convex-ports/src/fixing.rs',
         'crates/convex-ports/src/storage.rs',
         'crates/convex-ports/src/runtime.rs',
