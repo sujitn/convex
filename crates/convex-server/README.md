@@ -150,6 +150,12 @@ core book with adapter-delivered inputs, updates, duplicate/interrupted delivery
 and adapter/server restart checks. Provider parsing stays outside analytics;
 immutable resource replay supplies recovery without an additional checkpoint.
 
+The [streaming adapter](../../tools/MARKET-DATA-STREAM.md) accepts sequenced
+NDJSON images/updates through the same curve/fixing ports. A gap or disconnect
+requires a complete subscribed image before confirmation resumes. Run
+`PYTHONDONTWRITEBYTECODE=1 python3 tools/core_streaming_workflow.py` to verify
+the core book with gaps, reconnects and adapter/server restart recovery.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.

@@ -1,5 +1,9 @@
 # Market-data adapter
 
+For sequenced HTTP streaming, gap detection and image-based reconnect/restart,
+use the [stream adapter](MARKET-DATA-STREAM.md). It shares this adapter's payload
+validation and existing port publication path.
+
 Run the complete synthetic ingestion, analytics and recovery example from the
 repository root:
 

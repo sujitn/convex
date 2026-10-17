@@ -2974,6 +2974,12 @@ jobs:
       - name: Run adapter-fed core analytics and restart recovery
         run: python3 tools/core_ingestion_workflow.py
 
+      - name: Check streaming market-data gaps and reconnect recovery
+        run: python3 -m unittest discover -s tools/tests -p test_market_data_stream.py
+
+      - name: Run streaming core analytics and restart recovery
+        run: python3 tools/core_streaming_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

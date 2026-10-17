@@ -7237,13 +7237,28 @@
     },
     {
       "path": "tools/market_data_adapter.py",
-      "sha256": "0eb95ef6992630e469341f3bd304a068c977695689a538498c1bc96b513cd6b5",
-      "invariants": "Provider-neutral complete curve/fixing payloads enter the existing HTTP/CurveStore/FixingRepository boundary. No financial arithmetic, source/default substitution, version synthesis, timestamp refresh, queue or cursor store. Server immutable identities own idempotent recovery. Freeze/preflight input, publish in order and acknowledge only each actual204. Credentials/provider content never enter diagnostics or redirected requests.",
+      "sha256": "f1396ad41a439c8d494d0601df0e7532501ac22e0fbd4626a3b4e696d4d3af32",
+      "invariants": "Provider-neutral complete curve/fixing payloads enter the existing HTTP/CurveStore/FixingRepository boundary. No financial arithmetic, source/default substitution, version synthesis, timestamp refresh, queue or cursor store. Server immutable identities own idempotent recovery. Freeze/preflight input, publish in order and acknowledge only each actual204. Credentials/provider content never enter diagnostics or redirected requests. Streaming shares the same native-payload validator and HTTP publisher; original complete-file semantics remain bounded and immutable.",
       "bounds": "32MiB frozen capture,1..10000records,2MiB perrecord/payload,65536JSONvalues/depth64 perpayload,0.1..120seconds perHTTPrecord; destination HTTPS or explicit loopbackHTTP, no redirects/inherited proxies.",
       "failure_contract": "Malformed/ambiguous/nonfinite/oversized inputs reject before network I/O. A rejected/unconfirmed publication stops the suffix with safe line/status/priorack counts. Prior commits remain; retry identical records. Existing server financial/permission/immutable/conflict/known-time checks stay authoritative.",
       "tests": [
         "tools/tests/test_market_data_adapter.py",
-        "tools/core_ingestion_workflow.py"
+        "tools/core_ingestion_workflow.py",
+        "tools/tests/test_market_data_stream.py",
+        "tools/core_streaming_workflow.py"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "tools/market_data_stream.py",
+      "sha256": "437a434fd0dd15bded8a79bfbb2206d557e66d9fd21a1f1c17aa303c595c3b90",
+      "invariants": "One provider-neutral NDJSON pull loop publishes complete native curve/fixing records through existing HTTP storage ports. Exact source-separated subscription coverage and full-frame validation precede writes. Advance only after every record acknowledges. Gaps/session changes/truncation/EOF/timeouts/unconfirmed writes discard the suffix and require a full image on a new connection. Restart always reimages; no durable cursor, broker, queue, schema or financial default. Duplicate/heartbeat controls never refresh market fields. Continuity status is not analytics/execution readiness.",
+      "bounds": "Subscription256KiB/256curve-sourcepairs/1024fixingkeys; frames16MiB/10000records; nativepayload2MiB/65536nodes/depth64; wireframes/run<=1000000; timeout0.1..120seconds/reconnects0..1000/delay0.01..60seconds. Separate source/sink credentials, HTTPS or loopbackHTTP, no redirects/inherited proxies.",
+      "failure_contract": "Missing image, skipped/older data sequence or session change prevents publication of that update and reconnects. Malformed/incomplete/unsubscribed/conflicting data or permanent HTTP rejection stops explicitly. Partial/unconfirmed commits replay immutably through a fresh image; stopped/recovering states clear confirmation. Current backend/native admission and financial bounds remain authoritative.",
+      "tests": [
+        "tools/tests/test_market_data_stream.py",
+        "tools/tests/test_market_data_adapter.py",
+        "tools/core_streaming_workflow.py"
       ],
       "exceptions": []
     }

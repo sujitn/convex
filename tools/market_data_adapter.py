@@ -50,6 +50,38 @@ def reject_constant(_):
     raise ValueError('nonfinite JSON number')
 
 
+def encode_record(record, line=None):
+    """Validate one transport envelope, preserving the existing native payload."""
+    try:
+        if (not isinstance(record, dict)
+                or set(record) != {'schema_version', 'kind', 'payload'}
+                or type(record['schema_version']) is not int or record['schema_version'] != 1
+                or record['kind'] not in PATHS):
+            raise ValueError('record envelope')
+        payload = record['payload']
+        if ((record['kind'] == 'curve' and not isinstance(payload, dict))
+                or (record['kind'] == 'fixings' and (not isinstance(payload, list) or not payload))):
+            raise ValueError('payload shape')
+        pending = [(payload, 0)]
+        visited = 0
+        while pending:
+            value, depth = pending.pop()
+            visited += 1
+            if visited > 65_536 or depth > 64:
+                raise ValueError('JSON bounds')
+            if isinstance(value, dict):
+                pending.extend((v, depth + 1) for v in value.values())
+            elif isinstance(value, list):
+                pending.extend((v, depth + 1) for v in value)
+        body = json.dumps(payload, ensure_ascii=False, allow_nan=False,
+                          separators=(',', ':')).encode('utf-8')
+        if len(body) > MAX_RECORD_BYTES:
+            raise ValueError('payload size')
+        return PATHS[record['kind']], body
+    except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError):
+        raise IngestionError('Invalid normalized market-data record', line=line) from None
+
+
 def load_messages(path):
     """Freeze and preflight a bounded file before making any network request."""
     try:
@@ -73,42 +105,19 @@ def load_messages(path):
         try:
             record = json.loads(content, object_pairs_hook=unique_object,
                                 parse_constant=reject_constant)
-            if (not isinstance(record, dict)
-                    or set(record) != {'schema_version', 'kind', 'payload'}
-                    or type(record['schema_version']) is not int or record['schema_version'] != 1
-                    or record['kind'] not in PATHS):
-                raise ValueError('record envelope')
-            payload = record['payload']
-            if ((record['kind'] == 'curve' and not isinstance(payload, dict))
-                    or (record['kind'] == 'fixings' and (not isinstance(payload, list) or not payload))):
-                raise ValueError('payload shape')
-            pending = [(payload, 0)]
-            visited = 0
-            while pending:
-                value, depth = pending.pop()
-                visited += 1
-                if visited > 65_536 or depth > 64:
-                    raise ValueError('JSON bounds')
-                if isinstance(value, dict):
-                    pending.extend((v, depth + 1) for v in value.values())
-                elif isinstance(value, list):
-                    pending.extend((v, depth + 1) for v in value)
-            body = json.dumps(payload, ensure_ascii=False, allow_nan=False,
-                              separators=(',', ':')).encode('utf-8')
-            if len(body) > MAX_RECORD_BYTES:
-                raise ValueError('payload size')
-            messages.append((PATHS[record['kind']], body))
+            messages.append(encode_record(record, line))
         except (ValueError, TypeError, UnicodeError, RecursionError, OverflowError):
             raise IngestionError('Invalid normalized market-data record', line=line) from None
     return messages
 
 
-def endpoint(url):
+def endpoint(url, required_path='/api/v1'):
     try:
         parsed = urllib.parse.urlsplit(url)
         if (parsed.scheme not in ('http', 'https') or not parsed.hostname
                 or parsed.username is not None or parsed.password is not None
-                or parsed.query or parsed.fragment or parsed.path.rstrip('/') != '/api/v1'
+                or parsed.query or parsed.fragment
+                or (required_path is not None and parsed.path.rstrip('/') != required_path)
                 or any(ord(c) < 33 or ord(c) > 126 for c in url)):
             raise ValueError('endpoint')
         _ = parsed.port
@@ -119,8 +128,8 @@ def endpoint(url):
         if parsed.scheme == 'http' and not local:
             raise ValueError('HTTPS required')
     except ValueError:
-        raise IngestionError('Use an HTTPS /api/v1 URL, or HTTP on loopback, without credentials/query/fragment') from None
-    return url.rstrip('/')
+        raise IngestionError('Use HTTPS, or HTTP on loopback, with the required path and without credentials/query/fragment') from None
+    return url.rstrip('/') if required_path is not None else url
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -130,13 +139,17 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def publish_file(path, url, *, token=None, timeout=10):
     """Publish in order; stop at the first unacknowledged line, without skipping."""
+    return publish_messages(load_messages(path), url, token=token, timeout=timeout)
+
+
+def publish_messages(messages, url, *, token=None, timeout=10):
+    """Publish an already validated bounded image/update through existing ports."""
     base = endpoint(url)
     if token is not None and (not token or len(token) > 8192
                               or any(ord(c) < 33 or ord(c) > 126 for c in token)):
         raise IngestionError('Invalid bearer token')
     if not 0.1 <= timeout <= 120:
         raise IngestionError('Timeout must be between 0.1 and 120 seconds')
-    messages = load_messages(path)
     # Explicit destination only: do not forward input or credentials via redirects
     # or silently inherited proxy settings.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())

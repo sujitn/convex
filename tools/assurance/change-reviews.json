@@ -5562,6 +5562,32 @@
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_ingestion_workflow.py",
         "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 30ec1c53ec594364b09d0c5d0195c8674d1d81d3"
       ]
+    },
+    {
+      "base_commit": "de793686eba4e29f3c80fc9249b7412a90da3584",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Owner requested streaming core market ingestion with gap/reconnect/restart recovery and simple provider-neutral architecture. Reuse complete native payloads/existing HTTP curve/fixing storage ports. Factor shared payload validation/publication out of the existing file adapter, add one bounded NDJSON source loop and explicit source-separated subscription. Confirm only whole acknowledged frames; always reimage after gaps/disconnects or restart. No Rust, financial, dependency, route, backend schema, queue or cursor store changes. Preserve1937 numerical policy rows/defaults/bytes, every original example/test and literal2154 Planned requirements/observations, full CTD and causal ownership. No independent approval, live-vendor or production/latency certificate is claimed.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "03e0a80232e54a350308718c7fbd5515a4e047d12356c48d2fe60e4f28015860",
+        "crates/convex-server/README.md": "209eb795080b5562bef4bbdefa92f986a39eeb06650a855f3c2276adf864cae5",
+        "tools/MARKET-DATA-ADAPTER.md": "a16aca5e2ff530616edb08813a536f905ac04bbc11d35760aa2fedf40661cb1c",
+        "tools/MARKET-DATA-STREAM.md": "53778a33541df73f03abc82c60b0f8460a8bbabcfd0840815e21f05b33585966",
+        "tools/market_data_adapter.py": "f1396ad41a439c8d494d0601df0e7532501ac22e0fbd4626a3b4e696d4d3af32",
+        "tools/market_data_stream.py": "437a434fd0dd15bded8a79bfbb2206d557e66d9fd21a1f1c17aa303c595c3b90",
+        "tools/core_streaming_workflow.py": "9976f99242c320089e299cb41981d197f2860b90a0a2bb7c1993f4c1ba9ac9b6",
+        "tools/tests/test_market_data_stream.py": "db64d90a5464fd76c6474965c2ba3f969ee77c67a6347230a988ef56491ae4a6",
+        "tools/assurance/check.py": "c7fe70f9f46780756a5a43f63d580987285ae592830e2a5fa35bd52d19269f8e",
+        "tools/assurance/inventory.json": "95b625f84d868f64a5d20f88a940828a499c81cdda7b14e54c36cbbaf4a5fd8a",
+        "tools/library/library-inventory.json": "ad6b98a2dde7122bf7a656563d53db559a57562a671aadee8895d7b0fddb426e"
+      },
+      "tests": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_market_data_adapter.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -p test_market_data_stream.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_streaming_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_ingestion_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base de793686eba4e29f3c80fc9249b7412a90da3584"
+      ]
     }
   ]
 }
