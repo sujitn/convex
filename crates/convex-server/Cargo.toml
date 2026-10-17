@@ -13,6 +13,7 @@ keywords = ["finance", "bonds", "server", "rest", "websocket"]
 categories = ["finance", "web-programming"]
 
 [dependencies]
+convex = { workspace = true }
 convex-engine = { workspace = true }
 # Engine and traits
 convex-portfolio = { path = "../convex-portfolio" }

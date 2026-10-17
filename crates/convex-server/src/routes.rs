@@ -67,6 +67,9 @@ pub fn create_router_with_access_and_portfolios(
     access: Arc<crate::access::AccessControl>,
 ) -> Router {
     let state = Arc::new(AppState {
+        analytics_slots: Arc::new(tokio::sync::Semaphore::new(
+            engine.config().max_concurrent_calcs.min(64),
+        )),
         access: access.clone(),
         engine,
         ws_state: WebSocketState::new(),
@@ -82,6 +85,7 @@ pub fn create_router_with_access_and_portfolios(
         .route("/api/v1/runtime", get(handlers::runtime_health))
         .route("/api/v1/runtime/results", get(handlers::runtime_results))
         .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
+        .route("/api/v1/analytics", post(crate::analytics::calculate))
         .route(
             "/api/v1/configuration/schema",
             get(crate::configuration_admin::schema),

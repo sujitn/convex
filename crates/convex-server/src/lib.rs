@@ -23,6 +23,7 @@
 #![warn(clippy::all)]
 
 pub mod access;
+mod analytics;
 pub mod config;
 pub mod configuration_admin;
 pub mod handlers;

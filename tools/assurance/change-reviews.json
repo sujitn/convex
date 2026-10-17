@@ -5460,6 +5460,37 @@
           ".ai/production-readiness/evidence/CVX-063-Curve-Semantics/protected-dated-time-adapters-01/protected-dated-time-adapters.patch"
         ]
       }
+    },
+    {
+      "base_commit": "4b437dfe5edb1c595cc204adc91524a6ad9870a8",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-17",
+      "rationale": "Owner requested a simple core production workflow using the existing server and analytics. Add one bounded authenticated supplied-input transport and one stdlib end-to-end example, with transport/cancellation/access tests and CI execution. Add only the existing local convex facade dependency to convex-server; lock registry versions/checksums and pure normal dependency direction stay unchanged. Preserve every1930 original quantitative artifact row/default and every2154 Planned mandatory library record. New metadata records engineering transport qualification only; no independent quantitative review, live execution, latency, library or production certification is claimed.",
+      "candidate_files": {
+        ".github/workflows/ci.yml": "5a526f1fc0046dfccd5faceaf85fd67501bb02edaf068e3083dbb7f8ac82daa7",
+        "Cargo.lock": "4be48a4484f62055dec89d901d8a062b34cb9e915694b84b55f7dae0f63e0756",
+        "crates/convex-server/Cargo.toml": "ea9537f3dc783ae3ab40007621b4228ece50e53a0466b9125d53559ccd42b119",
+        "crates/convex-server/README.md": "b8605e5d733202fb452099c637de2ab097856172b46764e78d88d6dd41cfcb11",
+        "crates/convex-server/src/access/http.rs": "0fe3e9e4e593f90f9e61fdb26de0be7823485992b89cf29d7a9cca134ad6b02a",
+        "crates/convex-server/src/analytics.rs": "ada6a7fb677ca18d51263dbb0b755d5462ce00425a66c5dd4d26f3b8f60d75b5",
+        "crates/convex-server/src/analytics_tests.rs": "2af6dc46c2cd3b2baf1cf2a94c00329886b75f18e0d021cd19503c84cfa89e35",
+        "crates/convex-server/src/handlers.rs": "73f6774d443d4e5fcb3e402c04e1856cb20f7bc92ad59e377e24375fe2cf6044",
+        "crates/convex-server/src/lib.rs": "2aad5f829a0306d97961e8695f655c080bdf93b8dfb36d7609ed84edc1530583",
+        "crates/convex-server/src/routes.rs": "04c6e226af4b0825b3d358765f6dfe24dca85b10bf673fad61d289259c3d0d70",
+        "crates/convex-server/tests/supplied_analytics.rs": "8ea426ec5778cfc941c671da3b4832730cdb1824d41b0e6433ec5d32f0990803",
+        "tools/assurance/check.py": "c4004c3b6f32b5cc73833f804c4c13f3b02e22cefc5a51738f6c9e869d95faa0",
+        "tools/assurance/inventory.json": "3151f8653cce950474682f988d25f80f599a218df3d388eccc0bdb3cec61f0ef",
+        "tools/assurance/numeric-evidence.json": "8bb0ec42cd8010824f345320334607010fed2133fbf8c0732ed79920b3dfae1c",
+        "tools/core_workflow.py": "4bb9cfffcfb69b2d857fea09481a585a8e5cf6fb587aca800f240e597c777800",
+        "tools/library/library-inventory.json": "06100996fd2aac88b44b9d9506ba4a6f37b410eac3ea43327235fb6584e0d727"
+      },
+      "tests": [
+        "cargo test --locked -p convex-server",
+        "cargo clippy --locked -p convex-server --all-targets --all-features -- -D warnings",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/core_workflow.py",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py --base 4b437dfe5edb1c595cc204adc91524a6ad9870a8",
+        "PYTHONDONTWRITEBYTECODE=1 python3 tools/library/check.py --base 4b437dfe5edb1c595cc204adc91524a6ad9870a8"
+      ]
     }
   ]
 }

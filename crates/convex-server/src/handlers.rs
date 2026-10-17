@@ -74,6 +74,8 @@ use convex_engine::ports::reference_data::{BondReferenceData, EtfHoldingEntry, E
 
 /// Application state.
 pub struct AppState {
+    /// Bounded supplied-input calculations, using the engine's concurrency setting.
+    pub(crate) analytics_slots: Arc<tokio::sync::Semaphore>,
     /// Shared current authentication/authorization boundary.
     pub access: Arc<crate::access::AccessControl>,
     /// The pricing engine

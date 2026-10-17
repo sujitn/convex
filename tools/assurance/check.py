@@ -905,6 +905,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-portfolio/src/stress/scenarios.rs')
     paths.add('crates/convex-server/src/routes.rs')
     paths.add('crates/convex-server/src/access/http.rs')
+    paths.add('crates/convex-server/src/analytics.rs')
     paths.add('demo/frontend/src/App.tsx')
     paths.add('demo/frontend/src/lib/api.ts')
     paths.add('demo/frontend/src/components/PortfolioDemo.tsx')

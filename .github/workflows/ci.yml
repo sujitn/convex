@@ -2962,6 +2962,9 @@ jobs:
       - name: Run tests
         run: cargo test --locked --all-features --workspace -- --test-threads=1
 
+      - name: Run core HTTP pricing risk hedge and PnL example
+        run: python3 tools/core_workflow.py
+
   production-regressions:
     name: Production Readiness Regressions
     runs-on: ubuntu-latest

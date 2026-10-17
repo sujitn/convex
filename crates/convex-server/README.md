@@ -28,6 +28,71 @@ storage_path = "./data/convex.redb"
 mode = "local_development"
 ```
 
+## One core book from pricing to P&L
+
+From the repository root, with Python 3.10+ and the repository's Rust toolchain:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 tools/core_workflow.py
+```
+
+This command builds the existing server, starts it on a temporary loopback port,
+runs the book, stops it, restarts against the same temporary storage, checks an
+identical same-snapshot P&L response, and stops it again. It needs no Python
+packages, external feed, account or manually started service. Use
+`--binary /absolute/path/to/convex-server` to reuse a build, or
+`--pnl-output /tmp/core-pnl.json` to retain the complete native P&L envelope.
+
+The six supplied trades are a cash bond, stepped/amortizing IRS, seasoned OIS,
+single-name CDS, overnight rate future and term rate future. The example selects
+complete terms, calendars, history, curves, positions, FX and cash events from
+the existing synthetic causal-book fixture. It sends every financial calculation
+through the server: native prices; discount, term-projection, overnight-projection,
+hazard and recovery risk; a constrained bond/IRS/CDS/futures hedge proposal; and
+causal P&L split into market, FX, position and event changes. It also removes a
+required discount curve and checks the native `missing_input` error.
+
+Output includes the input fingerprint, quantity/reference units, ordered factor
+keys, before/after risk, proposed trade quantities and native P&L reconciliation
+residuals. Futures monetary quote levels and currency present values retain
+separate reporting groups. A feasible hedge can retain residual exposure. The
+example's eligibility, liquidity limits and zero costs are explicit synthetic
+paper assumptions; its proposal does not execute orders or post cash.
+
+### HTTP contract
+
+`POST /api/v1/analytics` accepts the existing
+[`LibraryRequest`](../convex/src/library/requests.rs) JSON and returns the
+unchanged `convex::library::execute_json` envelope. Product construction, curve
+validation/calibration, pricing, risk, hedging and P&L stay in their existing pure
+owners. The request supplies immutable inputs; this endpoint performs no provider
+or repository lookup and saves no calculation state.
+
+Native success is `{"ok":"true","result":...}`. Native calculation or input
+failure is `{"ok":"false","error":...}` at HTTP 200; always inspect `ok`.
+Transport/authentication failures use HTTP error statuses. The existing HTTP
+boundary limits requests to 2 MiB and results to 4 MiB; an oversized result
+returns HTTP 413 with `ANALYTICS_RESPONSE_TOO_LARGE`. Work uses the blocking
+pool with immediate admission bounded by the engine's `max_concurrent_calcs`
+setting (default 4, maximum 64) per router. Exhausted capacity returns HTTP 429.
+Cancellation retains calculation and access admissions until the worker exits.
+
+The default router denies access. An authenticated deployment requires the
+`Analyst` calculate role, all four `Reference`, `Market`, `Books`, `Results` data
+scopes, and explicit `*` resource grants for instruments, curves, sources and
+books. Named-only grants cannot use this complete supplied-input endpoint;
+per-operation entitlement discovery is not implemented. Current grants are
+checked before dispatch and again before returning the result. Existing origin,
+identity and request quotas also apply. Only the isolated demo command selects
+`local_development` access.
+
+This extends the supplied-input HTTP workflow. The managed replay runtime still
+has its documented fixed-bullet scope, and the production executable still
+requires a completed provider composition. The example uses rate futures; full
+delivery-basket/CTD operations remain available through the native library
+contract and this same endpoint. Live provider admission, distributed ownership,
+measured latency and production release qualification remain separate work.
+
 ## Loading and validation
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.

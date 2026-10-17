@@ -14,7 +14,7 @@ use axum::{
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 const MAX_BODY: usize = 2 * 1024 * 1024;
-const MAX_RESPONSE: usize = 4 * 1024 * 1024;
+pub(crate) const MAX_RESPONSE: usize = 4 * 1024 * 1024;
 /// Retained by the upgrade callback; quota is released even if upgrade fails.
 #[derive(Clone)]
 pub(crate) struct WsAccess {
@@ -136,6 +136,7 @@ struct Requirement {
     data: Vec<DataScope>,
     resources: Vec<Resource>,
     body_required: bool,
+    inspect_output_resources: bool,
 }
 fn requirement(
     path: &str,
@@ -149,6 +150,7 @@ fn requirement(
         data: vec![D::Market, D::Results],
         resources: Vec::new(),
         body_required: !read,
+        inspect_output_resources: true,
     };
     let mut exact = |kind, name: &str| -> Result<(), AccessError> {
         let value = params.get(name).ok_or(AccessError::Forbidden)?;
@@ -227,6 +229,22 @@ fn requirement(
         }
         "/api/v1/runtime/valuation" => {
             req.data.push(D::Reference);
+        }
+        "/api/v1/analytics" => {
+            // Complete supplied library contracts can contain every resource shape.
+            // Until semantic per-operation scoping exists, require explicit broad
+            // grants rather than relying on partial JSON-key scope discovery.
+            req.data = vec![D::Reference, D::Market, D::Books, D::Results];
+            // Every relevant resource already requires an explicit wildcard
+            // grant. Large native reports need no partial key-based discovery;
+            // the complete original entitlement is still rechecked on return.
+            req.inspect_output_resources = false;
+            req.resources.extend([
+                Resource::new(R::Instrument, "*"),
+                Resource::new(R::Curve, "*"),
+                Resource::new(R::Source, "*"),
+                Resource::new(R::Book, "*"),
+            ]);
         }
         "/api/v1/configuration/schema" => {
             req.action = Operate;
@@ -380,6 +398,9 @@ pub(crate) async fn enforce(
             let websocket = request.uri().path() == "/ws" || request.uri().path() == "/api/v1/ws";
             request.headers_mut().remove(header::AUTHORIZATION);
             request.extensions_mut().insert(ctx.clone());
+            // CPU handlers retain this same admission until their blocking work
+            // actually exits, including when the HTTP caller disconnects.
+            request.extensions_mut().insert(admission.clone());
             if websocket {
                 request.extensions_mut().insert(WsAccess {
                     access: access.clone(),
@@ -394,6 +415,7 @@ pub(crate) async fn enforce(
                     return response(error);
                 }
                 if result.status().is_success()
+                    && req.inspect_output_resources
                     && result
                         .headers()
                         .get(header::CONTENT_TYPE)
@@ -475,6 +497,7 @@ async fn enforce_inner(
             data: Vec::new(),
             resources: Vec::new(),
             body_required: false,
+            inspect_output_resources: true,
         };
         return Ok(Some((
             ctx,

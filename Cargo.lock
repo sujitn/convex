@@ -868,6 +868,7 @@ dependencies = [
  "async-trait",
  "axum 0.7.9",
  "chrono",
+ "convex",
  "convex-analytics",
  "convex-bonds",
  "convex-core",
