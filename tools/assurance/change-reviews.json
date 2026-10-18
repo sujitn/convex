@@ -6075,6 +6075,26 @@
         "tools/core_snapshot_io.py": "ae384f705aba73f24d7c5296d6aa4dc7b37d5dabef8a968025e7fbf9564f4905",
         "tools/library/library-inventory.json": "59d244dbdf52ec67a6dd392b4ec6f66ae215ee75369b8313cc2207307237393b"
       }
+    },
+    {
+      "base_commit": "f69340066e5522f5599cdb97b30078b8f3f2f6ae",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Matched release36/60trade measurements retain the original server, importer, worker, snapshot and result ports, native pricing/risk/hedge/P&L and recovery harnesses. Baseline complete update medians are1862.596/5284.037ms; content SHA256 costs2.940/6.080ms and warm raw reads0.070/0.134ms. Enable only the existing sha2 0.10.9 asm-aarch64 backend on macOS/Linux aarch64, retaining CPU detection/software fallback and every digest domain, canonical byte, requested identity, raw-file check, size/plan/schema bound, physical port read, native validation, authorization/freshness and durable cash/checkpoint/recovery owner. Other targets retain original features. Lock only sha2-asm0.6.4; all446previous packages/versions remain. No financial formula/default/tolerance, wire/storage migration, cache/batch/port/provider/backend/MQ or execution owner change. Three known digest vectors and38independent Python hashlib domain/padding/large-input vectors must agree before/after and with forced software fallback. Unchanged full workflows must retain native and400paired output digests and all restart/cached/forced saved-input proofs. Preserve1987previous numerical rows/bytes, 159old observations and2154literal mandatory Planned records. Retain the candidate only if matched release profiles/updates improve. Actual receipts determine passing outcomes. Local warm sequential historical/demo ARM measurements grant no independent model/platform/production/live/authenticated/concurrent/cold-disk/p99/SLA certificate.",
+      "tests": [
+        "Independent41SHA256 vectors before/after and forced software fallback; exact target feature graph inspection.",
+        "Unchanged release file/port/engine/server/access integrity and workflow tests. Strict affected lint/fmt,131Python,42policy/16inventory, API conservation and normal/exact-base/staged assurance.",
+        "Matched release36/60trade diagnostics and actual updates; exact400paired financial digests,500native comparisons/retained bytes per build,100cached and100forced final recovery receipts. Existing partial cash/checkpoint/pre-ACK/stale/gap/reconnect examples. Actual receipts determine success."
+      ],
+      "candidate_files": {
+        "Cargo.lock": "3ea8747270819ba22f08c790e5e87951d73fa6ad686f43c13e89fb5082bc3796",
+        "crates/convex-ports/Cargo.toml": "b7a65743f1cb5435400a86c7998292ff26d3bdeb68fea1cb436d6e174c65984e",
+        "crates/convex-ports/tests/content_digest.rs": "7e249e33dd5c9ac793d1f5bebd9e0d5093111098d2b0524dd641c58965434dd9",
+        "tools/RELEASE-LATENCY.md": "34c9726a8667cce4d0a3118bdb72810d0b8e90ccfe5c4c67e0fe95066ab40ec0",
+        "tools/UPDATE-LATENCY.md": "83699c284ead07168aed9af88ae2072e64b5da0d4711d89154ae0a9f512b3924",
+        "tools/assurance/numeric-evidence.json": "10ae6ca0f1b379f74d0b2c075b703d60d42bdc9ebb39f721437b87456fee83c9",
+        "tools/library/library-inventory.json": "e048522cf377898d21d1e4d7f03d340e6a818f1a0b97f23bf17b5bf167c5a8f4"
+      }
     }
   ]
 }

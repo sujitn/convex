@@ -1,5 +1,7 @@
 # Core update measurements
 
+For optimized binaries, follow the [release-build measurements](RELEASE-LATENCY.md).
+
 Build the existing executables, then run the local measurement:
 
 ```sh
