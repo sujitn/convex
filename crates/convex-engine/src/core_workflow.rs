@@ -22,6 +22,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+mod checkpoint;
 mod issuer;
 
 /// Operational failures do not masquerade as accepted native financial results.
@@ -157,14 +158,18 @@ impl CoreWorkflow {
                 .await?
         };
         fixings.sort_by(|a, b| (&a.key, a.version).cmp(&(&b.key, b.version)));
-        let snapshot = CoreSnapshot::new(CoreSnapshotContent {
+        let mut content = CoreSnapshotContent {
             schema_version: 1,
             plan,
             definition,
             curves,
             fixings,
             issuer_scope,
-        })?;
+            checkpoint: None,
+        };
+        let provisional = CoreSnapshot::new(content.clone())?;
+        content.checkpoint = self.capture_checkpoint(&provisional).await?;
+        let snapshot = CoreSnapshot::new(content)?;
         validate_snapshot(&snapshot)?;
         match self.snapshots.publish_core(&snapshot).await {
             Err(TraitError::UnknownOutcome) => {
@@ -213,6 +218,7 @@ impl CoreWorkflow {
         recompute: bool,
     ) -> Result<CoreRunReceipt> {
         let snapshot = self.snapshot(&id).await?;
+        checkpoint::check_build(&snapshot, &self.build)?;
         let request = materialize(&snapshot, &calculation)?;
         let key = CoreResult::key(&id, &calculation, &self.build);
         if !recompute {
@@ -235,6 +241,7 @@ impl CoreWorkflow {
         let output = tokio::task::spawn_blocking(move || convex::library::execute_json(&json))
             .await
             .map_err(|_| TraitError::SourceNotAvailable("native calculation worker".into()))?;
+        let output = checkpoint::output(&snapshot, &calculation, output)?;
         let result = CoreResult::new(id.clone(), calculation.clone(), self.build.clone(), output)?;
         match self.results.save_core_result(&result).await {
             Err(TraitError::UnknownOutcome) => {
@@ -261,6 +268,7 @@ fn definition(snapshot: &CoreSnapshot) -> Result<&CoreDefinition> {
 fn validate_snapshot(snapshot: &CoreSnapshot) -> Result<()> {
     snapshot.verify()?;
     issuer::validate(snapshot)?;
+    checkpoint::validate(snapshot)?;
     let content = &snapshot.content;
     let plan = &content.plan;
     let record = &content.definition;

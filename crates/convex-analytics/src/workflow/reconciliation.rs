@@ -180,6 +180,7 @@ pub struct CausalPnlInput {
 #[derive(Debug)]
 pub struct PreparedCausalPnl {
     input: CausalPnlInput,
+    opening_quantities: Vec<q::RiskPosition>,
     cohorts: Option<Vec<CohortOwnership>>,
     handoffs: Vec<Vec<Option<PhysicalDeliveryValue>>>,
     cohort_state_pins: Option<Vec<Vec<String>>>,
@@ -194,6 +195,37 @@ impl PreparedCausalPnl {
     pub fn input(&self) -> &CausalPnlInput {
         &self.input
     }
+}
+/// Admit a new interval while retaining the original lifecycle lot quantities.
+/// Completed fills change the interval opening, not historical claim ownership.
+/// Application checkpoint lineage must bind these supplied original quantities.
+pub fn prepare_causal_pnl_with_opening_quantities(
+    input: &CausalPnlInput,
+    quantities: &[q::RiskPosition],
+) -> ReconciliationResult<PreparedCausalPnl> {
+    let mut path = prepare_causal_pnl(input)?;
+    if quantities.is_empty() {
+        return Ok(path);
+    }
+    if quantities.len() != input.points[0].positions.len() {
+        return Err(bad(
+            "checkpoint quantities",
+            "complete ordered original quantities required",
+        ));
+    }
+    for (original, position) in quantities.iter().zip(&input.points[0].positions) {
+        let mut expected = position.current.clone();
+        expected.quantity = original.quantity;
+        if original != &expected {
+            return Err(bad(
+                "checkpoint quantities",
+                "original reference units/currency must be preserved",
+            ));
+        }
+        original.scale().map_err(WorkflowError::from)?;
+    }
+    path.opening_quantities = quantities.to_vec();
+    Ok(path)
 }
 fn fx(path: &PreparedCausalPnl, point: usize, currency: Currency) -> ReconciliationResult<f64> {
     if currency == path.input.reporting_currency {
@@ -265,6 +297,7 @@ pub fn prepare_causal_pnl(input: &CausalPnlInput) -> ReconciliationResult<Prepar
     }
     let path = PreparedCausalPnl {
         input: input.clone(),
+        opening_quantities: Vec::new(),
         cohorts: None,
         handoffs: Vec::new(),
         cohort_state_pins: None,
@@ -486,7 +519,7 @@ pub struct CausalPositionMark<'p> {
 /// Cash-PV reconciliation includes incremental recorded receipts and actual fill
 /// cash; futures quote reconciliation deducts executed quote consideration and
 /// deliberately does not add margin receipts. Exact cash is separately retained.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CausalPnlAmounts {
     /// Mark-only current/pending/projected values or changes.
     pub marking: ScenarioAmounts,
@@ -494,6 +527,120 @@ pub struct CausalPnlAmounts {
     pub cash: ModelMoney,
     /// Current model gain with actual cash economics, separate from pending.
     pub current_model_pnl: ModelMoney,
+}
+/// Bounded carry of completed windows, retaining currency and valuation meaning.
+/// Detailed attribution and original facts remain in their immutable windows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PnlWindowTotal {
+    /// Cash PV and futures quote changes must never be combined.
+    pub basis: ValuationBasis,
+    /// Native or reporting currency, according to the owning collection.
+    pub currency: Currency,
+    /// Already reconciled interval effects; no opening scalar price is restored.
+    pub total: CausalPnlAmounts,
+}
+/// Add completed, reconciled windows with exact coverage and currency checks.
+/// This is reporting arithmetic, not a substitute for native window admission.
+pub fn accumulate_pnl_windows(
+    previous: &[PnlWindowTotal],
+    current: &[PnlWindowTotal],
+) -> ReconciliationResult<Vec<PnlWindowTotal>> {
+    for rows in [previous, current] {
+        validate_pnl_window_totals(rows)?;
+    }
+    if previous.len() != current.len() {
+        return Err(bad("checkpoint", "window total coverage changed"));
+    }
+    current
+        .iter()
+        .map(|row| {
+            let old = previous
+                .iter()
+                .find(|p| p.basis == row.basis && p.currency == row.currency)
+                .ok_or_else(|| bad("checkpoint", "window basis/currency changed"))?;
+            Ok(PnlWindowTotal {
+                basis: row.basis,
+                currency: row.currency,
+                total: combine(&old.total, &row.total, 1.0)?,
+            })
+        })
+        .collect()
+}
+/// Validate captured reporting units/coverage without rounding or adding values.
+pub fn validate_pnl_window_totals(rows: &[PnlWindowTotal]) -> ReconciliationResult<()> {
+    if rows.is_empty() || rows.len() > 256 {
+        return Err(bad("checkpoint", "bounded complete window totals required"));
+    }
+    for (i, row) in rows.iter().enumerate() {
+        if rows[..i]
+            .iter()
+            .any(|p| p.basis == row.basis && p.currency == row.currency)
+            || [
+                &row.total.marking.current,
+                &row.total.marking.pending,
+                &row.total.marking.projected,
+                &row.total.cash,
+                &row.total.current_model_pnl,
+            ]
+            .iter()
+            .any(|v| v.currency() != row.currency)
+        {
+            return Err(bad(
+                "checkpoint",
+                "unique basis/currency and consistent monetary units required",
+            ));
+        }
+    }
+    Ok(())
+}
+/// Continue reporting attribution, including FX changes on previously received
+/// cash and executed futures consideration. Model marking already telescopes.
+pub fn continue_pnl_reporting(
+    previous_local: &[PnlWindowTotal],
+    previous_reporting: &[PnlWindowTotal],
+    current_reporting: &[PnlWindowTotal],
+    before: &PnlPointInput,
+    after: &PnlPointInput,
+    reporting_currency: Currency,
+) -> ReconciliationResult<Vec<PnlWindowTotal>> {
+    validate_pnl_window_totals(previous_local)?;
+    let mut totals = accumulate_pnl_windows(previous_reporting, current_reporting)?;
+    let rate = |point: &PnlPointInput, currency| -> ReconciliationResult<f64> {
+        if currency == reporting_currency {
+            return Ok(1.0);
+        }
+        let pins: Vec<_> = point.fx.iter().filter(|p| p.from == currency).collect();
+        if pins.len() != 1
+            || pins[0].to != reporting_currency
+            || pins[0].snapshot_id != point.snapshot_id
+            || pins[0].rate.decimal() <= Decimal::ZERO
+        {
+            return Err(bad(
+                "checkpoint FX",
+                "exact positive direct point observation required",
+            ));
+        }
+        num(pins[0].rate.decimal())
+    };
+    for old in previous_local {
+        let change = rate(after, old.currency)? - rate(before, old.currency)?;
+        let row = totals
+            .iter_mut()
+            .find(|r| r.basis == old.basis && r.currency == reporting_currency)
+            .ok_or_else(|| bad("checkpoint FX", "complete reporting basis required"))?;
+        row.total.cash = money(
+            row.total.cash.value().get() + old.total.cash.value().get() * change,
+            reporting_currency,
+        )?;
+        let adjustment =
+            old.total.current_model_pnl.value().get() - old.total.marking.current.value().get();
+        row.total.current_model_pnl = money(
+            row.total.current_model_pnl.value().get() + adjustment * change,
+            reporting_currency,
+        )?;
+    }
+    Ok(totals)
 }
 /// Original cause order plus actually admitted standalone effects and residuals.
 #[derive(Debug, Serialize)]
@@ -661,6 +808,9 @@ pub struct CausalPnlTotal {
 pub struct CausalPnlReport<'p> {
     /// Complete actual before/after/path/FX/quantity/fill declarations.
     pub input: CausalPnlInput,
+    /// Original lifecycle quantities before completed checkpoint-window fills.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub opening_quantities: Vec<q::RiskPosition>,
     /// Full native economics/states/claims/received/proposed/effects per holding.
     pub trades: Vec<CausalPnlTrade<'p>>,
     /// Separate native currencies and bases.
@@ -756,6 +906,7 @@ pub fn aggregate_causal_pnl<'p>(
     let [local, reporting] = groups;
     Ok(CausalPnlReport {
         input: path.input.clone(),
+        opening_quantities: path.opening_quantities.clone(),
         trades,
         local_totals: totals(local)?,
         reporting_totals: totals(reporting)?,

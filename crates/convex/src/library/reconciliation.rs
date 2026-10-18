@@ -147,6 +147,10 @@ pub enum CausalPnlCounterfactual {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 pub struct MixedBookPnlInput {
+    /// Complete original lifecycle quantities before completed-window fills.
+    /// Checkpoint persistence/lineage belongs to the application, not this pure API.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub opening_quantities: Vec<q::RiskPosition>,
     /// Complete common calendars and original history/publication inputs; curves/calibration must be empty.
     pub resources: LibraryInputs,
     /// Complete actual immutable market bundles, shared through local indices only.
@@ -262,6 +266,12 @@ fn reconcile_inner(
     outer: &LibraryInputs,
     cohorts: Option<&CohortBookPnlInput>,
 ) -> LibraryResult<Value> {
+    if cohorts.is_some() && !input.opening_quantities.is_empty() {
+        return Err(LibraryError::invalid(
+            "checkpoint quantities",
+            "single legal holding owner required",
+        ));
+    }
     let count = 1
         + input.steps.len()
         + input
@@ -371,7 +381,9 @@ fn reconcile_inner(
     let path = if let Some((path, _)) = &cohort_replays {
         path
     } else {
-        plain_path = w::prepare_causal_pnl(&declaration).map_err(native_error)?;
+        plain_path =
+            w::prepare_causal_pnl_with_opening_quantities(&declaration, &input.opening_quantities)
+                .map_err(native_error)?;
         &plain_path
     };
     let mut rows = (0..input.before.point.positions.len())

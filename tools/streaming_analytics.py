@@ -484,6 +484,8 @@ class Workflow:
                 raise Blocked('server_build_changed')
             valid_until = self.freshness()  # Reject results which expired during calculation.
             self.bundle = dict(snapshot_id=snapshot, receipts=receipts, prices=prices, hedge_status=hedge['status'])
+            if 'continuity' in pnl:
+                self.bundle['pnl_continuity'] = copy.deepcopy(pnl['continuity'])
             if self.book is not None:
                 self.bundle['book'] = dict(id=self.book['id'], version=self.book['version'],
                     release_digest=self.book_head['digest'],

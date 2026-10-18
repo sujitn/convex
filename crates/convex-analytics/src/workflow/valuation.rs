@@ -110,7 +110,7 @@ pub enum Valuation {
     BondFuture(Box<BondFuturesValuation>),
 }
 /// Stable distinction between discounted economic PV and a futures mark level.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ValuationBasis {
     /// Bond/swap/CDS model PV at the supplied valuation/settlement boundary.
     CurrencyPresentValue,

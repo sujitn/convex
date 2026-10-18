@@ -825,6 +825,7 @@ pub(super) fn execute(
             product,
             lifecycle,
             history,
+            opening_quantities,
             input,
             max_state_evaluations,
         } => super::lifecycle_risk::calculate(
@@ -832,6 +833,7 @@ pub(super) fn execute(
             product,
             lifecycle,
             history,
+            opening_quantities,
             input,
             *max_state_evaluations,
             r,

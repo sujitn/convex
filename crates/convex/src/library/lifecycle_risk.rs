@@ -6,11 +6,13 @@ use convex_analytics::{
 use convex_core::contracts::{ExactDecimal, ModelMoney};
 use rust_decimal::Decimal;
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn calculate(
     graph_input: &CalibrationInput,
     product: &RiskProductInput,
     lifecycle: &LifecycleInput,
     history: &w::CausalPnlInput,
+    opening_quantities: &[q::RiskPosition],
     input: &w::GraphHedgeRiskInput,
     max_state_evaluations: usize,
     resources: &inputs::ResolvedInputs<'_>,
@@ -35,7 +37,8 @@ pub(super) fn calculate(
             "standard bond, IRS/OIS or CDS required; optional and physical owners remain separate",
         ));
     }
-    let path = w::prepare_causal_pnl(history).map_err(reconciliation::native_error)?;
+    let path = w::prepare_causal_pnl_with_opening_quantities(history, opening_quantities)
+        .map_err(reconciliation::native_error)?;
     let closing = history.causes.len();
     let point = &path.input().points[closing];
     let index = point

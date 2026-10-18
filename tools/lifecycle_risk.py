@@ -27,11 +27,16 @@ def bind_requests(definition, config, identities):
         operation = value['calculations'][config['risks'][identity]]['request']['operation']
         operation.update(kind='lifecycle_hedge_risk', lifecycle=copy.deepcopy(holding['lifecycle']),
             history=history(data), max_state_evaluations=5 * len(operation['input']['factors']))
+        if data.get('opening_quantities'):
+            operation['opening_quantities'] = copy.deepcopy(data['opening_quantities'])
+        else:
+            operation.pop('opening_quantities', None)
     return value
 
 
 def check_binding(operation, holding, data):
     if (operation['lifecycle'] != holding['lifecycle'] or operation['history'] != history(data)
+            or operation.get('opening_quantities', []) != data.get('opening_quantities', [])
             or type(operation['max_state_evaluations']) is not int
             or not 5 * len(operation['input']['factors']) <= operation['max_state_evaluations'] <= 80):
         raise ValueError('lifecycle_risk_history_mismatch')

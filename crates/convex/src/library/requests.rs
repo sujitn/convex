@@ -588,6 +588,9 @@ pub enum LibraryOperation {
         lifecycle: Box<super::events::LifecycleInput>,
         /// Exact native quantity/fill/FX history from the causal P&L path.
         history: Box<convex_analytics::workflow::CausalPnlInput>,
+        /// Same original quantities as the checkpointed causal P&L window.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        opening_quantities: Vec<convex_analytics::quote_risk::RiskPosition>,
         /// Original fresh reference columns and factor-specific risk policies.
         input: Box<convex_analytics::workflow::GraphHedgeRiskInput>,
         /// Explicit five-price current/pending state reservation,1..80.

@@ -152,6 +152,43 @@ pub struct CoreSnapshotContent {
     /// Exact resolved issuer directory when explicitly selected; absent on prior snapshots.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub issuer_scope: Option<MasterRecord>,
+    /// Engine-checked carry from an exact successful saved closing window.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint: Option<CoreCheckpoint>,
+}
+/// Explicit reserved `reference_inputs.pnl_checkpoint` selection. No latest lookup.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CoreCheckpointSource {
+    /// Exact immutable predecessor snapshot.
+    pub snapshot_id: SnapshotId,
+    /// Prior and current native book P&L calculation name.
+    pub calculation: String,
+    /// Build that produced the successful source result.
+    pub build_id: ModelId,
+}
+/// Captured checkpoint; ports retain opaque financial totals, the native owner checks them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CoreCheckpoint {
+    /// Exact audited predecessor, never a mutable latest book.
+    pub source: CoreCheckpointSource,
+    /// Deterministic original result identity.
+    pub result_id: String,
+    /// Original exact stored output digest.
+    pub output_digest: String,
+    /// Complete expanded opening inputs, preserving lifecycle replay and claims.
+    pub opening_digest: String,
+    /// Actual completed windows, excluding the current window.
+    pub completed_windows: u64,
+    /// Actual completed causal phases, excluding the current window.
+    pub completed_causes: u64,
+    /// Consumed interval fill IDs; they cannot be replayed in a later window.
+    pub retired_fill_ids: Vec<String>,
+    /// Checked native per-currency/per-basis interval totals.
+    pub local_totals: serde_json::Value,
+    /// Checked reporting totals, with PV and futures quote meaning kept separate.
+    pub reporting_totals: serde_json::Value,
 }
 /// Content-addressed core snapshot, separate from the existing fixed-bullet schema.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

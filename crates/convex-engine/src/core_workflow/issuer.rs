@@ -18,6 +18,7 @@ pub(super) fn native_inputs(value: &serde_json::Value) -> Result<LibraryInputs> 
     let mut value = value.clone();
     if let Some(object) = value.as_object_mut() {
         object.remove("issuer_scope");
+        object.remove("pnl_checkpoint");
     }
     serde_json::from_value(value).map_err(|_| invalid("invalid core reference inputs"))
 }

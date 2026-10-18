@@ -5899,6 +5899,43 @@
         "tools/streaming_analytics.py": "d83496d89d81960059d5d9cba70380a761b403277d7c9219f29602629197fc8a",
         "tools/tests/test_book_rolls.py": "f8268c758ba83f4fb594b03c3445c38d72e4bf35f34561e114e0f21c2d29f68e"
       }
+    },
+    {
+      "base_commit": "da1766df507f67461abcf9ee36b1d08ad70a8ef3",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Explicit durable bounded native P&L windows over existing core ports. Exact successful saved closing inputs become the new opening; full original lifecycle replay, unpaid claims, receipts, post-fill quantities and original lot ownership remain. Native carry retains per-basis/currency totals and FX cash/consideration revaluation; completed fill IDs cannot recur. Captured latest snapshot alone is sufficient for saved-input recompute. No cached state decoder, backend/MQ/scheduler/ledger/endpoint/dependency or execution owner. Preserve all1965prior numerical rows/bytes/defaults and2154mandatory Planned records. New additive controls use independent binary-exact signed/FX arithmetic and original synthetic book/financial/solver bounds. Local engineering review only; no independent human quantitative/model/platform/provider/latency/production approval. Final Python example cleanup removes one trailing blank only. Complete AST equality and native/fixture/binary equality bind the passed full qualification; actual final example, policy and assurance reruns retain exact financial output digest multiset. No numerical case, value, assertion, tolerance or behavior changes.",
+      "tests": [
+        "Four new native reporting controls and four new durable checkpoint/fill/tamper/recovery controls, plus existing core/native/ports/backend/server regressions in declared profiles.",
+        "111Python controls (6new/105old),42policy and16coverage controls, strict affected all-feature Clippy/format and normal/exact-base/staged assurance/API conservation.",
+        "Six-position/five-factor26cause CLI replay in9/8/9windows: actual IRS fill/fee, three partial coupon receipts and1000.06USD outstanding, exact same-state risk/P&L/hedges, successful native parity and original raw-residual/conditioning guards.",
+        "Actual committed-hedge/pre-ACK worker death, server/worker restart, exact prior output bytes/cache and all8final saved-input result recomputations; latest-only snapshot with empty mutable ports/fresh result store. Unchanged prior date-roll example."
+      ],
+      "candidate_files": {
+        "crates/convex-analytics/src/workflow/reconciliation.rs": "968190661aedb7289ec90065d966275d7728980d51a10b0fbdbe1737f048e198",
+        "crates/convex-analytics/src/workflow/reconciliation/product.rs": "e712d3c01adae82b1982c2fc81a66cd3b5ce121b29b2aa0c3cf7a1d512a966d2",
+        "crates/convex-analytics/src/workflow/scenario.rs": "555ddd8541d54706c73a5dda15f1292ff6717d3569e65955844098442e5ad85c",
+        "crates/convex-analytics/src/workflow/valuation.rs": "bf0614cc10a1675fd87cc54284327209b87df9ff9b2ecc43a7848cb445ff1e1f",
+        "crates/convex-analytics/tests/pnl_checkpoints.rs": "7a4dbfdf84792bfe08aa1a91d844e679419566f8cca580069233c2634944666d",
+        "crates/convex-engine/src/core_workflow.rs": "d5ade853aba3f4b76d082caafd3e69d0ad1c54de384ba9e566d02390b874aa7e",
+        "crates/convex-engine/src/core_workflow/checkpoint.rs": "b6e15d0b67cdf6ea44bc04e331eb7dac3b61baed7ca0e62e145699c63c015c37",
+        "crates/convex-engine/src/core_workflow/issuer.rs": "bc5555a6b679a0fed568f35466ec34073f8f60e0710bc8770fadce874bddddba",
+        "crates/convex-engine/tests/pnl_checkpoints.rs": "7596b6f27dd385f4e8b859064f875afca9d3414026c389fb154dee0ce0b1e4f1",
+        "crates/convex-ports/src/core_workflow.rs": "766011a829528f1890c96c94cfa82e30297624634b2fe3107a71171d077a3b31",
+        "crates/convex/src/library/lifecycle_risk.rs": "f2fe78517fca96b490831f107f1075132040e027c10cdd27304e05f8adc0c526",
+        "crates/convex/src/library/products.rs": "71e48f0dc4a94d667af288b0fdcd1476bf07c50a9b10a9b194c845082c3ffbd0",
+        "crates/convex/src/library/reconciliation.rs": "e3850420d00fb8998f07369118ffd29f8ae199cc9d5abf6e8ca6de48e0e06310",
+        "crates/convex/src/library/requests.rs": "1c909a6200114e6ccce2171a69dcf82d0846a8529bbbb4165c845872c454e7d3",
+        "tools/CHECKPOINTS.md": "04ed790afc4dccc1608c7b0cf18b78055a0ed88eb65b0f9050e22475cfa9a521",
+        "tools/assurance/inventory.json": "c37801bc49ee2ec6d23c8135001e7af8f06f08c874e94befca168f2263225fb7",
+        "tools/assurance/numeric-evidence.json": "78c17143001c712a9aa5d3e348ba57d065b16799f7f91e877a60b803dd2c77f6",
+        "tools/book_checkpoints.py": "92bb1f2911e11b2e007bb07b2fbbe9ddf52ea814b8ecfc349d408722343a7a2b",
+        "tools/core_checkpoint_workflow.py": "bd8859ef8260622f5596b900570f441d1fa7078e331158d388b6730fcf9e39d8",
+        "tools/library/library-inventory.json": "e92b6a867129abaef3b3304a57fdeee1d257b2e1cd13648ea8f960fc86378369",
+        "tools/lifecycle_risk.py": "036e25855140564bcd85d95e2d86701e91498e13093d72f4c9ca5c9d732f8776",
+        "tools/streaming_analytics.py": "d7829441b92daa1ce9f5fbd1aa9cc370744a3e5eeb8fe94d6f00553cb60444c1",
+        "tools/tests/test_book_checkpoints.py": "63d3d4e4771659c1ee0b564f3fefe2bc5a9d64697a0b5cbe56516fb9e7fb8681"
+      }
     }
   ]
 }

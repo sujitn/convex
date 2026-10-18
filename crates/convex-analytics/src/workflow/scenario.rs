@@ -214,7 +214,7 @@ pub fn prepare_book_scenarios(
 }
 
 /// Distinct current, pending and projected signed monetary amounts.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScenarioAmounts {
     /// Current holdings scaled once.
     pub current: ModelMoney,

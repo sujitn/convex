@@ -510,6 +510,9 @@ fn mark_position<'p>(
         }
     }
     let mut original = path.input.points[0].positions[index].current.clone();
+    if let Some(quantity) = path.opening_quantities.get(index) {
+        original = quantity.clone();
+    }
     let cohort = path.cohorts.as_ref().map(|owners| &owners[index]);
     if let Some(owner) = cohort {
         original.quantity = owner.quantity;
