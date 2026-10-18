@@ -3,8 +3,8 @@
 //! Numeric values retain their established binary64/shortest-decimal wire
 //! interpretation. Strings preserve exact decimal digits. Both forms reject
 //! rounding, overflow and nonzero erasure. Raw JSON callers must first use
-//! [`super::json::parse`] to retain lexical nonzero intent before binary64 parsing.
-//! Exact-string contracts continue to use [`super::decimal_serde`].
+//! [`crate::contracts::json::parse`] to retain lexical nonzero intent before binary64 parsing.
+//! Exact-string contracts continue to use [`crate::contracts::decimal_serde`].
 
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;

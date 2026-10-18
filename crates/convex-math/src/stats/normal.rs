@@ -21,7 +21,7 @@ pub fn standard_normal_cdf(x: f64) -> f64 {
 }
 
 /// Inverse standard-normal CDF for a finite probability strictly between 0 and 1.
-/// Uses a bounded log-survival solve on [0,40], including subnormal tails.
+/// Uses a bounded log-survival solve on `[0,40]`, including subnormal tails.
 /// The existing approximate CDF and its original financial bounds are unchanged.
 pub fn standard_normal_inverse(probability: f64) -> crate::MathResult<f64> {
     if !probability.is_finite() || probability <= 0.0 || probability >= 1.0 {

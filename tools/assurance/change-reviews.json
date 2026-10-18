@@ -6513,7 +6513,7 @@
         "crates/convex-core/src/contracts/issuer.rs": "7d921f6a8fcdb5cf5cff2d0784634be87360df5e69596292d422501dd5719833",
         "crates/convex-core/src/contracts/json.rs": "9bdbcf6bc660aa20378120cd592b6ed2d7b31982f42eaeb962c387a06188acf6",
         "crates/convex-core/src/contracts/mod.rs": "74a0b8d3a0ed9de92979cd70f94a838dea467dead8e7557425f84d18573eb467",
-        "crates/convex-core/src/contracts/numeric_decimal.rs": "8ccfe708afda1a5e9ec1008e9a83797d6355cd5d512c9c135d324c4102392532",
+        "crates/convex-core/src/contracts/numeric_decimal.rs": "47b2b143a44a7b240bdaa2295612be4ca4f743bb209f1f529e2ca048e51178ec",
         "crates/convex-core/src/contracts/results.rs": "ed80dd57c0a5aba86029a64944f0bc6c053a73ce11bf9ba4c07f6b987e22d809",
         "crates/convex-core/src/contracts/risk.rs": "5b64343538118049b6ed5a7b730154e40b4eecb12cd32c60fcf021155d5e94ca",
         "crates/convex-core/src/contracts/time.rs": "8e951a7ca549ed9ecbb1928b928b016d01059e3a16885944a4a0e37fdeeaad95",
@@ -6759,7 +6759,7 @@
         "crates/convex-math/src/solvers/newton.rs": "99cd79863a58e156f60a445f97c5ce8b68ec1aec2d3f80a35edb939061f6d74d",
         "crates/convex-math/src/solvers/secant.rs": "b233006b2d23b87e6fde7ba90080cd473ff4e5c689e362da579a5f5dae6fbe91",
         "crates/convex-math/src/stats/mod.rs": "05556d454687cbcc5d55057adf35c0a50fe20899fa964a799f170cd3decaad3f",
-        "crates/convex-math/src/stats/normal.rs": "92f99abb6d668af596e191d58fc07006281eb0dd3a76d38fe7a83ba9bfbddbce",
+        "crates/convex-math/src/stats/normal.rs": "5e3099565d9978da52f016a424738c665b807c73a228ffdadce4f3b225fe8f15",
         "crates/convex-math/tests/assurance.proptest-regressions": "6429d472e34cea2cb45db135ab5d76cbadf278511dd53a3c15631159f1221eba",
         "crates/convex-math/tests/assurance.rs": "09ab0fdd846f2220aac150a968cd3dd8e5ad8c5b34acf2e8dfc29ca7c734c338",
         "crates/convex-math/tests/bounded_decimal.rs": "4a5b27923af900360efde7bdb3c072fed97f6560efc4b38b4864468ec4e47137",
@@ -8011,13 +8011,13 @@
         "tools/assurance/check.py": "363da96a0264bc44d0293f19f6afd2768f6f2bb1d38f6208b8d7ab486f3b8858",
         "tools/assurance/dependencies.json": "a0a361cbaab9375e2cd19355734e3853bd6bb5bc5ef2d6b02ea1ca8391f454a9",
         "tools/assurance/exceptions.json": "1841a20cfacba151355d5e7fbcfa783e1a96df8e24b63675fc8f0649276af777",
-        "tools/assurance/inventory.json": "18fa693c5a8bf5ae092de88fa15ca76aa53b83fd96f9991b970f773f648918dc",
+        "tools/assurance/inventory.json": "d920b948317394bc9f4d1ff280f8b66317e8f02bf5042905ac840223f4b74f32",
         "tools/assurance/numeric-evidence.json": "8229f41117ebbb04b7f1189ddac85a069d33e270d11f0264543b80eecfdce6f6",
         "tools/assurance/test_policy.py": "3e0d84ca0e1f72f3b5374edcdb729b941ff9705d513b4b86bdd27d49b7b24a03",
         "tools/library/api-capabilities.json": "9279c0cf5f38522f4a48b5d72cd50b286422fe1794c0ddb070c53b57681a3a5e",
         "tools/library/api.py": "d4badeec46d1800f10430921f9a73150fb7625c7be5599b4d06193cfc1c27ab5",
         "tools/library/check.py": "4eb0c75610a5d691d6bc6c164758d5e79a2a8237061b760b4f629c505508c1c9",
-        "tools/library/library-inventory.json": "c069339995fca0b996952e3ad0320e6b5e6c6f81215adb96878b08b410ec0ba4",
+        "tools/library/library-inventory.json": "cba181888dc6e6ed221b9513e820596ab511db98a4b3416489b83b446896e4b8",
         "tools/library/native-operations.json": "28b34fbf3aa1cf83a8bd8ba76320de74b522e3142dca626c9dc38072245d8a5f",
         "tools/library/outstanding.py": "65a49e791be7a0db5d0572ea3bd47dfae3ef9c929872cd4a7e30988c02cc31a3",
         "tools/library/requirements-schema.txt": "08dbb2c70f3bacbd191233acf913990de4513b44c637e746a5b9d3acba7bc06d",
@@ -8049,6 +8049,22 @@
           ".ai/production-readiness/evidence/CVX-063-Invoice-Methods/following-date-test-adapters.patch",
           ".ai/production-readiness/evidence/CVX-063-Checked-Risk-Date/applied-human-protected-adapters.json"
         ]
+      }
+    },
+    {
+      "base_commit": "e725799ef16e076f83da358adcec36452a033757",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Repair three broken Rust documentation links discovered by the committed strict documentation build: qualify the two core contract module paths and render the normal inverse solver interval as code. Only documentation comments change. Executable tokens and the protected normal numerical test section remain exact; all numerical artifact rows/defaults, library requirements and observations remain unchanged. Refresh only the two affected source fingerprints and their dependent inventory hashes. This is engineering documentation review, with no financial or production approval.",
+      "tests": [
+        "cargo doc --locked --no-deps --all-features --workspace with RUSTDOCFLAGS=-Dwarnings",
+        "Comment-only executable-byte comparison; original numerical test-section pin remains unchanged; normal and exact-main/increment-base assurance."
+      ],
+      "candidate_files": {
+        "crates/convex-core/src/contracts/numeric_decimal.rs": "47b2b143a44a7b240bdaa2295612be4ca4f743bb209f1f529e2ca048e51178ec",
+        "crates/convex-math/src/stats/normal.rs": "5e3099565d9978da52f016a424738c665b807c73a228ffdadce4f3b225fe8f15",
+        "tools/assurance/inventory.json": "d920b948317394bc9f4d1ff280f8b66317e8f02bf5042905ac840223f4b74f32",
+        "tools/library/library-inventory.json": "cba181888dc6e6ed221b9513e820596ab511db98a4b3416489b83b446896e4b8"
       }
     }
   ]
