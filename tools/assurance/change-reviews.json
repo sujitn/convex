@@ -6116,6 +6116,28 @@
         "tools/assurance/numeric-evidence.json": "c7ec1e3735f3cf2af90d85f6e6c8b49eeaf8bb4dac8a8eeb9c6be780ea208aac",
         "tools/library/library-inventory.json": "ee5fdb05c5f0b10dd5d1b1fb63acec2d86b83a867e0516aa5e1f0af9ba632ef1"
       }
+    },
+    {
+      "base_commit": "1f9944e5ba775cd73914a2e4acc047b849d69867",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Fresh release36/60trade diagnostics measure each full JSON content/envelope serialization at1.18/2.47ms, while actual verified file reads take6.18/12.64ms and raw reads0.076/0.138ms. The existing adapter serializes content to verify its digest and then serializes the full envelope again. Add CoreSnapshot::canonical_bytes over a shared verified-content byte helper and the unchanged two-field id/content envelope; use it for existing file reads/publication. Serialize content once per call, hash those same bytes with the original domain, encode the verified identity with serde and copy the content into its exact original envelope order. No cross-call cache, custom JSON parser, RawValue feature, dependency, port trait, stored format/ID migration, provider/backend/MQ, engine or financial-owner change. Every original plan/schema/fixing/content-size guard, SHA256, requested ID, canonical raw-file comparison, regular-file/symlink/read/envelope-size guard, atomic publication/sync, engine admission, authorization/freshness, result/checkpoint/cash/restart owner remains. Content and whole-file limits remain separate as before. New independent generic serde byte tests cover32precision/Unicode/optional issuer/checkpoint shapes, original rejection classes and exact16MiB content boundaries. Actual release alternating verification/encoding measurements must agree with generic serde bytes/typed values/IDs, and complete unchanged36/60trade updates must preserve 400paired output digests,500native comparisons/retained result bytes per build and100cached/forced final recovery outputs. All1990old numerical rows/bytes/defaults,161observations and 2154literal mandatory Planned records remain. Keep only measured improvement; actual receipts determine passing outcomes. Warm synthetic sequential macOS ARM engineering evidence grants no model/provider/platform/live/authenticated/concurrent/cold-disk/p99/SLA/production acceptance.",
+      "tests": [
+        "Alternating-order release verified-encoding probe31samples/3warmup; same guards/hash timed; exact bytes/typed values/ID checks.",
+        "New generic serde conformance, precision/escaping/optional-field and original rejection/size-boundary controls; unchanged release file/port/engine/server/access tests.",
+        "Unchanged release36/60trade snapshot and update measurements with400paired output digests,500native comparisons/retained bytes and100cached/forced final recovery results per build.",
+        "Existing cash/checkpoint/pre-ACK/stale/gap/reconnect examples, strict affected/new example/test lint and format,131Python/42policy/16inventory/API/normal/exact-base/staged assurance. Actual receipts determine passing counts."
+      ],
+      "candidate_files": {
+        "crates/convex-engine/examples/core_json_encode.rs": "443be870f497d12f925598ff18d6e33e3f28e07f2f1ca7067061801c345b6425",
+        "crates/convex-ext-file/src/snapshot_repository.rs": "185706d9f2681ce8dce5f8d3f5399b01eb334cbfedfa4d34ecbcdd41920d24e9",
+        "crates/convex-ports/src/core_workflow.rs": "4ddf5517d401f4293ee0b5a0813595999008501d1314795bfba2063ba96c92b5",
+        "crates/convex-ports/tests/core_snapshot_encoding.rs": "3cbcfc92a16d6646d89143fb70ac5f5d31a815472f39dd444996c34ad9e75dfe",
+        "tools/JSON-ENCODE.md": "ea13aa9973bb21058862aa6aedbe120ff5539d94165fc0671461bdf356dca11f",
+        "tools/assurance/inventory.json": "18fa693c5a8bf5ae092de88fa15ca76aa53b83fd96f9991b970f773f648918dc",
+        "tools/assurance/numeric-evidence.json": "4515a93b6e1020119d7335bbad91c599e04b41d4175fccae294f8336f644a1bc",
+        "tools/library/library-inventory.json": "d0d3c05e222ad2d5051872a13237772bfa803636854f3e7e1b3c8ab168542de7"
+      }
     }
   ]
 }

@@ -221,10 +221,10 @@ pub struct CoreSnapshot {
 impl CoreSnapshot {
     /// Validate and bind canonical content, without a clock or backend.
     pub fn new(content: CoreSnapshotContent) -> Result<Self, TraitError> {
-        let id = Self::content_id(&content)?;
+        let id = Self::content_id(&Self::content_bytes(&content)?)?;
         Ok(Self { id, content })
     }
-    fn content_id(content: &CoreSnapshotContent) -> Result<SnapshotId, TraitError> {
+    fn content_bytes(content: &CoreSnapshotContent) -> Result<Vec<u8>, TraitError> {
         content.plan.validate()?;
         if content.schema_version != 1 || content.fixings.len() > 100_000 {
             return Err(TraitError::InvalidInput(
@@ -236,18 +236,40 @@ impl CoreSnapshot {
         if bytes.len() > MAX_SNAPSHOT_BYTES {
             return Err(TraitError::CapacityExceeded);
         }
+        Ok(bytes)
+    }
+    fn content_id(bytes: &[u8]) -> Result<SnapshotId, TraitError> {
         SnapshotId::new(format!(
             "sha256:{}",
-            content_digest(b"convex.core-snapshot.v1\0", &bytes)
+            content_digest(b"convex.core-snapshot.v1\0", bytes)
         ))
         .map_err(|_| TraitError::InvalidInput("core snapshot identity"))
     }
-    /// Reject corrupt identity/content rather than returning a different snapshot.
-    pub fn verify(&self) -> Result<(), TraitError> {
-        if Self::content_id(&self.content)? != self.id {
+    fn verified_content(&self) -> Result<Vec<u8>, TraitError> {
+        let bytes = Self::content_bytes(&self.content)?;
+        if Self::content_id(&bytes)? != self.id {
             return Err(TraitError::Conflict("core snapshot content mismatch"));
         }
-        Ok(())
+        Ok(bytes)
+    }
+    /// Reject corrupt identity/content rather than returning a different snapshot.
+    pub fn verify(&self) -> Result<(), TraitError> {
+        self.verified_content().map(|_| ())
+    }
+    /// Verified canonical envelope, serializing content once. Adapters retain
+    /// their additional whole-file byte bound; the content bound is checked here.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, TraitError> {
+        let content = self.verified_content()?;
+        // Match the existing derived Serialize envelope, including field order.
+        // Independent byte-contract tests compare this with generic serde output.
+        let mut bytes = b"{\"id\":".to_vec();
+        serde_json::to_writer(&mut bytes, &self.id)
+            .map_err(|_| TraitError::InvalidInput("core snapshot JSON"))?;
+        bytes.extend_from_slice(b",\"content\":");
+        bytes.reserve(content.len() + 1);
+        bytes.extend_from_slice(&content);
+        bytes.push(b'}');
+        Ok(bytes)
     }
 }
 /// Stored exact native envelope, keyed by complete snapshot/calculation/build.

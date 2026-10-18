@@ -35,12 +35,8 @@ impl FileSnapshotRepository {
             .map_err(|_| TraitError::InvalidInput("corrupt core snapshot"))?;
         let snapshot: convex_ports::core_workflow::CoreSnapshot = serde_json::from_str(text)
             .map_err(|_| TraitError::InvalidInput("corrupt core snapshot"))?;
-        snapshot.verify()?;
-        if snapshot.id != *id
-            || serde_json::to_vec(&snapshot)
-                .map_err(|_| TraitError::InvalidInput("core snapshot JSON"))?
-                != bytes
-        {
+        let canonical = snapshot.canonical_bytes()?;
+        if snapshot.id != *id || canonical != bytes {
             return Err(TraitError::Conflict(
                 "core snapshot identity/canonical content mismatch",
             ));
@@ -141,9 +137,7 @@ impl SnapshotRepository for FileSnapshotRepository {
         &self,
         snapshot: &convex_ports::core_workflow::CoreSnapshot,
     ) -> Result<(), TraitError> {
-        snapshot.verify()?;
-        let bytes = serde_json::to_vec(snapshot)
-            .map_err(|_| TraitError::InvalidInput("core snapshot JSON"))?;
+        let bytes = snapshot.canonical_bytes()?;
         if bytes.len() > MAX_SNAPSHOT_BYTES {
             return Err(TraitError::CapacityExceeded);
         }
