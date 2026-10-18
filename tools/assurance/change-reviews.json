@@ -6095,6 +6095,27 @@
         "tools/assurance/numeric-evidence.json": "10ae6ca0f1b379f74d0b2c075b703d60d42bdc9ebb39f721437b87456fee83c9",
         "tools/library/library-inventory.json": "e048522cf377898d21d1e4d7f03d340e6a818f1a0b97f23bf17b5bf167c5a8f4"
       }
+    },
+    {
+      "base_commit": "0630a38687a0397ba6286fb0ed5793aa71bba783",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Matched actual release36/60trade baseline snapshot decoding costs3.811/7.653ms versus raw reads0.075/0.142ms. The alternating-order probe includes whole-buffer UTF8 validation and complete original float_roundtrip decoding, allocations, and exact byte/value/hash comparisons outside timing. Change only the existing file adapter core-snapshot read from from_slice to checked whole-buffer UTF8 plus from_str, retaining the same locked serde_json parser and its settings. No unchecked UTF8, raw JSON decoder, cache, batching, format/identity migration, provider/backend/MQ/port/API/dependency change or bypassed read/check is introduced. Every regular-file/symlink/size guard, requested ID, content SHA256, canonical raw-byte comparison, engine whole-book validation, source cutoff, authorization/freshness, native pricing/risk/hedge/P&L, results, checkpoints, outstanding cash and restart owner remains. New opaque precision/UTF8 tests compare signed zero, integer limits, adjacent finite doubles, subnormal/maximum double and Unicode/escapes, actual reopened bytes, invalid encodings and malformed JSON. Existing pinned harnesses/tests/numerical artifacts/defaults remain exact. Retain only measured improvement with identical400paired financial outputs,500native comparisons/retained result bytes per build and100cached/forced final recovery results. All1988old numerical rows,160observations and2154literal mandatory Planned records remain. Actual receipts determine success; warm synthetic sequential macOS ARM engineering evidence does not grant model/provider/platform/live/authenticated/concurrent/cold-disk/p99/SLA or production acceptance.",
+      "tests": [
+        "Alternating-order release JSON decoder probe31samples/3warmup; full UTF8 validation timed; exact typed values/bytes/hash checks.",
+        "New precision/UTF8/admission controls before/after; unchanged release file/port/engine/server/access tests.",
+        "Unchanged release36/60trade snapshot and update measurements with400paired output digests,500native comparisons/retained bytes and100cached/forced final recovery results per build.",
+        "Existing cash/checkpoint/pre-ACK/stale/gap/reconnect examples, strict affected/new example/test lint and format,131Python/42policy/16inventory/API/normal/exact-base/staged assurance. Actual receipts determine passing counts."
+      ],
+      "candidate_files": {
+        "crates/convex-engine/examples/core_json_decode.rs": "af66bd7f69bc60774733a84c2f22effe0537a99c4ad2ccda41b6efcbfce3b57e",
+        "crates/convex-ext-file/src/snapshot_repository.rs": "1b11531df9b8053d3cc353304b69a4ea4ac350fc9a0685ad9300fc6cd27aa702",
+        "crates/convex-ext-file/tests/core_json_decode.rs": "0195c6aa275cba2d8fe14b07ef71fd8bb7ed75e9749f9ad318587efe7b44c17f",
+        "tools/JSON-DECODE.md": "392c38977e0959e4031a7805cbb2a8c5ba8940d0b97b6bfb955ad9fce7aa29e6",
+        "tools/assurance/inventory.json": "a38855e4240e4169036f0026a927ce3d00bf5d57368907631b2eef3246e21ba4",
+        "tools/assurance/numeric-evidence.json": "c7ec1e3735f3cf2af90d85f6e6c8b49eeaf8bb4dac8a8eeb9c6be780ea208aac",
+        "tools/library/library-inventory.json": "ee5fdb05c5f0b10dd5d1b1fb63acec2d86b83a867e0516aa5e1f0af9ba632ef1"
+      }
     }
   ]
 }

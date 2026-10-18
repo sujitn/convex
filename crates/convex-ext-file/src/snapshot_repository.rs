@@ -29,7 +29,11 @@ impl FileSnapshotRepository {
             Ok(_) => {}
         }
         let bytes = read_regular_bounded(&path, MAX_SNAPSHOT_BYTES)?;
-        let snapshot: convex_ports::core_workflow::CoreSnapshot = serde_json::from_slice(&bytes)
+        // Validate UTF-8 once for the complete buffer, avoiding per-string
+        // validation in the same JSON decoder. Canonical bytes are still checked below.
+        let text = std::str::from_utf8(&bytes)
+            .map_err(|_| TraitError::InvalidInput("corrupt core snapshot"))?;
+        let snapshot: convex_ports::core_workflow::CoreSnapshot = serde_json::from_str(text)
             .map_err(|_| TraitError::InvalidInput("corrupt core snapshot"))?;
         snapshot.verify()?;
         if snapshot.id != *id
