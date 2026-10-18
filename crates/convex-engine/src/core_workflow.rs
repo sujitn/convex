@@ -20,7 +20,7 @@ use convex_ports::{
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 mod checkpoint;
 mod issuer;
@@ -73,6 +73,9 @@ pub struct CoreWorkflow {
     snapshots: Arc<dyn SnapshotRepository>,
     results: Arc<dyn RuntimeStore>,
     build: ModelId,
+    // One content identity, never retained inputs/results. Every port read and
+    // content verification still runs. Only immutable semantic checks are reused.
+    validated_snapshot: Mutex<Option<SnapshotId>>,
 }
 impl CoreWorkflow {
     /// Compose the actual existing backend ports. Build identity belongs to the host.
@@ -91,7 +94,23 @@ impl CoreWorkflow {
             snapshots,
             results,
             build,
+            validated_snapshot: Mutex::new(None),
         }
+    }
+    fn validate_snapshot(&self, snapshot: &CoreSnapshot) -> Result<()> {
+        snapshot.verify()?;
+        let validated = match self.validated_snapshot.lock() {
+            Ok(last) => last.as_ref() == Some(&snapshot.id),
+            // Poison cannot turn incomplete validation into an accepted input.
+            Err(_) => false,
+        };
+        if !validated {
+            validate_snapshot_content(snapshot)?;
+            if let Ok(mut last) = self.validated_snapshot.lock() {
+                *last = Some(snapshot.id.clone());
+            }
+        }
+        Ok(())
     }
     /// Resolve exact immutable versions and all eligible history, then publish the whole snapshot.
     pub async fn assemble(&self, plan: CoreSnapshotPlan) -> Result<CoreSnapshot> {
@@ -171,7 +190,7 @@ impl CoreWorkflow {
         let provisional = CoreSnapshot::new(content.clone())?;
         content.checkpoint = self.capture_checkpoint(&provisional).await?;
         let snapshot = CoreSnapshot::new(content)?;
-        validate_snapshot(&snapshot)?;
+        self.validate_snapshot(&snapshot)?;
         match self.snapshots.publish_core(&snapshot).await {
             Err(TraitError::UnknownOutcome) => {
                 return Err(CoreWorkflowError::SnapshotUnknown(snapshot.id.clone()))
@@ -192,7 +211,7 @@ impl CoreWorkflow {
                 TraitError::Conflict("core snapshot adapter returned another identity").into(),
             );
         }
-        validate_snapshot(&snapshot)?;
+        self.validate_snapshot(&snapshot)?;
         Ok(snapshot)
     }
     /// Read a durable native envelope without recalculation.
@@ -307,8 +326,7 @@ fn definition(snapshot: &CoreSnapshot) -> Result<&CoreDefinition> {
         _ => Err(invalid("core calculation reference kind")),
     }
 }
-fn validate_snapshot(snapshot: &CoreSnapshot) -> Result<()> {
-    snapshot.verify()?;
+fn validate_snapshot_content(snapshot: &CoreSnapshot) -> Result<()> {
     issuer::validate(snapshot)?;
     checkpoint::validate(snapshot)?;
     lifecycle_history::validate(snapshot)?;

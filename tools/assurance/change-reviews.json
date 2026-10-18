@@ -6034,6 +6034,26 @@
         "tools/streaming_analytics.py": "bdbf68d60d71d5f2b63fa9a054ce2aecc44e54cf3402fd74813cc98192ec7331",
         "tools/tests/test_book_capacity.py": "abd405c30e3c4fef7922dc396055d2f5d995dabe444418b60b83fee14f22b6d8"
       }
+    },
+    {
+      "base_commit": "5cf4b7432b482a6bce2276657fd9ce3bca1bfea1",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Measured synthetic36/60trade sequential update latency before changing runtime behavior. Existing risk run endpoints take most of the update, and cached risk requests remain expensive compared with the additional native forced work. The engine remembers only the most recent successfully validated immutable snapshot SHA256 identity per workflow instance, guarded by a short mutex. Every snapshot read still uses the configured repository, checks the requested identity, verifies complete content digest/schema/size/plan, and propagates missing/corrupt/unavailable adapter errors. An identity miss performs every original whole-book reference/curve/fixing/cutoff/history/checkpoint/coverage/materialization check, including unselected calculations. Failure never marks an identity; poison conservatively performs full validation. Only content-bound semantic work is reused; every selected request, native execution/forced calculation, result integrity/storage selection, caller freshness, authorization and durable recovery owner remains. No stored snapshot/input/result cache, port/backend/provider/MQ/queue/batch API/configuration/dependency/financial formula/default/tolerance change. One remembered digest bounds memory; another book may replace it and restart begins empty. The read-only-import measurement harness retains fresh curve-to-durable-ready samples, endpoint stages, cached/forced probes, native output/input/executable hashes and server/worker restart/cached/forced recovery. Existing36/60trade market/partial-cash/checkpoint/pre-ACK recovery and ordinary compaction/stale-data workflows remain qualification gates. All1982prior numerical rows/bytes/defaults,157prior observations and2154literal mandatory Planned records remain. Actual raw receipts, not metadata, determine passing counts and measured improvement. Local sequential demo timings do not certify live/authenticated/concurrent/provider/platform/production/colocation latency or independent financial models.",
+      "tests": [
+        "Four new port-corruption/unavailability, new digest whole-book/unselected validation, identity/name, concurrent and fresh workflow instance recovery controls; existing engine/checkpoint/history/date/issuer/book-capacity and server/access tests.",
+        "131Python workflow,42policy/16inventory controls, API conservation, strict affected all-feature lint/format and normal/exact-base/staged assurance.",
+        "Identical three-sample36/60trade update measurement with direct native financial parity, matched result digests and persisted-byte/cache/forced replay after server/worker restart. Unchanged larger market/cash/checkpoint/pre-ACK death and ordinary compaction/stale/gap/reconnect examples. No successful latency from failures or production/tail extrapolation."
+      ],
+      "candidate_files": {
+        "crates/convex-engine/src/core_workflow.rs": "a5548fb30fd5eb349713c6ea7e117cf3247696705f1095dc20a5b4ced0ea2250",
+        "crates/convex-engine/tests/snapshot_validation.rs": "150c01a6b21c8285f8550ce4d79b13b4a8a5efd6a9eae1d58d25dd4d67ecc921",
+        "tools/UPDATE-LATENCY.md": "f03c2744d6014b802b40853b0040c4ab513dc280793323e5b6ba83f19540788c",
+        "tools/assurance/inventory.json": "2301a6936d0f3ee6e6c3e755552afd16fc5856191b6002e483204449effcdb21",
+        "tools/assurance/numeric-evidence.json": "13c7b166b56192864d47416793b6090bfc6473463108c7ebc4d183546496c9d9",
+        "tools/core_update_latency.py": "485dcc2471a74fe630cfd317b08b7908983a23c572998da7f94e2dcd4e0aea9d",
+        "tools/library/library-inventory.json": "14ff86c86535d2412c70294d4614391e0dd287854e545210e49a3562d6925f7b"
+      }
     }
   ]
 }
