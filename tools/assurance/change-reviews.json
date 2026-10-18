@@ -6138,6 +6138,31 @@
         "tools/assurance/numeric-evidence.json": "4515a93b6e1020119d7335bbad91c599e04b41d4175fccae294f8336f644a1bc",
         "tools/library/library-inventory.json": "d0d3c05e222ad2d5051872a13237772bfa803636854f3e7e1b3c8ab168542de7"
       }
+    },
+    {
+      "base_commit": "2382d0f16d53e34f89d4562da267ccd62679b202",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Apply only the exact five-line hedge-test exhaustive-match adapter explicitly approved by the repository owner. The original 31 successful control cases remain 28 solve and three aggregate; existing native calls, assertions, requests, expected values and tolerances stay unchanged. Explicitly fail if SolveBook, SolveLifecycle or SolveIssuerLifecycle enters this original control corpus. Update only the protected test numerical pin, required metadata versions and dependent source fingerprints. No production source, financial formula, solver default, fixture or certificate change. This review covers this narrow increment, not the combined branch against main.",
+      "tests": [
+        "cargo test --locked --release --all-features -p convex --test constrained_hedge -- --test-threads=1",
+        "cargo clippy --locked --release --all-features -p convex --test constrained_hedge -- -D warnings; cargo fmt --all -- --check",
+        "42 assurance policy tests, library rejection tests, exact adapter/metadata conservation, normal and exact-increment-base assurance"
+      ],
+      "candidate_files": {
+        "crates/convex/tests/constrained_hedge.rs": "e79acc6594d09fcab4f244a70e96fe5f71ee072a93395c899797b24b01e3cec1",
+        "tools/assurance/numeric-evidence.json": "8229f41117ebbb04b7f1189ddac85a069d33e270d11f0264543b80eecfdce6f6",
+        "tools/library/library-inventory.json": "7bc4aea376ebcfdaf18e7c1d94fd7a894b36227a3e34b058f2ec5eaa9ada6863"
+      },
+      "quantitative_review": {
+        "reviewer": "Repository owner, explicit human user reply",
+        "reviewed_on": "2026-10-18",
+        "rationale": "The user answered \"Approve this exact adapter\" to the five-line patch SHA-256 021f9d9d74be6c17ff785c37ad43e4880341ceaa82d4388dfc51046d7dd504dd. Approval covers only the explicit exhaustive-match adapter; original tests, assertions, inputs, answers and tolerances remain. Required numerical pin refresh records this exact approved source change. No broader model or production certification.",
+        "reference_evidence": [
+          ".ai/production-readiness/pr-preparation/constrained-hedge-exhaustiveness.patch",
+          ".ai/production-readiness/pr-preparation/hedge-adapter-approval.json"
+        ]
+      }
     }
   ]
 }

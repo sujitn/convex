@@ -26,6 +26,11 @@ fn complete_requests_results_and_typed_failures_survive_shared_json() {
                 HedgeOperation::Solve {} => {
                     serde_json::to_value(h::solve_hedge_proposal(problem).unwrap()).unwrap()
                 }
+                HedgeOperation::SolveBook { .. }
+                | HedgeOperation::SolveLifecycle { .. }
+                | HedgeOperation::SolveIssuerLifecycle { .. } => {
+                    panic!("unexpected lifecycle operation in original hedge controls")
+                }
             };
             let expected = controls::native(&wire);
             assert_eq!(native, expected["result"]["data"]);
