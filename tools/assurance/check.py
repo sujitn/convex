@@ -23,7 +23,7 @@ TREASURY_RUNS = (
     'cargo run --locked -p convex --example treasury_bill --no-default-features',
     'cargo run --locked -p convex --example treasury_bill --features schemars',
     'python3 tests/scripts/treasury_bill_check.py --binary target/debug/examples/treasury_bill',
-    'python3 tests/scripts/treasury_bill_schema.py --binary target/debug/examples/treasury_bill',
+    '/tmp/convex-library-schema/bin/python tests/scripts/treasury_bill_schema.py --binary target/debug/examples/treasury_bill',
     'cargo build --locked -p convex-ffi',
     'python3 tests/scripts/treasury_bill_parity.py prepare --binary target/debug/examples/treasury_bill --output target/treasury-bill-parity.json',
     'python3 tests/scripts/treasury_bill_parity.py compare --library target/debug/libconvex_ffi.so --parity target/treasury-bill-parity.json',

@@ -2406,7 +2406,7 @@ jobs:
         run: python3 tests/scripts/treasury_bill_check.py --binary target/debug/examples/treasury_bill
 
       - name: Check full Treasury actual generated schemas
-        run: python3 tests/scripts/treasury_bill_schema.py --binary target/debug/examples/treasury_bill
+        run: /tmp/convex-library-schema/bin/python tests/scripts/treasury_bill_schema.py --binary target/debug/examples/treasury_bill
 
       - name: Prepare full Treasury native transport envelopes
         run: python3 tests/scripts/treasury_bill_parity.py prepare --binary target/debug/examples/treasury_bill --output target/treasury-bill-parity.json
