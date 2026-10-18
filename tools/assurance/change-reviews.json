@@ -6176,7 +6176,7 @@
       ],
       "candidate_files": {
         ".gitattributes": "f278e9f9672d1d4d29e3026cffdd2a9b1871caaeb98318aad38164dfa798c3f3",
-        ".github/workflows/ci.yml": "0a1cf55cfb91a8f4cfc57f548577d765622e40b677702f6b2a2527df6e12e4ea",
+        ".github/workflows/ci.yml": "96d446f64f966e678ebc8b3892c24edf0c8f8e25cbaf8c4bb3bebf7f8b0b10fd",
         ".github/workflows/java.yml": "f8d39a072b25079edcd40f4b3dd9979bebbf9bf13ff9980184067472dd0cbb81",
         ".github/workflows/release.yml": "26c4881b2a9f9f586c3cd11b6147fdc28e5987ca1892f850b2d66f4c42079e9f",
         "Cargo.lock": "3ea8747270819ba22f08c790e5e87951d73fa6ad686f43c13e89fb5082bc3796",
@@ -8017,7 +8017,7 @@
         "tools/library/api-capabilities.json": "9279c0cf5f38522f4a48b5d72cd50b286422fe1794c0ddb070c53b57681a3a5e",
         "tools/library/api.py": "d4badeec46d1800f10430921f9a73150fb7625c7be5599b4d06193cfc1c27ab5",
         "tools/library/check.py": "4eb0c75610a5d691d6bc6c164758d5e79a2a8237061b760b4f629c505508c1c9",
-        "tools/library/library-inventory.json": "24272f6638741f659d3bd18b195a97acb67b4b468e1a6869b156ea583225d1e4",
+        "tools/library/library-inventory.json": "5001d4f09bcc60ac8033e08e4890930fb08e8c109cdebef2ab91e097417184e8",
         "tools/library/native-operations.json": "28b34fbf3aa1cf83a8bd8ba76320de74b522e3142dca626c9dc38072245d8a5f",
         "tools/library/outstanding.py": "65a49e791be7a0db5d0572ea3bd47dfae3ef9c929872cd4a7e30988c02cc31a3",
         "tools/library/requirements-schema.txt": "08dbb2c70f3bacbd191233acf913990de4513b44c637e746a5b9d3acba7bc06d",
@@ -8100,6 +8100,21 @@
       "candidate_files": {
         "Dockerfile": "7658302fb555c1db251c7da5264fcb914da29d8ef04c78a4f54e3400303f273b",
         ".dockerignore": "52658d03b8c00c1f16397657bdbffb7060b7cafd1ec4b84b145e7e91d188566b"
+      }
+    },
+    {
+      "base_commit": "9ad73785d6151a24563c9867d2f80cd6b38a1870",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Fix the actual missing-library failure in the first C transport consumer by moving the existing unique cargo build --locked -p convex-ffi command from the later Treasury stage to immediately before contextual helper C parity. Every original command/case/request/answer/tolerance remains, each mandatory build keeps its original occurrence count, and only execution order changes. The first additive attempt correctly failed the uniqueness policy; that raw failure is retained and no policy was weakened. Refresh only CI/coverage source fingerprints and metadata. All1992numerical artifacts/defaults,2154Planned records and162observations stay exact. No runtime API/source/dependency/provider or certificate change.",
+      "tests": [
+        "Existing contextual helper parity against the missing debug library fails with a concrete dlopen/file-not-found error, retaining the same actual native input generator.",
+        "Explicit locked debug convex-ffi build followed by the unchanged contextual helper C parity command.",
+        "Normal and main/exact-increment assurance and policy rejection checks."
+      ],
+      "candidate_files": {
+        ".github/workflows/ci.yml": "96d446f64f966e678ebc8b3892c24edf0c8f8e25cbaf8c4bb3bebf7f8b0b10fd",
+        "tools/library/library-inventory.json": "5001d4f09bcc60ac8033e08e4890930fb08e8c109cdebef2ab91e097417184e8"
       }
     }
   ]

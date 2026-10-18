@@ -1651,6 +1651,9 @@ jobs:
       - name: Validate contextual helper request schema
         run: /tmp/convex-library-schema/bin/python tests/scripts/icma_helpers_schema.py --binary target/debug/examples/icma_helpers
 
+      - name: Build current native library before C transport checks
+        run: cargo build --locked -p convex-ffi
+
       - name: Verify contextual helper native C transport parity
         run: python3 tests/scripts/icma_helpers_parity.py --binary target/debug/examples/icma_helpers --library target/debug/libconvex_ffi.so
 
@@ -2404,9 +2407,6 @@ jobs:
 
       - name: Check full Treasury actual generated schemas
         run: python3 tests/scripts/treasury_bill_schema.py --binary target/debug/examples/treasury_bill
-
-      - name: Build current native Treasury C owner
-        run: cargo build --locked -p convex-ffi
 
       - name: Prepare full Treasury native transport envelopes
         run: python3 tests/scripts/treasury_bill_parity.py prepare --binary target/debug/examples/treasury_bill --output target/treasury-bill-parity.json
