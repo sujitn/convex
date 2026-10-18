@@ -6054,6 +6054,27 @@
         "tools/core_update_latency.py": "485dcc2471a74fe630cfd317b08b7908983a23c572998da7f94e2dcd4e0aea9d",
         "tools/library/library-inventory.json": "14ff86c86535d2412c70294d4614391e0dd287854e545210e49a3562d6925f7b"
       }
+    },
+    {
+      "base_commit": "5e7216e2e9a3882aa7c9a01e7e0da2a49bcfdd96",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Measured real36/60trade core snapshot reads before changing production code. Seven warm diagnostic samples distinguish bounded physical reads, JSON decode, content clone, content/envelope JSON serialization, SHA256, verify and actual existing snapshot-port reads. Warm file reads are about0.08/0.14ms versus16/33ms verified adapter reads; repeated copying/JSON/integrity work, not disk I/O, justifies the change. CoreSnapshot construction and verification now share the same private borrowed content identity helper. Verification no longer clones/destroys the entire definition, curves, fixings and history merely to calculate its digest. Every original plan/schema/100000fixing/16MiB size guard, serialization, SHA256 domain, requested identity, canonical raw-file equality, actual port read, engine whole-book admission/one-digest validation reuse, authorization, freshness, native execution, result capacity/integrity and durable checkpoint/recovery owner remains. No wire/row identity, new port/public runtime API, backend/provider/MQ/cache/configuration/dependency/financial formula/default/tolerance change. New byte-contract tests cover repeated exact publication/reopen, nested duplicate keys and alternate number/null/whitespace encodings that can decode/hash identically, tampering, wrong identities, schema/plan/size guards, symlinks/nonregular/oversized files. These opaque codec controls do not supply financial answers. The unchanged update harness retains matched actual36/60trade source/snapshot/native-output digests and cold-process cached/forced recovery, with existing cash/checkpoint/pre-ACK/stale/gap/reconnect workflows. Actual raw receipts decide successful counts and improvement. All1984prior numerical artifacts/bytes/defaults,158old observations and2154literal mandatory Planned records remain. Scoped synthetic warm local dev replay is not independent model/platform/provider/production/concurrent/cold-disk/colocation or SLA qualification.",
+      "tests": [
+        "Five new core byte/file controls, existing port/file conformance, engine source/cutoff/whole-book/checkpoint/recovery and server/access regressions.",
+        "Unchanged131Python workflow,42policy/16inventory controls, API conservation, strict affected all-feature lint, bounded example/new-test lint, formatting and normal/exact-base/staged assurance.",
+        "Identical seven-sample36/60trade snapshot profiles plus unchanged three-sample actual update harness, native parity,400paired financial digests,500retained outputs/cached/final forced process restart per build. Original larger cash/checkpoint/pre-ACK crash, compaction and stale/gap/reconnect workflows; all original numerical/source/binary/packet pins preserved."
+      ],
+      "candidate_files": {
+        "crates/convex-engine/examples/core_snapshot_io.rs": "f817dbcd1de672801c66e696436149204349162357038133c3a21da3bf3af74a",
+        "crates/convex-ext-file/tests/core_snapshot_io.rs": "a7488f710df2ec87572dbc62a35f585ca52261bb9aebcd7beb8f5391866100a7",
+        "crates/convex-ports/src/core_workflow.rs": "b528fae21d64be5311dca474d4e4a89e0a03f44bd7a12dbde77249e959df167f",
+        "tools/SNAPSHOT-IO.md": "8f9fad69efbb748e1a6be5b9f212796711932dabbc362550699e890f998ea0d5",
+        "tools/assurance/inventory.json": "977f85b5996fce94116f87878cbb15ecef477d515de3151ed8b6df96952e7a47",
+        "tools/assurance/numeric-evidence.json": "89136a49f367d28ff286a5930382682917ffc3fa157e556067e34bc0a84dd043",
+        "tools/core_snapshot_io.py": "ae384f705aba73f24d7c5296d6aa4dc7b37d5dabef8a968025e7fbf9564f4905",
+        "tools/library/library-inventory.json": "59d244dbdf52ec67a6dd392b4ec6f66ae215ee75369b8313cc2207307237393b"
+      }
     }
   ]
 }

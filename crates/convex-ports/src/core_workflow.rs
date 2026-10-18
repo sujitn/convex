@@ -221,27 +221,30 @@ pub struct CoreSnapshot {
 impl CoreSnapshot {
     /// Validate and bind canonical content, without a clock or backend.
     pub fn new(content: CoreSnapshotContent) -> Result<Self, TraitError> {
+        let id = Self::content_id(&content)?;
+        Ok(Self { id, content })
+    }
+    fn content_id(content: &CoreSnapshotContent) -> Result<SnapshotId, TraitError> {
         content.plan.validate()?;
         if content.schema_version != 1 || content.fixings.len() > 100_000 {
             return Err(TraitError::InvalidInput(
                 "invalid core snapshot schema/size",
             ));
         }
-        let bytes = serde_json::to_vec(&content)
+        let bytes = serde_json::to_vec(content)
             .map_err(|_| TraitError::InvalidInput("core snapshot JSON"))?;
         if bytes.len() > MAX_SNAPSHOT_BYTES {
             return Err(TraitError::CapacityExceeded);
         }
-        let id = SnapshotId::new(format!(
+        SnapshotId::new(format!(
             "sha256:{}",
             content_digest(b"convex.core-snapshot.v1\0", &bytes)
         ))
-        .map_err(|_| TraitError::InvalidInput("core snapshot identity"))?;
-        Ok(Self { id, content })
+        .map_err(|_| TraitError::InvalidInput("core snapshot identity"))
     }
     /// Reject corrupt identity/content rather than returning a different snapshot.
     pub fn verify(&self) -> Result<(), TraitError> {
-        if Self::new(self.content.clone())?.id != self.id {
+        if Self::content_id(&self.content)? != self.id {
             return Err(TraitError::Conflict("core snapshot content mismatch"));
         }
         Ok(())
