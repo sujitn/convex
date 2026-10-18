@@ -2,7 +2,7 @@
 
 # Convex Pricing Server - Multi-stage Dockerfile for Fly.io deployment
 # Build: docker build -t convex-server .
-# Run:   docker run -p 8080:8080 convex-server
+# Startup requires explicit profile, access and bind settings; see the server README.
 
 # ==============================================================================
 # Stage 1: Build environment
@@ -19,11 +19,12 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy manifests first (for better layer caching)
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates/ crates/
+COPY tools/library/api-capabilities.json tools/library/api-capabilities.json
 
 # Build the server in release mode
-RUN cargo build --release -p convex-server
+RUN cargo build --locked --release -p convex-server
 
 # ==============================================================================
 # Stage 2: Runtime environment
@@ -33,6 +34,7 @@ FROM debian:bookworm-slim AS runtime
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    curl \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 

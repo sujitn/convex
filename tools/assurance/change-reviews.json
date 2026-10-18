@@ -8029,7 +8029,9 @@
         "tools/library/test_validation_order.py": "8fada18fbaf4708cfeb28ac35b93b55a14b422d790878daad845ef2a849d6c10",
         "tools/source_pins.py": "540fc4e81e98dba9eb206f7bad94fab7539228bb32ca0a2151d9dfe0f209e572",
         "www/tests/route-admission.cjs": "36296975a725c64885c6d4d94b228b70463d6a7f5ca89a4d8ed03848831170fd",
-        ".github/workflows/fly-deploy.yml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ".github/workflows/fly-deploy.yml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "Dockerfile": "7658302fb555c1db251c7da5264fcb914da29d8ef04c78a4f54e3400303f273b",
+        ".dockerignore": "52658d03b8c00c1f16397657bdbffb7060b7cafd1ec4b84b145e7e91d188566b"
       }
     },
     {
@@ -8083,6 +8085,21 @@
         "www/tests/route-admission.cjs": "36296975a725c64885c6d4d94b228b70463d6a7f5ca89a4d8ed03848831170fd",
         ".github/workflows/fly-deploy.yml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "tools/library/library-inventory.json": "24272f6638741f659d3bd18b195a97acb67b4b468e1a6869b156ea583225d1e4"
+      }
+    },
+    {
+      "base_commit": "cf4df1b22f16a67dcf09fac3038801efd31320e5",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Correct the existing server container build input set after reproducing its actual missing api-capabilities.json compiler failure in an isolated COPY-equivalent source directory. Include only that required ordinary Git metadata file and the repository toolchain, use the locked Cargo build, and explicitly install curl used by the existing healthcheck. Exclude the private .ai evidence, root test corpus, browser outputs and node_modules from the server build context. The runtime still copies only the native server executable. No financial/native API/source/fixture or access/startup admission change. Do not infer a Linux/container execution certificate from the Mac source-input check; the local Docker daemon is unavailable.",
+      "tests": [
+        "Isolated original Docker COPY input set: cargo check --locked -p convex-server fails on missing tools/library/api-capabilities.json; adding only that exact input makes it pass.",
+        "WASM/browser build and core server workflows are separate checks. Actual Docker image/health execution remains unavailable and explicitly unqualified.",
+        "Normal and actual-main/exact-increment assurance with all1992numerical pins and defaults unchanged."
+      ],
+      "candidate_files": {
+        "Dockerfile": "7658302fb555c1db251c7da5264fcb914da29d8ef04c78a4f54e3400303f273b",
+        ".dockerignore": "52658d03b8c00c1f16397657bdbffb7060b7cafd1ec4b84b145e7e91d188566b"
       }
     }
   ]
