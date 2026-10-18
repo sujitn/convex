@@ -160,6 +160,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          lfs: true
           persist-credentials: false
 
       - name: Install Rust toolchain
