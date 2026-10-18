@@ -5966,6 +5966,27 @@
         "tools/streaming_analytics.py": "d0e371fcb793afbb159870db3f282d1506e835ee922ac0a25418d5766d8c5eca",
         "tools/tests/test_lifecycle_history.py": "fdd89d1733e867ce83d8a705abd740709ac4c218dd9714984a2f5b7ec86d7fcc"
       }
+    },
+    {
+      "base_commit": "05a46a211d233acf6997ab5537bf8a3210c12235",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Measured native replay and core snapshot/result stage sizes/cost on17explicit synthetic mixed-book workloads;9admitted and8original capacity rejections. The only runtime change decodes immutable shared reference inputs once per snapshot-validation call and clones owned DTOs into every existing named materialization guard. Normal single-request calls move their own inputs. Full native replay, all source/coverage/freshness/fixing/digest/checkpoint/native checks and original bounds remain. Exact identical workload hashes,117risk/P&L output digests, source snapshots/sizes, full/compact checkpoint bytes and reopened cache/recomputation agree across baseline/final; four-case repeat confirms gains. No analytic/default/schema/test/fixture, persistent cache, state restoration, batch API, route/backend/MQ/scheduler/dependency or execution authority change. All1972old numerical artifacts,155old observations and2154literal mandatory Planned records conserved. Three new evidence files and a guide are additive. The first qualification correctly rejected a Python def test anchor because the existing coverage schema requires fn/class; only the new observation anchor is corrected to its actual test class. Runtime, benchmark, fixtures and all old pins remain byte-identical; the stopped candidate and raw gate logs are retained and final scoped checks rerun. This engineering impact review grants no human/model/provider/platform/latency/production certification.",
+      "tests": [
+        "Seven new workload correctness controls and actual executable zero-sample/missing-replay/overpaid-coupon rejection;17case baseline/final comparison, exact receipt flags/keys,117financial digests and four-case repeat.",
+        "Existing engine core/date/issuer/checkpoint/history and server core tests;126Python workflow,42policy/16inventory controls, API conservation, strict affected all-feature Clippy including the example, formatting and normal/exact-base/staged assurance.",
+        "Unchanged six-position/five-factor26cause compaction example with32immutable results, pricing/risk/hedge/P&L/native parity, original residual/conditioning/duplicate guards, actual committed-hedge/pre-ACK worker death, server/worker restart/cache/saved-input recomputation."
+      ],
+      "candidate_files": {
+        "crates/convex-engine/examples/core_replay_benchmark.rs": "885fc6da229255caf1aa9a0e40e9a7e36d9654d9b32606c4f574846a749add9b",
+        "crates/convex-engine/src/core_workflow.rs": "975277c9d41208cbf8102b5510a20d5ab921817501f6bb82263258699befca13",
+        "tools/REPLAY-MEASUREMENTS.md": "ddbcdb63042bf0682658cbce688abf450d14491296fd4e5f5691f5b5cac5d499",
+        "tools/assurance/inventory.json": "96e0da7d89aeb4270c40ff92317e2076ee64de9204c4f0eaeb21f33e3015b153",
+        "tools/assurance/numeric-evidence.json": "5959a80b462269abf358355219b7eb1a19f11be5612e1f5d27cee117a703dc7a",
+        "tools/core_replay_benchmark.py": "498e415f7bac99ff9b77d363e4b0a64166b893e62c1550f45c57e27e2a47dd7a",
+        "tools/library/library-inventory.json": "486ea39f29494cf743485a3ed9277b05a18f47e970c67ec6397e8f1ca81c023b",
+        "tools/tests/test_core_replay_benchmark.py": "d826dbafc8ef1ecc5b69d55436026227efd2257315d40daab6c132921b46e132"
+      }
     }
   ]
 }

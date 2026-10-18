@@ -348,11 +348,14 @@ fn validate_snapshot(snapshot: &CoreSnapshot) -> Result<()> {
         return Err(CoreWorkflowError::NotFound);
     }
     let mut used = BTreeSet::new();
+    // Shared reference terms are immutable within this snapshot. Decode once;
+    // every calculation still receives its own inputs and all existing guards.
+    let reference = issuer::native_inputs(&definition.reference_inputs)?;
     for (name, calculation) in &definition.calculations {
         for set in &calculation.curve_sets {
             used.insert(set);
         }
-        materialize(snapshot, name)?;
+        materialize_with_reference(snapshot, name, reference.clone())?;
     }
     if used != plan.curve_sets.keys().collect() {
         return Err(invalid("unused or missing core curve selection"));
@@ -408,6 +411,14 @@ fn fixings(snapshot: &CoreSnapshot) -> Vec<FixingObservation> {
 }
 /// Materialize only the actual core workflow operations; no JSON-path/template language.
 fn materialize(snapshot: &CoreSnapshot, name: &str) -> Result<LibraryRequest> {
+    let reference = issuer::native_inputs(&definition(snapshot)?.reference_inputs)?;
+    materialize_with_reference(snapshot, name, reference)
+}
+fn materialize_with_reference(
+    snapshot: &CoreSnapshot,
+    name: &str,
+    reference: LibraryInputs,
+) -> Result<LibraryRequest> {
     let definition = definition(snapshot)?;
     let calc = definition
         .calculations
@@ -416,7 +427,6 @@ fn materialize(snapshot: &CoreSnapshot, name: &str) -> Result<LibraryRequest> {
     let mut request: LibraryRequest =
         serde_json::from_value(lifecycle_history::expand(snapshot, &calc.request)?)
             .map_err(|_| invalid("invalid native core definition"))?;
-    let reference = issuer::native_inputs(&definition.reference_inputs)?;
     if !reference.curves.is_empty() || !reference.fixings.is_empty() {
         return Err(invalid(
             "core reference inputs cannot contain market values",
