@@ -13,6 +13,7 @@ import urllib.parse
 
 import book_updates
 import lifecycle_risk
+import lifecycle_history
 import market_data_adapter as adapter
 import market_data_stream as stream
 import streaming_analytics as analytics
@@ -81,9 +82,9 @@ def prepare(client, batch, *, date_roll=False, base_plan=None):
     if (config['plan']['definition'] != dict(id=expected['id'], version=expected['version'] + 1)
             or expected['version'] >= 2**64 - 1 or base['version'] >= 2**64 - 1):
         raise ValueError('event_batch_revision')
-    original = book_updates.resolve(client, base)['definition']['definition']
+    original = lifecycle_history.expand(book_updates.resolve(client, base)['definition']['definition'])
     book_updates.bind(previous, original, base['position_step'])
-    proposed = copy.deepcopy(batch['definition'])
+    proposed = lifecycle_history.expand(batch['definition'])
     if (proposed['id'] != original['id'] or proposed['effective'] != original['effective']
             or proposed['reference_inputs'] != original['reference_inputs']):
         raise ValueError('event_batch_reference_changed')
@@ -144,6 +145,7 @@ def prepare(client, batch, *, date_roll=False, base_plan=None):
     # Include orchestration too: reusing a batch ID with changed policy, source
     # book version or economics must conflict at the durable idempotency owner.
     fingerprint = analytics.digest(batch)
+    proposed = lifecycle_history.pack(proposed)
     provenance = proposed['provenance']
     provenance['evidence_reference'] += '; core event batch sha256=' + fingerprint
     key = ('core.rolls.' if date_roll else 'core.events.') + analytics.digest(dict(book=base['id'], batch=batch['id']))
@@ -229,6 +231,7 @@ def risk_scope(report, close, previous_step=None, covered=()):
 
 def pending_defaults(client, release, definition):
     """Replay durable native default audits, without accepting a priced result."""
+    definition = lifecycle_history.expand(definition)
     config = release['workflow']
     record = book_updates.resolve(client, release)
     plan = copy.deepcopy(config['plan'])
@@ -268,12 +271,13 @@ def admit(client, batch, command, release):
     plan = copy.deepcopy(release['workflow']['plan'])
     plan['known_at'] = analytics.iso(max(analytics.timestamp(plan['known_at']), analytics.timestamp(record['recorded_at'])))
     snapshot = client.assemble(plan)
-    data = batch['definition']['calculations'][release['workflow']['pnl']]['request']['operation']['input']
+    definition = lifecycle_history.expand(batch['definition'])
+    data = definition['calculations'][release['workflow']['pnl']]['request']['operation']['input']
     covered = set()
     pending = []
     risks = []
     for identity, calc in release['workflow']['risks'].items():
-        operation = batch['definition']['calculations'][calc]['request']['operation']
+        operation = definition['calculations'][calc]['request']['operation']
         if operation['kind'] == 'lifecycle_hedge_risk':
             _, risk = client.run(snapshot, calc)
             if risk['vector']['id'] != identity or risk['input']['snapshot_id'] != snapshot:
@@ -291,7 +295,7 @@ def admit(client, batch, command, release):
         return dict(schema_version=1, kind='book', payload=release)
     _, result = client.run(snapshot, release['workflow']['pnl'])
     for risk in risks:
-        operation = batch['definition']['calculations'][release['workflow']['risks'][risk['vector']['id']]]['request']['operation']
+        operation = definition['calculations'][release['workflow']['risks'][risk['vector']['id']]]['request']['operation']
         lifecycle_risk.checked_state(risk, result['report'], operation)
     risk_scope(result['report'], data['steps'][-1]['after']['point'], batch['base']['position_step'], covered)
     return dict(schema_version=1, kind='book', payload=release)

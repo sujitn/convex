@@ -4,6 +4,7 @@ import urllib.parse
 
 import market_data_adapter as adapter
 import lifecycle_risk
+import lifecycle_history
 
 
 class BookInputError(ValueError):
@@ -35,7 +36,7 @@ def bind(config, definition, position_step):
     Verify every risk product/reference/curve binding against that same point.
     Full supplied fills and lifecycle facts stay with native P&L validation.
     """
-    calculations = definition['calculations']
+    calculations = lifecycle_history.expand(definition)['calculations']
     pnl_spec = calculations[config['pnl']]
     if pnl_spec['request']['operation']['kind'] != 'book_pnl':
         raise BookInputError('book_pnl_required')

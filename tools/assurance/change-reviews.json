@@ -5936,6 +5936,36 @@
         "tools/streaming_analytics.py": "d7829441b92daa1ce9f5fbd1aa9cc370744a3e5eeb8fe94d6f00553cb60444c1",
         "tools/tests/test_book_checkpoints.py": "63d3d4e4771659c1ee0b564f3fefe2bc5a9d64697a0b5cbe56516fb9e7fb8681"
       }
+    },
+    {
+      "base_commit": "2c3151b2f174bfb456ebfebaa11cfda8755bc6e7",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Lossless sharing of repeated lifecycle event prefixes only at exact durable core P&L openings, using existing reference/snapshot/result ports. The server binds every archive to the successful prior close, expands only existing lifecycle request locations and retains full original native validation. No cached financial-state decoder, analytic formula, product/default/solver change, extra endpoint, backend/MQ/ledger/scheduler/dependency or execution owner. The adapter keeps unique histories unchanged and archives only where serialized inputs are smaller. Native4096event and32768node expansion limits remain; duplicates and unknown defaults keep original guards. Later cash updates, immutable old results and latest-only saved-input recovery remain. All1969old numerical artifacts/bytes/defaults and2154literal mandatory Planned records are conserved. Three new evidence files test exact full replay equality, size benefit and rejection/recovery, without changing existing protected tests. Engineering review only; no independent human/model/platform/provider/latency/production certification.",
+      "tests": [
+        "Three new native controls for full-replay financial-byte equality, latest-only recovery, original terms/cutoffs/IDs and missing/nested/overlong/unbound/node-amplification rejection; original core native/engine/server regressions.",
+        "119Python workflow controls including8new prefix/tail/size/adapter controls;42policy and16inventory controls; API compatibility, strict affected all-feature Clippy, format and normal/exact-base/staged assurance.",
+        "Six-position/five-factor26cause CLI example: two compact checkpoints, actual IRS fill/fee, original lots, three partial coupon receipts,1000.06USD outstanding, cumulative P&L, exact native pricing/risk/hedge parity and original residual/conditioning guards.",
+        "Duplicate event/receipt rejection, committed-hedge/pre-ACK worker death, server/worker restart,32immutable result outputs, exact cache/old bytes and all8final recomputations; unchanged previous checkpoint example."
+      ],
+      "candidate_files": {
+        "crates/convex-engine/src/core_workflow.rs": "7674752c573965c846f9885fdca57f95eb09d13aab1ec7268ea5df43005f37fd",
+        "crates/convex-engine/src/core_workflow/issuer.rs": "0b7ea4b54de25ed6e9a7770378aef91098b258114e603597a1bad04c9512de46",
+        "crates/convex-engine/src/core_workflow/lifecycle_history.rs": "75149f31969cfa08fdd3d2bf2933b3bcd1e0d6bf91c817afe04cfcf10c893b87",
+        "crates/convex-engine/tests/lifecycle_history.rs": "ea667ff9ee7554953ff37d8ce9c716eac8a1cd919da542c9cac8dad23dcf78e6",
+        "tools/CHECKPOINTS.md": "96dba0b3d2b7a31142b899a904719acd00cbb9e4b4e97a568c03ce2a28075533",
+        "tools/assurance/inventory.json": "efde4d86e6f9980ea7ba54ca85a31469f099010621e92df9669f6933e191a97a",
+        "tools/assurance/numeric-evidence.json": "e936822e1a5916b2127ea5d070c35dce61f5271e0947c1f52211057c3fee512a",
+        "tools/book_checkpoints.py": "391b657945fcab1bf004a9fe63725b0747cd27b0ea08536dbd7f7560b85532fb",
+        "tools/book_events.py": "8a43eac34b84f11872eab601bcb105d80a441905584cfbe07393ad13470c2ad8",
+        "tools/book_updates.py": "6eef83600d0f25ce944733673b9c9d1353f968566db14c2786fb6e5a5592cc54",
+        "tools/core_compaction_workflow.py": "077adedb539ed918ef8ac7cad0cb81c07ad4f9f84483dfc5fa6a7f7829396ed4",
+        "tools/issuer_scope.py": "8311a71f1834adf03c96d89b55fc876df191afdde96221788183051fb4b16cca",
+        "tools/library/library-inventory.json": "534c747226efe5bb824fab97f794f0964237558e12d8f79261b29da7871aba59",
+        "tools/lifecycle_history.py": "2894007652d09bb474c8a6d762ff1a76cb09a9f95ce27622027db5174d1581e6",
+        "tools/streaming_analytics.py": "d0e371fcb793afbb159870db3f282d1506e835ee922ac0a25418d5766d8c5eca",
+        "tools/tests/test_lifecycle_history.py": "fdd89d1733e867ce83d8a705abd740709ac4c218dd9714984a2f5b7ec86d7fcc"
+      }
     }
   ]
 }

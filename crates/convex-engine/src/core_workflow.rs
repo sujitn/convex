@@ -24,6 +24,7 @@ use std::{
 };
 mod checkpoint;
 mod issuer;
+mod lifecycle_history;
 
 /// Operational failures do not masquerade as accepted native financial results.
 #[derive(Debug, thiserror::Error)]
@@ -269,6 +270,7 @@ fn validate_snapshot(snapshot: &CoreSnapshot) -> Result<()> {
     snapshot.verify()?;
     issuer::validate(snapshot)?;
     checkpoint::validate(snapshot)?;
+    lifecycle_history::validate(snapshot)?;
     let content = &snapshot.content;
     let plan = &content.plan;
     let record = &content.definition;
@@ -411,8 +413,9 @@ fn materialize(snapshot: &CoreSnapshot, name: &str) -> Result<LibraryRequest> {
         .calculations
         .get(name)
         .ok_or(CoreWorkflowError::NotFound)?;
-    let mut request: LibraryRequest = serde_json::from_value(calc.request.clone())
-        .map_err(|_| invalid("invalid native core definition"))?;
+    let mut request: LibraryRequest =
+        serde_json::from_value(lifecycle_history::expand(snapshot, &calc.request)?)
+            .map_err(|_| invalid("invalid native core definition"))?;
     let reference = issuer::native_inputs(&definition.reference_inputs)?;
     if !reference.curves.is_empty() || !reference.fixings.is_empty() {
         return Err(invalid(

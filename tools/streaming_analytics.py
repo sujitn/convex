@@ -27,6 +27,7 @@ import market_data_adapter as adapter
 import market_data_stream as stream
 import book_updates
 import lifecycle_risk
+import lifecycle_history
 import issuer_scope
 
 MAX_JSON = 2 * 1024 * 1024
@@ -445,7 +446,7 @@ class Workflow:
                         or any(s['snapshot_id'] != snapshot for s in vector['sensitivities'])):
                     raise Blocked('risk_identity_mismatch')
                 risks[identity], receipts[calc] = vector, receipt
-                definition = saved['content']['definition']['definition']['definition']
+                definition = lifecycle_history.expand(saved['content']['definition']['definition']['definition'])
                 operation = definition['calculations'][calc]['request']['operation']
                 expected_lifecycle = operation['kind'] == 'lifecycle_hedge_risk'
                 if expected_lifecycle and 'lifecycle_unpriced' in result:

@@ -1,5 +1,6 @@
 """Bind explicit captured issuer reference records; no pricing or issuer inference."""
 import copy
+import lifecycle_history
 
 
 def captured(saved):
@@ -28,6 +29,7 @@ def owners(directory):
 
 def validate_book(definition, config, directory):
     """Every affected closing contract supplies its own actual native default."""
+    definition = lifecycle_history.expand(definition)
     issuers, instruments = owners(directory)
     data = definition['calculations'][config['pnl']]['request']['operation']['input']
     close = data['steps'][-1]['after']

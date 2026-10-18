@@ -123,3 +123,56 @@ until an explicit migration/requalification is supplied. Existing per-window
 This extends causal-window lifetime, not unlimited economic history storage.
 Live-provider, distributed operation, latency and independent model/platform/
 production qualification remain separate.
+
+## Sharing completed lifecycle history
+
+Run the extension that shares completed history and checks updates/recovery:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 tools/core_compaction_workflow.py
+```
+
+The existing checkpoint CLI accepts `--compact-lifecycle`. It stores repeated
+opening event prefixes once in `reference_inputs.lifecycle_history`, keyed by
+original trade ID. A managed lifecycle's `events` can then be
+`{"prefix":"original.trade.id","tail":[]}`. New actual events extend the tail.
+Original terms, units, opening fixings and cutoff remain explicit. At the next
+checkpoint, prefixes are flattened into a self-contained archive; references to
+older snapshots are unnecessary for recomputing the latest saved inputs.
+The adapter shares history only when actual serialized inputs get smaller.
+
+The engine expands only existing P&L holding and lifecycle-risk request locations.
+Every archived prefix must match the new window's opening. Existing checkpoint
+admission binds that whole opening to the exact successfully priced prior close.
+Native replay then checks every original event, receipt ID, revision, cash claim,
+quantity and fixing. Missing/changed prefixes, nested references, trade mismatches,
+overlong histories and expansion beyond the native request node bound reject.
+The existing event adapter accepts later fills/lifecycle/cash updates and retains
+compact references in the committed definition. Immutable old snapshots/results
+remain available for audit. No automatic deletion is performed.
+
+This is lossless storage compaction, not a new financial state restoration API.
+Full native replay and its cost remain. The managed wire limit is 4096 expanded
+events per lifecycle; the lower-level native state's separate bound is 65,536
+items. Neither limit is raised. The existing definition/snapshot/result limits
+and financial tolerances also remain. The example retains original lots,
+post-fill quantities, unpaid claims, three partial receipts, current/pending risk,
+feasible hedge constraints and cumulative local/reporting P&L across two compact
+checkpoints, an ordinary cash update, worker interruption and server restart.
+
+## Review of remaining work
+
+Repeated history in pricing/risk inputs is a concrete storage issue addressed by
+this increment. A unique short history is kept as-is because archiving it adds
+bytes. Durable P&L continuation beyond 16 total causes, recovery from saved inputs,
+cash-claim ownership and current/pending risk already have implemented controls;
+they do not require new ledger, queue, scheduler or database abstractions here.
+
+A faster native checkpoint that restores computed state would require a new
+validation contract across default, exercise, clearing and physical-delivery
+owners. No measured replay bottleneck or agreed workload currently justifies
+that addition. Measure replay time and retained input sizes before choosing it.
+Do not treat the broader CVX-063 catalogue as a dependency of this core workflow.
+Live-provider integration, deployment-specific multi-server/latency tests and
+independent financial/platform qualification still need concrete environments
+and acceptance targets; this local synthetic example does not complete them.

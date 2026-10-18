@@ -16,6 +16,7 @@ import book_updates
 import market_data_adapter as adapter
 import market_data_stream as stream
 import streaming_analytics as analytics
+import lifecycle_history
 
 
 def prepare(client, batch):
@@ -39,10 +40,15 @@ def prepare(client, batch):
     if (config['plan']['definition'] != dict(id=expected['id'], version=expected['version'] + 1)
             or expected['version'] >= 2**64 - 1 or base['version'] >= 2**64 - 1):
         raise ValueError('checkpoint_revision')
+    original = lifecycle_history.expand(original)
+    proposed = lifecycle_history.expand(proposed)
     refs = copy.deepcopy(original['reference_inputs'])
+    refs.pop('lifecycle_history', None)
+    selected = copy.deepcopy(proposed['reference_inputs'])
+    selected.pop('lifecycle_history', None)
     refs['pnl_checkpoint'] = dict(snapshot_id=saved['id'], calculation=previous['pnl'], build_id=receipt['build_id'])
     if (proposed['id'] != original['id'] or proposed['effective'] != original['effective']
-            or proposed['reference_inputs'] != refs):
+            or selected != refs):
         raise ValueError('checkpoint_reference_selection')
     # Rebase only the P&L window. Retain orchestration/solver/source policies.
     a, b = copy.deepcopy(previous), copy.deepcopy(config)
@@ -69,6 +75,7 @@ def prepare(client, batch):
         raise ValueError('checkpoint_opening_changed')
     book_updates.bind(config, proposed, len(new['steps']) - 1)
     fingerprint = analytics.digest(batch)
+    proposed = lifecycle_history.pack(proposed)
     proposed['provenance']['evidence_reference'] += '; core checkpoint sha256=' + fingerprint
     key = 'core.checkpoint.' + analytics.digest(dict(book=base['id'], batch=batch['id']))
     command = dict(idempotency_key=key, changes=[], master_changes=[dict(expected_version=expected['version'],
@@ -95,11 +102,14 @@ def main():
     parser.add_argument('--token-env', default='CONVEX_TOKEN')
     parser.add_argument('--timeout', type=float, default=10)
     parser.add_argument('--prepare-only', action='store_true')
+    parser.add_argument('--compact-lifecycle', action='store_true', help='Share completed event prefixes in the new checkpoint')
     args = parser.parse_args()
     if not 0 < args.timeout <= 120:
         raise ValueError('checkpoint_timeout')
     client = analytics.Client(args.url, os.environ.get(args.token_env), args.timeout)
     batch = analytics.load(args.batch)
+    if args.compact_lifecycle:
+        batch['definition'] = lifecycle_history.compact(batch['definition'], batch['workflow']['pnl'])
     if args.prepare_only:
         command, release = prepare(client, batch)
         result = dict(schema_version=1, command=command, release=release)
