@@ -148,6 +148,19 @@ pub fn execute(request: &LibraryRequest) -> LibraryResult<Value> {
 /// the existing C envelope convention. Output cash is exact decimal strings.
 pub fn execute_json(input: &str) -> String {
     let result = ingress::decode(input).and_then(|r| execute(&r));
+    envelope(result)
+}
+/// Execute a managed book with a bounded 131072-node aggregate input budget.
+/// Only book P&L, graph/lifecycle risk and hedge operations are admitted. All
+/// original financial, byte, depth, array, precision and output guards remain.
+pub fn execute_book_json(input: &str) -> String {
+    envelope(ingress::decode_book(input).and_then(|r| execute(&r)))
+}
+/// Strict reconstruction for managed-book parity checks and direct consumers.
+pub fn decode_book_request(input: &str) -> LibraryResult<LibraryRequest> {
+    ingress::decode_book(input)
+}
+fn envelope(result: LibraryResult<Value>) -> String {
     let envelope = match result {
         Ok(result) => {
             serde_json::json!({"ok":"true","schema_version":LIBRARY_SCHEMA_VERSION,"result":result})

@@ -5987,6 +5987,53 @@
         "tools/library/library-inventory.json": "486ea39f29494cf743485a3ed9277b05a18f47e970c67ec6397e8f1ca81c023b",
         "tools/tests/test_core_replay_benchmark.py": "d826dbafc8ef1ecc5b69d55436026227efd2257315d40daab6c132921b46e132"
       }
+    },
+    {
+      "base_commit": "3c6d1ee730ae054ab7a197a063374275c58799cd",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Address actual measured book-size/calculation/node limits with a saved opt-in book_128 profile through existing reference/curve/fixing/snapshot/result ports. Ordinary definitions retain original bounds and persisted row bytes. A new closed native book decoder retains strict numeric/complete-term/byte/container/depth guards; native financial owners and tolerances remain. Actual larger-book testing exposed duplicate same-security legal-lot rejection and a4.52MBvalid partial-cash P&L exceeding4MiB persistence. Explicit native solve_book retains per-lot owned current/pending claims and full audit IDs, requires identical complete fresh reference risk/revisions except per-lot record IDs, and uses checked summed security holding limits. Existing solves retain alias rejection. Profile-selected results retain16MiB native/output and escaped record ceilings and must match their saved definition; old rows remain4MiB and omit the selection. Complete issuer/default/maturity, native residual/conditioning, freshness/digest/position/claim/checkpoint and authorization guards remain. Only closed book/reference HTTP wrappers grow; nested scans still cover every resource, with bounded work and1024distinct identities. Worker expands one immutable definition per frame; no persistent cache or new formula, batch API, backend/port/MQ/coordinator/ledger/scheduler/dependency/execution owner. Seven new evidence files, module and guide are additive. All1975old quantitative rows/bytes,156old observations and2154literal mandatory Planned records remain. This is an engineering impact review, not independent quantitative/model/platform/production/latency approval.",
+      "tests": [
+        "Native default/minimal/schema bounded decoder and exact binary lot arithmetic, combined holding infeasibility, candidate alias/reference/revision/currency/issuer/default and required nullable scope checks.",
+        "Existing financial hedge/lifecycle/issuer/JSON regressions; engine profile/calculation/restart/escaped-result controls and existing core/checkpoint/history tests; authenticated large reference and existing server/access tests.",
+        "131Python workflow controls,42policy/16inventory controls, API conservation, strict affected all-feature Clippy, formatting and normal/exact-base/staged assurance.",
+        "Seventeen exact prior measured workload shapes; runnable36/60trade native pricing/risk/hedge/P&L, market/partial-cash/checkpoint/pre-ACK crash/server restart/cache/saved-input recomputation; unchanged32output compaction example. Actual raw receipts determine successful counts and bounded rejections."
+      ],
+      "candidate_files": {
+        "crates/convex-analytics/src/risk/hedging/constrained/admission.rs": "2b83dec28e392827430ebb60228e3359795748d24b0c64397ab16c317f75a5f2",
+        "crates/convex-analytics/src/risk/hedging/constrained/issuer.rs": "562f1188d785e801a34175df41d793551d8c33afd70cc82b5d069b988aa25c97",
+        "crates/convex-analytics/src/risk/hedging/constrained/mod.rs": "2adca0fffacc4cd47116d17c5494ee2c687b3fa89f53ea6471778b25f47b1cef",
+        "crates/convex-analytics/src/risk/hedging/constrained/solver.rs": "5c305f6c65ddbcce229e872ba6595aa3e3d65c892950cc0196bad5b08423c097",
+        "crates/convex-core/src/contracts/json.rs": "9bdbcf6bc660aa20378120cd592b6ed2d7b31982f42eaeb962c387a06188acf6",
+        "crates/convex-engine/src/core_workflow.rs": "5ba19187ae68755bcb37c1062b55b87ca8e1511e8c3f8def5eeb3895038abfc8",
+        "crates/convex-engine/src/core_workflow/issuer.rs": "7d84154105153dce3dc30e297bb786de53a3f9aaf41465a046edd31e89c16298",
+        "crates/convex-engine/src/core_workflow/lifecycle_history.rs": "38517ea4ddb0e3d69177593fe14c5bab7258a2dff2dbc7f4fd3148a9845ab5fd",
+        "crates/convex-engine/tests/book_capacity.rs": "9a392c59a30cf33f2f8c53d2987c9c5d71d031da9deb231a2c67031997508436",
+        "crates/convex-ext-redb/src/runtime_store.rs": "0177b9101bbffe457b65ee705a39791437b984099f64b656b60946a8824c3558",
+        "crates/convex-ports/src/core_workflow.rs": "b7cab1f2e639e703061738f02100022722e3e87fbbe3a446d9c5cc5edeeea420",
+        "crates/convex-server/src/access/http.rs": "e3149953196ef52c126b4a3ba88b6ce7048506d993310254135f811d5ab35677",
+        "crates/convex-server/src/bin/convex-core-inputs.rs": "00e7032e570e13459b96f28bf2640c926c2d530d362ec5f82b74b466a05dd654",
+        "crates/convex-server/src/routes.rs": "db7c7146101d44a94d2344e2fdf273f306f73a4324cf6b2da06c2b7cd44113e7",
+        "crates/convex-server/tests/book_capacity.rs": "319d50247fa9d443660dbdd225a45ca5ef244fcbf0cd03ca7eedcf17961b780a",
+        "crates/convex/examples/book_capacity_native.rs": "faadd4227b61d998e90b947a8e6285d1a3e8ec797473e9b72682e60d436f9e6d",
+        "crates/convex/src/library/hedges.rs": "d4e524795b344ba7c73eefb8206a807a7036a2788dd718c3230766bac308432f",
+        "crates/convex/src/library/ingress.rs": "b8612d2ddb7cb7092d98f97f77ccadfed8945606484ba5520019d7c8ffafefd3",
+        "crates/convex/src/library/mod.rs": "039c756391344627ed687181d21081253e42142d9185fdefaa88639e0e5e59f2",
+        "crates/convex/tests/book_capacity.rs": "797d261379eb91fe2ef460a5dd547ff8fc03b33fdb02591ac1390688e436da36",
+        "crates/convex/tests/book_lots.rs": "bce18831bf075612c2010d7d6a08a78d612b501f663ecd2063b9aa40aa8fb222",
+        "tools/BOOK-CAPACITY.md": "7cbbf788032d179baa59fea0e1aa6d0527aa4905ba66681a02dafd4ea7f14349",
+        "tools/assurance/inventory.json": "0e23e4009c4e0e17dcf00797a224513d04b47dc6e4f20807cb6f9938d9bd38bf",
+        "tools/assurance/numeric-evidence.json": "9fc769b958ddfb01d0802d7540ab7e213baf3fb45bc805d954d556e89a504729",
+        "tools/book_capacity.py": "9fc432d62545105c55e701d02341283174d6326c4016be08db19fa63e2a6cd52",
+        "tools/book_checkpoints.py": "fbe4391f209e11f576200a9f953671e83caa80b8b43efaa9332e58d8ede364ee",
+        "tools/book_events.py": "877370c2455262e5abae9c84a2e89e86079e1c2942581772e13676eb4d29a5ed",
+        "tools/book_rolls.py": "b2dfe6c0e4ef2083812c3b03f47e2bc638c3fec844d8d5799ed588ee499071b8",
+        "tools/core_capacity_workflow.py": "e1e2c4ea50f0de0dabca231e9a376532b5dbef7c47bea873a5001ab9490d246c",
+        "tools/issuer_events.py": "1387f78fdbc5fc429bb9bf9dc3321eabb4e6ecd728c7e708c0fa3aacaaad23d8",
+        "tools/library/library-inventory.json": "71d7ab6354c97fa7e1a0efc0f50bb0e48c477ba14389dd8964befb98af80b37a",
+        "tools/streaming_analytics.py": "bdbf68d60d71d5f2b63fa9a054ce2aecc44e54cf3402fd74813cc98192ec7331",
+        "tools/tests/test_book_capacity.py": "abd405c30e3c4fef7922dc396055d2f5d995dabe444418b60b83fee14f22b6d8"
+      }
     }
   ]
 }

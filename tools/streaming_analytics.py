@@ -29,6 +29,7 @@ import book_updates
 import lifecycle_risk
 import lifecycle_history
 import issuer_scope
+import book_capacity
 
 MAX_JSON = 2 * 1024 * 1024
 EMPTY = dict(calendars=[], helper_calendars=[], curves=[], calibration=None, fixings=[], publications=[])
@@ -114,7 +115,7 @@ def validate(config, universe):
     if not fresh or not universe[1] <= fixing_keys or not stream.subscribed_fixings(fixing_keys, universe):
         raise ValueError('fresh current curves and exact fixing subscription required')
     risks = config['risks']
-    if not isinstance(risks, dict) or not 1 <= len(risks) <= 30 or len(set(risks.values())) != len(risks):
+    if not isinstance(risks, dict) or not 1 <= len(risks) <= 128 or len(set(risks.values())) != len(risks):
         raise ValueError('risk bindings')
     for identity, calc in risks.items():
         stream.text_id(identity)
@@ -437,6 +438,7 @@ class Workflow:
             self.check_current_sets(saved)
             issuer = issuer_scope.captured(saved)
             receipts, risks, prices, states = {}, {}, [], {}
+            definition = lifecycle_history.expand(saved['content']['definition']['definition']['definition'])
             for identity, calc in sorted(self.config['risks'].items()):
                 self.freshness()
                 receipt, result = self.client.run(snapshot, calc)
@@ -446,7 +448,6 @@ class Workflow:
                         or any(s['snapshot_id'] != snapshot for s in vector['sensitivities'])):
                     raise Blocked('risk_identity_mismatch')
                 risks[identity], receipts[calc] = vector, receipt
-                definition = lifecycle_history.expand(saved['content']['definition']['definition']['definition'])
                 operation = definition['calculations'][calc]['request']['operation']
                 expected_lifecycle = operation['kind'] == 'lifecycle_hedge_risk'
                 if expected_lifecycle and 'lifecycle_unpriced' in result:
@@ -465,11 +466,14 @@ class Workflow:
             checked = [lifecycle_risk.checked_state(states[k], pnl['report'],
                 definition['calculations'][self.config['risks'][k]]['request']['operation']) for k in sorted(states)]
             self.freshness()
-            request = self.hedge(snapshot, risks, checked, issuer)
+            request = self.hedge(snapshot, risks, checked, issuer,
+                book_capacity.expanded(saved['content']['definition']['definition']['definition']))
             key = digest(dict(config=self.config_digest, request=request))
             reference_inputs = copy.deepcopy(EMPTY)
             if issuer is not None:
                 reference_inputs['issuer_scope'] = copy.deepcopy(issuer['reference'])
+            if book_capacity.expanded(saved['content']['definition']['definition']['definition']):
+                reference_inputs['core_capacity'] = book_capacity.PROFILE
             definition = dict(id='stream.hedge.' + key, reference_inputs=reference_inputs,
                 calculations=dict(hedge=dict(request=request, curve_sets=[])),
                 effective={'from': self.config['plan']['as_of'], 'until': None},
@@ -526,7 +530,7 @@ class Workflow:
         if definition['calculations'][self.config['pnl']]['request']['operation']['kind'] != 'book_pnl':
             raise ValueError('native P&L owner required')
 
-    def hedge(self, snapshot, risks, states=(), issuer=None):
+    def hedge(self, snapshot, risks, states=(), issuer=None, book=False):
         request = copy.deepcopy(self.hedge_template)
         problem = request['operation']['problem']
         problem['snapshot_id'] = snapshot
@@ -548,7 +552,11 @@ class Workflow:
                 problem['candidates'] = [c for c in problem['candidates']
                     if not any(r['entity_id'] in defaulted for r in c['risk']['credit_scope'])
                     and c['risk'].get('instrument', {}).get('id') not in instruments]
-        return issuer_scope.hedge(request, snapshot, issuer, states) if issuer is not None else request
+        request = issuer_scope.hedge(request, snapshot, issuer, states) if issuer is not None else request
+        if book:
+            request['operation']['action'].update(kind='solve_book', states=copy.deepcopy(states))
+            request['operation']['action'].setdefault('scope', None)
+        return request
 
 
 def main():

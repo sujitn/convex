@@ -35,11 +35,30 @@ pub struct CoreDefinition {
     pub provenance: ReferenceProvenance,
 }
 impl CoreDefinition {
+    /// Explicit saved operational profile; absent definitions keep their original bounds.
+    pub fn expanded_capacity(&self) -> Result<bool, crate::reference_repository::ReferenceError> {
+        match self.reference_inputs.get("core_capacity") {
+            None => Ok(false),
+            Some(serde_json::Value::String(value)) if value == "book_128" => Ok(true),
+            _ => Err(crate::reference_repository::ReferenceError::InvalidInput(
+                "unknown core capacity profile",
+            )),
+        }
+    }
     /// Structural limits only. The application decodes actual native contracts.
     pub fn validate(&self) -> Result<(), crate::reference_repository::ReferenceError> {
         use crate::reference_repository::ReferenceError as E;
         self.effective.validate()?;
-        if self.calculations.is_empty() || self.calculations.len() > 32 {
+        let expanded = self.expanded_capacity()?;
+        let (calculations, nodes, bytes) = if expanded {
+            (130, 524_288, 8 * 1024 * 1024)
+        } else {
+            (32, 65_536, 1024 * 1024)
+        };
+        if self.calculations.is_empty() || self.calculations.len() > calculations {
+            if expanded {
+                return Err(E::CapacityExceeded);
+            }
             return Err(E::InvalidInput("expected 1..32 core calculations"));
         }
         if !self.reference_inputs.is_object() {
@@ -50,7 +69,7 @@ impl CoreDefinition {
         let mut visited = 0usize;
         while let Some((value, depth)) = pending.pop() {
             visited += 1;
-            if visited > 65_536 || depth > 64 {
+            if visited > nodes || depth > 64 {
                 return Err(E::CapacityExceeded);
             }
             match value {
@@ -72,9 +91,9 @@ impl CoreDefinition {
                 return Err(E::InvalidInput("invalid core calculation definition"));
             }
         }
-        let bytes =
+        let encoded =
             serde_json::to_vec(self).map_err(|_| E::InvalidInput("core definition JSON"))?;
-        if bytes.len() > 1024 * 1024 {
+        if encoded.len() > bytes {
             return Err(E::CapacityExceeded);
         }
         Ok(())
@@ -244,8 +263,14 @@ pub struct CoreResult {
     pub output: String,
     /// Digest of the exact native output, verified on every read.
     pub output_digest: String,
+    /// Larger bounded storage selected by the captured definition. Old rows omit it.
+    #[serde(default, skip_serializing_if = "CoreResult::ordinary_capacity")]
+    pub book_capacity: bool,
 }
 impl CoreResult {
+    fn ordinary_capacity(value: &bool) -> bool {
+        !*value
+    }
     /// Complete-context storage key, stable before calculation and on retry.
     pub fn key(snapshot: &SnapshotId, calculation: &str, build: &ModelId) -> String {
         content_digest(
@@ -262,6 +287,25 @@ impl CoreResult {
         build_id: ModelId,
         output: String,
     ) -> Result<Self, TraitError> {
+        Self::with_capacity(snapshot_id, calculation, build_id, output, false)
+    }
+    /// Bind the existing native 16 MiB output ceiling to an explicit book profile.
+    /// The application checks this selection against the immutable source snapshot.
+    pub fn new_book(
+        snapshot_id: SnapshotId,
+        calculation: String,
+        build_id: ModelId,
+        output: String,
+    ) -> Result<Self, TraitError> {
+        Self::with_capacity(snapshot_id, calculation, build_id, output, true)
+    }
+    fn with_capacity(
+        snapshot_id: SnapshotId,
+        calculation: String,
+        build_id: ModelId,
+        output: String,
+        book_capacity: bool,
+    ) -> Result<Self, TraitError> {
         let result = Self {
             id: Self::key(&snapshot_id, &calculation, &build_id),
             snapshot_id,
@@ -269,13 +313,15 @@ impl CoreResult {
             build_id,
             output_digest: content_digest(b"convex.core-result-output.v1\0", output.as_bytes()),
             output,
+            book_capacity,
         };
         result.verify()?;
         Ok(result)
     }
     /// Bounded, checked persistence. Native financial validation remains in the library.
     pub fn verify(&self) -> Result<(), TraitError> {
-        if !valid_name(&self.calculation) || self.output.len() > 4 * 1024 * 1024 {
+        let maximum = if self.book_capacity { 16 } else { 4 } * 1024 * 1024;
+        if !valid_name(&self.calculation) || self.output.len() > maximum {
             return Err(TraitError::CapacityExceeded);
         }
         if self.id != Self::key(&self.snapshot_id, &self.calculation, &self.build_id)

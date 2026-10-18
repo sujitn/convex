@@ -5,6 +5,16 @@ use convex_analytics::futures as f;
 use convex_core::{contracts::*, futures::*};
 use serde::{Deserialize, Serialize};
 
+fn required_book_scope<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<Option<Box<convex_analytics::risk::hedging::constrained::IssuerRiskScope>>, D::Error> {
+    Option::deserialize(d)
+}
+#[cfg(feature = "schemars")]
+fn book_scope_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generator.subschema_for::<Option<Box<convex_analytics::risk::hedging::constrained::IssuerRiskScope>>>()
+}
+
 /// Complete-factor supplied-risk operations; the existing scalar advisor is separate.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -14,6 +24,18 @@ pub enum HedgeOperation {
     Aggregate {},
     /// Bounded continuous/lot solve with full original constraint diagnostics.
     Solve {},
+    /// Distinct same-security lots with matching fresh risk and retained audit pins.
+    SolveBook {
+        /// Checked actual risk for each lifecycle-affected lot.
+        states: Vec<convex_analytics::risk::hedging::constrained::LifecycleHoldingRisk>,
+        /// Complete captured issuer scope when configured; explicit null otherwise.
+        #[serde(deserialize_with = "required_book_scope")]
+        #[cfg_attr(
+            feature = "schemars",
+            schemars(required, schema_with = "book_scope_schema")
+        )]
+        scope: Option<Box<convex_analytics::risk::hedging::constrained::IssuerRiskScope>>,
+    },
     /// Actual owned current/pending risk; fresh candidate risks remain separate.
     SolveLifecycle {
         /// Complete native replayed risk for every affected holding.
@@ -35,6 +57,18 @@ pub(super) fn hedge(
     match action {
         HedgeOperation::Aggregate {} => value(h::aggregate_hedge_risk(problem)?),
         HedgeOperation::Solve {} => value(h::solve_hedge_proposal(problem)?),
+        HedgeOperation::SolveBook { states, scope } => {
+            let report = match scope {
+                Some(scope) => h::solve_issuer_book_hedge_proposal(problem, states, scope)?,
+                None => h::solve_book_hedge_proposal(problem, states)?,
+            };
+            let mut result = value(report)?;
+            result["lifecycle_risk"] = value(states)?;
+            if let Some(scope) = scope {
+                result["issuer_scope"] = value(scope)?;
+            }
+            Ok(result)
+        }
         HedgeOperation::SolveLifecycle { states } => {
             let mut result = value(h::solve_lifecycle_hedge_proposal(problem, states)?)?;
             let object = result
@@ -64,12 +98,12 @@ pub(super) fn directional_hedge(
     match action {
         HedgeOperation::Aggregate {} => value(h::aggregate_directional_hedge_risk(problem)?),
         HedgeOperation::Solve {} => value(h::solve_directional_hedge_proposal(problem)?),
-        HedgeOperation::SolveLifecycle { .. } | HedgeOperation::SolveIssuerLifecycle { .. } => {
-            Err(LibraryError::invalid(
-                "lifecycle risk",
-                "central full-state risk requires the ordinary hedge operation",
-            ))
-        }
+        HedgeOperation::SolveLifecycle { .. }
+        | HedgeOperation::SolveIssuerLifecycle { .. }
+        | HedgeOperation::SolveBook { .. } => Err(LibraryError::invalid(
+            "lifecycle risk",
+            "central full-state risk requires the ordinary hedge operation",
+        )),
     }
 }
 

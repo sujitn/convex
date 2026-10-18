@@ -147,7 +147,8 @@ pub fn create_router_with_access_and_portfolios(
         )
         .route(
             "/api/v1/reference/transactions",
-            post(reference::commit_reference_transaction),
+            post(reference::commit_reference_transaction)
+                .layer(axum::extract::DefaultBodyLimit::max(8 * 1024 * 1024)),
         )
         .route(
             "/api/v1/reference/resolve",

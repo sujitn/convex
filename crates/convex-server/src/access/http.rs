@@ -11,10 +11,25 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+    time::Duration,
+};
 
 const MAX_BODY: usize = 2 * 1024 * 1024;
 pub(crate) const MAX_RESPONSE: usize = 4 * 1024 * 1024;
+// Existing book/reference ports carry a whole captured definition. Other routes
+// keep their original transport bounds; authorization still scans every value.
+fn book_transport(path: &str) -> bool {
+    matches!(
+        path,
+        "/api/v1/reference/transactions"
+            | "/api/v1/reference/commits/:key"
+            | "/api/v1/analytics/snapshots/:snapshot_id"
+            | "/api/v1/analytics/results/:result_id"
+    )
+}
 /// Retained by the upgrade callback; quota is released even if upgrade fails.
 #[derive(Clone)]
 pub(crate) struct WsAccess {
@@ -327,12 +342,32 @@ fn requirement(
 /// Scope extraction visits at most 65536 JSON nodes and collects at most 1024 identities.
 /// Original bytes are forwarded, preserving financial number/decimal representation.
 pub(crate) fn resources(value: &serde_json::Value) -> Result<Vec<Resource>, AccessError> {
+    resources_bounded(value, false)
+}
+fn resources_bounded(value: &serde_json::Value, book: bool) -> Result<Vec<Resource>, AccessError> {
+    fn put(
+        result: &mut Vec<Resource>,
+        seen: &mut BTreeSet<(ResourceKind, String)>,
+        resource: Resource,
+        book: bool,
+    ) -> Result<(), AccessError> {
+        if book && !seen.insert((resource.kind, resource.id.clone())) {
+            return Ok(());
+        }
+        if result.len() >= 1024 {
+            return Err(AccessError::InvalidRequest);
+        }
+        result.push(resource);
+        Ok(())
+    }
+    let maximum = if book { 1_048_576 } else { 65536 };
+    let mut seen = BTreeSet::new();
     let mut frontier = vec![value];
     let mut count = 0usize;
     let mut result = Vec::new();
     while let Some(value) = frontier.pop() {
         count = count.saturating_add(1);
-        if count > 65536 {
+        if count > maximum {
             return Err(AccessError::InvalidRequest);
         }
         match value {
@@ -345,15 +380,17 @@ pub(crate) fn resources(value: &serde_json::Value) -> Result<Vec<Resource>, Acce
                         .and_then(|v| v.get("calculations"))
                         .is_some_and(|v| v.is_object())
                 {
-                    if result.len() > 1020 {
+                    if !book && result.len() > 1020 {
                         return Err(AccessError::InvalidRequest);
                     }
-                    result.extend([
+                    for resource in [
                         Resource::new(ResourceKind::Instrument, "*"),
                         Resource::new(ResourceKind::Curve, "*"),
                         Resource::new(ResourceKind::Source, "*"),
                         Resource::new(ResourceKind::Book, "*"),
-                    ]);
+                    ] {
+                        put(&mut result, &mut seen, resource, book)?;
+                    }
                 }
                 // Canonical InputVersion uses kind/id for calibration dependencies.
                 if let (Some(kind), Some(id)) = (
@@ -366,10 +403,13 @@ pub(crate) fn resources(value: &serde_json::Value) -> Result<Vec<Resource>, Acce
                         _ => None,
                     };
                     if let Some(kind) = kind {
-                        if result.len() >= 1024 || !super::policy::valid_id(id) || id == "*" {
+                        if (!book && result.len() >= 1024)
+                            || !super::policy::valid_id(id)
+                            || id == "*"
+                        {
                             return Err(AccessError::InvalidRequest);
                         }
-                        result.push(Resource::new(kind, id));
+                        put(&mut result, &mut seen, Resource::new(kind, id), book)?;
                     }
                 }
                 for (key, value) in map {
@@ -393,17 +433,23 @@ pub(crate) fn resources(value: &serde_json::Value) -> Result<Vec<Resource>, Acce
                         let ids = value.as_array().ok_or(AccessError::InvalidRequest)?;
                         for value in ids {
                             let id = value.as_str().ok_or(AccessError::InvalidRequest)?;
-                            if result.len() >= 1024 || !super::policy::valid_id(id) || id == "*" {
+                            if (!book && result.len() >= 1024)
+                                || !super::policy::valid_id(id)
+                                || id == "*"
+                            {
                                 return Err(AccessError::InvalidRequest);
                             }
-                            result.push(Resource::new(kind, id));
+                            put(&mut result, &mut seen, Resource::new(kind, id), book)?;
                         }
                     }
                     if let (Some(kind), Some(id)) = (kind, value.as_str()) {
-                        if result.len() >= 1024 || !super::policy::valid_id(id) || id == "*" {
+                        if (!book && result.len() >= 1024)
+                            || !super::policy::valid_id(id)
+                            || id == "*"
+                        {
                             return Err(AccessError::InvalidRequest);
                         }
-                        result.push(Resource::new(kind, id));
+                        put(&mut result, &mut seen, Resource::new(kind, id), book)?;
                     }
                     frontier.push(value);
                 }
@@ -411,7 +457,7 @@ pub(crate) fn resources(value: &serde_json::Value) -> Result<Vec<Resource>, Acce
             serde_json::Value::Array(array) => frontier.extend(array.iter()),
             _ => {}
         }
-        if frontier.len() > 65536 {
+        if frontier.len() > maximum {
             return Err(AccessError::InvalidRequest);
         }
     }
@@ -422,6 +468,10 @@ pub(crate) async fn enforce(
     mut request: Request,
     next: Next,
 ) -> Response {
+    let book = request
+        .extensions()
+        .get::<MatchedPath>()
+        .is_some_and(|path| book_transport(path.as_str()));
     match enforce_inner(&access, &mut request).await {
         Err(error) => response(error),
         Ok(None) => StatusCode::NO_CONTENT.into_response(),
@@ -456,14 +506,20 @@ pub(crate) async fn enforce(
                     let body = std::mem::replace(result.body_mut(), Body::empty());
                     let bytes = match tokio::time::timeout(
                         Duration::from_secs(3),
-                        to_bytes(body, MAX_RESPONSE),
+                        to_bytes(body, if book { 32 * 1024 * 1024 } else { MAX_RESPONSE }),
                     )
                     .await
                     {
                         Ok(Ok(bytes)) => bytes,
                         _ => return response(AccessError::Unavailable),
                     };
-                    let scopes = match strict_json(&bytes).and_then(|v| resources(&v)) {
+                    let scopes = match strict_json(&bytes).and_then(|v| {
+                        if book {
+                            resources_bounded(&v, true)
+                        } else {
+                            resources(&v)
+                        }
+                    }) {
                         Ok(scopes) => scopes,
                         Err(_) => return response(AccessError::Unavailable),
                     };
@@ -579,12 +635,20 @@ async fn enforce_inner(
     let admission = Arc::new(access.admit(&ctx, websocket, permit)?);
     if req.body_required && !access.is_local_development() {
         let body = std::mem::replace(request.body_mut(), Body::empty());
-        let bytes = tokio::time::timeout(Duration::from_secs(3), to_bytes(body, MAX_BODY))
-            .await
-            .map_err(|_| AccessError::InvalidRequest)?
-            .map_err(|_| AccessError::InvalidRequest)?;
+        let book = book_transport(path);
+        let bytes = tokio::time::timeout(
+            Duration::from_secs(3),
+            to_bytes(body, if book { 8 * 1024 * 1024 } else { MAX_BODY }),
+        )
+        .await
+        .map_err(|_| AccessError::InvalidRequest)?
+        .map_err(|_| AccessError::InvalidRequest)?;
         let value = strict_json(&bytes)?;
-        let scopes = resources(&value)?;
+        let scopes = if book {
+            resources_bounded(&value, true)?
+        } else {
+            resources(&value)?
+        };
         if path == "/api/v1/reference/transactions"
             && value
                 .get("master_changes")

@@ -6,6 +6,7 @@ native events. This adapter performs no calendar, position or cash arithmetic.
 Actual receipts are separate event batches. See DATE-ROLLS.md.
 """
 import argparse
+import book_capacity
 import copy
 import json
 import os
@@ -19,7 +20,7 @@ import streaming_analytics as analytics
 
 
 def prepare(client, batch):
-    adapter.payload_bytes(batch)
+    book_capacity.payload_bytes(batch)
     if (not isinstance(batch, dict) or type(batch.get('schema_version')) is not int
             or batch['schema_version'] != 1 or set(batch) != {
                 'schema_version', 'id', 'base', 'base_snapshot', 'definition', 'workflow'}):
@@ -34,7 +35,7 @@ def prepare(client, batch):
     command, release = events.prepare(client, ordinary, date_roll=True, base_plan=saved['content']['plan'])
     command['master_changes'][0]['definition']['definition']['provenance']['evidence_reference'] += (
         '; date roll sha256=' + analytics.digest(batch))
-    adapter.payload_bytes(command)
+    book_capacity.payload_bytes(command)
     return command, release
 
 

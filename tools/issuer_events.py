@@ -6,6 +6,7 @@ The producer supplies explicit legal mappings and each contract's actual terms;
 this adapter does not infer defaults, recovery, quantities or cash.
 """
 import argparse
+import book_capacity
 import copy
 import json
 import os
@@ -20,7 +21,7 @@ import streaming_analytics as analytics
 
 
 def prepare(client, batch):
-    adapter.payload_bytes(batch)
+    book_capacity.payload_bytes(batch)
     if (not isinstance(batch, dict) or type(batch.get('schema_version')) is not int
             or batch['schema_version'] != 1 or set(batch) != {
                 'schema_version', 'id', 'base', 'base_snapshot', 'definition', 'workflow', 'issuer_scope_change'}):
@@ -65,7 +66,7 @@ def prepare(client, batch):
     proposed['reference_inputs']['issuer_scope'] = copy.deepcopy(pin)
     proposed['provenance']['evidence_reference'] += '; issuer batch sha256=' + analytics.digest(batch)
     command['master_changes'].append(copy.deepcopy(change))
-    adapter.payload_bytes(command)
+    book_capacity.payload_bytes(command)
     return command, release
 
 

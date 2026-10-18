@@ -23,6 +23,23 @@ pub fn solve_issuer_lifecycle_hedge_proposal(
     states: &[LifecycleHoldingRisk],
     scope: &IssuerRiskScope,
 ) -> Result<HedgeSolveReport, HedgeError> {
+    validate_scope(problem, states, scope)?;
+    solve_lifecycle_hedge_proposal(problem, states)
+}
+/// Retain complete issuer/default checks for distinct legal book lots.
+pub fn solve_issuer_book_hedge_proposal(
+    problem: &HedgeProblem,
+    states: &[LifecycleHoldingRisk],
+    scope: &IssuerRiskScope,
+) -> Result<HedgeSolveReport, HedgeError> {
+    validate_scope(problem, states, scope)?;
+    solve_book_hedge_proposal(problem, states)
+}
+fn validate_scope(
+    problem: &HedgeProblem,
+    states: &[LifecycleHoldingRisk],
+    scope: &IssuerRiskScope,
+) -> Result<(), HedgeError> {
     if problem.factors.is_empty()
         || problem.factors.len() > 16
         || problem.candidates.len() > 4
@@ -124,5 +141,5 @@ pub fn solve_issuer_lifecycle_hedge_proposal(
             ));
         }
     }
-    solve_lifecycle_hedge_proposal(problem, states)
+    Ok(())
 }

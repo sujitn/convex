@@ -168,6 +168,28 @@ pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
     p: &Problem<S>,
     states: &[LifecycleHoldingRisk],
 ) -> Result<Prepared<S>, HedgeError> {
+    prepare_inner(p, states, false)
+}
+pub(super) fn prepare_book<S: AdmittedSensitivity>(
+    p: &Problem<S>,
+    states: &[LifecycleHoldingRisk],
+) -> Result<Prepared<S>, HedgeError> {
+    prepare_inner(p, states, true)
+}
+fn same_reference<S: AdmittedSensitivity>(a: &RiskVector<S>, b: &RiskVector<S>) -> bool {
+    // Per-lot identities/audit record IDs remain in the retained full problem.
+    // Their revisions and every economic, method, factor, FX and risk value match.
+    let mut normalized = b.clone();
+    normalized.id = a.id.clone();
+    normalized.economics.id = a.economics.id.clone();
+    normalized.calculation.id = a.calculation.id.clone();
+    a == &normalized
+}
+fn prepare_inner<S: AdmittedSensitivity>(
+    p: &Problem<S>,
+    states: &[LifecycleHoldingRisk],
+    lots: bool,
+) -> Result<Prepared<S>, HedgeError> {
     if p.factors.is_empty()
         || p.factors.len() > 16
         || p.candidates.len() > 4
@@ -297,7 +319,7 @@ pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
         return Err(invalid("expected_holdings", "duplicate expected identity"));
     }
     let mut actual = HashSet::new();
-    let mut instruments = HashSet::new();
+    let mut instruments = HashMap::new();
     let mut current = vec![0.0; p.factors.len()];
     let mut pending = current.clone();
     let mut fx_by_currency = HashMap::<Currency, Option<HedgeFxPin>>::new();
@@ -327,14 +349,27 @@ pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
         Ok(())
     };
     for h in &p.holdings {
-        if !actual.insert(&h.risk.id)
-            || !expected.contains(&h.risk.id)
-            || !instruments.insert((&h.risk.instrument.id, h.risk.instrument.version))
-        {
+        if !actual.insert(&h.risk.id) || !expected.contains(&h.risk.id) {
             return Err(invalid(
                 "holdings",
                 "duplicate/unrequested holding or original instrument",
             ));
+        }
+        if let Some(prior) =
+            instruments.insert((&h.risk.instrument.id, h.risk.instrument.version), &h.risk)
+        {
+            if !lots {
+                return Err(invalid(
+                    "holdings",
+                    "duplicate/unrequested holding or original instrument",
+                ));
+            }
+            if !same_reference(prior, &h.risk) {
+                return Err(invalid(
+                    "holdings",
+                    "book lots require matching complete fresh reference risk",
+                ));
+            }
         }
         let values = validate_vector(p, &h.risk)?;
         check_methods(&h.risk)?;
@@ -443,22 +478,33 @@ pub(super) fn prepare_with_lifecycle<S: AdmittedSensitivity>(
         }
         let original = p.holdings.iter().find(|h| h.risk.id == c.risk.id);
         if original.is_some_and(|h| h.risk != c.risk)
-            || p.holdings
-                .iter()
-                .any(|h| h.risk.instrument == c.risk.instrument && h.risk.id != c.risk.id)
+            || p.holdings.iter().any(|h| {
+                h.risk.instrument == c.risk.instrument
+                    && h.risk.id != c.risk.id
+                    && (!lots || original.is_none() || !same_reference(&h.risk, &c.risk))
+            })
         {
             return Err(invalid(
                 "candidate.risk",
                 "matching original held instrument requires exact full risk and identity",
             ));
         }
-        let holding = original
-            .map(|h| {
+        let holding = p
+            .holdings
+            .iter()
+            .filter(|h| {
+                if lots {
+                    h.risk.instrument == c.risk.instrument
+                } else {
+                    h.risk.id == c.risk.id
+                }
+            })
+            .try_fold(Decimal::ZERO, |total, h| {
                 h.current_quantity
                     .decimal()
                     .checked_add(h.pending_quantity.decimal())
+                    .and_then(|value| total.checked_add(value))
             })
-            .unwrap_or(Some(Decimal::ZERO))
             .ok_or_else(|| invalid("holding", "Decimal current/pending overflow"))?;
         quantity(holding, unit)?;
         let holding_lo = c

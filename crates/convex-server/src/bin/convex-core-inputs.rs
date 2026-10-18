@@ -47,12 +47,18 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let mut bytes = Vec::new();
     std::fs::File::open(&args[1])?
-        .take(2 * 1024 * 1024 + 1)
+        .take(16 * 1024 * 1024 + 1)
         .read_to_end(&mut bytes)?;
-    if bytes.len() > 2 * 1024 * 1024 {
-        return Err("core import exceeds 2 MiB".into());
+    if bytes.len() > 16 * 1024 * 1024 {
+        return Err("core import exceeds 16 MiB".into());
     }
     let input: Import = serde_json::from_slice(&bytes)?;
+    let expanded = input.references.iter().flat_map(|r| &r.command.master_changes)
+        .any(|change| matches!(&change.definition, convex_engine::ports::reference_master::MasterDefinition::Calculation(value)
+            if value.expanded_capacity() == Ok(true)));
+    if bytes.len() > 2 * 1024 * 1024 && !expanded {
+        return Err("core import exceeds 2 MiB".into());
+    }
     if input.schema_version != 1
         || input.references.len() > 32
         || input.curves.len() > 256

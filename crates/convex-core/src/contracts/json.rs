@@ -18,12 +18,31 @@ const MAX_TEXT_BYTES: usize = 8_192;
 /// Rejects malformed, duplicate, oversized or over-nested JSON, and nonzero
 /// numeric tokens that binary64 parsing would erase to zero.
 pub fn parse(input: &str) -> Result<Value, String> {
+    parse_bounded(input, MAX_NODES)
+}
+
+/// Parse a managed mixed-book request with a larger aggregate node budget.
+/// Byte, depth, per-container, text, duplicate and lexical-number guards stay the same.
+///
+/// # Errors
+/// Rejects invalid JSON or exhausted bounds, exactly as [`parse`].
+pub fn parse_book(input: &str) -> Result<Value, String> {
+    parse_bounded(input, 131_072)
+}
+
+fn parse_bounded(input: &str, nodes: usize) -> Result<Value, String> {
     if input.len() > MAX_INPUT_BYTES {
         return Err("input byte limit exceeded".into());
     }
     reject_erased_numbers(input)?;
     let mut deserializer = serde_json::Deserializer::from_str(input);
-    let value = deserialize_value(&mut deserializer).map_err(|e| e.to_string())?;
+    let mut remaining = nodes;
+    let value = Seed {
+        remaining: &mut remaining,
+        depth: 0,
+    }
+    .deserialize(&mut deserializer)
+    .map_err(|e| e.to_string())?;
     deserializer.end().map_err(|e| e.to_string())?;
     Ok(value)
 }

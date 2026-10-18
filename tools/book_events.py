@@ -12,6 +12,7 @@ import sys
 import urllib.parse
 
 import book_updates
+import book_capacity
 import lifecycle_risk
 import lifecycle_history
 import market_data_adapter as adapter
@@ -52,7 +53,7 @@ def facts(data):
 
 def prepare(client, batch, *, date_roll=False, base_plan=None):
     """Check immutable prefix, exact base pin and full current-risk bindings."""
-    adapter.payload_bytes(batch)
+    book_capacity.payload_bytes(batch)
     fields = {'schema_version', 'id', 'base', 'definition', 'workflow'}
     if (not isinstance(batch, dict) or type(batch.get('schema_version')) is not int
             or batch['schema_version'] not in (1, 2)
@@ -154,7 +155,7 @@ def prepare(client, batch, *, date_roll=False, base_plan=None):
     release = dict(id=base['id'], version=base['version'] + 1, reference_commit=key,
                    workflow=copy.deepcopy(config), position_step=len(new['steps']) - 1)
     stream.book_record(dict(schema_version=1, kind='book', payload=release), base['id'])
-    adapter.payload_bytes(command)
+    book_capacity.payload_bytes(command)
     return command, release
 
 

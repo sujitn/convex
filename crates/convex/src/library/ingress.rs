@@ -6,7 +6,31 @@ use serde_json::Value;
 /// Decode full native inputs without duplicate collapse, economic-term omission,
 /// or precision changes from numeric JSON cash. Old v1 ingress remains separate.
 pub(super) fn decode(input: &str) -> super::LibraryResult<super::LibraryRequest> {
-    let original = parse(input).map_err(|e| {
+    decode_using(input, parse)
+}
+
+pub(super) fn decode_book(input: &str) -> super::LibraryResult<super::LibraryRequest> {
+    let request = decode_using(input, convex_core::contracts::json::parse_book)?;
+    if !matches!(
+        request.operation,
+        super::LibraryOperation::BookPnl { .. }
+            | super::LibraryOperation::GraphHedgeRisk { .. }
+            | super::LibraryOperation::LifecycleHedgeRisk { .. }
+            | super::LibraryOperation::Hedge { .. }
+    ) {
+        return Err(super::LibraryError::invalid(
+            "operation",
+            "managed book operation required",
+        ));
+    }
+    Ok(request)
+}
+
+fn decode_using(
+    input: &str,
+    parser: fn(&str) -> Result<Value, String>,
+) -> super::LibraryResult<super::LibraryRequest> {
+    let original = parser(input).map_err(|e| {
         if e.contains("limit exceeded") {
             super::LibraryError::limit(&e)
         } else {

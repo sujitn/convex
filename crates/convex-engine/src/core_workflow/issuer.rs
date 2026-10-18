@@ -20,6 +20,7 @@ pub(super) fn native_inputs(value: &serde_json::Value) -> Result<LibraryInputs> 
         object.remove("issuer_scope");
         object.remove("pnl_checkpoint");
         object.remove("lifecycle_history");
+        object.remove("core_capacity");
     }
     serde_json::from_value(value).map_err(|_| invalid("invalid core reference inputs"))
 }
@@ -175,6 +176,10 @@ pub(super) fn validate(snapshot: &CoreSnapshot) -> Result<()> {
                 action:
                     HedgeOperation::SolveIssuerLifecycle {
                         scope: admitted, ..
+                    }
+                    | HedgeOperation::SolveBook {
+                        scope: Some(admitted),
+                        ..
                     },
                 ..
             } => {

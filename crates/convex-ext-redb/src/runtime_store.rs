@@ -88,13 +88,18 @@ impl RuntimeStore for RedbRuntimeStore {
             .get(id)
             .map_err(database_error)?
             .map(|v| {
-                if v.value().len() > 8 * 1024 * 1024 {
+                // Exact native JSON is itself stored as a JSON string. Retain a
+                // finite bound for escaping plus the small identity envelope.
+                if v.value().len() > 32 * 1024 * 1024 + 16 * 1024 {
                     return Err(TraitError::CapacityExceeded);
                 }
                 let result: convex_ports::core_workflow::CoreResult =
                     serde_json::from_slice(v.value())
                         .map_err(|_| TraitError::InvalidInput("corrupt core result"))?;
                 result.verify()?;
+                if !result.book_capacity && v.value().len() > 8 * 1024 * 1024 {
+                    return Err(TraitError::CapacityExceeded);
+                }
                 if result.id != id {
                     return Err(TraitError::Conflict("core result key mismatch"));
                 }

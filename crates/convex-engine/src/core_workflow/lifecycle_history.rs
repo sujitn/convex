@@ -41,6 +41,7 @@ fn expand_life(
     life: &mut Value,
     rows: &BTreeMap<String, Vec<LifecycleStep>>,
     budget: &mut usize,
+    limit_error: &'static str,
 ) -> Result<()> {
     let Some(events) = life.get("events") else {
         return Err(invalid("lifecycle history events missing"));
@@ -68,7 +69,7 @@ fn expand_life(
     let extra = nodes(&events).saturating_sub(nodes(&life["events"]));
     *budget = budget
         .checked_sub(extra)
-        .ok_or_else(|| invalid("expanded lifecycle request exceeds32768nodes"))?;
+        .ok_or_else(|| invalid(limit_error))?;
     life["events"] = events;
     Ok(())
 }
@@ -81,15 +82,32 @@ pub(super) fn expand(snapshot: &CoreSnapshot, request: &Value) -> Result<Value> 
         return Ok(request.clone());
     }
     let mut request = request.clone();
-    let mut budget = 32_768_usize
-        .checked_sub(nodes(&request))
-        .ok_or_else(|| invalid("native lifecycle request exceeds32768nodes"))?;
+    let maximum: usize = if definition(snapshot)?
+        .expanded_capacity()
+        .map_err(|_| invalid("core capacity profile"))?
+    {
+        131_072
+    } else {
+        32_768
+    };
+    let mut budget = maximum.checked_sub(nodes(&request)).ok_or_else(|| {
+        invalid(if maximum == 32_768 {
+            "native lifecycle request exceeds32768nodes"
+        } else {
+            "native lifecycle request exceeds131072nodes"
+        })
+    })?;
+    let limit_error = if maximum == 32_768 {
+        "expanded lifecycle request exceeds32768nodes"
+    } else {
+        "expanded lifecycle request exceeds131072nodes"
+    };
     match request.pointer("/operation/kind").and_then(Value::as_str) {
         Some("lifecycle_hedge_risk") => {
             let life = request
                 .pointer_mut("/operation/lifecycle")
                 .ok_or_else(|| invalid("missing lifecycle risk history"))?;
-            expand_life(life, &rows, &mut budget)?;
+            expand_life(life, &rows, &mut budget, limit_error)?;
         }
         Some("book_pnl") => {
             let holdings = request
@@ -100,7 +118,7 @@ pub(super) fn expand(snapshot: &CoreSnapshot, request: &Value) -> Result<Value> 
                 let life = holding
                     .get_mut("lifecycle")
                     .ok_or_else(|| invalid("missing holding lifecycle"))?;
-                expand_life(life, &rows, &mut budget)?;
+                expand_life(life, &rows, &mut budget, limit_error)?;
             }
         }
         _ => (),

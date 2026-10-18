@@ -208,6 +208,20 @@ impl CoreWorkflow {
                 TraitError::Conflict("core result adapter returned another identity").into(),
             );
         }
+        if result.book_capacity {
+            // Check the immutable storage selection without replaying all analytics
+            // on a read. Snapshot verification checks its content digest and bounds.
+            let snapshot = self
+                .snapshots
+                .get_core(&result.snapshot_id)
+                .await?
+                .ok_or(CoreWorkflowError::NotFound)?;
+            snapshot.verify()?;
+            if snapshot.id != result.snapshot_id {
+                return Err(invalid("core result capacity snapshot mismatch"));
+            }
+            check_result_capacity(&snapshot, &result)?;
+        }
         Ok(result)
     }
     /// Calculate from saved inputs and acknowledge only after the exact result commits.
@@ -225,6 +239,7 @@ impl CoreWorkflow {
         if !recompute {
             if let Some(prior) = self.results.get_core_result(&key).await? {
                 prior.verify()?;
+                check_result_capacity(&snapshot, &prior)?;
                 if prior.id != key {
                     return Err(TraitError::Conflict("core result adapter key mismatch").into());
                 }
@@ -239,11 +254,24 @@ impl CoreWorkflow {
         }
         let json = serde_json::to_string(&request)
             .map_err(|_| invalid("core native request serialization"))?;
-        let output = tokio::task::spawn_blocking(move || convex::library::execute_json(&json))
-            .await
-            .map_err(|_| TraitError::SourceNotAvailable("native calculation worker".into()))?;
+        let expanded = definition(&snapshot)?
+            .expanded_capacity()
+            .map_err(|_| invalid("core capacity profile"))?;
+        let output = tokio::task::spawn_blocking(move || {
+            if expanded {
+                convex::library::execute_book_json(&json)
+            } else {
+                convex::library::execute_json(&json)
+            }
+        })
+        .await
+        .map_err(|_| TraitError::SourceNotAvailable("native calculation worker".into()))?;
         let output = checkpoint::output(&snapshot, &calculation, output)?;
-        let result = CoreResult::new(id.clone(), calculation.clone(), self.build.clone(), output)?;
+        let result = if expanded {
+            CoreResult::new_book(id.clone(), calculation.clone(), self.build.clone(), output)?
+        } else {
+            CoreResult::new(id.clone(), calculation.clone(), self.build.clone(), output)?
+        };
         match self.results.save_core_result(&result).await {
             Err(TraitError::UnknownOutcome) => {
                 return Err(CoreWorkflowError::ResultUnknown(result.id))
@@ -258,6 +286,19 @@ impl CoreWorkflow {
             build_id: self.build.clone(),
         })
     }
+}
+
+fn check_result_capacity(snapshot: &CoreSnapshot, result: &CoreResult) -> Result<()> {
+    if result.book_capacity
+        && !definition(snapshot)?
+            .expanded_capacity()
+            .map_err(|_| invalid("core capacity profile"))?
+    {
+        return Err(invalid(
+            "core result capacity differs from captured definition",
+        ));
+    }
+    Ok(())
 }
 
 fn definition(snapshot: &CoreSnapshot) -> Result<&CoreDefinition> {

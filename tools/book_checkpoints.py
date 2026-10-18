@@ -5,6 +5,7 @@ The producer supplies full after points. The server captures and checks the exac
 opening and cumulative carry; lifecycle state is rebuilt by the original owners.
 """
 import argparse
+import book_capacity
 import copy
 import json
 import os
@@ -20,7 +21,7 @@ import lifecycle_history
 
 
 def prepare(client, batch):
-    adapter.payload_bytes(batch)
+    book_capacity.payload_bytes(batch)
     if (not isinstance(batch, dict) or type(batch.get('schema_version')) is not int
             or batch['schema_version'] != 1 or set(batch) != {
                 'schema_version', 'id', 'base', 'base_snapshot', 'definition', 'workflow'}):
@@ -83,7 +84,7 @@ def prepare(client, batch):
     release = dict(id=base['id'], version=base['version'] + 1, reference_commit=key,
                    workflow=copy.deepcopy(config), position_step=len(new['steps']) - 1)
     stream.book_record(dict(schema_version=1, kind='book', payload=release), base['id'])
-    adapter.payload_bytes(command)
+    book_capacity.payload_bytes(command)
     return command, release
 
 

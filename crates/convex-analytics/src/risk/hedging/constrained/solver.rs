@@ -599,6 +599,14 @@ pub fn solve_lifecycle_hedge_proposal(
         super::admission::prepare_with_lifecycle(problem, states)?,
     )
 }
+/// Solve distinct legal lots with matching full fresh reference risk and combined
+/// candidate holding limits; each owned lifecycle state remains separate.
+pub fn solve_book_hedge_proposal(
+    problem: &HedgeProblem,
+    states: &[LifecycleHoldingRisk],
+) -> Result<HedgeSolveReport, HedgeError> {
+    solve_prepared(problem, super::admission::prepare_book(problem, states)?)
+}
 /// Solve explicit central/directional supplied evidence with the original optimizer.
 pub fn solve_directional_hedge_proposal(
     problem: &Problem<HedgeSensitivityEvidence>,
