@@ -46,7 +46,9 @@ fn finite_input_overflow_rejected_without_clamping() {
     let mut v: Value = serde_json::to_value(row("CurrencyPresentValue", "USD", 8.)).unwrap();
     v["total"]["cash"]["value"] = json!(f64::MAX);
     let row: PnlWindowTotal = serde_json::from_value(v).unwrap();
-    assert!(accumulate_pnl_windows(&[row.clone()], &[row]).is_err());
+    assert!(
+        accumulate_pnl_windows(std::slice::from_ref(&row), std::slice::from_ref(&row)).is_err()
+    );
 }
 
 fn fx_point(id: &str, rate: &str) -> PnlPointInput {

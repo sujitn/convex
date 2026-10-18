@@ -172,10 +172,11 @@ fn setup() -> (h::HedgeProblem, h::LifecycleHoldingRisk, h::IssuerRiskScope) {
 #[test]
 fn issuer_default_excludes_a_distinct_security_without_parent_contagion() {
     let (mut p, state, scope) = setup();
-    let actual = h::solve_issuer_lifecycle_hedge_proposal(&p, &[state.clone()], &scope).unwrap();
+    let actual =
+        h::solve_issuer_lifecycle_hedge_proposal(&p, std::slice::from_ref(&state), &scope).unwrap();
     assert_eq!(
         actual,
-        h::solve_lifecycle_hedge_proposal(&p, &[state.clone()]).unwrap()
+        h::solve_lifecycle_hedge_proposal(&p, std::slice::from_ref(&state)).unwrap()
     );
     p.candidates[0].risk.instrument.id =
         serde_json::from_value(json!("another.issuer.bond")).unwrap();
@@ -194,10 +195,14 @@ fn missing_mapping_wrong_versions_missing_native_state_and_rewritten_notice_fail
     let mut wrong = scope.clone();
     wrong.directory.instruments.pop();
     wrong.directory.instruments.pop();
-    assert!(h::solve_issuer_lifecycle_hedge_proposal(&p, &[state.clone()], &wrong).is_err());
+    assert!(
+        h::solve_issuer_lifecycle_hedge_proposal(&p, std::slice::from_ref(&state), &wrong).is_err()
+    );
     let mut wrong = scope.clone();
     wrong.directory.instruments[0].version = serde_json::from_value(json!(2)).unwrap();
-    assert!(h::solve_issuer_lifecycle_hedge_proposal(&p, &[state.clone()], &wrong).is_err());
+    assert!(
+        h::solve_issuer_lifecycle_hedge_proposal(&p, std::slice::from_ref(&state), &wrong).is_err()
+    );
     let mut wrong = scope.clone();
     wrong.directory.issuers[0].default = None;
     assert!(h::solve_issuer_lifecycle_hedge_proposal(&p, &[state], &wrong).is_err());

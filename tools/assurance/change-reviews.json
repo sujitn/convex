@@ -6394,7 +6394,7 @@
         "crates/convex-analytics/tests/pending_cash.rs": "570d0ef568304a5869db61a81850def6fcc1d27c5d8da0e4c12a5b699289c665",
         "crates/convex-analytics/tests/periodic_growth.rs": "747ff9e153961bf6b9056babcdcaf803d6ceec110afc3185bd9a689ad5e0379d",
         "crates/convex-analytics/tests/physical_partitions.rs": "7d9b16ffdcf3e2cc84b6a8791de2716d5944cd9a32ae1c3608bf6ce95acbc4cb",
-        "crates/convex-analytics/tests/pnl_checkpoints.rs": "7a4dbfdf84792bfe08aa1a91d844e679419566f8cca580069233c2634944666d",
+        "crates/convex-analytics/tests/pnl_checkpoints.rs": "5a9137723acebbcda2ba7fbbf6030d8095d46e2f20fdfa3308a58c809f2b3927",
         "crates/convex-analytics/tests/product_parametric.rs": "c4f9f18d6397375d016c18881808ff7945e5ede4d2710d39fd067e532a084261",
         "crates/convex-analytics/tests/product_ufr.rs": "f99609f5890da5916d0df650b89a22b2de2a455a8e17549a69198b85f57d5e2a",
         "crates/convex-analytics/tests/quote_risk.rs": "3cd81640aee283566019f7d0897591c7991d6c64d4665eb3bae2a8caa9585650",
@@ -7039,7 +7039,7 @@
         "crates/convex/tests/icma_risk.rs": "8faa8c5c7d0b71ca31bb6e9ee30b2d900373e26976a0c7a87d82f4bfed8a1a4d",
         "crates/convex/tests/icma_workout.rs": "9426a8611da4190969a2eb37f22bb29616357e589c28ade3944908ab4b48953e",
         "crates/convex/tests/ingress_numbers.rs": "015bf36410d9f9bc5eed50062276ecf2fbb59ce26aaa0f2a36d887e1493efb2c",
-        "crates/convex/tests/issuer_events.rs": "8cf020857d2bfd6ce08c207b14d686ba8039900cadfeb8c0a41b41cec13f1222",
+        "crates/convex/tests/issuer_events.rs": "77d9a613a7f4be4d366b0550ba72377aeff9621e516c09e47bd382f12027fa1d",
         "crates/convex/tests/library.rs": "45a6133ab850e468c3775cc8541ac65620e7a04ee7089adf34e6d8401b09eace",
         "crates/convex/tests/library_cash.rs": "ea1845a048dcecb90eb3a97ffb74f7e6a2a9d3c8f6a0315527812c86eaf547c4",
         "crates/convex/tests/library_cash_helpers.rs": "990c44b97a4a4bca1152be7902ea0cd6321089607b6d263f072d81c210f162b8",
@@ -8012,12 +8012,12 @@
         "tools/assurance/dependencies.json": "a0a361cbaab9375e2cd19355734e3853bd6bb5bc5ef2d6b02ea1ca8391f454a9",
         "tools/assurance/exceptions.json": "1841a20cfacba151355d5e7fbcfa783e1a96df8e24b63675fc8f0649276af777",
         "tools/assurance/inventory.json": "d920b948317394bc9f4d1ff280f8b66317e8f02bf5042905ac840223f4b74f32",
-        "tools/assurance/numeric-evidence.json": "c690bc73073f0800e173a137fd9dd9a8cafa22b07983cff67830ecbafd313fe4",
+        "tools/assurance/numeric-evidence.json": "fb0cba3194bb2039cedb7022f754e1cbfd51a6a520f3331ec4a6a91e79fa0e64",
         "tools/assurance/test_policy.py": "3e0d84ca0e1f72f3b5374edcdb729b941ff9705d513b4b86bdd27d49b7b24a03",
         "tools/library/api-capabilities.json": "9279c0cf5f38522f4a48b5d72cd50b286422fe1794c0ddb070c53b57681a3a5e",
         "tools/library/api.py": "d4badeec46d1800f10430921f9a73150fb7625c7be5599b4d06193cfc1c27ab5",
         "tools/library/check.py": "4eb0c75610a5d691d6bc6c164758d5e79a2a8237061b760b4f629c505508c1c9",
-        "tools/library/library-inventory.json": "77d66a681b26032b8d29254a8cdd327330e7b38e5eb9cf147070affce65211e0",
+        "tools/library/library-inventory.json": "c1efb9ff741f527b4fed3f1f218e6b995635d787252cba5bcf7b53018e3d99c3",
         "tools/library/native-operations.json": "28b34fbf3aa1cf83a8bd8ba76320de74b522e3142dca626c9dc38072245d8a5f",
         "tools/library/outstanding.py": "65a49e791be7a0db5d0572ea3bd47dfae3ef9c929872cd4a7e30988c02cc31a3",
         "tools/library/requirements-schema.txt": "08dbb2c70f3bacbd191233acf913990de4513b44c637e746a5b9d3acba7bc06d",
@@ -8138,6 +8138,33 @@
         "reference_evidence": [
           ".ai/production-readiness/pr-preparation/publication/native-bond-quote-request-adapter.patch",
           ".ai/production-readiness/pr-preparation/publication/native-bond-quote-adapter-approval.json"
+        ]
+      }
+    },
+    {
+      "base_commit": "35f4dbb8796688303f3910ffc474e712857bd2d2",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Apply only the two exact independently owner-approved mechanical lint patches exposed by the required all-target Clippy checks. The P&L overflow test borrows the same one-row value twice with slice::from_ref; four issuer-event calls borrow their unchanged one-state input instead of cloning. Complete keep-going diagnostics over every required all-target group found only these five warnings. All eight existing test functions, inputs, assertions, expected answers, tolerances, fixture bytes and runtime calculations remain unchanged. Refresh only these two numerical source hashes and their three dependent library source pins/version metadata. Preserve all1992 artifact rows/solver defaults,2154 Planned mandatory records and162 observations. No lint suppression or production/model certification.",
+      "tests": [
+        "Existing four P&L checkpoint and four issuer-event tests with all features, strict format.",
+        "Original required all-target Clippy418 and436 reruns, retaining first failed diagnostics without weakening -Dwarnings.",
+        "Normal/actual-main/exact-increment assurance, policy rejection tests and final frozen all-features workspace execution; actual outcomes retained in private publication evidence."
+      ],
+      "candidate_files": {
+        "crates/convex-analytics/tests/pnl_checkpoints.rs": "5a9137723acebbcda2ba7fbbf6030d8095d46e2f20fdfa3308a58c809f2b3927",
+        "crates/convex/tests/issuer_events.rs": "77d9a613a7f4be4d366b0550ba72377aeff9621e516c09e47bd382f12027fa1d",
+        "tools/assurance/numeric-evidence.json": "fb0cba3194bb2039cedb7022f754e1cbfd51a6a520f3331ec4a6a91e79fa0e64",
+        "tools/library/library-inventory.json": "c1efb9ff741f527b4fed3f1f218e6b995635d787252cba5bcf7b53018e3d99c3"
+      },
+      "quantitative_review": {
+        "reviewer": "Repository owner, two explicit human user replies",
+        "rationale": "P&L: user answered \"Approve this exact P&L adapter\" to request_user_input_async call_8f134be9cfeb448db5ac8e91d90c3a53 item0, exact patch SHA-256 defcd7a079560cbdd3378b54b4fe3e5656c510ba50717a903f8813840da10be2. Issuer: user answered \"Approve these exact four adapters\" to call_44b99a76361a48b4b00b50b474079117 item0, exact patch SHA-256 76acaf5877a02e73173648cbd45b1d21a1c671abb660fcf3221dbc95b3bfdfe9. These approvals cover only those exact adapters and preserve all tests/values/answers/assertions/bounds; no certification.",
+        "reference_evidence": [
+          ".ai/production-readiness/pr-preparation/publication/pnl-checkpoint-lint-proposal/pnl-checkpoint-slice-adapter.patch",
+          ".ai/production-readiness/pr-preparation/publication/pnl-checkpoint-lint-proposal/owner-approval.json",
+          ".ai/production-readiness/pr-preparation/publication/issuer-lint-proposal/issuer-state-slice-adapters.patch",
+          ".ai/production-readiness/pr-preparation/publication/issuer-lint-proposal/owner-approval.json"
         ]
       }
     }
