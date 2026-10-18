@@ -6330,7 +6330,7 @@
         "crates/convex-analytics/tests/amendments_splits.rs": "0467572787417de943e683449dba552211abefd0f6ff936344d9e3a3a92a3c2b",
         "crates/convex-analytics/tests/assurance.rs": "8d8e6b68a00d991e2e85ab55c4be649c3d48200dc50ed66ea44751d607ac44a8",
         "crates/convex-analytics/tests/bond_contracts.rs": "15e31bb9e63e6e395d123bd7d3bdb29ed176fca50ea6db48f613018921f57275",
-        "crates/convex-analytics/tests/bond_quotes.rs": "0e02cb6bd89bc30861630a1a398e662ba17ed077b8b9da689f6d364be4653cd8",
+        "crates/convex-analytics/tests/bond_quotes.rs": "f0e6386d2113483fc0244f6735b0046b10cb0bf231c893fbbc70ac702933eb3b",
         "crates/convex-analytics/tests/canonical_compatibility.rs": "0fa2c91924c2058c94a68e3f4b94e64106dd03e3180dafffdc728cb22a2a42f0",
         "crates/convex-analytics/tests/cash_calibration.rs": "6f2e9a3efa10f4b5047076a086b022ab99a9bdf64e5a385c262357dc5abb5147",
         "crates/convex-analytics/tests/cash_helper_repricing.rs": "dedae3934104b832950a341fd51ed268dd67d1c682de5e158387fa20a3868352",
@@ -8012,12 +8012,12 @@
         "tools/assurance/dependencies.json": "a0a361cbaab9375e2cd19355734e3853bd6bb5bc5ef2d6b02ea1ca8391f454a9",
         "tools/assurance/exceptions.json": "1841a20cfacba151355d5e7fbcfa783e1a96df8e24b63675fc8f0649276af777",
         "tools/assurance/inventory.json": "d920b948317394bc9f4d1ff280f8b66317e8f02bf5042905ac840223f4b74f32",
-        "tools/assurance/numeric-evidence.json": "8229f41117ebbb04b7f1189ddac85a069d33e270d11f0264543b80eecfdce6f6",
+        "tools/assurance/numeric-evidence.json": "c690bc73073f0800e173a137fd9dd9a8cafa22b07983cff67830ecbafd313fe4",
         "tools/assurance/test_policy.py": "3e0d84ca0e1f72f3b5374edcdb729b941ff9705d513b4b86bdd27d49b7b24a03",
         "tools/library/api-capabilities.json": "9279c0cf5f38522f4a48b5d72cd50b286422fe1794c0ddb070c53b57681a3a5e",
         "tools/library/api.py": "d4badeec46d1800f10430921f9a73150fb7625c7be5599b4d06193cfc1c27ab5",
         "tools/library/check.py": "4eb0c75610a5d691d6bc6c164758d5e79a2a8237061b760b4f629c505508c1c9",
-        "tools/library/library-inventory.json": "5001d4f09bcc60ac8033e08e4890930fb08e8c109cdebef2ab91e097417184e8",
+        "tools/library/library-inventory.json": "77d66a681b26032b8d29254a8cdd327330e7b38e5eb9cf147070affce65211e0",
         "tools/library/native-operations.json": "28b34fbf3aa1cf83a8bd8ba76320de74b522e3142dca626c9dc38072245d8a5f",
         "tools/library/outstanding.py": "65a49e791be7a0db5d0572ea3bd47dfae3ef9c929872cd4a7e30988c02cc31a3",
         "tools/library/requirements-schema.txt": "08dbb2c70f3bacbd191233acf913990de4513b44c637e746a5b9d3acba7bc06d",
@@ -8115,6 +8115,30 @@
       "candidate_files": {
         ".github/workflows/ci.yml": "96d446f64f966e678ebc8b3892c24edf0c8f8e25cbaf8c4bb3bebf7f8b0b10fd",
         "tools/library/library-inventory.json": "5001d4f09bcc60ac8033e08e4890930fb08e8c109cdebef2ab91e097417184e8"
+      }
+    },
+    {
+      "base_commit": "f3e3d47d71a5e22438fd25937fb0bd4131ca2632",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Apply only the exact owner-approved native bond-quote constructor-request adapter after full locked workspace validation reproduced its stale metadata rejection. Remove eight reference-only metadata keys from a cloned constructor request; the original financial case remains intact. All13 fixture cases, seven tests, financial terms, expected answers, assertions and tolerances remain unchanged. Refresh only this existing numerical pin and the two dependent library fingerprints/version metadata; preserve all1992 artifact rows, solver defaults,2154 Planned mandatory records and162 observations. No production financial code or certification change.",
+      "tests": [
+        "Original seven native bond quote tests, strict targeted lint and format.",
+        "Final locked all-features workspace suite and normal/main/exact-increment assurance; actual command outcomes retained in private publication evidence.",
+        "Exact approved patch hash, before/after source hash and numerical/library conservation checks."
+      ],
+      "candidate_files": {
+        "crates/convex-analytics/tests/bond_quotes.rs": "f0e6386d2113483fc0244f6735b0046b10cb0bf231c893fbbc70ac702933eb3b",
+        "tools/assurance/numeric-evidence.json": "c690bc73073f0800e173a137fd9dd9a8cafa22b07983cff67830ecbafd313fe4",
+        "tools/library/library-inventory.json": "77d66a681b26032b8d29254a8cdd327330e7b38e5eb9cf147070affce65211e0"
+      },
+      "quantitative_review": {
+        "reviewer": "Repository owner, explicit human user reply",
+        "rationale": "The user explicitly answered \"Approve this exact native adapter\" to request_user_input_async call_d7f104e9e40c465a90098e3f41f2b8c1 item0. The exact approved patch SHA-256 is dc87e2b5280a3e5d9af6abe8be404bd319135e49c6057446fa00ee06e2696d4c. This covers only the native cloned-constructor request adapter; all13 cases, seven tests, answers and bounds stay. No model or production certification.",
+        "reference_evidence": [
+          ".ai/production-readiness/pr-preparation/publication/native-bond-quote-request-adapter.patch",
+          ".ai/production-readiness/pr-preparation/publication/native-bond-quote-adapter-approval.json"
+        ]
       }
     }
   ]

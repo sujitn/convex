@@ -97,7 +97,20 @@ fn close(actual: f64, expected: f64, abs: f64, rel: f64, label: &str) {
 fn supplied_contract_golden_coupon_ex_leap_stubs_eom_holiday_negative_yield() {
     let pack: Value = serde_json::from_str(include_str!("fixtures/bond-quotes.json")).unwrap();
     for case in pack["cases"].as_array().unwrap() {
-        let BondSpec::FixedRate(spec) = serde_json::from_value(case.clone()).unwrap() else {
+        let mut constructor = case.clone();
+        for metadata in [
+            "id",
+            "settlement",
+            "yield",
+            "quote_frequency",
+            "quote_frequency_count",
+            "accrued_fraction",
+            "discount_cashflows",
+            "expected",
+        ] {
+            constructor.as_object_mut().unwrap().remove(metadata);
+        }
+        let BondSpec::FixedRate(spec) = serde_json::from_value(constructor).unwrap() else {
             panic!("fixed");
         };
         let b = bond(spec);
