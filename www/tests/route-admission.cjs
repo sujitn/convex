@@ -73,7 +73,11 @@ test('fixed spread display retains zero and does not advertise retired OAS', () 
     analysis: { z_spread: 0, asw_spread: 12.5, is_callable: true, oas: null },
   }));
   assert.match(html, /value="0"/);
-  assert.match(html, /12\.5/);
+  assert.doesNotMatch(html, /ASW|Asset Swap|12\.5/);
+  const positiveSpread = renderToStaticMarkup(React.createElement(module.exports.default, {
+    analysis: { z_spread: 12.5 },
+  }));
+  assert.match(positiveSpread, /value="12\.5"/);
   assert.doesNotMatch(html, /OAS|Option Adj/);
   assert.doesNotMatch(html, /G-Spread|Benchmark|≈ Z-Sprd|~0/);
 });

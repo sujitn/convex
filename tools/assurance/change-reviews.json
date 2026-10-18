@@ -8017,7 +8017,7 @@
         "tools/library/api-capabilities.json": "9279c0cf5f38522f4a48b5d72cd50b286422fe1794c0ddb070c53b57681a3a5e",
         "tools/library/api.py": "d4badeec46d1800f10430921f9a73150fb7625c7be5599b4d06193cfc1c27ab5",
         "tools/library/check.py": "4eb0c75610a5d691d6bc6c164758d5e79a2a8237061b760b4f629c505508c1c9",
-        "tools/library/library-inventory.json": "cba181888dc6e6ed221b9513e820596ab511db98a4b3416489b83b446896e4b8",
+        "tools/library/library-inventory.json": "24272f6638741f659d3bd18b195a97acb67b4b468e1a6869b156ea583225d1e4",
         "tools/library/native-operations.json": "28b34fbf3aa1cf83a8bd8ba76320de74b522e3142dca626c9dc38072245d8a5f",
         "tools/library/outstanding.py": "65a49e791be7a0db5d0572ea3bd47dfae3ef9c929872cd4a7e30988c02cc31a3",
         "tools/library/requirements-schema.txt": "08dbb2c70f3bacbd191233acf913990de4513b44c637e746a5b9d3acba7bc06d",
@@ -8027,7 +8027,9 @@
         "tools/library/test_operations.py": "6bd492434f349780ffd34b444ec8ead622f8131880f68a2d2efa6561dab94ea4",
         "tools/library/test_outstanding.py": "3b7468acb9285f837c4dcf6a9b1dca827454ee444683a04a8335bc57670f87ff",
         "tools/library/test_validation_order.py": "8fada18fbaf4708cfeb28ac35b93b55a14b422d790878daad845ef2a849d6c10",
-        "tools/source_pins.py": "540fc4e81e98dba9eb206f7bad94fab7539228bb32ca0a2151d9dfe0f209e572"
+        "tools/source_pins.py": "540fc4e81e98dba9eb206f7bad94fab7539228bb32ca0a2151d9dfe0f209e572",
+        "www/tests/route-admission.cjs": "36296975a725c64885c6d4d94b228b70463d6a7f5ca89a4d8ed03848831170fd",
+        ".github/workflows/fly-deploy.yml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       }
     },
     {
@@ -8065,6 +8067,22 @@
         "crates/convex-math/src/stats/normal.rs": "5e3099565d9978da52f016a424738c665b807c73a228ffdadce4f3b225fe8f15",
         "tools/assurance/inventory.json": "d920b948317394bc9f4d1ff280f8b66317e8f02bf5042905ac840223f4b74f32",
         "tools/library/library-inventory.json": "cba181888dc6e6ed221b9513e820596ab511db98a4b3416489b83b446896e4b8"
+      }
+    },
+    {
+      "base_commit": "73f05c2733ea011400924a8182785a9e88e6a79f",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-18",
+      "rationale": "Fix a stale browser admission check found by actual npm tests: the deliberately retired unbound ASW display must stay absent, while actual Z-spread still displays both original zero and positive12.5 values. Keep all five existing test functions, original supplied control data and the zero/OAS/government admission assertions; add the explicit positive supported Z case. This is browser wiring coverage, not a financial fixture or kernel change. Remove the obsolete automatic Fly deploy workflow: its unchanged Docker settings select the now-rejected production profile and non-loopback plain HTTP host. Do not add a TLS/provider deployment composition or reopen production as a packaging shortcut. The old deployment files/history are preserved on the original branch and bundle. Refresh only the browser-test source fingerprint and inventory metadata; all1992numerical artifact rows/defaults,2154Planned requirements and162observations remain.",
+      "tests": [
+        "npm ci and npm run build in demo/frontend; npm ci and npm test in www",
+        "Existing startup/production regression tests retain closed default production and loopback HTTP admission; local Docker daemon unavailable is explicitly recorded.",
+        "Normal and actual-main/increment-base assurance; no numerical manifest change."
+      ],
+      "candidate_files": {
+        "www/tests/route-admission.cjs": "36296975a725c64885c6d4d94b228b70463d6a7f5ca89a4d8ed03848831170fd",
+        ".github/workflows/fly-deploy.yml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "tools/library/library-inventory.json": "24272f6638741f659d3bd18b195a97acb67b4b468e1a6869b156ea583225d1e4"
       }
     }
   ]
