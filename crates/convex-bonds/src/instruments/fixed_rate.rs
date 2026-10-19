@@ -405,6 +405,121 @@ impl FixedRateBond {
         }
         Ok(flows)
     }
+
+    /// Prepare original entitled cash on this bond's coupon schedule.
+    /// Principal between coupons does not reset the coupon discount clock.
+    pub(crate) fn prepare_yield_cash(
+        &self,
+        settlement: Date,
+        frequency: Frequency,
+        cash: &[BondCashFlow],
+    ) -> BondResult<crate::pricing::discount_time::PreparedDatedCash> {
+        use crate::pricing::discount_time::{DatedYieldCash, DiscountTimeBasis, PreparedDatedCash};
+        use rust_decimal::prelude::ToPrimitive;
+        if frequency.is_zero() {
+            return Err(BondError::invalid_spec("zero yield frequency"));
+        }
+        let schedule = self.try_schedule()?;
+        if cash.is_empty()
+            || cash.len() > convex_core::cashflows::MAX_SCHEDULE_PERIODS
+            || cash.windows(2).any(|pair| pair[0].date > pair[1].date)
+        {
+            return Err(BondError::invalid_spec(
+                "bounded sorted future cash required",
+            ));
+        }
+        if self.day_count == DayCountConvention::ActActIcma {
+            let last = cash
+                .last()
+                .ok_or_else(|| BondError::invalid_spec("no future yield cash"))?;
+            let spec = schedule.spec();
+            let reference_periods = convex_core::cashflows::generate_icma_reference_periods(
+                spec,
+                spec.start_date.min(settlement),
+                spec.end_date.max(last.date),
+            )
+            .map_err(|error| BondError::invalid_spec(error.to_string()))?;
+            let dated = cash
+                .iter()
+                .map(|flow| {
+                    let amount = flow
+                        .amount
+                        .checked_div(self.face_value)
+                        .and_then(|v| v.checked_mul(Decimal::ONE_HUNDRED))
+                        .ok_or_else(|| {
+                            BondError::invalid_spec("cashflow normalization overflow")
+                        })?;
+                    Ok(DatedYieldCash {
+                        date: flow.date,
+                        amount: convex_core::contracts::ExactDecimal::new(amount),
+                    })
+                })
+                .collect::<BondResult<Vec<_>>>()?;
+            return PreparedDatedCash::new(
+                &dated,
+                settlement,
+                &DiscountTimeBasis::Icma {
+                    schedule: spec.clone(),
+                    reference_periods,
+                },
+            );
+        }
+        let periods = schedule.coupon_periods();
+        let mut out = Vec::with_capacity(cash.len());
+        let mut time = Decimal::ZERO;
+        let mut last = settlement;
+        let mut index = 0;
+        for period in periods {
+            let payment = period.payment_date();
+            if payment <= settlement {
+                continue;
+            }
+            crate::pricing::discount_time::interval(settlement, payment, false)?;
+            let (start, _) = period.accrual_dates();
+            let fraction = |a: Date, b: Date| -> BondResult<Decimal> {
+                Ok(self.day_count.to_day_count().year_fraction(a, b))
+            };
+            // Subtraction preserves non-additive 30/360 boundary rules.
+            let elapsed = fraction(start, last)?;
+            let step = fraction(start, payment)?
+                .checked_sub(elapsed)
+                .ok_or_else(|| BondError::invalid_spec("yield time overflow"))?;
+            while let Some(flow) = cash.get(index).filter(|flow| flow.date <= payment) {
+                crate::pricing::discount_time::interval(settlement, flow.date, false)?;
+                let offset = fraction(start, flow.date)?
+                    .checked_sub(elapsed)
+                    .ok_or_else(|| BondError::invalid_spec("yield time overflow"))?;
+                let flow_time = time
+                    .checked_add(offset)
+                    .ok_or_else(|| BondError::invalid_spec("yield time overflow"))?;
+                if flow_time < Decimal::ZERO {
+                    return Err(BondError::invalid_spec("negative yield time"));
+                }
+                let amount = flow
+                    .amount
+                    .checked_div(self.face_value)
+                    .and_then(|v| v.checked_mul(Decimal::ONE_HUNDRED))
+                    .ok_or_else(|| BondError::invalid_spec("cashflow normalization overflow"))?;
+                out.push((
+                    flow_time
+                        .to_f64()
+                        .ok_or_else(|| BondError::invalid_spec("yield time conversion"))?,
+                    amount
+                        .to_f64()
+                        .ok_or_else(|| BondError::invalid_spec("cashflow conversion"))?,
+                ));
+                index += 1;
+            }
+            time = time
+                .checked_add(step)
+                .ok_or_else(|| BondError::invalid_spec("yield time overflow"))?;
+            last = payment;
+        }
+        if out.is_empty() || index != cash.len() {
+            return Err(BondError::invalid_spec("no future yield cash"));
+        }
+        Ok(PreparedDatedCash::from_validated_dates(out))
+    }
 }
 
 // Implement the Bond trait from traits/bond.rs
@@ -458,96 +573,7 @@ impl Bond for FixedRateBond {
         settlement: Date,
         frequency: Frequency,
     ) -> BondResult<crate::pricing::discount_time::PreparedDatedCash> {
-        use crate::pricing::discount_time::{DatedYieldCash, DiscountTimeBasis, PreparedDatedCash};
-        use rust_decimal::prelude::ToPrimitive;
-        if frequency.is_zero() {
-            return Err(BondError::invalid_spec("zero yield frequency"));
-        }
-        let schedule = self.try_schedule()?;
-        let cash = self.try_cash_flows(settlement)?;
-        if self.day_count == DayCountConvention::ActActIcma {
-            let last = cash
-                .last()
-                .ok_or_else(|| BondError::invalid_spec("no future yield cash"))?;
-            let spec = schedule.spec();
-            let reference_periods = convex_core::cashflows::generate_icma_reference_periods(
-                spec,
-                spec.start_date.min(settlement),
-                spec.end_date.max(last.date),
-            )
-            .map_err(|error| BondError::invalid_spec(error.to_string()))?;
-            let dated = cash
-                .iter()
-                .map(|flow| {
-                    let amount = flow
-                        .amount
-                        .checked_div(self.face_value)
-                        .and_then(|v| v.checked_mul(Decimal::ONE_HUNDRED))
-                        .ok_or_else(|| {
-                            BondError::invalid_spec("cashflow normalization overflow")
-                        })?;
-                    Ok(DatedYieldCash {
-                        date: flow.date,
-                        amount: convex_core::contracts::ExactDecimal::new(amount),
-                    })
-                })
-                .collect::<BondResult<Vec<_>>>()?;
-            return PreparedDatedCash::new(
-                &dated,
-                settlement,
-                &DiscountTimeBasis::Icma {
-                    schedule: spec.clone(),
-                    reference_periods,
-                },
-            );
-        }
-        let periods = schedule.coupon_periods();
-        let mut out = Vec::with_capacity(cash.len());
-        let mut time = Decimal::ZERO;
-        let mut last = settlement;
-        let mut index = 0;
-        for period in periods {
-            let payment = period.payment_date();
-            if payment <= settlement {
-                continue;
-            }
-            crate::pricing::discount_time::interval(settlement, payment, false)?;
-            let (start, _) = period.accrual_dates();
-            let fraction = |a: Date, b: Date| -> BondResult<Decimal> {
-                Ok(self.day_count.to_day_count().year_fraction(a, b))
-            };
-            // Subtraction preserves non-additive 30/360 boundary rules.
-            let step = fraction(start, payment)?
-                .checked_sub(fraction(start, last)?)
-                .ok_or_else(|| BondError::invalid_spec("yield time overflow"))?;
-            time = time
-                .checked_add(step)
-                .ok_or_else(|| BondError::invalid_spec("yield time overflow"))?;
-            let flow = cash
-                .get(index)
-                .ok_or_else(|| BondError::invalid_spec("cashflow grid mismatch"))?;
-            if flow.date != payment {
-                return Err(BondError::invalid_spec("cashflow payment grid mismatch"));
-            }
-            let amount = flow
-                .amount
-                .checked_div(self.face_value)
-                .and_then(|v| v.checked_mul(Decimal::ONE_HUNDRED))
-                .ok_or_else(|| BondError::invalid_spec("cashflow normalization overflow"))?;
-            out.push((
-                time.to_f64()
-                    .ok_or_else(|| BondError::invalid_spec("yield time conversion"))?,
-                amount
-                    .to_f64()
-                    .ok_or_else(|| BondError::invalid_spec("cashflow conversion"))?,
-            ));
-            last = payment;
-            index += 1;
-        }
-        if out.is_empty() {
-            return Err(BondError::invalid_spec("no future yield cash"));
-        }
-        Ok(PreparedDatedCash::from_validated_dates(out))
+        self.prepare_yield_cash(settlement, frequency, &self.try_cash_flows(settlement)?)
     }
 
     fn next_coupon_date(&self, after: Date) -> Option<Date> {

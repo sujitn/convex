@@ -6167,8 +6167,8 @@
     {
       "base_commit": "acc357b8562587194a6c419bd38034b9d69dd62c",
       "actor": "Codex coding agent",
-      "reviewed_on": "2026-10-18",
-      "rationale": "Combined-branch engineering impact review against actual GitHub main, not a refresh of an incremental review. Inspected the original main diff, changed source groups and inventories: nine pure domain/facade roots, exact supplied contracts and checked numerical failures; rate/CDS/cash calibration and risk owners; lifecycle/claim/custody/CTD and causal P&L composition; bounded shared JSON/C ABI and host delegates; existing-port snapshot assembly, immutable file publication and durable redb/CAS/outbox recovery; closed HTTP authorization, source/cutoff/freshness and worker admission; process-local DAG/configuration and provider-neutral adapters. Native pricing and storage remain separate. Complete large-file consumer tracing retains only the seven oversized public fixtures required by current tests/reference checks in LFS, with byte-exact data and unchanged numerical artifact rows/defaults; CI enables retrieval only where required. Original public/private branches and complete history bundles are preserved. The current private-harness submodule pin is restored to main for the public candidate, so private compiled evidence is excluded. No production financial code or data changes are introduced by packaging. Native/host/platform validation and individual model/convention approval remain distinct: this engineering review awards no library, model, multi-server, latency or production certification. All 2154 mandatory library records stay Planned. Review concerns are retained in private publication evidence: the aggregate branch is large; the local runtime/lease/redb deployment does not provide distributed ownership, remote-storage or colocation acceptance; executable hedge outputs remain proposals. Required final checks and fresh-checkout restoration are recorded separately; a file hash is not a passing financial test.",
+      "reviewed_on": "2026-10-19",
+      "rationale": "Combined-branch engineering impact review against actual GitHub main, not a refresh of an incremental review. Inspected the original main diff, changed source groups and inventories: nine pure domain/facade roots, exact supplied contracts and checked numerical failures; rate/CDS/cash calibration and risk owners; lifecycle/claim/custody/CTD and causal P&L composition; bounded shared JSON/C ABI and host delegates; existing-port snapshot assembly, immutable file publication and durable redb/CAS/outbox recovery; closed HTTP authorization, source/cutoff/freshness and worker admission; process-local DAG/configuration and provider-neutral adapters. Native pricing and storage remain separate. Complete large-file consumer tracing retains only the seven oversized public fixtures required by current tests/reference checks in LFS, with byte-exact data and unchanged numerical artifact rows/defaults; CI enables retrieval only where required. Original public/private branches and complete history bundles are preserved. The current private-harness submodule pin is restored to main for the public candidate, so private compiled evidence is excluded. No production financial code or data changes are introduced by packaging. Native/host/platform validation and individual model/convention approval remain distinct: this engineering review awards no library, model, multi-server, latency or production certification. All 2154 mandatory library records stay Planned. Review concerns are retained in private publication evidence: the aggregate branch is large; the local runtime/lease/redb deployment does not provide distributed ownership, remote-storage or colocation acceptance; executable hedge outputs remain proposals. Required final checks and fresh-checkout restoration are recorded separately; a file hash is not a passing financial test. PR #132: reuse the original fixed coupon schedule for sinking-fund yield price/inverse/risk. Preserve non-additive month-end coupon timing, same-date cash components and ICMA nominal references; between-coupon principal does not reset the coupon clock. Existing fixtures, comparator code, expected values, bounds and solver defaults are unchanged. Additive regression evidence has no new human approval requirement; all previous exact quantitative approval scopes remain unchanged.",
       "tests": [
         "Normal/exact-main-base assurance, policy rejection, full library/API inventory and workflow tooling tests.",
         "Locked all-features workspace tests, production probes, strict lint, docs and standalone feature-profile/host/comparator commands required by committed CI; unavailable platform execution remains explicit.",
@@ -6433,10 +6433,10 @@
         "crates/convex-bonds/src/fixings.rs": "6d49361f99d14d9201d090069eacd5466da65cfae4ee9f2be2981c8ea728e2d2",
         "crates/convex-bonds/src/instruments/callable.rs": "52ec2de85f3950014ec5af51253726968ba76a517ba83a8035d06cce0fe46815",
         "crates/convex-bonds/src/instruments/callable_frn.rs": "299fefc7725c5d22ca5f219148383e5a231c6ee41d5f164c4659a721c6460b20",
-        "crates/convex-bonds/src/instruments/fixed_rate.rs": "3a7ad0a4223a9750d82d1c169943f95563ed9a5ab120293b80df35f9193e63c1",
+        "crates/convex-bonds/src/instruments/fixed_rate.rs": "f892878008ba302fb277ff03169ccfec3880b87ad17d2a7dec9bc81da65ef670",
         "crates/convex-bonds/src/instruments/floating_rate.rs": "a9b209e62540cc83574a666bfeee6d3244f0604345af72731c44a1a78504a23e",
         "crates/convex-bonds/src/instruments/mod.rs": "bde18fc0364db0aee0a2e4b9e2b40386a0d65f25adc1d3080d3fd3aae49671b4",
-        "crates/convex-bonds/src/instruments/sinking_fund.rs": "b393b59bd7e6a18f9d2dbe1f5bec0c28c25f46696d442e5811d14380a1fde262",
+        "crates/convex-bonds/src/instruments/sinking_fund.rs": "6660f1b3ef46383d2c51389c284853ae1742196c2d68f6e37a767ee809a0ee82",
         "crates/convex-bonds/src/instruments/zero_coupon.rs": "186e40bad2f461ad26c7ec6d465ed3b44ae03c529f121d8f7a5bee31ec04508c",
         "crates/convex-bonds/src/lib.rs": "8b85f3e1aa13fb21140cbcfc14c41ac545cfa8323d3e75a9a4547cc6eb4a1894",
         "crates/convex-bonds/src/options/binomial_tree.rs": "f016f87aeb8591b05626178940830a2ae65aa4d4c650e92b57c3c2e35ea3d38c",
@@ -8011,13 +8011,13 @@
         "tools/assurance/check.py": "011c0b7453d19143231060d1e8b5df41694673d77d3e9018533ed37f3a038bff",
         "tools/assurance/dependencies.json": "a0a361cbaab9375e2cd19355734e3853bd6bb5bc5ef2d6b02ea1ca8391f454a9",
         "tools/assurance/exceptions.json": "1841a20cfacba151355d5e7fbcfa783e1a96df8e24b63675fc8f0649276af777",
-        "tools/assurance/inventory.json": "d920b948317394bc9f4d1ff280f8b66317e8f02bf5042905ac840223f4b74f32",
-        "tools/assurance/numeric-evidence.json": "fb0cba3194bb2039cedb7022f754e1cbfd51a6a520f3331ec4a6a91e79fa0e64",
+        "tools/assurance/inventory.json": "49b68d77f210ad7fd438aa45f2900264a782820b4439d84365d74feb00e44ee6",
+        "tools/assurance/numeric-evidence.json": "acf2a6a087cd6dfbfbd777b3f5e36ec6b0d4414477523112dd3644bb21f398e0",
         "tools/assurance/test_policy.py": "3e0d84ca0e1f72f3b5374edcdb729b941ff9705d513b4b86bdd27d49b7b24a03",
         "tools/library/api-capabilities.json": "9279c0cf5f38522f4a48b5d72cd50b286422fe1794c0ddb070c53b57681a3a5e",
         "tools/library/api.py": "d4badeec46d1800f10430921f9a73150fb7625c7be5599b4d06193cfc1c27ab5",
         "tools/library/check.py": "4eb0c75610a5d691d6bc6c164758d5e79a2a8237061b760b4f629c505508c1c9",
-        "tools/library/library-inventory.json": "33aabd56792ace2f79b5169f7ecf7ea006f30b349a1a045be62c187b45adca05",
+        "tools/library/library-inventory.json": "e0351d47af9af9e664044cffc9f7e1bc5e410dcb4eef150f7b30a5117e61aae2",
         "tools/library/native-operations.json": "28b34fbf3aa1cf83a8bd8ba76320de74b522e3142dca626c9dc38072245d8a5f",
         "tools/library/outstanding.py": "65a49e791be7a0db5d0572ea3bd47dfae3ef9c929872cd4a7e30988c02cc31a3",
         "tools/library/requirements-schema.txt": "08dbb2c70f3bacbd191233acf913990de4513b44c637e746a5b9d3acba7bc06d",
@@ -8031,7 +8031,8 @@
         "www/tests/route-admission.cjs": "36296975a725c64885c6d4d94b228b70463d6a7f5ca89a4d8ed03848831170fd",
         ".github/workflows/fly-deploy.yml": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "Dockerfile": "7658302fb555c1db251c7da5264fcb914da29d8ef04c78a4f54e3400303f273b",
-        ".dockerignore": "52658d03b8c00c1f16397657bdbffb7060b7cafd1ec4b84b145e7e91d188566b"
+        ".dockerignore": "52658d03b8c00c1f16397657bdbffb7060b7cafd1ec4b84b145e7e91d188566b",
+        "crates/convex-bonds/tests/sinking_yield_time.rs": "c982c7f5d251f135fd6926026f6fa94e53825c6b9beddcb4d419b416d46731b5"
       }
     },
     {
@@ -8182,6 +8183,25 @@
         ".github/workflows/ci.yml": "ef9f500df67646777bf0628ed6257f63c26b0f08098c87c08478e8a20ea8ed39",
         "tools/assurance/check.py": "011c0b7453d19143231060d1e8b5df41694673d77d3e9018533ed37f3a038bff",
         "tools/library/library-inventory.json": "33aabd56792ace2f79b5169f7ecf7ea006f30b349a1a045be62c187b45adca05"
+      }
+    },
+    {
+      "base_commit": "4594729efc300e73d2286833ee2f107d752d8159",
+      "actor": "Codex coding agent",
+      "reviewed_on": "2026-10-19",
+      "rationale": "PR #132: reuse the original fixed coupon schedule for sinking-fund yield price/inverse/risk. Preserve non-additive month-end coupon timing, same-date cash components and ICMA nominal references; between-coupon principal does not reset the coupon clock. Existing fixtures, comparator code, expected values, bounds and solver defaults are unchanged. Extract one crate-private preparation helper and delegate both instruments to it; no new service, public type, dependency or provider integration. Only source inventory hashes and additive test pin change. No model/production certification.",
+      "tests": [
+        "Reproduce the six original QuantLib CI failures, then pass all 188 unchanged comparisons over both snapshots with QuantLib 1.40.",
+        "Four new month-end, intracoupon principal, ICMA and checked-face-scaling regression tests; preserve failing baseline capture.",
+        "Locked all-features bond/analytics tests, strict all-target Clippy, format, assurance policy tests, normal and exact-increment/actual-main assurance; actual outcomes retained in private PR132 evidence."
+      ],
+      "candidate_files": {
+        "crates/convex-bonds/src/instruments/fixed_rate.rs": "f892878008ba302fb277ff03169ccfec3880b87ad17d2a7dec9bc81da65ef670",
+        "crates/convex-bonds/src/instruments/sinking_fund.rs": "6660f1b3ef46383d2c51389c284853ae1742196c2d68f6e37a767ee809a0ee82",
+        "crates/convex-bonds/tests/sinking_yield_time.rs": "c982c7f5d251f135fd6926026f6fa94e53825c6b9beddcb4d419b416d46731b5",
+        "tools/assurance/inventory.json": "49b68d77f210ad7fd438aa45f2900264a782820b4439d84365d74feb00e44ee6",
+        "tools/library/library-inventory.json": "e0351d47af9af9e664044cffc9f7e1bc5e410dcb4eef150f7b30a5117e61aae2",
+        "tools/assurance/numeric-evidence.json": "acf2a6a087cd6dfbfbd777b3f5e36ec6b0d4414477523112dd3644bb21f398e0"
       }
     }
   ]

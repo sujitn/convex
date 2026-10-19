@@ -710,6 +710,15 @@ impl SinkingFundBond {
 
 // Implement Bond trait
 impl Bond for SinkingFundBond {
+    fn yield_cash_flows(
+        &self,
+        settlement: Date,
+        frequency: Frequency,
+    ) -> BondResult<crate::pricing::discount_time::PreparedDatedCash> {
+        self.base
+            .prepare_yield_cash(settlement, frequency, &self.try_cash_flows(settlement)?)
+    }
+
     fn try_cash_flows(&self, from: Date) -> BondResult<Vec<BondCashFlow>> {
         self.try_contract()
             .and_then(|bond| {
