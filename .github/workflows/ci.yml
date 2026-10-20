@@ -1820,7 +1820,7 @@ jobs:
         run: python3 tests/scripts/recovery_hedge_parity.py --binary target/debug/examples/recovery_hedge --library target/debug/libconvex_ffi.so
 
       - name: Check independently declared optional cash model and hedge controls
-        run: python3 tests/scripts/optional_graph_hedge_reference.py
+        run: python3 tests/scripts/optional_graph_hedge_controls.py reference
 
       - name: Check explicit optional hedge state and FX admission
         run: python3 tests/scripts/optional_graph_hedge_admission.py
@@ -1835,13 +1835,13 @@ jobs:
         run: python3 tests/scripts/optional_graph_hedge_boundaries.py
 
       - name: Check full optional notice and calibrated model qualification
-        run: python3 tests/scripts/optional_graph_hedge_qualification.py
+        run: python3 tests/scripts/optional_graph_hedge_controls.py qualification
 
       - name: Check original optional half-bump resolution trial
         run: python3 tests/scripts/optional_graph_hedge_resolution.py
 
       - name: Check independently declared full OAS calibrated model controls
-        run: python3 tests/scripts/optional_graph_hedge_calibrated.py
+        run: python3 tests/scripts/optional_graph_hedge_controls.py calibrated
 
       - name: Check lossless final optional API census
         run: python3 tests/scripts/optional_graph_hedge_final_census.py
