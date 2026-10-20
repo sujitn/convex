@@ -1,9 +1,15 @@
 //! Complete independent financial controls; generated envelopes prove transport only.
 #![allow(dead_code)]
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("icma-risk-owner-api.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/icma-risk-owner-api.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()
@@ -43,7 +49,7 @@ pub fn close(a: &Value, b: &Value, bound: f64) {
 pub fn reference(id: &Value) -> Value {
     for source in [
         include_str!("icma-risk-admission-reference.json"),
-        include_str!("icma-risk-reference.json"),
+        packed::text("tests/fixtures/library/icma-risk-reference.json"),
     ] {
         if let Some(row) = serde_json::from_str::<Value>(source).unwrap()["cases"]
             .as_array()

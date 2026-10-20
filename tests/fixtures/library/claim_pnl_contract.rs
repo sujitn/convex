@@ -1,11 +1,15 @@
 //! Full original financial checks and independently declared legal cash shares.
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 #[allow(dead_code)]
 #[path = "lot_pnl_contract.rs"]
 mod qualified_lot;
 use serde_json::{json, Value};
 
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("claim-pnl-bound.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text("tests/fixtures/library/claim-pnl-bound.json"))
+        .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

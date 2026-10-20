@@ -1,9 +1,13 @@
 //! Independent complete-cash controls, plus unchanged-owner rebuilt agreement.
 #![allow(dead_code)]
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("graph-hedge-api.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text("tests/fixtures/library/graph-hedge-api.json"))
+        .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()
@@ -84,9 +88,10 @@ pub fn check(case: &Value, output: &str) {
         assert_eq!(data["native_position"]["quantity"], "1");
         assert_eq!(data["native_position"]["reference_quantity"], "1");
     }
-    let reference =
-        serde_json::from_str::<Value>(include_str!("graph-hedge-actual-cash-reference.json"))
-            .unwrap();
+    let reference = serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/graph-hedge-actual-cash-reference.json",
+    ))
+    .unwrap();
     let control = reference["cases"]
         .as_array()
         .unwrap()

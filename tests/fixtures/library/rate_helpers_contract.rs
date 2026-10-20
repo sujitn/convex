@@ -2,6 +2,9 @@
 #![allow(dead_code)]
 #[path = "contract.rs"]
 mod original;
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 pub fn check(case: &serde_json::Value, actual: &str) {
     original::check(case, actual);
 }
@@ -12,7 +15,10 @@ pub fn request(case: &serde_json::Value) -> String {
     original::request(case)
 }
 pub fn cases() -> Vec<serde_json::Value> {
-    serde_json::from_str::<serde_json::Value>(include_str!("rate-helpers.json")).unwrap()["cases"]
+    serde_json::from_str::<serde_json::Value>(packed::text(
+        "tests/fixtures/library/rate-helpers.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

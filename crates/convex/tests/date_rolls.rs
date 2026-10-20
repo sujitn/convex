@@ -1,11 +1,13 @@
 //! Independent scheduled cash and maturity-risk controls. Original packs stay intact.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex::constrained_hedge as h;
 use convex::library::{execute, execute_json, LibraryRequest};
 use serde_json::{json, Value};
 
 fn controls() -> Value {
-    serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/date-rolls-requests.json"
+    serde_json::from_str(packed::text(
+        "tests/fixtures/library/date-rolls-requests.json",
     ))
     .unwrap()
 }

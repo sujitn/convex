@@ -1,4 +1,6 @@
 //! Direct embedding retains original owners and rejects foreign/incomplete paths.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex::{curve_contracts as c, quote_risk as q, workflow as w};
 use convex_core::{
     calendars::{DynamicCalendar, WeekendType},
@@ -10,8 +12,8 @@ use serde_json::Value;
 
 #[test]
 fn complete_native_marking_and_private_path_coverage() {
-    let document: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/mixed-scenario-api-01.json"
+    let document: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/mixed-scenario-api-01.json",
     ))
     .unwrap();
     let request = &document["cases"][0]["request"];

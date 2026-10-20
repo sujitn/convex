@@ -1,8 +1,12 @@
 //! Shared adapter parity corpus. Native financial oracles remain separate.
 #![allow(dead_code)]
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("cases.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text("tests/fixtures/library/cases.json")).unwrap()
+        ["cases"]
         .as_array()
         .unwrap()
         .clone()

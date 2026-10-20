@@ -1,4 +1,6 @@
 //! Independent full-contract native/canonical parameter risk and complete hedges.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex_analytics::{floating_coupon::*, quote_risk::*, workflow::*};
 use convex_bonds::contracts::*;
 use convex_core::{contracts::*, fixings::FixingSeries, Currency};
@@ -190,8 +192,8 @@ fn full_native_parameter_risk_preserves_all_units_signed_face_and_refinement() {
 fn complete_coupon_columns_aggregate_current_pending_and_solve_original_lots() {
     let f = fixture();
     let row = &f["cases"][12];
-    let corpus: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/coupon-parameter-hedges.json"
+    let corpus: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/coupon-parameter-hedges.json",
     ))
     .unwrap();
     let request = corpus["cases"]

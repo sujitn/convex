@@ -1,4 +1,6 @@
 //! Recovery changes only one explicit model assumption in a complete contract.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex_core::{
     calendars::{DynamicCalendar, WeekendType},
     contracts::FiniteF64,
@@ -9,8 +11,8 @@ use serde_json::Value;
 
 #[test]
 fn recovery_binding_preserves_all_terms_and_actual_periods() {
-    let corpus: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/recovery-hedge-admitted.json"
+    let corpus: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/recovery-hedge-admitted.json",
     ))
     .unwrap();
     let mut count = 0;

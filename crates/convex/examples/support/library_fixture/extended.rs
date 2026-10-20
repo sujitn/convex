@@ -207,7 +207,6 @@ fn helpers(c: &mut Vec<Case>) -> Result<(), Error> {
             .iter()
             .enumerate()
             .map(|(i, end)| {
-                let days = root.days_between(end) as f64;
                 MoneyMarketHelper {
                     id: format!("deposit-{i}"),
                     terms: MoneyMarketTerms::Deposit {
@@ -215,8 +214,10 @@ fn helpers(c: &mut Vec<Case>) -> Result<(), Error> {
                         maturity_date: *end,
                         day_count: Dc::Act360,
                     },
+                    // Pinned from tests/fixtures/library/cases.json: deriving them with
+                    // exp_m1 differs by one ulp between MSVC and glibc libm.
                     quote: MarketQuote {
-                        value: (-0.02 * days / 365.0).exp_m1() / (days / 360.0) * [1.0, 10000.0][i],
+                        value: [-0.0196279936343971, -195.2954236536743][i],
                         unit: [QuoteUnit::DecimalRate, QuoteUnit::BasisPoints][i],
                     },
                     tolerance: [1e-10, 1e-6][i],

@@ -1,4 +1,6 @@
 //! Actual native boundary admission and exact historical-state conservation.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex_analytics::{lifecycle::*, workflow::*};
 use convex_bonds::contracts::{BondCalendars, BondContract, BondTerms};
 use convex_core::{
@@ -82,8 +84,8 @@ fn replay(h: &Value, c: &DynamicCalendar) -> LifecycleState {
     state
 }
 fn control(index: usize) -> Value {
-    serde_json::from_str::<Value>(include_str!(
-        "../../../tests/fixtures/library/lot-pnl-reference.json"
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/lot-pnl-reference.json",
     ))
     .unwrap()["cases"][index]
         .clone()

@@ -2,10 +2,15 @@
 #[allow(dead_code)]
 #[path = "claim_pnl_contract.rs"]
 mod original;
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("physical-partition-pnl-final.json")).unwrap()
-        ["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/physical-partition-pnl-final.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

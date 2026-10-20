@@ -5,6 +5,8 @@ mod fixture;
 #[allow(dead_code)] // This integration suite uses only the identity/authorization subset.
 #[path = "support/access_fixture.rs"]
 mod identity;
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 #[path = "../../convex-engine/tests/support/runtime_setup.rs"]
 mod runtime_setup;
 use axum::{
@@ -94,10 +96,8 @@ async fn large_reference_roundtrip_scans_every_scope_and_rechecks_read_entitleme
     }
     let access = AccessControl::new(issuer.verifier.clone(), policy.clone()).unwrap();
     let app = router(&f, access.clone());
-    let fixture: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/date-rolls-core.json"
-    ))
-    .unwrap();
+    let fixture: Value =
+        serde_json::from_str(packed::text("tests/fixtures/library/date-rolls-core.json")).unwrap();
     let mut definition = fixture["definition"].clone();
     let templates: Vec<_> = definition["calculations"]
         .as_object()

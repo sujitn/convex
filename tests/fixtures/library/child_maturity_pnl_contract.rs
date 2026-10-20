@@ -2,6 +2,9 @@
 #[allow(dead_code)]
 #[path = "dated_cash_pnl_contract.rs"]
 mod original_dated;
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
 use std::str::FromStr;
@@ -9,8 +12,10 @@ fn exact(v: &Value) -> Decimal {
     Decimal::from_str(v.as_str().unwrap()).unwrap()
 }
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("child-maturity-pnl-admitted.json")).unwrap()
-        ["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/child-maturity-pnl-admitted.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

@@ -1,4 +1,7 @@
 //! Full independent nonlinear answers; complete envelopes prove transport only.
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 #[allow(dead_code)]
 #[path = "delivery_hedge_contract.rs"]
@@ -6,14 +9,18 @@ mod delivery;
 pub use delivery::{close, number};
 
 pub fn cases() -> Vec<Value> {
-    let mut cases = serde_json::from_str::<Value>(include_str!("mixed-scenario-publications.json"))
-        .unwrap()["cases"]
+    let mut cases = serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/mixed-scenario-publications.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone();
     cases.extend(
-        serde_json::from_str::<Value>(include_str!("mixed-scenario-boundaries.json")).unwrap()
-            ["cases"]
+        serde_json::from_str::<Value>(packed::text(
+            "tests/fixtures/library/mixed-scenario-boundaries.json",
+        ))
+        .unwrap()["cases"]
             .as_array()
             .unwrap()
             .clone(),

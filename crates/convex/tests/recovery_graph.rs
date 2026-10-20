@@ -1,4 +1,6 @@
 //! Actual native fits retain every full helper under a recovery scenario.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex::{
     cash_calibration as cash, credit, credit_calibration as cds, curve_contracts as curves,
     quote_risk as risk,
@@ -12,8 +14,8 @@ use serde_json::Value;
 
 #[test]
 fn all_original_credit_and_cash_helpers_bind_the_actual_scenario_assumption() {
-    let corpus: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/recovery-hedge-boundaries.json"
+    let corpus: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/recovery-hedge-boundaries.json",
     ))
     .unwrap();
     let request = &corpus["cases"]

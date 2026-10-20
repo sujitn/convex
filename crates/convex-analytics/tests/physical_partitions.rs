@@ -1,4 +1,6 @@
 //! Actual native checked delivery, custody conservation and immutable invoice receipts.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex_analytics::{futures::*, lifecycle::*, workflow::*};
 use convex_bonds::contracts::{BondCalendars, BondContract, BondTerms};
 use convex_core::{
@@ -110,8 +112,8 @@ fn replay(h: &Value, c: &DynamicCalendar) -> LifecycleState {
 }
 #[test]
 fn original_delivery_custody_and_invoice_shares_conserve_exact_native_facts() {
-    let corpus: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/physical-partition-pnl-chronology.json"
+    let corpus: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/physical-partition-pnl-chronology.json",
     ))
     .unwrap();
     for k in [0, 3] {

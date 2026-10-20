@@ -1,12 +1,15 @@
 //! Complete independent full-member financial answers; native envelopes prove
 //! transport only. Financial tolerances were declared before native execution.
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 
 pub fn cases() -> Vec<Value> {
     [
-        include_str!("delivery-hedge-decimal.json"),
+        packed::text("tests/fixtures/library/delivery-hedge-decimal.json"),
         include_str!("delivery-hedge-rebuilt.json"),
-        include_str!("delivery-hedge-frontier.json"),
+        packed::text("tests/fixtures/library/delivery-hedge-frontier.json"),
     ]
     .iter()
     .flat_map(|raw| {
@@ -288,8 +291,10 @@ fn column(actual: &Value, expected: &Value, request: &Value) {
     }
 }
 pub fn book_cases(columns: &[Value]) -> Vec<Value> {
-    let controls: Value =
-        serde_json::from_str(include_str!("delivery-hedge-decimal.json")).unwrap();
+    let controls: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/delivery-hedge-decimal.json",
+    ))
+    .unwrap();
     let mut cases = Vec::new();
     for book in controls["books"].as_array().unwrap() {
         let mut problem = book["problem"].clone();
@@ -463,7 +468,10 @@ pub fn run(mut execute: impl FnMut(&str) -> String) -> Vec<Value> {
         }
         outputs.push(json!({"id":case["id"],"request":request,"expected_error":case["expected_error"],"expected_envelope":envelope}));
     }
-    let books: Value = serde_json::from_str(include_str!("delivery-hedge-decimal.json")).unwrap();
+    let books: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/delivery-hedge-decimal.json",
+    ))
+    .unwrap();
     for c in books["books"][0]["columns"].as_array().unwrap() {
         let envelope: Value = serde_json::from_str(&execute(&c["request"].to_string())).unwrap();
         assert_eq!(envelope["ok"], "true", "{} {envelope}", c["id"]);

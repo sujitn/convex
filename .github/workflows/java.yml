@@ -16,6 +16,8 @@ on:
       - 'crates/convex-credit/**'
       - 'crates/convex-portfolio/**'
       - 'tests/fixtures/library/**'
+      - 'tests/fixtures/packed.*'
+      - 'tools/fixtures.py'
       - 'tests/scripts/library_parity.py'
       - 'tests/scripts/library_operations_parity.py'
       - 'tests/scripts/library_cash_parity.py'
@@ -87,6 +89,8 @@ on:
       - 'crates/convex-credit/**'
       - 'crates/convex-portfolio/**'
       - 'tests/fixtures/library/**'
+      - 'tests/fixtures/packed.*'
+      - 'tools/fixtures.py'
       - 'tests/scripts/library_parity.py'
       - 'tests/scripts/library_operations_parity.py'
       - 'tests/scripts/library_cash_parity.py'
@@ -160,8 +164,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          lfs: true
           persist-credentials: false
+
+      - name: Materialize packed fixtures
+        run: python3 tools/fixtures.py materialize
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable

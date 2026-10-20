@@ -1,9 +1,15 @@
 //! Predeclared independent full-path financial expectations, separate from parity.
 #![allow(dead_code)]
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::Value;
 
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("icma-workout-qualified.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/icma-workout-qualified.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()
@@ -77,8 +83,10 @@ pub fn check(case: &Value, output: &str) {
         return;
     }
     assert_eq!(output["ok"], "true", "{label}: {output}");
-    let mut references: Value =
-        serde_json::from_str(include_str!("icma-workout-reference.json")).unwrap();
+    let mut references: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/icma-workout-reference.json",
+    ))
+    .unwrap();
     let additional: Value =
         serde_json::from_str(include_str!("icma-workout-additional-reference.json")).unwrap();
     references["cases"]

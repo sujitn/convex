@@ -1,4 +1,7 @@
 //! Full independent causal before/after answers; native envelopes are transport only.
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 #[allow(dead_code)]
 #[path = "delivery_hedge_contract.rs"]
@@ -185,8 +188,10 @@ fn native(actual: &Value, expected: &Value, holding: &Value) {
 }
 
 pub fn cases() -> Vec<Value> {
-    let mut cases = serde_json::from_str::<Value>(include_str!("causal-pnl-economic-cutoffs.json"))
-        .unwrap()["cases"]
+    let mut cases = serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/causal-pnl-economic-cutoffs.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone();

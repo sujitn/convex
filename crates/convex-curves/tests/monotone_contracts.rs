@@ -1,4 +1,6 @@
 //! Actual dated native source, independent economics and explicit tail sides.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex_core::types::Compounding;
 use convex_curves::contracts::*;
 use serde_json::Value;
@@ -7,10 +9,8 @@ fn number(value: &Value) -> f64 {
     value.as_str().unwrap().parse().unwrap()
 }
 fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!(
-        "../../../tests/fixtures/library/monotone.json"
-    ))
-    .unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text("tests/fixtures/library/monotone.json")).unwrap()
+        ["cases"]
         .as_array()
         .unwrap()
         .clone()

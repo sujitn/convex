@@ -1,9 +1,15 @@
 #![allow(dead_code)]
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use convex::library::*;
 use serde_json::{json, Value};
 
 pub fn original_cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("calibration-replay.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/calibration-replay.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

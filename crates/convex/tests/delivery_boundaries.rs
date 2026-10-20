@@ -1,4 +1,6 @@
 //! Direct embedding preserves complete source recipes and original cash/carry owners.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex::{curve_contracts as c, futures as f, quote_risk as q};
 use convex_core::{
     calendars::{DynamicCalendar, WeekendType},
@@ -47,8 +49,8 @@ fn deposit_fit(template: &c::CurveRecipe, quote: f64) -> c::BuiltCurve {
 
 #[test]
 fn full_native_basket_owners_and_exact_original_recipe_admission() {
-    let document: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/delivery-hedge-decimal.json"
+    let document: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/delivery-hedge-decimal.json",
     ))
     .unwrap();
     let history = FixingSeries::default();

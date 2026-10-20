@@ -1,8 +1,12 @@
 //! Declared full contextual ICMA requests and independent financial answers.
 #![allow(dead_code)]
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::Value;
 pub fn cases() -> Vec<Value> {
-    let v: Value = serde_json::from_str(include_str!("icma-qualified.json")).unwrap();
+    let v: Value =
+        serde_json::from_str(packed::text("tests/fixtures/library/icma-qualified.json")).unwrap();
     v["cases"].as_array().unwrap().clone()
 }
 pub fn request(case: &Value) -> String {

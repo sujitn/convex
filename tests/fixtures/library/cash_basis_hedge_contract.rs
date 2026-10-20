@@ -2,14 +2,17 @@
 #![allow(dead_code)]
 #[path = "graph_hedge_contract.rs"]
 mod common;
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 pub use common::{close, exact, number, request};
 use serde_json::{json, Value};
 
 pub fn cases() -> Vec<Value> {
     [
-        include_str!("cash-basis-hedge-api.json"),
+        packed::text("tests/fixtures/library/cash-basis-hedge-api.json"),
         include_str!("cash-basis-hedge-precise.json"),
-        include_str!("cash-basis-hedge-book-columns.json"),
+        packed::text("tests/fixtures/library/cash-basis-hedge-book-columns.json"),
     ]
     .into_iter()
     .flat_map(|text| {

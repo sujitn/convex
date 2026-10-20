@@ -15,11 +15,20 @@ jobs:
   assurance:
     name: Bounded Rust Assurance
     runs-on: ubuntu-latest
+    env:
+      # Hundreds of statically linked test binaries exceed runner disk with debuginfo.
+      CARGO_PROFILE_DEV_DEBUG: '0'
     steps:
+      # The full feature matrix needs more space than the stock image leaves free.
+      - name: Free runner disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/share/swift /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
       - uses: actions/checkout@v6
         with:
-          lfs: true
           fetch-depth: 0
+
+      - name: Materialize packed fixtures
+        run: python3 tools/fixtures.py materialize
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -2949,10 +2958,18 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    env:
+      # Hundreds of statically linked test binaries exceed runner disk with debuginfo.
+      CARGO_PROFILE_DEV_DEBUG: '0'
     steps:
+      # The full feature matrix needs more space than the stock image leaves free.
+      - name: Free runner disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/share/swift /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
       - uses: actions/checkout@v6
-        with:
-          lfs: true
+
+      - name: Materialize packed fixtures
+        run: python3 tools/fixtures.py materialize
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -3196,8 +3213,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          lfs: true
+
+      - name: Materialize packed fixtures
+        run: python tools/fixtures.py materialize
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -3330,115 +3348,115 @@ jobs:
         shell: pwsh
 
       - name: Generate fresh native P/Invoke expectations
-        run: python tests/scripts/library_parity.py prepare --binary target/excel/examples/library_workflow.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-parity.json
+        run: python tests/scripts/library_parity.py prepare --binary target\excel\examples\library_workflow.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-parity.json
 
       - name: Generate fresh native P/Invoke operation expectations
-        run: python tests/scripts/library_operations_parity.py prepare --binary target/excel/examples/library_operations.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-operations-parity.json
+        run: python tests/scripts/library_operations_parity.py prepare --binary target\excel\examples\library_operations.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-operations-parity.json
 
       - name: Generate fresh native P/Invoke full cash expectations
-        run: python tests/scripts/library_cash_parity.py prepare --binary target/excel/examples/library_cash.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-parity.json
+        run: python tests/scripts/library_cash_parity.py prepare --binary target\excel\examples\library_cash.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-parity.json
 
       - name: Generate fresh native P/Invoke full rate-helper expectations
-        run: python tests/scripts/library_rate_helpers_parity.py prepare --binary target/excel/examples/library_rate_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-rate-helpers-parity.json
+        run: python tests/scripts/library_rate_helpers_parity.py prepare --binary target\excel\examples\library_rate_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-rate-helpers-parity.json
 
       - name: Generate fresh native P/Invoke full CDS-helper expectations
-        run: python tests/scripts/library_credit_helpers_parity.py prepare --binary target/excel/examples/library_credit_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-credit-helpers-parity.json
+        run: python tests/scripts/library_credit_helpers_parity.py prepare --binary target\excel\examples\library_credit_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-credit-helpers-parity.json
 
       - name: Generate fresh native P/Invoke full cash-helper expectations
-        run: python tests/scripts/library_cash_helpers_parity.py prepare --binary target/excel/examples/library_cash_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-helpers-parity.json
+        run: python tests/scripts/library_cash_helpers_parity.py prepare --binary target\excel\examples\library_cash_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-helpers-parity.json
 
       - name: Generate fresh native P/Invoke floating workout expectations
-        run: python tests/scripts/floating_workout_parity.py --binary target/excel/examples/floating_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/floating-workout-parity.json
+        run: python tests/scripts/floating_workout_parity.py --binary target\excel\examples\floating_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/floating-workout-parity.json
 
       - name: Prepare fresh contextual ICMA host transport expectations
-        run: python tests/scripts/icma_parity.py --binary target/excel/examples/icma_quotation.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-parity.json
+        run: python tests/scripts/icma_parity.py --binary target\excel\examples\icma_quotation.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-parity.json
 
       - name: Generate contextual government Excel expectations
-        run: python tests/scripts/icma_government_parity.py --binary target/excel/examples/icma_government.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-government-parity.json
+        run: python tests/scripts/icma_government_parity.py --binary target\excel\examples\icma_government.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-government-parity.json
 
       - name: Generate contextual workout Excel expectations
-        run: python tests/scripts/icma_workout_parity.py --binary target/excel/examples/icma_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-workout-parity.json
+        run: python tests/scripts/icma_workout_parity.py --binary target\excel\examples\icma_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-workout-parity.json
 
       - name: Generate contextual ICMA helper Excel expectations
-        run: python tests/scripts/icma_helpers_parity.py --binary target/excel/examples/icma_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-helpers-parity.json
+        run: python tests/scripts/icma_helpers_parity.py --binary target\excel\examples\icma_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-helpers-parity.json
 
       - name: Generate direct ICMA risk and hedge Excel expectations
-        run: python tests/scripts/icma_risk_parity.py --binary target/excel/examples/icma_risk.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-risk-parity.json
+        run: python tests/scripts/icma_risk_parity.py --binary target\excel\examples\icma_risk.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-risk-parity.json
 
       - name: Generate graph hedge Excel expectations
-        run: python tests/scripts/graph_hedge_parity.py --binary target/excel/examples/graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/graph-hedge-parity.json
+        run: python tests/scripts/graph_hedge_parity.py --binary target\excel\examples\graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/graph-hedge-parity.json
 
       - name: Generate issuer cash hedge Excel expectations
-        run: python tests/scripts/cash_basis_hedge_parity.py --binary target/excel/examples/cash_basis_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/cash-basis-hedge-parity.json
+        run: python tests/scripts/cash_basis_hedge_parity.py --binary target\excel\examples\cash_basis_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/cash-basis-hedge-parity.json
 
       - name: Generate recovery mixed hedge Excel expectations
-        run: python tests/scripts/recovery_hedge_parity.py --binary target/excel/examples/recovery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/recovery-hedge-parity.json
+        run: python tests/scripts/recovery_hedge_parity.py --binary target\excel\examples\recovery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/recovery-hedge-parity.json
 
       - name: Generate mixed-book scenario Excel expectations
-        run: python tests/scripts/mixed_scenario_parity.py --binary target/excel/examples/mixed_scenario.exe --output excel/Convex.Excel.Tests/bin/Release/net472/mixed-scenario-parity.json
+        run: python tests/scripts/mixed_scenario_parity.py --binary target\excel\examples\mixed_scenario.exe --output excel/Convex.Excel.Tests/bin/Release/net472/mixed-scenario-parity.json
 
       - name: Generate complete causal cash transport corpus
-        run: python tests/scripts/causal_pnl_parity.py --binary target/excel/examples/causal_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/causal-pnl-parity.json
+        run: python tests/scripts/causal_pnl_parity.py --binary target\excel\examples\causal_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/causal-pnl-parity.json
 
       - name: Generate fresh native cohort cash and delivery transport controls
-        run: python tests/scripts/cohort_pnl_admitted_parity.py --binary target/excel/examples/cohort_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/cohort-pnl-parity.json
+        run: python tests/scripts/cohort_pnl_admitted_parity.py --binary target\excel\examples\cohort_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/cohort-pnl-parity.json
 
       - name: Generate original residual and partial receipt transport controls
-        run: python tests/scripts/residual_pnl_parity.py --binary target/excel/examples/residual_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/residual-pnl-parity.json
+        run: python tests/scripts/residual_pnl_parity.py --binary target\excel\examples\residual_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/residual-pnl-parity.json
 
       - name: Complete original lot amendment Excel transport
-        run: python tests/scripts/lot_pnl_parity.py --binary target/excel/examples/lot_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/lot-pnl-parity.json
+        run: python tests/scripts/lot_pnl_parity.py --binary target\excel\examples\lot_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/lot-pnl-parity.json
 
       - name: Original cash transfer Excel transport
-        run: python tests/scripts/claim_pnl_parity.py --binary target/excel/examples/claim_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/claim-pnl-parity.json
+        run: python tests/scripts/claim_pnl_parity.py --binary target\excel\examples\claim_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/claim-pnl-parity.json
 
       - name: Original physical custody Excel transport
-        run: python tests/scripts/physical_partition_pnl_parity.py --binary target/excel/examples/physical_partition_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/physical-partition-pnl-parity.json
+        run: python tests/scripts/physical_partition_pnl_parity.py --binary target\excel\examples\physical_partition_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/physical-partition-pnl-parity.json
 
       - name: Successive custody disposal Excel transport
-        run: python tests/scripts/custody_lineage_pnl_parity.py --binary target/excel/examples/custody_lineage_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/custody-lineage-pnl-parity.json
+        run: python tests/scripts/custody_lineage_pnl_parity.py --binary target\excel\examples\custody_lineage_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/custody-lineage-pnl-parity.json
       - name: Prepare dated cash Excel transport controls
-        run: python tests/scripts/dated_cash_pnl_parity.py --binary target/excel/examples/dated_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/dated-cash-pnl-parity.json
+        run: python tests/scripts/dated_cash_pnl_parity.py --binary target\excel\examples\dated_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/dated-cash-pnl-parity.json
       - name: Retain pending delivery cash native envelopes for Windows transport
-        run: python tests/scripts/pending_cash_pnl_parity.py --binary target/excel/examples/pending_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/pending-cash-pnl-parity.json
+        run: python tests/scripts/pending_cash_pnl_parity.py --binary target\excel\examples\pending_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/pending-cash-pnl-parity.json
 
       - name: Generate fresh child cash PInvoke parity
-        run: python tests/scripts/child_cash_pnl_parity.py --binary target/excel/examples/child_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/child-cash-pnl-parity.json
+        run: python tests/scripts/child_cash_pnl_parity.py --binary target\excel\examples\child_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/child-cash-pnl-parity.json
 
       - name: Generate fresh child maturity PInvoke parity
-        run: python tests/scripts/child_maturity_pnl_parity.py --binary target/excel/examples/child_maturity_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/child-maturity-pnl-parity.json
+        run: python tests/scripts/child_maturity_pnl_parity.py --binary target\excel\examples\child_maturity_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/child-maturity-pnl-parity.json
 
       - name: Generate fresh concurrent claims PInvoke parity
-        run: python tests/scripts/concurrent_claims_pnl_parity.py --binary target/excel/examples/concurrent_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/concurrent-claims-pnl-parity.json
+        run: python tests/scripts/concurrent_claims_pnl_parity.py --binary target\excel\examples\concurrent_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/concurrent-claims-pnl-parity.json
 
       - name: Generate fresh full settlement PInvoke parity
-        run: python tests/scripts/settled_claims_pnl_parity.py --binary target/excel/examples/settled_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/settled-claims-pnl-parity.json
+        run: python tests/scripts/settled_claims_pnl_parity.py --binary target\excel\examples\settled_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/settled-claims-pnl-parity.json
 
       - name: Generate full delivery basket hedge Excel expectations
-        run: python tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json
+        run: python tests/scripts/delivery_hedge_parity.py --binary target\excel\examples\delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json
 
       - name: Generate guarded optional graph hedge Excel expectations
-        run: python tests/scripts/optional_graph_hedge_parity.py --binary target/excel/examples/optional_graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/optional-graph-hedge-parity.json
+        run: python tests/scripts/optional_graph_hedge_parity.py --binary target\excel\examples\optional_graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/optional-graph-hedge-parity.json
 
       - name: Generate fresh native P/Invoke workout expectations
-        run: python tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json
+        run: python tests/scripts/library_workout_parity.py prepare --binary target\excel\examples\library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json
 
       - name: Generate fresh native P/Invoke curve-family expectations
-        run: python tests/scripts/library_curve_families_parity.py prepare --binary target/excel/examples/library_curve_families.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-families-parity.json
+        run: python tests/scripts/library_curve_families_parity.py prepare --binary target\excel\examples\library_curve_families.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-families-parity.json
 
       - name: Generate fresh native P/Invoke curve-method expectations
-        run: python tests/scripts/library_curve_methods_parity.py prepare --binary target/excel/examples/library_curve_methods.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-methods-parity.json
+        run: python tests/scripts/library_curve_methods_parity.py prepare --binary target\excel\examples\library_curve_methods.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-methods-parity.json
 
       - name: Generate fresh native UFR P/Invoke expectations
-        run: python tests/scripts/library_ufr_parity.py prepare --binary target/excel/examples/library_ufr.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-ufr-parity.json
+        run: python tests/scripts/library_ufr_parity.py prepare --binary target\excel\examples\library_ufr.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-ufr-parity.json
 
       - name: Generate fresh native monotone P/Invoke expectations
-        run: python tests/scripts/library_monotone_parity.py prepare --binary target/excel/examples/library_monotone.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-monotone-parity.json
+        run: python tests/scripts/library_monotone_parity.py prepare --binary target\excel\examples\library_monotone.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-monotone-parity.json
 
       - name: Build and retain complete Treasury bill PInvoke expectations
         run: |
           cargo build --locked --profile excel -p convex --example treasury_bill
-          python tests/scripts/treasury_bill_parity.py prepare --binary target/excel/examples/treasury_bill.exe --output excel/Convex.Excel.Tests/bin/Release/net472/treasury-bill-parity.json
+          python tests/scripts/treasury_bill_parity.py prepare --binary target\excel\examples\treasury_bill.exe --output excel/Convex.Excel.Tests/bin/Release/net472/treasury-bill-parity.json
 
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release

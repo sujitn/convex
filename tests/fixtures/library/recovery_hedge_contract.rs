@@ -1,5 +1,8 @@
 //! New independent recovery controls; prior full controls remain immutable.
 #![allow(dead_code)]
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 #[path = "cash_basis_hedge_contract.rs"]
 mod prior;
 pub use prior::{check_owner, close, exact, number, request};
@@ -7,8 +10,8 @@ use serde_json::{json, Value};
 
 pub fn cases() -> Vec<Value> {
     [
-        include_str!("recovery-hedge-admitted.json"),
-        include_str!("recovery-hedge-boundaries.json"),
+        packed::text("tests/fixtures/library/recovery-hedge-admitted.json"),
+        packed::text("tests/fixtures/library/recovery-hedge-boundaries.json"),
     ]
     .into_iter()
     .flat_map(|text| {
@@ -26,7 +29,7 @@ fn answer(case: &Value) -> Value {
         &case["control_id"]
     };
     [
-        include_str!("recovery-hedge-reference.json"),
+        packed::text("tests/fixtures/library/recovery-hedge-reference.json"),
         include_str!("recovery-hedge-boundary-reference.json"),
     ]
     .into_iter()

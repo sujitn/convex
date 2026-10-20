@@ -1,4 +1,6 @@
 //! Actual native legal cash transfer admission and conserved receipt ownership.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex_analytics::{lifecycle::*, workflow::*};
 use convex_bonds::contracts::{BondCalendars, BondContract, BondTerms};
 use convex_core::{
@@ -83,10 +85,8 @@ fn replay(h: &Value, c: &DynamicCalendar) -> LifecycleState {
 }
 #[test]
 fn signed_cash_transfers_conserve_original_receipts_and_bind_full_prepared_states() {
-    let corpus: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/claim-pnl-bound.json"
-    ))
-    .unwrap();
+    let corpus: Value =
+        serde_json::from_str(packed::text("tests/fixtures/library/claim-pnl-bound.json")).unwrap();
     for k in [1, 2] {
         let spec = &corpus["cases"][k]["request"]["operation"]["input"];
         let b = &spec["book"];

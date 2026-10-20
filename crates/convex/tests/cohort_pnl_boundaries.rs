@@ -1,4 +1,6 @@
 //! Direct embedding binds native states, original quantities and private coverage.
+#[path = "../../../tests/fixtures/packed.rs"]
+mod packed;
 use convex::{curve_contracts as c, lifecycle as l, workflow as w};
 use convex_core::{
     calendars::WeekendCalendar, cashflows::PaymentDateEntitlement, fixings::FixingSeries,
@@ -10,8 +12,8 @@ fn source() -> Value {
 }
 
 fn source_case(id: &str) -> Value {
-    let all: Value = serde_json::from_str(include_str!(
-        "../../../tests/fixtures/library/cohort-pnl-calendars.json"
+    let all: Value = serde_json::from_str(packed::text(
+        "tests/fixtures/library/cohort-pnl-calendars.json",
     ))
     .unwrap();
     all["cases"]

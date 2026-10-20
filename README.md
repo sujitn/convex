@@ -365,9 +365,8 @@ System.out.printf("Clean Price: %.4f%n", price.clean());
 git clone https://github.com/sujitn/convex.git
 cd convex
 
-# Fetch the pinned inputs needed by the full regression suite
-git lfs install --local
-git lfs pull
+# Unpack the pinned inputs needed by the full regression suite
+python3 tools/fixtures.py materialize
 
 # Build all crates, including the host ABI with panic containment
 cargo build --locked --profile excel
@@ -388,7 +387,7 @@ cargo doc --open
 
 - Rust 1.95 or later; validation uses the pinned toolchain in `rust-toolchain.toml`
 - Cargo
-- Git LFS for the full regression suite; see [test data](docs/TEST-DATA.md)
+- Python 3 to unpack the full regression suite's inputs; see [test data](docs/TEST-DATA.md)
 
 ### Running Tests
 

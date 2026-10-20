@@ -1,8 +1,14 @@
 //! Independent supplied records and actual complete native coupon columns.
 #![allow(dead_code)]
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("directional-hedges.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/directional-hedges.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

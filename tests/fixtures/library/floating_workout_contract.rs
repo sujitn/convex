@@ -2,9 +2,15 @@
 #![allow(dead_code)]
 #[path = "contract.rs"]
 mod original;
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::Value;
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("floating-workout-qualified.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/floating-workout-qualified.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

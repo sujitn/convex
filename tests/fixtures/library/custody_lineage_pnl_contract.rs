@@ -1,4 +1,7 @@
 //! Complete unchanged original financial models, plus exact native custody facts.
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 #[allow(dead_code)]
 #[path = "physical_partition_pnl_contract.rs"]
 mod qualified_custody;
@@ -9,8 +12,10 @@ fn exact(v: &Value) -> Decimal {
     Decimal::from_str(v.as_str().unwrap()).unwrap()
 }
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("custody-lineage-pnl-admitted.json")).unwrap()
-        ["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/custody-lineage-pnl-admitted.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

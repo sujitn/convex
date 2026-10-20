@@ -2,9 +2,15 @@
 #![allow(dead_code)]
 #[path = "coupon_parameter_directional_contract.rs"]
 mod directional;
+#[path = "../packed.rs"]
+#[allow(clippy::duplicate_mod)]
+mod packed;
 use serde_json::{json, Value};
 pub fn cases() -> Vec<Value> {
-    serde_json::from_str::<Value>(include_str!("coupon-directional-risk.json")).unwrap()["cases"]
+    serde_json::from_str::<Value>(packed::text(
+        "tests/fixtures/library/coupon-directional-risk.json",
+    ))
+    .unwrap()["cases"]
         .as_array()
         .unwrap()
         .clone()

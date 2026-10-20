@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+#[path = "../../../../tests/fixtures/packed.rs"]
+mod packed;
 use crate::fixture;
 
 use convex_core::contracts::*;
@@ -49,8 +51,8 @@ pub fn content(records: Vec<SnapshotCurveRecipe>) -> SnapshotContent {
 }
 
 pub fn cases() -> Vec<serde_json::Value> {
-    serde_json::from_str::<serde_json::Value>(include_str!(
-        "../../../../tests/fixtures/library/curve-replay.json"
+    serde_json::from_str::<serde_json::Value>(packed::text(
+        "tests/fixtures/library/curve-replay.json",
     ))
     .unwrap()["cases"]
         .as_array()

@@ -25,7 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          lfs: true
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Install Rust toolchain
@@ -136,7 +135,7 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
-      # Publish the five library crates in dependency order. cargo publish
+      # Publish the seven library crates in dependency order. cargo publish
       # waits for each version to land in the index before returning, so the
       # next crate can resolve it. The remaining workspace crates are
       # publish = false and are skipped automatically.
@@ -151,7 +150,7 @@ jobs:
         run: |
           set -euo pipefail
           ua="convex-release (https://github.com/sujitn/convex)"
-          for crate in convex-core convex-math convex-curves convex-bonds convex-analytics; do
+          for crate in convex-core convex-math convex-curves convex-rates convex-credit convex-bonds convex-analytics; do
             status=$(curl -s -o /dev/null -w '%{http_code}' \
               -H "User-Agent: $ua" \
               "https://crates.io/api/v1/crates/$crate/$VERSION")
@@ -194,14 +193,16 @@ jobs:
             ## Installation
 
             The core library crates are published to crates.io. Depend on the
-            unified analytics crate (it pulls in core, math, curves and bonds):
+            unified analytics crate (it pulls in core, math, curves, rates,
+            credit and bonds):
 
             ```toml
             convex-analytics = "${{ needs.validate.outputs.version }}"
             ```
 
             Individually published crates: `convex-core`, `convex-math`,
-            `convex-curves`, `convex-bonds`, `convex-analytics`. The `convex`
+            `convex-curves`, `convex-rates`, `convex-credit`, `convex-bonds`,
+            `convex-analytics`. The `convex`
             umbrella plus the FFI / WASM / MCP / server crates are internal —
             consume them via a git or path dependency.
 
