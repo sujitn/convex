@@ -21,6 +21,8 @@ redb = "4"
 
 # Serialization
 serde_json = { workspace = true }
+sha2 = "0.10.9"
+tempfile = "3"
 
 # Async
 async-trait = "0.1"
@@ -32,4 +34,3 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
-tempfile = "3"

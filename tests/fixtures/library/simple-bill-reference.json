@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "convention": "Explicit fixed-365 simple yield in percent; remaining days 1..182. This is not the issue-date Treasury investment-rate convention.",
+  "equation": "(face / price - 1) * 36500 / days",
+  "derivation": "Exact rational arithmetic evaluated independently at Decimal60.",
+  "absolute_tolerance": "1e-22",
+  "relative_tolerance": "1e-24",
+  "cases": [
+    {
+      "face": "100",
+      "price": "97",
+      "days": 1,
+      "expected_percent": "1128.86597938144329896907216494845360824742268041237113402062"
+    },
+    {
+      "face": "100",
+      "price": "100",
+      "days": 1,
+      "expected_percent": "0"
+    },
+    {
+      "face": "100",
+      "price": "103",
+      "days": 1,
+      "expected_percent": "-1063.10679611650485436893203883495145631067961165048543689320"
+    },
+    {
+      "face": "1000",
+      "price": "981.23456789",
+      "days": 1,
+      "expected_percent": "698.037242499373602046734146676680021055306728977860205377074"
+    },
+    {
+      "face": "0.001",
+      "price": "0.000975",
+      "days": 1,
+      "expected_percent": "935.897435897435897435897435897435897435897435897435897435897"
+    },
+    {
+      "face": "100",
+      "price": "97",
+      "days": 20,
+      "expected_percent": "56.4432989690721649484536082474226804123711340206185567010309"
+    },
+    {
+      "face": "100",
+      "price": "100",
+      "days": 20,
+      "expected_percent": "0"
+    },
+    {
+      "face": "100",
+      "price": "103",
+      "days": 20,
+      "expected_percent": "-53.1553398058252427184466019417475728155339805825242718446602"
+    },
+    {
+      "face": "1000",
+      "price": "981.23456789",
+      "days": 20,
+      "expected_percent": "34.9018621249686801023367073338340010527653364488930102688537"
+    },
+    {
+      "face": "0.001",
+      "price": "0.000975",
+      "days": 20,
+      "expected_percent": "46.7948717948717948717948717948717948717948717948717948717949"
+    },
+    {
+      "face": "100",
+      "price": "97",
+      "days": 90,
+      "expected_percent": "12.5429553264604810996563573883161512027491408934707903780069"
+    },
+    {
+      "face": "100",
+      "price": "100",
+      "days": 90,
+      "expected_percent": "0"
+    },
+    {
+      "face": "100",
+      "price": "103",
+      "days": 90,
+      "expected_percent": "-11.8122977346278317152103559870550161812297734627831715210356"
+    },
+    {
+      "face": "1000",
+      "price": "981.23456789",
+      "days": 90,
+      "expected_percent": "7.75596936110415113385260162974088912283674143308733561530082"
+    },
+    {
+      "face": "0.001",
+      "price": "0.000975",
+      "days": 90,
+      "expected_percent": "10.3988603988603988603988603988603988603988603988603988603989"
+    },
+    {
+      "face": "100",
+      "price": "97",
+      "days": 181,
+      "expected_percent": "6.23682861536709004955288488921797573617360596912912228740673"
+    },
+    {
+      "face": "100",
+      "price": "100",
+      "days": 181,
+      "expected_percent": "0"
+    },
+    {
+      "face": "100",
+      "price": "103",
+      "days": 181,
+      "expected_percent": "-5.87351821058842460977310518693343346027999785442257147454809"
+    },
+    {
+      "face": "1000",
+      "price": "981.23456789",
+      "days": 181,
+      "expected_percent": "3.85655935082526851959521627998165757489119739766773594130980"
+    },
+    {
+      "face": "0.001",
+      "price": "0.000975",
+      "days": 181,
+      "expected_percent": "5.17070406573169004108230627567644142229777588893610993058507"
+    },
+    {
+      "face": "100",
+      "price": "97",
+      "days": 182,
+      "expected_percent": "6.20256032627166647785204486235414070465616857369434689022318"
+    },
+    {
+      "face": "100",
+      "price": "100",
+      "days": 182,
+      "expected_percent": "0"
+    },
+    {
+      "face": "100",
+      "price": "103",
+      "days": 182,
+      "expected_percent": "-5.84124613250826843059852768590632668302571215192574415875387"
+    },
+    {
+      "face": "1000",
+      "price": "981.23456789",
+      "days": 182,
+      "expected_percent": "3.83536946428227253871831948723450561019399301636186926031359"
+    },
+    {
+      "face": "0.001",
+      "price": "0.000975",
+      "days": 182,
+      "expected_percent": "5.14229360383206537052690898844744998591152437306283460129614"
+    }
+  ],
+  "rejected_days": [
+    183,
+    184,
+    364,
+    365,
+    366,
+    4294967295
+  ],
+  "primary_sources": [
+    "https://www.treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/31-cfr-part-356.pdf",
+    "https://www.treasurydirect.gov/files/laws-and-regulations/uoc-noncomp-increase.pdf"
+  ]
+}

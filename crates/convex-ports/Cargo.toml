@@ -17,9 +17,15 @@ convex-core = { workspace = true }
 # Trait definitions only - NO runtime deps (no reqwest, sqlx, redis, ...)
 async-trait = "0.1"
 serde = { workspace = true }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha2 = "0.10.9"
 thiserror = { workspace = true }
 rust_decimal = { workspace = true }
 tokio = { version = "1", features = ["sync"] } # broadcast::Receiver in the *Receiver types
+
+[target.'cfg(all(target_arch = "aarch64", any(target_os = "macos", target_os = "linux")))'.dependencies]
+# Runtime-detected SHA-256 instructions with the existing software fallback.
+sha2 = { version = "0.10.9", features = ["asm-aarch64"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

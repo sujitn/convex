@@ -1,0 +1,3107 @@
+{
+  "date": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "BusinessDate",
+    "description": "Valid YYYY-MM-DD in years 0001–9999.",
+    "type": "string",
+    "format": "date",
+    "maxLength": 10,
+    "minLength": 10,
+    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+  },
+  "quantity": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "PositionQuantity",
+    "description": "Closed quantity set. The required wire tag prevents face/contract ambiguity.",
+    "anyOf": [
+      {
+        "description": "Exact nonnegative face quantity; direction belongs to the trade.",
+        "$ref": "#/$defs/FaceAmount"
+      },
+      {
+        "description": "Signed integer contract position.",
+        "$ref": "#/$defs/FuturesContracts"
+      }
+    ],
+    "$defs": {
+      "ContractsUnit": {
+        "type": "string",
+        "enum": [
+          "futures_contracts"
+        ]
+      },
+      "ExactDecimal": {
+        "description": "Exact decimal string; checked ingress additionally enforces 96-bit coefficient bounds without rounding.",
+        "type": "string",
+        "maxLength": 59,
+        "minLength": 1,
+        "pattern": "^-?[0-9]+(\\.[0-9]{1,28})?$"
+      },
+      "FaceAmount": {
+        "description": "Nonnegative exact face quantity. Direction is a separate trade field.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/FaceUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "FaceUnit": {
+        "type": "string",
+        "enum": [
+          "face_amount"
+        ]
+      },
+      "FuturesContracts": {
+        "description": "Signed integer futures position; encoded as a string to preserve 64-bit precision in clients.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ContractsUnit"
+          },
+          "value": {
+            "description": "Signed 64-bit integer; encoded as a string for exact client roundtrips.",
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "^-?(0|[1-9][0-9]*)$"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      }
+    }
+  },
+  "result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ResultEnvelope",
+    "type": "object",
+    "properties": {
+      "configuration_version": {
+        "$ref": "#/$defs/Version"
+      },
+      "errors": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/StructuredError"
+        },
+        "maxItems": 256
+      },
+      "provenance": {
+        "$ref": "#/$defs/Provenance"
+      },
+      "quality": {
+        "$ref": "#/$defs/DataQuality"
+      },
+      "request_id": {
+        "$ref": "#/$defs/RequestId"
+      },
+      "results": {
+        "type": "object",
+        "additionalProperties": false,
+        "patternProperties": {
+          "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$": {
+            "$ref": "#/$defs/MeasureResult"
+          }
+        }
+      },
+      "schema_version": {
+        "$ref": "#/$defs/SchemaVersion"
+      },
+      "snapshot_id": {
+        "$ref": "#/$defs/SnapshotId"
+      },
+      "status": {
+        "$ref": "#/$defs/ResultStatus"
+      }
+    },
+    "additionalProperties": false,
+    "allOf": [
+      {
+        "properties": {
+          "results": {
+            "maxProperties": 4096,
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "Complete"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "errors": {
+              "maxItems": 0
+            },
+            "results": {
+              "minProperties": 1
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "Partial"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "errors": {
+              "minItems": 1
+            },
+            "results": {
+              "minProperties": 1
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "Failed"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "errors": {
+              "minItems": 1
+            },
+            "results": {
+              "maxProperties": 0
+            }
+          }
+        }
+      }
+    ],
+    "required": [
+      "schema_version",
+      "request_id",
+      "status",
+      "quality",
+      "snapshot_id",
+      "configuration_version",
+      "results",
+      "errors",
+      "provenance"
+    ],
+    "$defs": {
+      "BasisPoints": {
+        "description": "Exact basis points: 100 means 1 percentage point.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/BpsUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "BpsUnit": {
+        "type": "string",
+        "enum": [
+          "bp"
+        ]
+      },
+      "Currency": {
+        "description": "ISO 4217 currency codes.\n\nRepresents currencies commonly used in fixed income markets.",
+        "oneOf": [
+          {
+            "description": "United States Dollar",
+            "type": "string",
+            "const": "USD"
+          },
+          {
+            "description": "Euro",
+            "type": "string",
+            "const": "EUR"
+          },
+          {
+            "description": "British Pound Sterling",
+            "type": "string",
+            "const": "GBP"
+          },
+          {
+            "description": "Japanese Yen",
+            "type": "string",
+            "const": "JPY"
+          },
+          {
+            "description": "Swiss Franc",
+            "type": "string",
+            "const": "CHF"
+          },
+          {
+            "description": "Canadian Dollar",
+            "type": "string",
+            "const": "CAD"
+          },
+          {
+            "description": "Australian Dollar",
+            "type": "string",
+            "const": "AUD"
+          },
+          {
+            "description": "New Zealand Dollar",
+            "type": "string",
+            "const": "NZD"
+          },
+          {
+            "description": "Swedish Krona",
+            "type": "string",
+            "const": "SEK"
+          },
+          {
+            "description": "Norwegian Krone",
+            "type": "string",
+            "const": "NOK"
+          },
+          {
+            "description": "Danish Krone",
+            "type": "string",
+            "const": "DKK"
+          },
+          {
+            "description": "Hong Kong Dollar",
+            "type": "string",
+            "const": "HKD"
+          },
+          {
+            "description": "Singapore Dollar",
+            "type": "string",
+            "const": "SGD"
+          },
+          {
+            "description": "Chinese Yuan Renminbi",
+            "type": "string",
+            "const": "CNY"
+          },
+          {
+            "description": "Indian Rupee",
+            "type": "string",
+            "const": "INR"
+          },
+          {
+            "description": "Brazilian Real",
+            "type": "string",
+            "const": "BRL"
+          },
+          {
+            "description": "Mexican Peso",
+            "type": "string",
+            "const": "MXN"
+          },
+          {
+            "description": "South African Rand",
+            "type": "string",
+            "const": "ZAR"
+          }
+        ]
+      },
+      "CurveId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "DataQuality": {
+        "description": "Independent quality classification; completeness alone is not execution eligibility.",
+        "oneOf": [
+          {
+            "description": "Passed applicable data/model policy.",
+            "type": "string",
+            "const": "Valid"
+          },
+          {
+            "description": "Indicative input or explicitly permitted approximation.",
+            "type": "string",
+            "const": "Indicative"
+          },
+          {
+            "description": "Licensed or source delay.",
+            "type": "string",
+            "const": "Delayed"
+          },
+          {
+            "description": "Older result/input retained with a visible stale label.",
+            "type": "string",
+            "const": "Stale"
+          },
+          {
+            "description": "Fails declared data/model policy.",
+            "type": "string",
+            "const": "Invalid"
+          },
+          {
+            "description": "Explicit demonstration data or composition.",
+            "type": "string",
+            "const": "Demo"
+          }
+        ]
+      },
+      "DecimalRate": {
+        "description": "Exact decimal rate: 0.05 means 5%; negative rates are permitted.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/RateUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "EntityId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "ErrorCode": {
+        "description": "Stable failure codes. Human-readable messages do not define protocol behavior.",
+        "oneOf": [
+          {
+            "description": "Structurally or numerically invalid request.",
+            "type": "string",
+            "const": "INVALID_INPUT"
+          },
+          {
+            "description": "Unsupported product family or terms.",
+            "type": "string",
+            "const": "UNSUPPORTED_PRODUCT"
+          },
+          {
+            "description": "Unsupported quotation/calendar/model convention.",
+            "type": "string",
+            "const": "UNSUPPORTED_CONVENTION"
+          },
+          {
+            "description": "Required instrument, calendar or convention missing.",
+            "type": "string",
+            "const": "MISSING_REFERENCE"
+          },
+          {
+            "description": "Required known-at fixing missing.",
+            "type": "string",
+            "const": "MISSING_FIXING"
+          },
+          {
+            "description": "Required market observation missing.",
+            "type": "string",
+            "const": "MISSING_MARKET_DATA"
+          },
+          {
+            "description": "Input exceeds freshness policy.",
+            "type": "string",
+            "const": "STALE_INPUT"
+          },
+          {
+            "description": "Feed continuity is unknown.",
+            "type": "string",
+            "const": "DATA_GAP"
+          },
+          {
+            "description": "Use of requested data is not permitted.",
+            "type": "string",
+            "const": "ENTITLEMENT_DENIED"
+          },
+          {
+            "description": "Calibration failed its declared contract.",
+            "type": "string",
+            "const": "CALIBRATION_FAILED"
+          },
+          {
+            "description": "Numerical iteration/resource bound reached.",
+            "type": "string",
+            "const": "SOLVER_LIMIT"
+          },
+          {
+            "description": "Expected version no longer current.",
+            "type": "string",
+            "const": "VERSION_CONFLICT"
+          },
+          {
+            "description": "Requested risk coverage is incomplete.",
+            "type": "string",
+            "const": "INCOMPLETE_RISK"
+          },
+          {
+            "description": "No feasible hedge under the hard constraints.",
+            "type": "string",
+            "const": "INFEASIBLE_HEDGE"
+          },
+          {
+            "description": "Required risk/trading limit violated.",
+            "type": "string",
+            "const": "LIMIT_BREACH"
+          },
+          {
+            "description": "Authoritative ownership lost.",
+            "type": "string",
+            "const": "OWNERSHIP_LOST"
+          },
+          {
+            "description": "Caller-supplied deadline exceeded.",
+            "type": "string",
+            "const": "DEADLINE_EXCEEDED"
+          },
+          {
+            "description": "Requested operation cancelled.",
+            "type": "string",
+            "const": "CANCELLED"
+          },
+          {
+            "description": "Dependency/service unavailable.",
+            "type": "string",
+            "const": "UNAVAILABLE"
+          },
+          {
+            "description": "Mutation outcome needs reconciliation before retry.",
+            "type": "string",
+            "const": "UNKNOWN_OUTCOME"
+          },
+          {
+            "description": "Measure has no economic meaning for the declared product.",
+            "type": "string",
+            "const": "NOT_APPLICABLE"
+          }
+        ]
+      },
+      "ExactDecimal": {
+        "description": "Exact decimal string; checked ingress additionally enforces 96-bit coefficient bounds without rounding.",
+        "type": "string",
+        "maxLength": 59,
+        "minLength": 1,
+        "pattern": "^-?[0-9]+(\\.[0-9]{1,28})?$"
+      },
+      "FactorFamily": {
+        "description": "Risk-factor family; quote risk and model-parameter risk remain distinct.",
+        "oneOf": [
+          {
+            "description": "Rate quote or zero curve.",
+            "type": "string",
+            "const": "interest_rate"
+          },
+          {
+            "description": "Credit quote or bond spread.",
+            "type": "string",
+            "const": "credit_spread"
+          },
+          {
+            "description": "Credit hazard parameter.",
+            "type": "string",
+            "const": "hazard"
+          },
+          {
+            "description": "Recovery assumption.",
+            "type": "string",
+            "const": "recovery"
+          },
+          {
+            "description": "Futures price quote.",
+            "type": "string",
+            "const": "futures_price"
+          },
+          {
+            "description": "Cash security clean/dirty price quotation.",
+            "type": "string",
+            "const": "cash_price"
+          },
+          {
+            "description": "Explicit pricing-model parameter, distinct from market volatility quotes.",
+            "type": "string",
+            "const": "model"
+          }
+        ]
+      },
+      "FactorTarget": {
+        "description": "Provider-neutral identity of the object being bumped.",
+        "oneOf": [
+          {
+            "description": "Discount, projection, credit or spread curve.",
+            "type": "object",
+            "properties": {
+              "curve_id": {
+                "description": "Internal curve identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "curve_id"
+            ]
+          },
+          {
+            "description": "Index quote.",
+            "type": "object",
+            "properties": {
+              "index_id": {
+                "description": "Internal index identity.",
+                "$ref": "#/$defs/IndexId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "index"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "index_id"
+            ]
+          },
+          {
+            "description": "Reference entity or issuer parameter.",
+            "type": "object",
+            "properties": {
+              "entity_id": {
+                "description": "Internal entity identity.",
+                "$ref": "#/$defs/EntityId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "entity"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "entity_id"
+            ]
+          },
+          {
+            "description": "Instrument's own quote.",
+            "type": "object",
+            "properties": {
+              "instrument_id": {
+                "description": "Internal instrument identity.",
+                "$ref": "#/$defs/InstrumentId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "instrument"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "instrument_id"
+            ]
+          },
+          {
+            "description": "Supplied model identity; its immutable revision belongs to the coordinate.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model"
+              },
+              "model_id": {
+                "description": "Original model identity.",
+                "$ref": "#/$defs/ModelId"
+              },
+              "model_version": {
+                "description": "Exact supplied string revision, including nonnumeric curve/model keys.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "model_id",
+              "model_version"
+            ]
+          },
+          {
+            "description": "Two exact inputs moved together by one explicitly coupled model factor.",
+            "type": "object",
+            "properties": {
+              "discount_curve_id": {
+                "description": "Original currency discount identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "discount_curve_version": {
+                "description": "Original exact discount revision.",
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve_pair"
+              },
+              "projection_curve_id": {
+                "description": "Original index projection identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "projection_curve_version": {
+                "description": "Original exact projection revision.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "discount_curve_id",
+              "discount_curve_version",
+              "projection_curve_id",
+              "projection_curve_version"
+            ]
+          }
+        ]
+      },
+      "FactorTenor": {
+        "type": "string",
+        "pattern": "^([1-9][0-9]{0,4}[DWMY]|parallel|spot)$"
+      },
+      "FiniteF64": {
+        "type": "number",
+        "maximum": 1.7976931348623157e+308,
+        "minimum": -1.7976931348623157e+308
+      },
+      "IndexId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "InputVersion": {
+        "description": "Exact version of a consumed definition; full snapshot manifest remains elsewhere.",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Provider-neutral record identity.",
+            "$ref": "#/$defs/SourceId"
+          },
+          "kind": {
+            "description": "Record kind (calendar, convention, curve, fixing, instrument, ...).",
+            "$ref": "#/$defs/SourceId"
+          },
+          "version": {
+            "description": "Exact consumed revision.",
+            "$ref": "#/$defs/Version"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "id",
+          "version"
+        ]
+      },
+      "InstrumentId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "MeasureResult": {
+        "description": "One successful measure with its own source/method/quality.",
+        "type": "object",
+        "properties": {
+          "method": {
+            "description": "Observed-mark/model/bump method supplied by the caller.",
+            "$ref": "#/$defs/ModelId"
+          },
+          "quality": {
+            "description": "Per-measure quality, independently of envelope completeness.",
+            "$ref": "#/$defs/DataQuality"
+          },
+          "source_observation_id": {
+            "description": "Actual observation consumed, if applicable; never invented by an adapter.",
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ObservationId"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "value": {
+            "description": "Explicit representation and unit.",
+            "$ref": "#/$defs/MeasureValue"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "quality",
+          "method"
+        ]
+      },
+      "MeasureValue": {
+        "description": "Explicit value representations for canonical result measures.",
+        "anyOf": [
+          {
+            "description": "Exact money; signed and currency-qualified.",
+            "$ref": "#/$defs/Money"
+          },
+          {
+            "description": "Model PV before exact contract/posting rounding.",
+            "$ref": "#/$defs/ModelMoney"
+          },
+          {
+            "description": "Exact price at contract precision.",
+            "$ref": "#/$defs/PricePer100"
+          },
+          {
+            "description": "Exact decimal rate.",
+            "$ref": "#/$defs/DecimalRate"
+          },
+          {
+            "description": "Exact basis points.",
+            "$ref": "#/$defs/BasisPoints"
+          },
+          {
+            "description": "Finite model price, without premature rounding.",
+            "$ref": "#/$defs/ModelPricePer100"
+          },
+          {
+            "description": "Finite model decimal rate.",
+            "$ref": "#/$defs/ModelDecimalRate"
+          },
+          {
+            "description": "Finite model basis points.",
+            "$ref": "#/$defs/ModelBasisPoints"
+          },
+          {
+            "description": "Structured signed factor risk with its bump, basis and snapshot.",
+            "$ref": "#/$defs/RiskSensitivity"
+          }
+        ]
+      },
+      "ModelBasisPoints": {
+        "description": "Finite model basis-point value, preserving negative spread signs.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelBpsUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelBpsUnit": {
+        "type": "string",
+        "enum": [
+          "bp"
+        ]
+      },
+      "ModelDecimalRate": {
+        "description": "Finite model decimal rate, preserving binary bits across DTO boundaries.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelRateUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "ModelMoney": {
+        "description": "Finite signed model PV in an explicit currency, before ledger posting/rounding.",
+        "type": "object",
+        "properties": {
+          "currency": {
+            "$ref": "#/$defs/Currency"
+          },
+          "unit": {
+            "$ref": "#/$defs/MoneyUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "currency",
+          "unit"
+        ]
+      },
+      "ModelPricePer100": {
+        "description": "Finite model price/accrued per 100; no contract rounding implied.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelPriceUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelPriceUnit": {
+        "type": "string",
+        "enum": [
+          "price_per_100"
+        ]
+      },
+      "ModelRateUnit": {
+        "type": "string",
+        "enum": [
+          "decimal_rate"
+        ]
+      },
+      "Money": {
+        "description": "Exact signed cash or ledger amount with required currency.",
+        "type": "object",
+        "properties": {
+          "currency": {
+            "$ref": "#/$defs/Currency"
+          },
+          "unit": {
+            "$ref": "#/$defs/MoneyUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "currency",
+          "unit"
+        ]
+      },
+      "MoneyUnit": {
+        "type": "string",
+        "enum": [
+          "currency"
+        ]
+      },
+      "ObservationId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "PricePer100": {
+        "description": "Exact price or accrued amount per 100 face; never a decimal rate.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/PriceUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "PriceUnit": {
+        "type": "string",
+        "enum": [
+          "price_per_100"
+        ]
+      },
+      "Provenance": {
+        "description": "Reproducibility inputs supplied by the caller, never filled using current time.",
+        "type": "object",
+        "properties": {
+          "build_id": {
+            "description": "Executable/library build identity.",
+            "$ref": "#/$defs/ModelId"
+          },
+          "calculated_at": {
+            "description": "Supplied calculation completion time.",
+            "$ref": "#/$defs/UtcTimestamp"
+          },
+          "configuration_version": {
+            "description": "Pinned configuration.",
+            "$ref": "#/$defs/Version"
+          },
+          "input_versions": {
+            "description": "Consumed reference/calibration/fixing definition versions.",
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/InputVersion"
+            },
+            "maxItems": 256
+          },
+          "known_at": {
+            "description": "Information publication/recording cutoff.",
+            "$ref": "#/$defs/UtcTimestamp"
+          },
+          "model_version": {
+            "description": "Quantitative model version.",
+            "$ref": "#/$defs/ModelId"
+          },
+          "snapshot_id": {
+            "description": "Immutable information set consumed.",
+            "$ref": "#/$defs/SnapshotId"
+          },
+          "subject": {
+            "description": "Pinned instrument/trade definition.",
+            "$ref": "#/$defs/ValuationSubject"
+          },
+          "valuation_time": {
+            "description": "Economic valuation time.",
+            "$ref": "#/$defs/UtcTimestamp"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "subject",
+          "snapshot_id",
+          "configuration_version",
+          "valuation_time",
+          "known_at",
+          "calculated_at",
+          "model_version",
+          "build_id",
+          "input_versions"
+        ]
+      },
+      "QuoteType": {
+        "description": "Native quote definition; these are not interchangeable risk buckets.",
+        "oneOf": [
+          {
+            "description": "Instrument's own yield.",
+            "type": "string",
+            "const": "yield"
+          },
+          {
+            "description": "Zero rate.",
+            "type": "string",
+            "const": "zero_rate"
+          },
+          {
+            "description": "OIS market par rate.",
+            "type": "string",
+            "const": "ois_par_rate"
+          },
+          {
+            "description": "Term-rate swap market par rate.",
+            "type": "string",
+            "const": "swap_par_rate"
+          },
+          {
+            "description": "Quoted CDS spread.",
+            "type": "string",
+            "const": "cds_spread"
+          },
+          {
+            "description": "CDS upfront fraction.",
+            "type": "string",
+            "const": "cds_upfront"
+          },
+          {
+            "description": "Dirty CDS cash upfront, distinct from clean upfront.",
+            "type": "string",
+            "const": "cds_dirty_upfront"
+          },
+          {
+            "description": "Bond Z spread.",
+            "type": "string",
+            "const": "z_spread"
+          },
+          {
+            "description": "Hazard parameter.",
+            "type": "string",
+            "const": "hazard_rate"
+          },
+          {
+            "description": "Recovery fraction.",
+            "type": "string",
+            "const": "recovery_rate"
+          },
+          {
+            "description": "Quoted futures price; not a one-bp rate measure.",
+            "type": "string",
+            "const": "futures_price"
+          },
+          {
+            "description": "Dated deposit quotation.",
+            "type": "string",
+            "const": "deposit_rate"
+          },
+          {
+            "description": "Publication-aware dated FRA quotation.",
+            "type": "string",
+            "const": "fra_rate"
+          },
+          {
+            "description": "Uniform spread on a declared basis-swap leg.",
+            "type": "string",
+            "const": "basis_swap_spread"
+          },
+          {
+            "description": "Coupon of a full original par cash bond.",
+            "type": "string",
+            "const": "bond_par_coupon"
+          },
+          {
+            "description": "Actual dated simple repo quotation.",
+            "type": "string",
+            "const": "repo_rate"
+          },
+          {
+            "description": "Bill bank-discount yield, distinct from cashflow yield.",
+            "type": "string",
+            "const": "bank_discount_yield"
+          },
+          {
+            "description": "Rate-future implied annualized rate; native points move in the opposite direction.",
+            "type": "string",
+            "const": "rate_future_rate"
+          },
+          {
+            "description": "Residual promised-cash issuer basis, distinct from credit and recovery.",
+            "type": "string",
+            "const": "residual_basis"
+          },
+          {
+            "description": "Explicit optional-bond model OAS, distinct from deterministic Z spread.",
+            "type": "string",
+            "const": "oas_spread"
+          },
+          {
+            "description": "Clean price per100 of original face.",
+            "type": "string",
+            "const": "cash_clean_price"
+          },
+          {
+            "description": "Dirty price per100 of original face.",
+            "type": "string",
+            "const": "cash_dirty_price"
+          },
+          {
+            "description": "Constant HW1F mean reversion per year.",
+            "type": "string",
+            "const": "hw1f_mean_reversion"
+          },
+          {
+            "description": "Constant HW1F short-rate diffusion per square-root year.",
+            "type": "string",
+            "const": "hw1f_volatility"
+          },
+          {
+            "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
+            "type": "string",
+            "const": "joint_zero_rate"
+          },
+          {
+            "description": "Supplied Bachelier annual decimal-rate volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_normal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black annual relative volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_lognormal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black decimal-rate displacement.",
+            "type": "string",
+            "const": "coupon_lognormal_displacement"
+          },
+          {
+            "description": "Supplied terminal decimal-rate loading on one common unit normal factor.",
+            "type": "string",
+            "const": "coupon_normal_factor_loading"
+          }
+        ]
+      },
+      "RateUnit": {
+        "type": "string",
+        "enum": [
+          "decimal_rate"
+        ]
+      },
+      "RequestId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "ResultStatus": {
+        "description": "Completeness relative to the requested measure set.",
+        "oneOf": [
+          {
+            "description": "Every requested measure succeeded; no errors.",
+            "type": "string",
+            "const": "Complete"
+          },
+          {
+            "description": "Some measures succeeded and some failed explicitly.",
+            "type": "string",
+            "const": "Partial"
+          },
+          {
+            "description": "No successful numerical measures.",
+            "type": "string",
+            "const": "Failed"
+          }
+        ]
+      },
+      "RiskBasis": {
+        "description": "Definition of the bump/rebuild operation.",
+        "oneOf": [
+          {
+            "description": "Bump a raw product quote without calibrated curve risk claims.",
+            "type": "string",
+            "const": "raw_quote"
+          },
+          {
+            "description": "Bump a curve node or zero rate.",
+            "type": "string",
+            "const": "zero_node"
+          },
+          {
+            "description": "Bump an input market quote and recalibrate dependent curves.",
+            "type": "string",
+            "const": "market_quote_recalibrated"
+          },
+          {
+            "description": "Bump a model parameter.",
+            "type": "string",
+            "const": "model_parameter"
+          }
+        ]
+      },
+      "RiskFactorKey": {
+        "description": "Validated factor key; every identity dimension participates in equality/hash.",
+        "type": "object",
+        "properties": {
+          "basis": {
+            "description": "Bump and recalibration basis.",
+            "$ref": "#/$defs/RiskBasis"
+          },
+          "convention_version": {
+            "description": "Pinned convention pack.",
+            "$ref": "#/$defs/Version"
+          },
+          "currency": {
+            "description": "Quote currency, distinct from risk reporting currency.",
+            "$ref": "#/$defs/Currency"
+          },
+          "family": {
+            "description": "Risk-factor family.",
+            "$ref": "#/$defs/FactorFamily"
+          },
+          "model_version": {
+            "description": "Pinned model/bump semantics.",
+            "$ref": "#/$defs/ModelId"
+          },
+          "quote_type": {
+            "description": "Native quotation.",
+            "$ref": "#/$defs/QuoteType"
+          },
+          "target": {
+            "description": "Curve/index/entity/instrument whose quote or parameter moves.",
+            "$ref": "#/$defs/FactorTarget"
+          },
+          "tenor": {
+            "description": "Explicit quote bucket.",
+            "$ref": "#/$defs/FactorTenor"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "family",
+          "target",
+          "currency",
+          "tenor",
+          "quote_type",
+          "basis",
+          "convention_version",
+          "model_version"
+        ]
+      },
+      "RiskMethod": {
+        "description": "Computation method, explicitly reported with the finite-difference bump.",
+        "oneOf": [
+          {
+            "description": "Central finite difference, normalized to one bp.",
+            "type": "string",
+            "const": "central"
+          },
+          {
+            "description": "Analytic sensitivity checked against the reference bump convention.",
+            "type": "string",
+            "const": "analytic"
+          }
+        ]
+      },
+      "RiskSensitivity": {
+        "description": "Complete signed measure; futures price delta/hazard/upfront cannot enter as PV01.",
+        "type": "object",
+        "properties": {
+          "bump": {
+            "$ref": "#/$defs/BasisPoints"
+          },
+          "currency": {
+            "$ref": "#/$defs/Currency"
+          },
+          "factor": {
+            "$ref": "#/$defs/RiskFactorKey"
+          },
+          "measure": {
+            "$ref": "#/$defs/SignedRiskMeasure"
+          },
+          "method": {
+            "$ref": "#/$defs/RiskMethod"
+          },
+          "snapshot_id": {
+            "$ref": "#/$defs/SnapshotId"
+          },
+          "unit": {
+            "$ref": "#/$defs/RiskUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "factor",
+          "measure",
+          "value",
+          "unit",
+          "currency",
+          "bump",
+          "method",
+          "snapshot_id"
+        ]
+      },
+      "RiskUnit": {
+        "type": "string",
+        "enum": [
+          "currency_per_bp"
+        ]
+      },
+      "SchemaVersion": {
+        "description": "Version of the canonical wire contract. Unknown versions fail ingress.",
+        "oneOf": [
+          {
+            "description": "Canonical units and signed-measure contract.",
+            "type": "string",
+            "const": "2.0"
+          }
+        ]
+      },
+      "SignedRiskMeasure": {
+        "description": "Signed monetary change normalized to a +1 bp quote move, not a derivative.",
+        "oneOf": [
+          {
+            "description": "(PV(q+0.0001) - PV(q-0.0001))/2. A long fixed bond is typically negative.",
+            "type": "string",
+            "const": "pv01_signed"
+          },
+          {
+            "description": "Analogous signed change for a +1 bp credit spread quote move.",
+            "type": "string",
+            "const": "cs01_signed"
+          },
+          {
+            "description": "Conventional loss sign: -pv01_signed.",
+            "type": "string",
+            "const": "dv01_loss"
+          }
+        ]
+      },
+      "SnapshotId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "SourceId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "StructuredError": {
+        "description": "Structured failure without an invented numerical value.",
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/$defs/ErrorCode"
+          },
+          "field": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256,
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ]
+      },
+      "TradeId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "UtcTimestamp": {
+        "description": "UTC instant, at most nanosecond precision, years 0001–9999; leap seconds unsupported.",
+        "type": "string",
+        "format": "date-time",
+        "maxLength": 30,
+        "minLength": 20,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+      },
+      "ValuationSubject": {
+        "description": "A pinned economic subject; resolving the record is an application concern.",
+        "oneOf": [
+          {
+            "description": "Valuation of one immutable instrument definition.",
+            "type": "object",
+            "properties": {
+              "instrument_id": {
+                "description": "Internal instrument identity.",
+                "$ref": "#/$defs/InstrumentId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "instrument_version"
+              },
+              "version": {
+                "description": "Definition version.",
+                "$ref": "#/$defs/Version"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "instrument_id",
+              "version"
+            ]
+          },
+          {
+            "description": "Valuation of one immutable trade including its economics.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "trade_version"
+              },
+              "trade_id": {
+                "description": "Internal trade identity.",
+                "$ref": "#/$defs/TradeId"
+              },
+              "version": {
+                "description": "Trade version.",
+                "$ref": "#/$defs/Version"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "trade_id",
+              "version"
+            ]
+          }
+        ]
+      },
+      "Version": {
+        "description": "Positive immutable record version. Zero is never an implicit current version.",
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 1
+      }
+    }
+  },
+  "risk": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "RiskSensitivity",
+    "description": "Complete signed measure; futures price delta/hazard/upfront cannot enter as PV01.",
+    "type": "object",
+    "properties": {
+      "bump": {
+        "$ref": "#/$defs/BasisPoints"
+      },
+      "currency": {
+        "$ref": "#/$defs/Currency"
+      },
+      "factor": {
+        "$ref": "#/$defs/RiskFactorKey"
+      },
+      "measure": {
+        "$ref": "#/$defs/SignedRiskMeasure"
+      },
+      "method": {
+        "$ref": "#/$defs/RiskMethod"
+      },
+      "snapshot_id": {
+        "$ref": "#/$defs/SnapshotId"
+      },
+      "unit": {
+        "$ref": "#/$defs/RiskUnit"
+      },
+      "value": {
+        "$ref": "#/$defs/FiniteF64"
+      }
+    },
+    "additionalProperties": false,
+    "required": [
+      "factor",
+      "measure",
+      "value",
+      "unit",
+      "currency",
+      "bump",
+      "method",
+      "snapshot_id"
+    ],
+    "$defs": {
+      "BasisPoints": {
+        "description": "Exact basis points: 100 means 1 percentage point.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/BpsUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "BpsUnit": {
+        "type": "string",
+        "enum": [
+          "bp"
+        ]
+      },
+      "Currency": {
+        "description": "ISO 4217 currency codes.\n\nRepresents currencies commonly used in fixed income markets.",
+        "oneOf": [
+          {
+            "description": "United States Dollar",
+            "type": "string",
+            "const": "USD"
+          },
+          {
+            "description": "Euro",
+            "type": "string",
+            "const": "EUR"
+          },
+          {
+            "description": "British Pound Sterling",
+            "type": "string",
+            "const": "GBP"
+          },
+          {
+            "description": "Japanese Yen",
+            "type": "string",
+            "const": "JPY"
+          },
+          {
+            "description": "Swiss Franc",
+            "type": "string",
+            "const": "CHF"
+          },
+          {
+            "description": "Canadian Dollar",
+            "type": "string",
+            "const": "CAD"
+          },
+          {
+            "description": "Australian Dollar",
+            "type": "string",
+            "const": "AUD"
+          },
+          {
+            "description": "New Zealand Dollar",
+            "type": "string",
+            "const": "NZD"
+          },
+          {
+            "description": "Swedish Krona",
+            "type": "string",
+            "const": "SEK"
+          },
+          {
+            "description": "Norwegian Krone",
+            "type": "string",
+            "const": "NOK"
+          },
+          {
+            "description": "Danish Krone",
+            "type": "string",
+            "const": "DKK"
+          },
+          {
+            "description": "Hong Kong Dollar",
+            "type": "string",
+            "const": "HKD"
+          },
+          {
+            "description": "Singapore Dollar",
+            "type": "string",
+            "const": "SGD"
+          },
+          {
+            "description": "Chinese Yuan Renminbi",
+            "type": "string",
+            "const": "CNY"
+          },
+          {
+            "description": "Indian Rupee",
+            "type": "string",
+            "const": "INR"
+          },
+          {
+            "description": "Brazilian Real",
+            "type": "string",
+            "const": "BRL"
+          },
+          {
+            "description": "Mexican Peso",
+            "type": "string",
+            "const": "MXN"
+          },
+          {
+            "description": "South African Rand",
+            "type": "string",
+            "const": "ZAR"
+          }
+        ]
+      },
+      "CurveId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "EntityId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "ExactDecimal": {
+        "description": "Exact decimal string; checked ingress additionally enforces 96-bit coefficient bounds without rounding.",
+        "type": "string",
+        "maxLength": 59,
+        "minLength": 1,
+        "pattern": "^-?[0-9]+(\\.[0-9]{1,28})?$"
+      },
+      "FactorFamily": {
+        "description": "Risk-factor family; quote risk and model-parameter risk remain distinct.",
+        "oneOf": [
+          {
+            "description": "Rate quote or zero curve.",
+            "type": "string",
+            "const": "interest_rate"
+          },
+          {
+            "description": "Credit quote or bond spread.",
+            "type": "string",
+            "const": "credit_spread"
+          },
+          {
+            "description": "Credit hazard parameter.",
+            "type": "string",
+            "const": "hazard"
+          },
+          {
+            "description": "Recovery assumption.",
+            "type": "string",
+            "const": "recovery"
+          },
+          {
+            "description": "Futures price quote.",
+            "type": "string",
+            "const": "futures_price"
+          },
+          {
+            "description": "Cash security clean/dirty price quotation.",
+            "type": "string",
+            "const": "cash_price"
+          },
+          {
+            "description": "Explicit pricing-model parameter, distinct from market volatility quotes.",
+            "type": "string",
+            "const": "model"
+          }
+        ]
+      },
+      "FactorTarget": {
+        "description": "Provider-neutral identity of the object being bumped.",
+        "oneOf": [
+          {
+            "description": "Discount, projection, credit or spread curve.",
+            "type": "object",
+            "properties": {
+              "curve_id": {
+                "description": "Internal curve identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "curve_id"
+            ]
+          },
+          {
+            "description": "Index quote.",
+            "type": "object",
+            "properties": {
+              "index_id": {
+                "description": "Internal index identity.",
+                "$ref": "#/$defs/IndexId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "index"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "index_id"
+            ]
+          },
+          {
+            "description": "Reference entity or issuer parameter.",
+            "type": "object",
+            "properties": {
+              "entity_id": {
+                "description": "Internal entity identity.",
+                "$ref": "#/$defs/EntityId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "entity"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "entity_id"
+            ]
+          },
+          {
+            "description": "Instrument's own quote.",
+            "type": "object",
+            "properties": {
+              "instrument_id": {
+                "description": "Internal instrument identity.",
+                "$ref": "#/$defs/InstrumentId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "instrument"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "instrument_id"
+            ]
+          },
+          {
+            "description": "Supplied model identity; its immutable revision belongs to the coordinate.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model"
+              },
+              "model_id": {
+                "description": "Original model identity.",
+                "$ref": "#/$defs/ModelId"
+              },
+              "model_version": {
+                "description": "Exact supplied string revision, including nonnumeric curve/model keys.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "model_id",
+              "model_version"
+            ]
+          },
+          {
+            "description": "Two exact inputs moved together by one explicitly coupled model factor.",
+            "type": "object",
+            "properties": {
+              "discount_curve_id": {
+                "description": "Original currency discount identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "discount_curve_version": {
+                "description": "Original exact discount revision.",
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve_pair"
+              },
+              "projection_curve_id": {
+                "description": "Original index projection identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "projection_curve_version": {
+                "description": "Original exact projection revision.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "discount_curve_id",
+              "discount_curve_version",
+              "projection_curve_id",
+              "projection_curve_version"
+            ]
+          }
+        ]
+      },
+      "FactorTenor": {
+        "type": "string",
+        "pattern": "^([1-9][0-9]{0,4}[DWMY]|parallel|spot)$"
+      },
+      "FiniteF64": {
+        "type": "number",
+        "maximum": 1.7976931348623157e+308,
+        "minimum": -1.7976931348623157e+308
+      },
+      "IndexId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "InstrumentId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "ModelId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "QuoteType": {
+        "description": "Native quote definition; these are not interchangeable risk buckets.",
+        "oneOf": [
+          {
+            "description": "Instrument's own yield.",
+            "type": "string",
+            "const": "yield"
+          },
+          {
+            "description": "Zero rate.",
+            "type": "string",
+            "const": "zero_rate"
+          },
+          {
+            "description": "OIS market par rate.",
+            "type": "string",
+            "const": "ois_par_rate"
+          },
+          {
+            "description": "Term-rate swap market par rate.",
+            "type": "string",
+            "const": "swap_par_rate"
+          },
+          {
+            "description": "Quoted CDS spread.",
+            "type": "string",
+            "const": "cds_spread"
+          },
+          {
+            "description": "CDS upfront fraction.",
+            "type": "string",
+            "const": "cds_upfront"
+          },
+          {
+            "description": "Dirty CDS cash upfront, distinct from clean upfront.",
+            "type": "string",
+            "const": "cds_dirty_upfront"
+          },
+          {
+            "description": "Bond Z spread.",
+            "type": "string",
+            "const": "z_spread"
+          },
+          {
+            "description": "Hazard parameter.",
+            "type": "string",
+            "const": "hazard_rate"
+          },
+          {
+            "description": "Recovery fraction.",
+            "type": "string",
+            "const": "recovery_rate"
+          },
+          {
+            "description": "Quoted futures price; not a one-bp rate measure.",
+            "type": "string",
+            "const": "futures_price"
+          },
+          {
+            "description": "Dated deposit quotation.",
+            "type": "string",
+            "const": "deposit_rate"
+          },
+          {
+            "description": "Publication-aware dated FRA quotation.",
+            "type": "string",
+            "const": "fra_rate"
+          },
+          {
+            "description": "Uniform spread on a declared basis-swap leg.",
+            "type": "string",
+            "const": "basis_swap_spread"
+          },
+          {
+            "description": "Coupon of a full original par cash bond.",
+            "type": "string",
+            "const": "bond_par_coupon"
+          },
+          {
+            "description": "Actual dated simple repo quotation.",
+            "type": "string",
+            "const": "repo_rate"
+          },
+          {
+            "description": "Bill bank-discount yield, distinct from cashflow yield.",
+            "type": "string",
+            "const": "bank_discount_yield"
+          },
+          {
+            "description": "Rate-future implied annualized rate; native points move in the opposite direction.",
+            "type": "string",
+            "const": "rate_future_rate"
+          },
+          {
+            "description": "Residual promised-cash issuer basis, distinct from credit and recovery.",
+            "type": "string",
+            "const": "residual_basis"
+          },
+          {
+            "description": "Explicit optional-bond model OAS, distinct from deterministic Z spread.",
+            "type": "string",
+            "const": "oas_spread"
+          },
+          {
+            "description": "Clean price per100 of original face.",
+            "type": "string",
+            "const": "cash_clean_price"
+          },
+          {
+            "description": "Dirty price per100 of original face.",
+            "type": "string",
+            "const": "cash_dirty_price"
+          },
+          {
+            "description": "Constant HW1F mean reversion per year.",
+            "type": "string",
+            "const": "hw1f_mean_reversion"
+          },
+          {
+            "description": "Constant HW1F short-rate diffusion per square-root year.",
+            "type": "string",
+            "const": "hw1f_volatility"
+          },
+          {
+            "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
+            "type": "string",
+            "const": "joint_zero_rate"
+          },
+          {
+            "description": "Supplied Bachelier annual decimal-rate volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_normal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black annual relative volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_lognormal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black decimal-rate displacement.",
+            "type": "string",
+            "const": "coupon_lognormal_displacement"
+          },
+          {
+            "description": "Supplied terminal decimal-rate loading on one common unit normal factor.",
+            "type": "string",
+            "const": "coupon_normal_factor_loading"
+          }
+        ]
+      },
+      "RiskBasis": {
+        "description": "Definition of the bump/rebuild operation.",
+        "oneOf": [
+          {
+            "description": "Bump a raw product quote without calibrated curve risk claims.",
+            "type": "string",
+            "const": "raw_quote"
+          },
+          {
+            "description": "Bump a curve node or zero rate.",
+            "type": "string",
+            "const": "zero_node"
+          },
+          {
+            "description": "Bump an input market quote and recalibrate dependent curves.",
+            "type": "string",
+            "const": "market_quote_recalibrated"
+          },
+          {
+            "description": "Bump a model parameter.",
+            "type": "string",
+            "const": "model_parameter"
+          }
+        ]
+      },
+      "RiskFactorKey": {
+        "description": "Validated factor key; every identity dimension participates in equality/hash.",
+        "type": "object",
+        "properties": {
+          "basis": {
+            "description": "Bump and recalibration basis.",
+            "$ref": "#/$defs/RiskBasis"
+          },
+          "convention_version": {
+            "description": "Pinned convention pack.",
+            "$ref": "#/$defs/Version"
+          },
+          "currency": {
+            "description": "Quote currency, distinct from risk reporting currency.",
+            "$ref": "#/$defs/Currency"
+          },
+          "family": {
+            "description": "Risk-factor family.",
+            "$ref": "#/$defs/FactorFamily"
+          },
+          "model_version": {
+            "description": "Pinned model/bump semantics.",
+            "$ref": "#/$defs/ModelId"
+          },
+          "quote_type": {
+            "description": "Native quotation.",
+            "$ref": "#/$defs/QuoteType"
+          },
+          "target": {
+            "description": "Curve/index/entity/instrument whose quote or parameter moves.",
+            "$ref": "#/$defs/FactorTarget"
+          },
+          "tenor": {
+            "description": "Explicit quote bucket.",
+            "$ref": "#/$defs/FactorTenor"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "family",
+          "target",
+          "currency",
+          "tenor",
+          "quote_type",
+          "basis",
+          "convention_version",
+          "model_version"
+        ]
+      },
+      "RiskMethod": {
+        "description": "Computation method, explicitly reported with the finite-difference bump.",
+        "oneOf": [
+          {
+            "description": "Central finite difference, normalized to one bp.",
+            "type": "string",
+            "const": "central"
+          },
+          {
+            "description": "Analytic sensitivity checked against the reference bump convention.",
+            "type": "string",
+            "const": "analytic"
+          }
+        ]
+      },
+      "RiskUnit": {
+        "type": "string",
+        "enum": [
+          "currency_per_bp"
+        ]
+      },
+      "SignedRiskMeasure": {
+        "description": "Signed monetary change normalized to a +1 bp quote move, not a derivative.",
+        "oneOf": [
+          {
+            "description": "(PV(q+0.0001) - PV(q-0.0001))/2. A long fixed bond is typically negative.",
+            "type": "string",
+            "const": "pv01_signed"
+          },
+          {
+            "description": "Analogous signed change for a +1 bp credit spread quote move.",
+            "type": "string",
+            "const": "cs01_signed"
+          },
+          {
+            "description": "Conventional loss sign: -pv01_signed.",
+            "type": "string",
+            "const": "dv01_loss"
+          }
+        ]
+      },
+      "SnapshotId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "Version": {
+        "description": "Positive immutable record version. Zero is never an implicit current version.",
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 1
+      }
+    }
+  },
+  "subject": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ValuationSubject",
+    "description": "A pinned economic subject; resolving the record is an application concern.",
+    "oneOf": [
+      {
+        "description": "Valuation of one immutable instrument definition.",
+        "type": "object",
+        "properties": {
+          "instrument_id": {
+            "description": "Internal instrument identity.",
+            "$ref": "#/$defs/InstrumentId"
+          },
+          "kind": {
+            "type": "string",
+            "const": "instrument_version"
+          },
+          "version": {
+            "description": "Definition version.",
+            "$ref": "#/$defs/Version"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "instrument_id",
+          "version"
+        ]
+      },
+      {
+        "description": "Valuation of one immutable trade including its economics.",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "trade_version"
+          },
+          "trade_id": {
+            "description": "Internal trade identity.",
+            "$ref": "#/$defs/TradeId"
+          },
+          "version": {
+            "description": "Trade version.",
+            "$ref": "#/$defs/Version"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "trade_id",
+          "version"
+        ]
+      }
+    ],
+    "$defs": {
+      "InstrumentId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "TradeId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "Version": {
+        "description": "Positive immutable record version. Zero is never an implicit current version.",
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 1
+      }
+    }
+  },
+  "timestamp": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UtcTimestamp",
+    "description": "UTC instant, at most nanosecond precision, years 0001–9999; leap seconds unsupported.",
+    "type": "string",
+    "format": "date-time",
+    "maxLength": 30,
+    "minLength": 20,
+    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
+  },
+  "value": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "MeasureValue",
+    "description": "Explicit value representations for canonical result measures.",
+    "anyOf": [
+      {
+        "description": "Exact money; signed and currency-qualified.",
+        "$ref": "#/$defs/Money"
+      },
+      {
+        "description": "Model PV before exact contract/posting rounding.",
+        "$ref": "#/$defs/ModelMoney"
+      },
+      {
+        "description": "Exact price at contract precision.",
+        "$ref": "#/$defs/PricePer100"
+      },
+      {
+        "description": "Exact decimal rate.",
+        "$ref": "#/$defs/DecimalRate"
+      },
+      {
+        "description": "Exact basis points.",
+        "$ref": "#/$defs/BasisPoints"
+      },
+      {
+        "description": "Finite model price, without premature rounding.",
+        "$ref": "#/$defs/ModelPricePer100"
+      },
+      {
+        "description": "Finite model decimal rate.",
+        "$ref": "#/$defs/ModelDecimalRate"
+      },
+      {
+        "description": "Finite model basis points.",
+        "$ref": "#/$defs/ModelBasisPoints"
+      },
+      {
+        "description": "Structured signed factor risk with its bump, basis and snapshot.",
+        "$ref": "#/$defs/RiskSensitivity"
+      }
+    ],
+    "$defs": {
+      "BasisPoints": {
+        "description": "Exact basis points: 100 means 1 percentage point.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/BpsUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "BpsUnit": {
+        "type": "string",
+        "enum": [
+          "bp"
+        ]
+      },
+      "Currency": {
+        "description": "ISO 4217 currency codes.\n\nRepresents currencies commonly used in fixed income markets.",
+        "oneOf": [
+          {
+            "description": "United States Dollar",
+            "type": "string",
+            "const": "USD"
+          },
+          {
+            "description": "Euro",
+            "type": "string",
+            "const": "EUR"
+          },
+          {
+            "description": "British Pound Sterling",
+            "type": "string",
+            "const": "GBP"
+          },
+          {
+            "description": "Japanese Yen",
+            "type": "string",
+            "const": "JPY"
+          },
+          {
+            "description": "Swiss Franc",
+            "type": "string",
+            "const": "CHF"
+          },
+          {
+            "description": "Canadian Dollar",
+            "type": "string",
+            "const": "CAD"
+          },
+          {
+            "description": "Australian Dollar",
+            "type": "string",
+            "const": "AUD"
+          },
+          {
+            "description": "New Zealand Dollar",
+            "type": "string",
+            "const": "NZD"
+          },
+          {
+            "description": "Swedish Krona",
+            "type": "string",
+            "const": "SEK"
+          },
+          {
+            "description": "Norwegian Krone",
+            "type": "string",
+            "const": "NOK"
+          },
+          {
+            "description": "Danish Krone",
+            "type": "string",
+            "const": "DKK"
+          },
+          {
+            "description": "Hong Kong Dollar",
+            "type": "string",
+            "const": "HKD"
+          },
+          {
+            "description": "Singapore Dollar",
+            "type": "string",
+            "const": "SGD"
+          },
+          {
+            "description": "Chinese Yuan Renminbi",
+            "type": "string",
+            "const": "CNY"
+          },
+          {
+            "description": "Indian Rupee",
+            "type": "string",
+            "const": "INR"
+          },
+          {
+            "description": "Brazilian Real",
+            "type": "string",
+            "const": "BRL"
+          },
+          {
+            "description": "Mexican Peso",
+            "type": "string",
+            "const": "MXN"
+          },
+          {
+            "description": "South African Rand",
+            "type": "string",
+            "const": "ZAR"
+          }
+        ]
+      },
+      "CurveId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "DecimalRate": {
+        "description": "Exact decimal rate: 0.05 means 5%; negative rates are permitted.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/RateUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "EntityId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "ExactDecimal": {
+        "description": "Exact decimal string; checked ingress additionally enforces 96-bit coefficient bounds without rounding.",
+        "type": "string",
+        "maxLength": 59,
+        "minLength": 1,
+        "pattern": "^-?[0-9]+(\\.[0-9]{1,28})?$"
+      },
+      "FactorFamily": {
+        "description": "Risk-factor family; quote risk and model-parameter risk remain distinct.",
+        "oneOf": [
+          {
+            "description": "Rate quote or zero curve.",
+            "type": "string",
+            "const": "interest_rate"
+          },
+          {
+            "description": "Credit quote or bond spread.",
+            "type": "string",
+            "const": "credit_spread"
+          },
+          {
+            "description": "Credit hazard parameter.",
+            "type": "string",
+            "const": "hazard"
+          },
+          {
+            "description": "Recovery assumption.",
+            "type": "string",
+            "const": "recovery"
+          },
+          {
+            "description": "Futures price quote.",
+            "type": "string",
+            "const": "futures_price"
+          },
+          {
+            "description": "Cash security clean/dirty price quotation.",
+            "type": "string",
+            "const": "cash_price"
+          },
+          {
+            "description": "Explicit pricing-model parameter, distinct from market volatility quotes.",
+            "type": "string",
+            "const": "model"
+          }
+        ]
+      },
+      "FactorTarget": {
+        "description": "Provider-neutral identity of the object being bumped.",
+        "oneOf": [
+          {
+            "description": "Discount, projection, credit or spread curve.",
+            "type": "object",
+            "properties": {
+              "curve_id": {
+                "description": "Internal curve identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "curve_id"
+            ]
+          },
+          {
+            "description": "Index quote.",
+            "type": "object",
+            "properties": {
+              "index_id": {
+                "description": "Internal index identity.",
+                "$ref": "#/$defs/IndexId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "index"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "index_id"
+            ]
+          },
+          {
+            "description": "Reference entity or issuer parameter.",
+            "type": "object",
+            "properties": {
+              "entity_id": {
+                "description": "Internal entity identity.",
+                "$ref": "#/$defs/EntityId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "entity"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "entity_id"
+            ]
+          },
+          {
+            "description": "Instrument's own quote.",
+            "type": "object",
+            "properties": {
+              "instrument_id": {
+                "description": "Internal instrument identity.",
+                "$ref": "#/$defs/InstrumentId"
+              },
+              "kind": {
+                "type": "string",
+                "const": "instrument"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "instrument_id"
+            ]
+          },
+          {
+            "description": "Supplied model identity; its immutable revision belongs to the coordinate.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "model"
+              },
+              "model_id": {
+                "description": "Original model identity.",
+                "$ref": "#/$defs/ModelId"
+              },
+              "model_version": {
+                "description": "Exact supplied string revision, including nonnumeric curve/model keys.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "model_id",
+              "model_version"
+            ]
+          },
+          {
+            "description": "Two exact inputs moved together by one explicitly coupled model factor.",
+            "type": "object",
+            "properties": {
+              "discount_curve_id": {
+                "description": "Original currency discount identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "discount_curve_version": {
+                "description": "Original exact discount revision.",
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "curve_pair"
+              },
+              "projection_curve_id": {
+                "description": "Original index projection identity.",
+                "$ref": "#/$defs/CurveId"
+              },
+              "projection_curve_version": {
+                "description": "Original exact projection revision.",
+                "type": "string"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "discount_curve_id",
+              "discount_curve_version",
+              "projection_curve_id",
+              "projection_curve_version"
+            ]
+          }
+        ]
+      },
+      "FactorTenor": {
+        "type": "string",
+        "pattern": "^([1-9][0-9]{0,4}[DWMY]|parallel|spot)$"
+      },
+      "FiniteF64": {
+        "type": "number",
+        "maximum": 1.7976931348623157e+308,
+        "minimum": -1.7976931348623157e+308
+      },
+      "IndexId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "InstrumentId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "ModelBasisPoints": {
+        "description": "Finite model basis-point value, preserving negative spread signs.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelBpsUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelBpsUnit": {
+        "type": "string",
+        "enum": [
+          "bp"
+        ]
+      },
+      "ModelDecimalRate": {
+        "description": "Finite model decimal rate, preserving binary bits across DTO boundaries.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelRateUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "ModelMoney": {
+        "description": "Finite signed model PV in an explicit currency, before ledger posting/rounding.",
+        "type": "object",
+        "properties": {
+          "currency": {
+            "$ref": "#/$defs/Currency"
+          },
+          "unit": {
+            "$ref": "#/$defs/MoneyUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "currency",
+          "unit"
+        ]
+      },
+      "ModelPricePer100": {
+        "description": "Finite model price/accrued per 100; no contract rounding implied.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelPriceUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelPriceUnit": {
+        "type": "string",
+        "enum": [
+          "price_per_100"
+        ]
+      },
+      "ModelRateUnit": {
+        "type": "string",
+        "enum": [
+          "decimal_rate"
+        ]
+      },
+      "Money": {
+        "description": "Exact signed cash or ledger amount with required currency.",
+        "type": "object",
+        "properties": {
+          "currency": {
+            "$ref": "#/$defs/Currency"
+          },
+          "unit": {
+            "$ref": "#/$defs/MoneyUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "currency",
+          "unit"
+        ]
+      },
+      "MoneyUnit": {
+        "type": "string",
+        "enum": [
+          "currency"
+        ]
+      },
+      "PricePer100": {
+        "description": "Exact price or accrued amount per 100 face; never a decimal rate.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/PriceUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/ExactDecimal"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "PriceUnit": {
+        "type": "string",
+        "enum": [
+          "price_per_100"
+        ]
+      },
+      "QuoteType": {
+        "description": "Native quote definition; these are not interchangeable risk buckets.",
+        "oneOf": [
+          {
+            "description": "Instrument's own yield.",
+            "type": "string",
+            "const": "yield"
+          },
+          {
+            "description": "Zero rate.",
+            "type": "string",
+            "const": "zero_rate"
+          },
+          {
+            "description": "OIS market par rate.",
+            "type": "string",
+            "const": "ois_par_rate"
+          },
+          {
+            "description": "Term-rate swap market par rate.",
+            "type": "string",
+            "const": "swap_par_rate"
+          },
+          {
+            "description": "Quoted CDS spread.",
+            "type": "string",
+            "const": "cds_spread"
+          },
+          {
+            "description": "CDS upfront fraction.",
+            "type": "string",
+            "const": "cds_upfront"
+          },
+          {
+            "description": "Dirty CDS cash upfront, distinct from clean upfront.",
+            "type": "string",
+            "const": "cds_dirty_upfront"
+          },
+          {
+            "description": "Bond Z spread.",
+            "type": "string",
+            "const": "z_spread"
+          },
+          {
+            "description": "Hazard parameter.",
+            "type": "string",
+            "const": "hazard_rate"
+          },
+          {
+            "description": "Recovery fraction.",
+            "type": "string",
+            "const": "recovery_rate"
+          },
+          {
+            "description": "Quoted futures price; not a one-bp rate measure.",
+            "type": "string",
+            "const": "futures_price"
+          },
+          {
+            "description": "Dated deposit quotation.",
+            "type": "string",
+            "const": "deposit_rate"
+          },
+          {
+            "description": "Publication-aware dated FRA quotation.",
+            "type": "string",
+            "const": "fra_rate"
+          },
+          {
+            "description": "Uniform spread on a declared basis-swap leg.",
+            "type": "string",
+            "const": "basis_swap_spread"
+          },
+          {
+            "description": "Coupon of a full original par cash bond.",
+            "type": "string",
+            "const": "bond_par_coupon"
+          },
+          {
+            "description": "Actual dated simple repo quotation.",
+            "type": "string",
+            "const": "repo_rate"
+          },
+          {
+            "description": "Bill bank-discount yield, distinct from cashflow yield.",
+            "type": "string",
+            "const": "bank_discount_yield"
+          },
+          {
+            "description": "Rate-future implied annualized rate; native points move in the opposite direction.",
+            "type": "string",
+            "const": "rate_future_rate"
+          },
+          {
+            "description": "Residual promised-cash issuer basis, distinct from credit and recovery.",
+            "type": "string",
+            "const": "residual_basis"
+          },
+          {
+            "description": "Explicit optional-bond model OAS, distinct from deterministic Z spread.",
+            "type": "string",
+            "const": "oas_spread"
+          },
+          {
+            "description": "Clean price per100 of original face.",
+            "type": "string",
+            "const": "cash_clean_price"
+          },
+          {
+            "description": "Dirty price per100 of original face.",
+            "type": "string",
+            "const": "cash_dirty_price"
+          },
+          {
+            "description": "Constant HW1F mean reversion per year.",
+            "type": "string",
+            "const": "hw1f_mean_reversion"
+          },
+          {
+            "description": "Constant HW1F short-rate diffusion per square-root year.",
+            "type": "string",
+            "const": "hw1f_volatility"
+          },
+          {
+            "description": "Explicit parallel discount-and-projection move, distinct from either axis.",
+            "type": "string",
+            "const": "joint_zero_rate"
+          },
+          {
+            "description": "Supplied Bachelier annual decimal-rate volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_normal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black annual relative volatility per square-root year.",
+            "type": "string",
+            "const": "coupon_lognormal_volatility"
+          },
+          {
+            "description": "Supplied shifted-Black decimal-rate displacement.",
+            "type": "string",
+            "const": "coupon_lognormal_displacement"
+          },
+          {
+            "description": "Supplied terminal decimal-rate loading on one common unit normal factor.",
+            "type": "string",
+            "const": "coupon_normal_factor_loading"
+          }
+        ]
+      },
+      "RateUnit": {
+        "type": "string",
+        "enum": [
+          "decimal_rate"
+        ]
+      },
+      "RiskBasis": {
+        "description": "Definition of the bump/rebuild operation.",
+        "oneOf": [
+          {
+            "description": "Bump a raw product quote without calibrated curve risk claims.",
+            "type": "string",
+            "const": "raw_quote"
+          },
+          {
+            "description": "Bump a curve node or zero rate.",
+            "type": "string",
+            "const": "zero_node"
+          },
+          {
+            "description": "Bump an input market quote and recalibrate dependent curves.",
+            "type": "string",
+            "const": "market_quote_recalibrated"
+          },
+          {
+            "description": "Bump a model parameter.",
+            "type": "string",
+            "const": "model_parameter"
+          }
+        ]
+      },
+      "RiskFactorKey": {
+        "description": "Validated factor key; every identity dimension participates in equality/hash.",
+        "type": "object",
+        "properties": {
+          "basis": {
+            "description": "Bump and recalibration basis.",
+            "$ref": "#/$defs/RiskBasis"
+          },
+          "convention_version": {
+            "description": "Pinned convention pack.",
+            "$ref": "#/$defs/Version"
+          },
+          "currency": {
+            "description": "Quote currency, distinct from risk reporting currency.",
+            "$ref": "#/$defs/Currency"
+          },
+          "family": {
+            "description": "Risk-factor family.",
+            "$ref": "#/$defs/FactorFamily"
+          },
+          "model_version": {
+            "description": "Pinned model/bump semantics.",
+            "$ref": "#/$defs/ModelId"
+          },
+          "quote_type": {
+            "description": "Native quotation.",
+            "$ref": "#/$defs/QuoteType"
+          },
+          "target": {
+            "description": "Curve/index/entity/instrument whose quote or parameter moves.",
+            "$ref": "#/$defs/FactorTarget"
+          },
+          "tenor": {
+            "description": "Explicit quote bucket.",
+            "$ref": "#/$defs/FactorTenor"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "family",
+          "target",
+          "currency",
+          "tenor",
+          "quote_type",
+          "basis",
+          "convention_version",
+          "model_version"
+        ]
+      },
+      "RiskMethod": {
+        "description": "Computation method, explicitly reported with the finite-difference bump.",
+        "oneOf": [
+          {
+            "description": "Central finite difference, normalized to one bp.",
+            "type": "string",
+            "const": "central"
+          },
+          {
+            "description": "Analytic sensitivity checked against the reference bump convention.",
+            "type": "string",
+            "const": "analytic"
+          }
+        ]
+      },
+      "RiskSensitivity": {
+        "description": "Complete signed measure; futures price delta/hazard/upfront cannot enter as PV01.",
+        "type": "object",
+        "properties": {
+          "bump": {
+            "$ref": "#/$defs/BasisPoints"
+          },
+          "currency": {
+            "$ref": "#/$defs/Currency"
+          },
+          "factor": {
+            "$ref": "#/$defs/RiskFactorKey"
+          },
+          "measure": {
+            "$ref": "#/$defs/SignedRiskMeasure"
+          },
+          "method": {
+            "$ref": "#/$defs/RiskMethod"
+          },
+          "snapshot_id": {
+            "$ref": "#/$defs/SnapshotId"
+          },
+          "unit": {
+            "$ref": "#/$defs/RiskUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "factor",
+          "measure",
+          "value",
+          "unit",
+          "currency",
+          "bump",
+          "method",
+          "snapshot_id"
+        ]
+      },
+      "RiskUnit": {
+        "type": "string",
+        "enum": [
+          "currency_per_bp"
+        ]
+      },
+      "SignedRiskMeasure": {
+        "description": "Signed monetary change normalized to a +1 bp quote move, not a derivative.",
+        "oneOf": [
+          {
+            "description": "(PV(q+0.0001) - PV(q-0.0001))/2. A long fixed bond is typically negative.",
+            "type": "string",
+            "const": "pv01_signed"
+          },
+          {
+            "description": "Analogous signed change for a +1 bp credit spread quote move.",
+            "type": "string",
+            "const": "cs01_signed"
+          },
+          {
+            "description": "Conventional loss sign: -pv01_signed.",
+            "type": "string",
+            "const": "dv01_loss"
+          }
+        ]
+      },
+      "SnapshotId": {
+        "type": "string",
+        "maxLength": 128,
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+      },
+      "Version": {
+        "description": "Positive immutable record version. Zero is never an implicit current version.",
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 1
+      }
+    }
+  }
+}

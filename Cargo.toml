@@ -8,6 +8,8 @@ members = [
     "crates/convex-math",
     "crates/convex-curves",
     "crates/convex-bonds",
+    "crates/convex-rates",
+    "crates/convex-credit",
     "crates/convex-analytics",
     "crates/convex-portfolio",
     "crates/convex-ffi",
@@ -40,8 +42,8 @@ categories = ["finance", "mathematics", "science"]
 [workspace.dependencies]
 # Internal crates.
 #
-# The five library crates (core, math, curves, bonds, analytics) are published
-# to crates.io, so they carry both `path` and `version`: cargo uses the path for
+# The seven library crates (core, math, curves, bonds, rates, credit, analytics) are configured
+# for crates.io publication with both `path` and `version`: cargo uses the path for
 # local builds and rewrites it to the version on `cargo publish`. Keep `version`
 # in sync with `workspace.package.version` above.
 #
@@ -53,6 +55,8 @@ convex-core = { path = "crates/convex-core", version = "0.13.0" }
 convex-math = { path = "crates/convex-math", version = "0.13.0" }
 convex-curves = { path = "crates/convex-curves", version = "0.13.0" }
 convex-bonds = { path = "crates/convex-bonds", version = "0.13.0" }
+convex-rates = { path = "crates/convex-rates", version = "0.13.0" }
+convex-credit = { path = "crates/convex-credit", version = "0.13.0" }
 convex-analytics = { path = "crates/convex-analytics", version = "0.13.0" }
 convex-portfolio = { path = "crates/convex-portfolio" }
 convex-ffi = { path = "crates/convex-ffi" }
@@ -66,15 +70,16 @@ convex-server = { path = "crates/convex-server" }
 
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }
-rust_decimal = { version = "1.42", features = ["serde", "serde-float", "maths"] }
+rust_decimal = { version = "1.42", features = ["serde", "serde-float", "maths", "serde-with-str"] }
 rust_decimal_macros = "1.40"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
 thiserror = "2.0"
 anyhow = "1.0"
 
 # Mathematical dependencies
-nalgebra = "0.34"
+nalgebra = { version = "0.34", features = ["libm-force"] }
+libm = { version = "=0.2.15", default-features = false, features = ["force-soft-floats"] }
 approx = "0.5"
 
 # Performance dependencies
@@ -164,4 +169,3 @@ strip = true
 # Cargo-deny configuration for dependency checking
 [workspace.metadata.cargo-deny]
 # See https://github.com/EmbarkStudios/cargo-deny for configuration
-

@@ -73,6 +73,8 @@
 //! All term structures implement `Send + Sync`, enabling safe use in
 //! parallel pricing scenarios.
 
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
@@ -113,6 +115,7 @@ mod term_structure;
 mod value_type;
 
 // Curve implementations
+
 pub mod curves;
 
 // Domain wrappers
@@ -129,6 +132,9 @@ pub mod bumping;
 
 // Multi-curve environment
 pub mod multicurve;
+
+/// Checked pure curve recipes, construction, dependencies and queries.
+pub mod contracts;
 
 // Re-exports for convenience
 pub use conversion::ValueConverter;
@@ -177,7 +183,7 @@ pub mod interpolation {
 }
 
 /// Extrapolation methods for curve extension.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ExtrapolationMethod {
     /// No extrapolation - error if outside range.
     #[default]
@@ -198,7 +204,7 @@ pub enum ExtrapolationMethod {
 }
 
 /// Interpolation method selection for curve construction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum InterpolationMethod {
     /// Simple linear interpolation.
     Linear,
@@ -206,7 +212,8 @@ pub enum InterpolationMethod {
     LogLinear,
     /// Natural cubic spline.
     CubicSpline,
-    /// Monotone convex (production default, positive forwards).
+    /// Nonnegative Hagan–West continuous-zero model; requires nonnegative
+    /// interval means. Select the complete checked source for dated semantics.
     #[default]
     MonotoneConvex,
     /// Flat forward interpolation (constant forward rates between pillars).
@@ -217,10 +224,16 @@ pub enum InterpolationMethod {
     NelsonSiegel,
     /// Svensson parametric model.
     Svensson,
+    /// Exact segment-specific methods in a complete checked composition.
+    Segmented,
+    /// Exact inherited raw method with an explicit native delegation policy.
+    Delegated,
 }
 
 impl InterpolationMethod {
-    /// Returns true if this method guarantees positive forward rates.
+    /// Returns true if the method's correctly represented admissible input
+    /// domain guarantees nonnegative forwards. This does not validate an
+    /// arbitrary raw-value representation or certify a market curve.
     #[must_use]
     pub fn guarantees_positive_forwards(&self) -> bool {
         matches!(
@@ -244,6 +257,7 @@ impl InterpolationMethod {
             InterpolationMethod::MonotoneConvex => "C1",
             InterpolationMethod::PiecewiseConstant => "C-1",
             InterpolationMethod::NelsonSiegel | InterpolationMethod::Svensson => "C∞",
+            InterpolationMethod::Segmented | InterpolationMethod::Delegated => "source-dependent",
         }
     }
 }

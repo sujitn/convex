@@ -29,6 +29,7 @@ dashmap = "6"
 rust_decimal = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+tempfile = "3"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

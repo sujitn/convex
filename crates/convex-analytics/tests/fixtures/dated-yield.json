@@ -1,0 +1,41 @@
+{
+  "recorded_at": "2026-10-15T16:05:34.451037+00:00",
+  "method": "Python Decimal110 exp(-frequency*exact_time*ln(1+annual_yield/frequency)); dates counted by independent Gregorian datetime; ICMA full two-period mesh; ACT365L nonannual coupon-end year.",
+  "cases": [
+    {
+      "id": "distinct-discount-role",
+      "settlement": "2025-01-01",
+      "payment": "2026-01-01",
+      "year_fraction": "1.0138888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889",
+      "annual_yield": ".05",
+      "frequency": 1,
+      "expected_price": "95.173579845514667611441452329483258999949654298777889187412571624028853038833329920235433429898691662008337153",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11"
+    },
+    {
+      "id": "missing-intermediate-cash-does-not-delete-time",
+      "settlement": "2025-01-01",
+      "payment": "2026-01-01",
+      "year_fraction": "1",
+      "annual_yield": ".05",
+      "frequency": 2,
+      "expected_price": "95.181439619274241522903033908387864366448542534205829863176680547293277810826888756692444973230220107079119572",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11"
+    },
+    {
+      "id": "act365l-semiannual-coupon-end-year",
+      "settlement": "2023-07-01",
+      "payment": "2024-01-01",
+      "year_fraction": "0.50273224043715846994535519125683060109289617486338797814207650273224043715846994535519125683060109289617486339",
+      "annual_yield": ".05",
+      "frequency": 2,
+      "expected_price": "97.547812370118790547475707090097920874736124366192692822060231321274227298117538224222777269799398996965831906",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11"
+    }
+  ],
+  "accepted_task": false,
+  "certified": false
+}

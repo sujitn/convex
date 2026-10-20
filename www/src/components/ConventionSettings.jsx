@@ -17,12 +17,10 @@ const marketOptions = [
 
 const instrumentTypeOptions = [
   { value: 'GovernmentBond', label: 'Government Bond' },
-  { value: 'TreasuryBill', label: 'Treasury Bill' },
   { value: 'CorporateIG', label: 'Corporate IG' },
   { value: 'CorporateHY', label: 'Corporate HY' },
   { value: 'Municipal', label: 'Municipal' },
   { value: 'Agency', label: 'Agency' },
-  { value: 'InflationLinked', label: 'Inflation Linked' },
   { value: 'Supranational', label: 'Supranational' },
   { value: 'CoveredBond', label: 'Covered Bond' },
 ];
@@ -89,7 +87,7 @@ function ConventionSettings({
           conventions.market,
           conventions.instrumentType
         );
-        if (defaultConv) {
+        if (defaultConv && !defaultConv.error) {
           setDefaults(defaultConv);
         }
       } catch (e) {

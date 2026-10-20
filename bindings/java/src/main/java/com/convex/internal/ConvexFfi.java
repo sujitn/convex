@@ -29,6 +29,7 @@ public final class ConvexFfi {
     private static final MethodHandle SPREAD;
     private static final MethodHandle CASHFLOWS;
     private static final MethodHandle CURVE_QUERY;
+    private static final MethodHandle LIBRARY;
     private static final MethodHandle MAKE_WHOLE;
     private static final MethodHandle RISK_PROFILE;
     private static final MethodHandle HEDGE;
@@ -65,6 +66,7 @@ public final class ConvexFfi {
         SPREAD = handle("convex_spread", strToStr);
         CASHFLOWS = handle("convex_cashflows", strToStr);
         CURVE_QUERY = handle("convex_curve_query", strToStr);
+        LIBRARY = handle("convex_library", strToStr);
         MAKE_WHOLE = handle("convex_make_whole", strToStr);
         RISK_PROFILE = handle("convex_risk_profile", strToStr);
         HEDGE = handle("convex_hedge", strToStr);
@@ -135,6 +137,8 @@ public final class ConvexFfi {
     public static String spread(String requestJson)       { return rpc(SPREAD, requestJson); }
     public static String cashflows(String requestJson)    { return rpc(CASHFLOWS, requestJson); }
     public static String curveQuery(String requestJson)   { return rpc(CURVE_QUERY, requestJson); }
+    /** Full versioned library JSON; preserve the envelope, exact cash and errors. */
+    public static String library(String requestJson)      { return rpc(LIBRARY, requestJson); }
     public static String makeWhole(String requestJson)    { return rpc(MAKE_WHOLE, requestJson); }
     public static String riskProfile(String requestJson)  { return rpc(RISK_PROFILE, requestJson); }
     public static String hedge(String requestJson)        { return rpc(HEDGE, requestJson); }

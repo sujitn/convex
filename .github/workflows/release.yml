@@ -25,6 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          lfs: true
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Install Rust toolchain

@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "version": 1,
+  "comparators": [
+    {
+      "id": "quantlib-1.40",
+      "family": "QuantLib",
+      "version": "1.40",
+      "source_revision": "06edddbdb85f006c43a449b5fc846a00c67477f3",
+      "source_url": "https://github.com/lballabio/QuantLib/releases/tag/v1.40",
+      "license": "QuantLib modified BSD license",
+      "license_url": "https://www.quantlib.org/license.shtml",
+      "license_record": {
+        "path": "reconciliation/comparator-records.json",
+        "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
+        "role": "upstream version/license factual record"
+      },
+      "runtime_capture": {
+        "status": "retained_unqualified",
+        "source": null,
+        "binary": null,
+        "execution": null,
+        "toolchain": null,
+        "dependencies": null,
+        "arguments": null,
+        "environment": null,
+        "platform": null
+      },
+      "limitations": "Original source/wheel/compiler/runtime capture incomplete. Retained outputs may be compared, but cannot establish an independent library certificate."
+    },
+    {
+      "id": "ore-1.8.17.0",
+      "family": "ORE",
+      "version": "1.8.17.0",
+      "source_revision": "3d75a69087911a7e2cf1e6882da7bc27135c0762",
+      "source_url": "https://github.com/OpenSourceRisk/Engine/releases/tag/1.8.17.0",
+      "license": "Modified BSD (upstream description)",
+      "license_url": "https://opensourcerisk.org/faqs/",
+      "license_record": {
+        "path": "reconciliation/comparator-records.json",
+        "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
+        "role": "upstream version/license factual record"
+      },
+      "runtime_capture": {
+        "status": "not_executed",
+        "source": null,
+        "binary": null,
+        "execution": null,
+        "toolchain": null,
+        "dependencies": null,
+        "arguments": null,
+        "environment": null,
+        "platform": null
+      },
+      "limitations": "Release identity verified from the primary release listing and commit link. ORE source/binary, transitive submodule revisions, license bytes and execution receipts are not bundled. ORE/QuantLib share ancestry; ORE alone is not a second independent mathematical source."
+    },
+    {
+      "id": "isda-1.8.3",
+      "family": "ISDA",
+      "version": "1.8.3",
+      "source_revision": "release 2021-04-07; USD RFR grid 2022-06-21",
+      "source_url": "https://www.cdsmodel.com/download.html",
+      "license": "ISDA CDS Standard Model Public Licence Version 1.0",
+      "license_url": "https://www.cdsmodel.com/cds-disclaimer.html",
+      "license_record": {
+        "path": "reconciliation/comparator-records.json",
+        "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
+        "role": "upstream version/license factual record"
+      },
+      "runtime_capture": {
+        "status": "not_executed",
+        "source": null,
+        "binary": null,
+        "execution": null,
+        "toolchain": null,
+        "dependencies": null,
+        "arguments": null,
+        "environment": null,
+        "platform": null
+      },
+      "limitations": "Version and dated grid listing verified at primary sources. Model archive, binary and grid numerical data are not captured. Future model integration must retain upstream attribution and licensing records; no claim of ISDA compliance is made."
+    },
+    {
+      "id": "cme-sofr-extract-2026-10-04",
+      "family": "exchange",
+      "version": "factual extract inspected 2026-10-04; upstream does not expose a revision identifier",
+      "source_revision": "dated factual extraction; see local record SHA-256",
+      "source_url": "https://www.cmegroup.com/education/articles-and-reports/understanding-sofr-futures",
+      "license": "CME copyrighted educational material; no open-source software/data redistribution grant recorded",
+      "license_url": "https://www.cmegroup.com/education/articles-and-reports/understanding-sofr-futures",
+      "license_record": {
+        "path": "reconciliation/comparator-records.json",
+        "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
+        "role": "upstream version/license factual record"
+      },
+      "runtime_capture": {
+        "status": "document_only",
+        "source": null,
+        "binary": null,
+        "execution": null,
+        "toolchain": null,
+        "dependencies": null,
+        "arguments": null,
+        "environment": null,
+        "platform": null
+      },
+      "limitations": "The small numerical example identifies the 100-minus-percent quotation. It is a documentary input for a future product fixture, not a Convex rate-futures comparison. Full document, fixings and contract settlement data are not bundled."
+    }
+  ],
+  "packs": [
+    {
+      "path": "tests/fixtures/comparisons/quantlib-1.40.json",
+      "sha256": "c2a2f686b1b58e2b245649a6b516c6a624b15a23370e105c4e075193e4190c09",
+      "role": "offline retained-reference pack"
+    }
+  ],
+  "pending_product_fixtures": [
+    {
+      "id": "ore-product-comparisons",
+      "comparator": "ore-1.8.17.0",
+      "owning_tasks": [
+        "CVX-018",
+        "CVX-019"
+      ],
+      "reason": "Product-specific validated inputs, independent outputs and runtime/source provenance have not been captured; this framework does not supply a product certificate.",
+      "template": {
+        "path": "reconciliation/comparison_templates/ore.json",
+        "sha256": "940cc20419776b8f3d34252c87c749d6cea82ce2fb2383f903f3d29b57a429b4",
+        "role": "pending product fixture admission template"
+      }
+    },
+    {
+      "id": "isda-product-comparisons",
+      "comparator": "isda-1.8.3",
+      "owning_tasks": [
+        "CVX-020",
+        "CVX-021"
+      ],
+      "reason": "Product-specific validated inputs, independent outputs and runtime/source provenance have not been captured; this framework does not supply a product certificate.",
+      "template": {
+        "path": "reconciliation/comparison_templates/isda.json",
+        "sha256": "f296b3f771338a87779760b2c9415e543aa545ceae18aa6a210259884f359c70",
+        "role": "pending product fixture admission template"
+      }
+    },
+    {
+      "id": "exchange-product-comparisons",
+      "comparator": "cme-sofr-extract-2026-10-04",
+      "owning_tasks": [
+        "CVX-022"
+      ],
+      "reason": "Product-specific validated inputs, independent outputs and runtime/source provenance have not been captured; this framework does not supply a product certificate.",
+      "template": {
+        "path": "reconciliation/comparison_templates/exchange.json",
+        "sha256": "9ce7b3551520dd7e8017587e78ce7b03dba1a001a777cc20727894ae802f17b9",
+        "role": "pending product fixture admission template"
+      }
+    }
+  ]
+}

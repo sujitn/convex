@@ -1,5 +1,6 @@
 //! Bisection root-finding algorithm.
 
+use crate::bounds::{finite, interval, opposite_signs};
 use crate::error::{MathError, MathResult};
 use crate::solvers::{SolverConfig, SolverResult};
 
@@ -36,14 +37,16 @@ pub fn bisection<F>(f: F, a: f64, b: f64, config: &SolverConfig) -> MathResult<S
 where
     F: Fn(f64) -> f64,
 {
+    config.validate()?;
+    interval(a, b)?;
     let mut lo = a.min(b);
     let mut hi = a.max(b);
 
-    let f_lo = f(lo);
-    let f_hi = f(hi);
+    let mut f_lo = finite(f(lo), "function evaluation")?;
+    let f_hi = finite(f(hi), "function evaluation")?;
 
     // Check that root is bracketed
-    if f_lo * f_hi > 0.0 {
+    if !opposite_signs(f_lo, f_hi) && f_lo != 0.0 && f_hi != 0.0 {
         return Err(MathError::InvalidBracket {
             a: lo,
             b: hi,
@@ -69,11 +72,11 @@ where
     }
 
     for iteration in 0..config.max_iterations {
-        let mid = (lo + hi) / 2.0;
-        let f_mid = f(mid);
+        let mid = lo * 0.5 + hi * 0.5;
+        let f_mid = finite(f(mid), "function evaluation")?;
 
         // Check for convergence
-        if f_mid.abs() < config.tolerance || (hi - lo) / 2.0 < config.tolerance {
+        if f_mid.abs() < config.tolerance {
             return Ok(SolverResult {
                 root: mid,
                 iterations: iteration + 1,
@@ -81,18 +84,23 @@ where
             });
         }
 
+        if mid == lo || mid == hi {
+            return Err(MathError::convergence_failed(iteration + 1, f_mid.abs()));
+        }
+
         // Update bracket
-        if f_mid * f(lo) < 0.0 {
+        if opposite_signs(f_mid, f_lo) {
             hi = mid;
         } else {
             lo = mid;
+            f_lo = f_mid;
         }
     }
 
-    let mid = (lo + hi) / 2.0;
+    let mid = lo * 0.5 + hi * 0.5;
     Err(MathError::convergence_failed(
         config.max_iterations,
-        f(mid).abs(),
+        finite(f(mid), "function evaluation")?.abs(),
     ))
 }
 

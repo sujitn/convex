@@ -1,9 +1,10 @@
-//! File-based market data sources.
+//! Deterministic file snapshots with exact decimals and atomic reload.
 
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::RwLock;
 
 use async_trait::async_trait;
-use dashmap::DashMap;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
@@ -12,90 +13,147 @@ use convex_core::Date;
 use convex_ports::error::TraitError;
 use convex_ports::market_data::*;
 
-// =============================================================================
-// CSV QUOTE SOURCE
-// =============================================================================
+const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
+const MAX_RECORDS: usize = 100_000;
+const MAX_CURVE_INPUTS: usize = 4096;
 
-/// CSV record for quotes.
-#[derive(Debug, Deserialize)]
-struct QuoteRecord {
-    instrument_id: String,
-    bid_price: Option<f64>,
-    ask_price: Option<f64>,
-    mid_price: Option<f64>,
-    last_price: Option<f64>,
+fn read_file(path: &Path) -> Result<Vec<u8>, TraitError> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path).map_err(|e| TraitError::IoError(e.to_string()))?;
+    let metadata = file
+        .metadata()
+        .map_err(|e| TraitError::IoError(e.to_string()))?;
+    if !metadata.is_file() || metadata.len() > MAX_FILE_BYTES {
+        return Err(TraitError::CapacityExceeded);
+    }
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(MAX_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| TraitError::IoError(e.to_string()))?;
+    if bytes.len() as u64 > MAX_FILE_BYTES {
+        return Err(TraitError::CapacityExceeded);
+    }
+    Ok(bytes)
 }
 
-/// CSV-based quote source for testing/EOD.
+fn csv_headers(
+    reader: &mut csv::Reader<&[u8]>,
+    required: &[&str],
+    allowed: &[&str],
+) -> Result<(), TraitError> {
+    let headers = reader
+        .headers()
+        .map_err(|e| TraitError::ParseError(e.to_string()))?;
+    let mut unique = HashSet::new();
+    if headers
+        .iter()
+        .any(|header| !allowed.contains(&header) || !unique.insert(header))
+        || required.iter().any(|header| !unique.contains(header))
+    {
+        return Err(TraitError::InvalidInput(
+            "missing, duplicate or unknown market CSV header",
+        ));
+    }
+    Ok(())
+}
+
+fn decimal(value: &str) -> Result<Decimal, TraitError> {
+    Decimal::from_str_exact(value).map_err(|e| TraitError::ParseError(e.to_string()))
+}
+
+fn metadata(id: &str, source: &str, timestamp: i64) -> Result<(), TraitError> {
+    validate_text(id, 128)?;
+    validate_text(source, 128)?;
+    if timestamp < 0 {
+        return Err(TraitError::InvalidInput("negative market timestamp"));
+    }
+    Ok(())
+}
+
+fn lock_error<T>(_: std::sync::PoisonError<T>) -> TraitError {
+    TraitError::SourceNotAvailable("file snapshot lock poisoned".into())
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QuoteRecord {
+    instrument_id: String,
+    bid_price: Option<String>,
+    ask_price: Option<String>,
+    mid_price: Option<String>,
+    last_price: Option<String>,
+    timestamp: i64,
+    source: String,
+}
+
+/// CSV bond quote snapshot. Explicit timestamp (UTC milliseconds) and source are required.
 pub struct CsvQuoteSource {
     file_path: PathBuf,
-    quotes: DashMap<InstrumentId, RawQuote>,
+    quotes: RwLock<HashMap<InstrumentId, RawQuote>>,
 }
 
 impl CsvQuoteSource {
-    /// Create a new CSV quote source.
+    /// Open and validate a complete snapshot. Missing files are errors.
     pub fn new(file_path: impl AsRef<Path>) -> Result<Self, TraitError> {
         let source = Self {
             file_path: file_path.as_ref().to_path_buf(),
-            quotes: DashMap::new(),
+            quotes: RwLock::new(HashMap::new()),
         };
         source.reload()?;
         Ok(source)
     }
 
-    /// Reload quotes from file.
+    /// Parse the entire bounded file before replacing the snapshot. Failure leaves prior data intact.
     pub fn reload(&self) -> Result<(), TraitError> {
-        if !self.file_path.exists() {
-            return Ok(()); // Empty source
-        }
-
-        let mut reader = csv::Reader::from_path(&self.file_path)
-            .map_err(|e| TraitError::IoError(e.to_string()))?;
-
-        for result in reader.deserialize() {
-            let record: QuoteRecord = result.map_err(|e| TraitError::ParseError(e.to_string()))?;
-
+        let bytes = read_file(&self.file_path)?;
+        let mut reader = csv::Reader::from_reader(bytes.as_slice());
+        csv_headers(
+            &mut reader,
+            &["instrument_id", "timestamp", "source"],
+            &[
+                "instrument_id",
+                "bid_price",
+                "ask_price",
+                "mid_price",
+                "last_price",
+                "timestamp",
+                "source",
+            ],
+        )?;
+        let mut quotes = HashMap::new();
+        for record in reader.deserialize() {
+            let record: QuoteRecord = record.map_err(|e| TraitError::ParseError(e.to_string()))?;
+            if quotes.len() >= MAX_RECORDS {
+                return Err(TraitError::CapacityExceeded);
+            }
+            metadata(&record.instrument_id, &record.source, record.timestamp)?;
             let quote = RawQuote {
-                instrument_id: InstrumentId::new(&record.instrument_id),
-                bid_price: record
-                    .bid_price
-                    .map(Decimal::try_from)
-                    .transpose()
-                    .ok()
-                    .flatten(),
-                ask_price: record
-                    .ask_price
-                    .map(Decimal::try_from)
-                    .transpose()
-                    .ok()
-                    .flatten(),
-                mid_price: record
-                    .mid_price
-                    .map(Decimal::try_from)
-                    .transpose()
-                    .ok()
-                    .flatten(),
-                last_price: record
-                    .last_price
-                    .map(Decimal::try_from)
-                    .transpose()
-                    .ok()
-                    .flatten(),
+                instrument_id: InstrumentId::new(record.instrument_id),
+                bid_price: record.bid_price.as_deref().map(decimal).transpose()?,
+                ask_price: record.ask_price.as_deref().map(decimal).transpose()?,
+                mid_price: record.mid_price.as_deref().map(decimal).transpose()?,
+                last_price: record.last_price.as_deref().map(decimal).transpose()?,
                 bid_yield: None,
                 ask_yield: None,
                 bid_size: None,
                 ask_size: None,
-                timestamp: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as i64,
-                source: "file".to_string(),
+                timestamp: record.timestamp,
+                source: record.source,
                 venue: None,
             };
-
-            self.quotes.insert(quote.instrument_id.clone(), quote);
+            if quote
+                .bid_price
+                .zip(quote.ask_price)
+                .is_some_and(|(bid, ask)| bid > ask)
+            {
+                return Err(TraitError::InvalidInput("crossed CSV quote"));
+            }
+            if quotes.insert(quote.instrument_id.clone(), quote).is_some() {
+                return Err(TraitError::Conflict("duplicate quote key"));
+            }
         }
-
+        *self.quotes.write().map_err(lock_error)? = quotes;
         Ok(())
     }
 }
@@ -105,107 +163,123 @@ impl QuoteSource for CsvQuoteSource {
     fn source_type(&self) -> SourceType {
         SourceType::File
     }
-
     async fn get_quote(
         &self,
         instrument_id: &InstrumentId,
     ) -> Result<Option<RawQuote>, TraitError> {
-        Ok(self.quotes.get(instrument_id).map(|q| q.clone()))
+        Ok(self
+            .quotes
+            .read()
+            .map_err(lock_error)?
+            .get(instrument_id)
+            .cloned())
     }
-
     async fn get_quotes(
         &self,
         instrument_ids: &[InstrumentId],
     ) -> Result<Vec<RawQuote>, TraitError> {
+        if instrument_ids.len() > MAX_RECORDS {
+            return Err(TraitError::CapacityExceeded);
+        }
+        let quotes = self.quotes.read().map_err(lock_error)?;
         Ok(instrument_ids
             .iter()
-            .filter_map(|id| self.quotes.get(id).map(|q| q.clone()))
+            .filter_map(|id| quotes.get(id).cloned())
             .collect())
     }
-
     async fn subscribe(
         &self,
-        _instrument_ids: &[InstrumentId],
-    ) -> Result<QuoteReceiver, TraitError> {
-        Err(TraitError::SourceNotAvailable(
-            "File source does not support streaming".into(),
+        _ids: &[InstrumentId],
+    ) -> Result<StreamReceiver<QuoteEvent>, TraitError> {
+        Err(TraitError::Unsupported(
+            "snapshot source; use FileQuoteReplay for sequenced events",
         ))
     }
-
-    async fn unsubscribe(&self, _instrument_ids: &[InstrumentId]) -> Result<(), TraitError> {
+    async fn unsubscribe(&self, _ids: &[InstrumentId]) -> Result<(), TraitError> {
         Ok(())
     }
 }
 
-// =============================================================================
-// JSON CURVE INPUT SOURCE
-// =============================================================================
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CurveRecord {
+    curve_id: String,
+    inputs: Vec<InputRecord>,
+}
 
-/// JSON-based curve input source.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct InputRecord {
+    tenor: String,
+    rate: String,
+    instrument_type: CurveInstrumentType,
+    timestamp: i64,
+    source: String,
+}
+
+/// JSON curve inputs with required instrument type, exact rate string and recorded time.
 pub struct JsonCurveInputSource {
     file_path: PathBuf,
-    inputs: DashMap<CurveId, Vec<CurveInput>>,
+    inputs: RwLock<HashMap<CurveId, Vec<CurveInput>>>,
 }
 
 impl JsonCurveInputSource {
-    /// Create a new JSON curve input source.
+    /// Open and validate a complete curve-input snapshot.
     pub fn new(file_path: impl AsRef<Path>) -> Result<Self, TraitError> {
         let source = Self {
             file_path: file_path.as_ref().to_path_buf(),
-            inputs: DashMap::new(),
+            inputs: RwLock::new(HashMap::new()),
         };
         source.reload()?;
         Ok(source)
     }
-
-    /// Reload inputs from file.
+    /// Replace all inputs atomically; no silent drops or invented Swap instrument types.
     pub fn reload(&self) -> Result<(), TraitError> {
-        if !self.file_path.exists() {
-            return Ok(()); // Empty source
+        let curves: Vec<CurveRecord> = serde_json::from_slice(&read_file(&self.file_path)?)
+            .map_err(|e| TraitError::ParseError(e.to_string()))?;
+        if curves.len() > MAX_RECORDS {
+            return Err(TraitError::CapacityExceeded);
         }
-
-        let content = std::fs::read_to_string(&self.file_path)
-            .map_err(|e| TraitError::IoError(e.to_string()))?;
-
-        #[derive(Deserialize)]
-        struct CurveData {
-            curve_id: String,
-            inputs: Vec<InputData>,
-        }
-
-        #[derive(Deserialize)]
-        struct InputData {
-            tenor: String,
-            rate: f64,
-        }
-
-        let curves: Vec<CurveData> =
-            serde_json::from_str(&content).map_err(|e| TraitError::ParseError(e.to_string()))?;
-
+        let mut all = HashMap::new();
+        let mut total = 0;
         for curve in curves {
-            let curve_id = CurveId::new(&curve.curve_id);
-            let inputs: Vec<CurveInput> = curve
-                .inputs
-                .into_iter()
-                .filter_map(|i| {
-                    let tenor = Tenor::parse(&i.tenor).ok()?;
-                    Some(CurveInput {
-                        curve_id: curve_id.clone(),
-                        instrument_type: CurveInstrumentType::Swap,
-                        tenor,
-                        rate: Decimal::try_from(i.rate).ok()?,
-                        timestamp: std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as i64,
-                        source: "file".to_string(),
-                    })
-                })
-                .collect();
-
-            self.inputs.insert(curve_id, inputs);
+            validate_text(&curve.curve_id, 128)?;
+            if curve.inputs.len() > MAX_CURVE_INPUTS {
+                return Err(TraitError::CapacityExceeded);
+            }
+            total += curve.inputs.len();
+            if total > MAX_RECORDS {
+                return Err(TraitError::CapacityExceeded);
+            }
+            let id = CurveId::new(curve.curve_id);
+            let mut inputs = Vec::new();
+            for input in curve.inputs {
+                metadata(id.as_str(), &input.source, input.timestamp)?;
+                let tenor = tenor(&input.tenor)?;
+                match &input.instrument_type {
+                    CurveInstrumentType::Future { contract_code } => {
+                        validate_text(contract_code, 128)?
+                    }
+                    CurveInstrumentType::Fra { start_tenor } => validate_tenor(start_tenor)?,
+                    CurveInstrumentType::BondYield { instrument_id } => {
+                        validate_text(instrument_id.as_str(), 128)?
+                    }
+                    _ => {}
+                }
+                inputs.push(CurveInput {
+                    curve_id: id.clone(),
+                    tenor,
+                    rate: decimal(&input.rate)?,
+                    instrument_type: input.instrument_type,
+                    timestamp: input.timestamp,
+                    source: input.source,
+                });
+            }
+            if all.insert(id, inputs).is_some() {
+                return Err(TraitError::Conflict("duplicate curve key"));
+            }
         }
-
+        *self.inputs.write().map_err(lock_error)? = all;
         Ok(())
     }
 }
@@ -215,53 +289,116 @@ impl CurveInputSource for JsonCurveInputSource {
     fn source_type(&self) -> SourceType {
         SourceType::File
     }
-
-    async fn get_curve_inputs(&self, curve_id: &CurveId) -> Result<Vec<CurveInput>, TraitError> {
+    async fn get_curve_inputs(&self, id: &CurveId) -> Result<Vec<CurveInput>, TraitError> {
         Ok(self
             .inputs
-            .get(curve_id)
-            .map(|v| v.clone())
+            .read()
+            .map_err(lock_error)?
+            .get(id)
+            .cloned()
             .unwrap_or_default())
     }
-
-    async fn subscribe(&self, _curve_ids: &[CurveId]) -> Result<CurveInputReceiver, TraitError> {
-        Err(TraitError::SourceNotAvailable(
-            "File source does not support streaming".into(),
+    async fn subscribe(&self, _ids: &[CurveId]) -> Result<StreamReceiver<CurveInput>, TraitError> {
+        Err(TraitError::Unsupported(
+            "file curve input source is snapshot-only",
         ))
     }
 }
 
-// =============================================================================
-// CSV INDEX FIXING SOURCE
-// =============================================================================
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FixingRecord {
+    index: String,
+    date: String,
+    rate: String,
+    timestamp: i64,
+    source: String,
+}
 
-/// CSV-based index fixing source.
+/// CSV fixing snapshots with actual date/index/rate records. Revisions require a replacement snapshot.
 pub struct CsvIndexFixingSource {
     file_path: PathBuf,
-    /// Index fixings cache (reserved for future implementation).
-    #[allow(dead_code)]
-    fixings: DashMap<(String, i64), IndexFixing>,
+    fixings: RwLock<HashMap<(String, Date), IndexFixing>>,
+}
+
+fn tenor(value: &str) -> Result<Tenor, TraitError> {
+    // Guard the existing tenor parser's byte split and arithmetic at this external boundary.
+    if value.len() < 2 || value.len() > 12 || !value.is_ascii() {
+        return Err(TraitError::InvalidInput("invalid market tenor"));
+    }
+    let tenor = Tenor::parse(value).map_err(TraitError::ParseError)?;
+    validate_tenor(&tenor)?;
+    Ok(tenor)
+}
+
+fn validate_tenor(tenor: &Tenor) -> Result<(), TraitError> {
+    let valid = match *tenor {
+        Tenor::Days(n) => n > 0 && n <= 365_000,
+        Tenor::Weeks(n) => n > 0 && n <= 52_000,
+        Tenor::Months(n) => n > 0 && n <= 12_000,
+        Tenor::Years(n) => n > 0 && n <= 1_000,
+    };
+    if !valid {
+        return Err(TraitError::InvalidInput("market tenor out of bounds"));
+    }
+    Ok(())
+}
+
+fn index(value: &str) -> Result<FloatingRateIndex, TraitError> {
+    validate_text(value, 128)?;
+    match value {
+        "SOFR" => Ok(FloatingRateIndex::Sofr),
+        "ESTR" => Ok(FloatingRateIndex::Estr),
+        "SONIA" => Ok(FloatingRateIndex::Sonia),
+        _ if value.starts_with("EURIBOR-") => Ok(FloatingRateIndex::Euribor(tenor(&value[8..])?)),
+        _ if value.starts_with("TERM-SOFR-") => {
+            Ok(FloatingRateIndex::TermSofr(tenor(&value[10..])?))
+        }
+        _ => Ok(FloatingRateIndex::Other(value.to_owned())),
+    }
 }
 
 impl CsvIndexFixingSource {
-    /// Create a new CSV index fixing source.
+    /// Open and validate fixing records. Missing files are errors.
     pub fn new(file_path: impl AsRef<Path>) -> Result<Self, TraitError> {
         let source = Self {
             file_path: file_path.as_ref().to_path_buf(),
-            fixings: DashMap::new(),
+            fixings: RwLock::new(HashMap::new()),
         };
         source.reload()?;
         Ok(source)
     }
-
-    /// Reload fixings from file.
+    /// Reload atomically; duplicate index/date records and invalid records fail.
     pub fn reload(&self) -> Result<(), TraitError> {
-        if !self.file_path.exists() {
-            return Ok(()); // Empty source
+        let bytes = read_file(&self.file_path)?;
+        let mut reader = csv::Reader::from_reader(bytes.as_slice());
+        csv_headers(
+            &mut reader,
+            &["index", "date", "rate", "timestamp", "source"],
+            &["index", "date", "rate", "timestamp", "source"],
+        )?;
+        let mut fixings = HashMap::new();
+        for record in reader.deserialize() {
+            let record: FixingRecord = record.map_err(|e| TraitError::ParseError(e.to_string()))?;
+            if fixings.len() >= MAX_RECORDS {
+                return Err(TraitError::CapacityExceeded);
+            }
+            metadata(&record.index, &record.source, record.timestamp)?;
+            let index = index(&record.index)?;
+            let date =
+                Date::parse(&record.date).map_err(|e| TraitError::ParseError(e.to_string()))?;
+            let fixing = IndexFixing {
+                index: index.clone(),
+                date,
+                rate: decimal(&record.rate)?,
+                source: record.source,
+                timestamp: record.timestamp,
+            };
+            if fixings.insert((index.to_string(), date), fixing).is_some() {
+                return Err(TraitError::Conflict("duplicate fixing index/date"));
+            }
         }
-
-        // Would parse CSV file with format: index,date,rate
-        // For now, just return empty
+        *self.fixings.write().map_err(lock_error)? = fixings;
         Ok(())
     }
 }
@@ -271,30 +408,42 @@ impl IndexFixingSource for CsvIndexFixingSource {
     fn source_type(&self) -> SourceType {
         SourceType::File
     }
-
     async fn get_fixing(
         &self,
-        _index: &FloatingRateIndex,
-        _date: Date,
+        index: &FloatingRateIndex,
+        date: Date,
     ) -> Result<Option<IndexFixing>, TraitError> {
-        Ok(None) // Would look up in fixings map
+        Ok(self
+            .fixings
+            .read()
+            .map_err(lock_error)?
+            .get(&(index.to_string(), date))
+            .cloned())
     }
-
     async fn get_fixings(
         &self,
-        _index: &FloatingRateIndex,
-        _from: Date,
-        _to: Date,
+        index: &FloatingRateIndex,
+        from: Date,
+        to: Date,
     ) -> Result<Vec<IndexFixing>, TraitError> {
-        Ok(vec![])
+        if from > to {
+            return Err(TraitError::InvalidInput("inverted fixing date range"));
+        }
+        let fixings = self.fixings.read().map_err(lock_error)?;
+        let mut result: Vec<_> = fixings
+            .values()
+            .filter(|f| &f.index == index && f.date >= from && f.date <= to)
+            .cloned()
+            .collect();
+        result.sort_by_key(|f| f.date);
+        Ok(result)
     }
-
     async fn subscribe(
         &self,
         _indices: &[FloatingRateIndex],
-    ) -> Result<IndexFixingReceiver, TraitError> {
-        Err(TraitError::SourceNotAvailable(
-            "File source does not support streaming".into(),
+    ) -> Result<StreamReceiver<IndexFixing>, TraitError> {
+        Err(TraitError::Unsupported(
+            "file fixing source is snapshot-only",
         ))
     }
 }
@@ -334,7 +483,10 @@ impl VolatilitySource for EmptyVolatilitySource {
         Ok(None)
     }
 
-    async fn subscribe(&self, _surface_ids: &[VolSurfaceId]) -> Result<VolReceiver, TraitError> {
+    async fn subscribe(
+        &self,
+        _surface_ids: &[VolSurfaceId],
+    ) -> Result<StreamReceiver<VolatilitySurface>, TraitError> {
         Err(TraitError::SourceNotAvailable("Not implemented".into()))
     }
 }
@@ -364,7 +516,10 @@ impl FxRateSource for EmptyFxRateSource {
         Ok(None)
     }
 
-    async fn subscribe(&self, _pairs: &[CurrencyPair]) -> Result<FxRateReceiver, TraitError> {
+    async fn subscribe(
+        &self,
+        _pairs: &[CurrencyPair],
+    ) -> Result<StreamReceiver<FxRate>, TraitError> {
         Err(TraitError::SourceNotAvailable("Not implemented".into()))
     }
 }
@@ -410,7 +565,7 @@ impl InflationFixingSource for EmptyInflationFixingSource {
     async fn subscribe(
         &self,
         _indices: &[InflationIndex],
-    ) -> Result<InflationReceiver, TraitError> {
+    ) -> Result<StreamReceiver<InflationFixing>, TraitError> {
         Err(TraitError::SourceNotAvailable("Not implemented".into()))
     }
 }
@@ -424,7 +579,7 @@ impl EtfQuoteSource for EmptyEtfQuoteSource {
         Ok(None)
     }
 
-    async fn subscribe(&self, _etf_ids: &[EtfId]) -> Result<EtfQuoteReceiver, TraitError> {
+    async fn subscribe(&self, _etf_ids: &[EtfId]) -> Result<StreamReceiver<EtfQuote>, TraitError> {
         Err(TraitError::SourceNotAvailable("Not implemented".into()))
     }
 }
@@ -455,7 +610,7 @@ impl QuoteSource for EmptyQuoteSource {
     async fn subscribe(
         &self,
         _instrument_ids: &[InstrumentId],
-    ) -> Result<QuoteReceiver, TraitError> {
+    ) -> Result<StreamReceiver<QuoteEvent>, TraitError> {
         Err(TraitError::SourceNotAvailable("Not implemented".into()))
     }
 
@@ -477,7 +632,10 @@ impl CurveInputSource for EmptyCurveInputSource {
         Ok(vec![])
     }
 
-    async fn subscribe(&self, _curve_ids: &[CurveId]) -> Result<CurveInputReceiver, TraitError> {
+    async fn subscribe(
+        &self,
+        _curve_ids: &[CurveId],
+    ) -> Result<StreamReceiver<CurveInput>, TraitError> {
         Err(TraitError::SourceNotAvailable("Not implemented".into()))
     }
 }
@@ -511,7 +669,7 @@ impl IndexFixingSource for EmptyIndexFixingSource {
     async fn subscribe(
         &self,
         _indices: &[FloatingRateIndex],
-    ) -> Result<IndexFixingReceiver, TraitError> {
+    ) -> Result<StreamReceiver<IndexFixing>, TraitError> {
         Err(TraitError::SourceNotAvailable("Not implemented".into()))
     }
 }

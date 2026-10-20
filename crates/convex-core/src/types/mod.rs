@@ -17,6 +17,7 @@ mod date;
 mod frequency;
 mod mark;
 mod price;
+mod quote_display;
 mod spread;
 mod yield_type;
 

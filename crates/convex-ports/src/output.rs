@@ -118,14 +118,24 @@ pub struct BondQuoteOutput {
     pub effective_convexity: Option<Decimal>,
 
     // Risk
-    /// DV01 (per $1M notional)
+    /// Quoted-yield DV01 loss in price per 100 face; no position scaling.
     pub dv01: Option<Decimal>,
-    /// PV01
+    /// Diagnostic continuous-zero PV01 loss per 100 at frozen Z-spread.
     pub pv01: Option<Decimal>,
     /// Key rate durations (tenor label, duration value)
     pub key_rate_durations: Option<Vec<(String, Decimal)>>,
-    /// CS01 - Credit spread sensitivity (price change for 1bp spread increase)
+    /// Z-spread loss per 100 for +1bp; this is not CDS quote CS01.
     pub cs01: Option<Decimal>,
+
+    /// Signed diagnostic continuous-zero change per 100 for +1bp, frozen Z-spread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zero_pv01_signed: Option<Decimal>,
+    /// Signed continuous ACT/365F Z-spread change per 100 for +1bp.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub z_pv01_signed: Option<Decimal>,
+    /// Explicit measure failures; absence never represents zero risk.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub measure_errors: Vec<convex_core::contracts::StructuredError>,
 
     // Metadata
     /// Calculation timestamp
@@ -141,11 +151,49 @@ pub struct BondQuoteOutput {
 }
 
 impl BondQuoteOutput {
+    /// Expose mid pricing in explicit canonical units without inventing risk lineage.
+    /// Missing accrued remains missing; dirty price is unavailable in that case.
+    /// Duration-based DV01/PV01 are excluded because their factor and notional bases differ.
+    pub fn canonical_mid_values(
+        &self,
+    ) -> Result<BondMidValues, convex_core::contracts::ContractError> {
+        use convex_core::contracts::{ContractError, DecimalRate, ExactDecimal, PricePer100};
+        let dirty = match (self.clean_price_mid, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => {
+                let dirty = clean.checked_add(accrued).ok_or(ContractError {
+                    field: "dirty_price",
+                    reason: "exact decimal overflow",
+                })?;
+                if dirty.checked_sub(clean) != Some(accrued)
+                    || dirty.checked_sub(accrued) != Some(clean)
+                {
+                    return Err(ContractError {
+                        field: "dirty_price",
+                        reason: "exact decimal addition would round",
+                    });
+                }
+                Some(dirty)
+            }
+            _ => None,
+        };
+        Ok(BondMidValues {
+            clean: self
+                .clean_price_mid
+                .map(|value| PricePer100::new(ExactDecimal::new(value))),
+            dirty: dirty.map(|value| PricePer100::new(ExactDecimal::new(value))),
+            accrued: self
+                .accrued_interest
+                .map(|value| PricePer100::new(ExactDecimal::new(value))),
+            ytm: self
+                .ytm_mid
+                .map(|value| DecimalRate::new(ExactDecimal::new(value))),
+        })
+    }
+
     /// Calculate dirty price from clean price and accrued.
     pub fn dirty_price_mid(&self) -> Option<Decimal> {
         match (self.clean_price_mid, self.accrued_interest) {
-            (Some(clean), Some(accrued)) => Some(clean + accrued),
-            (Some(clean), None) => Some(clean),
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
             _ => None,
         }
     }
@@ -153,8 +201,7 @@ impl BondQuoteOutput {
     /// Calculate dirty price bid.
     pub fn dirty_price_bid(&self) -> Option<Decimal> {
         match (self.clean_price_bid, self.accrued_interest) {
-            (Some(clean), Some(accrued)) => Some(clean + accrued),
-            (Some(clean), None) => Some(clean),
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
             _ => None,
         }
     }
@@ -162,8 +209,7 @@ impl BondQuoteOutput {
     /// Calculate dirty price ask.
     pub fn dirty_price_ask(&self) -> Option<Decimal> {
         match (self.clean_price_ask, self.accrued_interest) {
-            (Some(clean), Some(accrued)) => Some(clean + accrued),
-            (Some(clean), None) => Some(clean),
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
             _ => None,
         }
     }
@@ -187,6 +233,20 @@ impl BondQuoteOutput {
             QuoteSide::Ask => self.ytm_ask,
         }
     }
+}
+
+/// Explicit mid pricing values at the publishing boundary.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BondMidValues {
+    /// Existing clean per-100 price, if calculated.
+    pub clean: Option<convex_core::contracts::PricePer100>,
+    /// Exact clean plus accrued, only when both inputs are present.
+    pub dirty: Option<convex_core::contracts::PricePer100>,
+    /// Existing accrued per 100, if calculated.
+    pub accrued: Option<convex_core::contracts::PricePer100>,
+    /// Existing decimal yield, if calculated.
+    pub ytm: Option<convex_core::contracts::DecimalRate>,
 }
 
 /// Trait for bond quote publishing.
@@ -295,29 +355,48 @@ pub struct PortfolioAnalyticsOutput {
     pub currency: Currency,
 
     /// Total market value
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub market_value: Decimal,
     /// Number of positions
     pub num_positions: u32,
 
     /// Portfolio duration
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub duration: Decimal,
     /// Portfolio convexity
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub convexity: Decimal,
     /// Portfolio yield
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub yield_value: Decimal,
     /// Portfolio spread
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub spread: Decimal,
 
     /// Total DV01
+    #[serde(with = "convex_core::contracts::decimal_serde")]
     pub dv01: Decimal,
-    /// Key rate durations
-    pub key_rate_durations: Vec<(String, Decimal)>,
+    /// Complete exact-label key rate durations; missing coverage remains null.
+    pub key_rate_durations: Vec<(String, Option<convex_core::contracts::ExactDecimal>)>,
+
+    /// Supplied position count for each exact factor; incomplete factors have no duration.
+    pub key_rate_coverage: Vec<(String, u32)>,
 
     /// Sector breakdown
-    pub sector_breakdown: Vec<(String, Decimal)>,
-    /// Rating breakdown
-    pub rating_breakdown: Vec<(String, Decimal)>,
+    pub sector_breakdown: Vec<(String, convex_core::contracts::ExactDecimal)>,
 
+    /// Positions carrying an actual sector classification.
+    pub sector_coverage: u32,
+    /// Rating breakdown
+    pub rating_breakdown: Vec<(String, convex_core::contracts::ExactDecimal)>,
+
+    /// Positions carrying an actual rating classification.
+    pub rating_coverage: u32,
+
+    /// Common actual settlement date of all consumed quotes.
+    pub settlement_date: convex_core::Date,
+
+    /// Latest actual consumed quote timestamp; no calculation clock is invented.
     /// Calculation timestamp
     pub timestamp: i64,
 }

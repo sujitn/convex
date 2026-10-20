@@ -84,6 +84,7 @@ pub fn duration_futures(
     tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
+        execution_status: Default::default(),
         strategy: "DurationFutures".into(),
         trades: vec![trade],
         residual,
@@ -191,6 +192,7 @@ pub fn barbell_futures(
     tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
+        execution_status: Default::default(),
         strategy: "BarbellFutures".into(),
         trades,
         residual,
@@ -345,6 +347,7 @@ pub fn cash_bond_pair(
     tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
+        execution_status: Default::default(),
         strategy: "CashBondPair".into(),
         trades: vec![trade],
         residual,
@@ -461,6 +464,7 @@ pub fn interest_rate_swap(
     tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
+        execution_status: Default::default(),
         strategy: "InterestRateSwap".into(),
         trades: vec![trade],
         residual,
@@ -565,6 +569,7 @@ pub fn key_rate_futures(
     tag_constraint_violations(constraints, &residual, cost_bps, &mut tradeoffs);
 
     Ok(HedgeProposal {
+        execution_status: Default::default(),
         strategy: "KeyRateFutures".into(),
         trades,
         residual,

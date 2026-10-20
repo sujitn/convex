@@ -73,6 +73,25 @@ pub enum BondError {
         reason: String,
     },
 
+    /// No yield can produce the supplied target from the complete cash.
+    #[error("No yield matches the supplied dated cash and target")]
+    YieldNoRoot,
+
+    /// Constant cash price cannot identify a unique yield.
+    #[error("Yield is not uniquely identified by constant dated cash")]
+    YieldNonUnique,
+
+    /// The selected branch has no matching yield; another branch may have one.
+    #[error("No yield matches the target on the selected branch")]
+    YieldBranchNoRoot,
+
+    /// Branch monotonicity, existence or requested precision is unresolved.
+    #[error("Yield branch selection is unresolved: {reason}")]
+    YieldSelectionUnresolved {
+        /// Original branch/precision condition that prevented acceptance.
+        reason: String,
+    },
+
     /// Yield calculation failed to converge.
     #[error("Yield calculation failed to converge after {iterations} iterations")]
     YieldConvergenceFailed {

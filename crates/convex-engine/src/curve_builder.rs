@@ -1,9 +1,16 @@
 //! Curve builder - constructs curves from market data.
 
+/// Delegate supplied credit construction to the pure product composition.
+pub use convex_analytics::credit_calibration::build_credit_curve_set as build_supplied_credit_curves;
+/// Supplied product calibration delegates directly to the pure composition API.
+/// Callers retain exact immutable results; this entry point uses no live lookup,
+/// cache publication, timestamp, tenor approximation or numerical duplication.
+pub use convex_analytics::swap_calibration::build_swap_curve_set as build_supplied_swap_curves;
+
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::ports::market_data::MarketDataProvider;
 use convex_core::daycounts::DayCountConvention;
@@ -16,6 +23,15 @@ use convex_curves::{
 
 use crate::calc_graph::{CalculationGraph, NodeId};
 use crate::error::EngineError;
+
+/// Validated numerical owner; complete recipes are never converted to nodes.
+#[derive(Debug, Clone)]
+pub enum BuiltCurveModel {
+    /// Existing explicit ACT/365F continuous-zero representation.
+    Discrete(DiscreteCurve),
+    /// Exact full native recipe and dependency graph.
+    Recipe(crate::curve_replay::RecipeRateCurve),
+}
 
 /// Built curve (cached in memory).
 ///
@@ -37,142 +53,264 @@ pub struct BuiltCurve {
     pub extrapolation: ExtrapolationMethod,
 
     /// The proper math curve underlying this
-    pub inner: Option<std::sync::Arc<DiscreteCurve>>,
+    pub inner: Option<Arc<BuiltCurveModel>>,
 }
 
 impl BuiltCurve {
-    /// Get zero rate for a tenor (in years) using linear interpolation.
+    /// Original continuous-zero query. Invalid/unbuilt values return NaN;
+    /// numerical callers should use the checked RateCurveDyn queries.
     pub fn interpolate_rate(&self, tenor_years: f64) -> f64 {
-        if let Some(inner) = &self.inner {
-            use convex_curves::TermStructure;
-            return inner.value_at(tenor_years);
+        match &self.inner {
+            Some(model) => match model.as_ref() {
+                BuiltCurveModel::Discrete(curve) => {
+                    curve.checked_value_at(tenor_years).unwrap_or(f64::NAN)
+                }
+                BuiltCurveModel::Recipe(curve) => curve
+                    .zero_rate(tenor_years, Compounding::Continuous)
+                    .unwrap_or(f64::NAN),
+            },
+            None => f64::NAN,
         }
-        // Fallback for tests if inner not populated
-        if self.points.is_empty() {
-            return 0.0;
-        }
-        // Find surrounding points and interpolate linearly
-        if tenor_years <= self.points[0].0 {
-            return self.points[0].1;
-        }
-        if tenor_years >= self.points.last().unwrap().0 {
-            return self.points.last().unwrap().1;
-        }
-        for i in 1..self.points.len() {
-            if self.points[i].0 >= tenor_years {
-                let (t0, r0) = self.points[i - 1];
-                let (t1, r1) = self.points[i];
-                let weight = (tenor_years - t0) / (t1 - t0);
-                return r0 + weight * (r1 - r0);
-            }
-        }
-        self.points.last().unwrap().1
     }
 
-    /// Rebuilds the internal math curve from `points`, using this curve's
-    /// [`BuiltCurve::extrapolation`] for the long end.
-    ///
-    /// Points are sorted by tenor and exact-duplicate tenors are collapsed
-    /// (keeping the latest rate); distinct points are never dropped. The curve is
-    /// only built when at least two distinct pillars remain.
-    ///
-    /// If reconstruction fails, the previously-built curve is kept rather than
-    /// discarded -- dropping it would silently fall back to linear interpolation
-    /// (e.g. on a bumped curve during KRD/PV01), corrupting the result.
-    pub fn rebuild_inner(&mut self) {
+    /// Rebuild original positive ACT/365F continuous-zero pillars. Invalid,
+    /// duplicate or unsupported inputs clear the old representation and fail;
+    /// no partial/last-good curve is attached to changed inputs.
+    pub fn rebuild_inner(&mut self) -> CurveResult<()> {
+        self.inner = None;
         let mut sorted = self.points.clone();
-        sorted.sort_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-        let mut tenors: Vec<f64> = Vec::with_capacity(sorted.len());
-        let mut rates: Vec<f64> = Vec::with_capacity(sorted.len());
-        for (t, r) in sorted {
-            if tenors.last() == Some(&t) {
-                *rates.last_mut().unwrap() = r;
-            } else {
-                tenors.push(t);
-                rates.push(r);
-            }
+        sorted.sort_by(|a, b| a.0.total_cmp(&b.0));
+        if sorted.len() < 2
+            || sorted.len() > convex_ports::snapshot::MAX_SNAPSHOT_PILLARS
+            || sorted
+                .iter()
+                .any(|(t, r)| !t.is_finite() || *t <= 0.0 || !r.is_finite())
+            || sorted.windows(2).any(|p| p[0].0 >= p[1].0)
+        {
+            return Err(CurveError::invalid_value(
+                "bounded distinct positive finite curve pillars required",
+            ));
         }
-
-        if tenors.len() < 2 {
-            self.inner = None;
-            return;
-        }
-
-        match DiscreteCurve::with_extrapolation(
+        let curve = DiscreteCurve::with_extrapolation(
             self.reference_date,
-            tenors,
-            rates,
+            sorted.iter().map(|p| p.0).collect(),
+            sorted.iter().map(|p| p.1).collect(),
             ValueType::continuous_zero(DayCountConvention::Act365Fixed),
             InterpolationMethod::MonotoneConvex,
             self.extrapolation,
-        ) {
-            Ok(curve) => self.inner = Some(std::sync::Arc::new(curve)),
-            Err(e) => warn!(
-                "Curve {} inner rebuild failed; keeping previous curve: {}",
-                self.curve_id, e
-            ),
+        )?;
+        self.inner = Some(Arc::new(BuiltCurveModel::Discrete(curve)));
+        Ok(())
+    }
+
+    /// Actual native horizon; an unavailable representation has no valid horizon.
+    pub fn max_tenor(&self) -> f64 {
+        match self.inner.as_deref() {
+            Some(BuiltCurveModel::Recipe(curve)) => curve.native().domain().maximum_tenor,
+            Some(BuiltCurveModel::Discrete(_)) => self
+                .points
+                .iter()
+                .map(|p| p.0)
+                .max_by(f64::total_cmp)
+                .unwrap_or(f64::NAN),
+            None => f64::NAN,
         }
     }
 
-    /// Get max tenor in years.
-    pub fn max_tenor(&self) -> f64 {
-        self.points.last().map(|(t, _)| *t).unwrap_or(30.0)
-    }
-
-    /// Convert to points format for NodeValue::Curve.
-    ///
-    /// Returns (tenor_days, zero_rate) pairs.
-    pub fn to_points(&self) -> Vec<(u32, f64)> {
-        self.points
+    /// Older graph day/zero format is only usable for exact whole-day legacy
+    /// pillars. Full recipes and fractional pillars require immutable snapshots.
+    pub fn to_points(&self) -> Result<Vec<(u32, f64)>, EngineError> {
+        let Some(BuiltCurveModel::Discrete(model)) = self.inner.as_deref() else {
+            return Err(EngineError::CurveBuildError(
+                "complete curve recipes require immutable snapshot graph publication".into(),
+            ));
+        };
+        if self.points.len() != model.tenors().len() {
+            return Err(EngineError::CurveBuildError(
+                "curve points differ from validated representation".into(),
+            ));
+        }
+        let mut points = self.points.clone();
+        points.sort_by(|a, b| a.0.total_cmp(&b.0));
+        if !points
             .iter()
-            .map(|(tenor_years, rate)| {
-                let tenor_days = (*tenor_years * 365.0) as u32;
-                (tenor_days, *rate)
+            .zip(model.tenors().iter().zip(model.values()))
+            .all(|((t, r), (built_t, built_r))| t == built_t && r == built_r)
+        {
+            return Err(EngineError::CurveBuildError(
+                "curve points differ from validated representation".into(),
+            ));
+        }
+        points
+            .iter()
+            .map(|(t, r)| {
+                // Multiplication can round an original integer day away from
+                // the integer. Only the exact original day/365 roundtrip admits it.
+                let days = (t * 365.0).round();
+                if !days.is_finite() || days < 1.0 || days > u32::MAX as f64 || days / 365.0 != *t {
+                    return Err(EngineError::CurveBuildError(
+                        "older graph cannot represent fractional curve pillars".into(),
+                    ));
+                }
+                Ok((days as u32, *r))
             })
             .collect()
     }
 
-    /// Create a BuiltCurve from cached points.
-    ///
-    /// Used to reconstruct a curve from NodeValue::Curve data.
-    pub fn from_points(curve_id: &str, points: Vec<(u32, f64)>) -> Self {
-        let curve_points: Vec<(f64, f64)> = points
-            .into_iter()
-            .map(|(tenor_days, rate)| {
-                let tenor_years = tenor_days as f64 / 365.0;
-                (tenor_years, rate)
-            })
-            .collect();
+    /// Retain the original full checked curve without a fabricated sampled grid.
+    pub fn from_recipe(
+        record: &convex_ports::snapshot::SnapshotCurveRecipe,
+        curve: Arc<convex_curves::contracts::BuiltCurve>,
+    ) -> Result<Self, convex_ports::TraitError> {
+        record.validate()?;
+        let supplied: convex_curves::contracts::CurveRecipe =
+            serde_json::from_value(record.recipe.clone()).map_err(|_| {
+                convex_ports::TraitError::InvalidInput("invalid native curve recipe payload")
+            })?;
+        if &supplied != curve.recipe() {
+            return Err(convex_ports::TraitError::Conflict(
+                "curve differs from captured original recipe",
+            ));
+        }
+        let model = crate::curve_replay::RecipeRateCurve::new(curve).map_err(|_| {
+            convex_ports::TraitError::InvalidInput(
+                "unsupported snapshot rate pricing representation",
+            )
+        })?;
+        let bytes = serde_json::to_vec(record)
+            .map_err(|_| convex_ports::TraitError::InvalidInput("curve serialization failed"))?;
+        Ok(Self {
+            curve_id: record.curve_id.clone().into(),
+            reference_date: supplied.reference_date,
+            points: vec![],
+            built_at: record.recorded_at.datetime().timestamp_millis(),
+            inputs_hash: convex_ports::snapshot::content_digest(
+                b"convex.supplied-curve-recipe.v1\0",
+                &bytes,
+            ),
+            extrapolation: supplied.extrapolation,
+            inner: Some(Arc::new(BuiltCurveModel::Recipe(model))),
+        })
+    }
 
-        let mut built = Self {
-            curve_id: CurveId::new(curve_id),
-            reference_date: Date::today(),
-            points: curve_points,
-            built_at: chrono::Utc::now().timestamp(),
-            inputs_hash: String::new(),
-            // Reconstruction from cached points does not know the original
-            // extrapolation; flat-forward is the neutral default.
-            extrapolation: ExtrapolationMethod::FlatForward,
-            inner: None,
+    /// Only the verified snapshot path can bridge a complete product graph.
+    pub(crate) fn from_calibration(
+        record: &convex_ports::calibration::SnapshotCalibration,
+        pin: &convex_ports::calibration::CalibrationCurvePin,
+        curve: Arc<convex_curves::contracts::BuiltCurve>,
+    ) -> Result<Self, convex_ports::TraitError> {
+        if curve.recipe().key.id != pin.curve_id.as_str()
+            || curve.recipe().key.version != pin.definition_version
+        {
+            return Err(convex_ports::TraitError::Conflict(
+                "calibration curve differs from exact pin",
+            ));
+        }
+        let reference_date = curve.recipe().reference_date;
+        let extrapolation = curve.recipe().extrapolation;
+        let model = crate::curve_replay::RecipeRateCurve::new(curve).map_err(|_| {
+            convex_ports::TraitError::InvalidInput("unsupported calibrated rate representation")
+        })?;
+        let bytes = serde_json::to_vec(&(record, pin)).map_err(|_| {
+            convex_ports::TraitError::InvalidInput("calibration serialization failed")
+        })?;
+        Ok(Self {
+            curve_id: pin.curve_id.clone().into(),
+            reference_date,
+            points: vec![],
+            built_at: record.recorded_at.datetime().timestamp_millis(),
+            inputs_hash: convex_ports::snapshot::content_digest(
+                b"convex.calibrated-curve.v1\0",
+                &bytes,
+            ),
+            extrapolation,
+            inner: Some(Arc::new(BuiltCurveModel::Recipe(model))),
+        })
+    }
+
+    /// Reconstruct the exact supplied reference date, continuous-zero ACT/365F values and policies.
+    /// This path validates before construction, reads no clock and never falls back after failure.
+    pub fn from_snapshot(
+        record: &convex_ports::snapshot::SnapshotCurve,
+    ) -> Result<Self, convex_ports::TraitError> {
+        use convex_ports::snapshot::{ZeroExtrapolation, ZeroInterpolation};
+        record.validate()?;
+        let interpolation = match record.interpolation {
+            ZeroInterpolation::Linear => InterpolationMethod::Linear,
+            ZeroInterpolation::MonotoneConvex => InterpolationMethod::MonotoneConvex,
         };
-        built.rebuild_inner();
-        built
+        let extrapolation = match record.extrapolation {
+            ZeroExtrapolation::FlatZero => ExtrapolationMethod::Flat,
+            ZeroExtrapolation::FlatForward => {
+                return Err(convex_ports::TraitError::InvalidInput(
+                    "flat-forward snapshot reconstruction requires a complete curve-method contract",
+                ));
+            }
+        };
+        let points: Vec<_> = record
+            .points
+            .iter()
+            .map(|p| (p.tenor_years.get(), p.continuous_zero.get()))
+            .collect();
+        let inner = DiscreteCurve::with_extrapolation(
+            record.reference_date.date(),
+            points.iter().map(|p| p.0).collect(),
+            points.iter().map(|p| p.1).collect(),
+            ValueType::continuous_zero(DayCountConvention::Act365Fixed),
+            interpolation,
+            extrapolation,
+        )
+        .map_err(|_| {
+            convex_ports::TraitError::InvalidInput("supplied curve construction failed")
+        })?;
+        let bytes = serde_json::to_vec(record)
+            .map_err(|_| convex_ports::TraitError::InvalidInput("curve serialization failed"))?;
+        Ok(Self {
+            curve_id: record.curve_id.clone().into(),
+            reference_date: record.reference_date.date(),
+            points,
+            built_at: record.recorded_at.datetime().timestamp_millis(),
+            inputs_hash: convex_ports::snapshot::content_digest(
+                b"convex.supplied-curve.v1\0",
+                &bytes,
+            ),
+            extrapolation,
+            inner: Some(Arc::new(BuiltCurveModel::Discrete(inner))),
+        })
     }
 }
 
 /// Implement RateCurveDyn for spread calculations
 impl RateCurveDyn for BuiltCurve {
     fn discount_factor(&self, t: f64) -> CurveResult<f64> {
+        let inner = self
+            .inner
+            .as_deref()
+            .ok_or_else(|| CurveError::invalid_value("missing validated curve representation"))?;
+        if let BuiltCurveModel::Recipe(curve) = inner {
+            return curve.discount_factor(t);
+        }
+
         if t < 0.0 {
             return Err(CurveError::tenor_out_of_range(t, 0.0, self.max_tenor()));
         }
         let rate = self.interpolate_rate(t);
+        if !rate.is_finite() {
+            return Err(CurveError::invalid_value("curve query unavailable"));
+        }
         // Continuous compounding: DF = exp(-r * t)
         Ok((-rate * t).exp())
     }
 
     fn zero_rate(&self, t: f64, compounding: Compounding) -> CurveResult<f64> {
+        let inner = self
+            .inner
+            .as_deref()
+            .ok_or_else(|| CurveError::invalid_value("missing validated curve representation"))?;
+        if let BuiltCurveModel::Recipe(curve) = inner {
+            return curve.zero_rate(t, compounding);
+        }
+
         if t < 0.0 {
             return Err(CurveError::tenor_out_of_range(t, 0.0, self.max_tenor()));
         }
@@ -182,6 +320,9 @@ impl RateCurveDyn for BuiltCurve {
         }
 
         let cc_rate = self.interpolate_rate(t);
+        if !cc_rate.is_finite() {
+            return Err(CurveError::invalid_value("curve query unavailable"));
+        }
 
         // Convert from continuous to requested compounding
         match compounding {
@@ -214,6 +355,14 @@ impl RateCurveDyn for BuiltCurve {
     }
 
     fn forward_rate(&self, t1: f64, t2: f64) -> CurveResult<f64> {
+        let inner = self
+            .inner
+            .as_deref()
+            .ok_or_else(|| CurveError::invalid_value("missing validated curve representation"))?;
+        if let BuiltCurveModel::Recipe(curve) = inner {
+            return curve.forward_rate(t1, t2);
+        }
+
         if t1 < 0.0 || t2 < 0.0 {
             let bad_t = t1.min(t2);
             return Err(CurveError::tenor_out_of_range(bad_t, 0.0, self.max_tenor()));
@@ -228,20 +377,48 @@ impl RateCurveDyn for BuiltCurve {
         // Forward rate from t1 to t2: F(t1,t2) = (r2*t2 - r1*t1) / (t2 - t1)
         let r1 = self.interpolate_rate(t1);
         let r2 = self.interpolate_rate(t2);
+        if !r1.is_finite() || !r2.is_finite() {
+            return Err(CurveError::invalid_value("curve query unavailable"));
+        }
         Ok((r2 * t2 - r1 * t1) / (t2 - t1))
     }
 
     fn instantaneous_forward(&self, t: f64) -> CurveResult<f64> {
+        let inner = self
+            .inner
+            .as_deref()
+            .ok_or_else(|| CurveError::invalid_value("missing validated curve representation"))?;
+        if let BuiltCurveModel::Recipe(curve) = inner {
+            return curve.instantaneous_forward(t);
+        }
+
         // Approximate with a small delta
         let dt = 0.001;
         self.forward_rate(t, t + dt)
     }
 
     fn reference_date(&self) -> Date {
+        if let Some(BuiltCurveModel::Recipe(curve)) = self.inner.as_deref() {
+            return curve.reference_date();
+        }
         self.reference_date
+    }
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        match self.inner.as_deref() {
+            Some(BuiltCurveModel::Recipe(curve)) => curve.date_to_tenor(date),
+            _ => convex_curves::contracts::date_fraction(
+                self.reference_date,
+                date,
+                convex_core::daycounts::DayCountConvention::Act365Fixed,
+            )
+            .map_err(|error| CurveError::invalid_value(error.to_string())),
+        }
     }
 
     fn max_date(&self) -> Date {
+        if let Some(BuiltCurveModel::Recipe(curve)) = self.inner.as_deref() {
+            return curve.max_date();
+        }
         let max_years = self.max_tenor();
         let days = (max_years * 365.0) as i64;
         self.reference_date.add_days(days)
@@ -259,9 +436,9 @@ pub struct CurveBuilder {
     /// Built curves cache
     curves: DashMap<CurveId, BuiltCurve>,
 
-    /// Long-end extrapolation for built curves. Flat-forward by default; set a
-    /// `UfrConvergence` (with the appropriate per-currency UFR) explicitly for
-    /// liability curves rather than baking one in for every currency.
+    /// Explicit raw-zero tail policy. The default holds the boundary zero.
+    /// Exact flat-forward sources use the pure complete curve-method contract;
+    /// this older monotone-convex builder cannot supply that tail.
     extrapolation: ExtrapolationMethod,
 }
 
@@ -272,11 +449,12 @@ impl CurveBuilder {
             market_data,
             calc_graph,
             curves: DashMap::new(),
-            extrapolation: ExtrapolationMethod::FlatForward,
+            extrapolation: ExtrapolationMethod::Flat,
         }
     }
 
-    /// Sets the long-end extrapolation method used when building curves.
+    /// Sets the raw-zero extrapolation policy. Unsupported flat-forward policy
+    /// fails at construction before reading market data or publishing a curve.
     #[must_use]
     pub fn with_extrapolation(mut self, extrapolation: ExtrapolationMethod) -> Self {
         self.extrapolation = extrapolation;
@@ -289,6 +467,7 @@ impl CurveBuilder {
         curve_id: &CurveId,
         ref_date: Date,
     ) -> Result<BuiltCurve, EngineError> {
+        self.validate_extrapolation()?;
         info!("Building curve: {}", curve_id);
 
         // Fetch market data inputs
@@ -311,24 +490,44 @@ impl CurveBuilder {
             .iter()
             .map(|input| {
                 let tenor_years = input.tenor.to_days() as f64 / 365.0;
-                let rate: f64 = input.rate.try_into().unwrap_or(0.0);
-                (tenor_years, rate)
+                let rate: f64 = input.rate.try_into().map_err(|_| {
+                    EngineError::CurveBuildError("unrepresentable input rate".into())
+                })?;
+                Ok((tenor_years, rate))
             })
-            .collect();
+            .collect::<Result<_, EngineError>>()?;
 
+        validate_points(&points)?;
         // Sort by tenor
-        points.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        points.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
+        if points.windows(2).any(|p| p[0].0 == p[1].0) {
+            return Err(EngineError::CurveBuildError(
+                "duplicate curve pillar".into(),
+            ));
+        }
 
         // Create hash of inputs for change detection
-        let inputs_hash = format!(
-            "{:x}",
-            inputs
-                .iter()
-                .map(|i| format!("{}-{}", i.tenor, i.rate))
-                .collect::<Vec<_>>()
-                .join(",")
-                .len()
-        );
+        let exact_inputs: Vec<_> = inputs
+            .iter()
+            .map(|i| {
+                (
+                    &i.instrument_type,
+                    &i.tenor,
+                    i.rate.to_string(),
+                    i.timestamp,
+                    &i.source,
+                )
+            })
+            .collect();
+        let bytes = serde_json::to_vec(&(
+            curve_id,
+            ref_date,
+            exact_inputs,
+            format!("{:?}", self.extrapolation),
+        ))
+        .map_err(|_| EngineError::CurveBuildError("curve identity serialization failed".into()))?;
+        let inputs_hash =
+            convex_ports::snapshot::content_digest(b"convex.curve-inputs.v1\0", &bytes);
 
         let mut built = BuiltCurve {
             curve_id: curve_id.clone(),
@@ -342,15 +541,22 @@ impl CurveBuilder {
             extrapolation: self.extrapolation,
             inner: None,
         };
-        built.rebuild_inner();
+        built
+            .rebuild_inner()
+            .map_err(|e| EngineError::CurveBuildError(e.to_string()))?;
 
         // Update cache
         self.curves.insert(curve_id.clone(), built.clone());
 
         // Invalidate calc graph
-        self.calc_graph.invalidate(&NodeId::Curve {
+        let node = NodeId::Curve {
             curve_id: curve_id.clone(),
-        });
+        };
+        if self.calc_graph.node_spec(&node).is_some() {
+            self.calc_graph
+                .invalidate(&node)
+                .map_err(|error| EngineError::CurveBuildError(error.to_string()))?;
+        }
 
         info!(
             "Curve {} built with {} points",
@@ -370,25 +576,32 @@ impl CurveBuilder {
         reference_date: Date,
         mut points: Vec<(f64, f64)>,
     ) -> Result<BuiltCurve, EngineError> {
+        self.validate_extrapolation()?;
         if points.is_empty() {
             return Err(EngineError::CurveBuildError(
                 "Cannot create curve with no points".to_string(),
             ));
         }
 
+        validate_points(&points)?;
         // Sort by tenor
-        points.sort_by(|(t1, _), (t2, _)| t1.partial_cmp(t2).unwrap());
+        points.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
+        if points.windows(2).any(|p| p[0].0 == p[1].0) {
+            return Err(EngineError::CurveBuildError(
+                "duplicate curve pillar".into(),
+            ));
+        }
 
         // Create hash of inputs for change detection
-        let inputs_hash = format!(
-            "{:x}",
-            points
-                .iter()
-                .map(|(t, r)| format!("{:.6}-{:.6}", t, r))
-                .collect::<Vec<_>>()
-                .join(",")
-                .len()
-        );
+        let bytes = serde_json::to_vec(&(
+            &curve_id,
+            reference_date,
+            &points,
+            format!("{:?}", self.extrapolation),
+        ))
+        .map_err(|_| EngineError::CurveBuildError("curve identity serialization failed".into()))?;
+        let inputs_hash =
+            convex_ports::snapshot::content_digest(b"convex.curve-points.v1\0", &bytes);
 
         let mut built = BuiltCurve {
             curve_id: curve_id.clone(),
@@ -402,15 +615,22 @@ impl CurveBuilder {
             extrapolation: self.extrapolation,
             inner: None,
         };
-        built.rebuild_inner();
+        built
+            .rebuild_inner()
+            .map_err(|e| EngineError::CurveBuildError(e.to_string()))?;
 
         // Update cache
         self.curves.insert(curve_id.clone(), built.clone());
 
         // Invalidate calc graph
-        self.calc_graph.invalidate(&NodeId::Curve {
+        let node = NodeId::Curve {
             curve_id: curve_id.clone(),
-        });
+        };
+        if self.calc_graph.node_spec(&node).is_some() {
+            self.calc_graph
+                .invalidate(&node)
+                .map_err(|error| EngineError::CurveBuildError(error.to_string()))?;
+        }
 
         info!(
             "Curve {} created with {} points",
@@ -418,6 +638,15 @@ impl CurveBuilder {
             built.points.len()
         );
         Ok(built)
+    }
+
+    fn validate_extrapolation(&self) -> Result<(), EngineError> {
+        if self.extrapolation == ExtrapolationMethod::FlatForward {
+            return Err(EngineError::CurveBuildError(
+                "flat-forward construction requires a complete curve-method contract".into(),
+            ));
+        }
+        Ok(())
     }
 
     /// Delete a curve from the cache.
@@ -439,4 +668,18 @@ impl CurveBuilder {
     pub fn clear(&self) {
         self.curves.clear();
     }
+}
+
+fn validate_points(points: &[(f64, f64)]) -> Result<(), EngineError> {
+    if points.is_empty()
+        || points.len() > convex_ports::snapshot::MAX_SNAPSHOT_PILLARS
+        || points
+            .iter()
+            .any(|(t, r)| !t.is_finite() || *t <= 0.0 || !r.is_finite())
+    {
+        return Err(EngineError::CurveBuildError(
+            "invalid/bounded curve pillars required".into(),
+        ));
+    }
+    Ok(())
 }

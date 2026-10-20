@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Bloomberg YAS-equivalent bond analytics powered by Convex WASM",
   "scripts": {
+    "test": "node --test tests/*.cjs",
     "build:wasm": "cd ../crates/convex-wasm && wasm-pack build --target bundler --out-dir ../../www/pkg",
     "start": "webpack serve --mode development --open",
     "build": "webpack --mode production",

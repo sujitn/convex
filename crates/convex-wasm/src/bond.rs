@@ -1,8 +1,10 @@
 //! Bond / curve construction and YAS-result conversion shared by analytics and pricing modules.
 
-use convex_analytics::yas::YASResult;
 use convex_bonds::conventions::{ConventionKey, ConventionRegistry};
-use convex_bonds::pricing::{StandardYieldEngine, YieldEngine};
+use convex_bonds::pricing::{
+    dated_cash::{dated_cash_yield_risk, DatedCashYieldRisk},
+    StandardYieldEngine, YieldEngine,
+};
 use convex_bonds::traits::Bond;
 use convex_bonds::types::{
     CompoundingMethod, DayType, ExDivAccruedMethod, ExDividendRules, SettlementRules,
@@ -10,28 +12,36 @@ use convex_bonds::types::{
 };
 use convex_bonds::{prelude::BondIdentifiers, FixedRateBond, FixedRateBondBuilder};
 use convex_core::calendars::BusinessDayConvention;
-use convex_core::types::Date;
+use convex_core::types::{Compounding, Date};
 use convex_curves::{
     DiscountCurve, DiscountCurveBuilder, InterpolationMethod, ZeroCurve, ZeroCurveBuilder,
 };
+use convex_math::portable;
 
 use crate::convert::{
-    decimal_to_f64, f64_to_decimal, format_compounding, format_instrument_type, format_market_name,
-    format_yield_convention, log, parse_compounding, parse_currency, parse_date, parse_day_count,
-    parse_frequency, parse_instrument_type, parse_market, parse_yield_convention,
+    decimal_to_f64, f64_to_decimal, finite, parse_compounding, parse_currency, parse_date,
+    parse_day_count, parse_frequency, parse_instrument_type, parse_market, parse_yield_convention,
+    percentage_to_decimal, positive,
 };
-use crate::dto::{AnalysisResult, BondParams, CurvePoint};
+use crate::dto::{BondParams, CurvePoint};
 
 pub(crate) fn create_bond(params: &BondParams) -> Result<FixedRateBond, String> {
     let issue_date = parse_date(&params.issue_date)?;
     let maturity_date = parse_date(&params.maturity_date)?;
 
     // Convert coupon rate from percentage to decimal (e.g., 5.0% -> 0.05)
-    let coupon = f64_to_decimal(params.coupon_rate / 100.0);
-    let face = f64_to_decimal(params.face_value.unwrap_or(100.0));
-    let frequency = parse_frequency(params.frequency.unwrap_or(2));
-    let day_count = parse_day_count(params.day_count.as_deref().unwrap_or("30/360"));
-    let currency = parse_currency(params.currency.as_deref().unwrap_or("USD"));
+    let coupon = percentage_to_decimal(params.coupon_rate)?;
+    let face = f64_to_decimal(params.face_value.unwrap_or(100.0))?;
+    let frequency = parse_frequency(params.frequency.unwrap_or(2))?;
+    let rules = get_yield_rules(params)?;
+    let day_count = rules.accrual_day_count;
+    let currency = parse_currency(params.currency.as_deref().unwrap_or("USD"))?;
+    let settlement = parse_date(&params.settlement_date)?;
+    if settlement < issue_date || settlement >= maturity_date {
+        return Err(
+            "Fixed convenience settlement must be on/after issue and before maturity".into(),
+        );
+    }
 
     let first_coupon = params
         .first_coupon_date
@@ -48,6 +58,7 @@ pub(crate) fn create_bond(params: &BondParams) -> Result<FixedRateBond, String> 
         .maturity(maturity_date)
         .coupon_rate(coupon)
         .face_value(face)
+        .redemption_value(face)
         .frequency(frequency)
         .day_count(day_count)
         .currency(currency)
@@ -77,7 +88,7 @@ pub(crate) fn create_curve(
     for point in points {
         let date = parse_date(&point.date)?;
         // Convert percentage to decimal (e.g., 4.5% -> 0.045)
-        let rate = f64_to_decimal(point.rate / 100.0);
+        let rate = percentage_to_decimal(point.rate)?;
         builder = builder.add_rate(date, rate);
     }
 
@@ -86,7 +97,7 @@ pub(crate) fn create_curve(
         .map_err(|e| format!("Failed to create curve: {:?}", e))
 }
 
-/// Create a DiscountCurve for OAS calculations (implements the Curve trait).
+/// Create the explicit discount curve used by the retained Z-spread convenience.
 pub(crate) fn create_discount_curve(
     reference_date: Date,
     points: &[CurvePoint],
@@ -105,18 +116,21 @@ pub(crate) fn create_discount_curve(
     for point in points {
         let date = parse_date(&point.date)?;
         // DF(t) = exp(-r * t)
-        let rate = point.rate / 100.0;
+        let rate = decimal_to_f64(percentage_to_decimal(point.rate)?)?;
         let t = reference_date.days_between(&date) as f64 / 365.0;
 
         if t <= 0.0 {
-            continue;
+            return Err("Discount curve points must follow the reference date".into());
         }
 
-        let df = (-rate * t).exp();
+        let df = positive(portable::exp(-rate * t), "discount factor")?;
         pillars.push((t, df));
     }
 
-    pillars.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    pillars.sort_by(|a, b| a.0.total_cmp(&b.0));
+    if pillars.windows(2).any(|p| p[0].0 == p[1].0) {
+        return Err("Duplicate discount curve point".into());
+    }
 
     for (t, df) in pillars {
         builder = builder.add_pillar(t, df);
@@ -129,197 +143,160 @@ pub(crate) fn create_discount_curve(
 }
 
 /// Get yield calculation rules from parameters, using registry if market/type specified.
-pub(crate) fn get_yield_rules(params: &BondParams) -> YieldCalculationRules {
-    if let (Some(market_str), Some(inst_str)) = (&params.market, &params.instrument_type) {
-        let market = parse_market(market_str);
-        let instrument_type = parse_instrument_type(inst_str);
-
-        let registry = ConventionRegistry::global();
-        let key = ConventionKey::new(market, instrument_type);
-
-        if let Some(rules) = registry.rules(&key) {
-            return rules.clone();
-        }
-
-        return registry.default_rules_for_market(market);
+pub(crate) fn get_yield_rules(params: &BondParams) -> Result<YieldCalculationRules, String> {
+    let market = params.market.as_deref().map(parse_market).transpose()?;
+    let instrument = params
+        .instrument_type
+        .as_deref()
+        .map(parse_instrument_type)
+        .transpose()?;
+    if instrument.is_some_and(|kind| {
+        !matches!(
+            kind,
+            convex_bonds::conventions::InstrumentType::GovernmentBond
+                | convex_bonds::conventions::InstrumentType::CorporateIG
+                | convex_bonds::conventions::InstrumentType::CorporateHY
+                | convex_bonds::conventions::InstrumentType::Municipal
+                | convex_bonds::conventions::InstrumentType::Agency
+                | convex_bonds::conventions::InstrumentType::Supranational
+                | convex_bonds::conventions::InstrumentType::CoveredBond
+        )
+    }) {
+        return Err("This fixed coupon convenience cannot represent the supplied instrument payoff; use complete library terms".into());
     }
-
-    if let Some(market_str) = &params.market {
-        let market = parse_market(market_str);
-        let registry = ConventionRegistry::global();
-        return registry.default_rules_for_market(market);
-    }
-
-    let convention = params
-        .yield_convention
-        .as_ref()
-        .map(|s| parse_yield_convention(s))
-        .unwrap_or(YieldConvention::StreetConvention);
-
-    let compounding = params
-        .compounding
-        .as_ref()
-        .map(|s| parse_compounding(s))
-        .unwrap_or(CompoundingMethod::Periodic { frequency: 2 });
-
-    let day_count = parse_day_count(params.day_count.as_deref().unwrap_or("30/360"));
-
-    let settlement_rules = SettlementRules {
-        days: params.settlement_days.unwrap_or(1),
-        use_business_days: params.use_business_days.unwrap_or(true),
-        ..Default::default()
-    };
-
-    let ex_dividend_rules = params.ex_dividend_days.map(|days| ExDividendRules {
-        days,
-        day_type: if params.use_business_days == Some(false) {
-            DayType::CalendarDays
+    let registry = ConventionRegistry::global();
+    let mut rules = if let Some(market) = market {
+        if let Some(kind) = instrument {
+            registry
+                .rules(&ConventionKey::new(market, kind))
+                .cloned()
+                .ok_or("No registered convention rules for this market/instrument pair")?
         } else {
-            DayType::BusinessDays
-        },
-        accrued_method: ExDivAccruedMethod::NegativeAccrued,
-    });
+            registry.default_rules_for_market(market)
+        }
+    } else {
+        YieldCalculationRules {
+            convention: YieldConvention::StreetConvention,
+            compounding: CompoundingMethod::Periodic { frequency: 2 },
+            accrual_day_count: parse_day_count("30/360")?,
+            discount_day_count: parse_day_count("30/360")?,
+            settlement_rules: SettlementRules {
+                days: 1,
+                use_business_days: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    };
+    if let Some(value) = &params.yield_convention {
+        rules.convention = parse_yield_convention(value)?;
+    }
+    if let Some(value) = &params.compounding {
+        rules.compounding = parse_compounding(value)?;
+    }
+    if let Some(value) = &params.day_count {
+        rules.accrual_day_count = parse_day_count(value)?;
+        rules.discount_day_count = rules.accrual_day_count;
+    }
+    if let Some(value) = params.frequency {
+        rules.frequency = parse_frequency(value)?;
+    }
+    if let Some(value) = params.settlement_days {
+        rules.settlement_rules.days = value;
+    }
+    if let Some(value) = params.use_business_days {
+        rules.settlement_rules.use_business_days = value;
+    }
+    if let Some(days) = params.ex_dividend_days {
+        rules.ex_dividend_rules = Some(ExDividendRules {
+            days,
+            day_type: if rules.settlement_rules.use_business_days {
+                DayType::BusinessDays
+            } else {
+                DayType::CalendarDays
+            },
+            accrued_method: ExDivAccruedMethod::NegativeAccrued,
+        });
+    }
+    Ok(rules)
+}
 
-    YieldCalculationRules {
-        convention,
-        compounding,
-        accrual_day_count: day_count,
-        discount_day_count: day_count,
-        settlement_rules,
-        ex_dividend_rules,
-        ..Default::default()
+/// Price/risk quotes use per100 cash; the original positive face is still validated.
+pub(crate) fn create_price_bond(params: &BondParams) -> Result<FixedRateBond, String> {
+    create_bond(params)?;
+    let mut normalized = params.clone();
+    normalized.face_value = Some(100.0);
+    create_bond(&normalized)
+}
+
+/// Explicit context-free dated-cash basis; unsupported market mechanics fail.
+pub(crate) fn dated_yield_compounding(
+    rules: &YieldCalculationRules,
+) -> Result<Compounding, String> {
+    if rules
+        .ex_dividend_rules
+        .as_ref()
+        .is_some_and(|r| r.days != 0)
+    {
+        return Err("Ex-dividend quotation requires full native entitlement/calendar terms".into());
+    }
+    match rules.compounding {
+        CompoundingMethod::Periodic { frequency } if frequency > 0 => {
+            Compounding::try_from_periods_per_year(frequency)
+                .ok_or_else(|| "Unsupported dated yield frequency".into())
+        }
+        CompoundingMethod::Continuous => Ok(Compounding::Continuous),
+        CompoundingMethod::Simple => Ok(Compounding::Simple),
+        CompoundingMethod::ActualPeriod { .. } => {
+            Err("Actual period quotation requires full contextual ICMA references".into())
+        }
+        _ => Err("Discount quotation requires an actual dated bill contract".into()),
     }
 }
 
-/// Calculate yield using StandardYieldEngine with convention rules.
-/// Returns yield as a decimal (e.g., 0.05 for 5%).
-pub(crate) fn calculate_convention_yield(
+/// Solve and reprice the same cash/rate basis before exposing yield or risk.
+pub(crate) fn calculate_dated_yield_quote(
     bond: &FixedRateBond,
     settlement: Date,
     clean_price: f64,
     rules: &YieldCalculationRules,
-) -> Option<f64> {
-    let cash_flows = bond.cash_flows(settlement);
-
-    if cash_flows.is_empty() {
-        log("Convention yield: No cash flows");
-        return None;
-    }
-
+) -> Result<(f64, DatedCashYieldRisk), String> {
+    positive(clean_price, "clean price")?;
+    let cash = bond.try_cash_flows(settlement).map_err(|e| e.to_string())?;
     let accrued = bond.accrued_interest(settlement);
-
-    let engine = StandardYieldEngine::default();
-    let clean_price_dec = f64_to_decimal(clean_price);
-
-    log(&format!(
-        "Convention yield calc: compounding={:?}, convention={:?}, cash_flows={}, price={}, accrued={}",
-        rules.compounding, rules.convention, cash_flows.len(), clean_price, decimal_to_f64(accrued)
-    ));
-
-    match engine.yield_from_price(&cash_flows, clean_price_dec, accrued, settlement, rules) {
-        Ok(result) => {
-            log(&format!(
-                "Convention yield result: {:.6} ({:.4}%)",
-                result.yield_value,
-                result.yield_value * 100.0
-            ));
-            Some(result.yield_value)
-        }
-        Err(e) => {
-            log(&format!("Convention yield error: {:?}", e));
-            None
-        }
+    let compounding = dated_yield_compounding(rules)?;
+    // Validate native cash and contextual day count before running the retained solver.
+    dated_cash_yield_risk(
+        &cash,
+        settlement,
+        0.0,
+        rules.discount_day_count,
+        compounding,
+    )
+    .map_err(|e| e.to_string())?;
+    let result = StandardYieldEngine::default()
+        .yield_from_price(
+            &cash,
+            f64_to_decimal(clean_price)?,
+            accrued,
+            settlement,
+            rules,
+        )
+        .map_err(|e| format!("Convention yield failed: {e}"))?;
+    let rate = finite(result.yield_value, "dated yield")?;
+    let risk = dated_cash_yield_risk(
+        &cash,
+        settlement,
+        rate,
+        rules.discount_day_count,
+        compounding,
+    )
+    .map_err(|e| e.to_string())?;
+    let target = finite(clean_price + decimal_to_f64(accrued)?, "dirty yield target")?;
+    if (risk.present_value - target).abs() > 1e-8 {
+        return Err("Dated yield failed the unchanged absolute per100 repricing bound1e-8".into());
     }
-}
-
-/// Convert a YAS-engine result into the wire-format AnalysisResult, including convention info.
-pub(crate) fn convert_yas_result(
-    result: &YASResult,
-    bond: &FixedRateBond,
-    settlement: Date,
-    rules: &YieldCalculationRules,
-    bond_params: &BondParams,
-) -> AnalysisResult {
-    let (days_to_mat, years_to_mat) = match bond.maturity() {
-        Some(maturity) => {
-            let days = settlement.days_between(&maturity);
-            (days, days as f64 / 365.0)
-        }
-        None => (0, 0.0),
-    };
-
-    let clean_price = decimal_to_f64(result.invoice.clean_price);
-    let accrued = decimal_to_f64(result.invoice.accrued_interest);
-    let dirty_price = decimal_to_f64(result.invoice.dirty_price);
-
-    let market_display = bond_params
-        .market
-        .as_ref()
-        .map(|s| format_market_name(parse_market(s)));
-    let instrument_display = bond_params
-        .instrument_type
-        .as_ref()
-        .map(|s| format_instrument_type(parse_instrument_type(s)));
-
-    let is_ex_dividend = if let Some(ref ex_rules) = rules.ex_dividend_rules {
-        if let Some(next_coupon) = bond.next_coupon_date(settlement) {
-            let days_to_coupon = settlement.days_between(&next_coupon);
-            days_to_coupon <= ex_rules.days as i64
-        } else {
-            false
-        }
-    } else {
-        false
-    };
-
-    AnalysisResult {
-        clean_price: Some(clean_price),
-        dirty_price: Some(dirty_price),
-        accrued_interest: Some(accrued),
-
-        ytm: Some(decimal_to_f64(result.ytm)),
-        current_yield: Some(decimal_to_f64(result.current_yield)),
-        simple_yield: Some(decimal_to_f64(result.simple_yield)),
-        money_market_yield: result.money_market_yield.map(decimal_to_f64),
-
-        ytc: None,
-        ytw: None,
-        workout_date: None,
-        workout_price: None,
-
-        modified_duration: Some(decimal_to_f64(result.modified_duration())),
-        macaulay_duration: Some(decimal_to_f64(result.risk.macaulay_duration.years())),
-        convexity: Some(decimal_to_f64(result.convexity())),
-        dv01: Some(decimal_to_f64(result.dv01())),
-
-        g_spread: Some(decimal_to_f64(result.g_spread.as_bps())),
-        benchmark_spread: Some(decimal_to_f64(result.benchmark_spread.as_bps())),
-        benchmark_tenor: Some(result.benchmark_tenor.clone()),
-        z_spread: Some(decimal_to_f64(result.z_spread.as_bps())),
-        asw_spread: result
-            .asw_spread
-            .as_ref()
-            .map(|s| decimal_to_f64(s.as_bps())),
-        oas: None,
-
-        effective_duration: None,
-        effective_convexity: None,
-        option_value: None,
-
-        days_to_maturity: Some(days_to_mat),
-        years_to_maturity: Some(years_to_mat),
-        is_callable: None,
-
-        market: market_display,
-        instrument_type: instrument_display,
-        yield_convention: Some(format_yield_convention(rules.convention)),
-        compounding_method: Some(format_compounding(rules.compounding)),
-        settlement_days: Some(rules.settlement_rules.days),
-        ex_dividend_days: rules.ex_dividend_rules.as_ref().map(|r| r.days),
-        is_ex_dividend: Some(is_ex_dividend),
-
-        error: None,
-    }
+    Ok((rate, risk))
 }
 
 #[cfg(test)]
@@ -340,8 +317,6 @@ mod tests {
             day_count: Some("30/360".to_string()),
             currency: Some("USD".to_string()),
             first_coupon_date: None,
-            call_schedule: None,
-            volatility: None,
             market: None,
             instrument_type: None,
             yield_convention: None,
@@ -353,7 +328,7 @@ mod tests {
 
         let bond = create_bond(&params).unwrap();
         // Coupon rate stored as decimal (0.05 for 5%)
-        assert_eq!(decimal_to_f64(bond.coupon_rate()), 0.05);
+        assert_eq!(decimal_to_f64(bond.coupon_rate()).unwrap(), 0.05);
     }
 
     #[test]

@@ -13,7 +13,7 @@ export interface WebSocketMessage {
   instrument_id?: string;
   etf_id?: string;
   portfolio_id?: string;
-  timestamp?: string;
+  timestamp?: number;
 }
 
 // Bond quote update message
@@ -28,7 +28,7 @@ export interface BondQuoteMessage {
   z_spread_mid?: number;
   i_spread_mid?: number;
   dv01?: number;
-  timestamp: string;
+  timestamp: number;
 }
 
 // ETF quote update message
@@ -41,18 +41,30 @@ export interface EtfQuoteMessage {
   holdings_count: number;
   weighted_duration: number;
   weighted_yield: number;
-  timestamp: string;
+  timestamp: number;
 }
 
-// Portfolio update message
-export interface PortfolioMessage {
+// Exact portfolio payload published by the native server.
+export interface PortfolioAnalyticsMessage {
   type: 'portfolio_analytics';
   portfolio_id: string;
-  total_market_value: number;
-  modified_duration: number;
-  weighted_yield: number;
-  dv01: number;
-  timestamp: string;
+  name: string;
+  currency: string;
+  market_value: string;
+  num_positions: number;
+  duration: string;
+  convexity: string;
+  yield_value: string;
+  spread: string;
+  dv01: string;
+  key_rate_durations: Array<[string, string | null]>;
+  key_rate_coverage: Array<[string, number]>;
+  sector_breakdown: Array<[string, string]>;
+  sector_coverage: number;
+  rating_breakdown: Array<[string, string]>;
+  rating_coverage: number;
+  settlement_date: string;
+  timestamp: number;
 }
 
 // Connection state

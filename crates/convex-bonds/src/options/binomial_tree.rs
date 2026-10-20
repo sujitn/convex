@@ -3,6 +3,7 @@
 //! Provides a recombining binomial tree structure for pricing bonds with
 //! embedded options using backward induction.
 
+use convex_math::portable;
 /// A binomial interest rate tree.
 ///
 /// The tree represents possible short rate paths over time, with each node
@@ -114,7 +115,7 @@ impl BinomialTree {
     #[must_use]
     pub fn discount_factor(&self, time_step: usize, state: usize, spread: f64) -> f64 {
         let rate = self.rates[time_step][state] + spread;
-        (-rate * self.dt).exp()
+        portable::exp(-rate * self.dt)
     }
 
     /// Returns the number of states at the given time step.

@@ -7,16 +7,29 @@
 //! - JSON-based curve input source
 //! - CSV-based index fixing source
 //!
-//! For production real-time market data, use Bloomberg or Refinitiv extensions.
+//! Sequenced quote replay is available through `FileQuoteReplay`. Live provider
+//! adapters require separate product and entitlement certification.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+mod fixing_repository;
 mod market_data;
 mod reference_data;
+mod reference_import;
+mod reference_repository;
+mod replay;
+mod result_publisher;
+mod snapshot_repository;
 
+pub use fixing_repository::*;
 pub use market_data::*;
 pub use reference_data::*;
+pub use reference_import::*;
+pub use reference_repository::*;
+pub use replay::*;
+pub use result_publisher::*;
+pub use snapshot_repository::*;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -47,16 +60,14 @@ pub fn create_file_market_data(
     })
 }
 
-/// Create a file-based reference data provider.
-pub fn create_file_reference_data(
-    bonds_csv: impl AsRef<Path>,
-) -> Result<ReferenceDataProvider, TraitError> {
-    Ok(ReferenceDataProvider {
-        bonds: Arc::new(CsvBondReferenceSource::new(bonds_csv)?),
+/// Create empty auxiliary reference sources for explicit demo/test composition.
+/// Bond reference terms always come from the configured repository.
+pub fn create_empty_reference_data() -> ReferenceDataProvider {
+    ReferenceDataProvider {
         issuers: Arc::new(EmptyIssuerReferenceSource),
         ratings: Arc::new(EmptyRatingSource),
         etf_holdings: Arc::new(EmptyEtfHoldingsSource),
-    })
+    }
 }
 
 /// Create an empty output publisher (for testing/development).
