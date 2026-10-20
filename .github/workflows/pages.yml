@@ -3,6 +3,12 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  # Pull requests touching the browser app build and test it without deploying.
+  pull_request:
+    paths:
+      - 'www/**'
+      - 'crates/convex-wasm/**'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -13,7 +19,7 @@ permissions:
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 concurrency:
-  group: "pages"
+  group: "pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}"
   cancel-in-progress: false
 
 jobs:
@@ -34,32 +40,45 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: www/package-lock.json
 
+      # The browser app loads the engine in a Web Worker (--target web); the
+      # Node build runs the same wasm under the request-builder tests.
       - name: Build WASM module
-        run: wasm-pack build crates/convex-wasm --target bundler --out-dir ../../www/pkg
+        run: |
+          wasm-pack build crates/convex-wasm --target web --release --out-dir ../../www/pkg
+          wasm-pack build crates/convex-wasm --target nodejs --release --out-dir ../../www/.engine-node
 
       - name: Install npm dependencies
         working-directory: www
         run: npm ci
+
+      - name: Test web application
+        working-directory: www
+        run: |
+          npm test
+          npm run test:engine
 
       - name: Build web application
         working-directory: www
         run: npm run build
 
       - name: Setup Pages
+        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v6
         with:
           enablement: true
 
       - name: Upload artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5
         with:
           path: www/dist
 
   deploy:
+    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
