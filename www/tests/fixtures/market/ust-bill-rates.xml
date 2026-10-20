@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<feed xml:base="https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml" xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" xmlns="http://www.w3.org/2005/Atom"> 
+<title type="text">DailyTreasuryBillRateData</title>
+<id>https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates</id>
+  <updated>2026-10-20T16:10:56Z</updated>
+  <link rel="self" title="DailyTreasuryBillRateData" href="DailyTreasuryBillRateData"/>
+<entry>
+<id>https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates&amp;id=328</id>
+<title type="text"></title>
+<updated>2026-10-20T16:10:56Z</updated>
+<author><name /></author>
+<link rel="edit" title="DailyTreasuryBillRateDatum" href="/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates&amp;id=328" />
+<category term="TreasuryDataWarehouseModel.DailyTreasuryBillRateDatum" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+<content type="application/xml">
+<m:properties>
+<d:DailyTreasuryBillRateDataId m:type="Edm.Int32">328</d:DailyTreasuryBillRateDataId>
+<d:INDEX_DATE m:type="Edm.DateTime">2026-10-01T00:00:00</d:INDEX_DATE>
+<d:ROUND_B1_CLOSE_4WK_2 m:type="Edm.Double">3.89</d:ROUND_B1_CLOSE_4WK_2>
+<d:ROUND_B1_YIELD_4WK_2 m:type="Edm.Double">3.96</d:ROUND_B1_YIELD_4WK_2>
+<d:ROUND_B1_CLOSE_6WK_2 m:type="Edm.Double">3.92</d:ROUND_B1_CLOSE_6WK_2>
+<d:ROUND_B1_YIELD_6WK_2 m:type="Edm.Double">3.99</d:ROUND_B1_YIELD_6WK_2>
+<d:ROUND_B1_CLOSE_8WK_2 m:type="Edm.Double">3.98</d:ROUND_B1_CLOSE_8WK_2>
+<d:ROUND_B1_YIELD_8WK_2 m:type="Edm.Double">4.06</d:ROUND_B1_YIELD_8WK_2>
+<d:ROUND_B1_CLOSE_13WK_2 m:type="Edm.Double">4.00</d:ROUND_B1_CLOSE_13WK_2>
+<d:ROUND_B1_YIELD_13WK_2 m:type="Edm.Double">4.10</d:ROUND_B1_YIELD_13WK_2>
+<d:ROUND_B1_CLOSE_17WK_2 m:type="Edm.Double">4.08</d:ROUND_B1_CLOSE_17WK_2>
+<d:ROUND_B1_YIELD_17WK_2 m:type="Edm.Double">4.19</d:ROUND_B1_YIELD_17WK_2>
+<d:ROUND_B1_CLOSE_26WK_2 m:type="Edm.Double">4.13</d:ROUND_B1_CLOSE_26WK_2>
+<d:ROUND_B1_YIELD_26WK_2 m:type="Edm.Double">4.28</d:ROUND_B1_YIELD_26WK_2>
+<d:ROUND_B1_CLOSE_52WK_2 m:type="Edm.Double">4.24</d:ROUND_B1_CLOSE_52WK_2>
+<d:ROUND_B1_YIELD_52WK_2 m:type="Edm.Double">4.44</d:ROUND_B1_YIELD_52WK_2>
+<d:BOND_MKT_UNAVAIL_REASON></d:BOND_MKT_UNAVAIL_REASON>
+<d:MATURITY_DATE_4WK m:type="Edm.DateTime">2026-11-03T00:00:00</d:MATURITY_DATE_4WK>
+<d:MATURITY_DATE_6WK m:type="Edm.DateTime">2026-11-12T00:00:00</d:MATURITY_DATE_6WK>
+<d:MATURITY_DATE_8WK m:type="Edm.DateTime">2026-12-01T00:00:00</d:MATURITY_DATE_8WK>
+<d:MATURITY_DATE_13WK m:type="Edm.DateTime">2026-12-31T00:00:00</d:MATURITY_DATE_13WK>
+<d:MATURITY_DATE_17WK m:type="Edm.DateTime">2027-02-02T00:00:00</d:MATURITY_DATE_17WK>
+<d:MATURITY_DATE_26WK m:type="Edm.DateTime">2027-04-01T00:00:00</d:MATURITY_DATE_26WK>
+<d:MATURITY_DATE_52WK m:type="Edm.DateTime">2027-09-30T00:00:00</d:MATURITY_DATE_52WK>
+<d:CUSIP_4WK>912797VP9</d:CUSIP_4WK>
+<d:CUSIP_6WK>912797UY1</d:CUSIP_6WK>
+<d:CUSIP_8WK>912797VZ7</d:CUSIP_8WK>
+<d:CUSIP_13WK>912797VJ3</d:CUSIP_13WK>
+<d:CUSIP_17WK>912797WS2</d:CUSIP_17WK>
+<d:CUSIP_26WK>912797WM5</d:CUSIP_26WK>
+<d:CUSIP_52WK>912797WJ2</d:CUSIP_52WK>
+<d:QUOTE_DATE m:type="Edm.DateTime">2026-10-01T00:00:00</d:QUOTE_DATE>
+<d:CF_NEW_DATE>10/01/2026</d:CF_NEW_DATE>
+<d:CS_4WK_CLOSE_AVG m:type="Edm.Double">3.89</d:CS_4WK_CLOSE_AVG>
+<d:CS_4WK_YIELD_AVG m:type="Edm.Double">3.96</d:CS_4WK_YIELD_AVG>
+<d:CS_6WK_CLOSE_AVG m:type="Edm.Double">3.92</d:CS_6WK_CLOSE_AVG>
+<d:CS_6WK_YIELD_AVG m:type="Edm.Double">3.99</d:CS_6WK_YIELD_AVG>
+<d:CS_8WK_CLOSE_AVG m:type="Edm.Double">3.98</d:CS_8WK_CLOSE_AVG>
+<d:CS_8WK_YIELD_AVG m:type="Edm.Double">4.06</d:CS_8WK_YIELD_AVG>
+<d:CS_13WK_CLOSE_AVG m:type="Edm.Double">4.00</d:CS_13WK_CLOSE_AVG>
+<d:CS_13WK_YIELD_AVG m:type="Edm.Double">4.10</d:CS_13WK_YIELD_AVG>
+<d:CS_17WK_CLOSE_AVG m:type="Edm.Double">4.08</d:CS_17WK_CLOSE_AVG>
+<d:CS_17WK_YIELD_AVG m:type="Edm.Double">4.19</d:CS_17WK_YIELD_AVG>
+<d:CS_26WK_CLOSE_AVG m:type="Edm.Double">4.13</d:CS_26WK_CLOSE_AVG>
+<d:CS_26WK_YIELD_AVG m:type="Edm.Double">4.28</d:CS_26WK_YIELD_AVG>
+<d:CS_52WK_CLOSE_AVG m:type="Edm.Double">4.24</d:CS_52WK_CLOSE_AVG>
+<d:CS_52WK_YIELD_AVG m:type="Edm.Double">4.44</d:CS_52WK_YIELD_AVG>
+<d:CF_WEEK  m:type="Edm.Int32">202640</d:CF_WEEK>
+</m:properties>
+</content>
+</entry>
+<entry>
+<id>https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates&amp;id=329</id>
+<title type="text"></title>
+<updated>2026-10-20T16:10:56Z</updated>
+<author><name /></author>
+<link rel="edit" title="DailyTreasuryBillRateDatum" href="/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates&amp;id=329" />
+<category term="TreasuryDataWarehouseModel.DailyTreasuryBillRateDatum" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+<content type="application/xml">
+<m:properties>
+<d:DailyTreasuryBillRateDataId m:type="Edm.Int32">329</d:DailyTreasuryBillRateDataId>
+<d:INDEX_DATE m:type="Edm.DateTime">2026-10-02T00:00:00</d:INDEX_DATE>
+<d:ROUND_B1_CLOSE_4WK_2 m:type="Edm.Double">3.88</d:ROUND_B1_CLOSE_4WK_2>
+<d:ROUND_B1_YIELD_4WK_2 m:type="Edm.Double">3.95</d:ROUND_B1_YIELD_4WK_2>
+<d:ROUND_B1_CLOSE_6WK_2 m:type="Edm.Double">3.91</d:ROUND_B1_CLOSE_6WK_2>
+<d:ROUND_B1_YIELD_6WK_2 m:type="Edm.Double">3.98</d:ROUND_B1_YIELD_6WK_2>
+<d:ROUND_B1_CLOSE_8WK_2 m:type="Edm.Double">3.96</d:ROUND_B1_CLOSE_8WK_2>
+<d:ROUND_B1_YIELD_8WK_2 m:type="Edm.Double">4.04</d:ROUND_B1_YIELD_8WK_2>
+<d:ROUND_B1_CLOSE_13WK_2 m:type="Edm.Double">4.01</d:ROUND_B1_CLOSE_13WK_2>
+<d:ROUND_B1_YIELD_13WK_2 m:type="Edm.Double">4.11</d:ROUND_B1_YIELD_13WK_2>
+<d:ROUND_B1_CLOSE_17WK_2 m:type="Edm.Double">4.08</d:ROUND_B1_CLOSE_17WK_2>
+<d:ROUND_B1_YIELD_17WK_2 m:type="Edm.Double">4.19</d:ROUND_B1_YIELD_17WK_2>
+<d:ROUND_B1_CLOSE_26WK_2 m:type="Edm.Double">4.14</d:ROUND_B1_CLOSE_26WK_2>
+<d:ROUND_B1_YIELD_26WK_2 m:type="Edm.Double">4.29</d:ROUND_B1_YIELD_26WK_2>
+<d:ROUND_B1_CLOSE_52WK_2 m:type="Edm.Double">4.26</d:ROUND_B1_CLOSE_52WK_2>
+<d:ROUND_B1_YIELD_52WK_2 m:type="Edm.Double">4.46</d:ROUND_B1_YIELD_52WK_2>
+<d:BOND_MKT_UNAVAIL_REASON></d:BOND_MKT_UNAVAIL_REASON>
+<d:MATURITY_DATE_4WK m:type="Edm.DateTime">2026-11-03T00:00:00</d:MATURITY_DATE_4WK>
+<d:MATURITY_DATE_6WK m:type="Edm.DateTime">2026-11-12T00:00:00</d:MATURITY_DATE_6WK>
+<d:MATURITY_DATE_8WK m:type="Edm.DateTime">2026-12-01T00:00:00</d:MATURITY_DATE_8WK>
+<d:MATURITY_DATE_13WK m:type="Edm.DateTime">2026-12-31T00:00:00</d:MATURITY_DATE_13WK>
+<d:MATURITY_DATE_17WK m:type="Edm.DateTime">2027-02-02T00:00:00</d:MATURITY_DATE_17WK>
+<d:MATURITY_DATE_26WK m:type="Edm.DateTime">2027-04-01T00:00:00</d:MATURITY_DATE_26WK>
+<d:MATURITY_DATE_52WK m:type="Edm.DateTime">2027-09-30T00:00:00</d:MATURITY_DATE_52WK>
+<d:CUSIP_4WK>912797VP9</d:CUSIP_4WK>
+<d:CUSIP_6WK>912797UY1</d:CUSIP_6WK>
+<d:CUSIP_8WK>912797VZ7</d:CUSIP_8WK>
+<d:CUSIP_13WK>912797VJ3</d:CUSIP_13WK>
+<d:CUSIP_17WK>912797WS2</d:CUSIP_17WK>
+<d:CUSIP_26WK>912797WM5</d:CUSIP_26WK>
+<d:CUSIP_52WK>912797WJ2</d:CUSIP_52WK>
+<d:QUOTE_DATE m:type="Edm.DateTime">2026-10-02T00:00:00</d:QUOTE_DATE>
+<d:CF_NEW_DATE>10/02/2026</d:CF_NEW_DATE>
+<d:CS_4WK_CLOSE_AVG m:type="Edm.Double">3.89</d:CS_4WK_CLOSE_AVG>
+<d:CS_4WK_YIELD_AVG m:type="Edm.Double">3.96</d:CS_4WK_YIELD_AVG>
+<d:CS_6WK_CLOSE_AVG m:type="Edm.Double">3.92</d:CS_6WK_CLOSE_AVG>
+<d:CS_6WK_YIELD_AVG m:type="Edm.Double">3.99</d:CS_6WK_YIELD_AVG>
+<d:CS_8WK_CLOSE_AVG m:type="Edm.Double">3.97</d:CS_8WK_CLOSE_AVG>
+<d:CS_8WK_YIELD_AVG m:type="Edm.Double">4.05</d:CS_8WK_YIELD_AVG>
+<d:CS_13WK_CLOSE_AVG m:type="Edm.Double">4.01</d:CS_13WK_CLOSE_AVG>
+<d:CS_13WK_YIELD_AVG m:type="Edm.Double">4.11</d:CS_13WK_YIELD_AVG>
+<d:CS_17WK_CLOSE_AVG m:type="Edm.Double">4.08</d:CS_17WK_CLOSE_AVG>
+<d:CS_17WK_YIELD_AVG m:type="Edm.Double">4.19</d:CS_17WK_YIELD_AVG>
+<d:CS_26WK_CLOSE_AVG m:type="Edm.Double">4.14</d:CS_26WK_CLOSE_AVG>
+<d:CS_26WK_YIELD_AVG m:type="Edm.Double">4.29</d:CS_26WK_YIELD_AVG>
+<d:CS_52WK_CLOSE_AVG m:type="Edm.Double">4.25</d:CS_52WK_CLOSE_AVG>
+<d:CS_52WK_YIELD_AVG m:type="Edm.Double">4.45</d:CS_52WK_YIELD_AVG>
+<d:CF_WEEK  m:type="Edm.Int32">202640</d:CF_WEEK>
+</m:properties>
+</content>
+</entry>
+<entry>
+<id>https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates&amp;id=339</id>
+<title type="text"></title>
+<updated>2026-10-20T16:10:56Z</updated>
+<author><name /></author>
+<link rel="edit" title="DailyTreasuryBillRateDatum" href="/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates&amp;id=339" />
+<category term="TreasuryDataWarehouseModel.DailyTreasuryBillRateDatum" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+<content type="application/xml">
+<m:properties>
+<d:DailyTreasuryBillRateDataId m:type="Edm.Int32">339</d:DailyTreasuryBillRateDataId>
+<d:INDEX_DATE m:type="Edm.DateTime">2026-10-19T00:00:00</d:INDEX_DATE>
+<d:ROUND_B1_CLOSE_4WK_2 m:type="Edm.Double">3.94</d:ROUND_B1_CLOSE_4WK_2>
+<d:ROUND_B1_YIELD_4WK_2 m:type="Edm.Double">4.01</d:ROUND_B1_YIELD_4WK_2>
+<d:ROUND_B1_CLOSE_6WK_2 m:type="Edm.Double">3.95</d:ROUND_B1_CLOSE_6WK_2>
+<d:ROUND_B1_YIELD_6WK_2 m:type="Edm.Double">4.02</d:ROUND_B1_YIELD_6WK_2>
+<d:ROUND_B1_CLOSE_8WK_2 m:type="Edm.Double">4.01</d:ROUND_B1_CLOSE_8WK_2>
+<d:ROUND_B1_YIELD_8WK_2 m:type="Edm.Double">4.09</d:ROUND_B1_YIELD_8WK_2>
+<d:ROUND_B1_CLOSE_13WK_2 m:type="Edm.Double">4.10</d:ROUND_B1_CLOSE_13WK_2>
+<d:ROUND_B1_YIELD_13WK_2 m:type="Edm.Double">4.20</d:ROUND_B1_YIELD_13WK_2>
+<d:ROUND_B1_CLOSE_17WK_2 m:type="Edm.Double">4.15</d:ROUND_B1_CLOSE_17WK_2>
+<d:ROUND_B1_YIELD_17WK_2 m:type="Edm.Double">4.27</d:ROUND_B1_YIELD_17WK_2>
+<d:ROUND_B1_CLOSE_26WK_2 m:type="Edm.Double">4.23</d:ROUND_B1_CLOSE_26WK_2>
+<d:ROUND_B1_YIELD_26WK_2 m:type="Edm.Double">4.38</d:ROUND_B1_YIELD_26WK_2>
+<d:ROUND_B1_CLOSE_52WK_2 m:type="Edm.Double">4.27</d:ROUND_B1_CLOSE_52WK_2>
+<d:ROUND_B1_YIELD_52WK_2 m:type="Edm.Double">4.47</d:ROUND_B1_YIELD_52WK_2>
+<d:BOND_MKT_UNAVAIL_REASON></d:BOND_MKT_UNAVAIL_REASON>
+<d:MATURITY_DATE_4WK m:type="Edm.DateTime">2026-11-17T00:00:00</d:MATURITY_DATE_4WK>
+<d:MATURITY_DATE_6WK m:type="Edm.DateTime">2026-11-27T00:00:00</d:MATURITY_DATE_6WK>
+<d:MATURITY_DATE_8WK m:type="Edm.DateTime">2026-12-15T00:00:00</d:MATURITY_DATE_8WK>
+<d:MATURITY_DATE_13WK m:type="Edm.DateTime">2027-01-21T00:00:00</d:MATURITY_DATE_13WK>
+<d:MATURITY_DATE_17WK m:type="Edm.DateTime">2027-02-16T00:00:00</d:MATURITY_DATE_17WK>
+<d:MATURITY_DATE_26WK m:type="Edm.DateTime">2027-04-22T00:00:00</d:MATURITY_DATE_26WK>
+<d:MATURITY_DATE_52WK m:type="Edm.DateTime">2027-09-30T00:00:00</d:MATURITY_DATE_52WK>
+<d:CUSIP_4WK>912797VX2</d:CUSIP_4WK>
+<d:CUSIP_6WK>912797SU2</d:CUSIP_6WK>
+<d:CUSIP_8WK>912797WF0</d:CUSIP_8WK>
+<d:CUSIP_13WK>912797TM9</d:CUSIP_13WK>
+<d:CUSIP_17WK>912797WZ6</d:CUSIP_17WK>
+<d:CUSIP_26WK>912797WV5</d:CUSIP_26WK>
+<d:CUSIP_52WK>912797WJ2</d:CUSIP_52WK>
+<d:QUOTE_DATE m:type="Edm.DateTime">2026-10-19T00:00:00</d:QUOTE_DATE>
+<d:CF_NEW_DATE>10/19/2026</d:CF_NEW_DATE>
+<d:CS_4WK_CLOSE_AVG m:type="Edm.Double">3.94</d:CS_4WK_CLOSE_AVG>
+<d:CS_4WK_YIELD_AVG m:type="Edm.Double">4.01</d:CS_4WK_YIELD_AVG>
+<d:CS_6WK_CLOSE_AVG m:type="Edm.Double">3.95</d:CS_6WK_CLOSE_AVG>
+<d:CS_6WK_YIELD_AVG m:type="Edm.Double">4.02</d:CS_6WK_YIELD_AVG>
+<d:CS_8WK_CLOSE_AVG m:type="Edm.Double">4.01</d:CS_8WK_CLOSE_AVG>
+<d:CS_8WK_YIELD_AVG m:type="Edm.Double">4.09</d:CS_8WK_YIELD_AVG>
+<d:CS_13WK_CLOSE_AVG m:type="Edm.Double">4.10</d:CS_13WK_CLOSE_AVG>
+<d:CS_13WK_YIELD_AVG m:type="Edm.Double">4.20</d:CS_13WK_YIELD_AVG>
+<d:CS_17WK_CLOSE_AVG m:type="Edm.Double">4.15</d:CS_17WK_CLOSE_AVG>
+<d:CS_17WK_YIELD_AVG m:type="Edm.Double">4.27</d:CS_17WK_YIELD_AVG>
+<d:CS_26WK_CLOSE_AVG m:type="Edm.Double">4.23</d:CS_26WK_CLOSE_AVG>
+<d:CS_26WK_YIELD_AVG m:type="Edm.Double">4.38</d:CS_26WK_YIELD_AVG>
+<d:CS_52WK_CLOSE_AVG m:type="Edm.Double">4.27</d:CS_52WK_CLOSE_AVG>
+<d:CS_52WK_YIELD_AVG m:type="Edm.Double">4.47</d:CS_52WK_YIELD_AVG>
+<d:CF_WEEK  m:type="Edm.Int32">202643</d:CF_WEEK>
+</m:properties>
+</content>
+</entry>
+<entry>
+<id>https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates&amp;id=340</id>
+<title type="text"></title>
+<updated>2026-10-20T16:10:56Z</updated>
+<author><name /></author>
+<link rel="edit" title="DailyTreasuryBillRateDatum" href="/resource-center/data-chart-center/interest-rates/pages/xml-item?data=daily_treasury_bill_rates&amp;id=340" />
+<category term="TreasuryDataWarehouseModel.DailyTreasuryBillRateDatum" scheme="http://schemas.microsoft.com/ado/2007/08/dataservices/scheme" />
+<content type="application/xml">
+<m:properties>
+<d:DailyTreasuryBillRateDataId m:type="Edm.Int32">340</d:DailyTreasuryBillRateDataId>
+<d:INDEX_DATE m:type="Edm.DateTime">2026-10-20T00:00:00</d:INDEX_DATE>
+<d:ROUND_B1_CLOSE_4WK_2 m:type="Edm.Double">3.93</d:ROUND_B1_CLOSE_4WK_2>
+<d:ROUND_B1_YIELD_4WK_2 m:type="Edm.Double">4.00</d:ROUND_B1_YIELD_4WK_2>
+<d:ROUND_B1_CLOSE_6WK_2 m:type="Edm.Double">3.98</d:ROUND_B1_CLOSE_6WK_2>
+<d:ROUND_B1_YIELD_6WK_2 m:type="Edm.Double">4.05</d:ROUND_B1_YIELD_6WK_2>
+<d:ROUND_B1_CLOSE_8WK_2 m:type="Edm.Double">4.00</d:ROUND_B1_CLOSE_8WK_2>
+<d:ROUND_B1_YIELD_8WK_2 m:type="Edm.Double">4.08</d:ROUND_B1_YIELD_8WK_2>
+<d:ROUND_B1_CLOSE_13WK_2 m:type="Edm.Double">4.08</d:ROUND_B1_CLOSE_13WK_2>
+<d:ROUND_B1_YIELD_13WK_2 m:type="Edm.Double">4.18</d:ROUND_B1_YIELD_13WK_2>
+<d:ROUND_B1_CLOSE_17WK_2 m:type="Edm.Double">4.15</d:ROUND_B1_CLOSE_17WK_2>
+<d:ROUND_B1_YIELD_17WK_2 m:type="Edm.Double">4.27</d:ROUND_B1_YIELD_17WK_2>
+<d:ROUND_B1_CLOSE_26WK_2 m:type="Edm.Double">4.22</d:ROUND_B1_CLOSE_26WK_2>
+<d:ROUND_B1_YIELD_26WK_2 m:type="Edm.Double">4.37</d:ROUND_B1_YIELD_26WK_2>
+<d:ROUND_B1_CLOSE_52WK_2 m:type="Edm.Double">4.28</d:ROUND_B1_CLOSE_52WK_2>
+<d:ROUND_B1_YIELD_52WK_2 m:type="Edm.Double">4.48</d:ROUND_B1_YIELD_52WK_2>
+<d:BOND_MKT_UNAVAIL_REASON></d:BOND_MKT_UNAVAIL_REASON>
+<d:MATURITY_DATE_4WK m:type="Edm.DateTime">2026-11-17T00:00:00</d:MATURITY_DATE_4WK>
+<d:MATURITY_DATE_6WK m:type="Edm.DateTime">2026-12-03T00:00:00</d:MATURITY_DATE_6WK>
+<d:MATURITY_DATE_8WK m:type="Edm.DateTime">2026-12-15T00:00:00</d:MATURITY_DATE_8WK>
+<d:MATURITY_DATE_13WK m:type="Edm.DateTime">2027-01-21T00:00:00</d:MATURITY_DATE_13WK>
+<d:MATURITY_DATE_17WK m:type="Edm.DateTime">2027-02-16T00:00:00</d:MATURITY_DATE_17WK>
+<d:MATURITY_DATE_26WK m:type="Edm.DateTime">2027-04-22T00:00:00</d:MATURITY_DATE_26WK>
+<d:MATURITY_DATE_52WK m:type="Edm.DateTime">2027-09-30T00:00:00</d:MATURITY_DATE_52WK>
+<d:CUSIP_4WK>912797VX2</d:CUSIP_4WK>
+<d:CUSIP_6WK>912797VA2</d:CUSIP_6WK>
+<d:CUSIP_8WK>912797WF0</d:CUSIP_8WK>
+<d:CUSIP_13WK>912797TM9</d:CUSIP_13WK>
+<d:CUSIP_17WK>912797WZ6</d:CUSIP_17WK>
+<d:CUSIP_26WK>912797WV5</d:CUSIP_26WK>
+<d:CUSIP_52WK>912797WJ2</d:CUSIP_52WK>
+<d:QUOTE_DATE m:type="Edm.DateTime">2026-10-20T00:00:00</d:QUOTE_DATE>
+<d:CF_NEW_DATE>10/20/2026</d:CF_NEW_DATE>
+<d:CS_4WK_CLOSE_AVG m:type="Edm.Double">3.94</d:CS_4WK_CLOSE_AVG>
+<d:CS_4WK_YIELD_AVG m:type="Edm.Double">4.01</d:CS_4WK_YIELD_AVG>
+<d:CS_6WK_CLOSE_AVG m:type="Edm.Double">3.97</d:CS_6WK_CLOSE_AVG>
+<d:CS_6WK_YIELD_AVG m:type="Edm.Double">4.04</d:CS_6WK_YIELD_AVG>
+<d:CS_8WK_CLOSE_AVG m:type="Edm.Double">4.01</d:CS_8WK_CLOSE_AVG>
+<d:CS_8WK_YIELD_AVG m:type="Edm.Double">4.09</d:CS_8WK_YIELD_AVG>
+<d:CS_13WK_CLOSE_AVG m:type="Edm.Double">4.09</d:CS_13WK_CLOSE_AVG>
+<d:CS_13WK_YIELD_AVG m:type="Edm.Double">4.19</d:CS_13WK_YIELD_AVG>
+<d:CS_17WK_CLOSE_AVG m:type="Edm.Double">4.15</d:CS_17WK_CLOSE_AVG>
+<d:CS_17WK_YIELD_AVG m:type="Edm.Double">4.27</d:CS_17WK_YIELD_AVG>
+<d:CS_26WK_CLOSE_AVG m:type="Edm.Double">4.23</d:CS_26WK_CLOSE_AVG>
+<d:CS_26WK_YIELD_AVG m:type="Edm.Double">4.38</d:CS_26WK_YIELD_AVG>
+<d:CS_52WK_CLOSE_AVG m:type="Edm.Double">4.28</d:CS_52WK_CLOSE_AVG>
+<d:CS_52WK_YIELD_AVG m:type="Edm.Double">4.48</d:CS_52WK_YIELD_AVG>
+<d:CF_WEEK  m:type="Edm.Int32">202643</d:CF_WEEK>
+</m:properties>
+</content>
+</entry>
+</feed>
