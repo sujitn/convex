@@ -32,7 +32,7 @@ namespace Convex.Excel.Tests
             {
                 string request = example["request"]!.ToString(Newtonsoft.Json.Formatting.None);
                 string native = Cx.Library(request);
-                string ranged = LibraryCells.Join(LibraryCells.Split(native));
+                string ranged = ResponseCells.Join(LibraryCells.Split(native));
                 Assert.Equal(native, ranged);
                 var result = JObject.Parse(native);
                 Assert.Equal(example["expected_error"]!.Type == JTokenType.Null ? "true" : "false", (string?)result["ok"]);

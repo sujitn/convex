@@ -20,7 +20,7 @@ namespace Convex.Excel.Tests
                 string input = LibraryCells.Join(LibraryCells.Split(wire));
                 Assert.Equal(wire, input);
                 string native = Cx.Library(input);
-                Assert.Equal(native, LibraryCells.Join(LibraryCells.Split(native)));
+                Assert.Equal(native, ResponseCells.Join(LibraryCells.Split(native)));
                 var result = JObject.Parse(native);
                 Assert.Equal(example["expected_error"]!.Type == JTokenType.Null ? "true" : "false", (string?)result["ok"]);
                 Assert.True(JToken.DeepEquals(example["expected_envelope"], result), (string?)example["id"]);

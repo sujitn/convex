@@ -31,8 +31,11 @@ namespace Convex.Excel
         {
             if (request is null || request.IndexOf('\0') >= 0)
                 throw new ArgumentException("Library JSON must contain text without embedded NUL.");
-            if (request.Length > InputBytes || new UTF8Encoding(false, true).GetByteCount(request) > InputBytes)
-                throw new ArgumentException("Library input exceeds 2 MiB UTF-8.");
+            if (request.Length > InputBytes) throw new ArgumentException("Library input exceeds 2 MiB UTF-8.");
+            int bytes;
+            try { bytes = new UTF8Encoding(false, true).GetByteCount(request); }
+            catch (EncoderFallbackException) { throw new ArgumentException("Library JSON contains an unpaired UTF-16 surrogate."); }
+            if (bytes > InputBytes) throw new ArgumentException("Library input exceeds 2 MiB UTF-8.");
         }
 
         internal static string Single(string response)

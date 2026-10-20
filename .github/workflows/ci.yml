@@ -2858,8 +2858,17 @@ jobs:
   offline-comparison:
     name: Offline Quantitative Comparison
     runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: '0'
     steps:
+      # The materialized fixtures and four example builds need more space than the stock image leaves free.
+      - name: Free runner disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/share/swift /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
       - uses: actions/checkout@v6
+
+      - name: Materialize packed fixtures
+        run: python3 tools/fixtures.py materialize
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -2874,7 +2883,7 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
-      - name: Check fixture pins and complete manifests
+      - name: Check comparison fixtures and complete manifests
         run: python3 reconciliation/comparison.py check
 
       - name: Prove comparison failures cannot be waived
