@@ -26,7 +26,7 @@ class ValidationOrderTests(unittest.TestCase):
             ), self.assertRaises(coverage.Failure):
                 coverage.validate(candidate)
 
-    def test_valid_metadata_checks_every_exact_source_pin(self):
+    def test_valid_metadata_reads_every_inspected_source(self):
         original = coverage.file_path
         seen = []
 
@@ -36,8 +36,8 @@ class ValidationOrderTests(unittest.TestCase):
 
         with patch.object(coverage, "file_path", side_effect=observed):
             coverage.validate(self.document)
-        self.assertEqual(len(seen), len(self.document["source_pins"]))
-        self.assertEqual(set(seen), set(self.document["source_pins"]))
+        self.assertEqual(len(seen), len(self.document["inspected_sources"]))
+        self.assertEqual(set(seen), set(self.document["inspected_sources"]))
 
     def test_changed_source_between_calls_cannot_use_cached_evidence(self):
         selected = "crates/convex-core/src/cashflows/profiles.rs"
@@ -51,8 +51,8 @@ class ValidationOrderTests(unittest.TestCase):
 
             with patch.object(coverage, "file_path", side_effect=supplied):
                 coverage.validate(self.document)
-                shadow.write_bytes(shadow.read_bytes() + b"\n")
-                with self.assertRaisesRegex(coverage.Failure, "stale inspected source"):
+                shadow.write_bytes(b"// anchors removed\n")
+                with self.assertRaisesRegex(coverage.Failure, "missing inspected anchor"):
                     coverage.validate(self.document)
 
 

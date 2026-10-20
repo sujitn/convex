@@ -2,8 +2,8 @@
 
 The financial regression corpora under `tests/fixtures/library/` total about
 5.9 GB of JSON, mostly near-identical books. Every file of 1 MB or more is
-committed as `<name>.json.xz` (about 14 MB in all) and pinned in
-`tests/fixtures/packed.json` by the SHA-256 and size of its exact JSON bytes.
+committed as `<name>.json.xz` (about 14 MB in all); the archives are the
+source of truth.
 The fixture contents, financial inputs, expected results and tolerances are
 unchanged. They are test inputs, not production server data.
 
@@ -16,14 +16,14 @@ PYTHONDONTWRITEBYTECODE=1 python3 tools/assurance/check.py
 ```
 
 `materialize` writes each `<name>.json` beside its archive, where Git ignores
-it (`tests/fixtures/.gitignore`), and refuses any byte that differs from its
-pin. Rust tests read these files at run time through `tests/fixtures/packed.rs`
+it (`tests/fixtures/.gitignore`), and rewrites a stale copy from its archive.
+xz's own CRC64 check rejects a corrupt archive. Rust tests read these files at run time through `tests/fixtures/packed.rs`
 instead of embedding them with `include_str!`. A missing file fails the test
 with an instruction to run `materialize`; it never skips cases or regenerates
 expected answers.
 
 After deliberately regenerating a packed fixture with its `tests/scripts`
-writer, refresh its archive, pin and ignore entry:
+writer, refresh its archive and ignore entry:
 
 ```sh
 python3 tools/fixtures.py pack tests/fixtures/library/<name>.json

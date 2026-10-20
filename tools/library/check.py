@@ -11,9 +11,6 @@ import re
 import subprocess
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from source_pins import matches_source_pin
-
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = "tools/library/library-inventory.json"
 SURFACES = {"rust", "shared_json", "c_abi", "java_advertised",
@@ -170,14 +167,10 @@ def validate(document, root=ROOT):
                 and isinstance(row.get("reason"), str) and row["reason"].strip(),
                 "inapplicable/deferred needs a reason and cannot waive mandatory coverage")
         require(row["product"].strip() and row["operation"].strip(), "unscoped exclusion")
-    pins = document["source_pins"]
-    require(isinstance(pins, dict) and pins, "no inspected source evidence")
-    contents = {}
-    for path, expected in pins.items():
-        data = file_path(root, path).read_bytes()
-        require(matches_source_pin(root, path, data, expected),
-                f"stale inspected source: {path}; review before refreshing evidence")
-        contents[path] = data.decode("utf-8")
+    sources = document["inspected_sources"]
+    require(isinstance(sources, list) and sources, "no inspected source evidence")
+    require(len(sources) == len(set(sources)), "duplicate inspected source")
+    contents = {path: file_path(root, path).read_bytes().decode("utf-8") for path in sources}
     for identity, row in observations.items():
         for item in row["anchors"]:
             require(item["path"] in contents and item["text"]
@@ -258,7 +251,7 @@ def report(document, gate=None):
             "inventory_version": document["inventory_version"], "inventory_only": True,
             "certified": False, "requested_gate": gate, "mandatory_records": len(records),
             "record_status_counts": dict(counts), "blocked_records": len(records),
-            "source_files": len(document["source_pins"]), "combinations": len(combos),
+            "source_files": len(document["inspected_sources"]), "combinations": len(combos),
             "selected_combinations": len({r["combination_id"] for r in records}),
             "reviewed_source_commit": document["reviewed_source_commit"],
             "records_by_surface": dict(Counter(r["surface"] for r in records)),

@@ -68,7 +68,7 @@ class ComparisonTests(unittest.TestCase):
                 "reference_values": {"day_count": "Act360"}, "candidate_values": {"day_count": "Act365Fixed"},
                 "owner": "comparison test", "reason": "Independent arithmetic identifies the differing denominator.",
                 "reviewed_on": "2026-10-04", "expires_on": "2026-12-31", "tracking_task": "CVX-040",
-                "evidence": {"kind": "analytic_invariant", "artifact": {"path": artifact.name, "sha256": cmp.file_sha(artifact),
+                "evidence": {"kind": "analytic_invariant", "artifact": {"path": artifact.name,
                     "role": "independent arithmetic"}, "explanation": "Exact elapsed-day invariant; not an external-engine certificate."}}
 
     def test_convention_difference_requires_evidence_and_never_passes(self):
@@ -102,7 +102,7 @@ class ComparisonTests(unittest.TestCase):
         row["reference_values"]["day_count"] = "ActActIsda"
         self.rejects(cmp.check_exception, self.root, row, cases, TODAY)
         row = self.convention_exception()
-        row["evidence"]["artifact"]["sha256"] = "0" * 64
+        row["evidence"]["artifact"]["path"] = "missing.txt"
         self.rejects(cmp.check_exception, self.root, row, cases, TODAY)
 
     def test_missing_case_and_unsupported_are_failed_coverage(self):
@@ -177,16 +177,17 @@ class ComparisonTests(unittest.TestCase):
         row["known_at"] = "2024-01-01T00:00:00"
         self.rejects(cmp.check_context, row)
 
-    def test_pin_missing_artifact_and_path_escape_rejected(self):
+    def test_reference_unknown_field_missing_artifact_and_path_escape_rejected(self):
         row = copy.deepcopy(self.pack["artifacts"]["reference"])
         row["sha256"] = "0" * 64
-        self.rejects(cmp.pin, self.root, row)
+        self.rejects(cmp.reference, self.root, row)
+        del row["sha256"]
         for name in ("missing.json", "../reference.json", "/private/tmp/reference.json"):
             row["path"] = name
-            self.rejects(cmp.pin, self.root, row)
+            self.rejects(cmp.reference, self.root, row)
         (self.root / "escape.json").symlink_to(ROOT / "Cargo.toml")
         row["path"] = "escape.json"
-        self.rejects(cmp.pin, self.root, row)
+        self.rejects(cmp.reference, self.root, row)
 
     def test_unknown_reference_and_negative_tolerance_rejected(self):
         row = self.pack["cases"][0]["metrics"]["year_fraction"]
@@ -199,7 +200,7 @@ class ComparisonTests(unittest.TestCase):
     def test_capture_cannot_be_promoted_without_runtime_and_license(self):
         catalog = cmp.read(ROOT / cmp.CATALOG)
         read = cmp.read
-        with patch.object(cmp, "read", side_effect=lambda path: catalog if str(path).endswith(cmp.CATALOG) else read(path)), patch.object(cmp, "pin", return_value=ROOT / "Cargo.toml"):
+        with patch.object(cmp, "read", side_effect=lambda path: catalog if str(path).endswith(cmp.CATALOG) else read(path)), patch.object(cmp, "reference", return_value=ROOT / "Cargo.toml"):
             catalog["comparators"][1]["runtime_capture"]["status"] = "captured"
             self.rejects(cmp.check_catalog, ROOT)
 
@@ -315,10 +316,10 @@ class ComparisonTests(unittest.TestCase):
         self.assertFalse(output['passed'])
         self.assertFalse(output['certified'])
 
-    def test_catalog_cannot_silently_repin_a_changed_tolerance(self):
+    def test_catalog_rejects_missing_pack(self):
         catalog = cmp.read(ROOT / cmp.CATALOG)
         altered = copy.deepcopy(catalog)
-        altered['packs'][0]['sha256'] = '0' * 64
+        altered['packs'][0]['path'] = 'tests/fixtures/comparisons/missing.json'
         read = cmp.read
         with patch.object(cmp, 'read', side_effect=lambda path: altered if str(path).endswith(cmp.CATALOG) else read(path)):
             self.rejects(cmp.check_catalog, ROOT)

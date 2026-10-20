@@ -40,7 +40,7 @@ python3 tools/library/check.py --gate LB1
 ```
 
 Normal checking returns zero only for consistent metadata, complete pending
-mapping and unchanged inspected source bytes. The two `--gate` commands
+mapping and inspected sources that still contain every anchor. The two `--gate` commands
 currently return **one**, with `status: incomplete` and `certified: false`.
 LB1 includes LB0. A source symbol, test name, successful compilation,
 passing subset or populated enum cannot award `Verified`. CVX-064/065 must
@@ -249,7 +249,7 @@ perpetual/hybrid, CDS indices/tranches/options and broader exotics. Their
 label does not authorize accepting these terms as a vanilla approximation.
 
 The checker rejects missing areas/records/surfaces/profiles, duplicate IDs/keys,
-nonfinite JSON, absent owners, stale hashes/anchors, path escapes and mandatory
+nonfinite JSON, absent owners, missing anchors, path escapes and mandatory
 NotApplicable/Deferred/Verified claims. `ImplementedUnverified` additionally
 needs an inspected candidate route/test; partial or declaration-only records
 cannot acquire that status. Validation remains enabled under Python `-O`.

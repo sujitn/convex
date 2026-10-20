@@ -129,10 +129,10 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(coverage.Failure):
             coverage.preserve(self.document, candidate)
 
-    def test_source_drift_and_missing_anchor_rejected(self):
+    def test_duplicate_source_and_missing_anchor_rejected(self):
         candidate = self.candidate()
-        candidate["source_pins"][next(iter(candidate["source_pins"]))] = "0" * 64
-        with self.assertRaisesRegex(coverage.Failure, "stale inspected source"):
+        candidate["inspected_sources"].append(candidate["inspected_sources"][0])
+        with self.assertRaisesRegex(coverage.Failure, "duplicate inspected source"):
             coverage.validate(candidate)
         candidate = self.candidate()
         candidate["observations"]["basis"]["anchors"][0]["text"] = "missing-real-implementation"

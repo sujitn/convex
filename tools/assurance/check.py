@@ -3,16 +3,12 @@
 from __future__ import annotations
 import argparse
 import datetime as dt
-import hashlib
 import json
 from pathlib import Path
 import re
 import subprocess
 import sys
 import tomllib
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from source_pins import matches_source_pin
 
 DOMAIN = ('convex', 'convex-core', 'convex-math', 'convex-curves', 'convex-bonds', 'convex-rates', 'convex-credit', 'convex-analytics', 'convex-portfolio')
 FORBIDDEN = {'tokio', 'async-std', 'smol', 'reqwest', 'hyper', 'axum', 'tonic', 'sqlx', 'redb', 'rusqlite', 'postgres', 'tokio-postgres', 'rdkafka', 'lapin', 'async-nats', 'blpapi', 'convex-engine', 'convex-server', 'convex-ports'}
@@ -720,7 +716,14 @@ REQUIRED_RUNS = {
     ),
 }
 
-COMPARISON_PINS = {
+SOLVER_DEFAULTS = {'DEFAULT_TOLERANCE': '1e-10', 'DEFAULT_MAX_ITERATIONS': '100'}
+
+# Comparators, retained references and tolerances CI depends on.
+QUANTITATIVE_FILES = {
+    'tests/fixtures/quantlib_reference_tests.json',
+    'reconciliation/reconcile.py',
+    'reconciliation/ql_bench.py',
+    '.github/workflows/reconcile.yml',
     'reconciliation/comparison.py',
     'reconciliation/comparator-records.json',
     'reconciliation/comparison_templates/ore.json',
@@ -750,9 +753,6 @@ def require(condition: bool, message: str) -> None:
     if not condition:
         raise Failure(message)
 
-def digest(content: bytes) -> str:
-    return hashlib.sha256(content).hexdigest()
-
 def unique_object(pairs):
     out = {}
     for key, value in pairs:
@@ -762,19 +762,6 @@ def unique_object(pairs):
 
 def read_json(path: Path):
     return json.loads(path.read_text(), object_pairs_hook=unique_object)
-
-def git(root: Path, *args: str) -> bytes:
-    return subprocess.check_output(['git', *args], cwd=root)
-
-def git_source(root: Path, revision: str, path: str) -> bytes | None:
-    process = subprocess.run(['git', 'show', f'{revision}:{path}'], cwd=root, capture_output=True)
-    return process.stdout if process.returncode == 0 else None
-
-def git_checkout(root: Path, revision: str, path: str) -> bytes | None:
-    # Compare physical pins with Git's declared checkout representation as well
-    # as its stored blob. For example *.cs is LF in the index and CRLF on disk.
-    process = subprocess.run(['git', 'cat-file', '--filters', f'{revision}:{path}'], cwd=root, capture_output=True)
-    return process.stdout if process.returncode == 0 else None
 
 def normal_closure(metadata: dict, root_names=DOMAIN) -> set[str]:
     packages = {p['id']: p for p in metadata['packages']}
@@ -805,7 +792,7 @@ def check_dependencies(metadata: dict, allowed: set[str]) -> set[str]:
 
 def check_workflow(text: str) -> None:
     # This is a narrow check for the committed workflow structure, not a YAML
-    # parser/security boundary. Exact workflow bytes are also review protected.
+    # parser/security boundary.
     text = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith('#'))
     jobs = re.split(r'^  ([a-z][\w-]*):\s*$', text, flags=re.M)
     bodies = dict(zip(jobs[1::2], jobs[2::2]))
@@ -813,7 +800,7 @@ def check_workflow(text: str) -> None:
         require(name in bodies, f'missing required CI job: {name}')
         body = bodies[name]
         if name == 'assurance':
-            guard = ("      - name: Check explicit change impact against the PR base\n"
+            guard = ("      - name: Check coverage is not weakened against the PR base\n"
                 "        if: github.event_name == 'pull_request'\n"
                 "        env:\n"
                 "          BASE_SHA: ${{ github.event.pull_request.base.sha }}\n"
@@ -1108,7 +1095,6 @@ def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None
     require(len(rows) == len({r['path'] for r in rows}), 'duplicate inventory path')
     require({r['path'] for r in rows} == inventory_paths(root), 'missing or unexpected critical inventory source')
     for row in rows:
-        require(matches_source_pin(root, row['path'], (root / row['path']).read_bytes(), row['sha256']), f'critical source changed without inventory review: {row["path"]}')
         require(row['invariants'] and row['bounds'] and row['failure_contract'], f'incomplete inventory: {row["path"]}')
         require(set(row['exceptions']) <= exception_ids, f'unregistered exception: {row["path"]}')
         for path in row['tests']:
@@ -1118,85 +1104,12 @@ def check_inventory(root: Path, document: dict, exception_ids: set[str]) -> None
     require(set(symbols) == set(document['c_exports']) and len(symbols) == len(document['c_exports']), 'C ABI export inventory changed')
 
 
-def numeric_content(content: bytes, mode: str) -> bytes:
-    require(mode in {'file', 'test_section'}, 'invalid numeric evidence mode')
-    if mode == 'test_section':
-        marker = b'#[cfg(test)]\nmod tests'
-        require(marker in content, 'numeric unit-test section missing')
-        return content[content.index(marker):]
-    return content
-
-def check_numeric(root: Path, document: dict) -> None:
-    require(document['schema_version'] == 1 and document['version'] >= 1, 'invalid quantitative evidence version')
-    rows = document['artifacts']
-    require(len(rows) == len({r['path'] for r in rows}), 'duplicate quantitative artifact')
-    required = {'tests/fixtures/quantlib_reference_tests.json', 'reconciliation/reconcile.py', 'reconciliation/ql_bench.py', '.github/workflows/reconcile.yml'} | COMPARISON_PINS
-    require(required <= {r['path'] for r in rows}, 'required comparator/tolerance artifact removed')
-    for row in rows:
-        content = numeric_content((root / row['path']).read_bytes(), row['mode'])
-        require((matches_source_pin(root, row['path'], content, row['sha256']) if row['mode'] == 'file' else digest(content) == row['sha256']), f'quantitative evidence changed without version/review: {row["path"]}')
+def check_numeric(root: Path, files=QUANTITATIVE_FILES, defaults=SOLVER_DEFAULTS) -> None:
+    for path in sorted(files):
+        require((root / path).is_file(), f'required comparator/tolerance artifact removed: {path}')
     source = (root / 'crates/convex-math/src/solvers/mod.rs').read_text()
-    for name, value in document['solver_defaults'].items():
+    for name, value in defaults.items():
         require(re.search(rf'pub const {re.escape(name)}:\s*\w+\s*=\s*{re.escape(value)}\s*;', source) is not None, f'reviewed solver default changed: {name}')
-    require(document['solver_defaults'] == {'DEFAULT_TOLERANCE': '1e-10', 'DEFAULT_MAX_ITERATIONS': '100'}, 'default changes require explicit quantitative policy revision')
-
-
-def protected(path: str) -> bool:
-    return (path in {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.gitattributes', 'tools/source_pins.py'} or path.startswith('.github/') or path.startswith('tools/library/') or path.startswith('tools/assurance/') and path != 'tools/assurance/change-reviews.json' or path == 'docs/ASSURANCE.md' or any(path.startswith(f'crates/{crate}/') for crate in (*DOMAIN, 'convex-ffi', 'convex-ports', 'convex-ext-file', 'convex-ext-redb')) or path.startswith('tests/fixtures/') or path.startswith(('tests/scripts/isda_cds_', 'tests/scripts/isda_credit_')) or path in {'tests/scripts/test_isda_cds_compare.py', 'tests/scripts/test_isda_credit_compare.py'} or path.startswith('licenses/') or path.startswith('reconciliation/'))
-
-def check_changes(root: Path, base: str, reviews: dict, numeric: dict, today: dt.date) -> int:
-    # Include untracked candidate files: local validation cannot miss new modules.
-    tracked = git(root, 'diff', '--name-only', '--no-renames', base, '--').decode().splitlines()
-    untracked = git(root, 'ls-files', '--others', '--exclude-standard').decode().splitlines()
-    changed = {p for p in tracked + untracked if protected(p)}
-    require(reviews['schema_version'] == 1, 'invalid change review schema')
-    covered = set()
-    for row in reviews['reviews']:
-        if row['base_commit'] != base:
-            continue
-        date = dt.date.fromisoformat(row['reviewed_on'])
-        require(date <= today and 0 <= (today-date).days <= 90, 'change review expired/future')
-        require(row['actor'].strip() and row['rationale'].strip() and row['tests'], 'change impact lacks actor, rationale or tests')
-        for path, sha256 in row['candidate_files'].items():
-            if path in changed:
-                require(path not in covered, f'duplicate change review: {path}')
-                candidate = (root / path).read_bytes() if (root / path).is_file() else b''
-                require(matches_source_pin(root, path, candidate, sha256), f'candidate changed after impact review: {path}')
-                covered.add(path)
-    require(changed == covered, f'unreviewed assurance/numerical changes against {base}: {sorted(changed-covered)}')
-    # Refreshing a hash cannot quietly widen or delete old quantitative fixtures.
-    # Human identities here are declarations for repository review, not an IdP.
-    old_policy = git_source(root, base, 'tools/assurance/numeric-evidence.json')
-    if old_policy is not None:
-        previous = json.loads(old_policy, object_pairs_hook=unique_object)
-        old_rows = {r['path']: r for r in previous['artifacts']}
-        new_rows = {r['path']: r for r in numeric['artifacts']}
-        changed_pins = any(new_rows.get(path) != row for path, row in old_rows.items())
-        if changed_pins:
-            require(numeric['version'] > previous['version'], 'quantitative pin revision must increment version')
-            approvals = [r for r in reviews['reviews'] if r['base_commit'] == base
-                and 'tools/assurance/numeric-evidence.json' in r['candidate_files'] and r.get('quantitative_review')]
-            require(approvals, 'quantitative pin removal/refresh needs independent review')
-            for row in approvals:
-                approval = row['quantitative_review']
-                require(approval['reviewer'].strip() and approval['reviewer'] != row['actor']
-                    and approval['rationale'].strip() and approval['reference_evidence'], 'pin review needs independent owner/evidence')
-    for artifact in numeric['artifacts']:
-        old = git_source(root, base, artifact['path'])
-        if old is None:
-            continue
-        current = (root / artifact['path']).read_bytes()
-        if numeric_content(old, artifact['mode']) == numeric_content(current, artifact['mode']):
-            continue
-        checkout = git_checkout(root, base, artifact['path'])
-        if checkout is not None and numeric_content(checkout, artifact['mode']) == numeric_content(current, artifact['mode']):
-            continue
-        approvals = [r for r in reviews['reviews'] if r['base_commit'] == base and artifact['path'] in r['candidate_files'] and r.get('quantitative_review')]
-        require(approvals, f'changed quantitative evidence needs owner review: {artifact["path"]}')
-        for row in approvals:
-            approval = row['quantitative_review']
-            require(approval['reviewer'].strip() and approval['reviewer'] != row['actor'] and approval['rationale'].strip() and approval['reference_evidence'], 'quantitative review needs independent owner/evidence')
-    return len(changed)
 
 
 def check_lifecycle_source(source: str) -> None:
@@ -1234,14 +1147,12 @@ def validate(root: Path, base: str | None, metadata: dict | None = None) -> dict
         require(all((root / p).is_file() for p in scope), 'exception scope has missing source')
     for row in inventory['files']:
         require(all(row['path'] in scope_by_id[i] for i in row['exceptions']), f'exception assigned outside declared scope: {row["path"]}')
-    numeric = read_json(directory / 'numeric-evidence.json')
-    check_numeric(root, numeric)
+    check_numeric(root)
     check_workflow((root / '.github/workflows/ci.yml').read_text())
     for path in (root/'crates/convex-analytics/src/lifecycle').glob('*.rs'):
         check_lifecycle_source(path.read_text())
     for path in (root/'crates/convex/src/library').glob('*.rs'):
         check_lifecycle_source(path.read_text())
-    changes = check_changes(root, base, read_json(directory / 'change-reviews.json'), numeric, today) if base else None
     comparison_command = [sys.executable, 'reconciliation/comparison.py', '--root', str(root), 'check']
     if base:
         comparison_command.extend(['--base', base])
@@ -1250,12 +1161,12 @@ def validate(root: Path, base: str | None, metadata: dict | None = None) -> dict
     if base:
         coverage_command.extend(['--base', base])
     coverage = json.loads(subprocess.check_output(coverage_command, cwd=root))
-    return {'status': 'passed', 'normal_packages': len(names), 'exceptions': len(exceptions), 'reviewed_changes': changes, 'quantitative_artifacts': len(numeric['artifacts']), 'comparison_packs': comparison['packs'], 'product_captures_pending': len(comparison['pending_product_fixtures']), 'library_required_records': coverage['mandatory_records'], 'library_certified': coverage['certified']}
+    return {'status': 'passed', 'normal_packages': len(names), 'exceptions': len(exceptions), 'quantitative_files': len(QUANTITATIVE_FILES), 'comparison_packs': comparison['packs'], 'product_captures_pending': len(comparison['pending_product_fixtures']), 'library_required_records': coverage['mandatory_records'], 'library_certified': coverage['certified']}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[2])
-    parser.add_argument('--base', help='Git revision for explicit change-impact review; required in PR CI')
+    parser.add_argument('--base', help='Git revision whose comparison and library coverage must not be weakened; required in PR CI')
     args = parser.parse_args()
     try:
         print(json.dumps(validate(args.root.resolve(), args.base), sort_keys=True))

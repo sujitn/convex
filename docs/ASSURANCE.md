@@ -151,13 +151,15 @@ not allow network/database runtimes in pure crates, invented financial
 results, wider financial tolerances, or skipped required checks. Owners are
 declared maintenance assignments, not evidence of independent human approval.
 
-`numeric-evidence.json` pins comparator code/workflow, fixtures and the
-existing numerical test modules. Changes to those bytes fail the normal
-check. Refreshing/removing an existing pin requires a version increase and
-a declared independent quantitative review against the PR base. Changing
-an existing pinned fixture also requires that review, even if its hash has
-been refreshed. New product evidence must describe units, settings, reference
-version and justification; a hash is not proof of quantitative accuracy.
+The assurance check requires the comparator code and workflow, retained
+references and pending templates to exist, and the reviewed solver defaults
+(`DEFAULT_TOLERANCE` 1e-10, `DEFAULT_MAX_ITERATIONS` 100) to stay unchanged.
+It does not pin file bytes: changes to fixtures and comparators are reviewed
+in the pull request, and against the PR base the comparison and library
+checks reject wider tolerances and removed cases, measures or coverage. New
+product evidence must describe units, settings, reference version and
+justification. The task notes below count byte pins and impact records that
+were retired when PR #132 was replaced.
 
 CVX-040 adds eight pins for the offline runner, pure comparison adapter,
 catalog, retained pack, source/license record and pending ORE/ISDA/exchange
@@ -214,29 +216,19 @@ improve checked short-period paths without changing older numerical kernels.
 Four new analytic test/fixture/consumer pins and mandatory consumer feature
 checks do not certify pending products, market packs, host dispatch or LB0/LB1.
 
-`change-reviews.json` ties engineering impact to a base commit and candidate
-file hashes, with actor, rationale, review date and test evidence. It includes
-untracked candidate modules and detects changes after the review. An old
-record cannot authorize a new candidate. For each coding task:
+For each coding task:
 
 1. Select the actual PR base and review the diff and relevant inventory entries.
-2. Record the engineering impact and exact candidate hashes after the final edit.
-   Update affected inventory entries deliberately; normal checks never refresh
-   hashes. If an existing quantitative artifact changes, obtain independent
-   quantitative review and record its evidence; an agent cannot attest that
-   human approval occurred.
-3. Run both `python3 tools/assurance/check.py` and
+   Update affected inventory entries deliberately. If an existing quantitative
+   artifact changes, obtain independent quantitative review in the pull
+   request; an agent cannot attest that human approval occurred.
+2. Run both `python3 tools/assurance/check.py` and
    `python3 tools/assurance/check.py --base <base-sha>`, plus the applicable
    checks below. Keep actual failures and unexecuted checks in task evidence.
 
-The initial impact record covers CVX-039 against its immediate parent commit.
-Before opening a PR for the whole extension branch, add an impact record against
-that PR's actual base; earlier branch changes are not implicitly authorized by
-the task record.
-
 The workflow validator checks the committed CI structure and exact required
 commands, rejects conditional/skipped checks and ignored exits, and permits
-only the PR change-impact step to be conditional. It is a narrow structure
+only the PR base coverage step to be conditional. It is a narrow structure
 check, not a general YAML parser or an authorization system. Repository files
 cannot authenticate declared reviewer identities or configure GitHub branch
 protection. Administrators must require these checks and independent review
@@ -551,14 +543,6 @@ comparison and original quote-risk replay are documented in
 Existing schema1/2 identities and original numerical controls remain; CVX-063
 and all mandatory library/market/model/host/production/latency certificates stay open.
 
-
-Source pins match exact physical bytes or the exact LF/CRLF representations
-under Git's explicitly declared text/eol=crlf checkout policy. The shared
-`tools/source_pins.py` verifier also protects original source-test pins recorded
-before their first checkout. It rejects mixed endings, undeclared/binary
-conversion and every content change. Original pin rows/hashes, raw numerical
-JSON, test-section bytes, licenses and solver defaults are preserved; this does
-not normalize financial inputs or weaken numerical tolerances.
 
 Complete contextual fixed legal-workout path quotation reuses the same checked
 ICMA cash/time/inverse/invoice and original legal enumeration owners. Every

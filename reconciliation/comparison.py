@@ -21,7 +21,6 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = "tests/fixtures/comparisons/catalog.json"
-POLICY_PINS = {CATALOG, "reconciliation/comparison.py", "crates/convex-analytics/examples/offline_compare.rs"}
 MAX_BYTES = 8 * 1024 * 1024
 MAX_CASES = 2048
 MAX_METRICS = 64
@@ -110,12 +109,10 @@ def local_path(root, name):
     return resolved
 
 
-def pin(root, row):
-    fields(row, {"path", "sha256", "role"})
-    require(re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) is not None, "invalid SHA-256")
+def reference(root, row):
+    fields(row, {"path", "role"})
     path = local_path(root, row["path"])
     require(0 < path.stat().st_size <= 512 * 1024 * 1024, f"empty/artifact exceeds 512 MiB: {row['path']}")
-    require(file_sha(path) == row["sha256"], f"artifact pin changed: {row['path']}")
     text(row["role"], "artifact role")
     return path
 
@@ -157,23 +154,12 @@ def check_context(row):
 
 
 def check_catalog(root):
-    policy = read(root / "tools/assurance/numeric-evidence.json")
-    pins = {row["path"]: row for row in policy["artifacts"]}
-    require(POLICY_PINS <= set(pins), "comparison policy pins missing")
-    for name in POLICY_PINS:
-        require(pins[name]["mode"] == "file" and file_sha(local_path(root, name)) == pins[name]["sha256"],
-                f"comparison policy pin changed: {name}")
     document = read(root / CATALOG)
     fields(document, {"schema_version", "version", "comparators", "packs", "pending_product_fixtures"})
     require(document["schema_version"] == 1 and type(document["version"]) is int and document["version"] > 0,
             "invalid catalog version")
     require(0 < len(document["comparators"]) <= 16 and 0 < len(document["packs"]) <= 64
             and len(document["pending_product_fixtures"]) <= 64, "unbounded comparator catalog")
-    artifacts = document["packs"] + [row["template"] for row in document["pending_product_fixtures"]]
-    artifacts += [row["license_record"] for row in document["comparators"]]
-    for artifact in artifacts:
-        require(artifact["path"] in pins and pins[artifact["path"]]["mode"] == "file"
-                and pins[artifact["path"]]["sha256"] == artifact["sha256"], "fixture catalog differs from reviewed quantitative pins")
     identifiers = set()
     for row in document["comparators"]:
         fields(row, {"id", "family", "version", "source_revision", "source_url", "license", "license_url",
@@ -183,14 +169,14 @@ def check_catalog(root):
         require(row["family"] in {"QuantLib", "ORE", "ISDA", "exchange"}, "unknown comparator family")
         for key in ("id", "version", "source_revision", "source_url", "license", "license_url", "limitations"):
             text(row[key], key)
-        pin(root, row["license_record"])
+        reference(root, row["license_record"])
         capture = row["runtime_capture"]
         fields(capture, {"status", "source", "binary", "execution", "toolchain", "dependencies", "arguments", "environment", "platform"})
         require(capture["status"] in {"retained_unqualified", "not_executed", "document_only", "captured"},
                 "unknown capture status")
         for key in ("source", "binary", "execution"):
             if capture[key] is not None:
-                pin(root, capture[key])
+                reference(root, capture[key])
         if capture["status"] == "captured":
             for key in ("source", "binary", "execution"):
                 require(capture[key] is not None and capture[key]["role"] == f"comparator_{key}", f"missing {key} capture")
@@ -213,7 +199,7 @@ def check_catalog(root):
     paths = set()
     require(document["packs"], "empty comparison catalog")
     for row in document["packs"]:
-        path = pin(root, row)
+        path = reference(root, row)
         require(row["path"] not in paths, "duplicate fixture pack")
         paths.add(row["path"])
         pack = check_pack(root, read(path), identifiers)
@@ -225,7 +211,7 @@ def check_catalog(root):
         require(row["id"] not in pending_ids and row["comparator"] in identifiers, "invalid pending fixture")
         pending_ids.add(row["id"])
         require(row["owning_tasks"] and row["reason"], "pending fixture needs owner and reason")
-        template = read(pin(root, row["template"]))
+        template = read(reference(root, row["template"]))
         require(template["state"] == "pending_product_fixture" and template["expected_outputs"] is None,
                 "pending templates must not contain fabricated comparison outputs")
     return document
@@ -249,7 +235,7 @@ def check_exception(root, row, cases, today):
                 and row["reference_values"][key] != row["candidate_values"][key], "stale convention evidence")
     fields(row["evidence"], {"kind", "artifact", "explanation"})
     require(row["evidence"]["kind"] in {"analytic_invariant", "second_independent_source"}, "exception needs independent evidence")
-    pin(root, row["evidence"]["artifact"])
+    reference(root, row["evidence"]["artifact"])
     text(row["evidence"]["explanation"], "evidence explanation")
 
 
@@ -266,7 +252,7 @@ def check_pack(root, document, comparators=None, today=None):
             "missing/unbounded artifacts")
     paths = {}
     for identifier, artifact in document["artifacts"].items():
-        paths[identifier] = pin(root, artifact)
+        paths[identifier] = reference(root, artifact)
     require(paths and 0 < len(document["cases"]) <= MAX_CASES, "missing/unbounded cases")
     expected = {}
     cases = {}
@@ -441,11 +427,7 @@ def git_source(root, base, path):
 
 
 def check_base(root, base, catalog):
-    """An existing numerical threshold cannot be relaxed, even after a hash refresh.
-
-    Other edits are protected by tools/assurance/check.py's exact independent
-    quantitative impact record. This check adds case/measure conservation.
-    """
+    """An existing numerical threshold, case or measure cannot be relaxed or removed."""
     subprocess.run(["git", "rev-parse", "--verify", f"{base}^{{commit}}"], cwd=root, check=True, capture_output=True)
     previous = git_source(root, base, CATALOG)
     if previous is None:

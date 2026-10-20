@@ -365,7 +365,7 @@ System.out.printf("Clean Price: %.4f%n", price.clean());
 git clone https://github.com/sujitn/convex.git
 cd convex
 
-# Unpack the pinned inputs needed by the full regression suite
+# Unpack the compressed inputs needed by the full regression suite
 python3 tools/fixtures.py materialize
 
 # Build all crates, including the host ABI with panic containment

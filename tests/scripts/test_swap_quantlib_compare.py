@@ -79,17 +79,14 @@ class ComparisonControls(unittest.TestCase):
         self.assertFalse(reference['certified'])
         self.assertEqual(reference['runtime']['wheel_sha256'], comparison.inputs()['comparator']['sha256'])
 
-    def test_frozen_reference_rejects_changed_raw_output_without_relaxing_pins(self):
+    def test_frozen_reference_rejects_changed_raw_output(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             reference = root / comparison.REFERENCE.relative_to(comparison.ROOT)
             shutil.copytree(comparison.REFERENCE, reference)
-            policy = root / 'tools/assurance/numeric-evidence.json'
-            policy.parent.mkdir(parents=True)
-            shutil.copyfile(comparison.ROOT / 'tools/assurance/numeric-evidence.json', policy)
             (reference / 'quantlib.stdout').write_bytes(b'{}')
             with mock.patch.object(comparison, 'ROOT', root), mock.patch.object(comparison, 'REFERENCE', reference):
-                with self.assertRaisesRegex(comparison.Failure, 'reference numerical pins/bytes differ'):
+                with self.assertRaisesRegex(comparison.Failure, 'capture artifact bytes/set changed'):
                     comparison.frozen_reference()
 
     def test_generic_replay_still_requires_the_actual_current_source_identity(self):

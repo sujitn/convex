@@ -1,8 +1,8 @@
 //! Packed regression fixtures, read once per process.
 //!
-//! Corpora listed in `tests/fixtures/packed.json` are committed xz-compressed;
-//! `python3 tools/fixtures.py materialize` writes the exact pinned JSON beside
-//! each archive before tests, examples or scripts read it.
+//! Large corpora are committed xz-compressed as `<name>.json.xz`;
+//! `python3 tools/fixtures.py materialize` writes the JSON beside each archive
+//! before tests, examples or scripts read it.
 #![allow(dead_code)]
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};

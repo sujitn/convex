@@ -8,12 +8,10 @@
   "artifacts": {
     "reference": {
       "path": "tests/fixtures/quantlib_reference_tests.json",
-      "sha256": "0acb59ab25b23cfe86689c0467d2d55eaadd782f055a48a246d408ff5c4bcf6e",
       "role": "retained QuantLib declared-version outputs and synthetic terms"
     },
     "generator": {
       "path": "tests/scripts/quantlib_test_generator.py",
-      "sha256": "0aaed33bb8167591439b133a3e85305efe8452e35b542dd0e0127491b7049097",
       "role": "retained generation source, not attested original execution revision"
     }
   },

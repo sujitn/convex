@@ -12,7 +12,6 @@
       "license_url": "https://www.quantlib.org/license.shtml",
       "license_record": {
         "path": "reconciliation/comparator-records.json",
-        "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
         "role": "upstream version/license factual record"
       },
       "runtime_capture": {
@@ -38,7 +37,6 @@
       "license_url": "https://opensourcerisk.org/faqs/",
       "license_record": {
         "path": "reconciliation/comparator-records.json",
-        "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
         "role": "upstream version/license factual record"
       },
       "runtime_capture": {
@@ -64,7 +62,6 @@
       "license_url": "https://www.cdsmodel.com/cds-disclaimer.html",
       "license_record": {
         "path": "reconciliation/comparator-records.json",
-        "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
         "role": "upstream version/license factual record"
       },
       "runtime_capture": {
@@ -90,7 +87,6 @@
       "license_url": "https://www.cmegroup.com/education/articles-and-reports/understanding-sofr-futures",
       "license_record": {
         "path": "reconciliation/comparator-records.json",
-        "sha256": "ae1df8b6511d0824570eca51946c2c0c23c3d11f8df019460350df18c314ef33",
         "role": "upstream version/license factual record"
       },
       "runtime_capture": {
@@ -110,7 +106,6 @@
   "packs": [
     {
       "path": "tests/fixtures/comparisons/quantlib-1.40.json",
-      "sha256": "c2a2f686b1b58e2b245649a6b516c6a624b15a23370e105c4e075193e4190c09",
       "role": "offline retained-reference pack"
     }
   ],
@@ -125,7 +120,6 @@
       "reason": "Product-specific validated inputs, independent outputs and runtime/source provenance have not been captured; this framework does not supply a product certificate.",
       "template": {
         "path": "reconciliation/comparison_templates/ore.json",
-        "sha256": "940cc20419776b8f3d34252c87c749d6cea82ce2fb2383f903f3d29b57a429b4",
         "role": "pending product fixture admission template"
       }
     },
@@ -139,7 +133,6 @@
       "reason": "Product-specific validated inputs, independent outputs and runtime/source provenance have not been captured; this framework does not supply a product certificate.",
       "template": {
         "path": "reconciliation/comparison_templates/isda.json",
-        "sha256": "f296b3f771338a87779760b2c9415e543aa545ceae18aa6a210259884f359c70",
         "role": "pending product fixture admission template"
       }
     },
@@ -152,7 +145,6 @@
       "reason": "Product-specific validated inputs, independent outputs and runtime/source provenance have not been captured; this framework does not supply a product certificate.",
       "template": {
         "path": "reconciliation/comparison_templates/exchange.json",
-        "sha256": "9ce7b3551520dd7e8017587e78ce7b03dba1a001a777cc20727894ae802f17b9",
         "role": "pending product fixture admission template"
       }
     }

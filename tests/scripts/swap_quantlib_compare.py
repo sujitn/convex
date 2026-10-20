@@ -404,7 +404,7 @@ def compare(native, reference):
 def source_pins():
     library = loads((ROOT / 'tools/library/library-inventory.json').read_bytes())
     inventory = loads((ROOT / 'tools/assurance/inventory.json').read_bytes())
-    paths = set(library['source_pins']) | {r['path'] for r in inventory['files']}
+    paths = set(library['inspected_sources']) | {r['path'] for r in inventory['files']}
     paths |= {SCRIPT, EXPORT, INPUT.relative_to(ROOT).as_posix(), 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml'}
     paths |= {p.relative_to(ROOT).as_posix() for p in (ROOT / 'crates').glob('*/Cargo.toml')}
     return {path: digest((ROOT / path).read_bytes()) for path in sorted(paths)}
@@ -548,17 +548,10 @@ def replay_execution(directory, *, current_sources):
 def frozen_reference():
     """Read only the admitted immutable capture, never an arbitrary golden path.
 
-    Capture replay checks original execution/source identity. A future native
-    candidate may differ from that captured native revision; the independent QL
-    outputs stay fixed and every capture byte must retain its numerical-policy pin.
+    Capture replay checks original execution/source identity and every capture
+    byte against the capture manifest. A future native candidate may differ from
+    that captured native revision; the independent QL outputs stay fixed.
     """
-    policy = loads((ROOT / 'tools/assurance/numeric-evidence.json').read_bytes())
-    prefix = REFERENCE.relative_to(ROOT).as_posix() + '/'
-    pins = {r['path'].removeprefix(prefix): r for r in policy['artifacts'] if r['path'].startswith(prefix)}
-    actual = {p.name: digest(p.read_bytes()) for p in REFERENCE.iterdir() if p.is_file()}
-    require(pins and actual.keys() == pins.keys()
-            and all(pins[name]['mode'] == 'file' and pins[name]['sha256'] == value for name, value in actual.items()),
-            'frozen reference numerical pins/bytes differ')
     replay_execution(REFERENCE, current_sources=False)
     return loads((REFERENCE / 'quantlib.stdout').read_bytes())
 

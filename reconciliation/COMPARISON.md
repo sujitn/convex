@@ -217,37 +217,35 @@ signed PVs/upfront values; never invent a missing row or currency.
 
 ## Review and CI
 
-Run both structural/tolerance conservation and assurance impact checks:
+Run both structural/tolerance conservation and assurance checks:
 
 ```sh
 python3 reconciliation/comparison.py check --base <actual-pr-base>
 python3 tools/assurance/check.py --base <actual-pr-base>
 ```
 
-Normal checks verify the central pins as well as manifest artifact hashes.
+Normal checks verify that every referenced artifact exists inside the
+repository, within bounds.
 The base guard rejects wider absolute **or** relative bounds, deleted packs,
 cases or measures, changed units/operations and discarded retained coverage.
 Fixture edits require a version increment. Pending product requirements
 can be promoted only by admitting a captured pack with that requirement's
 identity; removing a template cannot hide unimplemented products.
 
-The assurance check additionally requires exact candidate impact records
-and independent quantitative review for changing/refreshed existing pins,
-even if the new hash and version match. Tightening a tolerance still needs
-that review. No tool creates an approval or automatically refreshes pins.
-Repository declarations cannot authenticate human reviewers or configure
+Changes to existing fixtures, including a tightened tolerance, need
+independent quantitative review in the pull request; no tool creates an
+approval. Repository declarations cannot authenticate human reviewers or configure
 GitHub branch protection. Administrators must require the checks and reviews
 on protected branches.
 
 The initial CVX-040 additions preserve all 47 existing quantitative pins;
 their source-tree engineering review does not attest an external numerical
 approval. Before a whole-extension PR, review against its actual base.
-CI runs schema/pin checks, mutation tests, the pure adapter build and the
+CI runs schema checks, mutation tests, the pure adapter build and the
 full offline replay. The 105 current misses and G04's synthetic spread
 outputs continue to block production/library release readiness.
 
-Bounds: 8 MiB JSON/CSV, 512 MiB per pinned source/binary artifact (streamed
-hash), 16 comparator identities, 64 packs, 2,048 cases per pack, 64 measures
+Bounds: 8 MiB JSON/CSV, 512 MiB per referenced source/binary artifact, 16 comparator identities, 64 packs, 2,048 cases per pack, 64 measures
 per case, 128 source artifacts per pack, 4,096 observations per data list,
 and a 30-second candidate process timeout. The native paths limit dates to
 years 1–9999 and 150 years of span. These are test-tool resource bounds,

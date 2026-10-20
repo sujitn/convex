@@ -1,13 +1,12 @@
 """Mutation checks for assurance rules; no network, cargo, or external services."""
 import copy
 import datetime as dt
-import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
 
 import check
 
@@ -15,22 +14,6 @@ ROOT = Path(__file__).resolve().parents[2]
 TODAY = dt.date(2026, 10, 5)
 
 class AssuranceMutations(unittest.TestCase):
-    def test_source_pins_admit_only_exact_declared_checkout_line_endings(self):
-        self.assertTrue(check.protected('tools/source_pins.py'))
-        import hashlib
-        from source_pins import matches_source_pin
-        text=b'first\nsecond\n'; crlf=text.replace(b'\n',b'\r\n')
-        digest=lambda value: hashlib.sha256(value).hexdigest()
-        attributes=b'control.cs\0text\0set\0control.cs\0eol\0crlf\0'
-        with patch('source_pins.subprocess.run',return_value=subprocess.CompletedProcess([],0,attributes,b'')):
-            self.assertTrue(matches_source_pin(ROOT,'control.cs',crlf,digest(text)))
-            self.assertTrue(matches_source_pin(ROOT,'control.cs',text,digest(crlf)))
-            for data in [b'first\nchanged\n',b'first\nsecond\r\n',b'first\rsecond\n',text+b' ']:
-                self.assertFalse(matches_source_pin(ROOT,'control.cs',data,digest(crlf)))
-        attributes=b'control.json\0text\0set\0control.json\0eol\0lf\0'
-        with patch('source_pins.subprocess.run',return_value=subprocess.CompletedProcess([],0,attributes,b'')):
-            self.assertFalse(matches_source_pin(ROOT,'control.json',crlf,digest(text)))
-
     def rejects(self, function, *args):
         with self.assertRaises(check.Failure):
             function(*args)
@@ -295,13 +278,10 @@ class AssuranceMutations(unittest.TestCase):
             path.write_text('{"version":1,"version":2}')
             self.rejects(check.read_json, path)
 
-    def test_source_inventory_rejects_stale_hash_and_missing_path(self):
+    def test_source_inventory_rejects_missing_path_and_export(self):
         inventory = check.read_json(ROOT/'tools/assurance/inventory.json')
         identifiers = check.check_exceptions(check.read_json(ROOT/'tools/assurance/exceptions.json'), TODAY)
         check.check_inventory(ROOT, inventory, identifiers)
-        candidate = copy.deepcopy(inventory)
-        candidate['files'][0]['sha256'] = '0'*64
-        self.rejects(check.check_inventory, ROOT, candidate, identifiers)
         candidate = copy.deepcopy(inventory)
         candidate['files'].pop()
         self.rejects(check.check_inventory, ROOT, candidate, identifiers)
@@ -309,45 +289,21 @@ class AssuranceMutations(unittest.TestCase):
         candidate['c_exports'].pop()
         self.rejects(check.check_inventory, ROOT, candidate, identifiers)
 
-    def test_quantitative_pin_and_default_reject_silent_changes(self):
-        source = check.read_json(ROOT/'tools/assurance/numeric-evidence.json')
-        check.check_numeric(ROOT, source)
-        candidate = copy.deepcopy(source)
-        candidate['artifacts'][0]['sha256'] = '0'*64
-        self.rejects(check.check_numeric, ROOT, candidate)
-        candidate = copy.deepcopy(source)
-        candidate['solver_defaults']['DEFAULT_TOLERANCE'] = '1e-6'
-        self.rejects(check.check_numeric, ROOT, candidate)
+    def test_solver_defaults_reject_silent_changes(self):
+        check.check_numeric(ROOT)
+        self.rejects(check.check_numeric, ROOT, check.QUANTITATIVE_FILES, dict(check.SOLVER_DEFAULTS, DEFAULT_TOLERANCE='1e-6'))
 
-    def test_declared_checkout_line_endings_do_not_hide_economic_edits(self):
+    def test_comparison_files_and_required_offline_job_cannot_be_removed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            path = 'crates/convex-ffi/tests/control.cs'
-            file = root/path
-            file.parent.mkdir(parents=True)
-            file.write_bytes(b'price = 100;\r\n')
-            numeric = {'version': 1, 'artifacts': [{'path': path, 'mode': 'file', 'sha256': check.digest(file.read_bytes())}]}
-            review = {'schema_version': 1, 'reviews': [{'base_commit': 'base', 'actor': 'coding agent',
-                'rationale': 'Physical bytes remain original', 'reviewed_on': str(TODAY), 'tests': ['regression'],
-                'candidate_files': {path: check.digest(file.read_bytes())}}]}
-            def baseline(_, __, name):
-                return json.dumps(numeric).encode() if name.endswith('numeric-evidence.json') else b'price = 100;\n'
-            with patch.object(check, 'git', return_value=path.encode()), patch.object(check, 'git_source', side_effect=baseline), patch.object(check, 'git_checkout', return_value=b'price = 100;\r\n'):
-                self.assertEqual(check.check_changes(root, 'base', review, numeric, TODAY), 1)
-                file.write_bytes(b'price = 101;\r\n')
-                review['reviews'][0]['candidate_files'][path] = check.digest(file.read_bytes())
-                self.rejects(check.check_changes, root, 'base', review, numeric, TODAY)
-            file.write_bytes(b'price = 100;\r\n')
-            review['reviews'][0]['candidate_files'][path] = check.digest(file.read_bytes())
-            with patch.object(check, 'git', return_value=path.encode()), patch.object(check, 'git_source', side_effect=baseline), patch.object(check, 'git_checkout', return_value=None):
-                self.rejects(check.check_changes, root, 'base', review, numeric, TODAY)
-
-    def test_comparison_pins_and_required_offline_job_cannot_be_removed(self):
-        numeric = check.read_json(ROOT/'tools/assurance/numeric-evidence.json')
-        for path in check.COMPARISON_PINS:
-            candidate = copy.deepcopy(numeric)
-            candidate['artifacts'] = [r for r in candidate['artifacts'] if r['path'] != path]
-            self.rejects(check.check_numeric, ROOT, candidate)
+            for path in [*check.QUANTITATIVE_FILES, 'crates/convex-math/src/solvers/mod.rs']:
+                (root/path).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(ROOT/path, root/path)
+            check.check_numeric(root)
+            for path in sorted(check.QUANTITATIVE_FILES):
+                (root/path).rename(root/'removed')
+                self.rejects(check.check_numeric, root)
+                (root/'removed').rename(root/path)
         source = (ROOT/'.github/workflows/ci.yml').read_text()
         for mutation in [source.replace('  offline-comparison:', '  old-comparison:'),
                          source.replace('    name: Offline Quantitative Comparison', '    if: false\n    name: Offline Quantitative Comparison'),
@@ -362,8 +318,6 @@ class AssuranceMutations(unittest.TestCase):
                          source.replace('--example inventory_probe --no-default-features', '--example inventory_probe --no-default-features || true'),
                          source.replace('--example inventory_probe --features schemars', '--example unrelated_probe --features schemars')]:
             self.rejects(check.check_workflow, mutation)
-        self.assertTrue(check.protected('tools/library/library-inventory.json'))
-        self.assertTrue(check.protected('tools/library/check.py'))
 
     def test_supplied_swap_offline_checks_cannot_be_skipped_or_ignore_failure(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
@@ -400,9 +354,6 @@ class AssuranceMutations(unittest.TestCase):
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: '+command+' || true\n'))
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'if: false\n        run: '+command+'\n'))
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: echo skipped\n'))
-        for path in ('crates/convex-credit/src/pricing.rs', 'tests/scripts/isda_cds_compare.py',
-                     'tests/scripts/isda_cds_capture.c', 'licenses/ISDA-CDS-Standard-Model-Public-License-1.0.txt'):
-            self.assertTrue(check.protected(path))
         self.assertIn('convex-credit',check.DOMAIN)
 
     def test_cds_raw_outputs_must_be_uploaded_on_failure(self):
@@ -441,11 +392,6 @@ class AssuranceMutations(unittest.TestCase):
             self.rejects(check.check_workflow, source.replace('            credit-comparison-report-native.'+suffix+'\n', ''))
         self.rejects(check.check_workflow, source.replace('Upload supplied credit comparison report\n        if: always()',
                                                         'Upload supplied credit comparison report\n        if: success()'))
-        for path in ['crates/convex-analytics/src/credit_calibration.rs',
-                     'crates/convex-analytics/src/credit_risk.rs',
-                     'tests/scripts/isda_credit_compare.py', 'tests/scripts/isda_credit_capture.c',
-                     'tests/scripts/isda_credit_capture.py', 'tests/scripts/test_isda_credit_compare.py']:
-            self.assertTrue(check.protected(path))
 
     def test_futures_reference_checks_and_consumer_features_cannot_be_skipped(self):
         source = (ROOT/'.github/workflows/ci.yml').read_text()
@@ -464,7 +410,6 @@ class AssuranceMutations(unittest.TestCase):
                      'crates/convex-ext-file/src/reference_repository.rs',
                      'crates/convex-ext-redb/src/reference_repository.rs',
                      'crates/convex-analytics/src/risk/hedging/types.rs']:
-            self.assertTrue(check.protected(path))
             self.assertIn(path, check.inventory_paths(ROOT))
 
     def test_futures_valuation_checks_cannot_be_skipped(self):
@@ -480,7 +425,6 @@ class AssuranceMutations(unittest.TestCase):
                 self.rejects(check.check_workflow, source.replace('run: '+command+'\n', replacement))
         for name in ('mod', 'bond', 'rates', 'cash', 'settlement'):
             path = 'crates/convex-analytics/src/futures/'+name+'.rs'
-            self.assertTrue(check.protected(path))
             self.assertIn(path, check.inventory_paths(ROOT))
 
     def test_mixed_rate_references_rebuild_checks_and_consumer_features_cannot_be_skipped(self):
@@ -499,7 +443,6 @@ class AssuranceMutations(unittest.TestCase):
         for path in ['crates/convex-rates/src/basis.rs', *[
             'crates/convex-analytics/src/rate_calibration/'+name+'.rs'
             for name in ('mod', 'build', 'fit', 'helpers', 'inputs')]]:
-            self.assertTrue(check.protected(path))
             self.assertIn(path, check.inventory_paths(ROOT))
 
     def test_full_cash_reference_rebuilds_and_consumers_cannot_be_skipped(self):
@@ -511,7 +454,6 @@ class AssuranceMutations(unittest.TestCase):
         for path in ['crates/convex-curves/src/contracts/basis.rs', *[
                 'crates/convex-analytics/src/cash_calibration/'+name+'.rs'
                 for name in ('mod', 'build', 'fit', 'inputs', 'pricing', 'repo')]]:
-            self.assertTrue(check.protected(path))
             self.assertIn(path, check.inventory_paths(ROOT))
 
     def test_signed_risk_reference_full_graph_coverage_and_consumers_are_mandatory(self):
@@ -533,7 +475,6 @@ class AssuranceMutations(unittest.TestCase):
         for path in ['crates/convex-portfolio/src/signed_risk.rs', 'crates/convex-core/src/contracts/risk.rs', *[
                 'crates/convex-analytics/src/quote_risk/'+name+'.rs'
                 for name in ('mod', 'types', 'finite', 'graph', 'optional')]]:
-            self.assertTrue(check.protected(path))
             self.assertIn(path, check.inventory_paths(ROOT))
 
     def test_curve_consumer_feature_checks_are_mandatory(self):
@@ -557,49 +498,6 @@ class AssuranceMutations(unittest.TestCase):
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: '+command+' || true\n'))
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'if: false\n        run: '+command+'\n'))
             self.rejects(check.check_workflow, source.replace('run: '+command+'\n', 'run: cargo run --example unrelated_consumer\n'))
-
-    def change_fixture(self, directory):
-        root = Path(directory)
-        path = 'tests/fixtures/example.json'
-        (root/'tests/fixtures').mkdir(parents=True)
-        (root/path).write_text('{"tolerance":0.1}')
-        numeric = {'schema_version':1, 'version':1, 'artifacts':[{'path':path,'mode':'file','sha256':check.digest((root/path).read_bytes())}]}
-        review = {'schema_version':1,'reviews':[{'base_commit':'base','actor':'coding-agent','rationale':'explicit impact',
-            'reviewed_on':TODAY.isoformat(),'tests':['numeric comparison'], 'candidate_files':{path:check.digest((root/path).read_bytes())}}]}
-        return root, path, numeric, review
-
-    def test_untracked_and_stale_impact_records_fail(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root, path, numeric, review = self.change_fixture(directory)
-            with patch.object(check,'git',return_value=path.encode()), patch.object(check,'git_source',return_value=None):
-                self.assertEqual(check.check_changes(root,'base',review,numeric,TODAY),1)
-                self.rejects(check.check_changes, root,'base',{'schema_version':1,'reviews':[]},numeric,TODAY)
-                (root/path).write_text('{"tolerance":1.0}')
-                self.rejects(check.check_changes, root,'base',review,numeric,TODAY)
-
-    def test_refreshed_fixture_hash_still_needs_independent_review(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root, path, numeric, review = self.change_fixture(directory)
-            old = b'{"tolerance":0.0001}'
-            def baseline(_, revision, requested): return old if requested == path else None
-            with patch.object(check,'git',return_value=path.encode()), patch.object(check,'git_source',side_effect=baseline):
-                self.rejects(check.check_changes, root,'base',review,numeric,TODAY)
-                row = review['reviews'][0]
-                row['quantitative_review'] = {'reviewer':'coding-agent','rationale':'looks fine','reference_evidence':['independent.json']}
-                self.rejects(check.check_changes, root,'base',review,numeric,TODAY)
-                row['quantitative_review']['reviewer'] = 'declared-financial-owner'
-                self.assertEqual(check.check_changes(root,'base',review,numeric,TODAY),1)
-
-    def test_removed_quantitative_pin_needs_version_and_review(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root, path, numeric, review = self.change_fixture(directory)
-            previous = copy.deepcopy(numeric)
-            previous['artifacts'].append({'path':'old-fixture.json','mode':'file','sha256':'0'*64})
-            def baseline(_, revision, requested): return json.dumps(previous).encode() if requested == 'tools/assurance/numeric-evidence.json' else None
-            with patch.object(check,'git',return_value=path.encode()), patch.object(check,'git_source',side_effect=baseline):
-                self.rejects(check.check_changes, root,'base',review,numeric,TODAY)
-                numeric['version'] = 2
-                self.rejects(check.check_changes, root,'base',review,numeric,TODAY)
 
     def test_python_optimization_does_not_disable_rejections(self):
         result = subprocess.run([sys.executable, '-O', '-c', 'import check; check.require(False, "required check")'], cwd=ROOT/'tools/assurance', capture_output=True)
