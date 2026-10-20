@@ -1,41 +1,32 @@
 //! Pricing router - selects pricing model based on bond type and config.
 
-use std::str::FromStr;
-use std::sync::Arc;
-
-use rust_decimal::prelude::*;
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
-use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
-
-use convex_bonds::instruments::{CallableBond, FloatingRateNote};
-use convex_bonds::prelude::{Bond, FixedCouponBond, FixedRateBond, FixedRateBondBuilder};
-use convex_bonds::types::{CallEntry, CallSchedule, CallType, RateIndex};
-use convex_core::daycounts::DayCountConvention;
-use convex_core::types::{Compounding, Frequency, Yield};
-use convex_core::Date;
-use convex_curves::RateCurveDyn;
-
-use convex_analytics::prelude::{
-    convexity, dv01, macaulay_duration, modified_duration, yield_to_maturity,
-};
-use convex_analytics::risk::{KeyRateDurationCalculator, STANDARD_KEY_RATE_TENORS};
-use convex_analytics::spreads::{
-    simple_margin, DiscountMarginCalculator, GSpreadCalculator, GovernmentCurve, ISpreadCalculator,
-    OASCalculator, ParParAssetSwap, ZSpreadCalculator,
-};
-use convex_analytics::yields::YieldSolver;
-use convex_bonds::traits::BondCashFlow;
-use convex_core::types::Price;
-use convex_curves::curves::{ForwardCurve, ZeroCurve, ZeroCurveBuilder};
-
-use crate::ports::output::BondQuoteOutput;
-use crate::ports::reference_data::{BondReferenceData, BondType};
-use crate::ports::storage::BidAskSpreadConfig;
+#[cfg(test)]
+use crate::reference_terms;
 
 use crate::curve_builder::BuiltCurve;
 use crate::error::EngineError;
+use crate::ports::output::BondQuoteOutput;
+use crate::ports::reference_data::{BondReferenceData, BondType};
+use crate::ports::storage::BidAskSpreadConfig;
+use convex_analytics::bond_quote::{quote_fixed, quote_zero, BondCurves, BondQuote};
+use convex_analytics::risk::STANDARD_KEY_RATE_TENORS;
+use convex_analytics::spreads::GovernmentCurve;
+#[cfg(test)]
+use convex_bonds::prelude::Bond;
+use convex_bonds::prelude::{FixedRateBond, FixedRateBondBuilder};
+use convex_core::daycounts::DayCountConvention;
+#[cfg(test)]
+use convex_core::types::Compounding;
+#[cfg(test)]
+use convex_core::types::Yield;
+use convex_core::types::{Frequency, Mark, PriceKind};
+use convex_core::Date;
+#[cfg(test)]
+use rust_decimal::prelude::*;
+use rust_decimal::Decimal;
+use std::str::FromStr;
+#[cfg(test)]
+use tracing::debug;
 
 /// Format tenor as a human-readable label (e.g., "3M", "1Y", "10Y").
 fn format_tenor_label(tenor: f64) -> String {
@@ -46,23 +37,6 @@ fn format_tenor_label(tenor: f64) -> String {
         let years = tenor.round() as u32;
         format!("{}Y", years)
     }
-}
-
-/// Pricing model selection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PricingModel {
-    /// Discount cash flows to maturity
-    DiscountToMaturity,
-    /// Discount to call using yield-to-worst
-    YieldToWorst,
-    /// OAS model for callable bonds
-    CallableOas,
-    /// Real yield for inflation-linked bonds
-    InflationLinkedRealYield,
-    /// Discount margin for FRNs
-    FloatingRateDiscountMargin,
-    /// Matrix pricing (spread off benchmark)
-    MatrixPricing,
 }
 
 /// Pricing input for a single bond.
@@ -152,9 +126,8 @@ impl PricingInput {
             let spread_bps = config.effective_bid_spread_bps();
             // Bid price is lower than mid (widening in price terms)
             // price_change = mid * spread_bps / 10000
-            let adjustment =
-                mid * Decimal::from_f64_retain(spread_bps / 10000.0).unwrap_or_default();
-            Some(mid - adjustment)
+            let adjustment = mid.checked_mul(Decimal::from_f64_retain(spread_bps / 10000.0)?)?;
+            mid.checked_sub(adjustment)
         } else {
             self.market_price_bid
         }
@@ -180,9 +153,8 @@ impl PricingInput {
         if let (Some(mid), Some(config)) = (self.market_price_mid, &self.bid_ask_config) {
             let spread_bps = config.effective_ask_spread_bps();
             // Ask price is higher than mid (widening in price terms)
-            let adjustment =
-                mid * Decimal::from_f64_retain(spread_bps / 10000.0).unwrap_or_default();
-            Some(mid + adjustment)
+            let adjustment = mid.checked_mul(Decimal::from_f64_retain(spread_bps / 10000.0)?)?;
+            mid.checked_add(adjustment)
         } else {
             self.market_price_ask
         }
@@ -198,32 +170,16 @@ impl PricingInput {
     }
 }
 
-/// Pricing router - routes bonds to appropriate pricing model.
+/// Application adapter; all pricing and risk mathematics live in the pure library.
 pub struct PricingRouter {
-    /// Default bump size for numerical duration (basis points)
+    /// Central-difference half width, in basis points.
     pub bump_bps: f64,
 }
-
 impl PricingRouter {
-    /// Create a new pricing router.
+    /// Construct the adapter with the retained 10bp risk setting.
     pub fn new() -> Self {
         Self { bump_bps: 10.0 }
     }
-
-    /// Select pricing model for a bond.
-    pub fn select_model(&self, bond: &BondReferenceData) -> PricingModel {
-        match bond.bond_type {
-            BondType::FixedBullet => PricingModel::DiscountToMaturity,
-            BondType::FixedCallable => PricingModel::CallableOas, // Use OAS model for callables
-            BondType::FixedPutable => PricingModel::YieldToWorst,
-            BondType::FloatingRate => PricingModel::FloatingRateDiscountMargin,
-            BondType::ZeroCoupon => PricingModel::DiscountToMaturity,
-            BondType::InflationLinked => PricingModel::InflationLinkedRealYield,
-            BondType::Amortizing => PricingModel::DiscountToMaturity,
-            BondType::Convertible => PricingModel::MatrixPricing,
-        }
-    }
-
     /// Convert BondReferenceData to a FixedRateBond for analytics.
     fn to_fixed_rate_bond(
         &self,
@@ -233,24 +189,59 @@ impl PricingRouter {
             .coupon_rate
             .ok_or_else(|| EngineError::PricingError("Missing coupon rate".to_string()))?;
 
-        let frequency = match ref_data.frequency {
-            1 => Frequency::Annual,
-            2 => Frequency::SemiAnnual,
-            4 => Frequency::Quarterly,
-            12 => Frequency::Monthly,
-            _ => Frequency::SemiAnnual, // Default
-        };
+        let frequency = self.get_frequency(ref_data)?;
 
         let day_count = self.parse_day_count(&ref_data.day_count)?;
+        let terms = ref_data
+            .contractual_terms
+            .as_ref()
+            .ok_or_else(|| EngineError::PricingError("Missing contractual terms".into()))?;
+        let calendar = match terms.calendar_code {
+            crate::ports::reference_master::BondCalendar::WeekendsOnly => {
+                convex_bonds::types::CalendarId::weekend_only()
+            }
+            crate::ports::reference_master::BondCalendar::Sifma => {
+                convex_bonds::types::CalendarId::sifma()
+            }
+            crate::ports::reference_master::BondCalendar::Target2 => {
+                convex_bonds::types::CalendarId::target2()
+            }
+        };
 
         let mut builder = FixedRateBondBuilder::new()
+            .identifiers(
+                convex_bonds::types::BondIdentifiers::new()
+                    .with_ticker(ref_data.instrument_id.as_str()),
+            )
             .issue_date(ref_data.issue_date)
+            .dated_date(terms.dated_date.date())
             .maturity(ref_data.maturity_date)
             .coupon_rate(coupon_rate)
             .face_value(ref_data.face_value)
             .frequency(frequency)
-            .day_count(day_count);
+            .day_count(day_count)
+            .currency(ref_data.currency)
+            .calendar(calendar.clone())
+            .business_day_convention(terms.settings.business_day_convention)
+            .end_of_month(terms.settings.end_of_month)
+            .settlement_days(terms.settings.settlement_days)
+            .redemption_value(terms.redemption_value.decimal());
 
+        if let Some(first) = ref_data.first_coupon_date {
+            builder = builder.first_coupon_date(first);
+        }
+        if let Some(last) = terms.penultimate_coupon_date {
+            builder = builder.penultimate_coupon_date(last.date());
+        }
+        if terms.settings.ex_coupon_days != 0 {
+            builder = builder.ex_coupon_rule(convex_core::cashflows::ExCouponRule {
+                offset: convex_core::cashflows::DateOffset::CalendarDays(
+                    -(terms.settings.ex_coupon_days as i32),
+                ),
+                anchor: convex_core::cashflows::ExDateAnchor::ContractualEnd,
+                boundary: convex_core::cashflows::ExCouponBoundary::OnDate,
+            });
+        }
         // Add CUSIP identifier if available
         if let Some(cusip) = ref_data.cusip.as_deref() {
             builder = builder.cusip_unchecked(cusip);
@@ -261,935 +252,263 @@ impl PricingRouter {
             .map_err(|e| EngineError::PricingError(format!("Failed to build bond: {}", e)))
     }
 
-    /// Convert BondReferenceData to a CallableBond for OAS analytics.
-    fn to_callable_bond(&self, ref_data: &BondReferenceData) -> Result<CallableBond, EngineError> {
-        // First build the base fixed rate bond
-        let base_bond = self.to_fixed_rate_bond(ref_data)?;
-
-        // Build call schedule from reference data
-        if ref_data.call_schedule.is_empty() {
-            return Err(EngineError::PricingError(
-                "No call schedule for callable bond".to_string(),
-            ));
-        }
-
-        let mut call_schedule = CallSchedule::new(CallType::American);
-
-        for entry in &ref_data.call_schedule {
-            let call_price = entry.call_price.to_string().parse::<f64>().unwrap_or(100.0);
-
-            let call_entry = CallEntry::new(entry.call_date, call_price);
-
-            // If this is a make-whole call, update the schedule type
-            if entry.is_make_whole {
-                call_schedule = CallSchedule::make_whole(25.0); // Default T+25bps
-            }
-
-            call_schedule = call_schedule.with_entry(call_entry);
-        }
-
-        Ok(CallableBond::new(base_bond, call_schedule))
-    }
-
-    /// Convert BondReferenceData to a FloatingRateNote for discount margin analytics.
-    fn to_floating_rate_note(
-        &self,
-        ref_data: &BondReferenceData,
-    ) -> Result<FloatingRateNote, EngineError> {
-        use convex_core::ids::FloatingRateIndex as TraitIndex;
-
-        // Get floating rate terms
-        let floating_terms = ref_data.floating_terms.as_ref().ok_or_else(|| {
-            EngineError::PricingError("No floating rate terms for FRN".to_string())
-        })?;
-
-        // Map index from traits to bonds
-        let rate_index = match &floating_terms.index {
-            TraitIndex::Sofr => RateIndex::Sofr,
-            TraitIndex::Estr => RateIndex::Estr,
-            TraitIndex::Sonia => RateIndex::Sonia,
-            TraitIndex::Euribor(_) => RateIndex::Euribor3M, // Default to 3M
-            TraitIndex::TermSofr(_) => RateIndex::Sofr,
-            TraitIndex::Other(_) => RateIndex::Sofr, // Default fallback
-        };
-
-        // Get frequency for FRN
-        let frequency = match ref_data.frequency {
-            1 => Frequency::Annual,
-            2 => Frequency::SemiAnnual,
-            4 => Frequency::Quarterly,
-            12 => Frequency::Monthly,
-            _ => Frequency::Quarterly, // Default for FRNs
-        };
-
-        // Get day count
-        let day_count = self.parse_day_count(&ref_data.day_count)?;
-
-        // Build FRN
-        let spread_bps = floating_terms.spread.to_i64().unwrap_or(0) as i32;
-
-        let mut builder = FloatingRateNote::builder()
-            .index(rate_index)
-            .spread_bps(spread_bps)
-            .maturity(ref_data.maturity_date)
-            .issue_date(ref_data.issue_date)
-            .frequency(frequency)
-            .day_count(day_count)
-            .face_value(ref_data.face_value);
-
-        // Add CUSIP if available
-        if let Some(cusip) = ref_data.cusip.as_deref() {
-            builder = builder.cusip_unchecked(cusip);
-        }
-
-        // Add cap and floor if present
-        if let Some(cap) = floating_terms.cap {
-            builder = builder.cap(cap);
-        }
-        if let Some(floor) = floating_terms.floor {
-            builder = builder.floor(floor);
-        }
-
-        builder
-            .build()
-            .map_err(|e| EngineError::PricingError(format!("Failed to build FRN: {}", e)))
-    }
-
-    /// Parse day count convention string to enum, defaulting to 30/360 US on
-    /// unknown input so reference data with stray labels doesn't fail the
-    /// pricing request.
+    /// Reject unknown labels; no contractual convention is inferred.
     fn parse_day_count(&self, dcc_str: &str) -> Result<DayCountConvention, EngineError> {
-        Ok(DayCountConvention::from_str(dcc_str).unwrap_or_else(|_| {
-            warn!("Unknown day count '{}', defaulting to 30/360 US", dcc_str);
-            DayCountConvention::Thirty360US
-        }))
+        DayCountConvention::from_str(dcc_str)
+            .map_err(|_| EngineError::PricingError("Unknown day-count convention".into()))
     }
 
     /// Get frequency enum from reference data.
-    fn get_frequency(&self, ref_data: &BondReferenceData) -> Frequency {
+    fn get_frequency(&self, ref_data: &BondReferenceData) -> Result<Frequency, EngineError> {
         match ref_data.frequency {
-            1 => Frequency::Annual,
-            2 => Frequency::SemiAnnual,
-            4 => Frequency::Quarterly,
-            12 => Frequency::Monthly,
-            _ => Frequency::SemiAnnual,
+            1 => Ok(Frequency::Annual),
+            2 => Ok(Frequency::SemiAnnual),
+            4 => Ok(Frequency::Quarterly),
+            12 => Ok(Frequency::Monthly),
+            _ => Err(EngineError::PricingError(
+                "Unsupported payment frequency".into(),
+            )),
         }
     }
 
-    /// Price a bond.
+    /// Ad-hoc completion clock; snapshot callers use price_at.
     pub fn price(&self, input: &PricingInput) -> Result<BondQuoteOutput, EngineError> {
-        let model = self.select_model(&input.bond);
-        debug!(
-            "Pricing {} with model {:?}",
-            input.bond.instrument_id, model
-        );
-
-        match model {
-            PricingModel::DiscountToMaturity => self.price_discount_to_maturity(input),
-            PricingModel::YieldToWorst => self.price_yield_to_worst(input),
-            PricingModel::CallableOas => self.price_callable_oas(input),
-            PricingModel::InflationLinkedRealYield => self.price_inflation_linked(input),
-            PricingModel::FloatingRateDiscountMargin => self.price_floating_rate(input),
-            PricingModel::MatrixPricing => self.price_matrix(input),
-        }
+        self.price_at(input, chrono::Utc::now().timestamp_millis())
     }
-
-    /// Calculate Z-spread if discount curve is provided.
-    fn calculate_z_spread(
-        &self,
-        bond: &FixedRateBond,
-        dirty_price: Decimal,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        let calc = ZSpreadCalculator::new(discount_curve);
-        match calc.calculate(bond, dirty_price, settlement) {
-            Ok(spread) => Some(spread.as_bps()),
-            Err(e) => {
-                debug!("Z-spread calculation failed: {}", e);
-                None
-            }
-        }
-    }
-
-    /// Calculate I-spread if swap curve is provided.
-    fn calculate_i_spread(
-        &self,
-        bond: &FixedRateBond,
-        ytm: f64,
-        settlement: Date,
-        swap_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        let calc = ISpreadCalculator::new(swap_curve);
-        let yield_val = Yield::new(
-            Decimal::from_f64_retain(ytm).unwrap_or_default(),
-            Compounding::SemiAnnual, // Standard for US bonds
-        );
-        match calc.calculate(bond, yield_val, settlement) {
-            Ok(spread) => Some(spread.as_bps()),
-            Err(e) => {
-                debug!("I-spread calculation failed: {}", e);
-                None
-            }
-        }
-    }
-
-    /// Calculate G-spread if government curve is provided.
-    fn calculate_g_spread(
-        &self,
-        bond: &FixedRateBond,
-        ytm: f64,
-        settlement: Date,
-        gov_curve: &GovernmentCurve,
-    ) -> Option<Decimal> {
-        let calc = GSpreadCalculator::new(gov_curve);
-        let yield_val = Yield::new(
-            Decimal::from_f64_retain(ytm).unwrap_or_default(),
-            Compounding::SemiAnnual, // Standard for US bonds
-        );
-        match calc.calculate(bond, yield_val, settlement) {
-            Ok(spread) => Some(spread.as_bps()),
-            Err(e) => {
-                debug!("G-spread calculation failed: {}", e);
-                None
-            }
-        }
-    }
-
-    /// Calculate OAS and effective duration/convexity for callable bonds.
-    ///
-    /// Returns (OAS in bps, effective duration, effective convexity).
-    fn calculate_oas(
-        &self,
-        callable_bond: &CallableBond,
-        dirty_price: Decimal,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-        volatility: f64,
-    ) -> (Option<Decimal>, Option<Decimal>, Option<Decimal>) {
-        let calc = OASCalculator::default_hull_white(volatility);
-
-        // Calculate OAS
-        let oas_result = calc.calculate(callable_bond, dirty_price, discount_curve, settlement);
-        let oas_bps = match &oas_result {
-            Ok(spread) => Some(spread.as_bps()),
-            Err(e) => {
-                debug!("OAS calculation failed: {}", e);
-                None
-            }
-        };
-
-        // If OAS calculation succeeded, calculate effective duration and convexity
-        if let Ok(spread) = &oas_result {
-            let oas_decimal = spread.as_decimal().to_f64().unwrap_or(0.0) / 10000.0;
-
-            let eff_dur = calc
-                .effective_duration(callable_bond, discount_curve, oas_decimal, settlement)
-                .ok()
-                .map(|d| Decimal::from_f64_retain(d).unwrap_or_default());
-
-            let eff_conv = calc
-                .effective_convexity(callable_bond, discount_curve, oas_decimal, settlement)
-                .ok()
-                .map(|c| Decimal::from_f64_retain(c).unwrap_or_default());
-
-            (oas_bps, eff_dur, eff_conv)
-        } else {
-            (oas_bps, None, None)
-        }
-    }
-
-    /// Calculate discount margin for floating rate notes.
-    ///
-    /// Returns discount margin in basis points.
-    fn calculate_discount_margin(
-        &self,
-        frn: &FloatingRateNote,
-        dirty_price: Decimal,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        // Create an Arc from the discount curve for ForwardCurve
-        // We need to clone since BuiltCurve implements RateCurveDyn
-        let curve_arc: Arc<dyn RateCurveDyn> = Arc::new(discount_curve.clone());
-
-        // Create forward curve with 3-month tenor (standard for FRNs)
-        let forward_curve = ForwardCurve::from_months(curve_arc.clone(), 3);
-
-        // Create discount margin calculator
-        let calc = DiscountMarginCalculator::new(&forward_curve, discount_curve);
-
-        match calc.calculate(frn, dirty_price, settlement) {
-            Ok(spread) => Some(spread.as_bps()),
-            Err(e) => {
-                debug!("Discount margin calculation failed: {}", e);
-                None
-            }
-        }
-    }
-
-    /// Convert BuiltCurve to ZeroCurve for asset swap calculations.
-    ///
-    /// ParParAssetSwap requires a date-based ZeroCurve, so we convert
-    /// the tenor-based BuiltCurve points to dated zero rates.
-    fn to_zero_curve(&self, built_curve: &BuiltCurve) -> Option<ZeroCurve> {
-        let ref_date = built_curve.reference_date;
-
-        if built_curve.points.is_empty() {
-            return None;
-        }
-
-        let mut builder = ZeroCurveBuilder::new().reference_date(ref_date);
-
-        for (tenor_years, rate) in &built_curve.points {
-            // Convert tenor to date (approximate using 365 days/year)
-            let days = (*tenor_years * 365.0) as i64;
-            let point_date = ref_date.add_days(days);
-            let rate_dec = Decimal::from_f64_retain(*rate).unwrap_or_default();
-            builder = builder.add_rate(point_date, rate_dec);
-        }
-
-        builder.build().ok()
-    }
-
-    /// Calculate Asset Swap Spread (Par-Par) if swap curve is provided.
-    ///
-    /// Returns ASW in basis points.
-    fn calculate_asw(
-        &self,
-        bond: &FixedRateBond,
-        clean_price: Decimal,
-        settlement: Date,
-        swap_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        // Convert BuiltCurve to ZeroCurve for ParParAssetSwap
-        let zero_curve = self.to_zero_curve(swap_curve)?;
-
-        let calc = ParParAssetSwap::new(&zero_curve);
-        let price = Price::new(clean_price, bond.currency());
-
-        match calc.calculate(bond, price, settlement) {
-            Ok(spread) => Some(spread.as_bps()),
-            Err(e) => {
-                debug!("ASW calculation failed: {}", e);
-                None
-            }
-        }
-    }
-
-    /// Calculate key rate durations for a bond.
-    ///
-    /// Key rate durations measure sensitivity to specific points on the yield curve.
-    /// Returns a vector of (tenor_label, duration) pairs.
-    fn calculate_key_rate_durations(
-        &self,
-        bond: &FixedRateBond,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-    ) -> Option<Vec<(String, Decimal)>> {
-        let maturity = bond.maturity()?;
-        let years_to_maturity = settlement.days_between(&maturity) as f64 / 365.0;
-
-        // Get cash flows
-        let cash_flows = bond.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return None;
-        }
-
-        // Calculate base price using curve discounting
-        let base_price = self.price_from_curve(bond, settlement, discount_curve)?;
-
-        // Filter tenors to only include those up to maturity
-        let relevant_tenors: Vec<f64> = STANDARD_KEY_RATE_TENORS
-            .iter()
-            .copied()
-            .filter(|&t| t <= years_to_maturity + 0.5) // Include nearby tenors
-            .collect();
-
-        if relevant_tenors.is_empty() {
-            return None;
-        }
-
-        let bump_size = 0.0001; // 1 bp
-
-        // Calculate price sensitivity at each tenor. Each tenor independently
-        // bumps the discount curve and reprices, so the loop parallelises
-        // cleanly. Gated on tenor count to avoid rayon overhead on short bonds
-        // where only a couple of tenors are in scope.
-        let price_at_tenor = |tenor: f64| -> Option<(f64, f64, f64)> {
-            let curve_up = self.bump_curve_at_tenor(discount_curve, tenor, bump_size);
-            let curve_down = self.bump_curve_at_tenor(discount_curve, tenor, -bump_size);
-            let price_up = self.price_from_curve(bond, settlement, &curve_up)?;
-            let price_down = self.price_from_curve(bond, settlement, &curve_down)?;
-            Some((tenor, price_up, price_down))
-        };
-
-        let tenor_prices: Vec<(f64, f64, f64)> = if relevant_tenors.len() >= 4 {
-            use rayon::prelude::*;
-            relevant_tenors
-                .par_iter()
-                .map(|&tenor| price_at_tenor(tenor))
-                .collect::<Option<Vec<_>>>()?
-        } else {
-            relevant_tenors
-                .iter()
-                .map(|&tenor| price_at_tenor(tenor))
-                .collect::<Option<Vec<_>>>()?
-        };
-
-        // Calculate KRDs
-        let calc = KeyRateDurationCalculator::with_tenors(relevant_tenors).with_bump_bps(1.0);
-        let krds = calc.calculate(base_price, &tenor_prices).ok()?;
-
-        // Convert to output format
-        let result: Vec<(String, Decimal)> = krds
-            .durations
-            .iter()
-            .map(|krd| {
-                let label = format_tenor_label(krd.tenor);
-                let duration = Decimal::from_f64_retain(krd.duration.as_f64()).unwrap_or_default();
-                (label, duration)
-            })
-            .collect();
-
-        Some(result)
-    }
-
-    /// Price a bond using curve discounting.
-    fn price_from_curve(
-        &self,
-        bond: &FixedRateBond,
-        settlement: Date,
-        curve: &BuiltCurve,
-    ) -> Option<f64> {
-        let cash_flows = bond.cash_flows(settlement);
-        let mut price = 0.0;
-
-        for cf in &cash_flows {
-            if cf.date <= settlement {
-                continue;
-            }
-
-            let years = settlement.days_between(&cf.date) as f64 / 365.0;
-            let df = curve.discount_factor(years).unwrap_or(1.0);
-            let amount = cf.amount.to_f64().unwrap_or(0.0);
-            price += amount * df;
-        }
-
-        // Convert to percentage of face
-        let face = bond.face_value().to_f64().unwrap_or(100.0);
-        Some(price / face * 100.0)
-    }
-
-    /// Create a bumped curve at a specific tenor.
-    fn bump_curve_at_tenor(&self, curve: &BuiltCurve, tenor: f64, bump: f64) -> BuiltCurve {
-        let mut bumped = curve.clone();
-
-        // Bump rates using a triangular weighting around the tenor
-        for (t, rate) in &mut bumped.points {
-            // Triangular weight: 1.0 at target tenor, decreasing to 0 at ±1 year
-            let distance = (*t - tenor).abs();
-            let weight = if distance < 1.0 { 1.0 - distance } else { 0.0 };
-            *rate += bump * weight;
-        }
-
-        bumped.rebuild_inner();
-        bumped
-    }
-
-    /// Calculate CS01 (credit spread sensitivity) for a bond.
-    ///
-    /// CS01 is the price change for a 1 basis point increase in spread.
-    /// Uses the Z-spread calculator's spread_dv01 method.
-    fn calculate_cs01(
-        &self,
-        bond: &FixedRateBond,
-        z_spread_bps: Decimal,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        use convex_core::types::SpreadType;
-
-        let calc = ZSpreadCalculator::new(discount_curve);
-        let spread = convex_core::types::Spread::new(z_spread_bps, SpreadType::ZSpread);
-
-        let cs01 = calc.spread_dv01(bond, spread, settlement);
-
-        // CS01 should be positive (price decreases when spread increases)
-        if cs01 > Decimal::ZERO {
-            Some(cs01)
-        } else {
-            // Return absolute value if negative
-            Some(cs01.abs())
-        }
-    }
-
-    /// Calculate PV01 (Present Value of a Basis Point) using curve-based repricing.
-    ///
-    /// PV01 measures the price change for a 1 basis point parallel shift in the discount curve.
-    /// This is more accurate than yield-based DV01 when a curve is available.
-    fn calculate_pv01(
-        &self,
-        bond: &FixedRateBond,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        // Calculate base price using curve discounting
-        let base_price = self.price_from_curve(bond, settlement, discount_curve)?;
-
-        // Create parallel-bumped curve (+1bp to all rates)
-        let bumped_curve = self.bump_curve_parallel(discount_curve, 0.0001);
-
-        // Calculate bumped price
-        let bumped_price = self.price_from_curve(bond, settlement, &bumped_curve)?;
-
-        // PV01 = |Base Price - Bumped Price|
-        // Price decreases when rates increase, so this should be positive
-        let pv01 = (base_price - bumped_price).abs();
-
-        Some(Decimal::from_f64_retain(pv01).unwrap_or_default())
-    }
-
-    /// Create a parallel-bumped curve (all rates shifted by same amount).
-    fn bump_curve_parallel(&self, curve: &BuiltCurve, bump: f64) -> BuiltCurve {
-        let mut bumped = curve.clone();
-
-        // Bump all rates by the same amount
-        for (_t, rate) in &mut bumped.points {
-            *rate += bump;
-        }
-
-        bumped.rebuild_inner();
-        bumped
-    }
-
-    /// Calculate spread duration for a bond.
-    ///
-    /// Spread duration measures the sensitivity of a bond's price to changes
-    /// in its credit spread, rather than the underlying risk-free rate.
-    /// Formula: SD = (Price_down - Price_up) / (2 × Price_base × spread_bump)
-    fn calculate_spread_duration(
-        &self,
-        bond: &FixedRateBond,
-        z_spread_bps: Decimal,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        let calc = ZSpreadCalculator::new(discount_curve);
-
-        // Convert Z-spread from bps to decimal
-        let base_spread = z_spread_bps.to_f64().unwrap_or(0.0) / 10_000.0;
-        let bump = 0.0001; // 1 basis point
-
-        // Calculate prices at base spread and bumped spreads
-        let price_base = calc.price_with_spread(bond, base_spread, settlement);
-        let price_up = calc.price_with_spread(bond, base_spread + bump, settlement);
-        let price_down = calc.price_with_spread(bond, base_spread - bump, settlement);
-
-        if price_base.abs() < 1e-10 {
-            return None;
-        }
-
-        // Spread duration = (Price_down - Price_up) / (2 × Price_base × bump)
-        let spread_dur = (price_down - price_up) / (2.0 * price_base * bump);
-
-        Some(Decimal::from_f64_retain(spread_dur).unwrap_or_default())
-    }
-
-    /// Calculate effective duration for a bond using curve-based repricing.
-    ///
-    /// Effective duration measures price sensitivity to a parallel shift in the yield curve.
-    /// Formula: D_eff = (P₋ - P₊) / (2 × P₀ × Δy)
-    ///
-    /// This is more accurate than modified duration when you have a full yield curve,
-    /// and is essential for bonds with embedded options.
-    fn calculate_effective_duration(
-        &self,
-        bond: &FixedRateBond,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        // Calculate base price using curve discounting
-        let price_base = self.price_from_curve(bond, settlement, discount_curve)?;
-
-        if price_base.abs() < 1e-10 {
-            return None;
-        }
-
-        // Use 10bp bump for effective duration (standard practice)
-        let bump = 0.001; // 10 basis points
-
-        // Create bumped curves
-        let curve_up = self.bump_curve_parallel(discount_curve, bump);
-        let curve_down = self.bump_curve_parallel(discount_curve, -bump);
-
-        // Calculate prices with bumped curves
-        let price_up = self.price_from_curve(bond, settlement, &curve_up)?;
-        let price_down = self.price_from_curve(bond, settlement, &curve_down)?;
-
-        // Effective duration = (P_down - P_up) / (2 × P_base × bump)
-        let eff_dur = (price_down - price_up) / (2.0 * price_base * bump);
-
-        Some(Decimal::from_f64_retain(eff_dur).unwrap_or_default())
-    }
-
-    /// Calculate effective convexity for a bond using curve-based repricing.
-    ///
-    /// Effective convexity measures the second-order price sensitivity to yield changes.
-    /// Formula: C_eff = (P₋ + P₊ - 2×P₀) / (P₀ × Δy²)
-    ///
-    /// Positive convexity means the bond gains more when rates fall than it loses when rates rise.
-    fn calculate_effective_convexity(
-        &self,
-        bond: &FixedRateBond,
-        settlement: Date,
-        discount_curve: &BuiltCurve,
-    ) -> Option<Decimal> {
-        // Calculate base price using curve discounting
-        let price_base = self.price_from_curve(bond, settlement, discount_curve)?;
-
-        if price_base.abs() < 1e-10 {
-            return None;
-        }
-
-        // Use 10bp bump for effective convexity (same as effective duration)
-        let bump = 0.001; // 10 basis points
-
-        // Create bumped curves
-        let curve_up = self.bump_curve_parallel(discount_curve, bump);
-        let curve_down = self.bump_curve_parallel(discount_curve, -bump);
-
-        // Calculate prices with bumped curves
-        let price_up = self.price_from_curve(bond, settlement, &curve_up)?;
-        let price_down = self.price_from_curve(bond, settlement, &curve_down)?;
-
-        // Effective convexity = (P_down + P_up - 2×P_base) / (P_base × bump²)
-        let eff_conv = (price_down + price_up - 2.0 * price_base) / (price_base * bump * bump);
-
-        Some(Decimal::from_f64_retain(eff_conv).unwrap_or_default())
-    }
-
-    /// Calculate yield to a specific call date.
-    ///
-    /// Creates a modified cash flow stream that ends at the call date with
-    /// the call price as the final redemption, then solves for yield.
-    fn calculate_yield_to_call(
-        &self,
-        bond: &FixedRateBond,
-        clean_price: Decimal,
-        settlement: Date,
-        call_date: Date,
-        call_price: Decimal,
-        frequency: Frequency,
-    ) -> Option<f64> {
-        // Get all cash flows from the bond
-        let all_cash_flows = bond.cash_flows(settlement);
-
-        // Filter to only include cash flows before or on call date
-        // Replace the redemption with call price
-        let coupon_amount =
-            bond.coupon_rate() * bond.face_value() / Decimal::from(frequency.periods_per_year());
-
-        let mut modified_flows: Vec<BondCashFlow> = all_cash_flows
-            .into_iter()
-            .filter(|cf| cf.date <= call_date && cf.date > settlement)
-            .map(|cf| {
-                if cf.date == call_date {
-                    // This is the call date - include coupon + call price
-                    BondCashFlow::coupon_and_principal(cf.date, coupon_amount, call_price)
-                } else {
-                    // Regular coupon
-                    BondCashFlow::coupon(cf.date, coupon_amount)
-                }
-            })
-            .collect();
-
-        // If no cash flow on exact call date, add one
-        if modified_flows.is_empty() || modified_flows.last().map(|cf| cf.date) != Some(call_date) {
-            // Need to add final payment at call date
-            modified_flows.push(BondCashFlow::coupon_and_principal(
-                call_date,
-                coupon_amount,
-                call_price,
-            ));
-        }
-
-        if modified_flows.is_empty() {
-            return None;
-        }
-
-        // Calculate accrued interest for settlement
-        let accrued = bond.accrued_interest(settlement);
-
-        // Get day count convention
-        let day_count = self.parse_day_count(bond.day_count_convention()).ok()?;
-
-        // Solve for yield
-        let solver = YieldSolver::new();
-        match solver.solve(
-            &modified_flows,
-            clean_price,
-            accrued,
-            settlement,
-            day_count,
-            frequency,
-        ) {
-            Ok(result) => Some(result.yield_value),
-            Err(e) => {
-                debug!("Yield to call calculation failed: {}", e);
-                None
-            }
-        }
-    }
-
-    /// Calculate yield to worst for a callable bond.
-    ///
-    /// Finds the minimum yield across:
-    /// - Yield to maturity
-    /// - Yield to each call date
-    ///
-    /// Returns (YTW, workout date) where workout date is the date giving the worst yield.
-    fn calculate_yield_to_worst(
-        &self,
-        bond: &FixedRateBond,
-        clean_price: Decimal,
-        settlement: Date,
-        call_schedule: &[(Date, Decimal)], // (call_date, call_price)
-        frequency: Frequency,
-    ) -> (Option<f64>, Option<Date>) {
-        // Calculate YTM first
-        let ytm_result = yield_to_maturity(bond, settlement, clean_price, frequency);
-        let maturity = bond.maturity().unwrap_or(settlement);
-
-        let mut worst_yield: Option<f64> = ytm_result.ok().map(|r| r.yield_value);
-        let mut workout_date: Option<Date> = Some(maturity);
-
-        // Calculate yield to each call date and find the minimum
-        for (call_date, call_price) in call_schedule {
-            // Skip call dates in the past
-            if *call_date <= settlement {
-                continue;
-            }
-
-            if let Some(ytc) = self.calculate_yield_to_call(
-                bond,
-                clean_price,
-                settlement,
-                *call_date,
-                *call_price,
-                frequency,
-            ) {
-                match worst_yield {
-                    Some(yw) if ytc < yw => {
-                        worst_yield = Some(ytc);
-                        workout_date = Some(*call_date);
-                    }
-                    None => {
-                        worst_yield = Some(ytc);
-                        workout_date = Some(*call_date);
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        (worst_yield, workout_date)
-    }
-
-    /// Price using discount-to-maturity model with real analytics.
-    fn price_discount_to_maturity(
+    /// Deterministic pricing over actual supplied reference and curve values.
+    pub fn price_at(
         &self,
         input: &PricingInput,
+        calculated_at_ms: i64,
     ) -> Result<BondQuoteOutput, EngineError> {
-        let settlement = input.settlement_date;
-        let frequency = self.get_frequency(&input.bond);
-
-        // Build the bond for analytics
-        let bond = self.to_fixed_rate_bond(&input.bond)?;
-
-        // Calculate accrued interest
-        let accrued = bond.accrued_interest(settlement);
-
-        // Get effective bid/mid/ask prices (applies BidAskSpreadConfig if configured)
-        let (effective_bid, effective_mid, effective_ask) = input.effective_prices();
-
-        // Helper to calculate YTM for a given price
-        let calc_ytm = |price: Decimal| -> Option<Decimal> {
-            yield_to_maturity(&bond, settlement, price, frequency)
-                .ok()
-                .map(|r| Decimal::try_from(r.yield_value).unwrap_or_default())
+        crate::ports::reference_repository::validate_bond_reference(&input.bond)
+            .map_err(pricing_error)?;
+        if !matches!(
+            input.bond.bond_type,
+            BondType::FixedBullet | BondType::ZeroCoupon
+        ) {
+            return Err(EngineError::PricingError("unsupported production bond terms/model: FRNs require published fixings and projection, optional/amortizing products require the completed explicit model contract (CVX-055)".into()));
+        }
+        if input.bond.is_callable
+            || input.bond.is_putable
+            || input.bond.is_sinkable
+            || !input.bond.call_schedule.is_empty()
+            || input.bond.floating_terms.is_some()
+            || input.bond.inflation_index.is_some()
+            || input.bond.inflation_base_index.is_some()
+            || input.bond.has_deflation_floor
+        {
+            return Err(EngineError::PricingError(
+                "unsupported embedded terms on nominal bullet/zero".into(),
+            ));
+        }
+        if let Some(config) = &input.bid_ask_config {
+            if [
+                config.half_spread_bps,
+                config.effective_bid_spread_bps(),
+                config.effective_ask_spread_bps(),
+            ]
+            .iter()
+            .any(|v| !v.is_finite() || *v < 0.0 || *v >= 10_000.0)
+            {
+                return Err(EngineError::PricingError(
+                    "invalid bid/ask configuration".into(),
+                ));
+            }
+        }
+        for curve in [&input.discount_curve, &input.benchmark_curve]
+            .into_iter()
+            .flatten()
+        {
+            if curve.inner.is_none() {
+                return Err(EngineError::PricingError(
+                    "missing validated curve representation".into(),
+                ));
+            }
+        }
+        if input.volatility.is_some() {
+            return Err(EngineError::PricingError(
+                "unsupported volatility input for nominal bullet/zero".into(),
+            ));
+        }
+        let frequency = self.get_frequency(&input.bond)?;
+        let (bid, mid, ask) = input.effective_prices();
+        if mid.or(bid).or(ask).is_none() {
+            return Err(EngineError::PricingError(
+                "missing observed clean price; no model or market value substituted".into(),
+            ));
+        }
+        let price_mark = |value| Mark::Price {
+            value,
+            kind: PriceKind::Clean,
         };
-
-        // Calculate bid/mid/ask YTMs from effective prices
-        let ytm_bid = effective_bid.and_then(&calc_ytm);
-        let ytm_mid = effective_mid.and_then(&calc_ytm);
-        let ytm_ask = effective_ask.and_then(&calc_ytm);
-
-        // Helper to calculate dirty price from clean price
-        let to_dirty = |clean: Decimal| -> Decimal { clean + accrued };
-
-        // Calculate Z-spread for a given dirty price
-        let calc_z_spread = |dirty: Decimal| -> Option<Decimal> {
-            input
-                .discount_curve
-                .as_ref()
-                .and_then(|curve| self.calculate_z_spread(&bond, dirty, settlement, curve))
+        let bond = if input.bond.bond_type == BondType::FixedBullet {
+            Some(self.to_fixed_rate_bond(&input.bond)?)
+        } else {
+            None
         };
-
-        // Calculate I-spread for a given YTM
-        let calc_i_spread = |ytm: f64| -> Option<Decimal> {
-            input
-                .benchmark_curve
-                .as_ref()
-                .and_then(|curve| self.calculate_i_spread(&bond, ytm, settlement, curve))
-        };
-
-        // Calculate G-spread for a given YTM
-        let calc_g_spread = |ytm: f64| -> Option<Decimal> {
-            input
-                .government_curve
-                .as_ref()
-                .and_then(|curve| self.calculate_g_spread(&bond, ytm, settlement, curve))
-        };
-
-        // Calculate ASW for a given clean price
-        let calc_asw = |clean: Decimal| -> Option<Decimal> {
-            input
-                .benchmark_curve
-                .as_ref()
-                .and_then(|curve| self.calculate_asw(&bond, clean, settlement, curve))
-        };
-
-        // Calculate spreads at bid/mid/ask prices
-        let z_spread_bid = effective_bid.and_then(|p| calc_z_spread(to_dirty(p)));
-        let z_spread_mid = effective_mid.and_then(|p| calc_z_spread(to_dirty(p)));
-        let z_spread_ask = effective_ask.and_then(|p| calc_z_spread(to_dirty(p)));
-
-        let i_spread_bid = ytm_bid.and_then(|y| y.to_f64()).and_then(&calc_i_spread);
-        let i_spread_mid = ytm_mid.and_then(|y| y.to_f64()).and_then(&calc_i_spread);
-        let i_spread_ask = ytm_ask.and_then(|y| y.to_f64()).and_then(&calc_i_spread);
-
-        let g_spread_bid = ytm_bid.and_then(|y| y.to_f64()).and_then(&calc_g_spread);
-        let g_spread_mid = ytm_mid.and_then(|y| y.to_f64()).and_then(&calc_g_spread);
-        let g_spread_ask = ytm_ask.and_then(|y| y.to_f64()).and_then(&calc_g_spread);
-
-        let asw_bid = effective_bid.and_then(&calc_asw);
-        let asw_mid = effective_mid.and_then(&calc_asw);
-        let asw_ask = effective_ask.and_then(&calc_asw);
-
-        // Calculate analytics from mid price (industry standard for duration/convexity)
-        let (
-            mod_dur,
-            mac_dur,
-            conv,
-            dv01_val,
-            pv01_val,
-            spread_dur_val,
-            eff_dur_val,
-            eff_conv_val,
-            krd_val,
-            cs01_val,
-        ) =
-            if let Some(price_mid) = effective_mid {
-                let price_f64 = price_mid.to_f64().unwrap_or(100.0);
-                let dirty = price_f64 + accrued.to_f64().unwrap_or(0.0);
-
-                // Get mid YTM for analytics
-                if let Some(ytm_val) = ytm_mid.and_then(|y| y.to_f64()) {
-                    // Calculate duration and convexity
-                    let mac = macaulay_duration(&bond, settlement, ytm_val, frequency).ok();
-                    let mod_d = modified_duration(&bond, settlement, ytm_val, frequency).ok();
-                    let conv = convexity(&bond, settlement, ytm_val, frequency).ok();
-                    let dv = dv01(&bond, settlement, ytm_val, dirty, frequency).ok();
-
-                    // Calculate key rate durations if discount curve provided
-                    let krd = input.discount_curve.as_ref().and_then(|curve| {
-                        self.calculate_key_rate_durations(&bond, settlement, curve)
-                    });
-
-                    // Calculate CS01 if we have Z-spread and discount curve
-                    let cs01 = match (&z_spread_mid, &input.discount_curve) {
-                        (Some(z), Some(curve)) => self.calculate_cs01(&bond, *z, settlement, curve),
-                        _ => None,
-                    };
-
-                    // Calculate PV01 if discount curve provided (curve-based, more accurate)
-                    let pv01 = input
-                        .discount_curve
-                        .as_ref()
-                        .and_then(|curve| self.calculate_pv01(&bond, settlement, curve));
-
-                    // Calculate spread duration if we have Z-spread and discount curve
-                    let spread_dur = match (&z_spread_mid, &input.discount_curve) {
-                        (Some(z), Some(curve)) => {
-                            self.calculate_spread_duration(&bond, *z, settlement, curve)
-                        }
-                        _ => None,
-                    };
-
-                    // Calculate effective duration if discount curve provided
-                    let eff_dur = input.discount_curve.as_ref().and_then(|curve| {
-                        self.calculate_effective_duration(&bond, settlement, curve)
-                    });
-
-                    // Calculate effective convexity if discount curve provided
-                    let eff_conv = input.discount_curve.as_ref().and_then(|curve| {
-                        self.calculate_effective_convexity(&bond, settlement, curve)
-                    });
-
-                    (
-                        mod_d.map(|d| Decimal::try_from(d).unwrap_or_default()),
-                        mac.map(|d| Decimal::try_from(d).unwrap_or_default()),
-                        conv.map(|c| Decimal::try_from(c).unwrap_or_default()),
-                        dv.map(|d| Decimal::try_from(d).unwrap_or_default()),
-                        pv01,
-                        spread_dur,
-                        eff_dur,
-                        eff_conv,
-                        krd,
-                        cs01,
-                    )
-                } else {
-                    (None, None, None, None, None, None, None, None, None, None)
+        let zero = if bond.is_none() {
+            let compounding = match frequency {
+                Frequency::Annual => convex_bonds::instruments::Compounding::Annual,
+                Frequency::SemiAnnual => convex_bonds::instruments::Compounding::SemiAnnual,
+                Frequency::Quarterly => convex_bonds::instruments::Compounding::Quarterly,
+                Frequency::Monthly => convex_bonds::instruments::Compounding::Monthly,
+                _ => {
+                    return Err(EngineError::PricingError(
+                        "unsupported zero yield frequency".into(),
+                    ))
                 }
-            } else {
-                (None, None, None, None, None, None, None, None, None, None)
             };
-
-        info!(
-            "Priced {}: YTM(bid/mid/ask)={:?}/{:?}/{:?}, ModDur={:?}, Z-spread(bid/mid/ask)={:?}/{:?}/{:?}bps",
-            input.bond.instrument_id, ytm_bid, ytm_mid, ytm_ask, mod_dur, z_spread_bid, z_spread_mid, z_spread_ask
-        );
-
+            let terms = input
+                .bond
+                .contractual_terms
+                .as_ref()
+                .ok_or_else(|| EngineError::PricingError("missing zero terms".into()))?;
+            if input.bond.coupon_rate.is_some_and(|c| c != Decimal::ZERO)
+                || input.bond.first_coupon_date.is_some()
+                || terms.penultimate_coupon_date.is_some()
+                || terms.stub != crate::ports::reference_master::BondStub::None
+                || terms.settings.ex_coupon_days != 0
+                || terms.settings.business_day_convention
+                    != convex_core::calendars::BusinessDayConvention::Unadjusted
+            {
+                return Err(EngineError::PricingError(
+                    "unsupported coupon/adjusted-payment terms on zero".into(),
+                ));
+            }
+            Some(
+                convex_bonds::instruments::ZeroCouponBond::builder()
+                    .cusip_unchecked(input.bond.instrument_id.as_str())
+                    .issue_date(input.bond.issue_date)
+                    .maturity(input.bond.maturity_date)
+                    .currency(input.bond.currency)
+                    .day_count(self.parse_day_count(&input.bond.day_count)?)
+                    .compounding(compounding)
+                    .face_value(input.bond.face_value)
+                    .redemption_value(terms.redemption_value.decimal())
+                    .build()
+                    .map_err(pricing_error)?,
+            )
+        } else {
+            None
+        };
+        let quote = |value| -> Result<BondQuote, EngineError> {
+            if let Some(bond) = &bond {
+                quote_fixed(
+                    bond,
+                    input.settlement_date,
+                    &price_mark(value),
+                    frequency,
+                    BondCurves {
+                        discount: input
+                            .discount_curve
+                            .as_ref()
+                            .map(|c| c as &dyn convex_curves::RateCurveDyn),
+                        swap: input
+                            .benchmark_curve
+                            .as_ref()
+                            .map(|c| c as &dyn convex_curves::RateCurveDyn),
+                        government: input.government_curve.as_ref(),
+                    },
+                    self.bump_bps,
+                    STANDARD_KEY_RATE_TENORS,
+                )
+                .map_err(pricing_error)
+            } else {
+                let zero = zero
+                    .as_ref()
+                    .ok_or_else(|| EngineError::PricingError("missing zero instrument".into()))?;
+                let (pricing, yield_risk) =
+                    quote_zero(zero, input.settlement_date, &price_mark(value))
+                        .map_err(pricing_error)?;
+                let errors = ["z_spread", "i_spread", "g_spread", "asw", "curve_risk"]
+                    .into_iter()
+                    .map(|field| {
+                        convex_core::contracts::StructuredError::new(
+                            convex_core::contracts::ErrorCode::UnsupportedConvention,
+                            Some(field.into()),
+                            "zero spread/curve-risk convention is not available in this contract",
+                            false,
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(pricing_error)?;
+                Ok(BondQuote {
+                    pricing,
+                    yield_risk,
+                    z_spread_bps: None,
+                    i_spread_bps: None,
+                    g_spread_bps: None,
+                    asw_bps: None,
+                    curve_risk: None,
+                    errors,
+                })
+            }
+        };
+        let qb = bid.map(&quote).transpose()?;
+        let qm = mid.map(&quote).transpose()?;
+        let qa = ask.map(&quote).transpose()?;
+        let base = qm
+            .as_ref()
+            .or(qb.as_ref())
+            .or(qa.as_ref())
+            .ok_or_else(|| EngineError::PricingError("missing quoted side".into()))?;
+        let d = |v| {
+            Decimal::from_f64_retain(v).ok_or_else(|| {
+                EngineError::PricingError("nonfinite/unrepresentable library measure".into())
+            })
+        };
+        let side = |q: &Option<BondQuote>, get: fn(&BondQuote) -> Option<f64>| {
+            q.as_ref().and_then(get).map(d).transpose()
+        };
+        let risk = qm.as_ref().and_then(|q| q.curve_risk.as_ref());
+        let mut errors = Vec::new();
+        for (q, suffix) in [
+            (qb.as_ref(), "bid"),
+            (qm.as_ref(), "mid"),
+            (qa.as_ref(), "ask"),
+        ] {
+            if let Some(q) = q {
+                for error in &q.errors {
+                    let field = error.field().map(|f| format!("{f}_{suffix}"));
+                    errors.push(
+                        convex_core::contracts::StructuredError::new(
+                            error.code(),
+                            field,
+                            error.message(),
+                            false,
+                        )
+                        .map_err(pricing_error)?,
+                    );
+                }
+            }
+        }
         Ok(BondQuoteOutput {
             instrument_id: input.bond.instrument_id.clone(),
             isin: input.bond.isin.clone(),
             currency: input.bond.currency,
-            settlement_date: settlement,
-
-            clean_price_bid: effective_bid,
-            clean_price_mid: effective_mid,
-            clean_price_ask: effective_ask,
-            accrued_interest: Some(accrued),
-
-            ytm_bid,
-            ytm_mid,
-            ytm_ask,
+            settlement_date: input.settlement_date,
+            clean_price_bid: bid,
+            clean_price_mid: mid,
+            clean_price_ask: ask,
+            accrued_interest: Some(d(base.pricing.accrued_per_100)?),
+            ytm_bid: side(&qb, |q| Some(q.pricing.ytm_decimal))?,
+            ytm_mid: side(&qm, |q| Some(q.pricing.ytm_decimal))?,
+            ytm_ask: side(&qa, |q| Some(q.pricing.ytm_decimal))?,
             ytw: None,
             ytc: None,
-
-            z_spread_bid,
-            z_spread_mid,
-            z_spread_ask,
-            i_spread_bid,
-            i_spread_mid,
-            i_spread_ask,
-            g_spread_bid,
-            g_spread_mid,
-            g_spread_ask,
-            asw_bid,
-            asw_mid,
-            asw_ask,
+            z_spread_bid: side(&qb, |q| q.z_spread_bps)?,
+            z_spread_mid: side(&qm, |q| q.z_spread_bps)?,
+            z_spread_ask: side(&qa, |q| q.z_spread_bps)?,
+            i_spread_bid: side(&qb, |q| q.i_spread_bps)?,
+            i_spread_mid: side(&qm, |q| q.i_spread_bps)?,
+            i_spread_ask: side(&qa, |q| q.i_spread_bps)?,
+            g_spread_bid: side(&qb, |q| q.g_spread_bps)?,
+            g_spread_mid: side(&qm, |q| q.g_spread_bps)?,
+            g_spread_ask: side(&qa, |q| q.g_spread_bps)?,
+            asw_bid: side(&qb, |q| q.asw_bps)?,
+            asw_mid: side(&qm, |q| q.asw_bps)?,
+            asw_ask: side(&qa, |q| q.asw_bps)?,
             oas_bid: None,
             oas_mid: None,
             oas_ask: None,
@@ -1199,332 +518,42 @@ impl PricingRouter {
             simple_margin_bid: None,
             simple_margin_mid: None,
             simple_margin_ask: None,
-
-            modified_duration: mod_dur,
-            macaulay_duration: mac_dur,
-            effective_duration: eff_dur_val,
-            spread_duration: spread_dur_val,
-
-            convexity: conv,
-            effective_convexity: eff_conv_val,
-
-            dv01: dv01_val,
-            pv01: pv01_val.or(dv01_val), // Curve-based PV01 if available, else yield-based DV01
-            key_rate_durations: krd_val,
-            cs01: cs01_val,
-
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64,
-            pricing_spec: "DiscountToMaturity".to_string(),
-            source: "convex-engine".to_string(),
-            is_stale: false,
-            quality: if ytm_mid.is_some() { 100 } else { 50 },
-        })
-    }
-
-    /// Price using yield-to-worst model.
-    fn price_yield_to_worst(&self, input: &PricingInput) -> Result<BondQuoteOutput, EngineError> {
-        // For callable bonds, calculate YTM first as base
-        let mut output = self.price_discount_to_maturity(input)?;
-        output.pricing_spec = "YieldToWorst".to_string();
-
-        // If no call schedule, YTW = YTM (mid)
-        if input.bond.call_schedule.is_empty() {
-            output.ytw = output.ytm_mid;
-            return Ok(output);
-        }
-
-        // Need a price to calculate YTW (use mid price)
-        let clean_price = match input.market_price_mid {
-            Some(p) => p,
-            None => {
-                output.ytw = output.ytm_mid;
-                return Ok(output);
-            }
-        };
-
-        // Build the bond for YTW calculation
-        let bond = match self.to_fixed_rate_bond(&input.bond) {
-            Ok(b) => b,
-            Err(_) => {
-                output.ytw = output.ytm_mid;
-                return Ok(output);
-            }
-        };
-
-        let frequency = self.get_frequency(&input.bond);
-
-        // Convert call schedule to (Date, Decimal) pairs
-        let call_schedule: Vec<(Date, Decimal)> = input
-            .bond
-            .call_schedule
-            .iter()
-            .map(|entry| (entry.call_date, entry.call_price))
-            .collect();
-
-        // Calculate YTW
-        let (ytw, workout_date) = self.calculate_yield_to_worst(
-            &bond,
-            clean_price,
-            input.settlement_date,
-            &call_schedule,
-            frequency,
-        );
-
-        // Set YTW in output
-        output.ytw = ytw.map(|y| Decimal::from_f64_retain(y).unwrap_or_default());
-
-        // Also calculate yield to first call (YTC) for reference
-        if let Some((first_call_date, first_call_price)) = call_schedule
-            .iter()
-            .filter(|(d, _)| *d > input.settlement_date)
-            .min_by_key(|(d, _)| *d)
-        {
-            if let Some(ytc) = self.calculate_yield_to_call(
-                &bond,
-                clean_price,
-                input.settlement_date,
-                *first_call_date,
-                *first_call_price,
-                frequency,
-            ) {
-                output.ytc = Some(Decimal::from_f64_retain(ytc).unwrap_or_default());
-            }
-        }
-
-        // Log YTW calculation
-        info!(
-            "YTW for {}: YTM={:?}, YTW={:?}, YTC={:?}, Workout={:?}",
-            input.bond.instrument_id, output.ytm_mid, output.ytw, output.ytc, workout_date
-        );
-
-        Ok(output)
-    }
-
-    /// Price using callable OAS model.
-    fn price_callable_oas(&self, input: &PricingInput) -> Result<BondQuoteOutput, EngineError> {
-        // Start with YTW pricing as base
-        let mut output = self.price_yield_to_worst(input)?;
-        output.pricing_spec = "CallableOAS".to_string();
-
-        // Need both volatility and discount curve for OAS calculation
-        let volatility = input
-            .volatility
-            .map(|v| v.to_f64().unwrap_or(0.01))
-            .unwrap_or(0.01); // Default 1% vol
-
-        let discount_curve = match &input.discount_curve {
-            Some(curve) => curve,
-            None => {
-                debug!("No discount curve for OAS - using YTW only");
-                output.quality = 75;
-                return Ok(output);
-            }
-        };
-
-        // Build callable bond from reference data
-        let callable_bond = match self.to_callable_bond(&input.bond) {
-            Ok(bond) => bond,
-            Err(e) => {
-                debug!("Failed to build callable bond: {}", e);
-                output.quality = 75;
-                return Ok(output);
-            }
-        };
-
-        // Get dirty price for OAS calculation (use mid price)
-        let dirty_price = match output.dirty_price_mid() {
-            Some(dp) => dp,
-            None => {
-                if let Some(cp) = input.market_price_mid {
-                    let accrued = output.accrued_interest.unwrap_or(Decimal::ZERO);
-                    cp + accrued
-                } else {
-                    debug!("No price for OAS calculation");
-                    output.quality = 75;
-                    return Ok(output);
-                }
-            }
-        };
-
-        // Calculate OAS, effective duration, and effective convexity
-        let (oas, eff_dur, eff_conv) = self.calculate_oas(
-            &callable_bond,
-            dirty_price,
-            input.settlement_date,
-            discount_curve,
-            volatility,
-        );
-
-        // Update output with OAS analytics
-        output.oas_mid = oas;
-        output.effective_duration = eff_dur;
-        output.effective_convexity = eff_conv;
-
-        // Log results
-        info!(
-            "OAS for {}: OAS={:?}bps, EffDur={:?}, EffConv={:?}",
-            input.bond.instrument_id,
-            output.oas_mid,
-            output.effective_duration,
-            output.effective_convexity
-        );
-
-        output.quality = if oas.is_some() { 100 } else { 75 };
-
-        Ok(output)
-    }
-
-    /// Price inflation-linked bond.
-    fn price_inflation_linked(&self, input: &PricingInput) -> Result<BondQuoteOutput, EngineError> {
-        // Inflation-linked pricing requires index ratios
-        let mut output = self.price_discount_to_maturity(input)?;
-        output.pricing_spec = "InflationLinkedRealYield".to_string();
-        output.quality = 50; // Partial implementation
-        Ok(output)
-    }
-
-    /// Price floating rate note.
-    fn price_floating_rate(&self, input: &PricingInput) -> Result<BondQuoteOutput, EngineError> {
-        let settlement = input.settlement_date;
-
-        // Build the FRN
-        let frn = self.to_floating_rate_note(&input.bond)?;
-
-        // Calculate accrued interest (using current index rate if available)
-        let accrued = frn.accrued_interest(settlement);
-
-        // Calculate dirty price from mid
-        let dirty_price_mid = input.market_price_mid.map(|cp| cp + accrued);
-
-        // FRN duration is approximately time to next reset
-        let mod_dur = if let Some(ref terms) = input.bond.floating_terms {
-            let reset_freq = terms.reset_frequency as f64;
-            if reset_freq > 0.0 {
-                Some(Decimal::try_from(1.0 / reset_freq).unwrap_or_default())
+            modified_duration: side(&qm, |q| Some(q.yield_risk.modified_duration))?,
+            macaulay_duration: side(&qm, |q| Some(q.yield_risk.macaulay_duration))?,
+            convexity: side(&qm, |q| Some(q.yield_risk.convexity))?,
+            dv01: side(&qm, |q| Some(q.yield_risk.dv01_loss))?,
+            pv01: risk.map(|r| d(-r.zero_pv01_signed)).transpose()?,
+            cs01: risk.map(|r| d(-r.z_pv01_signed)).transpose()?,
+            effective_duration: risk.map(|r| d(r.effective_duration)).transpose()?,
+            effective_convexity: risk.map(|r| d(r.effective_convexity)).transpose()?,
+            spread_duration: risk.map(|r| d(r.spread_duration)).transpose()?,
+            key_rate_durations: risk
+                .map(|r| {
+                    r.key_rates
+                        .iter()
+                        .map(|(t, v)| Ok((format_tenor_label(*t), d(*v)?)))
+                        .collect::<Result<Vec<_>, EngineError>>()
+                })
+                .transpose()?,
+            zero_pv01_signed: risk.map(|r| d(r.zero_pv01_signed)).transpose()?,
+            z_pv01_signed: risk.map(|r| d(r.z_pv01_signed)).transpose()?,
+            measure_errors: errors,
+            timestamp: calculated_at_ms,
+            pricing_spec: if zero.is_some() {
+                "ZeroCoupon"
             } else {
-                Some(Decimal::try_from(0.25).unwrap_or_default()) // Default quarterly
+                "DiscountToMaturity"
             }
-        } else {
-            Some(Decimal::try_from(0.25).unwrap_or_default())
-        };
-
-        // Calculate discount margin if we have curve and price
-        let dm = match (&input.discount_curve, dirty_price_mid) {
-            (Some(curve), Some(dp)) => self.calculate_discount_margin(&frn, dp, settlement, curve),
-            _ => {
-                // Fall back to quoted spread as simple margin
-                input.bond.floating_terms.as_ref().map(|t| t.spread)
-            }
-        };
-
-        // Calculate simple margin if we have a price
-        // Simple margin uses the current index rate - estimate from discount curve or use default
-        let sm = match (dirty_price_mid, &input.discount_curve) {
-            (Some(dp), Some(curve)) => {
-                // Use short-term rate from curve as proxy for current index
-                let current_index =
-                    Decimal::from_f64_retain(curve.interpolate_rate(0.25)).unwrap_or(dec!(0.05));
-                let margin = simple_margin(&frn, dp, current_index, settlement);
-                Some(margin.as_bps())
-            }
-            (Some(dp), None) => {
-                // Use a default index rate (5% as reasonable default)
-                let current_index = dec!(0.05);
-                let margin = simple_margin(&frn, dp, current_index, settlement);
-                Some(margin.as_bps())
-            }
-            _ => None,
-        };
-
-        let quality = if dm.is_some() && input.discount_curve.is_some() {
-            100
-        } else if dm.is_some() || sm.is_some() {
-            75
-        } else {
-            50
-        };
-
-        // Log results
-        info!(
-            "FRN {}: DM={:?}bps, SM={:?}bps",
-            input.bond.instrument_id, dm, sm
-        );
-
-        Ok(BondQuoteOutput {
-            instrument_id: input.bond.instrument_id.clone(),
-            isin: input.bond.isin.clone(),
-            currency: input.bond.currency,
-            settlement_date: settlement,
-
-            clean_price_bid: input.market_price_bid,
-            clean_price_mid: input.market_price_mid,
-            clean_price_ask: input.market_price_ask,
-            accrued_interest: Some(accrued),
-
-            ytm_bid: None, // FRNs don't have YTM in the traditional sense
-            ytm_mid: None,
-            ytm_ask: None,
-            ytw: None,
-            ytc: None,
-
-            z_spread_bid: None,
-            z_spread_mid: None,
-            z_spread_ask: None,
-            i_spread_bid: None,
-            i_spread_mid: None,
-            i_spread_ask: None,
-            g_spread_bid: None,
-            g_spread_mid: None,
-            g_spread_ask: None,
-            asw_bid: None,
-            asw_mid: None,
-            asw_ask: None,
-            oas_bid: None,
-            oas_mid: None,
-            oas_ask: None,
-            discount_margin_bid: None,
-            discount_margin_mid: dm,
-            discount_margin_ask: None,
-            simple_margin_bid: None,
-            simple_margin_mid: sm,
-            simple_margin_ask: None,
-
-            modified_duration: mod_dur,
-            macaulay_duration: None,
-            effective_duration: mod_dur, // For FRN, effective dur ≈ modified dur
-            spread_duration: mod_dur,    // Spread duration for FRN
-
-            convexity: Some(Decimal::ZERO), // FRN convexity is near zero
-            effective_convexity: Some(Decimal::ZERO),
-
-            dv01: None,
-            pv01: None,
-            key_rate_durations: None,
-            cs01: None,
-
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as i64,
-            pricing_spec: "FloatingRateDiscountMargin".to_string(),
-            source: "engine".to_string(),
+            .into(),
+            source: "convex-library".into(),
             is_stale: false,
-            quality,
+            quality: if qm.as_ref().is_some_and(|q| q.errors.is_empty()) {
+                100
+            } else {
+                75
+            },
         })
     }
-
-    /// Price using matrix pricing.
-    fn price_matrix(&self, input: &PricingInput) -> Result<BondQuoteOutput, EngineError> {
-        // Matrix pricing uses comparable bonds - simplified implementation
-        let mut output = self.price_discount_to_maturity(input)?;
-        output.pricing_spec = "MatrixPricing".to_string();
-        output.quality = 50; // Lower quality for matrix pricing
-        Ok(output)
-    }
-
     /// Batch price multiple bonds sequentially.
     pub fn price_batch(
         &self,
@@ -1605,6 +634,10 @@ impl Default for PricingRouter {
     }
 }
 
+fn pricing_error(error: impl std::fmt::Display) -> EngineError {
+    EngineError::PricingError(error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1613,7 +646,8 @@ mod tests {
     use rust_decimal_macros::dec;
 
     fn create_test_bond() -> BondReferenceData {
-        BondReferenceData {
+        reference_terms::complete(BondReferenceData {
+            contractual_terms: None,
             instrument_id: InstrumentId::new("TEST001"),
             isin: Some("US912828Z229".to_string()),
             cusip: Some("912828Z22".to_string()),
@@ -1646,7 +680,104 @@ mod tests {
             first_coupon_date: Some(Date::from_ymd(2020, 11, 15).unwrap()),
             last_updated: 0,
             source: "test".to_string(),
-        }
+        })
+    }
+
+    #[test]
+    fn unknown_day_count_cannot_enter_reference_valuation() {
+        let router = PricingRouter::new();
+        let mut bond = create_test_bond();
+        bond.day_count = "UNKNOWN-CONTRACT-DAY-COUNT".into();
+        let input = PricingInput::with_mid_price(
+            bond,
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(
+            router.price(&input).is_err(),
+            "unknown contractual day count must fail"
+        );
+    }
+
+    #[test]
+    fn missing_terms_and_unknown_frequency_cannot_enter_pricing() {
+        let router = PricingRouter::new();
+        let mut bond = create_test_bond();
+        bond.contractual_terms = None;
+        let input = PricingInput::with_mid_price(
+            bond,
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(router.price(&input).is_err());
+        let mut bond = create_test_bond();
+        bond.frequency = 3;
+        let input = PricingInput::with_mid_price(
+            bond,
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(router.price(&input).is_err());
+    }
+
+    #[test]
+    fn corrected_schedule_and_redemption_are_consumed_without_mutating_prior_terms() {
+        let router = PricingRouter::new();
+        let original = create_test_bond();
+        let encoded = serde_json::to_vec(&original).unwrap();
+        let mut revised = original.clone();
+        revised.first_coupon_date = Some(Date::from_ymd(2020, 5, 15).unwrap());
+        let terms = revised.contractual_terms.as_mut().unwrap();
+        terms.dated_date = convex_core::contracts::BusinessDate::parse("2020-04-15").unwrap();
+        terms.redemption_value = convex_core::contracts::ExactDecimal::parse("102.50").unwrap();
+        let settlement = Date::from_ymd(2020, 5, 1).unwrap();
+        let before = router
+            .to_fixed_rate_bond(&original)
+            .unwrap()
+            .cash_flows(settlement);
+        let after = router
+            .to_fixed_rate_bond(&revised)
+            .unwrap()
+            .cash_flows(settlement);
+        assert_ne!(before[0].date, after[0].date);
+        assert_eq!(
+            after.last().unwrap().amount - before.last().unwrap().amount,
+            dec!(2.50)
+        );
+        assert_eq!(serde_json::to_vec(&original).unwrap(), encoded);
+        let replay = router
+            .to_fixed_rate_bond(&original)
+            .unwrap()
+            .cash_flows(settlement);
+        let values = |flows: &[convex_bonds::traits::BondCashFlow]| {
+            flows
+                .iter()
+                .map(|flow| {
+                    (
+                        flow.date,
+                        flow.amount,
+                        flow.flow_type,
+                        flow.accrual_start,
+                        flow.accrual_end,
+                        flow.factor,
+                        flow.reference_rate,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(values(&replay), values(&before));
     }
 
     fn create_test_curve(ref_date: Date) -> BuiltCurve {
@@ -1669,19 +800,11 @@ mod tests {
             ],
             built_at: 0,
             inputs_hash: "".to_string(),
-            extrapolation: convex_curves::ExtrapolationMethod::FlatForward,
+            extrapolation: convex_curves::ExtrapolationMethod::Flat,
             inner: None,
         };
-        built.rebuild_inner();
+        built.rebuild_inner().unwrap();
         built
-    }
-
-    #[test]
-    fn test_select_model() {
-        let router = PricingRouter::new();
-        let bond = create_test_bond();
-
-        assert_eq!(router.select_model(&bond), PricingModel::DiscountToMaturity);
     }
 
     #[test]
@@ -1979,7 +1102,8 @@ mod tests {
     fn create_callable_test_bond() -> BondReferenceData {
         use crate::ports::reference_data::CallScheduleEntry;
 
-        BondReferenceData {
+        reference_terms::complete(BondReferenceData {
+            contractual_terms: None,
             instrument_id: InstrumentId::new("CALLABLE001"),
             isin: Some("US123456789".to_string()),
             cusip: Some("123456789".to_string()),
@@ -2028,164 +1152,45 @@ mod tests {
             first_coupon_date: Some(Date::from_ymd(2020, 12, 15).unwrap()),
             last_updated: 0,
             source: "test".to_string(),
-        }
+        })
     }
 
     #[test]
     fn test_price_callable_with_oas() {
-        let router = PricingRouter::new();
-        let bond = create_callable_test_bond();
-        let settlement = Date::from_ymd(2025, 1, 15).unwrap();
-        let curve = create_test_curve(settlement);
-
-        let input = PricingInput {
-            bond,
-            settlement_date: settlement,
-            market_price_bid: None,
-            market_price_mid: Some(dec!(102.0)),
-            market_price_ask: None, // Trading at premium (likely to be called)
-            discount_curve: Some(curve),
-            benchmark_curve: None,
-            government_curve: None,
-            volatility: Some(dec!(0.01)), // 1% volatility
-            bid_ask_config: None,
-        };
-
-        let result = router.price(&input);
-        assert!(result.is_ok());
-
-        let output = result.unwrap();
-
-        // Should have YTW (from callable bond)
-        assert!(output.ytw.is_some() || output.ytm_mid.is_some());
-
-        // Should have OAS calculated
-        assert!(
-            output.oas_mid.is_some(),
-            "OAS should be calculated for callable bond"
+        let input = PricingInput::with_mid_price(
+            create_callable_test_bond(),
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
         );
-
-        // Should have effective duration
-        assert!(
-            output.effective_duration.is_some(),
-            "Effective duration should be calculated"
-        );
-
-        // Should have effective convexity
-        assert!(
-            output.effective_convexity.is_some(),
-            "Effective convexity should be calculated"
-        );
-
-        // Effective duration should be positive and less than maturity
-        let eff_dur = output.effective_duration.unwrap().to_f64().unwrap();
-        assert!(
-            eff_dur > 0.0 && eff_dur < 10.0,
-            "Effective duration {} should be positive and reasonable",
-            eff_dur
-        );
-
-        // Model should be callable OAS
-        assert_eq!(output.pricing_spec, "CallableOAS");
-
-        println!(
-            "Callable bond OAS: {:?}bps, EffDur: {:?}, EffConv: {:?}",
-            output.oas_mid, output.effective_duration, output.effective_convexity
-        );
+        let error = PricingRouter::new().price(&input).unwrap_err();
+        assert!(error.to_string().contains("unsupported"), "{error}");
     }
 
     #[test]
     fn test_price_callable_with_ytw() {
-        let router = PricingRouter::new();
-        let bond = create_callable_test_bond();
-        let settlement = Date::from_ymd(2025, 1, 15).unwrap();
-
-        // Test with premium price - YTW should be lower than YTM (likely to be called)
-        let input = PricingInput {
-            bond: bond.clone(),
-            settlement_date: settlement,
-            market_price_bid: None,
-            market_price_mid: Some(dec!(108.0)),
-            market_price_ask: None, // High premium
-            discount_curve: None,
-            benchmark_curve: None,
-            government_curve: None,
-            volatility: None,
-            bid_ask_config: None,
-        };
-
-        let result = router.price_yield_to_worst(&input);
-        assert!(result.is_ok());
-
-        let output = result.unwrap();
-
-        // Should have YTM calculated
-        assert!(output.ytm_mid.is_some(), "YTM should be calculated");
-
-        // Should have YTW calculated
-        assert!(
-            output.ytw.is_some(),
-            "YTW should be calculated for callable bond"
+        let input = PricingInput::with_mid_price(
+            create_callable_test_bond(),
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
         );
-
-        // Should have YTC calculated (yield to first call)
-        assert!(output.ytc.is_some(), "YTC should be calculated");
-
-        let ytm = output.ytm_mid.unwrap().to_f64().unwrap();
-        let ytw = output.ytw.unwrap().to_f64().unwrap();
-        let ytc = output.ytc.unwrap().to_f64().unwrap();
-
-        println!(
-            "Premium callable: YTM={:.4}%, YTW={:.4}%, YTC={:.4}%",
-            ytm * 100.0,
-            ytw * 100.0,
-            ytc * 100.0
-        );
-
-        // For a premium bond, YTW should be <= YTM (call is unfavorable to investor)
-        assert!(
-            ytw <= ytm + 0.001, // Small tolerance for rounding
-            "YTW {} should be <= YTM {} for premium callable bond",
-            ytw,
-            ytm
-        );
-
-        // Test with discount price - YTW should equal YTM (unlikely to be called)
-        let input_discount = PricingInput {
-            bond,
-            settlement_date: settlement,
-            market_price_bid: None,
-            market_price_mid: Some(dec!(95.0)),
-            market_price_ask: None, // Discount
-            discount_curve: None,
-            benchmark_curve: None,
-            government_curve: None,
-            volatility: None,
-            bid_ask_config: None,
-        };
-
-        let result_discount = router.price_yield_to_worst(&input_discount);
-        assert!(result_discount.is_ok());
-
-        let output_discount = result_discount.unwrap();
-        let ytm_disc = output_discount.ytm_mid.unwrap().to_f64().unwrap();
-        let ytw_disc = output_discount.ytw.unwrap().to_f64().unwrap();
-
-        println!(
-            "Discount callable: YTM={:.4}%, YTW={:.4}%",
-            ytm_disc * 100.0,
-            ytw_disc * 100.0
-        );
-
-        // For a discount bond, YTW is typically YTM (better to hold to maturity)
-        // But could also be YTC if call price is below par
+        let error = PricingRouter::new().price(&input).unwrap_err();
+        assert!(error.to_string().contains("unsupported"), "{error}");
     }
 
     fn create_frn_test_bond() -> BondReferenceData {
         use crate::ports::reference_data::FloatingRateTerms;
         use convex_core::ids::FloatingRateIndex;
 
-        BondReferenceData {
+        reference_terms::complete(BondReferenceData {
+            contractual_terms: None,
             instrument_id: InstrumentId::new("FRN001"),
             isin: Some("US912828ZQ7".to_string()),
             cusip: Some("912828ZQ7".to_string()),
@@ -2224,72 +1229,22 @@ mod tests {
             first_coupon_date: Some(Date::from_ymd(2025, 4, 15).unwrap()),
             last_updated: 0,
             source: "test".to_string(),
-        }
+        })
     }
 
     #[test]
     fn test_price_frn_with_discount_margin() {
-        let router = PricingRouter::new();
-        let bond = create_frn_test_bond();
-        let settlement = Date::from_ymd(2025, 1, 15).unwrap();
-        let curve = create_test_curve(settlement);
-
-        let input = PricingInput {
-            bond,
-            settlement_date: settlement,
-            market_price_bid: None,
-            market_price_mid: Some(dec!(99.75)),
-            market_price_ask: None, // Slight discount
-            discount_curve: Some(curve),
-            benchmark_curve: None,
-            government_curve: None,
-            volatility: None,
-            bid_ask_config: None,
-        };
-
-        let result = router.price(&input);
-        assert!(result.is_ok());
-
-        let output = result.unwrap();
-
-        // Should have discount margin calculated
-        assert!(
-            output.discount_margin_mid.is_some(),
-            "Discount margin should be calculated for FRN"
+        let input = PricingInput::with_mid_price(
+            create_frn_test_bond(),
+            Date::from_ymd(2025, 1, 15).unwrap(),
+            Some(dec!(100)),
+            None,
+            None,
+            None,
+            None,
         );
-
-        // Should have simple margin calculated
-        assert!(
-            output.simple_margin_mid.is_some(),
-            "Simple margin should be calculated for FRN"
-        );
-
-        // Duration for FRN should be short (quarterly reset = 0.25 years)
-        assert!(
-            output.modified_duration.is_some(),
-            "Modified duration should be calculated"
-        );
-
-        let mod_dur = output.modified_duration.unwrap().to_f64().unwrap();
-        assert!(
-            mod_dur > 0.0 && mod_dur < 1.0,
-            "FRN duration {} should be less than 1 year",
-            mod_dur
-        );
-
-        // Model should be floating rate
-        assert_eq!(output.pricing_spec, "FloatingRateDiscountMargin");
-
-        let dm = output.discount_margin_mid.unwrap().to_f64().unwrap();
-        let sm = output.simple_margin_mid.unwrap().to_f64().unwrap();
-
-        println!(
-            "FRN Discount Margin: {:.1}bps, Simple Margin: {:.1}bps, Duration: {:?}",
-            dm, sm, output.modified_duration
-        );
-
-        // Simple margin and discount margin should be related but not identical
-        // Both should be positive for a discount FRN with positive spread
+        let error = PricingRouter::new().price(&input).unwrap_err();
+        assert!(error.to_string().contains("unsupported"), "{error}");
     }
 
     #[test]
@@ -2797,7 +1752,8 @@ mod tests {
                 let coupon_idx = i % coupons.len();
                 let maturity_idx = i % maturities.len();
 
-                BondReferenceData {
+                reference_terms::complete(BondReferenceData {
+                    contractual_terms: None,
                     instrument_id: InstrumentId::new(format!("BOND_{:05}", i)),
                     isin: Some(format!("US9128{:05}X", i)),
                     cusip: Some(format!("9128{:05}", i)),
@@ -2832,10 +1788,10 @@ mod tests {
                     country_of_risk: "US".to_string(),
                     sector: "Corporate".to_string(),
                     amount_outstanding: Some(dec!(1000000000)),
-                    first_coupon_date: Some(Date::from_ymd(2020, 7, 15).unwrap()),
+                    first_coupon_date: Some(Date::from_ymd(2020, 6, 15).unwrap()),
                     last_updated: 0,
                     source: "test".to_string(),
-                }
+                })
             })
             .collect()
     }

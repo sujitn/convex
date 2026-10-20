@@ -9,22 +9,3143 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -Dwarnings
+  PYTHONDONTWRITEBYTECODE: '1'
 
 jobs:
+  assurance:
+    name: Bounded Rust Assurance
+    runs-on: ubuntu-latest
+    env:
+      # Hundreds of statically linked test binaries exceed runner disk with debuginfo.
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      # The full feature matrix needs more space than the stock image leaves free.
+      - name: Free runner disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/share/swift /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Materialize packed fixtures
+        run: python3 tools/fixtures.py materialize
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+          components: clippy
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check dependency direction, inventory and quantitative files
+        run: python3 tools/assurance/check.py
+
+      - name: Check coverage is not weakened against the PR base
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 tools/assurance/check.py --base "$BASE_SHA"
+
+      - name: Prove assurance rejects bypass mutations
+        run: python3 -m unittest discover -s tools/assurance -p "test_*.py"
+
+      - name: Prove library coverage rejects incomplete and declaration-only support
+        run: python3 -m unittest discover -s tools/library -p "test_*.py"
+
+      - name: Check independent fixed-365 short-bill reference bytes
+        run: python3 tests/scripts/simple_bill_reference.py check
+
+      - name: Reject unsupported long-bill proxies and cash overflow
+        run: cargo test --locked -p convex-analytics --test simple_bill_yield
+
+      - name: Check independent bill object conversion references
+        run: python3 tests/scripts/bill_methods_reference.py check
+
+      - name: Check exact bill rate-pole references
+        run: python3 tests/scripts/bill_methods_boundary_reference.py check
+
+      - name: Exercise checked bill object admission and units
+        run: cargo test --locked -p convex --test bill_methods
+
+      - name: Exercise checked bill conversions through the standalone facade
+        run: cargo run --locked -p convex --example bill_methods
+
+      - name: Exercise checked bill conversions without default features
+        run: cargo run --locked -p convex --example bill_methods --no-default-features
+
+      - name: Exercise checked bill conversions with schema features
+        run: cargo run --locked -p convex --example bill_methods --features schemars
+
+      - name: Check independent zero-coupon cash and rate references
+        run: python3 tests/scripts/zero_methods_reference.py check
+
+      - name: Exercise checked zero-coupon pricing and yield methods
+        run: cargo test --locked -p convex --test zero_methods
+
+      - name: Exercise checked zero-coupon methods through the facade
+        run: cargo run --locked -p convex --example zero_methods
+
+      - name: Exercise checked zero-coupon methods without default features
+        run: cargo run --locked -p convex --example zero_methods --no-default-features
+
+      - name: Exercise checked zero-coupon methods with schema features
+        run: cargo run --locked -p convex --example zero_methods --features schemars
+
+      - name: Check direct zero-coupon metadata declarations
+        run: python3 tests/scripts/zero_terms_reference.py check
+
+      - name: Check exact zero-coupon ingress boundaries
+        run: python3 tests/scripts/zero_terms_boundary_reference.py check
+
+      - name: Exercise lossless zero-coupon metadata and rejections
+        run: cargo test --locked -p convex --test zero_terms
+
+      - name: Exercise lossless zero-coupon terms through the facade
+        run: cargo run --locked -p convex --example zero_terms
+
+      - name: Exercise lossless zero-coupon terms without default features
+        run: cargo run --locked -p convex --example zero_terms --no-default-features
+
+      - name: Exercise lossless zero-coupon terms with schema features
+        run: cargo run --locked -p convex --example zero_terms --features schemars
+
+      - name: Check independently derived portable numerical references
+        run: python3 tests/scripts/portable_math_reference.py check
+
+      - name: Exercise shared portable numerical kernels
+        run: cargo test --locked -p convex --test portable_math
+
+      - name: Exercise portable numerical kernels through the standalone consumer
+        run: cargo run --locked -p convex --example portable_math
+
+      - name: Exercise portable numerical kernels without default features
+        run: cargo run --locked -p convex --example portable_math --no-default-features
+
+      - name: Exercise portable numerical kernels with schema features
+        run: cargo run --locked -p convex --example portable_math --features schemars
+
+      - name: Reject retired callable WASM convenience inputs
+        run: cargo test --locked -p convex-wasm --test optional_retirement
+      - name: Check retired convenience output and schema contracts
+        run: cargo test --locked -p convex-ffi --test yas_output_retirement
+      - name: Check native absolute cash component ownership
+        run: cargo test --locked -p convex-wasm --lib cash_components_tests
+      - name: Qualify supplied term coupon options 0
+        run: cargo test --locked -p convex-bonds --test floating_coupon_options
+
+      - name: Qualify supplied term coupon options 1
+        run: cargo test --locked -p convex-analytics --test floating_coupon_options
+
+      - name: Qualify supplied term coupon options 2
+        run: cargo test --locked -p convex --test floating_coupon_options
+
+      - name: Qualify supplied term coupon options 3
+        run: cargo run --locked -p convex --example floating_coupon_options
+
+      - name: Qualify supplied term coupon options 4
+        run: cargo test --locked -p convex-bonds --test floating_coupon_options --no-default-features
+
+      - name: Qualify supplied term coupon options 5
+        run: cargo test --locked -p convex-analytics --test floating_coupon_options --no-default-features
+
+      - name: Qualify supplied term coupon options 6
+        run: cargo test --locked -p convex --test floating_coupon_options --no-default-features
+
+      - name: Qualify supplied term coupon options 7
+        run: cargo run --locked -p convex --example floating_coupon_options --no-default-features
+
+      - name: Qualify supplied term coupon options 8
+        run: cargo test --locked -p convex-bonds --test floating_coupon_options --features schemars
+
+      - name: Qualify supplied term coupon options 9
+        run: cargo test --locked -p convex-analytics --test floating_coupon_options --features schemars
+
+      - name: Qualify supplied term coupon options 10
+        run: cargo test --locked -p convex --test floating_coupon_options --features schemars
+
+      - name: Qualify supplied term coupon options 11
+        run: cargo run --locked -p convex --example floating_coupon_options --features schemars
+
+      - name: Qualify supplied term coupon options 12
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test floating_coupon_options
+
+      - name: Qualify supplied whole coupon normal law 0
+        run: cargo test --locked -p convex-analytics --test whole_coupon_normal
+
+      - name: Qualify supplied whole coupon normal law 1
+        run: cargo test --locked -p convex --test whole_coupon_normal
+
+      - name: Qualify supplied whole coupon normal law 2
+        run: cargo run --locked -p convex --example whole_coupon_normal
+
+      - name: Qualify supplied whole coupon normal law 3
+        run: cargo test --locked -p convex-analytics --test whole_coupon_normal --no-default-features
+
+      - name: Qualify supplied whole coupon normal law 4
+        run: cargo test --locked -p convex --test whole_coupon_normal --no-default-features
+
+      - name: Qualify supplied whole coupon normal law 5
+        run: cargo run --locked -p convex --example whole_coupon_normal --no-default-features
+
+      - name: Qualify supplied whole coupon normal law 6
+        run: cargo test --locked -p convex-analytics --test whole_coupon_normal --features schemars
+
+      - name: Qualify supplied whole coupon normal law 7
+        run: cargo test --locked -p convex --test whole_coupon_normal --features schemars
+
+      - name: Qualify supplied whole coupon normal law 8
+        run: cargo run --locked -p convex --example whole_coupon_normal --features schemars
+
+      - name: Qualify supplied whole coupon normal law 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test whole_coupon_normal
+
+      - name: Qualify native coupon parameter hedge factors 0
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_hedges
+
+      - name: Qualify native coupon parameter hedge factors 1
+        run: cargo test --locked -p convex --test coupon_parameter_hedges
+
+      - name: Qualify native coupon parameter hedge factors 2
+        run: cargo run --locked -p convex --example coupon_parameter_hedges
+
+      - name: Qualify native coupon parameter hedge factors 3
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_hedges --no-default-features
+
+      - name: Qualify native coupon parameter hedge factors 4
+        run: cargo test --locked -p convex --test coupon_parameter_hedges --no-default-features
+
+      - name: Qualify native coupon parameter hedge factors 5
+        run: cargo run --locked -p convex --example coupon_parameter_hedges --no-default-features
+
+      - name: Qualify native coupon parameter hedge factors 6
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_hedges --features schemars
+
+      - name: Qualify native coupon parameter hedge factors 7
+        run: cargo test --locked -p convex --test coupon_parameter_hedges --features schemars
+
+      - name: Qualify native coupon parameter hedge factors 8
+        run: cargo run --locked -p convex --example coupon_parameter_hedges --features schemars
+
+      - name: Qualify native coupon parameter hedge factors 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_hedges
+
+      - name: Qualify native coupon parameter price inverse 0
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_inverse
+
+      - name: Qualify native coupon parameter price inverse 1
+        run: cargo test --locked -p convex --test coupon_parameter_inverse
+
+      - name: Qualify native coupon parameter price inverse 2
+        run: cargo run --locked -p convex --example coupon_parameter_inverse
+
+      - name: Qualify native coupon parameter price inverse 3
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_inverse --no-default-features
+
+      - name: Qualify native coupon parameter price inverse 4
+        run: cargo test --locked -p convex --test coupon_parameter_inverse --no-default-features
+
+      - name: Qualify native coupon parameter price inverse 5
+        run: cargo run --locked -p convex --example coupon_parameter_inverse --no-default-features
+
+      - name: Qualify native coupon parameter price inverse 6
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_inverse --features schemars
+
+      - name: Qualify native coupon parameter price inverse 7
+        run: cargo test --locked -p convex --test coupon_parameter_inverse --features schemars
+
+      - name: Qualify native coupon parameter price inverse 8
+        run: cargo run --locked -p convex --example coupon_parameter_inverse --features schemars
+
+      - name: Qualify native coupon parameter price inverse 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_inverse
+      - name: Qualify native coupon parameter price directional 0
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_directional
+
+      - name: Qualify native coupon parameter price directional 1
+        run: cargo test --locked -p convex --test coupon_parameter_directional
+
+      - name: Qualify native coupon parameter price directional 2
+        run: cargo run --locked -p convex --example coupon_parameter_directional
+
+      - name: Qualify native coupon parameter price directional 3
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_directional --no-default-features
+
+      - name: Qualify native coupon parameter price directional 4
+        run: cargo test --locked -p convex --test coupon_parameter_directional --no-default-features
+
+      - name: Qualify native coupon parameter price directional 5
+        run: cargo run --locked -p convex --example coupon_parameter_directional --no-default-features
+
+      - name: Qualify native coupon parameter price directional 6
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_directional --features schemars
+
+      - name: Qualify native coupon parameter price directional 7
+        run: cargo test --locked -p convex --test coupon_parameter_directional --features schemars
+
+      - name: Qualify native coupon parameter price directional 8
+        run: cargo run --locked -p convex --example coupon_parameter_directional --features schemars
+
+      - name: Qualify native coupon parameter price directional 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_directional
+
+      - name: Qualify signed directional coupon parameter risk 0
+        run: cargo test --locked -p convex-analytics --test coupon_directional_risk
+
+      - name: Qualify signed directional coupon parameter risk 1
+        run: cargo test --locked -p convex --test coupon_directional_risk
+
+      - name: Qualify signed directional coupon parameter risk 2
+        run: cargo run --locked -p convex --example coupon_directional_risk
+
+      - name: Qualify signed directional coupon parameter risk 3
+        run: cargo test --locked -p convex-analytics --test coupon_directional_risk --no-default-features
+
+      - name: Qualify signed directional coupon parameter risk 4
+        run: cargo test --locked -p convex --test coupon_directional_risk --no-default-features
+
+      - name: Qualify signed directional coupon parameter risk 5
+        run: cargo run --locked -p convex --example coupon_directional_risk --no-default-features
+
+      - name: Qualify signed directional coupon parameter risk 6
+        run: cargo test --locked -p convex-analytics --test coupon_directional_risk --features schemars
+
+      - name: Qualify signed directional coupon parameter risk 7
+        run: cargo test --locked -p convex --test coupon_directional_risk --features schemars
+
+      - name: Qualify signed directional coupon parameter risk 8
+        run: cargo run --locked -p convex --example coupon_directional_risk --features schemars
+
+      - name: Qualify signed directional coupon parameter risk 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_directional_risk
+      - name: Qualify complete directional hedge evidence 0
+        run: cargo test --locked -p convex-analytics --test directional_hedges
+
+      - name: Qualify complete directional hedge evidence 1
+        run: cargo test --locked -p convex --test directional_hedges
+
+      - name: Qualify complete directional hedge evidence 2
+        run: cargo run --locked -p convex --example directional_hedges
+
+      - name: Qualify complete directional hedge evidence 3
+        run: cargo test --locked -p convex-analytics --test directional_hedges --no-default-features
+
+      - name: Qualify complete directional hedge evidence 4
+        run: cargo test --locked -p convex --test directional_hedges --no-default-features
+
+      - name: Qualify complete directional hedge evidence 5
+        run: cargo run --locked -p convex --example directional_hedges --no-default-features
+
+      - name: Qualify complete directional hedge evidence 6
+        run: cargo test --locked -p convex-analytics --test directional_hedges --features schemars
+
+      - name: Qualify complete directional hedge evidence 7
+        run: cargo test --locked -p convex --test directional_hedges --features schemars
+
+      - name: Qualify complete directional hedge evidence 8
+        run: cargo run --locked -p convex --example directional_hedges --features schemars
+
+      - name: Qualify complete directional hedge evidence 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test directional_hedges
+      - name: Qualify checked yield scalar arithmetic 0
+        run: cargo test --locked -p convex-analytics --test yield_scalars
+
+      - name: Qualify checked yield scalar arithmetic 1
+        run: cargo test --locked -p convex --test yield_scalars
+
+      - name: Qualify checked yield scalar arithmetic 2
+        run: cargo run --locked -p convex --example yield_scalars
+
+      - name: Qualify checked yield scalar arithmetic 3
+        run: cargo test --locked -p convex-analytics --test yield_scalars --no-default-features
+
+      - name: Qualify checked yield scalar arithmetic 4
+        run: cargo test --locked -p convex --test yield_scalars --no-default-features
+
+      - name: Qualify checked yield scalar arithmetic 5
+        run: cargo run --locked -p convex --example yield_scalars --no-default-features
+
+      - name: Qualify checked yield scalar arithmetic 6
+        run: cargo test --locked -p convex-analytics --test yield_scalars --features schemars
+
+      - name: Qualify checked yield scalar arithmetic 7
+        run: cargo test --locked -p convex --test yield_scalars --features schemars
+
+      - name: Qualify checked yield scalar arithmetic 8
+        run: cargo run --locked -p convex --example yield_scalars --features schemars
+
+      - name: Qualify checked yield scalar arithmetic 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test yield_scalars
+
+      - name: Qualify checked supplied cash yield pricing 0
+        run: cargo test --locked -p convex-analytics --test yield_pricing
+
+      - name: Qualify checked supplied cash yield pricing 1
+        run: cargo test --locked -p convex --test yield_pricing
+
+      - name: Qualify checked supplied cash yield pricing 2
+        run: cargo run --locked -p convex --example yield_pricing
+
+      - name: Qualify checked supplied cash yield pricing 3
+        run: cargo test --locked -p convex-analytics --test yield_pricing --no-default-features
+
+      - name: Qualify checked supplied cash yield pricing 4
+        run: cargo test --locked -p convex --test yield_pricing --no-default-features
+
+      - name: Qualify checked supplied cash yield pricing 5
+        run: cargo run --locked -p convex --example yield_pricing --no-default-features
+
+      - name: Qualify checked supplied cash yield pricing 6
+        run: cargo test --locked -p convex-analytics --test yield_pricing --features schemars
+
+      - name: Qualify checked supplied cash yield pricing 7
+        run: cargo test --locked -p convex --test yield_pricing --features schemars
+
+      - name: Qualify checked supplied cash yield pricing 8
+        run: cargo run --locked -p convex --example yield_pricing --features schemars
+
+      - name: Qualify checked supplied cash yield pricing 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test yield_pricing
+
+      - name: Qualify checked supplied calendar accrued interest 0
+        run: cargo test --locked -p convex-analytics --test accrued_methods
+
+      - name: Qualify checked supplied calendar accrued interest 1
+        run: cargo test --locked -p convex --test accrued_methods
+
+      - name: Qualify checked supplied calendar accrued interest 2
+        run: cargo run --locked -p convex --example accrued_methods
+
+      - name: Qualify checked supplied calendar accrued interest 3
+        run: cargo test --locked -p convex-analytics --test accrued_methods --no-default-features
+
+      - name: Qualify checked supplied calendar accrued interest 4
+        run: cargo test --locked -p convex --test accrued_methods --no-default-features
+
+      - name: Qualify checked supplied calendar accrued interest 5
+        run: cargo run --locked -p convex --example accrued_methods --no-default-features
+
+      - name: Qualify checked supplied calendar accrued interest 6
+        run: cargo test --locked -p convex-analytics --test accrued_methods --features schemars
+
+      - name: Qualify checked supplied calendar accrued interest 7
+        run: cargo test --locked -p convex --test accrued_methods --features schemars
+
+      - name: Qualify checked supplied calendar accrued interest 8
+        run: cargo run --locked -p convex --example accrued_methods --features schemars
+
+      - name: Qualify checked supplied calendar accrued interest 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test accrued_methods
+
+      - name: Qualify checked explicit cash reinvestment 0
+        run: cargo test --locked -p convex-analytics --test reinvestment
+
+      - name: Qualify checked explicit cash reinvestment 1
+        run: cargo test --locked -p convex --test reinvestment
+
+      - name: Qualify checked explicit cash reinvestment 2
+        run: cargo run --locked -p convex --example reinvestment
+
+      - name: Qualify checked explicit cash reinvestment 3
+        run: cargo test --locked -p convex-analytics --test reinvestment --no-default-features
+
+      - name: Qualify checked explicit cash reinvestment 4
+        run: cargo test --locked -p convex --test reinvestment --no-default-features
+
+      - name: Qualify checked explicit cash reinvestment 5
+        run: cargo run --locked -p convex --example reinvestment --no-default-features
+
+      - name: Qualify checked explicit cash reinvestment 6
+        run: cargo test --locked -p convex-analytics --test reinvestment --features schemars
+
+      - name: Qualify checked explicit cash reinvestment 7
+        run: cargo test --locked -p convex --test reinvestment --features schemars
+
+      - name: Qualify checked explicit cash reinvestment 8
+        run: cargo run --locked -p convex --example reinvestment --features schemars
+
+      - name: Qualify checked explicit cash reinvestment 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test reinvestment
+
+      - name: Qualify checked periodic growth accuracy 0
+        run: cargo test --locked -p convex-analytics --test periodic_growth
+
+      - name: Qualify checked periodic growth accuracy 1
+        run: cargo test --locked -p convex --test periodic_growth
+
+      - name: Qualify checked periodic growth accuracy 2
+        run: cargo run --locked -p convex --example periodic_growth
+
+      - name: Qualify checked periodic growth accuracy 3
+        run: cargo test --locked -p convex-analytics --test periodic_growth --no-default-features
+
+      - name: Qualify checked periodic growth accuracy 4
+        run: cargo test --locked -p convex --test periodic_growth --no-default-features
+
+      - name: Qualify checked periodic growth accuracy 5
+        run: cargo run --locked -p convex --example periodic_growth --no-default-features
+
+      - name: Qualify checked periodic growth accuracy 6
+        run: cargo test --locked -p convex-analytics --test periodic_growth --features schemars
+
+      - name: Qualify checked periodic growth accuracy 7
+        run: cargo test --locked -p convex --test periodic_growth --features schemars
+
+      - name: Qualify checked periodic growth accuracy 8
+        run: cargo run --locked -p convex --example periodic_growth --features schemars
+
+      - name: Qualify checked periodic growth accuracy 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test periodic_growth
+
+      - name: Qualify checked explicit dated discount time 0
+        run: cargo test --locked -p convex-analytics --test dated_yield
+
+      - name: Qualify checked explicit dated discount time 1
+        run: cargo test --locked -p convex --test dated_yield
+
+      - name: Qualify checked explicit dated discount time 2
+        run: cargo run --locked -p convex --example dated_yield
+
+      - name: Qualify checked explicit dated discount time 3
+        run: cargo test --locked -p convex-analytics --test dated_yield --no-default-features
+
+      - name: Qualify checked explicit dated discount time 4
+        run: cargo test --locked -p convex --test dated_yield --no-default-features
+
+      - name: Qualify checked explicit dated discount time 5
+        run: cargo run --locked -p convex --example dated_yield --no-default-features
+
+      - name: Qualify checked explicit dated discount time 6
+        run: cargo test --locked -p convex-analytics --test dated_yield --features schemars
+
+      - name: Qualify checked explicit dated discount time 7
+        run: cargo test --locked -p convex --test dated_yield --features schemars
+
+      - name: Qualify checked explicit dated discount time 8
+        run: cargo run --locked -p convex --example dated_yield --features schemars
+
+      - name: Qualify checked explicit dated discount time 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test dated_yield
+
+      - name: Qualify quote marks default
+        run: cargo test --locked -p convex-core --test quote_marks
+
+      - name: Qualify quote marks no-default
+        run: cargo test --locked -p convex-core --test quote_marks --no-default-features
+
+      - name: Qualify quote marks schema
+        run: cargo test --locked -p convex-core --test quote_marks --features schemars
+
+      - name: Checked native curve conversion default
+        run: cargo test --locked -p convex-curves --test native_conversions
+
+      - name: Checked native curve conversion no default features
+        run: cargo test --locked -p convex-curves --test native_conversions --no-default-features
+
+      - name: Checked native curve conversion schemas
+        run: cargo test --locked -p convex-curves --test native_conversions --features schemars
+
+      - name: Checked dated curve queries
+        run: cargo test --locked -p convex-curves --test native_dated_time
+
+      - name: Checked dated curve queries no default features
+        run: cargo test --locked -p convex-curves --test native_dated_time --no-default-features
+
+      - name: Checked dated curve query schemas
+        run: cargo test --locked -p convex-curves --test native_dated_time --features schemars
+
+      - name: Qualify native discount default
+        run: cargo test --locked -p convex-curves --test native_discount
+
+      - name: Qualify native discount no-default
+        run: cargo test --locked -p convex-curves --test native_discount --no-default-features
+
+      - name: Qualify native discount schema
+        run: cargo test --locked -p convex-curves --test native_discount --features schemars
+
+      - name: Qualify quote wire default
+        run: cargo test --locked -p convex-analytics --test quote_wire
+
+      - name: Qualify quote wire no-default
+        run: cargo test --locked -p convex-analytics --test quote_wire --no-default-features
+
+      - name: Qualify quote wire schema
+        run: cargo test --locked -p convex-analytics --test quote_wire --features schemars
+
+      - name: Qualify actual quote RPC and schema contracts
+        run: cargo test --locked -p convex-ffi --test quote_rpc
+
+      - name: Qualify checked numeric Decimal default
+        run: cargo test --locked -p convex-core --test numeric_decimal
+
+      - name: Qualify checked numeric Decimal no-default
+        run: cargo test --locked -p convex-core --test numeric_decimal --no-default-features
+
+      - name: Qualify checked numeric Decimal schema
+        run: cargo test --locked -p convex-core --test numeric_decimal --features schemars
+
+      - name: Qualify checked quote scalars default
+        run: cargo test --locked -p convex-core --test quote_scalars
+
+      - name: Qualify checked quote scalars no-default
+        run: cargo test --locked -p convex-core --test quote_scalars --no-default-features
+
+      - name: Qualify checked quote scalars schema
+        run: cargo test --locked -p convex-core --test quote_scalars --features schemars
+
+      - name: Qualify checked C constructor inputs
+        run: cargo test --locked -p convex-ffi --test constructor_inputs
+
+      - name: Qualify retired inferred liquidation route
+        run: cargo test --locked -p convex-server --test retired_liquidity_route
+
+      - name: Qualify checked holding aggregates default
+        run: cargo test --locked -p convex-portfolio --test holding_aggregates
+
+      - name: Qualify checked holding aggregates no-default
+        run: cargo test --locked -p convex-portfolio --test holding_aggregates --no-default-features
+
+      - name: Qualify checked holding aggregates schema
+        run: cargo test --locked -p convex-portfolio --test holding_aggregates --features schemars
+
+      - name: Qualify exact binary64 final ratios
+        run: cargo test --locked -p convex-math --test bounded_decimal
+
+      - name: Qualify checked portfolio HTTP conversion
+        run: cargo test --locked -p convex-server --test portfolio_aggregation
+
+      - name: Qualify checked supplied engine portfolio
+        run: cargo test --locked -p convex-engine --test portfolio_aggregation
+
+      - name: Qualify holding-stress-default
+        run: cargo test --locked -p convex-portfolio --test holding_stress
+
+      - name: Qualify holding-stress-no-default
+        run: cargo test --locked -p convex-portfolio --test holding_stress --no-default-features
+
+      - name: Qualify holding-stress-schema
+        run: cargo test --locked -p convex-portfolio --test holding_stress --features schemars
+
+      - name: Reject retired incomplete stress routes
+        run: cargo test --locked -p convex-server --test retired_stress_routes
+
+      - name: Qualify stable-risk-sums-default
+        run: cargo test --locked -p convex-portfolio --test stable_risk_sums
+
+      - name: Qualify stable-risk-sums-no-default
+        run: cargo test --locked -p convex-portfolio --test stable_risk_sums --no-default-features
+
+      - name: Qualify stable-risk-sums-schema
+        run: cargo test --locked -p convex-portfolio --test stable_risk_sums --features schemars
+
+      - name: Qualify typed-risk-decode-default
+        run: cargo test --locked -p convex-analytics --test risk_decode
+
+      - name: Qualify typed-risk-decode-no-default
+        run: cargo test --locked -p convex-analytics --test risk_decode --no-default-features
+
+      - name: Qualify typed-risk-decode-schema
+        run: cargo test --locked -p convex-analytics --test risk_decode --features schemars
+
+      - name: Qualify holding-key-rate-default
+        run: cargo test --locked -p convex-portfolio --test holdings_key_rates
+
+      - name: Qualify holding-key-rate-no-default
+        run: cargo test --locked -p convex-portfolio --test holdings_key_rates --no-default-features
+
+      - name: Qualify holding-key-rate-schema
+        run: cargo test --locked -p convex-portfolio --test holdings_key_rates --features schemars
+
+      - name: Qualify holding-key-rate-http
+        run: cargo test --locked -p convex-server --test key_rate_coverage
+
+      - name: Qualify numeric-ingress-default
+        run: cargo test --locked -p convex --test ingress_numbers
+
+      - name: Qualify numeric-ingress-no-default
+        run: cargo test --locked -p convex --test ingress_numbers --no-default-features
+
+      - name: Qualify numeric-ingress-schema
+        run: cargo test --locked -p convex --test ingress_numbers --features schemars
+
+      - name: Qualify risk-contract-default
+        run: cargo test --locked -p convex-analytics --test risk_contracts
+
+      - name: Qualify risk-contract-no-default
+        run: cargo test --locked -p convex-analytics --test risk_contracts --no-default-features
+
+      - name: Qualify risk-contract-schema
+        run: cargo test --locked -p convex-analytics --test risk_contracts --features schemars
+
+      - name: Qualify weekday-operation-default
+        run: cargo test --locked -p convex-core --test weekday_operations
+
+      - name: Qualify weekday-operation-no-default
+        run: cargo test --locked -p convex-core --test weekday_operations --no-default-features
+
+      - name: Qualify weekday-operation-schema
+        run: cargo test --locked -p convex-core --test weekday_operations --features schemars
+
+      - name: Qualify checked-risk-http-mcp-suite
+        run: cargo test --locked -p convex-mcp --all-features
+
+      - name: Qualify checked-risk-portfolio-suite
+        run: cargo test --locked -p convex-portfolio --lib
+
+      - name: Qualify checked-risk-server-integration
+        run: cargo test --locked -p convex-server --test api_integration_tests
+
+      - name: Qualify risk-stencil-default
+        run: cargo test --locked -p convex-analytics --test risk_stencils
+
+      - name: Qualify risk-stencil-no-default
+        run: cargo test --locked -p convex-analytics --test risk_stencils --no-default-features
+
+      - name: Qualify risk-stencil-schema
+        run: cargo test --locked -p convex-analytics --test risk_stencils --features schemars
+
+      - name: Qualify risk-stencil-mcp-suite
+        run: cargo test --locked -p convex-mcp
+
+      - name: Qualify native-risk-default
+        run: cargo test --locked -p convex-analytics --test native_yield_risk
+
+      - name: Qualify native-risk-no-default
+        run: cargo test --locked -p convex-analytics --test native_yield_risk --no-default-features
+
+      - name: Qualify native-risk-schema
+        run: cargo test --locked -p convex-analytics --test native_yield_risk --features schemars
+
+      - name: Qualify yas-quote-default
+        run: cargo test --locked -p convex-analytics --test yas_quote_owner
+
+      - name: Qualify yas-quote-no-default
+        run: cargo test --locked -p convex-analytics --test yas_quote_owner --no-default-features
+
+      - name: Qualify yas-quote-schema
+        run: cargo test --locked -p convex-analytics --test yas_quote_owner --features schemars
+
+      - name: Qualify invoice-default
+        run: cargo test --locked -p convex-analytics --test settlement_invoice
+
+      - name: Qualify invoice-no-default
+        run: cargo test --locked -p convex-analytics --test settlement_invoice --no-default-features
+
+      - name: Qualify invoice-schema
+        run: cargo test --locked -p convex-analytics --test settlement_invoice --features schemars
+
+      - name: Qualify selected-yield-default
+        run: cargo test --locked -p convex-bonds -p convex --test signed_yield_selection
+
+      - name: Qualify selected-yield-no-default
+        run: cargo test --locked -p convex-bonds -p convex --test signed_yield_selection --no-default-features
+
+      - name: Qualify selected-yield-schema
+        run: cargo test --locked -p convex-bonds -p convex --test signed_yield_selection --features schemars
+
+      - name: Qualify calendar-default
+        run: cargo test --locked -p convex-bonds --test calendar_dates
+
+      - name: Qualify calendar-no-default
+        run: cargo test --locked -p convex-bonds --test calendar_dates --no-default-features
+
+      - name: Qualify calendar-schema
+        run: cargo test --locked -p convex-bonds --test calendar_dates --features schemars
+
+      - name: Qualify instruments-default
+        run: cargo test --no-fail-fast --locked -p convex-bonds --test zero_instrument_time --test fixed_payment_time
+
+      - name: Qualify instruments-no-default
+        run: cargo test --no-fail-fast --locked -p convex-bonds --test zero_instrument_time --test fixed_payment_time --no-default-features
+
+      - name: Qualify instruments-schema
+        run: cargo test --no-fail-fast --locked -p convex-bonds --test zero_instrument_time --test fixed_payment_time --features schemars
+
+      - name: Verify independent native instrument references
+        run: python3 tests/scripts/dated_instrument_reference.py
+
+      - name: Qualify future-native-default
+        run: cargo test --locked -p convex-bonds --test future_zero_time
+
+      - name: Qualify future-native-no-default
+        run: cargo test --locked -p convex-bonds --test future_zero_time --no-default-features
+
+      - name: Qualify future-native-schema
+        run: cargo test --locked -p convex-bonds --test future_zero_time --features schemars
+
+      - name: Qualify future-shared-default
+        run: cargo test --locked -p convex --test future_zero_time
+
+      - name: Qualify future-shared-no-default
+        run: cargo test --locked -p convex --test future_zero_time --no-default-features
+
+      - name: Qualify future-shared-schema
+        run: cargo test --locked -p convex --test future_zero_time --features schemars
+
+      - name: Qualify future-c
+        run: cargo test --locked -p convex-ffi --test future_zero_time
+
+      - name: Qualify future-mcp
+        run: cargo test --locked -p convex-mcp --test future_zero_time
+
+      - name: Qualify future-wasm
+        run: cargo test --locked -p convex-wasm --test future_zero_time
+
+      - name: Qualify future-wasm-no-default
+        run: cargo test --locked -p convex-wasm --test future_zero_time --no-default-features
+
+      - name: Qualify future-example-default
+        run: cargo run --locked -p convex --example future_zero_time
+
+      - name: Qualify future-example-no-default
+        run: cargo run --locked -p convex --example future_zero_time --no-default-features
+
+      - name: Qualify future-example-schema
+        run: cargo run --locked -p convex --example future_zero_time --features schemars
+
+      - name: Verify future zero-time independent references
+        run: python3 tests/scripts/future_zero_time_reference.py
+
+      - name: Qualify 30E/360 ISDA termination
+        run: cargo test --locked -p convex-core --test thirty360_isda --all-features
+
+      - name: Qualify checked periodic and AFB accuracy 0
+        run: cargo test --locked -p convex-analytics --test discount_accuracy
+
+      - name: Qualify checked periodic and AFB accuracy 1
+        run: cargo test --locked -p convex --test discount_accuracy
+
+      - name: Qualify checked periodic and AFB accuracy 2
+        run: cargo run --locked -p convex --example discount_accuracy
+
+      - name: Qualify checked periodic and AFB accuracy 3
+        run: cargo test --locked -p convex-analytics --test discount_accuracy --no-default-features
+
+      - name: Qualify checked periodic and AFB accuracy 4
+        run: cargo test --locked -p convex --test discount_accuracy --no-default-features
+
+      - name: Qualify checked periodic and AFB accuracy 5
+        run: cargo run --locked -p convex --example discount_accuracy --no-default-features
+
+      - name: Qualify checked periodic and AFB accuracy 6
+        run: cargo test --locked -p convex-analytics --test discount_accuracy --features schemars
+
+      - name: Qualify checked periodic and AFB accuracy 7
+        run: cargo test --locked -p convex --test discount_accuracy --features schemars
+
+      - name: Qualify checked periodic and AFB accuracy 8
+        run: cargo run --locked -p convex --example discount_accuracy --features schemars
+
+      - name: Qualify checked periodic and AFB accuracy 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test discount_accuracy
+
+      - name: Qualify native coupon parameter derivatives 0
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives
+
+      - name: Qualify native coupon parameter derivatives 1
+        run: cargo test --locked -p convex --test coupon_parameter_derivatives
+
+      - name: Qualify native coupon parameter derivatives 2
+        run: cargo run --locked -p convex --example coupon_parameter_derivatives
+
+      - name: Qualify native coupon parameter derivatives 3
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives --no-default-features
+
+      - name: Qualify native coupon parameter derivatives 4
+        run: cargo test --locked -p convex --test coupon_parameter_derivatives --no-default-features
+
+      - name: Qualify native coupon parameter derivatives 5
+        run: cargo run --locked -p convex --example coupon_parameter_derivatives --no-default-features
+
+      - name: Qualify native coupon parameter derivatives 6
+        run: cargo test --locked -p convex-analytics --test coupon_parameter_derivatives --features schemars
+
+      - name: Qualify native coupon parameter derivatives 7
+        run: cargo test --locked -p convex --test coupon_parameter_derivatives --features schemars
+
+      - name: Qualify native coupon parameter derivatives 8
+        run: cargo run --locked -p convex --example coupon_parameter_derivatives --features schemars
+
+      - name: Qualify native coupon parameter derivatives 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_parameter_derivatives
+
+      - name: Qualify exact coupon curve state 0
+        run: cargo test --locked -p convex-curves --test curve_state
+
+      - name: Qualify exact coupon curve state 1
+        run: cargo test --locked -p convex-analytics --test coupon_curve_state
+
+      - name: Qualify exact coupon curve state 2
+        run: cargo test --locked -p convex --test coupon_curve_state
+
+      - name: Qualify exact coupon curve state 3
+        run: cargo run --locked -p convex --example coupon_curve_state
+
+      - name: Qualify exact coupon curve state 4
+        run: cargo test --locked -p convex-curves --test curve_state --no-default-features
+
+      - name: Qualify exact coupon curve state 5
+        run: cargo test --locked -p convex-analytics --test coupon_curve_state --no-default-features
+
+      - name: Qualify exact coupon curve state 6
+        run: cargo test --locked -p convex --test coupon_curve_state --no-default-features
+
+      - name: Qualify exact coupon curve state 7
+        run: cargo run --locked -p convex --example coupon_curve_state --no-default-features
+
+      - name: Qualify exact coupon curve state 8
+        run: cargo test --locked -p convex-curves --test curve_state --features schemars
+
+      - name: Qualify exact coupon curve state 9
+        run: cargo test --locked -p convex-analytics --test coupon_curve_state --features schemars
+
+      - name: Qualify exact coupon curve state 10
+        run: cargo test --locked -p convex --test coupon_curve_state --features schemars
+
+      - name: Qualify exact coupon curve state 11
+        run: cargo run --locked -p convex --example coupon_curve_state --features schemars
+
+      - name: Qualify exact coupon curve state 12
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_curve_state
+
+      - name: Qualify supplied coupon model scenarios 0
+        run: cargo test --locked -p convex-analytics --test coupon_model_scenarios
+
+      - name: Qualify supplied coupon model scenarios 1
+        run: cargo test --locked -p convex --test coupon_model_scenarios
+
+      - name: Qualify supplied coupon model scenarios 2
+        run: cargo run --locked -p convex --example coupon_model_scenarios
+
+      - name: Qualify supplied coupon model scenarios 3
+        run: cargo test --locked -p convex-analytics --test coupon_model_scenarios --no-default-features
+
+      - name: Qualify supplied coupon model scenarios 4
+        run: cargo test --locked -p convex --test coupon_model_scenarios --no-default-features
+
+      - name: Qualify supplied coupon model scenarios 5
+        run: cargo run --locked -p convex --example coupon_model_scenarios --no-default-features
+
+      - name: Qualify supplied coupon model scenarios 6
+        run: cargo test --locked -p convex-analytics --test coupon_model_scenarios --features schemars
+
+      - name: Qualify supplied coupon model scenarios 7
+        run: cargo test --locked -p convex --test coupon_model_scenarios --features schemars
+
+      - name: Qualify supplied coupon model scenarios 8
+        run: cargo run --locked -p convex --example coupon_model_scenarios --features schemars
+
+      - name: Qualify supplied coupon model scenarios 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_model_scenarios
+
+      - name: Qualify supplied coupon graph and hedge risk 0
+        run: cargo test --locked -p convex-analytics --test coupon_graph_risk
+
+      - name: Qualify supplied coupon graph and hedge risk 1
+        run: cargo test --locked -p convex --test coupon_graph_risk
+
+      - name: Qualify supplied coupon graph and hedge risk 2
+        run: cargo run --locked -p convex --example coupon_graph_risk
+
+      - name: Qualify supplied coupon graph and hedge risk 3
+        run: cargo test --locked -p convex-analytics --test coupon_graph_risk --no-default-features
+
+      - name: Qualify supplied coupon graph and hedge risk 4
+        run: cargo test --locked -p convex --test coupon_graph_risk --no-default-features
+
+      - name: Qualify supplied coupon graph and hedge risk 5
+        run: cargo run --locked -p convex --example coupon_graph_risk --no-default-features
+
+      - name: Qualify supplied coupon graph and hedge risk 6
+        run: cargo test --locked -p convex-analytics --test coupon_graph_risk --features schemars
+
+      - name: Qualify supplied coupon graph and hedge risk 7
+        run: cargo test --locked -p convex --test coupon_graph_risk --features schemars
+
+      - name: Qualify supplied coupon graph and hedge risk 8
+        run: cargo run --locked -p convex --example coupon_graph_risk --features schemars
+
+      - name: Qualify supplied coupon graph and hedge risk 9
+        run: cargo test --locked -p convex-ffi -p convex-mcp -p convex-wasm --test coupon_graph_risk
+
+      - name: Check dated cash price and analytical yield risk
+        run: cargo test --locked -p convex-bonds --test dated_cash_risk
+      - name: Check WASM same-basis yield quotations
+        run: cargo test --locked -p convex-wasm --lib dated_yield_tests
+      - name: Check actual WASM ingress field admission
+        run: cargo test --locked -p convex-wasm --lib ingress::tests
+      - name: Check WASM numeric inputs and unit ownership
+        run: cargo test --locked -p convex-wasm --lib checked_inputs_tests
+
+      - name: Qualify supplied native primitives rust-default-0
+        run: cargo test --locked -p convex-core --test cashflow_primitives
+
+      - name: Qualify supplied native primitives rust-default-1
+        run: cargo test --locked -p convex --test native_primitives
+
+      - name: Qualify supplied native primitives rust-default-consumer
+        run: cargo run --locked -p convex --example native_primitives
+
+      - name: Qualify supplied native primitives rust-no-default-0
+        run: cargo test --locked -p convex-core --test cashflow_primitives --no-default-features
+
+      - name: Qualify supplied native primitives rust-no-default-1
+        run: cargo test --locked -p convex --test native_primitives --no-default-features
+
+      - name: Qualify supplied native primitives rust-no-default-consumer
+        run: cargo run --locked -p convex --example native_primitives --no-default-features
+
+      - name: Qualify supplied native primitives rust-schemars-0
+        run: cargo test --locked -p convex-core --test cashflow_primitives --features schemars
+
+      - name: Qualify supplied native primitives rust-schemars-1
+        run: cargo test --locked -p convex --test native_primitives --features schemars
+
+      - name: Qualify supplied native primitives rust-schemars-consumer
+        run: cargo run --locked -p convex --example native_primitives --features schemars
+
+      - name: Qualify original native curve profile 0
+        run: cargo test --locked -p convex-curves --test curve_contracts
+
+      - name: Qualify original native curve profile 1
+        run: cargo test --locked -p convex-curves --test curve_numerics
+
+      - name: Qualify original native curve profile 2
+        run: cargo test --locked -p convex-curves --test curve_families
+
+      - name: Qualify original native curve profile 3
+        run: cargo test --locked -p convex-curves --test curve_methods
+
+      - name: Qualify original native curve profile 4
+        run: cargo test --locked -p convex-curves --test monotone_contracts
+
+      - name: Qualify original native curve profile 5
+        run: cargo test --locked -p convex-curves --test ufr_contracts
+
+      - name: Qualify original native curve profile 6
+        run: cargo test --locked -p convex --test native_curves
+
+      - name: Qualify original native curve profile 7
+        run: cargo test --locked -p convex-curves --test curve_contracts --no-default-features
+
+      - name: Qualify original native curve profile 8
+        run: cargo test --locked -p convex-curves --test curve_numerics --no-default-features
+
+      - name: Qualify original native curve profile 9
+        run: cargo test --locked -p convex-curves --test curve_families --no-default-features
+
+      - name: Qualify original native curve profile 10
+        run: cargo test --locked -p convex-curves --test curve_methods --no-default-features
+
+      - name: Qualify original native curve profile 11
+        run: cargo test --locked -p convex-curves --test monotone_contracts --no-default-features
+
+      - name: Qualify original native curve profile 12
+        run: cargo test --locked -p convex-curves --test ufr_contracts --no-default-features
+
+      - name: Qualify original native curve profile 13
+        run: cargo test --locked -p convex --test native_curves --no-default-features
+
+      - name: Qualify original native curve profile 14
+        run: cargo test --locked -p convex-curves --test curve_contracts --features schemars
+
+      - name: Qualify original native curve profile 15
+        run: cargo test --locked -p convex-curves --test curve_numerics --features schemars
+
+      - name: Qualify original native curve profile 16
+        run: cargo test --locked -p convex-curves --test curve_families --features schemars
+
+      - name: Qualify original native curve profile 17
+        run: cargo test --locked -p convex-curves --test curve_methods --features schemars
+
+      - name: Qualify original native curve profile 18
+        run: cargo test --locked -p convex-curves --test monotone_contracts --features schemars
+
+      - name: Qualify original native curve profile 19
+        run: cargo test --locked -p convex-curves --test ufr_contracts --features schemars
+
+      - name: Qualify original native curve profile 20
+        run: cargo test --locked -p convex --test native_curves --features schemars
+
+      - name: Check independent dated native primitive cash reference
+        run: python3 tests/scripts/native_primitives_reference.py check
+
+      - name: Check independently declared exact term decimals
+        run: python3 tests/scripts/term_decimals_reference.py check
+
+      - name: Check independently declared IRS OIS profile decimals
+        run: python3 tests/scripts/swap_term_decimals_reference.py check
+
+      - name: Exercise exact term metadata and ingress rejection
+        run: cargo test --locked -p convex --test term_decimals
+
+      - name: Exercise exact term decimals through the standalone consumer
+        run: cargo run --locked -p convex --example term_decimals
+
+      - name: Exercise exact term decimals without default features
+        run: cargo run --locked -p convex --example term_decimals --no-default-features
+
+      - name: Exercise exact term decimals with schema features
+        run: cargo run --locked -p convex --example term_decimals --features schemars
+
+      - name: Exercise standalone public APIs with default features
+        run: cargo run --locked -p convex --example inventory_probe
+
+      - name: Exercise standalone public APIs without default features
+        run: cargo run --locked -p convex --example inventory_probe --no-default-features
+
+      - name: Exercise standalone public APIs with schema features
+        run: cargo run --locked -p convex --example inventory_probe --features schemars
+
+      - name: Check standalone library failures properties and ABI fuzzing
+        run: cargo test --locked -p convex-math -p convex-core -p convex-ffi
+
+      - name: Exercise shared cashflow primitives through the standalone facade
+        run: cargo run --locked -p convex --example cashflow_primitives
+
+      - name: Exercise shared cashflow primitives without default features
+        run: cargo run --locked -p convex --example cashflow_primitives --no-default-features
+
+      - name: Exercise shared cashflow primitives with schema features
+        run: cargo run --locked -p convex --example cashflow_primitives --features schemars
+
+      - name: Exercise checked curve contracts through the standalone facade
+        run: cargo run --locked -p convex --example curve_contracts
+
+      - name: Exercise checked curve contracts without default features
+        run: cargo run --locked -p convex --example curve_contracts --no-default-features
+
+      - name: Exercise checked curve contracts with schema features
+        run: cargo run --locked -p convex --example curve_contracts --features schemars
+
+      - name: Exercise curve numerics and transformations through the standalone facade
+        run: cargo run --locked -p convex --example curve_numerics
+
+      - name: Exercise curve numerics without default features
+        run: cargo run --locked -p convex --example curve_numerics --no-default-features
+
+      - name: Exercise curve numerics with schema features
+        run: cargo run --locked -p convex --example curve_numerics --features schemars
+
+      - name: Exercise shared supplied bond quotes through the standalone facade
+        run: cargo run --locked -p convex --example bond_quotes
+
+      - name: Exercise shared bond quotes without default features
+        run: cargo run --locked -p convex --example bond_quotes --no-default-features
+
+      - name: Exercise shared bond quotes with schema features
+        run: cargo run --locked -p convex --example bond_quotes --features schemars
+
+      - name: Run supplied bond terms
+        run: cargo run --locked -p convex --example bond_contracts
+
+      - name: Run supplied bond terms with minimal features
+        run: cargo run --locked -p convex --example bond_contracts --no-default-features
+
+      - name: Run supplied bond terms with schema support
+        run: cargo run --locked -p convex --example bond_contracts --features schemars
+
+      - name: Run supplied optional bond models
+        run: cargo run --locked -p convex --example optional_bonds
+
+      - name: Run supplied optional bond models with minimal features
+        run: cargo run --locked -p convex --example optional_bonds --no-default-features
+
+      - name: Run supplied optional bond models with schema features
+        run: cargo run --locked -p convex --example optional_bonds --features schemars
+
+      - name: Check supplied rates contract fixtures and fixing failures
+        run: cargo test --locked -p convex-rates
+
+      - name: Check bounded rates source and tests
+        run: cargo clippy --locked -p convex-rates --all-targets -- -D warnings
+
+      - name: Run supplied rates contracts
+        run: cargo run --locked -p convex --example rates_contracts
+
+      - name: Run supplied rates contracts with minimal features
+        run: cargo run --locked -p convex --example rates_contracts --no-default-features
+
+      - name: Run supplied rates contracts with schema features
+        run: cargo run --locked -p convex --example rates_contracts --features schemars
+
+      - name: Check independent supplied swap valuation fixtures
+        run: python3 tests/scripts/swap_valuation_reference.py check
+
+      - name: Check native dependent swap curve fitting
+        run: cargo test --locked -p convex-analytics --test swap_calibration
+
+      - name: Check swap prefixes curve composition and engine delegation
+        run: cargo test --locked -p convex-core --test overnight_prefix -p convex-curves --test product_composition -p convex-engine --test swap_curves
+
+      - name: Run supplied swap valuation and calibration
+        run: cargo run --locked -p convex --example swap_valuation
+
+      - name: Run supplied swap valuation with minimal features
+        run: cargo run --locked -p convex --example swap_valuation --no-default-features
+
+      - name: Run supplied swap valuation with schema features
+        run: cargo run --locked -p convex --example swap_valuation --features schemars
+
+      - name: Check minimum pure feature combination
+        run: cargo check --locked -p convex -p convex-core -p convex-math -p convex-curves -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex-portfolio --no-default-features
+
+      - name: Check supplied CDS contracts valuation and conversion
+        run: cargo test --locked -p convex-credit
+
+      - name: Check bounded CDS source and tests
+        run: cargo clippy --locked -p convex-credit --all-targets -- -D warnings
+
+      - name: Verify the complete original ISDA grid and actual model capture
+        run: python3 tests/scripts/isda_cds_compare.py check
+
+      - name: Run supplied CDS valuation
+        run: cargo run --locked -p convex --example cds_valuation
+
+      - name: Run supplied CDS valuation with minimal features
+        run: cargo run --locked -p convex --example cds_valuation --no-default-features
+
+      - name: Run supplied CDS valuation with schema features
+        run: cargo run --locked -p convex --example cds_valuation --features schemars
+
+      - name: Check full supplied credit calibration and risk inputs
+        run: cargo test --locked -p convex-analytics --test credit_calibration
+
+      - name: Verify original credit calibration capture and declared bounds
+        run: python3 tests/scripts/isda_credit_compare.py check
+
+      - name: Run supplied credit calibration and signed risk
+        run: cargo run --locked -p convex --example credit_calibration
+
+      - name: Run supplied credit calibration with minimal features
+        run: cargo run --locked -p convex --example credit_calibration --no-default-features
+
+      - name: Run supplied credit calibration with schema features
+        run: cargo run --locked -p convex --example credit_calibration --features schemars
+
+      - name: Check actual futures reference import replay and input gates
+        run: cargo test --locked -p convex-analytics -p convex-ports -p convex-ext-file -p convex-ext-redb --test futures_reference
+
+      - name: Check futures input sources and dedicated tests
+        run: cargo clippy --locked -p convex-analytics -p convex-ports -p convex-ext-file -p convex-ext-redb --test futures_reference --all-features -- -D warnings
+
+      - name: Run archived actual futures reference consumer
+        run: cargo run --locked -p convex --example futures_reference
+
+      - name: Run futures reference consumer with minimal features
+        run: cargo run --locked -p convex --example futures_reference --no-default-features
+
+      - name: Run futures reference consumer with schema features
+        run: cargo run --locked -p convex --example futures_reference --features schemars
+
+      - name: Check full futures cash carry settlement and remaining-rate risk
+        run: cargo test --locked -p convex-analytics --test futures_valuation
+
+      - name: Check futures valuation source and dedicated tests
+        run: cargo clippy --locked -p convex-analytics --test futures_valuation --all-features -- -D warnings
+
+      - name: Run supplied futures valuation consumer
+        run: cargo run --locked -p convex --example futures_valuation
+
+      - name: Run futures valuation consumer with minimal features
+        run: cargo run --locked -p convex --example futures_valuation --no-default-features
+
+      - name: Run futures valuation consumer with schema features
+        run: cargo run --locked -p convex --example futures_valuation --features schemars
+
+      - name: Check independent mixed rate calibration references
+        run: python3 tests/scripts/rate_calibration_reference.py check
+
+      - name: Check complete original rate helpers and dependent rebuilds
+        run: cargo test --locked -p convex-analytics --test rate_calibration
+
+      - name: Check mixed rate calibration source and dedicated tests
+        run: cargo clippy --locked -p convex-analytics --test rate_calibration --all-features -- -D warnings
+
+      - name: Check required curve rates and numerical suites
+        run: cargo test --locked -p convex-curves -p convex-rates -p convex-math
+
+      - name: Run complete mixed rate calibration consumer
+        run: cargo run --locked -p convex --example rate_calibration
+
+      - name: Run mixed rate calibration with minimal features
+        run: cargo run --locked -p convex --example rate_calibration --no-default-features
+
+      - name: Run mixed rate calibration with schema features
+        run: cargo run --locked -p convex --example rate_calibration --features schemars
+
+      - name: Check all library feature combination
+        run: cargo test --locked -p convex-math -p convex-core -p convex-ffi --all-features
+
+      - name: Check independent cash curve references
+        run: python3 tests/scripts/cash_calibration_reference.py check
+
+      - name: Check full original cash helpers and dependency rebuilds
+        run: cargo test --locked -p convex-analytics --test cash_calibration
+
+      - name: Check bounded cash curve source and dedicated tests
+        run: cargo clippy --locked -p convex-curves -p convex-credit -p convex-analytics --all-targets --all-features -- -D warnings
+
+      - name: Check required cash curve analytics and credit suites
+        run: cargo test --locked -p convex-curves -p convex-analytics -p convex-credit
+
+      - name: Run full cash curve and dated repo carry consumer
+        run: cargo run --locked -p convex --example cash_calibration
+
+      - name: Run cash curve consumer with minimal features
+        run: cargo run --locked -p convex --example cash_calibration --no-default-features
+
+      - name: Run cash curve consumer with schema features
+        run: cargo run --locked -p convex --example cash_calibration --features schemars
+
+      - name: Check calibration failure and repricing contracts
+        run: cargo test --locked -p convex-curves -p convex-bonds -p convex-analytics
+
+      - name: Check independent full cash signed risk references
+        run: python3 tests/scripts/quote_risk_reference.py check
+
+      - name: Check full native signed quote risk and dependent rebuilding
+        run: cargo test --locked -p convex-analytics --test quote_risk
+
+      - name: Check expected portfolio coverage and pinned FX conversion
+        run: cargo test --locked -p convex-portfolio --test signed_risk
+
+      - name: Check independent complete cash workflow references
+        run: python3 tests/scripts/standalone_reference.py check
+
+      - name: Check supplied inverse cashflows scenario and native model guards
+        run: cargo test --locked -p convex-analytics --test standalone_workflow
+
+      - name: Check independent exact lifecycle reference
+        run: python3 tests/scripts/lifecycle_reference.py check
+
+      - name: Check native lifecycle boundary ordering and settlement stages
+        run: cargo test --locked -p convex-analytics -p convex --test lifecycle
+
+      - name: Check original lifecycle product suites
+        run: cargo test --locked -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics
+
+      - name: Exercise pure lifecycle facade with default features
+        run: cargo run --locked -p convex --example lifecycle
+
+      - name: Exercise pure lifecycle facade without default features
+        run: cargo run --locked -p convex --example lifecycle --no-default-features
+
+      - name: Exercise pure lifecycle facade with schema features
+        run: cargo run --locked -p convex --example lifecycle --features schemars
+
+      - name: Lint original core lifecycle schedule helpers
+        run: cargo clippy --locked -p convex-core --lib --all-features -- -D warnings
+
+      - name: Lint native lifecycle selectors and complete pure consumers
+        run: cargo clippy --locked -p convex-bonds -p convex-rates -p convex-credit -p convex-analytics -p convex --all-targets --all-features -- -D warnings
+
+      - name: Check complete standalone mixed book and missing coverage
+        run: cargo test --locked -p convex --test standalone_book
+
+      - name: Check required standalone and original product suites
+        run: cargo test --locked -p convex -p convex-analytics -p convex-rates -p convex-credit
+
+      - name: Run full supplied quotes to mixed book consumer
+        run: cargo run --locked -p convex --example standalone_book
+
+      - name: Run mixed book consumer with minimal features
+        run: cargo run --locked -p convex --example standalone_book --no-default-features
+
+      - name: Run mixed book consumer with schema features
+        run: cargo run --locked -p convex --example standalone_book --features schemars
+
+      - name: Check every mandatory library surface and explicit capability gap
+        run: python3 tools/library/api.py
+
+      - name: Check complete raw native JSON C MCP and WASM adapter parity
+        run: cargo test --locked -p convex --all-features --test library -p convex-ffi --test library -p convex-mcp --test library -p convex-wasm --test library
+
+      - name: Check existing client contracts and full adapter suites
+        run: cargo test --locked -p convex-ffi -p convex-wasm -p convex-mcp
+
+      - name: Run supplied library requests with default features
+        run: cargo run --locked -p convex --example library_workflow
+
+      - name: Run supplied library requests with minimal features
+        run: cargo run --locked -p convex --example library_workflow --no-default-features
+
+      - name: Run supplied library requests with schema support
+        run: cargo run --locked -p convex --example library_workflow --features schemars
+
+      - name: Create isolated schema test environment
+        run: python3 -m venv /tmp/convex-library-schema
+
+      - name: Install pinned schema test tooling
+        run: /tmp/convex-library-schema/bin/python -m pip install -r tools/library/requirements-schema.txt
+
+      - name: Validate actual generated schema against full requests and rejected mutations
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_schema.py --binary target/debug/examples/library_workflow
+
+      - name: Check supplemental operation requests preserve original input corpus
+        run: python3 tests/scripts/library_operations_inputs.py
+
+      - name: Check exact conversion view and bucket native JSON C MCP WASM operations
+        run: cargo test --locked -p convex --all-features --test library_operations -p convex-ffi --test library_operations -p convex-mcp --test library_operations -p convex-wasm --test library_operations
+
+      - name: Run exact supplied operations with default features
+        run: cargo run --locked -p convex --example library_operations
+
+      - name: Run exact supplied operations with minimal features
+        run: cargo run --locked -p convex --example library_operations --no-default-features
+
+      - name: Run exact supplied operations with schema support
+        run: cargo run --locked -p convex --example library_operations --features schemars
+
+      - name: Validate exact generated schema against supplemental operations
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_operations_schema.py --binary target/debug/examples/library_operations
+
+      - name: Verify declared independent full cash quotation controls
+        run: python3 tests/scripts/cash_quotation_reference.py
+
+      - name: Check full cash quotation and government spread native JSON C MCP WASM routes
+        run: cargo test --locked -p convex --all-features --test library_cash -p convex-ffi --test library_cash -p convex-mcp --test library_cash -p convex-wasm --test library_cash
+
+      - name: Run full cash quotation consumer with default features
+        run: cargo run --locked -p convex --example library_cash
+
+      - name: Run full cash quotation consumer with minimal features
+        run: cargo run --locked -p convex --example library_cash --no-default-features
+
+      - name: Run full cash quotation consumer with schema support
+        run: cargo run --locked -p convex --example library_cash --features schemars
+
+      - name: Validate actual full cash quotation schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_cash_schema.py --binary target/debug/examples/library_cash
+
+      - name: Check complete supplied rate-helper inputs
+        run: python3 tests/scripts/library_rate_helpers_inputs.py
+
+      - name: Check complete supplied CDS-helper inputs
+        run: python3 tests/scripts/library_credit_helpers_inputs.py
+
+      - name: Check complete supplied cash-helper inputs
+        run: python3 tests/scripts/library_cash_helpers_inputs.py
+
+      - name: Check predeclared workout references and complete supplied inputs
+        run: |
+          python3 tests/scripts/workout_quotation_reference.py check
+          python3 tests/scripts/library_workout_inputs.py
+
+      - name: Check full workout native guards and JSON C MCP WASM reachability
+        run: cargo test --locked -p convex-analytics --all-features --test workout_quotation -p convex --test library_workout -p convex-ffi --test library_workout -p convex-mcp --test library_workout -p convex-wasm --test library_workout
+
+      - name: Run complete workout consumer with default features
+        run: cargo run --locked -p convex --example library_workout
+
+      - name: Run complete workout consumer with minimal features
+        run: cargo run --locked -p convex --example library_workout --no-default-features
+
+      - name: Run complete workout consumer with schema support
+        run: cargo run --locked -p convex --example library_workout --features schemars
+
+      - name: Validate actual full workout schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_workout_schema.py --binary target/debug/examples/library_workout
+
+      - name: Check frozen analytic curve-family controls
+        run: python3 tests/scripts/curve_family_reference.py check
+
+      - name: Check complete supplied curve-family inputs
+        run: python3 tests/scripts/library_curve_family_inputs.py
+
+      - name: Check native full curve families and JSON C MCP WASM parity
+        run: cargo test --locked -p convex-curves --all-features --test curve_families -p convex --test library_curve_families -p convex-ffi --test library_curve_families -p convex-mcp --test library_curve_families -p convex-wasm --test library_curve_families
+
+      - name: Run curve-family consumer with default features
+        run: cargo run --locked -p convex --example library_curve_families
+
+      - name: Run curve-family consumer with minimal features
+        run: cargo run --locked -p convex --example library_curve_families --no-default-features
+
+      - name: Run curve-family consumer with schema support
+        run: cargo run --locked -p convex --example library_curve_families --features schemars
+
+      - name: Validate actual complete curve-family schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_curve_families_schema.py --binary target/debug/examples/library_curve_families
+
+      - name: Check frozen analytic curve-method controls
+        run: python3 tests/scripts/curve_method_reference.py --check
+
+      - name: Check complete supplied curve-method inputs
+        run: python3 tests/scripts/library_curve_method_inputs.py --check
+
+      - name: Test explicit method native and shared adapters
+        run: cargo test --locked -p convex-curves --all-features --test curve_methods -p convex --test library_curve_methods -p convex-ffi --test library_curve_methods -p convex-mcp --test library_curve_methods -p convex-wasm --test library_curve_methods -p convex-engine --test curve_method_migration
+
+      - name: Run curve-method consumer with default features
+        run: cargo run --locked -p convex --example library_curve_methods
+
+      - name: Run curve-method consumer with minimal features
+        run: cargo run --locked -p convex --example library_curve_methods --no-default-features
+
+      - name: Run curve-method consumer with schema support
+        run: cargo run --locked -p convex --example library_curve_methods --features schemars
+
+      - name: Validate actual complete curve-method schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_curve_methods_schema.py --binary target/debug/examples/library_curve_methods
+
+      - name: Check frozen independent UFR convergence controls
+        run: python3 tests/scripts/ufr_reference.py --check
+
+      - name: Check dependency-free frozen UFR math fixture
+        run: python3 tests/scripts/ufr_math_fixture.py --check
+
+      - name: Check full supplied UFR contracts
+        run: python3 tests/scripts/library_ufr_inputs.py --check
+
+      - name: Check native UFR joins and existing shared clients
+        run: cargo test --locked -p convex-math --test ufr_tail -p convex-curves --test ufr_contracts -p convex --test library_ufr -p convex-ffi --test library_ufr -p convex-mcp --test library_ufr -p convex-wasm --test library_ufr --all-features
+
+      - name: Lint checked UFR math and its frozen controls
+        run: cargo clippy --locked -p convex-math --lib --test ufr_tail --all-features -- -D warnings
+
+      - name: Run complete UFR consumer
+        run: cargo run --locked -p convex --example library_ufr
+
+      - name: Run complete UFR consumer with minimal features
+        run: cargo run --locked -p convex --example library_ufr --no-default-features
+
+      - name: Run complete UFR consumer with schema support
+        run: cargo run --locked -p convex --example library_ufr --features schemars
+
+      - name: Validate actual full UFR request schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_ufr_schema.py --binary target/debug/examples/library_ufr
+
+      - name: Check frozen complete MonotoneConvex controls
+        run: python3 tests/scripts/monotone_reference.py --check
+
+      - name: Check dependency-free monotone math fixture
+        run: python3 tests/scripts/monotone_math_fixture.py --check
+
+      - name: Check full supplied MonotoneConvex contracts
+        run: python3 tests/scripts/library_monotone_inputs.py --check
+
+      - name: Check complete native monotone and shared client contracts
+        run: cargo test --locked -p convex-math --test monotone_complete -p convex-curves --test monotone_contracts -p convex --test library_monotone -p convex-ffi --test library_monotone -p convex-mcp --test library_monotone -p convex-wasm --test library_monotone --all-features
+
+      - name: Lint complete monotone math and frozen controls
+        run: cargo clippy --locked -p convex-math --lib --test monotone_complete --all-features -- -D warnings
+
+      - name: Run complete monotone consumer
+        run: cargo run --locked -p convex --example library_monotone
+
+      - name: Run complete monotone consumer with minimal features
+        run: cargo run --locked -p convex --example library_monotone --no-default-features
+
+      - name: Run complete monotone consumer with schema support
+        run: cargo run --locked -p convex --example library_monotone --features schemars
+
+      - name: Validate actual complete monotone request schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_monotone_schema.py --binary target/debug/examples/library_monotone
+
+      - name: Check native rate-helper guards and JSON C MCP WASM reachability
+        run: cargo test --locked -p convex-analytics --all-features --test rate_helper_repricing -p convex --test library_rate_helpers -p convex-ffi --test library_rate_helpers -p convex-mcp --test library_rate_helpers -p convex-wasm --test library_rate_helpers
+
+      - name: Preserve original complete recipe replay inputs
+        run: python3 tests/scripts/curve_replay_inputs.py --check
+
+      - name: Check complete snapshot recipes and original identity migration
+        run: cargo test --locked -p convex-ports --test curve_recipe_snapshots -p convex-engine --all-features --test curve_recipe_replay --test curve_recipe_runtime -p convex-server --test curve_recipe_context_tests
+
+      - name: Preserve original product calibration requests and independent deposit controls
+        run: python3 tests/scripts/calibration_replay_inputs.py --check
+
+      - name: Check preserved raw independent government-spread controls
+        run: python3 tests/scripts/government_inverse_reference.py
+
+      - name: Check separately admitted government-spread boundary controls
+        run: python3 tests/scripts/government_inverse_admitted_reference.py
+
+      - name: Check original government quote error admission
+        run: python3 tests/scripts/government_inverse_protocol.py
+
+      - name: Check complete government inverse native JSON C MCP and WASM routes
+        run: cargo test --locked --all-features -p convex --test government_inverse -p convex-ffi --test government_inverse -p convex-mcp --test government_inverse -p convex-wasm --test government_inverse -- --test-threads=1
+
+      - name: Run complete government inverse consumer
+        run: cargo run --locked -p convex --example government_inverse
+
+      - name: Run complete government inverse consumer without default features
+        run: cargo run --locked -p convex --example government_inverse --no-default-features
+
+      - name: Run complete government inverse consumer with schema support
+        run: cargo run --locked -p convex --example government_inverse --features schemars
+
+      - name: Validate actual complete government inverse schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/government_inverse_schema.py --binary target/debug/examples/government_inverse
+
+      - name: Validate original contextual ICMA controls
+        run: python3 tests/scripts/icma_reference.py
+
+      - name: Validate original contextual ICMA option and plain qualification
+        run: python3 tests/scripts/icma_qualification.py
+
+      - name: Validate original contextual ICMA workout components
+        run: python3 tests/scripts/icma_cash_components.py
+
+      - name: Validate original contextual ICMA unpaid purchase accrual
+        run: python3 tests/scripts/icma_entitlement_reference.py
+
+      - name: Validate original contextual ICMA versioned operation corpus
+        run: python3 tests/scripts/icma_api_corpus.py
+
+      - name: Test complete contextual ICMA adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma -- --test-threads=1
+
+      - name: Run contextual ICMA consumer
+        run: cargo run --locked -p convex --example icma_quotation
+
+      - name: Run contextual ICMA consumer without default features
+        run: cargo run --locked -p convex --example icma_quotation --no-default-features
+
+      - name: Run contextual ICMA consumer with schema support
+        run: cargo run --locked -p convex --example icma_quotation --features schemars
+
+      - name: Validate actual contextual ICMA schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_schema.py --binary target/debug/examples/icma_quotation
+
+      - name: Validate original contextual government controls
+        run: python3 tests/scripts/icma_government_reference.py
+
+      - name: Validate independent contextual helper controls
+        run: python3 tests/scripts/icma_helpers_reference.py
+
+      - name: Validate contextual helper input qualification
+        run: python3 tests/scripts/icma_helpers_qualification.py
+
+      - name: Validate contextual helper boundary controls
+        run: python3 tests/scripts/icma_helpers_boundaries.py
+
+      - name: Validate contextual helper API corpus
+        run: python3 tests/scripts/icma_helpers_api.py
+
+      - name: Validate exact contextual helper pillar terms
+        run: python3 tests/scripts/icma_helpers_terms.py
+
+      - name: Validate contextual helper product and source admission
+        run: python3 tests/scripts/icma_helpers_admission.py
+
+      - name: Check separately declared ICMA helper failures
+        run: python3 tests/scripts/icma_helpers_failures.py
+
+      - name: Check exact original helper test ownership migration
+        run: python3 tests/scripts/icma_helpers_compatibility.py
+
+      - name: Test contextual helpers across native C MCP and WASM adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_helpers -- --test-threads=1
+
+      - name: Test contextual helper file snapshot replay
+        run: cargo test --locked --all-features -p convex-engine --test icma_helpers_snapshot
+
+      - name: Run default contextual helper consumer
+        run: cargo run --locked -p convex --example icma_helpers
+
+      - name: Run minimal contextual helper consumer
+        run: cargo run --locked -p convex --example icma_helpers --no-default-features
+
+      - name: Run contextual helper schema consumer
+        run: cargo run --locked -p convex --example icma_helpers --features schemars
+
+      - name: Validate contextual helper request schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_helpers_schema.py --binary target/debug/examples/icma_helpers
+
+      - name: Build current native library before C transport checks
+        run: cargo build --locked -p convex-ffi
+
+      - name: Verify contextual helper native C transport parity
+        run: python3 tests/scripts/icma_helpers_parity.py --binary target/debug/examples/icma_helpers --library target/debug/libconvex_ffi.so
+
+      - name: Check original direct ICMA risk controls
+        run: python3 tests/scripts/icma_risk_reference.py
+
+      - name: Check direct ICMA risk context admission
+        run: python3 tests/scripts/icma_risk_admission.py
+
+      - name: Check direct ICMA risk original failure controls
+        run: python3 tests/scripts/icma_risk_failures.py
+
+      - name: Check direct ICMA risk reset protocol
+        run: python3 tests/scripts/icma_risk_protocol.py
+
+      - name: Check direct ICMA risk exact-route framing
+        run: python3 tests/scripts/icma_risk_api.py
+
+      - name: Verify distinct direct ICMA risk owner framing
+        run: python3 tests/scripts/icma_risk_owner.py
+
+      - name: Test direct ICMA risk and complete hedge columns across adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_risk -- --test-threads=1
+
+      - name: Run direct ICMA risk and hedge consumer
+        run: cargo run --locked -p convex --example icma_risk
+
+      - name: Run minimal direct ICMA risk and hedge consumer
+        run: cargo run --locked -p convex --example icma_risk --no-default-features
+
+      - name: Run direct ICMA risk schema consumer
+        run: cargo run --locked -p convex --example icma_risk --features schemars
+
+      - name: Check direct ICMA risk schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_risk_schema.py --binary target/debug/examples/icma_risk
+
+      - name: Verify direct ICMA risk and hedge C transport parity
+        run: python3 tests/scripts/icma_risk_parity.py --binary target/debug/examples/icma_risk --library target/debug/libconvex_ffi.so
+
+      - name: Check declared graph hedge reference controls
+        run: python3 tests/scripts/graph_hedge_reference.py
+
+      - name: Check declared graph hedge problem reference controls
+        run: python3 tests/scripts/graph_hedge_problem_reference.py
+
+      - name: Check declared graph hedge admission controls
+        run: python3 tests/scripts/graph_hedge_admission.py
+
+      - name: Check declared graph hedge roles controls
+        run: python3 tests/scripts/graph_hedge_roles.py
+
+      - name: Check declared graph hedge terms controls
+        run: python3 tests/scripts/graph_hedge_terms.py
+
+      - name: Check declared graph hedge cash reference controls
+        run: python3 tests/scripts/graph_hedge_cash_reference.py
+
+      - name: Check declared graph hedge protocol controls
+        run: python3 tests/scripts/graph_hedge_protocol.py
+
+      - name: Check declared graph hedge limits controls
+        run: python3 tests/scripts/graph_hedge_limits.py
+
+      - name: Check lossless bounded graph hedge API census
+        run: python3 tests/scripts/graph_hedge_census.py
+
+      - name: Test graph hedge columns across adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test graph_hedge -- --test-threads=1
+
+      - name: Run graph hedge consumer
+        run: cargo run --locked -p convex --example graph_hedge
+
+      - name: Run minimal graph hedge consumer
+        run: cargo run --locked -p convex --example graph_hedge --no-default-features
+
+      - name: Run graph hedge schema consumer
+        run: cargo run --locked -p convex --example graph_hedge --features schemars
+
+      - name: Check graph hedge schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/graph_hedge_schema.py --binary target/debug/examples/graph_hedge
+
+      - name: Verify graph hedge C transport parity
+        run: python3 tests/scripts/graph_hedge_parity.py --binary target/debug/examples/graph_hedge --library target/debug/libconvex_ffi.so
+
+      - name: Check declared cash credit reference
+        run: python3 tests/scripts/cash_basis_hedge_reference.py
+
+      - name: Check declared cash credit rebuild reference
+        run: python3 tests/scripts/cash_basis_hedge_rebuild.py
+
+      - name: Check declared cash credit admission
+        run: python3 tests/scripts/cash_basis_hedge_admission.py
+
+      - name: Check declared cash credit precise helper inputs
+        run: python3 tests/scripts/cash_basis_hedge_precision.py
+
+      - name: Check declared full credit cash mixed-book controls
+        run: python3 tests/scripts/cash_basis_hedge_book_reference.py
+
+      - name: Check lossless cash credit API census
+        run: python3 tests/scripts/cash_basis_hedge_census.py
+
+      - name: Test issuer cash hedge columns across adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test cash_basis_hedge -- --test-threads=1
+
+      - name: Run issuer cash hedge consumer
+        run: cargo run --locked -p convex --example cash_basis_hedge
+
+      - name: Run minimal issuer cash hedge consumer
+        run: cargo run --locked -p convex --example cash_basis_hedge --no-default-features
+
+      - name: Run issuer cash hedge schema consumer
+        run: cargo run --locked -p convex --example cash_basis_hedge --features schemars
+
+      - name: Check issuer cash hedge schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/cash_basis_hedge_schema.py --binary target/debug/examples/cash_basis_hedge
+
+      - name: Verify issuer cash hedge C transport parity
+        run: python3 tests/scripts/cash_basis_hedge_parity.py --binary target/debug/examples/cash_basis_hedge --library target/debug/libconvex_ffi.so
+
+      - name: Check independent full recovery and five-factor book
+        run: python3 tests/scripts/recovery_hedge_reference.py
+
+      - name: Check recovery decimal admission
+        run: python3 tests/scripts/recovery_hedge_admission.py
+
+      - name: Check recovery endpoints and complete helper controls
+        run: python3 tests/scripts/recovery_hedge_boundaries.py
+
+      - name: Check lossless recovery API census
+        run: python3 tests/scripts/recovery_hedge_census.py
+
+      - name: Retain separately declared recovery application limits
+        run: python3 tests/scripts/recovery_hedge_limits.py
+
+      - name: Test CDS recovery across native adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test recovery_hedge -- --test-threads=1
+
+      - name: Test original recovery contracts and every calibrated helper
+        run: cargo test --locked --all-features -p convex --test recovery_graph -p convex-credit --test recovery_binding -- --test-threads=1
+
+      - name: Run recovery mixed hedge consumer
+        run: cargo run --locked -p convex --example recovery_hedge
+
+      - name: Run minimal recovery mixed hedge consumer
+        run: cargo run --locked -p convex --example recovery_hedge --no-default-features
+
+      - name: Run recovery mixed hedge schema consumer
+        run: cargo run --locked -p convex --example recovery_hedge --features schemars
+
+      - name: Check recovery full-term schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/recovery_hedge_schema.py --binary target/debug/examples/recovery_hedge
+
+      - name: Verify recovery mixed hedge C transport
+        run: python3 tests/scripts/recovery_hedge_parity.py --binary target/debug/examples/recovery_hedge --library target/debug/libconvex_ffi.so
+
+      - name: Check independently declared optional cash model and hedge controls
+        run: python3 tests/scripts/optional_graph_hedge_controls.py reference
+
+      - name: Check explicit optional hedge state and FX admission
+        run: python3 tests/scripts/optional_graph_hedge_admission.py
+
+      - name: Check complete optional cost and eligibility observations
+        run: python3 tests/scripts/optional_graph_hedge_book_binding.py
+
+      - name: Check explicit original optional hedge solve policy
+        run: python3 tests/scripts/optional_graph_hedge_book_policy.py
+
+      - name: Check direct optional native owner controls
+        run: python3 tests/scripts/optional_graph_hedge_boundaries.py
+
+      - name: Check full optional notice and calibrated model qualification
+        run: python3 tests/scripts/optional_graph_hedge_controls.py qualification
+
+      - name: Check original optional half-bump resolution trial
+        run: python3 tests/scripts/optional_graph_hedge_resolution.py
+
+      - name: Check independently declared full OAS calibrated model controls
+        run: python3 tests/scripts/optional_graph_hedge_controls.py calibrated
+
+      - name: Check lossless final optional API census
+        run: python3 tests/scripts/optional_graph_hedge_final_census.py
+
+      - name: Check lossless original optional API census
+        run: python3 tests/scripts/optional_graph_hedge_census.py
+
+      - name: Causal lifecycle and cash gate 1
+        run: python3 tests/scripts/causal_pnl_reference.py
+
+      - name: Causal lifecycle and cash gate 2
+        run: python3 tests/scripts/causal_pnl_ready.py
+
+      - name: Causal lifecycle and cash gate 3
+        run: python3 tests/scripts/causal_pnl_admitted.py
+
+      - name: Causal lifecycle and cash gate 4
+        run: python3 tests/scripts/causal_pnl_bindings.py
+
+      - name: Causal lifecycle and cash gate 5
+        run: python3 tests/scripts/causal_pnl_boundaries.py
+
+      - name: Causal lifecycle and cash gate 6
+        run: python3 tests/scripts/causal_pnl_qualification.py
+
+      - name: Causal lifecycle and cash gate 7
+        run: python3 tests/scripts/causal_pnl_wire.py
+
+      - name: Causal lifecycle and cash gate 8
+        run: python3 tests/scripts/causal_pnl_terms.py
+
+      - name: Causal lifecycle and cash gate 9
+        run: python3 tests/scripts/causal_pnl_publications.py
+
+      - name: Causal lifecycle and cash gate 10
+        run: python3 tests/scripts/causal_pnl_identity.py
+
+      - name: Causal lifecycle and cash gate 11
+        run: python3 tests/scripts/causal_pnl_revisions.py
+
+      - name: Causal lifecycle and cash gate 12
+        run: python3 tests/scripts/causal_pnl_census.py
+
+      - name: Check original conditional and full plain cash controls
+        run: python3 tests/scripts/causal_pnl_cash_contracts.py
+
+      - name: Check eligible original CDS default controls
+        run: python3 tests/scripts/causal_pnl_credit_dates.py
+
+      - name: Check complete later-cutoff administrator history
+        run: python3 tests/scripts/causal_pnl_fixing_cutoffs.py
+
+      - name: Check original IRS and OIS fixing policies
+        run: python3 tests/scripts/causal_pnl_policies.py
+
+      - name: Check original delay-then-adjust cash dates
+        run: python3 tests/scripts/causal_pnl_payment_dates.py
+
+      - name: Check original signed optional notice dates
+        run: python3 tests/scripts/causal_pnl_notice_dates.py
+
+      - name: Check complete future-effective amendment
+        run: python3 tests/scripts/causal_pnl_amendments.py
+
+      - name: Check whole-history lineage and original initial cash
+        run: python3 tests/scripts/causal_pnl_reconciled.py
+
+      - name: Check complete original settlement-eligible roll
+        run: python3 tests/scripts/causal_pnl_contexts.py
+
+      - name: Check independent OIS economic observation cutoffs
+        run: python3 tests/scripts/causal_pnl_economic_cutoffs.py
+
+      - name: Causal lifecycle and cash gate 13
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test causal_pnl -- --test-threads=1
+
+      - name: Causal lifecycle and cash gate 14
+        run: cargo test --locked --all-features -p convex --test causal_pnl_boundaries -- --test-threads=1
+
+      - name: Causal lifecycle and cash gate 15
+        run: cargo run --locked -p convex --example causal_pnl
+
+      - name: Causal lifecycle and cash gate 16
+        run: cargo run --locked -p convex --example causal_pnl --no-default-features
+
+      - name: Causal lifecycle and cash gate 17
+        run: cargo run --locked -p convex --example causal_pnl --features schemars
+
+      - name: Causal lifecycle and cash gate 18
+        run: /tmp/convex-library-schema/bin/python tests/scripts/causal_pnl_schema.py --binary target/debug/examples/causal_pnl
+
+      - name: Causal lifecycle and cash gate 19
+        run: python3 tests/scripts/causal_pnl_parity.py --binary target/debug/examples/causal_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Cohort cash and physical delivery gate 1
+        run: python3 tests/scripts/cohort_pnl_reference.py
+
+      - name: Cohort cash and physical delivery gate 2
+        run: python3 tests/scripts/cohort_pnl_states.py
+
+      - name: Cohort cash and physical delivery gate 3
+        run: python3 tests/scripts/cohort_pnl_wire.py
+
+      - name: Cohort cash and physical delivery gate 4
+        run: python3 tests/scripts/cohort_pnl_extended.py
+
+      - name: Cohort cash and physical delivery gate 5
+        run: python3 tests/scripts/cohort_pnl_contracts.py
+
+      - name: Cohort cash and physical delivery gate 6
+        run: python3 tests/scripts/cohort_pnl_bindings.py
+
+      - name: Cohort cash and physical delivery gate 7
+        run: python3 tests/scripts/cohort_pnl_currencies.py
+
+      - name: Cohort cash and physical delivery gate 8
+        run: python3 tests/scripts/cohort_pnl_revisions.py
+
+      - name: Cohort cash and physical delivery gate 9
+        run: python3 tests/scripts/cohort_pnl_cash_dates.py
+
+      - name: Cohort cash and physical delivery gate 10
+        run: python3 tests/scripts/cohort_pnl_ownership.py
+
+      - name: Cohort cash and physical delivery gate 11
+        run: python3 tests/scripts/cohort_pnl_calendars.py
+
+      - name: Cohort cash and physical delivery gate 12
+        run: python3 tests/scripts/cohort_pnl_census.py
+
+      - name: Full five-cause cohort financial control
+        run: python3 tests/scripts/cohort_pnl_full_mixed.py
+
+      - name: Complete cohort request corpus
+        run: python3 tests/scripts/cohort_pnl_complete_census.py
+
+      - name: Original full-disposal money unit control
+        run: python3 tests/scripts/cohort_pnl_full_wire.py
+
+      - name: Lossless complete admitted cohort requests
+        run: python3 tests/scripts/cohort_pnl_admitted_census.py
+
+      - name: Cohort cash and physical delivery gate 13
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test cohort_pnl -- --test-threads=1
+
+      - name: Cohort cash and physical delivery gate 14
+        run: cargo test --locked --all-features -p convex --test cohort_pnl_boundaries -- --test-threads=1
+
+      - name: Cohort cash and physical delivery gate 15
+        run: cargo run --locked -p convex --example cohort_pnl
+
+      - name: Cohort cash and physical delivery gate 16
+        run: cargo run --locked -p convex --example cohort_pnl --no-default-features
+
+      - name: Cohort cash and physical delivery gate 17
+        run: cargo run --locked -p convex --example cohort_pnl --features schemars
+
+      - name: Cohort cash and physical delivery gate 18
+        run: /tmp/convex-library-schema/bin/python tests/scripts/cohort_pnl_admitted_schema.py --binary target/debug/examples/cohort_pnl
+
+      - name: Cohort cash and physical delivery gate 19
+        run: python3 tests/scripts/cohort_pnl_admitted_parity.py --binary target/debug/examples/cohort_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Boundary amendment and lot split gate 1
+        run: python3 tests/scripts/lot_pnl_reference.py
+
+      - name: Boundary amendment and lot split gate 2
+        run: python3 tests/scripts/lot_pnl_future.py
+
+      - name: Independent complete forward cash and split admission
+        run: python3 tests/scripts/lot_pnl_extended.py
+
+      - name: Exact amendment support diagnostic
+        run: python3 tests/scripts/lot_pnl_controls.py
+
+      - name: Complete original forward profile chronology
+        run: python3 tests/scripts/lot_pnl_chronology.py
+
+      - name: Boundary amendment and lot split gate 3
+        run: python3 tests/scripts/lot_pnl_census.py
+
+      - name: Boundary amendment and lot split gate 4
+        run: cargo test --locked --all-features -p convex-analytics --test amendments_splits -- --test-threads=1
+
+      - name: Boundary amendment and lot split gate 5
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test lot_pnl -- --test-threads=1
+
+      - name: Boundary amendment and lot split gate 6
+        run: cargo run --locked -p convex --example lot_pnl
+
+      - name: Boundary amendment and lot split gate 7
+        run: cargo run --locked -p convex --example lot_pnl --no-default-features
+
+      - name: Boundary amendment and lot split gate 8
+        run: cargo run --locked -p convex --example lot_pnl --features schemars
+
+      - name: Boundary amendment and lot split gate 9
+        run: /tmp/convex-library-schema/bin/python tests/scripts/lot_pnl_schema.py --binary target/debug/examples/lot_pnl
+
+      - name: Boundary amendment and lot split gate 10
+        run: python3 tests/scripts/lot_pnl_parity.py --binary target/debug/examples/lot_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Original cash transfer reference
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_reference.py
+
+      - name: Original earned proposal and recovery reference
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_earned.py
+
+      - name: Complete plain Decimal cash-transfer reference
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_complete.py
+
+      - name: Original due-cash transfer chronology
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_chronology.py
+
+      - name: Original full recovery and mixed source binding
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_bound.py
+
+      - name: Full claim transfer request census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_bound_census.py
+
+      - name: Actual native signed claim conservation and prepared-state admission
+        run: cargo test --locked --all-features -p convex-analytics --test claim_transfers -- --test-threads=1
+
+      - name: Four actual full cash transfer adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test claim_pnl -- --test-threads=1
+
+      - name: Default cash transfer consumer
+        run: cargo run --locked -p convex --example claim_pnl
+
+      - name: Minimal cash transfer consumer
+        run: cargo run --locked -p convex --example claim_pnl --no-default-features
+
+      - name: Schema cash transfer consumer
+        run: cargo run --locked -p convex --example claim_pnl --features schemars
+
+      - name: Strict cash transfer schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/claim_pnl_schema.py --binary target/debug/examples/claim_pnl
+
+      - name: Fresh separate C cash transfer transport
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_parity.py --binary target/debug/examples/claim_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Preserve original physical custody reference controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_reference.py
+
+      - name: Preserve original physical custody wire controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_wire.py
+
+      - name: Preserve original physical custody chronology controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_chronology.py
+
+      - name: Preserve original physical custody bound controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_bound.py
+
+      - name: Preserve original physical custody admitted controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_admitted.py
+
+      - name: Preserve original physical custody census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_census.py
+
+      - name: Preserve complete unique delivery custody controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_final.py
+
+      - name: Preserve unique delivery custody operation census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_final_census.py
+
+      - name: Actual original delivery custody native controls
+        run: cargo test --locked -p convex-analytics --test physical_partitions -- --test-threads=1
+
+      - name: Actual four physical custody and invoice adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test physical_partition_pnl -- --test-threads=1
+
+      - name: Complete delivery custody default consumer
+        run: cargo run --locked -p convex --example physical_partition_pnl
+
+      - name: Complete delivery custody minimal consumer
+        run: cargo run --locked -p convex --example physical_partition_pnl --no-default-features
+
+      - name: Complete delivery custody schema consumer
+        run: cargo run --locked -p convex --example physical_partition_pnl --features schemars
+
+      - name: Strict complete delivery custody schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/physical_partition_pnl_schema.py --binary target/debug/examples/physical_partition_pnl
+
+      - name: Original physical custody separate C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_parity.py --binary target/debug/examples/physical_partition_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Complete custody lineage reference declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_reference.py
+
+      - name: Complete custody lineage bound declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_bound.py
+
+      - name: Complete custody lineage bindings declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_bindings.py
+
+      - name: Complete custody lineage units declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_units.py
+
+      - name: Complete custody lineage admitted declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_admitted.py
+
+      - name: Complete custody lineage census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_census.py
+
+      - name: Complete custody lineage units_census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_units_census.py
+
+      - name: Complete custody lineage admitted_census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_admitted_census.py
+
+      - name: Native custody lineage and actual disposal conservation
+        run: cargo test --locked --all-features -p convex-analytics --test custody_lineage -- --test-threads=1
+
+      - name: Four actual custody lineage adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test custody_lineage_pnl -- --test-threads=1
+
+      - name: Custody lineage default consumer
+        run: cargo run --locked -p convex --example custody_lineage_pnl
+
+      - name: Custody lineage minimal consumer
+        run: cargo run --locked -p convex --example custody_lineage_pnl --no-default-features
+
+      - name: Custody lineage schema consumer
+        run: cargo run --locked -p convex --example custody_lineage_pnl --features schemars
+
+      - name: Complete custody lineage strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/custody_lineage_pnl_schema.py --binary target/debug/examples/custody_lineage_pnl
+
+      - name: Custody lineage separate actual C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_parity.py --binary target/debug/examples/custody_lineage_pnl --library target/debug/libconvex_ffi.so
+      - name: Reproduce dated cash reference controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_reference.py
+
+      - name: Reproduce dated cash bound controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_bound.py
+
+      - name: Reproduce dated cash contracts controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_contracts.py
+
+      - name: Reproduce dated cash wire controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_wire.py
+
+      - name: Reproduce dated cash census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_census.py
+
+      - name: Reproduce dated cash bound_census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_bound_census.py
+
+      - name: Reproduce dated cash contracts_census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_contracts_census.py
+
+      - name: Reproduce dated cash wire_census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_wire_census.py
+
+      - name: Reproduce amortizing cash and original delivery guard
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_cash.py
+
+      - name: Reproduce complete dated cash request census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_cash_census.py
+
+      - name: Dated cash native controls
+        run: cargo test --locked --all-features -p convex-analytics --test dated_cash -- --test-threads=1
+
+      - name: Dated cash four adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test dated_cash_pnl -- --test-threads=1
+
+      - name: Dated cash default consumer
+        run: cargo run --locked -p convex --example dated_cash_pnl
+
+      - name: Dated cash minimal consumer
+        run: cargo run --locked -p convex --example dated_cash_pnl --no-default-features
+
+      - name: Dated cash schema consumer
+        run: cargo run --locked -p convex --example dated_cash_pnl --features schemars
+
+      - name: Dated cash strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/dated_cash_pnl_schema.py --binary target/debug/examples/dated_cash_pnl
+
+      - name: Dated cash C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_parity.py --binary target/debug/examples/dated_cash_pnl --library target/debug/libconvex_ffi.so
+
+
+      - name: Reproduce pending delivery cash reference controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_reference.py
+
+      - name: Reproduce pending delivery cash available controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_available.py
+
+      - name: Reproduce pending delivery cash receipts controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_receipts.py
+
+      - name: Reproduce pending delivery cash complete controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_complete.py
+
+      - name: Reproduce pending delivery cash admitted controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_admitted.py
+
+      - name: Reproduce pending delivery cash discounted controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_discounted.py
+
+      - name: Reproduce pending delivery cash final controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_final.py
+
+      - name: Reproduce pending delivery cash bound controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_bound.py
+
+      - name: Reproduce pending delivery cash census controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_census.py
+
+      - name: Validate original native pending delivery and independent cash facts
+        run: cargo test --locked --all-features -p convex-analytics --test pending_cash -- --test-threads=1
+
+      - name: Validate pending delivery cash across four shared adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test pending_cash_pnl -- --test-threads=1
+
+      - name: Run pending delivery cash default consumer
+        run: cargo run --locked -p convex --example pending_cash_pnl
+
+      - name: Run pending delivery cash minimal consumer
+        run: cargo run --locked -p convex --example pending_cash_pnl --no-default-features
+
+      - name: Build pending delivery cash schema consumer
+        run: cargo run --locked -p convex --example pending_cash_pnl --features schemars
+
+      - name: Validate pending delivery cash schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/pending_cash_pnl_schema.py --binary target/debug/examples/pending_cash_pnl
+
+      - name: Validate separate pending delivery cash C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_parity.py --binary target/debug/examples/pending_cash_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Verify complete child cash reference declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_reference.py
+
+      - name: Verify complete child cash available declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_available.py
+
+      - name: Verify complete child cash wire declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_wire.py
+
+      - name: Verify complete child cash admitted declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_admitted.py
+
+      - name: Verify complete child cash reference_census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_reference_census.py
+
+      - name: Verify complete child cash census declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_census.py
+
+      - name: Qualify child cash native custody cash conservation
+        run: cargo test --locked --all-features -p convex-analytics --test child_cash -- --test-threads=1
+
+      - name: Qualify child cash four complete adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test child_cash_pnl -- --test-threads=1
+
+      - name: Qualify child cash default consumer
+        run: cargo run --locked -p convex --example child_cash_pnl
+
+      - name: Qualify child cash minimal consumer
+        run: cargo run --locked -p convex --example child_cash_pnl --no-default-features
+
+      - name: Qualify child cash schema consumer
+        run: cargo run --locked -p convex --example child_cash_pnl --features schemars
+
+      - name: Qualify child cash strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/child_cash_pnl_schema.py --binary target/debug/examples/child_cash_pnl
+
+      - name: Qualify child cash fresh C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_parity.py --binary target/debug/examples/child_cash_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Verify complete child maturity original declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_reference.py
+
+      - name: Verify complete child maturity delayed declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_delayed.py
+
+      - name: Verify complete child maturity request census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_census.py
+
+      - name: Verify complete concurrent claims request census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_census.py
+
+      - name: Verify complete child maturity admitted declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_admitted.py
+
+      - name: Verify complete child maturity admitted census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_admitted_census.py
+
+      - name: Qualify child maturity native custody cash conservation
+        run: cargo test --locked --all-features -p convex-analytics --test child_maturity -- --test-threads=1
+
+      - name: Verify complete independent concurrent claims declaration
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_reference.py
+
+      - name: Verify complete original invoice and concurrent claims
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_owned.py
+
+      - name: Verify complete owned concurrent claims census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_owned_census.py
+
+      - name: Verify complete original future replay and concurrent claims
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_complete.py
+
+      - name: Verify complete concurrent claims census
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_complete_census.py
+
+      - name: Qualify concurrent claims native custody cash conservation
+        run: cargo test --locked --all-features -p convex-analytics --test concurrent_claims -- --test-threads=1
+
+      - name: Qualify child maturity four complete adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test child_maturity_pnl -- --test-threads=1
+
+      - name: Qualify concurrent claims four complete adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test concurrent_claims_pnl -- --test-threads=1
+
+      - name: Qualify child maturity default consumer
+        run: cargo run --locked -p convex --example child_maturity_pnl
+
+      - name: Qualify concurrent claims default consumer
+        run: cargo run --locked -p convex --example concurrent_claims_pnl
+
+      - name: Qualify child maturity minimal consumer
+        run: cargo run --locked -p convex --example child_maturity_pnl --no-default-features
+
+      - name: Qualify concurrent claims minimal consumer
+        run: cargo run --locked -p convex --example concurrent_claims_pnl --no-default-features
+
+      - name: Qualify child maturity schema consumer
+        run: cargo run --locked -p convex --example child_maturity_pnl --features schemars
+
+      - name: Qualify concurrent claims schema consumer
+        run: cargo run --locked -p convex --example concurrent_claims_pnl --features schemars
+
+      - name: Qualify child maturity strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/child_maturity_pnl_schema.py --binary target/debug/examples/child_maturity_pnl
+
+      - name: Qualify concurrent claims strict schema
+        run: PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/concurrent_claims_pnl_schema.py --binary target/debug/examples/concurrent_claims_pnl
+
+      - name: Qualify child maturity fresh C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_parity.py --binary target/debug/examples/child_maturity_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Qualify concurrent claims fresh C parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_parity.py --binary target/debug/examples/concurrent_claims_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Verify full original cash settlement declarations
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_reference.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_admitted.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_complete.py
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_census.py
+
+      - name: Qualify complete original claim exhaustion and native closure
+        run: cargo test --locked --all-features -p convex-analytics --test settled_claims -- --test-threads=1
+
+      - name: Check Treasury independent declared and admitted answers
+        run: python3 tests/scripts/treasury_bill_reference.py check
+
+      - name: Check full Treasury four adapter reachability
+        run: cargo test --locked -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test treasury_bill
+
+      - name: Exercise full Treasury default consumer
+        run: cargo run --locked -p convex --example treasury_bill
+
+      - name: Exercise full Treasury minimal consumer
+        run: cargo run --locked -p convex --example treasury_bill --no-default-features
+
+      - name: Exercise full Treasury schema consumer
+        run: cargo run --locked -p convex --example treasury_bill --features schemars
+
+      - name: Check full Treasury independent prices inverses and analytic sensitivities
+        run: python3 tests/scripts/treasury_bill_check.py --binary target/debug/examples/treasury_bill
+
+      - name: Check full Treasury actual generated schemas
+        run: /tmp/convex-library-schema/bin/python tests/scripts/treasury_bill_schema.py --binary target/debug/examples/treasury_bill
+
+      - name: Prepare full Treasury native transport envelopes
+        run: python3 tests/scripts/treasury_bill_parity.py prepare --binary target/debug/examples/treasury_bill --output target/treasury-bill-parity.json
+
+      - name: Compare full Treasury fresh C envelopes
+        run: python3 tests/scripts/treasury_bill_parity.py compare --library target/debug/libconvex_ffi.so --parity target/treasury-bill-parity.json
+
+      - name: Qualify full settlement four adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test settled_claims_pnl -- --test-threads=1
+
+      - name: Qualify full settlement default minimal and schema consumers
+        run: |
+          cargo run --locked -p convex --example settled_claims_pnl
+          cargo run --locked -p convex --example settled_claims_pnl --no-default-features
+          cargo run --locked -p convex --example settled_claims_pnl --features schemars
+
+      - name: Qualify full settlement strict schema and fresh C parity
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 /tmp/convex-library-schema/bin/python tests/scripts/settled_claims_pnl_schema.py --binary target/debug/examples/settled_claims_pnl
+          PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_parity.py --binary target/debug/examples/settled_claims_pnl --library target/debug/libconvex_ffi.so
+
+      - name: Check every outstanding required operation and surface
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tools/library/outstanding.py --json
+
+      - name: Independent residual claim reference
+        run: python3 tests/scripts/residual_pnl_reference.py
+
+      - name: Independent residual claim units
+        run: python3 tests/scripts/residual_pnl_units.py
+
+      - name: Independent residual claim guards
+        run: python3 tests/scripts/residual_pnl_guards.py
+
+      - name: Independent residual claim canonical
+        run: python3 tests/scripts/residual_pnl_canonical.py
+
+      - name: Independent residual claim census
+        run: python3 tests/scripts/residual_pnl_census.py
+
+      - name: Full residual claim and partial receipt adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test residual_pnl -- --test-threads=1
+
+      - name: Native signed partial security conservation
+        run: cargo test --locked --all-features -p convex-analytics --test residual_receipts -- --test-threads=1
+
+      - name: Residual claim default consumer
+        run: cargo run --locked -p convex --example residual_pnl
+
+      - name: Residual claim minimal consumer
+        run: cargo run --locked -p convex --example residual_pnl --no-default-features
+
+      - name: Residual claim schemars consumer
+        run: cargo run --locked -p convex --example residual_pnl --features schemars
+
+      - name: Residual claim strict schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/residual_pnl_schema.py --binary target/debug/examples/residual_pnl
+
+      - name: Residual claim separate C transport
+        run: python3 tests/scripts/residual_pnl_parity.py --binary target/debug/examples/residual_pnl --library target/debug/libconvex_ffi.so
+
+
+      - name: Mixed-book scenario gate 1
+        run: python3 tests/scripts/mixed_scenario_reference.py
+
+      - name: Mixed-book scenario gate 2
+        run: python3 tests/scripts/mixed_scenario_admission.py
+
+      - name: Mixed-book scenario gate 3
+        run: python3 tests/scripts/mixed_scenario_publications.py
+
+      - name: Mixed-book scenario gate 4
+        run: python3 tests/scripts/mixed_scenario_boundaries.py
+
+      - name: Mixed-book scenario gate 5
+        run: python3 tests/scripts/mixed_scenario_census.py
+
+      - name: Mixed-book scenario gate 6
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test mixed_scenario -- --test-threads=1
+
+      - name: Mixed-book scenario gate 7
+        run: cargo test --locked --all-features -p convex --test mixed_scenario_boundaries -- --test-threads=1
+
+      - name: Mixed-book scenario gate 8
+        run: cargo run --locked -p convex --example mixed_scenario
+
+      - name: Mixed-book scenario gate 9
+        run: cargo run --locked -p convex --example mixed_scenario --no-default-features
+
+      - name: Mixed-book scenario gate 10
+        run: cargo run --locked -p convex --example mixed_scenario --features schemars
+
+      - name: Mixed-book scenario gate 11
+        run: /tmp/convex-library-schema/bin/python tests/scripts/mixed_scenario_schema.py --binary target/debug/examples/mixed_scenario
+
+      - name: Mixed-book scenario gate 12
+        run: python3 tests/scripts/mixed_scenario_parity.py --binary target/debug/examples/mixed_scenario --library target/debug/libconvex_ffi.so
+
+      - name: Delivery basket qualification 1
+        run: python3 tests/scripts/delivery_hedge_reference.py
+
+      - name: Delivery basket qualification 2
+        run: python3 tests/scripts/delivery_hedge_qualification.py
+
+      - name: Delivery basket qualification 3
+        run: python3 tests/scripts/delivery_hedge_admission.py
+
+      - name: Delivery basket qualification 4
+        run: python3 tests/scripts/delivery_hedge_book.py
+
+      - name: Delivery basket qualification 5
+        run: python3 tests/scripts/delivery_hedge_ready.py
+
+      - name: Delivery basket qualification 6
+        run: python3 tests/scripts/delivery_hedge_final.py
+
+      - name: Delivery basket qualification 7
+        run: python3 tests/scripts/delivery_hedge_errors.py
+
+      - name: Delivery basket qualification 8
+        run: python3 tests/scripts/delivery_hedge_book_admission.py
+
+      - name: Delivery basket qualification 9
+        run: python3 tests/scripts/delivery_hedge_decimal.py
+
+      - name: Delivery basket qualification 10
+        run: python3 tests/scripts/delivery_hedge_rebuild.py
+
+      - name: Delivery basket qualification 11
+        run: python3 tests/scripts/delivery_hedge_frontier.py
+
+      - name: Delivery basket qualification 12
+        run: python3 tests/scripts/delivery_hedge_census.py
+
+      - name: Delivery basket qualification 13
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test delivery_hedge -- --test-threads=1
+
+      - name: Delivery basket qualification 14
+        run: cargo test --locked --all-features -p convex --test delivery_boundaries -- --test-threads=1
+
+      - name: Delivery basket qualification 15
+        run: cargo run --locked -p convex --example delivery_hedge
+
+      - name: Delivery basket qualification 16
+        run: cargo run --locked -p convex --example delivery_hedge --no-default-features
+
+      - name: Delivery basket qualification 17
+        run: cargo run --locked -p convex --example delivery_hedge --features schemars
+
+      - name: Delivery basket qualification 18
+        run: /tmp/convex-library-schema/bin/python tests/scripts/delivery_hedge_schema.py --binary target/debug/examples/delivery_hedge
+
+      - name: Delivery basket qualification 19
+        run: python3 tests/scripts/delivery_hedge_parity.py --binary target/debug/examples/delivery_hedge --library target/debug/libconvex_ffi.so
+
+      - name: Test guarded optional graph and hedge adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test optional_graph_hedge -- --test-threads=1
+
+      - name: Test complete optional native graph and resolution boundaries
+        run: cargo test --locked --all-features -p convex --test optional_graph_boundaries -- --test-threads=1
+
+      - name: Run guarded optional graph hedge consumer
+        run: cargo run --locked -p convex --example optional_graph_hedge
+
+      - name: Run minimal optional graph hedge consumer
+        run: cargo run --locked -p convex --example optional_graph_hedge --no-default-features
+
+      - name: Run optional graph hedge schema consumer
+        run: cargo run --locked -p convex --example optional_graph_hedge --features schemars
+
+      - name: Check complete optional model risk schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/optional_graph_hedge_schema.py --binary target/debug/examples/optional_graph_hedge
+
+      - name: Verify complete optional graph hedge C transport
+        run: python3 tests/scripts/optional_graph_hedge_parity.py --binary target/debug/examples/optional_graph_hedge --library target/debug/libconvex_ffi.so
+
+      - name: Validate original contextual workout controls
+        run: python3 tests/scripts/icma_workout_reference.py
+
+      - name: Validate separately declared ICMA workout admission controls
+        run: python3 tests/scripts/icma_workout_qualification.py
+
+      - name: Validate contextual government pin qualification
+        run: python3 tests/scripts/icma_government_qualification.py
+
+      - name: Validate contextual government payment-day controls
+        run: python3 tests/scripts/icma_government_entitlement_reference.py
+
+      - name: Validate contextual government operation corpus
+        run: python3 tests/scripts/icma_government_api_corpus.py
+
+      - name: Test complete contextual government adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_government -- --test-threads=1
+
+      - name: Test complete contextual workout adapters
+        run: cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p convex-wasm --test icma_workout -- --test-threads=1
+
+      - name: Run contextual government consumer
+        run: cargo run --locked -p convex --example icma_government
+
+      - name: Run contextual workout consumer
+        run: cargo run --locked -p convex --example icma_workout
+
+      - name: Run minimal contextual government consumer
+        run: cargo run --locked -p convex --example icma_government --no-default-features
+
+      - name: Run minimal contextual workout consumer
+        run: cargo run --locked -p convex --example icma_workout --no-default-features
+
+      - name: Run schema contextual government consumer
+        run: cargo run --locked -p convex --example icma_government --features schemars
+
+      - name: Run schema contextual workout consumer
+        run: cargo run --locked -p convex --example icma_workout --features schemars
+
+      - name: Validate actual contextual government schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_government_schema.py --binary target/debug/examples/icma_government
+
+      - name: Validate actual contextual workout schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/icma_workout_schema.py --binary target/debug/examples/icma_workout
+
+      - name: Validate preserved floating workout controls
+        run: python3 tests/scripts/floating_workout_reference.py check
+
+      - name: Validate explicit floating workout wire admission
+        run: python3 tests/scripts/floating_workout_admission.py check
+
+      - name: Validate separate floating workout qualification controls
+        run: python3 tests/scripts/floating_workout_qualified.py check
+
+      - name: Test complete floating workout native and adapter routes
+        run: cargo test --locked --all-features -p convex --test floating_workout -p convex-ffi --test floating_workout -p convex-mcp --test floating_workout -p convex-wasm --test floating_workout -- --test-threads=1
+
+      - name: Run supplied floating workout consumer
+        run: cargo run --locked -p convex --example floating_workout
+
+      - name: Run minimal supplied floating workout consumer
+        run: cargo run --locked -p convex --example floating_workout --no-default-features
+
+      - name: Run schema supplied floating workout consumer
+        run: cargo run --locked -p convex --example floating_workout --features schemars
+
+      - name: Validate actual complete floating workout schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/floating_workout_schema.py --binary target/debug/examples/floating_workout
+
+      - name: Build actual C floating workout library
+        run: cargo build --locked -p convex-ffi --lib
+
+      - name: Verify actual separate-process C floating workout parity
+        run: python3 tests/scripts/floating_workout_parity.py --binary target/debug/examples/floating_workout --library target/debug/libconvex_ffi.so
+
+      - name: Validate actual contextual ICMA C parity
+        run: python3 tests/scripts/icma_parity.py --binary target/debug/examples/icma_quotation --library target/debug/libconvex_ffi.so
+
+      - name: Validate actual contextual government C parity
+        run: python3 tests/scripts/icma_government_parity.py --binary target/debug/examples/icma_government --library target/debug/libconvex_ffi.so
+
+      - name: Validate actual contextual workout C parity
+        run: python3 tests/scripts/icma_workout_parity.py --binary target/debug/examples/icma_workout --library target/debug/libconvex_ffi.so
+
+      - name: Validate preserved independent hedge controls
+        run: python3 tests/scripts/constrained_hedge_reference.py
+
+      - name: Validate explicit original hedge wire admission
+        run: python3 tests/scripts/constrained_hedge_admission.py
+
+      - name: Validate independent interacting and conditional lot controls
+        run: python3 tests/scripts/constrained_hedge_lots.py
+
+      - name: Validate complete hedge protocol preserves original controls
+        run: python3 tests/scripts/constrained_hedge_protocol.py
+
+      - name: Test complete native shared C MCP and WASM hedge proposals
+        run: cargo test --locked --all-features -p convex --test constrained_hedge -p convex-ffi --test constrained_hedge -p convex-mcp --test constrained_hedge -p convex-wasm --test constrained_hedge -- --test-threads=1
+
+      - name: Run complete supplied hedge consumer
+        run: cargo run --locked -p convex --example constrained_hedge
+
+      - name: Run minimal supplied hedge consumer
+        run: cargo run --locked -p convex --example constrained_hedge --no-default-features
+
+      - name: Run schema supplied hedge consumer
+        run: cargo run --locked -p convex --example constrained_hedge --features schemars
+
+      - name: Validate actual complete supplied hedge schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/constrained_hedge_schema.py --binary target/debug/examples/constrained_hedge
+
+      - name: Validate original independent product UFR controls
+        run: python3 tests/scripts/product_ufr_reference.py --check
+
+      - name: Validate explicit original UFR origin admission
+        run: python3 tests/scripts/product_ufr_admitted_reference.py --check
+
+      - name: Test full product UFR native and shared client contracts
+        run: cargo test --locked -p convex -p convex-analytics -p convex-engine -p convex-ffi -p convex-mcp -p convex-wasm --all-features --test product_ufr -- --test-threads=1
+
+      - name: Run supplied full product UFR consumer
+        run: cargo run --locked -p convex --example product_ufr
+
+      - name: Run minimal full product UFR consumer
+        run: cargo run --locked -p convex --example product_ufr --no-default-features
+
+      - name: Run schema full product UFR consumer
+        run: cargo run --locked -p convex --example product_ufr --features schemars
+
+      - name: Validate exported complete product UFR schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/product_ufr_schema.py --binary target/debug/examples/product_ufr
+
+      - name: Capture and reopen full product UFR graph
+        run: cargo run --locked -p convex-engine --example product_ufr_snapshot -- /tmp/convex-product-ufr-snapshots flat_forward.rate.positive
+
+      - name: Preserve original independent parametric product controls
+        run: python3 tests/scripts/product_parametric_reference.py --check
+
+      - name: Preserve explicit contractual parametric input admission
+        run: python3 tests/scripts/product_parametric_admitted_reference.py --check
+
+      - name: Preserve explicit native parameter scaling declaration
+        run: python3 tests/scripts/product_parametric_scaled_reference.py --check
+
+      - name: Preserve stricter caller parametric objective declaration
+        run: python3 tests/scripts/product_parametric_strict_reference.py --check
+
+      - name: Preserve explicit parametric coordinate controls
+        run: python3 tests/scripts/product_parametric_conditioned_reference.py --check
+
+      - name: Preserve local parametric starts and retained earlier failures
+        run: python3 tests/scripts/product_parametric_starts_reference.py --check
+
+      - name: Check full parametric products risk replay runtime and actual native adapters
+        run: cargo test --locked -p convex -p convex-analytics -p convex-engine -p convex-ffi -p convex-mcp -p convex-wasm --all-features --test product_parametric -- --test-threads=1
+
+      - name: Run complete parametric product consumer
+        run: cargo run --locked -p convex --example product_parametric
+
+      - name: Run parametric products with minimal features
+        run: cargo run --locked -p convex --example product_parametric --no-default-features
+
+      - name: Run parametric products with schema support
+        run: cargo run --locked -p convex --example product_parametric --features schemars
+
+      - name: Validate exported full product parametric schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/product_parametric_schema.py --binary target/debug/examples/product_parametric
+
+      - name: Reopen analytic product model and original quote risk capture
+        run: cargo run --locked -p convex-engine --example product_parametric_snapshot -- /tmp/convex-product-parametric-snapshots nelson_siegel.rate.positive
+
+      - name: Check complete product calibration capture risk runtime and recovery
+        run: cargo test --locked -p convex --all-features --test calibration_replay -p convex-engine --test calibration_snapshot_replay --test calibration_snapshot_runtime -p convex-ports --test calibration_snapshots
+
+      - name: Check strict complete product calibration replay owners
+        run: cargo clippy --locked -p convex -p convex-analytics -p convex-ports -p convex-engine --all-targets --all-features -- -D warnings
+
+      - name: Execute complete original calibration and quote risk file reopen
+        run: cargo run --locked -p convex-engine --example calibration_snapshot_replay -- demo /tmp/convex-calibration-snapshot-replay
+
+      - name: Build complete product capture and original native schema consumers
+        run: cargo build --locked -p convex-engine --example calibration_snapshot_replay -p convex --example library_workflow --features schemars
+
+      - name: Validate complete product capture and original native financial schemas
+        run: /tmp/convex-library-schema/bin/python tests/scripts/calibration_replay_schema.py --binary target/debug/examples/calibration_snapshot_replay --native-binary target/debug/examples/library_workflow
+
+      - name: Lint complete recipe capture replay and callers
+        run: cargo clippy --locked -p convex-ports -p convex-engine -p convex-server --all-targets --all-features -- -D warnings
+
+      - name: Reopen complete recipe offline consumer
+        run: cargo run --locked -p convex-engine --example curve_snapshot_replay -- demo /tmp/convex-curve-snapshot-replay
+
+      - name: Validate complete recipe configuration and native schemas
+        run: /tmp/convex-library-schema/bin/python tests/scripts/curve_replay_schema.py --binary target/debug/examples/curve_snapshot_replay --native-binary target/debug/examples/library_workflow
+
+      - name: Check native CDS-helper guards and JSON C MCP WASM reachability
+        run: cargo test --locked -p convex-analytics --all-features --test credit_helper_repricing -p convex --test library_credit_helpers -p convex-ffi --test library_credit_helpers -p convex-mcp --test library_credit_helpers -p convex-wasm --test library_credit_helpers
+
+      - name: Check native cash-helper guards and JSON C MCP WASM reachability
+        run: cargo test --locked -p convex-analytics --all-features --test cash_helper_repricing -p convex --test library_cash_helpers -p convex-ffi --test library_cash_helpers -p convex-mcp --test library_cash_helpers -p convex-wasm --test library_cash_helpers
+
+      - name: Run full rate-helper consumer with default features
+        run: cargo run --locked -p convex --example library_rate_helpers
+
+      - name: Run full CDS-helper consumer with default features
+        run: cargo run --locked -p convex --example library_credit_helpers
+
+      - name: Run full cash-helper consumer with default features
+        run: cargo run --locked -p convex --example library_cash_helpers
+
+      - name: Run full rate-helper consumer with minimal features
+        run: cargo run --locked -p convex --example library_rate_helpers --no-default-features
+
+      - name: Run full CDS-helper consumer with minimal features
+        run: cargo run --locked -p convex --example library_credit_helpers --no-default-features
+
+      - name: Run full cash-helper consumer with minimal features
+        run: cargo run --locked -p convex --example library_cash_helpers --no-default-features
+
+      - name: Run full rate-helper consumer with schema support
+        run: cargo run --locked -p convex --example library_rate_helpers --features schemars
+
+      - name: Run full CDS-helper consumer with schema support
+        run: cargo run --locked -p convex --example library_credit_helpers --features schemars
+
+      - name: Run full cash-helper consumer with schema support
+        run: cargo run --locked -p convex --example library_cash_helpers --features schemars
+
+      - name: Validate complete rate-helper schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_rate_helpers_schema.py --binary target/debug/examples/library_rate_helpers
+
+      - name: Validate complete CDS-helper schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_credit_helpers_schema.py --binary target/debug/examples/library_credit_helpers
+
+      - name: Validate complete cash-helper schema
+        run: /tmp/convex-library-schema/bin/python tests/scripts/library_cash_helpers_schema.py --binary target/debug/examples/library_cash_helpers
+
+      - name: Check signed risk libraries and consumers with strict lint
+        run: cargo clippy --locked -p convex-curves -p convex-analytics -p convex-portfolio -p convex --all-targets --all-features -- -D warnings
+
+      - name: Run standalone signed quote risk consumer
+        run: cargo run --locked -p convex --example quote_risk
+
+      - name: Run signed quote risk without default features
+        run: cargo run --locked -p convex --example quote_risk --no-default-features
+
+      - name: Run signed quote risk with schema features
+        run: cargo run --locked -p convex --example quote_risk --features schemars
+
+      - name: Run standalone signed portfolio coverage consumer
+        run: cargo run --locked -p convex-portfolio --example signed_risk
+
+      - name: Check required signed risk affected suites
+        run: cargo test --locked -p convex-analytics -p convex-portfolio -p convex-curves
+
+      - name: Check graph generation and concurrent claims
+        run: cargo test --locked -p convex-engine --test graph_regressions
+
+      - name: Build the optimized host ABI with unwind
+        run: cargo build --locked --profile excel -p convex-ffi
+
+      - name: Exercise optimized cdylib through C ABI in a subprocess
+        run: python3 tools/assurance/abi_smoke.py
+
+  offline-comparison:
+    name: Offline Quantitative Comparison
+    runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      # The materialized fixtures and four example builds need more space than the stock image leaves free.
+      - name: Free runner disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/share/swift /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
+      - uses: actions/checkout@v6
+
+      - name: Materialize packed fixtures
+        run: python3 tools/fixtures.py materialize
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check comparison fixtures and complete manifests
+        run: python3 reconciliation/comparison.py check
+
+      - name: Prove comparison failures cannot be waived
+        run: python3 -m unittest discover -s reconciliation -p "test_comparison.py"
+
+      - name: Build standalone pure analytics adapter
+        run: cargo build --locked -p convex-analytics --example offline_compare
+
+      # Out-of-tolerance rows remain a failed gate; never ignore this exit.
+      - name: Replay retained QuantLib expectations without live data
+        run: python3 reconciliation/comparison.py run --candidate-binary target/debug/examples/offline_compare --report comparison-report.json
+
+      - name: Check supplied swap capture controls
+        run: python3 -m unittest discover -s tests/scripts -p test_swap_quantlib_compare.py
+
+      - name: Build supplied swap comparison adapter
+        run: cargo build --locked -p convex --example swap_comparison
+
+      - name: Compare supplied swaps against captured QuantLib without live data
+        run: python3 tests/scripts/swap_quantlib_compare.py offline --candidate-binary target/debug/examples/swap_comparison --report swap-comparison-report.json
+
+      - name: Check original CDS capture precision and failure controls
+        run: python3 -m unittest discover -s tests/scripts -p test_isda_cds_compare.py
+
+      - name: Build standalone native CDS comparison
+        run: cargo build --locked -p convex-credit --example cds_comparison
+
+      - name: Compare CDS with the original ISDA RFR grid without live data
+        run: python3 tests/scripts/isda_cds_compare.py offline --candidate-binary target/debug/examples/cds_comparison --report cds-comparison-report.json
+
+      - name: Check credit calibration capture and risk failure controls
+        run: python3 -m unittest discover -s tests/scripts -p test_isda_credit_compare.py
+
+      - name: Build standalone native credit calibration comparison
+        run: cargo build --locked -p convex-analytics --example credit_comparison
+
+      - name: Compare credit calibration and risk with original ISDA execution
+        run: python3 tests/scripts/isda_credit_compare.py offline --candidate-binary target/debug/examples/credit_comparison --report credit-comparison-report.json
+
+      - name: Upload offline comparison report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: offline-comparison-report
+          path: comparison-report.json
+          retention-days: 14
+
+      - name: Upload supplied swap comparison report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: supplied-swap-comparison-report
+          path: |
+            swap-comparison-report.json
+            swap-comparison-report-native.stdout
+            swap-comparison-report-native.stderr
+          retention-days: 14
+
+      - name: Upload supplied CDS comparison report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: supplied-cds-comparison-report
+          path: |
+            cds-comparison-report.json
+            cds-comparison-report-native.stdout
+            cds-comparison-report-native.stderr
+          retention-days: 14
+
+      - name: Upload supplied credit comparison report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: supplied-credit-comparison-report
+          path: |
+            credit-comparison-report.json
+            credit-comparison-report-native.stdout
+            credit-comparison-report-native.stderr
+          retention-days: 14
+
   test:
     name: Test
+    runs-on: ubuntu-latest
+    env:
+      # Hundreds of statically linked test binaries exceed runner disk with debuginfo.
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      # The full feature matrix needs more space than the stock image leaves free.
+      - name: Free runner disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/share/swift /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
+      - uses: actions/checkout@v6
+
+      - name: Materialize packed fixtures
+        run: python3 tools/fixtures.py materialize
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --locked --all-features --workspace -- --test-threads=1
+
+      - name: Run core HTTP pricing risk hedge and PnL example
+        run: python3 tools/core_workflow.py
+
+      - name: Run persisted core input updates and restart recovery
+        run: python3 tools/core_snapshot_workflow.py
+
+      - name: Check market-data adapter delivery and recovery
+        run: python3 -m unittest discover -s tools/tests -p test_market_data_adapter.py
+
+      - name: Run adapter-fed core analytics and restart recovery
+        run: python3 tools/core_ingestion_workflow.py
+
+      - name: Check streaming market-data gaps and reconnect recovery
+        run: python3 -m unittest discover -s tools/tests -p test_market_data_stream.py
+
+      - name: Run streaming core analytics and restart recovery
+        run: python3 tools/core_streaming_workflow.py
+
+      - name: Check automatic core analytics and stale-data gates
+        run: python3 -m unittest discover -s tools/tests -p test_streaming_analytics.py
+
+      - name: Run automatic streaming analytics and interrupted-work recovery
+        run: python3 tools/core_live_workflow.py
+
+      - name: Check exact book release and position bindings
+        run: python3 -m unittest discover -s tools/tests -p test_book_updates.py
+
+      - name: Run core position and reference updates with recovery
+        run: python3 tools/core_book_workflow.py
+
+      - name: Check core event identities and durable admission recovery
+        run: python3 -m unittest discover -s tools/tests -p test_book_events.py
+
+      - name: Run core fills lifecycle and cash events with recovery
+        run: python3 tools/core_event_workflow.py
+
+      - name: Check independent outstanding cash claim references
+        run: python3 tests/scripts/lifecycle_risk_reference.py check
+
+      - name: Check native lifecycle risk and hedge admission
+        run: cargo test --locked -p convex --test lifecycle_risk
+
+      - name: Check native lifecycle risk without default features
+        run: cargo test --locked -p convex --test lifecycle_risk --no-default-features
+
+      - name: Check native lifecycle risk schema
+        run: cargo test --locked -p convex --test lifecycle_risk --features schemars
+
+      - name: Check lifecycle state and claim binding controls
+        run: python3 -m unittest discover -s tools/tests -p test_lifecycle_risk.py
+
+      - name: Run lifecycle risk hedge PnL and restart recovery
+        run: python3 tools/core_lifecycle_workflow.py
+
+      - name: Check independent actual CDS recovery claim references
+        run: python3 tests/scripts/cds_events_reference.py check
+
+      - name: Check native CDS default recovery and candidate admission
+        run: cargo test --locked -p convex --test cds_events
+
+      - name: Check native CDS events without default features
+        run: cargo test --locked -p convex --test cds_events --no-default-features
+
+      - name: Check native CDS event schema
+        run: cargo test --locked -p convex --test cds_events --features schemars
+
+      - name: Check CDS default blocking and resolution controls
+        run: python3 -m unittest discover -s tools/tests -p test_cds_events.py
+
+      - name: Run core CDS default recovery cash and restart workflow
+        run: python3 tools/core_cds_workflow.py
+
+      - name: Check independently declared bond recovery and earned cash
+        run: python3 tests/scripts/bond_events_reference.py check
+
+      - name: Exercise bond default and recovery workflow controls
+        run: cargo test --locked -p convex --test bond_events
+
+      - name: Exercise bond events without default features
+        run: cargo test --locked -p convex --test bond_events --no-default-features
+
+      - name: Exercise bond events with schema features
+        run: cargo test --locked -p convex --test bond_events --features schemars
+
+      - name: Reject unbound bond default state and unsafe hedge admission
+        run: python3 -m unittest discover -s tools/tests -p test_bond_events.py
+
+      - name: Run core bond default and recovery workflow
+        run: python3 tools/core_bond_workflow.py
+
+      - name: Check declared issuer contract cash and collateral risk
+        run: python3 tests/scripts/issuer_events_reference.py check
+
+      - name: Exercise issuer scope and native hedge admission
+        run: cargo test --locked -p convex --test issuer_events
+
+      - name: Exercise issuer controls without default features
+        run: cargo test --locked -p convex --test issuer_events --no-default-features
+
+      - name: Exercise issuer controls with schema features
+        run: cargo test --locked -p convex --test issuer_events --features schemars
+
+      - name: Check atomic reference scope and saved-input recovery
+        run: cargo test --locked -p convex-engine --test issuer_workflow
+
+      - name: Check issuer event transport and complete coverage
+        run: python3 -m unittest discover -s tools/tests -p test_issuer_events.py
+
+      - name: Run issuer-wide bond CDS recovery and restart workflow
+        run: python3 tools/core_issuer_workflow.py
+
+      - name: Check independent date-roll cash controls
+        run: python3 tests/scripts/date_rolls_reference.py check
+
+      - name: Check full date-roll input construction
+        run: python3 tests/scripts/date_rolls_fixture.py check
+
+      - name: Exercise scheduled cash and maturity risk
+        run: cargo test --locked -p convex --test date_rolls
+
+      - name: Exercise maturity risk without default features
+        run: cargo test --locked -p convex --test date_rolls --no-default-features
+
+      - name: Exercise maturity risk with schema features
+        run: cargo test --locked -p convex --test date_rolls --features schemars
+
+      - name: Check dated snapshots and restart recovery
+        run: cargo test --locked -p convex-engine --test date_rolls
+
+      - name: Check date-roll source and worker admission
+        run: python3 -m unittest discover -s tools/tests -p test_book_rolls.py
+
+      - name: Run core valuation-date rolls and scheduled cash workflow
+        run: python3 tools/core_roll_workflow.py
+
+  production-regressions:
+    name: Production Readiness Regressions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
-      - name: Run tests
-        run: cargo test --all-features --workspace -- --test-threads=1
+      # CVX-001 records known failures; their owning tasks must repair them.
+      # No continue-on-error: this job is a failing production gate until then.
+      - name: Check production behavior including known failures
+        env:
+          CONVEX_PRODUCTION_PROBES: '1'
+        run: cargo test --locked -p convex-server --test api_integration_tests production_readiness_ -- --include-ignored --test-threads=1
 
   fmt:
     name: Format
@@ -35,6 +3156,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.97.1'
           components: rustfmt
 
       - name: Check formatting
@@ -49,13 +3171,14 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.97.1'
           components: clippy
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
       - name: Run Clippy
-        run: cargo clippy --all-features --workspace -- -D warnings
+        run: cargo clippy --locked --all-features --workspace -- -D warnings
 
   docs:
     name: Documentation
@@ -65,12 +3188,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
       - name: Build documentation
-        run: cargo doc --no-deps --all-features --workspace
+        run: cargo doc --locked --no-deps --all-features --workspace
         env:
           RUSTDOCFLAGS: -Dwarnings
 
@@ -83,12 +3208,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
       - name: Check convex-core can be packaged
-        run: cargo package -p convex-core --list
+        run: cargo package --locked -p convex-core --list
 
   excel-addin:
     name: Excel Add-in (Windows)
@@ -96,9 +3223,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Materialize packed fixtures
+        run: python tools/fixtures.py materialize
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.97.1'
           targets: x86_64-pc-windows-msvc
 
       - name: Cache cargo registry
@@ -106,7 +3237,110 @@ jobs:
 
       # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build convex-ffi
-        run: cargo build --profile excel -p convex-ffi
+        run: cargo build --locked --profile excel -p convex-ffi -p convex --lib --example library_workflow --features convex/schemars
+
+      - name: Build supplemental native operation consumer
+        run: cargo build --locked --profile excel -p convex --example library_operations --features schemars
+
+      - name: Build native full cash quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_cash --features schemars
+
+      - name: Build native full rate-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_rate_helpers --features schemars
+
+      - name: Build native full CDS-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_credit_helpers --features schemars
+
+      - name: Build native full cash-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_cash_helpers --features schemars
+
+      - name: Build native complete floating workout consumer
+        run: cargo build --locked --profile excel -p convex --example floating_workout --features schemars
+
+      - name: Build contextual ICMA host consumer
+        run: cargo build --locked --profile excel -p convex --example icma_quotation --features schemars
+
+      - name: Build contextual government native expectations
+        run: cargo build --locked --profile excel -p convex --example icma_government --features schemars
+
+      - name: Build contextual workout native expectations
+        run: cargo build --locked --profile excel -p convex --example icma_workout --features schemars
+
+      - name: Build contextual ICMA helper Excel consumer
+        run: cargo build --locked --profile excel -p convex --example icma_helpers --features schemars
+
+      - name: Build direct ICMA risk and hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example icma_risk --features schemars
+
+      - name: Build graph hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example graph_hedge --features schemars
+
+      - name: Build issuer cash hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example cash_basis_hedge --features schemars
+
+      - name: Build recovery mixed hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example recovery_hedge --features schemars
+
+      - name: Build mixed-book scenario Excel consumer
+        run: cargo build --locked --profile excel -p convex --example mixed_scenario --features schemars
+
+      - name: Build causal lifecycle and cash consumer
+        run: cargo build --locked --profile excel -p convex --example causal_pnl --features schemars
+
+      - name: Build native cohort cash and physical delivery consumer
+        run: cargo build --locked --profile excel -p convex --example cohort_pnl --features schemars
+
+      - name: Build native residual claim and partial receipt consumer
+        run: cargo build --locked --profile excel -p convex --example residual_pnl --features schemars
+
+      - name: Build original lot amendment Excel expectations
+        run: cargo build --locked --profile excel -p convex --example lot_pnl --features schemars
+
+      - name: Build original cash transfer Excel expectations
+        run: cargo build --locked --profile excel -p convex --example claim_pnl --features schemars
+
+      - name: Build original custody Excel transport
+        run: cargo build --locked --profile excel -p convex --example physical_partition_pnl --features schemars
+
+      - name: Build successive custody disposal Excel transport
+        run: cargo build --locked --profile excel -p convex --example custody_lineage_pnl --features schemars
+      - name: Build dated cash Windows consumer
+        run: cargo build --locked --profile excel -p convex --example dated_cash_pnl --features schemars
+      - name: Build pending delivery cash Windows consumer
+        run: cargo build --locked --profile excel -p convex --example pending_cash_pnl --features schemars
+
+      - name: Build complete child cash transport consumer
+        run: cargo build --locked --profile excel -p convex --example child_cash_pnl --features schemars
+
+      - name: Build complete child maturity transport consumer
+        run: cargo build --locked --profile excel -p convex --example child_maturity_pnl --features schemars
+
+      - name: Build complete concurrent claims transport consumer
+        run: cargo build --locked --profile excel -p convex --example concurrent_claims_pnl --features schemars
+
+      - name: Build full settlement transport consumer
+        run: cargo build --locked --profile excel -p convex --example settled_claims_pnl --features schemars
+
+      - name: Build full delivery basket hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
+
+      - name: Build guarded optional graph hedge Excel consumer
+        run: cargo build --locked --profile excel -p convex --example optional_graph_hedge --features schemars
+
+      - name: Build native complete workout consumer
+        run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
+
+      - name: Build native complete curve-family consumer
+        run: cargo build --locked --profile excel -p convex --example library_curve_families --features schemars
+
+      - name: Build native explicit curve-method consumer
+        run: cargo build --locked --profile excel -p convex --example library_curve_methods --features schemars
+
+      - name: Build native complete UFR consumer
+        run: cargo build --locked --profile excel -p convex --example library_ufr --features schemars
+
+      - name: Build native complete MonotoneConvex consumer
+        run: cargo build --locked --profile excel -p convex --example library_monotone --features schemars
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -116,7 +3350,124 @@ jobs:
       - name: Build Excel Add-in
         run: dotnet build excel/Convex.Excel/Convex.Excel.csproj --configuration Release
 
-      - name: Test Excel Add-in (headless)
+      - name: Stage native DLL for actual P/Invoke parity
+        run: |
+          New-Item -ItemType Directory -Force -Path excel/Convex.Excel.Tests/bin/Release/net472
+          Copy-Item target/excel/convex_ffi.dll excel/Convex.Excel.Tests/bin/Release/net472/
+        shell: pwsh
+
+      - name: Generate fresh native P/Invoke expectations
+        run: python tests/scripts/library_parity.py prepare --binary target\excel\examples\library_workflow.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-parity.json
+
+      - name: Generate fresh native P/Invoke operation expectations
+        run: python tests/scripts/library_operations_parity.py prepare --binary target\excel\examples\library_operations.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-operations-parity.json
+
+      - name: Generate fresh native P/Invoke full cash expectations
+        run: python tests/scripts/library_cash_parity.py prepare --binary target\excel\examples\library_cash.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-parity.json
+
+      - name: Generate fresh native P/Invoke full rate-helper expectations
+        run: python tests/scripts/library_rate_helpers_parity.py prepare --binary target\excel\examples\library_rate_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-rate-helpers-parity.json
+
+      - name: Generate fresh native P/Invoke full CDS-helper expectations
+        run: python tests/scripts/library_credit_helpers_parity.py prepare --binary target\excel\examples\library_credit_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-credit-helpers-parity.json
+
+      - name: Generate fresh native P/Invoke full cash-helper expectations
+        run: python tests/scripts/library_cash_helpers_parity.py prepare --binary target\excel\examples\library_cash_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-cash-helpers-parity.json
+
+      - name: Generate fresh native P/Invoke floating workout expectations
+        run: python tests/scripts/floating_workout_parity.py --binary target\excel\examples\floating_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/floating-workout-parity.json
+
+      - name: Prepare fresh contextual ICMA host transport expectations
+        run: python tests/scripts/icma_parity.py --binary target\excel\examples\icma_quotation.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-parity.json
+
+      - name: Generate contextual government Excel expectations
+        run: python tests/scripts/icma_government_parity.py --binary target\excel\examples\icma_government.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-government-parity.json
+
+      - name: Generate contextual workout Excel expectations
+        run: python tests/scripts/icma_workout_parity.py --binary target\excel\examples\icma_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-workout-parity.json
+
+      - name: Generate contextual ICMA helper Excel expectations
+        run: python tests/scripts/icma_helpers_parity.py --binary target\excel\examples\icma_helpers.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-helpers-parity.json
+
+      - name: Generate direct ICMA risk and hedge Excel expectations
+        run: python tests/scripts/icma_risk_parity.py --binary target\excel\examples\icma_risk.exe --output excel/Convex.Excel.Tests/bin/Release/net472/icma-risk-parity.json
+
+      - name: Generate graph hedge Excel expectations
+        run: python tests/scripts/graph_hedge_parity.py --binary target\excel\examples\graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/graph-hedge-parity.json
+
+      - name: Generate issuer cash hedge Excel expectations
+        run: python tests/scripts/cash_basis_hedge_parity.py --binary target\excel\examples\cash_basis_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/cash-basis-hedge-parity.json
+
+      - name: Generate recovery mixed hedge Excel expectations
+        run: python tests/scripts/recovery_hedge_parity.py --binary target\excel\examples\recovery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/recovery-hedge-parity.json
+
+      - name: Generate mixed-book scenario Excel expectations
+        run: python tests/scripts/mixed_scenario_parity.py --binary target\excel\examples\mixed_scenario.exe --output excel/Convex.Excel.Tests/bin/Release/net472/mixed-scenario-parity.json
+
+      - name: Generate complete causal cash transport corpus
+        run: python tests/scripts/causal_pnl_parity.py --binary target\excel\examples\causal_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/causal-pnl-parity.json
+
+      - name: Generate fresh native cohort cash and delivery transport controls
+        run: python tests/scripts/cohort_pnl_admitted_parity.py --binary target\excel\examples\cohort_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/cohort-pnl-parity.json
+
+      - name: Generate original residual and partial receipt transport controls
+        run: python tests/scripts/residual_pnl_parity.py --binary target\excel\examples\residual_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/residual-pnl-parity.json
+
+      - name: Complete original lot amendment Excel transport
+        run: python tests/scripts/lot_pnl_parity.py --binary target\excel\examples\lot_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/lot-pnl-parity.json
+
+      - name: Original cash transfer Excel transport
+        run: python tests/scripts/claim_pnl_parity.py --binary target\excel\examples\claim_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/claim-pnl-parity.json
+
+      - name: Original physical custody Excel transport
+        run: python tests/scripts/physical_partition_pnl_parity.py --binary target\excel\examples\physical_partition_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/physical-partition-pnl-parity.json
+
+      - name: Successive custody disposal Excel transport
+        run: python tests/scripts/custody_lineage_pnl_parity.py --binary target\excel\examples\custody_lineage_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/custody-lineage-pnl-parity.json
+      - name: Prepare dated cash Excel transport controls
+        run: python tests/scripts/dated_cash_pnl_parity.py --binary target\excel\examples\dated_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/dated-cash-pnl-parity.json
+      - name: Retain pending delivery cash native envelopes for Windows transport
+        run: python tests/scripts/pending_cash_pnl_parity.py --binary target\excel\examples\pending_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/pending-cash-pnl-parity.json
+
+      - name: Generate fresh child cash PInvoke parity
+        run: python tests/scripts/child_cash_pnl_parity.py --binary target\excel\examples\child_cash_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/child-cash-pnl-parity.json
+
+      - name: Generate fresh child maturity PInvoke parity
+        run: python tests/scripts/child_maturity_pnl_parity.py --binary target\excel\examples\child_maturity_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/child-maturity-pnl-parity.json
+
+      - name: Generate fresh concurrent claims PInvoke parity
+        run: python tests/scripts/concurrent_claims_pnl_parity.py --binary target\excel\examples\concurrent_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/concurrent-claims-pnl-parity.json
+
+      - name: Generate fresh full settlement PInvoke parity
+        run: python tests/scripts/settled_claims_pnl_parity.py --binary target\excel\examples\settled_claims_pnl.exe --output excel/Convex.Excel.Tests/bin/Release/net472/settled-claims-pnl-parity.json
+
+      - name: Generate full delivery basket hedge Excel expectations
+        run: python tests/scripts/delivery_hedge_parity.py --binary target\excel\examples\delivery_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/delivery-hedge-parity.json
+
+      - name: Generate guarded optional graph hedge Excel expectations
+        run: python tests/scripts/optional_graph_hedge_parity.py --binary target\excel\examples\optional_graph_hedge.exe --output excel/Convex.Excel.Tests/bin/Release/net472/optional-graph-hedge-parity.json
+
+      - name: Generate fresh native P/Invoke workout expectations
+        run: python tests/scripts/library_workout_parity.py prepare --binary target\excel\examples\library_workout.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-workout-parity.json
+
+      - name: Generate fresh native P/Invoke curve-family expectations
+        run: python tests/scripts/library_curve_families_parity.py prepare --binary target\excel\examples\library_curve_families.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-families-parity.json
+
+      - name: Generate fresh native P/Invoke curve-method expectations
+        run: python tests/scripts/library_curve_methods_parity.py prepare --binary target\excel\examples\library_curve_methods.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-curve-methods-parity.json
+
+      - name: Generate fresh native UFR P/Invoke expectations
+        run: python tests/scripts/library_ufr_parity.py prepare --binary target\excel\examples\library_ufr.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-ufr-parity.json
+
+      - name: Generate fresh native monotone P/Invoke expectations
+        run: python tests/scripts/library_monotone_parity.py prepare --binary target\excel\examples\library_monotone.exe --output excel/Convex.Excel.Tests/bin/Release/net472/library-monotone-parity.json
+
+      - name: Build and retain complete Treasury bill PInvoke expectations
+        run: |
+          cargo build --locked --profile excel -p convex --example treasury_bill
+          python tests/scripts/treasury_bill_parity.py prepare --binary target\excel\examples\treasury_bill.exe --output excel/Convex.Excel.Tests/bin/Release/net472/treasury-bill-parity.json
+
+      - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release
 
       - name: Copy native DLL

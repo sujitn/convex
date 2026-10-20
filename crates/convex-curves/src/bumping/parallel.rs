@@ -3,6 +3,7 @@
 //! A parallel bump shifts the entire curve by a constant amount,
 //! useful for calculating DV01, PV01, and parallel sensitivity.
 
+use convex_math::portable;
 use std::sync::Arc;
 
 use convex_core::types::Date;
@@ -161,34 +162,17 @@ impl<T: TermStructure> TermStructure for BumpedCurve<'_, T> {
     }
 
     fn value_at(&self, t: f64) -> f64 {
-        let base_value = self.base.value_at(t);
+        super::shift_value(
+            &self.base.value_type(),
+            self.base.value_at(t),
+            self.shift_decimal,
+            t,
+        )
+    }
 
-        match self.base.value_type() {
-            // For rates: add shift directly
-            ValueType::ZeroRate { .. }
-            | ValueType::ForwardRate { .. }
-            | ValueType::InstantaneousForward
-            | ValueType::HazardRate
-            | ValueType::ParSwapRate { .. } => base_value + self.shift_decimal,
-
-            // For discount factors: df_bumped = df * exp(-shift * t)
-            // Derivation: if zero rate increases by shift, then
-            // df = exp(-r*t) becomes df' = exp(-(r+shift)*t) = df * exp(-shift*t)
-            ValueType::DiscountFactor => base_value * (-self.shift_decimal * t).exp(),
-
-            // For survival probability: similar to discount factor
-            // S(t) = exp(-h*t) becomes S'(t) = exp(-(h+shift)*t) = S * exp(-shift*t)
-            ValueType::SurvivalProbability => base_value * (-self.shift_decimal * t).exp(),
-
-            // For credit spreads: add shift to spread
-            ValueType::CreditSpread { .. } => base_value + self.shift_decimal,
-
-            // For inflation and FX, shifts don't apply in the same way
-            // but we provide additive shift as a reasonable default
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => {
-                base_value + self.shift_decimal
-            }
-        }
+    fn try_value_at(&self, t: f64) -> crate::error::CurveResult<f64> {
+        let value = self.base.try_value_at(t)?;
+        super::checked_shift_value(&self.base.value_type(), value, self.shift_decimal, t)
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {
@@ -207,7 +191,7 @@ impl<T: TermStructure> TermStructure for BumpedCurve<'_, T> {
                 // d/dt[f(t) * exp(-s*t)] = f'(t)*exp(-s*t) - s*f(t)*exp(-s*t)
                 let base_value = self.base.value_at(t);
                 let base_deriv = self.base.derivative_at(t)?;
-                let exp_factor = (-self.shift_decimal * t).exp();
+                let exp_factor = portable::exp(-self.shift_decimal * t);
                 Some(base_deriv * exp_factor - self.shift_decimal * base_value * exp_factor)
             }
             _ => self.base.derivative_at(t),
@@ -260,25 +244,17 @@ impl<T: TermStructure> TermStructure for ArcBumpedCurve<T> {
     }
 
     fn value_at(&self, t: f64) -> f64 {
-        let base_value = self.base.value_at(t);
+        super::shift_value(
+            &self.base.value_type(),
+            self.base.value_at(t),
+            self.shift_decimal,
+            t,
+        )
+    }
 
-        match self.base.value_type() {
-            ValueType::ZeroRate { .. }
-            | ValueType::ForwardRate { .. }
-            | ValueType::InstantaneousForward
-            | ValueType::HazardRate
-            | ValueType::ParSwapRate { .. } => base_value + self.shift_decimal,
-
-            ValueType::DiscountFactor => base_value * (-self.shift_decimal * t).exp(),
-
-            ValueType::SurvivalProbability => base_value * (-self.shift_decimal * t).exp(),
-
-            ValueType::CreditSpread { .. } => base_value + self.shift_decimal,
-
-            ValueType::InflationIndexRatio | ValueType::FxForwardPoints => {
-                base_value + self.shift_decimal
-            }
-        }
+    fn try_value_at(&self, t: f64) -> crate::error::CurveResult<f64> {
+        let value = self.base.try_value_at(t)?;
+        super::checked_shift_value(&self.base.value_type(), value, self.shift_decimal, t)
     }
 
     fn tenor_bounds(&self) -> (f64, f64) {
@@ -294,7 +270,7 @@ impl<T: TermStructure> TermStructure for ArcBumpedCurve<T> {
             ValueType::DiscountFactor | ValueType::SurvivalProbability => {
                 let base_value = self.base.value_at(t);
                 let base_deriv = self.base.derivative_at(t)?;
-                let exp_factor = (-self.shift_decimal * t).exp();
+                let exp_factor = portable::exp(-self.shift_decimal * t);
                 Some(base_deriv * exp_factor - self.shift_decimal * base_value * exp_factor)
             }
             _ => self.base.derivative_at(t),

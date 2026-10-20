@@ -293,9 +293,12 @@ body {
 }
 
 .grid-row.row-1,
-.grid-row.row-2,
 .grid-row.row-3 {
   grid-template-columns: 1fr 1.5fr 1fr;
+}
+
+.grid-row.row-2 {
+  grid-template-columns: 1fr;
 }
 
 .grid-row.row-3 {
@@ -486,19 +489,16 @@ body {
   font-weight: 700;
 }
 
-.call-schedule,
 .curve-inputs {
   margin-top: var(--spacing-sm);
 }
 
-.call-entry,
 .curve-row {
   display: flex;
   gap: var(--spacing-xs);
   margin-bottom: var(--spacing-xs);
 }
 
-.call-entry input,
 .curve-row input {
   flex: 1;
   min-width: 0;
@@ -568,21 +568,6 @@ body {
 .metric-value.ytm {
   font-size: 16px;
   color: var(--accent-yellow);
-}
-
-.metric-value.ytc {
-  font-size: 14px;
-  color: var(--accent-blue);
-}
-
-.metric-value.ytw {
-  font-size: 16px;
-  color: var(--accent-green);
-}
-
-.metric-value.workout-date {
-  font-size: 11px;
-  color: var(--text-secondary);
 }
 
 .metric-unit {
@@ -859,13 +844,7 @@ body {
   color: var(--accent-orange);
 }
 
-.cashflow-table td.pv {
-  color: var(--accent-blue);
-}
 
-.cashflow-table td.cumulative {
-  color: var(--text-muted);
-}
 
 .cashflow-table td.date-cell {
   font-size: 10px;
@@ -1129,7 +1108,6 @@ select {
 
   /* Grid layout responsive adjustments */
   .grid-row.row-1,
-  .grid-row.row-2,
   .grid-row.row-3 {
     grid-template-columns: 1fr 1.2fr 1fr;
   }
@@ -1146,7 +1124,6 @@ select {
   }
 
   .grid-row.row-1,
-  .grid-row.row-2,
   .grid-row.row-3 {
     grid-template-columns: 1fr 1fr 1fr;
   }
@@ -1260,194 +1237,7 @@ select {
 }
 
 /* ============================================================================
-   Benchmark Panel
-   ============================================================================ */
-
-.benchmark-panel {
-  background: var(--bg-panel);
-}
-
-.benchmark-panel.compact .panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.tenor-select-compact {
-  padding: 2px 6px;
-  background: var(--bg-input);
-  border: 1px solid var(--accent-blue);
-  color: var(--accent-blue);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.benchmark-content-compact {
-  padding: var(--spacing-sm) var(--spacing-md);
-}
-
-.benchmark-grid {
-  display: flex;
-  gap: var(--spacing-md);
-}
-
-.benchmark-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.benchmark-cell .cell-label {
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.benchmark-cell .cell-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.benchmark-cell .cell-value.yield {
-  color: var(--accent-green);
-}
-
-.benchmark-cell.spread-cell .spread-input-compact {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.benchmark-cell.spread-cell input {
-  width: 55px;
-  padding: 2px 4px;
-  background: var(--bg-input);
-  border: 1px solid var(--accent-blue);
-  color: var(--accent-blue);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  text-align: right;
-}
-
-.benchmark-cell.spread-cell input:focus {
-  outline: none;
-  border-color: var(--accent-orange);
-}
-
-.benchmark-cell.spread-cell .unit {
-  font-size: 9px;
-  color: var(--text-muted);
-}
-
-.benchmark-content {
-  padding: var(--spacing-md);
-}
-
-.benchmark-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) 0;
-}
-
-.benchmark-row.ticker-row {
-  padding-bottom: var(--spacing-sm);
-  border-bottom: 1px solid var(--border-primary);
-  margin-bottom: var(--spacing-xs);
-}
-
-.benchmark-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  min-width: 50px;
-}
-
-.benchmark-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.benchmark-value.spread-value {
-  color: var(--accent-green);
-  font-size: 14px;
-}
-
-.benchmark-value .unit {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-left: var(--spacing-xs);
-}
-
-.tenor-select {
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--bg-input);
-  border: 1px solid var(--accent-blue);
-  color: var(--accent-blue);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.tenor-select:focus {
-  outline: none;
-  border-color: var(--accent-orange);
-}
-
-.benchmark-ticker {
-  font-size: 10px;
-  color: var(--text-secondary);
-  flex: 1;
-  text-align: right;
-}
-
-.benchmark-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  flex: 1;
-  justify-content: flex-end;
-}
-
-.benchmark-input {
-  width: 80px;
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-align: right;
-}
-
-.benchmark-input:focus {
-  outline: none;
-  border-color: var(--accent-orange);
-}
-
-.benchmark-input.yield {
-  border-color: var(--accent-green);
-  color: var(--accent-green);
-}
-
-.benchmark-input.spread {
-  border-color: var(--accent-blue);
-  color: var(--accent-blue);
-  width: 70px;
-}
-
-.benchmark-input-wrapper .unit {
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
-/* ============================================================================
-   Enhanced Risk Table (Workout | OAS columns)
+   Fixed-bond yield risk table
    ============================================================================ */
 
 .risk-metrics-panel .panel-header {
@@ -1456,24 +1246,8 @@ select {
   align-items: center;
 }
 
-.risk-header-labels {
-  display: flex;
-  gap: var(--spacing-lg);
-}
 
-.risk-header-labels span {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
 
-.workout-label {
-  color: var(--accent-yellow);
-}
-
-.oas-label {
-  color: var(--accent-blue);
-}
 
 .risk-table {
   padding: var(--spacing-sm) var(--spacing-md);
@@ -1499,10 +1273,6 @@ select {
   gap: var(--spacing-xs);
 }
 
-.radio-indicator {
-  color: var(--accent-orange);
-  font-size: 8px;
-}
 
 .risk-value {
   width: 80px;
@@ -1512,17 +1282,13 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
-.risk-value.workout {
+.risk-value.yield {
   color: var(--accent-yellow);
 }
 
-.risk-value.workout.highlight {
+.risk-value.yield.highlight {
   color: var(--accent-orange);
   font-size: 14px;
-}
-
-.risk-value.oas {
-  color: var(--accent-blue);
 }
 
 .risk-value.dv01 {
@@ -1537,29 +1303,8 @@ select {
   border-bottom: 1px solid var(--border-light);
 }
 
-.dv-badge {
-  background: var(--accent-orange);
-  color: var(--bg-primary);
-  padding: 1px 4px;
-  font-size: 9px;
-  font-weight: 700;
-  border-radius: var(--radius-sm);
-}
 
-.dv-select {
-  padding: 1px 4px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  width: 40px;
-}
 
-.dv-unit {
-  font-size: 9px;
-  color: var(--text-muted);
-}
 
 /* ============================================================================
    Treasury Curve Panel (Compact)
@@ -1675,174 +1420,6 @@ select {
   color: var(--text-muted);
   margin-top: var(--spacing-xs);
   text-align: right;
-}
-
-/* ============================================================================
-   Call Schedule Panel
-   ============================================================================ */
-
-.call-schedule-panel {
-  background: var(--bg-panel);
-  border-top: 1px solid var(--border-primary);
-}
-
-.call-schedule-panel .panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.call-content {
-  padding: var(--spacing-sm) var(--spacing-md);
-}
-
-.no-calls {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.call-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.call-header {
-  display: grid;
-  grid-template-columns: 1fr 60px 24px;
-  gap: var(--spacing-xs);
-  font-size: 9px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  padding-bottom: var(--spacing-xs);
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.call-entry-row {
-  display: grid;
-  grid-template-columns: 1fr 60px 24px;
-  gap: var(--spacing-xs);
-  align-items: center;
-}
-
-.call-entry-row input[type="date"] {
-  width: 100%;
-  padding: 2px 4px;
-  font-size: 10px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-}
-
-.call-entry-row input[type="number"] {
-  width: 100%;
-  padding: 2px 4px;
-  font-size: 10px;
-  text-align: right;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-}
-
-.call-entry-row input:focus {
-  outline: none;
-  border-color: var(--accent-orange);
-}
-
-.call-entry-row .btn-remove {
-  padding: 0 4px;
-  background: transparent;
-  border: 1px solid var(--accent-red);
-  color: var(--accent-red);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  height: 20px;
-}
-
-.call-entry-row .btn-remove:hover {
-  background: var(--accent-red);
-  color: var(--bg-primary);
-}
-
-.volatility-row {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--border-primary);
-  margin-top: var(--spacing-sm);
-}
-
-.volatility-row label {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  min-width: 50px;
-}
-
-.volatility-row input {
-  width: 50px;
-  padding: 2px 4px;
-  background: var(--bg-input);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-align: right;
-}
-
-.volatility-row input:focus {
-  outline: none;
-  border-color: var(--accent-blue);
-}
-
-.volatility-row .unit {
-  font-size: 9px;
-  color: var(--text-muted);
-}
-
-.volatility-section {
-  margin-top: var(--spacing-sm);
-  padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--border-primary);
-}
-
-.btn-tiny {
-  padding: 2px 6px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-fetch-vol {
-  background: var(--accent-blue);
-  color: var(--bg-primary);
-  border: 1px solid var(--accent-blue);
-  margin-left: var(--spacing-xs);
-}
-
-.btn-fetch-vol:hover:not(:disabled) {
-  background: #33ddff;
-}
-
-.btn-fetch-vol:disabled {
-  background: var(--bg-hover);
-  color: var(--text-muted);
-  border-color: var(--border-primary);
-  cursor: not-allowed;
-}
-
-.vol-source {
-  font-size: 9px;
-  color: var(--text-muted);
-  margin-top: var(--spacing-xs);
-  font-style: italic;
 }
 
 /* ============================================================================

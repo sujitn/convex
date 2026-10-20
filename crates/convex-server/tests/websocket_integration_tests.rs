@@ -21,11 +21,47 @@ use convex_engine::ports::market_data::MarketDataProvider;
 use convex_engine::ports::reference_data::ReferenceDataProvider;
 use convex_engine::PricingEngineBuilder;
 use convex_ext_file::{
-    create_empty_output, EmptyBondReferenceSource, EmptyCurveInputSource, EmptyEtfHoldingsSource,
-    EmptyEtfQuoteSource, EmptyFxRateSource, EmptyIndexFixingSource, EmptyInflationFixingSource,
-    EmptyIssuerReferenceSource, EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
+    EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource, EmptyFxRateSource,
+    EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
+    EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
-use convex_server::routes::create_router;
+fn create_router(engine: Arc<convex_engine::PricingEngine>) -> axum::Router {
+    convex_server::routes::create_router_with_access(
+        engine,
+        true,
+        convex_server::access::AccessControl::local_development(),
+    )
+}
+
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
+
+async fn complete_batch_reference(request: &mut Value, engine: &convex_engine::PricingEngine) {
+    use convex_core::contracts::{RequestId, UtcTimestamp};
+    use convex_ports::reference_data::BondReferenceData;
+    use convex_ports::reference_repository::ReferenceCommand;
+    let mut resources = std::collections::BTreeMap::new();
+    for item in request["bonds"].as_array_mut().unwrap() {
+        let bond: BondReferenceData = serde_json::from_value(item["bond"].clone()).unwrap();
+        let bond = reference_terms::complete(bond);
+        for resource in reference_terms::resources(&bond) {
+            resources.insert(resource.definition.key(), resource);
+        }
+        item["bond"] = serde_json::to_value(bond).unwrap();
+    }
+    let command = ReferenceCommand {
+        idempotency_key: RequestId::new("websocket-fixture-resources").unwrap(),
+        changes: Vec::new(),
+        master_changes: resources.into_values().collect(),
+    };
+    engine
+        .commit_reference(
+            &command,
+            UtcTimestamp::parse("2000-01-01T00:00:00Z").unwrap(),
+        )
+        .await
+        .unwrap();
+}
 
 /// Create a test engine with empty providers.
 fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
@@ -40,22 +76,18 @@ fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
     };
 
     let reference_data = ReferenceDataProvider {
-        bonds: Arc::new(EmptyBondReferenceSource),
         issuers: Arc::new(EmptyIssuerReferenceSource),
         ratings: Arc::new(EmptyRatingSource),
         etf_holdings: Arc::new(EmptyEtfHoldingsSource),
     };
 
-    let output = create_empty_output();
-    let storage =
-        convex_ext_redb::create_memory_storage().expect("Failed to create memory storage");
+    let storage = convex_ext_redb::create_test_storage().expect("Failed to create memory storage");
 
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
         .with_market_data(Arc::new(market_data))
         .with_reference_data(Arc::new(reference_data))
         .with_storage(Arc::new(storage))
-        .with_output(Arc::new(output))
         .build()
         .expect("Failed to build engine");
 
@@ -395,7 +427,7 @@ async fn test_websocket_ping_pong() {
 
 #[tokio::test]
 async fn test_websocket_receives_bond_quote_broadcast() {
-    let (addr, _engine) = start_test_server().await;
+    let (addr, engine) = start_test_server().await;
     let ws_url = format!("ws://{}/ws", addr);
 
     // Connect WebSocket client
@@ -415,7 +447,7 @@ async fn test_websocket_receives_bond_quote_broadcast() {
 
     // Trigger batch pricing via REST API
     let client = reqwest::Client::new();
-    let batch_request = json!({
+    let mut batch_request = json!({
         "bonds": [{
             "bond": {
                 "instrument_id": "US912828ZT09",
@@ -449,6 +481,7 @@ async fn test_websocket_receives_bond_quote_broadcast() {
         "settlement_date": "2024-01-15"
     });
 
+    complete_batch_reference(&mut batch_request, &engine).await;
     let response = client
         .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)
@@ -480,7 +513,7 @@ async fn test_websocket_receives_bond_quote_broadcast() {
 
 #[tokio::test]
 async fn test_websocket_receives_filtered_bond_quote() {
-    let (addr, _engine) = start_test_server().await;
+    let (addr, engine) = start_test_server().await;
     let ws_url = format!("ws://{}/ws", addr);
 
     // Connect WebSocket client
@@ -503,7 +536,7 @@ async fn test_websocket_receives_filtered_bond_quote() {
 
     // Trigger batch pricing for subscribed bond
     let client = reqwest::Client::new();
-    let batch_request = json!({
+    let mut batch_request = json!({
         "bonds": [{
             "bond": {
                 "instrument_id": "US912828ZT09",
@@ -537,6 +570,7 @@ async fn test_websocket_receives_filtered_bond_quote() {
         "settlement_date": "2024-01-15"
     });
 
+    complete_batch_reference(&mut batch_request, &engine).await;
     let response = client
         .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)
@@ -572,7 +606,7 @@ async fn test_websocket_receives_filtered_bond_quote() {
 
 #[tokio::test]
 async fn test_websocket_multiple_clients_receive_broadcast() {
-    let (addr, _engine) = start_test_server().await;
+    let (addr, engine) = start_test_server().await;
     let ws_url = format!("ws://{}/ws", addr);
 
     // Connect two WebSocket clients
@@ -609,7 +643,7 @@ async fn test_websocket_multiple_clients_receive_broadcast() {
 
     // Trigger batch pricing
     let client = reqwest::Client::new();
-    let batch_request = json!({
+    let mut batch_request = json!({
         "bonds": [{
             "bond": {
                 "instrument_id": "MULTI_TEST",
@@ -643,6 +677,7 @@ async fn test_websocket_multiple_clients_receive_broadcast() {
         "settlement_date": "2024-01-15"
     });
 
+    complete_batch_reference(&mut batch_request, &engine).await;
     let response = client
         .post(format!("http://{}/api/v1/batch/price", addr))
         .json(&batch_request)

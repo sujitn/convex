@@ -247,10 +247,6 @@ mod tests {
             date(2020, 1, 15)
         }
 
-        fn first_settlement_date(&self) -> Date {
-            date(2020, 1, 15)
-        }
-
         fn dated_date(&self) -> Date {
             date(2020, 1, 15)
         }

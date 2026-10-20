@@ -6,9 +6,10 @@ use axum::routing::{get, post};
 use axum::Router;
 
 use convex_engine::PricingEngine;
-use convex_ext_file::{InMemoryBondStore, InMemoryPortfolioStore};
+use convex_ext_file::InMemoryPortfolioStore;
 
 use crate::handlers::{self, AppState};
+use crate::reference;
 use crate::websocket::{self, WebSocketState};
 
 /// Create the API router.
@@ -16,63 +17,142 @@ use crate::websocket::{self, WebSocketState};
 /// # Arguments
 /// * `engine` - The pricing engine
 pub fn create_router(engine: Arc<PricingEngine>) -> Router {
-    create_router_with_stores(
+    create_router_with_websocket(engine, true)
+}
+
+/// Create the API router with optional WebSocket routes on the HTTP listener.
+pub fn create_router_with_websocket(engine: Arc<PricingEngine>, enabled: bool) -> Router {
+    create_router_with_options(engine, Arc::new(InMemoryPortfolioStore::new()), enabled)
+}
+
+/// Create the API router with a supplied portfolio fixture. Bond references come from the engine.
+pub fn create_router_with_portfolio_store(
+    engine: Arc<PricingEngine>,
+    portfolio_store: Arc<InMemoryPortfolioStore>,
+) -> Router {
+    create_router_with_options(engine, portfolio_store, true)
+}
+
+fn create_router_with_options(
+    engine: Arc<PricingEngine>,
+    portfolio_store: Arc<InMemoryPortfolioStore>,
+    websocket_enabled: bool,
+) -> Router {
+    create_router_with_access_and_portfolios(
         engine,
-        Arc::new(InMemoryBondStore::new()),
-        Arc::new(InMemoryPortfolioStore::new()),
+        portfolio_store,
+        websocket_enabled,
+        crate::access::AccessControl::deny_all(),
     )
 }
 
-/// Create the API router with a specific bond store.
-///
-/// # Arguments
-/// * `engine` - The pricing engine
-/// * `bond_store` - The bond store for CRUD operations
-pub fn create_router_with_bond_store(
+/// Compose explicit access control; default constructors deny protected requests.
+pub fn create_router_with_access(
     engine: Arc<PricingEngine>,
-    bond_store: Arc<InMemoryBondStore>,
+    enabled: bool,
+    access: Arc<crate::access::AccessControl>,
 ) -> Router {
-    create_router_with_stores(engine, bond_store, Arc::new(InMemoryPortfolioStore::new()))
+    create_router_with_access_and_portfolios(
+        engine,
+        Arc::new(InMemoryPortfolioStore::new()),
+        enabled,
+        access,
+    )
 }
-
-/// Create the API router with all stores.
-///
-/// # Arguments
-/// * `engine` - The pricing engine
-/// * `bond_store` - The bond store for CRUD operations
-/// * `portfolio_store` - The portfolio store for CRUD operations
-pub fn create_router_with_stores(
+/// Supplied portfolio and access boundaries for embedded composition and conformance fixtures.
+pub fn create_router_with_access_and_portfolios(
     engine: Arc<PricingEngine>,
-    bond_store: Arc<InMemoryBondStore>,
     portfolio_store: Arc<InMemoryPortfolioStore>,
+    websocket_enabled: bool,
+    access: Arc<crate::access::AccessControl>,
 ) -> Router {
     let state = Arc::new(AppState {
+        analytics_slots: Arc::new(tokio::sync::Semaphore::new(
+            engine.config().max_concurrent_calcs.min(64),
+        )),
+        access: access.clone(),
         engine,
         ws_state: WebSocketState::new(),
-        bond_store,
         portfolio_store,
     });
 
-    Router::new()
+    let router = Router::new()
         // Health
+        .route("/live", get(handlers::health))
+        .route("/ready", get(handlers::readiness))
+        .route("/strategy-ready", get(crate::health::strategy_readiness))
+        .route("/api/v1/dependencies", get(crate::health::dependencies))
+        .route("/api/v1/runtime", get(handlers::runtime_health))
+        .route("/api/v1/runtime/results", get(handlers::runtime_results))
+        .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
+        .route("/api/v1/analytics", post(crate::analytics::calculate))
+        .route(
+            "/api/v1/analytics/curves",
+            post(crate::core_workflow::save_curve),
+        )
+        .route(
+            "/api/v1/analytics/fixings",
+            post(crate::core_workflow::save_fixings),
+        )
+        .route(
+            "/api/v1/analytics/snapshots",
+            post(crate::core_workflow::assemble),
+        )
+        .route(
+            "/api/v1/analytics/snapshots/:snapshot_id",
+            get(crate::core_workflow::snapshot),
+        )
+        .route(
+            "/api/v1/analytics/snapshots/:snapshot_id/run/:calculation",
+            post(crate::core_workflow::run),
+        )
+        .route(
+            "/api/v1/analytics/results/:result_id",
+            get(crate::core_workflow::result),
+        )
+        .route(
+            "/api/v1/configuration/schema",
+            get(crate::configuration_admin::schema),
+        )
+        .route(
+            "/api/v1/configuration/:id",
+            get(crate::configuration_admin::effective),
+        )
         .route("/health", get(handlers::health))
         .route("/api/v1/health", get(handlers::health))
         // Bond Reference Data CRUD
         .route(
             "/api/v1/bonds",
-            get(handlers::list_bonds).post(handlers::create_bond),
+            get(reference::list_bonds).post(reference::create_bond),
         )
-        .route("/api/v1/bonds/batch", post(handlers::batch_create_bonds))
-        .route("/api/v1/bonds/isin/:isin", get(handlers::get_bond_by_isin))
+        .route("/api/v1/bonds/batch", post(reference::batch_create_bonds))
+        .route("/api/v1/bonds/isin/:isin", get(reference::get_bond_by_isin))
         .route(
             "/api/v1/bonds/cusip/:cusip",
-            get(handlers::get_bond_by_cusip),
+            get(reference::get_bond_by_cusip),
         )
         .route(
             "/api/v1/bonds/:instrument_id",
-            get(handlers::get_bond)
-                .put(handlers::update_bond)
-                .delete(handlers::delete_bond),
+            get(reference::get_bond)
+                .put(reference::update_bond)
+                .delete(reference::delete_bond),
+        )
+        .route(
+            "/api/v1/bonds/:instrument_id/versions/:version",
+            get(reference::get_bond_version),
+        )
+        .route(
+            "/api/v1/reference/commits/:key",
+            get(reference::get_reference_commit),
+        )
+        .route(
+            "/api/v1/reference/transactions",
+            post(reference::commit_reference_transaction)
+                .layer(axum::extract::DefaultBodyLimit::max(8 * 1024 * 1024)),
+        )
+        .route(
+            "/api/v1/reference/resolve",
+            post(reference::resolve_reference_at),
         )
         // Quotes (Pricing)
         .route(
@@ -165,20 +245,6 @@ pub fn create_router_with_stores(
             "/api/v1/portfolio/buckets",
             post(handlers::calculate_all_bucketing),
         )
-        // Stress Testing
-        .route("/api/v1/stress/test", post(handlers::run_stress_test))
-        .route(
-            "/api/v1/stress/standard",
-            post(handlers::run_standard_stress_test),
-        )
-        .route(
-            "/api/v1/stress/single",
-            post(handlers::run_single_stress_test),
-        )
-        .route(
-            "/api/v1/stress/scenarios",
-            get(handlers::list_standard_scenarios),
-        )
         // Benchmark Comparison
         .route(
             "/api/v1/benchmark/compare",
@@ -204,10 +270,6 @@ pub fn create_router_with_stores(
         .route(
             "/api/v1/liquidity/distribution",
             post(handlers::calculate_liquidity_distribution),
-        )
-        .route(
-            "/api/v1/liquidity/days-to-liquidate",
-            post(handlers::calculate_days_to_liquidate),
         )
         .route(
             "/api/v1/liquidity/analysis",
@@ -249,11 +311,19 @@ pub fn create_router_with_stores(
             "/api/v1/portfolios/:portfolio_id/positions/:instrument_id",
             axum::routing::put(handlers::update_portfolio_position)
                 .delete(handlers::remove_portfolio_position),
-        )
-        // WebSocket
-        .route("/ws", get(websocket::ws_handler))
-        .route("/api/v1/ws", get(websocket::ws_handler))
-        .route("/api/v1/ws/status", get(websocket::ws_status))
-        // State
+        );
+    let router = if websocket_enabled {
+        router
+            .route("/ws", get(websocket::ws_handler))
+            .route("/api/v1/ws", get(websocket::ws_handler))
+            .route("/api/v1/ws/status", get(websocket::ws_status))
+    } else {
+        router
+    };
+    router
         .with_state(state)
+        .layer(axum::middleware::from_fn_with_state(
+            access,
+            crate::access::http::enforce,
+        ))
 }

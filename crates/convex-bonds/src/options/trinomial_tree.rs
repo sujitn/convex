@@ -2,6 +2,7 @@
 //! `TreeCallableFixedRateBondEngine` lattice (Brigo-Mercurio §3.7).
 //! Supports non-uniform time grids so events land on layers exactly.
 
+use convex_math::portable;
 #[derive(Debug, Clone, Copy)]
 struct Branching {
     k: i32,
@@ -140,7 +141,7 @@ impl TrinomialTree {
             let d = times[i + 1] - times[i];
             assert!(d > 0.0, "time grid must be strictly increasing");
             dt.push(d);
-            m.push((-a * d).exp());
+            m.push(portable::exp(-a * d));
         }
         // dx[0] is never used in arithmetic that affects results (j=0 at the
         // root); set it equal to dx[1] so branching_at can divide unconditionally.
@@ -174,11 +175,11 @@ impl TrinomialTree {
             for j in -band..=band {
                 let qij = q[(j + j_max) as usize];
                 if qij > 0.0 {
-                    numer += qij * (-(j as f64 * dx_i) * dt_i).exp();
+                    numer += qij * portable::exp(-(j as f64 * dx_i) * dt_i);
                 }
             }
-            let d_next = (-zero_rates(times[i + 1]) * times[i + 1]).exp();
-            *alpha_i = (numer / d_next).max(1e-300).ln() / dt_i;
+            let d_next = portable::exp(-zero_rates(times[i + 1]) * times[i + 1]);
+            *alpha_i = portable::log((numer / d_next).max(1e-300)) / dt_i;
 
             // Propagate Q[i] → Q[i+1].
             q_next.fill(0.0);
@@ -188,7 +189,7 @@ impl TrinomialTree {
                     continue;
                 }
                 let br = branching_at(j, j_max, m[i], dx_i, dx[i + 1]);
-                let weight = qij * (-(*alpha_i + j as f64 * dx_i) * dt_i).exp();
+                let weight = qij * portable::exp(-(*alpha_i + j as f64 * dx_i) * dt_i);
                 let band_next = ((i + 1) as i32).min(j_max);
                 for (offset, p) in [(1, br.pu), (0, br.pm), (-1, br.pd)] {
                     let child = br.k + offset;
@@ -253,7 +254,7 @@ impl TrinomialTree {
             for j in -band..=band {
                 let br = branching_at(j, self.j_max, m_i, dx_i, dx_next);
                 let r = self.alpha[i] + j as f64 * dx_i + oas;
-                let df = (-r * dt_i).exp();
+                let df = portable::exp(-r * dt_i);
                 let v_up = values[(br.k + 1 + self.j_max) as usize];
                 let v_mid = values[(br.k + self.j_max) as usize];
                 let v_down = values[(br.k - 1 + self.j_max) as usize];

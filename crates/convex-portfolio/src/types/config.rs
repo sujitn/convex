@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Controls parallelism, weighting, and other computation parameters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AnalyticsConfig {
     /// Enable parallel processing (requires 'parallel' feature).
     pub parallel: bool,
@@ -17,10 +18,6 @@ pub struct AnalyticsConfig {
 
     /// Weighting method for aggregations.
     pub weighting: WeightingMethod,
-
-    /// Include holdings with missing analytics in aggregations.
-    /// If false, holdings without the required metric are skipped.
-    pub include_incomplete: bool,
 
     /// Key rate tenors to use for KRD aggregation.
     /// If None, uses the standard tenors from convex-analytics.
@@ -33,7 +30,6 @@ impl Default for AnalyticsConfig {
             parallel: true,
             parallel_threshold: 100, // Use parallel if >100 holdings
             weighting: WeightingMethod::MarketValue,
-            include_incomplete: true,
             key_rate_tenors: None,
         }
     }
@@ -76,13 +72,6 @@ impl AnalyticsConfig {
         self
     }
 
-    /// Sets whether to include incomplete holdings.
-    #[must_use]
-    pub fn with_include_incomplete(mut self, include: bool) -> Self {
-        self.include_incomplete = include;
-        self
-    }
-
     /// Sets the key rate tenors.
     #[must_use]
     pub fn with_key_rate_tenors(mut self, tenors: Vec<f64>) -> Self {
@@ -107,7 +96,6 @@ mod tests {
         assert!(config.parallel);
         assert_eq!(config.parallel_threshold, 100);
         assert_eq!(config.weighting, WeightingMethod::MarketValue);
-        assert!(config.include_incomplete);
         assert!(config.key_rate_tenors.is_none());
     }
 
@@ -122,13 +110,11 @@ mod tests {
         let config = AnalyticsConfig::new()
             .with_parallel(true)
             .with_threshold(50)
-            .with_weighting(WeightingMethod::ParValue)
-            .with_include_incomplete(false);
+            .with_weighting(WeightingMethod::ParValue);
 
         assert!(config.parallel);
         assert_eq!(config.parallel_threshold, 50);
         assert_eq!(config.weighting, WeightingMethod::ParValue);
-        assert!(!config.include_incomplete);
     }
 
     #[test]

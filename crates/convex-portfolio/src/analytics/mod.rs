@@ -14,6 +14,7 @@
 mod credit;
 mod key_rates;
 mod liquidity;
+pub(crate) mod metrics;
 mod nav;
 mod parallel;
 mod risk;

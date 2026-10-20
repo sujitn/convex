@@ -14,6 +14,16 @@ namespace Convex.Excel
     {
         private const string Dll = "convex_ffi.dll";
 
+        [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr convex_library([MarshalAs(UnmanagedType.LPUTF8Str)] string req);
+
+        // Retain the complete native envelope and exact cash strings.
+        public static string Library(string requestJson)
+        {
+            LibraryCells.ValidateInput(requestJson);
+            return ConsumeString(convex_library(requestJson));
+        }
+
         public const ulong InvalidHandle = 0;
 
         [DllImport(Dll)]

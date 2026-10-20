@@ -1,10 +1,13 @@
 //! Option-Adjusted Spread (OAS) calculator.
 //!
-//! Calculates OAS for callable bonds using a Hull-White trinomial-tree
-//! pricer (matching `ql.TreeCallableFixedRateBondEngine`'s lattice).
+//! Retained CallableBond compatibility calculation with its existing approximate
+//! lattice, workout inputs and rounded-bp inverse. It is not the checked complete
+//! supplied-contract model route. Use [`crate::optional_bond`] for declared model
+//! inputs, notice/exercise cash, fractional OAS and numerical diagnostics.
 //! OAS is the constant spread that, when added to the short rate at
 //! every tree node, makes the model price equal the market price.
 
+use convex_math::portable;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
@@ -38,15 +41,19 @@ impl RateCurveDyn for ShiftedCurve<'_> {
             return Ok(base_df);
         }
 
-        let base_rate = -base_df.ln() / t;
+        let base_rate = -portable::log(base_df) / t;
         let shifted_rate = base_rate + self.shift;
-        let shifted_df = (-shifted_rate * t).exp();
+        let shifted_df = portable::exp(-shifted_rate * t);
 
         Ok(shifted_df)
     }
 
     fn reference_date(&self) -> Date {
         self.base.reference_date()
+    }
+
+    fn date_to_tenor(&self, date: Date) -> CurveResult<f64> {
+        self.base.date_to_tenor(date)
     }
 
     fn max_date(&self) -> Date {
@@ -410,7 +417,7 @@ impl OASCalculator {
             let df_cf = curve
                 .discount_factor(t_cf)
                 .map_err(|e| AnalyticsError::InvalidInput(format!("curve DF at cf: {e}")))?;
-            let fwd_df = (df_cf / df_settle) * (-oas * dt).exp();
+            let fwd_df = (df_cf / df_settle) * portable::exp(-oas * dt);
             let amount = cf.amount.to_f64().unwrap_or(0.0);
             straight_price += amount * fwd_df;
         }

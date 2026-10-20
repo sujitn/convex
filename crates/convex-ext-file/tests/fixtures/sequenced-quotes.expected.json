@@ -1,0 +1,282 @@
+[
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 1,
+    "outcome": "applied",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 2,
+    "outcome": "applied",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 3,
+    "outcome": "applied",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 3,
+    "outcome": "duplicate",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 2,
+    "outcome": "out_of_order",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 5,
+    "outcome": "recovery_required",
+    "state": "gap"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 4,
+    "outcome": "recovery_required",
+    "state": "gap"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 4,
+    "outcome": "recovery_required",
+    "state": "gap"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 5,
+    "outcome": "applied",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 6,
+    "outcome": "invalid",
+    "state": "invalid"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 7,
+    "outcome": "recovery_required",
+    "state": "gap"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "A",
+    "sequence": 7,
+    "outcome": "applied",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 1,
+    "outcome": "recovery_required",
+    "state": "gap"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 0,
+    "outcome": "control",
+    "state": "awaiting_image"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 1,
+    "outcome": "recovery_required",
+    "state": "gap"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 1,
+    "outcome": "applied",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 1,
+    "outcome": "control",
+    "state": "stale"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 2,
+    "outcome": "applied",
+    "state": "delayed"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 3,
+    "outcome": "applied",
+    "state": "indicative"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 4,
+    "outcome": "applied",
+    "state": "manual"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 4,
+    "outcome": "control",
+    "state": "unauthorized"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 5,
+    "outcome": "recovery_required",
+    "state": "gap"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 5,
+    "outcome": "applied",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 5,
+    "outcome": "control",
+    "state": "closed"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 5,
+    "outcome": "control",
+    "state": "closed"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 6,
+    "outcome": "recovery_required",
+    "state": "gap"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "replay"
+    },
+    "session": "B",
+    "sequence": 6,
+    "outcome": "applied",
+    "state": "live"
+  },
+  {
+    "key": {
+      "instrument_id": "BOND-001",
+      "source": "other-provider"
+    },
+    "session": "A",
+    "sequence": 1,
+    "outcome": "applied",
+    "state": "live"
+  }
+]

@@ -11,6 +11,9 @@ keywords = ["finance", "fixed-income", "bonds", "types"]
 categories = ["finance", "data-structures"]
 
 [dependencies]
+# Shared bounded arithmetic stays below the pure domain types.
+convex-math = { path = "../convex-math" }
+
 # Date/time handling
 chrono = { workspace = true }
 
@@ -28,6 +31,7 @@ thiserror = { workspace = true }
 # Utilities
 uuid = { workspace = true }
 log = { workspace = true }
+libm = { workspace = true }
 
 # Optional: JSON Schema derives for adapters that publish schemas (MCP, OpenAPI, …).
 schemars = { version = "1.2", optional = true, features = ["chrono04"] }
@@ -41,4 +45,3 @@ convex-curves = { path = "../convex-curves" }
 [features]
 default = []
 schemars = ["dep:schemars"]
-

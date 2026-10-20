@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 
 use convex_bonds::instruments::CallableBond;
 use convex_bonds::traits::{Bond, FixedCouponBond};
-use convex_core::types::{Compounding, Currency, Date, Frequency, Mark, SpreadType};
+#[cfg(test)]
+use convex_core::types::Compounding;
+use convex_core::types::{Currency, Date, Frequency, Mark, SpreadType};
 use convex_curves::bumping::KeyRateBump;
 use convex_curves::{DiscreteCurve, RateCurve, RateCurveDyn};
 
@@ -26,6 +28,7 @@ pub const ADVISOR_KEY_RATE_TENORS: &[f64] = &[2.0, 5.0, 10.0, 30.0];
 /// Position-scaled partial DV01 from a +1bp shock at one tenor.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 #[allow(missing_docs)]
 pub struct KeyRateBucket {
     pub tenor_years: f64,
@@ -37,6 +40,7 @@ pub struct KeyRateBucket {
 /// re-fetching the original request).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 #[allow(missing_docs)]
 pub struct Provenance {
     #[serde(default)]
@@ -52,18 +56,27 @@ pub struct Provenance {
 /// Risk profile of a single position. `notional_face` is signed (long → +).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 #[allow(missing_docs)]
 pub struct RiskProfile {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position_id: Option<String>,
     pub currency: Currency,
     pub settlement: Date,
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub notional_face: Decimal,
     pub clean_price_per_100: f64,
     pub dirty_price_per_100: f64,
     pub accrued_per_100: f64,
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub market_value: Decimal,
     pub ytm_decimal: f64,
     pub modified_duration_years: f64,
@@ -114,7 +127,7 @@ where
         settlement,
         priced.dirty_price_per_100,
         priced.ytm_decimal,
-        Compounding::from(freq),
+        freq,
     )?;
     let metrics = calc.all_metrics()?;
     let dv01 = metrics.dv01_per_100.as_f64() * face_scale;
@@ -124,10 +137,7 @@ where
         AnalyticsError::InvalidInput("dirty price not representable as Decimal".into())
     })?;
     let z = ZSpreadCalculator::new(discount_curve).calculate(bond, dirty_dec, settlement)?;
-    let z_decimal = z
-        .as_decimal()
-        .to_f64()
-        .ok_or_else(|| AnalyticsError::InvalidInput("z-spread not finite".into()))?;
+    let z_decimal = z.as_decimal_f64()?;
 
     let tenors = key_rate_tenors.unwrap_or(STANDARD_KEY_RATE_TENORS);
     let base_inner = discount_curve.inner().clone();
@@ -136,13 +146,21 @@ where
     for &tenor in tenors {
         let up = RateCurve::new(KeyRateBump::new(tenor, bump_bps).apply(&base_inner));
         let dn = RateCurve::new(KeyRateBump::new(tenor, -bump_bps).apply(&base_inner));
-        let dirty_up = ZSpreadCalculator::new(&up).price_with_spread(bond, z_decimal, settlement);
-        let dirty_dn = ZSpreadCalculator::new(&dn).price_with_spread(bond, z_decimal, settlement);
+        let dirty_up =
+            ZSpreadCalculator::new(&up).try_price_with_spread(bond, z_decimal, settlement)?;
+        let dirty_dn =
+            ZSpreadCalculator::new(&dn).try_price_with_spread(bond, z_decimal, settlement)?;
         // Per-100 partial DV01 = (dirty_dn − dirty_up) / 2 for ±1bp.
         let partial_per_100 = (dirty_dn - dirty_up) * 0.5;
+        let partial_dv01 = partial_per_100 * face_scale;
+        if !partial_dv01.is_finite() {
+            return Err(AnalyticsError::InvalidInput(
+                "nonfinite key-rate DV01".into(),
+            ));
+        }
         buckets.push(KeyRateBucket {
             tenor_years: tenor,
-            partial_dv01: partial_per_100 * face_scale,
+            partial_dv01,
         });
     }
 
@@ -433,7 +451,7 @@ pub fn compute_callable_position_risk(
         settlement,
         priced.dirty_price_per_100,
         priced.ytm_decimal,
-        Compounding::from(freq),
+        freq,
     )?;
     let bullet_macaulay = bullet_calc.all_metrics()?.macaulay_duration.as_f64();
 
@@ -454,9 +472,15 @@ pub fn compute_callable_position_risk(
         let dirty_dn =
             calculator.price_with_oas(bond, &dn as &dyn RateCurveDyn, oas_decimal, settlement)?;
         let partial_per_100 = (dirty_dn - dirty_up) * 0.5;
+        let partial_dv01 = partial_per_100 * face_scale;
+        if !partial_dv01.is_finite() {
+            return Err(AnalyticsError::InvalidInput(
+                "nonfinite key-rate DV01".into(),
+            ));
+        }
         buckets.push(KeyRateBucket {
             tenor_years: tenor,
-            partial_dv01: partial_per_100 * face_scale,
+            partial_dv01,
         });
     }
 
@@ -586,7 +610,20 @@ mod tests {
 
     #[test]
     fn long_bond_priced_at_yield_has_positive_dv01() {
-        let bond = bond_5pct_10y();
+        // Par at coupon assumes a regular, unadjusted payment grid. Holiday
+        // delays have a real discount effect and are tested separately.
+        let bond = FixedRateBond::builder()
+            .cusip_unchecked("TEST10Y5")
+            .coupon_rate(dec!(0.05))
+            .maturity(d(2035, 1, 15))
+            .issue_date(d(2025, 1, 15))
+            .frequency(Frequency::SemiAnnual)
+            .day_count(DayCountConvention::Thirty360US)
+            .currency(Currency::USD)
+            .face_value(dec!(100))
+            .business_day_convention(convex_core::calendars::BusinessDayConvention::Unadjusted)
+            .build()
+            .unwrap();
         let curve = flat_curve(0.05);
         let mark = Mark::Yield {
             value: dec!(0.05),

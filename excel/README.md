@@ -98,7 +98,7 @@ return `#REF!`.
 | UDF | Description |
 |---|---|
 | `CX.PRICE(bond, settle, mark, [curve], [quoteFreq], [field])` | Returns clean / dirty / accrued / YTM / Z-bps. `field`: `clean` (default), `dirty`, `accrued`, `ytm`, `z_spread`, `grid`. |
-| `CX.YAS(bond, settle, mark, curve, [govtCurve], [quoteFreq], [swapCurve])` | **One-call Bloomberg-YAS-style grid**: every yield convention, G/Z/benchmark/ASW spreads, durations, convexity, DV01, and the settlement invoice — a single engine computation. |
+| `CX.YAS(bond, settle, mark, curve, [quoteFreq], [swapCurve])` | Convenience yields, Z/ASW spreads, durations, convexity, DV01 and settlement invoice. |
 | `CX.RISK(bond, settle, mark, [curve], [metric], [quoteFreq], [krdTenors])` | `metric`: `grid` (default), `mod_dur`, `mac_dur`, `convexity`, `dv01`, `spread_dur`, `krd`. |
 | `CX.SPREAD(bond, curve, settle, mark, [type], [vol], [field])` | Z / G / I / ASW / ASW_PROC / OAS / DM / Credit. `field`: `bps` (default), `grid`. |
 | `CX.SCENARIO(bond, curve, settle, mark, shifts, [kind], [pivot], [quoteFreq])` | Scenario ladder in one call — reprices under each bps shift holding the mark-implied Z fixed. `kind`: `parallel` (default), `steepener`, `flattener`, `key_rate`, `credit`. |
@@ -160,16 +160,13 @@ B2: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z")                    ' Z-spr
 B3: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z", , "grid")          ' grid: bps + spread DV01
 ```
 
-### G-spread requires a separate government curve
+### Government spreads use actual securities
 
-```excel
-B4: =CX.CURVE("USD.TSY", TODAY(), {2,5,10,30}, {0.042,0.044,0.045,0.046}, "zero_rate", "linear")
-B5: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "G")
-    ' #VALUE! — =CX.LASTERROR(B5) explains: G-spread requires a separate
-    ' government curve handle (params.govt_curve)
-B6: ' UDF doesn't yet expose params.govt_curve directly — call via the ribbon
-    ' Spread Ticket form, which threads the field through.
-```
+Use `CX.LIBRARY` / `CX.LIBRARY.RANGE` with the full `government_spread`
+request and original bond/bill quotes and calendars. `CX.SPREAD` has no argument
+for actual benchmark securities and cannot compute G-spread. Its error names
+`params.government`; a zero-rate curve is not an admitted government benchmark.
+See [removed routes and Excel argument migration](../docs/ROUTE-MIGRATION.md).
 
 ### Bootstrap a curve from market instruments
 
@@ -323,11 +320,17 @@ rejected.
 ## Smoke tests
 
 ```powershell
-cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+cargo test --locked -p convex-ffi --test smoke -- --test-threads=1
 ```
 
-19 end-to-end tests cover: every spread family, FRN/zero/sinking-fund
+End-to-end tests cover: every spread family, FRN/zero/sinking-fund
 pricing and risk, KRD, cashflow tag stability, schema introspection, mark
 parsing, and the error envelope.
 
 For a manual cell-side checklist see `excel/SMOKE_TEST.md`.
+
+## Full supplied-input library API
+
+See [the shared API, exact terms and capability limits](../docs/LIBRARY-API.md).
+Generic JSON text calls preserve native diagnostics and decimal strings.
+Full mandatory operations and host certification remain open.

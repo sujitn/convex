@@ -14,65 +14,266 @@
 //! ```ignore
 //! use convex_server::Server;
 //!
-//! let server = Server::new(config)?;
+//! let access = convex_server::access::AccessControl::from_settings(&config.access).await?;
+//! let server = Server::with_access_control(config, engine, access);
 //! server.start().await?;
 //! ```
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+pub mod access;
+mod analytics;
 pub mod config;
+pub mod configuration_admin;
+mod core_workflow;
 pub mod handlers;
+pub mod health;
+mod reference;
 pub mod routes;
 pub mod websocket;
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::Router;
+use axum::http::{HeaderName, HeaderValue};
+use axum::middleware;
+use axum::response::Response;
+use axum::{Extension, Router};
+use thiserror::Error;
 use tokio::net::TcpListener;
-use tower_http::cors::{Any, CorsLayer};
-use tower_http::trace::TraceLayer;
+use tower_http::cors::CorsLayer;
 use tracing::info;
 
 use convex_engine::PricingEngine;
 
-pub use config::ServerConfig;
+pub use config::{ConfigError, ServerConfig, ServerProfile};
+
+/// Startup failures preserve configuration and listener error classifications.
+#[derive(Debug, Error)]
+pub enum StartupError {
+    /// Invalid or unsupported process configuration.
+    #[error(transparent)]
+    Configuration(#[from] ConfigError),
+    /// Binding or serving the HTTP listener failed.
+    #[error("SERVER_IO: {0}")]
+    Io(#[from] std::io::Error),
+    /// Runtime lifecycle failed; accepted work remains checkpointed.
+    #[error(transparent)]
+    Runtime(#[from] convex_engine::EngineError),
+    /// Missing or inconsistent access composition.
+    #[error(transparent)]
+    Access(#[from] access::AccessError),
+}
+
+/// Composition-root executable identity; release builds supply CONVEX_BUILD_ID at compile time.
+pub const SERVER_BUILD_ID: &str = match option_env!("CONVEX_BUILD_ID") {
+    Some(id) => id,
+    None => concat!(
+        "convex-server-",
+        env!("CARGO_PKG_VERSION"),
+        "-local-unverified"
+    ),
+};
 
 /// The Convex server.
 pub struct Server {
     config: ServerConfig,
     engine: Arc<PricingEngine>,
+    access: Arc<access::AccessControl>,
+    core: Option<Arc<convex_engine::core_workflow::CoreWorkflow>>,
 }
 
 impl Server {
     /// Create a new server.
     pub fn new(config: ServerConfig, engine: Arc<PricingEngine>) -> Self {
-        Self { config, engine }
+        let access = if config.access.mode == access::identity::AccessMode::LocalDevelopment {
+            access::AccessControl::local_development()
+        } else {
+            access::AccessControl::deny_all()
+        };
+        Self {
+            config,
+            engine,
+            access,
+            core: None,
+        }
+    }
+
+    /// Explicit verified composition; start/serve both enforce listener and access settings.
+    pub fn with_access_control(
+        config: ServerConfig,
+        engine: Arc<PricingEngine>,
+        access: Arc<access::AccessControl>,
+    ) -> Self {
+        Self {
+            config,
+            engine,
+            access,
+            core: None,
+        }
+    }
+
+    /// Add core input assembly and durable results through existing backend ports.
+    pub fn with_core_workflow(
+        mut self,
+        core: Arc<convex_engine::core_workflow::CoreWorkflow>,
+    ) -> Self {
+        self.core = Some(core);
+        self
     }
 
     /// Build the router.
     pub fn router(&self) -> Router {
+        let origins: Vec<HeaderValue> = self
+            .config
+            .access
+            .cors_origins
+            .iter()
+            .filter_map(|origin| HeaderValue::from_str(origin).ok())
+            .collect();
         let cors = CorsLayer::new()
-            .allow_origin(Any)
-            .allow_methods(Any)
-            .allow_headers(Any);
+            .allow_origin(origins.clone())
+            .allow_methods([
+                axum::http::Method::GET,
+                axum::http::Method::POST,
+                axum::http::Method::PUT,
+                axum::http::Method::DELETE,
+                axum::http::Method::HEAD,
+            ])
+            .allow_headers([
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::CONTENT_TYPE,
+                HeaderName::from_static("idempotency-key"),
+                axum::http::header::IF_MATCH,
+            ])
+            .expose_headers([
+                HeaderName::from_static("x-convex-profile"),
+                HeaderName::from_static("x-convex-data-quality"),
+                HeaderName::from_static("x-convex-reference-version"),
+                HeaderName::from_static("etag"),
+            ]);
 
-        routes::create_router(self.engine.clone())
-            .layer(TraceLayer::new_for_http())
+        let profile = self.config.profile;
+        let mut router = routes::create_router_with_access(
+            self.engine.clone(),
+            self.config.websocket_enabled,
+            self.access.clone(),
+        );
+        if let Some(core) = &self.core {
+            router = router.layer(Extension(core.clone()));
+        }
+        router
+            .layer(Extension(profile))
+            .layer(Extension(access::http::AllowedOrigins(origins.clone())))
             .layer(cors)
+            .layer(middleware::from_fn_with_state(
+                (self.access.clone(), access::http::AllowedOrigins(origins)),
+                access::http::guard_origin,
+            ))
+            .layer(middleware::map_response(
+                move |mut response: Response| async move {
+                    if profile == ServerProfile::Demo {
+                        response
+                            .headers_mut()
+                            .insert("x-convex-profile", HeaderValue::from_static("demo"));
+                        response
+                            .headers_mut()
+                            .insert("x-convex-data-quality", HeaderValue::from_static("demo"));
+                    }
+                    response
+                },
+            ))
     }
 
-    /// Start the server.
-    pub async fn start(&self) -> Result<(), std::io::Error> {
-        let addr = SocketAddr::new(
-            self.config.host.parse().unwrap_or([0, 0, 0, 0].into()),
-            self.config.port,
-        );
+    /// Bind only after validated composition; SIGINT/SIGTERM drains the engine and transport sessions.
+    pub async fn start(&self) -> Result<(), StartupError> {
+        self.config.validate_startup()?;
+        self.validate_access()?;
+        let listener = match TcpListener::bind(self.config.bind_address()?).await {
+            Ok(listener) => listener,
+            Err(error) => {
+                self.engine.shutdown().await?;
+                return Err(error.into());
+            }
+        };
+        self.serve_until(listener, termination_signal()).await
+    }
 
-        info!("Starting Convex server on {}", addr);
-
-        let listener = TcpListener::bind(addr).await?;
-        axum::serve(listener, self.router()).await
+    /// Serve a supplied listener with an explicit shutdown trigger, for embedders and lifecycle tests.
+    pub async fn serve_until(
+        &self,
+        listener: TcpListener,
+        shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+    ) -> Result<(), StartupError> {
+        self.config.validate_startup()?;
+        self.validate_access()?;
+        if !listener.local_addr()?.ip().is_loopback() {
+            return Err(access::AccessError::InvalidPolicy.into());
+        }
+        let (policy_stop, policy_rx) = tokio::sync::watch::channel(false);
+        let policy_task =
+            if self.access.is_configured() {
+                self.config.access.policy_file.as_ref().map(|path| {
+                    tokio::spawn(self.access.clone().watch_policy(path.clone(), policy_rx))
+                })
+            } else {
+                None
+            };
+        info!("Starting Convex server on {}", listener.local_addr()?);
+        let engine = self.engine.clone();
+        let shutdown_error = Arc::new(tokio::sync::Mutex::new(None));
+        let captured = shutdown_error.clone();
+        let result = axum::serve(listener, self.router())
+            .with_graceful_shutdown(async move {
+                shutdown.await;
+                if let Err(error) = engine.shutdown().await {
+                    *captured.lock().await = Some(error);
+                }
+            })
+            .await;
+        let _ = policy_stop.send(true);
+        if let Some(task) = policy_task {
+            task.await.map_err(|_| access::AccessError::Unavailable)?;
+        }
+        self.engine.shutdown().await?;
+        if let Some(error) = shutdown_error.lock().await.take() {
+            return Err(error.into());
+        }
+        result?;
+        Ok(())
+    }
+    fn validate_access(&self) -> Result<(), access::AccessError> {
+        match self.config.access.mode {
+            access::identity::AccessMode::LocalDevelopment
+                if self.access.is_local_development() =>
+            {
+                Ok(())
+            }
+            access::identity::AccessMode::Required
+                if self.access.is_configured() && !self.access.is_local_development() =>
+            {
+                Ok(())
+            }
+            _ => Err(access::AccessError::InvalidPolicy),
+        }
+    }
+}
+async fn termination_signal() {
+    #[cfg(unix)]
+    {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut terminate) => {
+                tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = terminate.recv() => {} }
+            }
+            Err(error) => {
+                tracing::error!("Cannot register termination signal: {error}");
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        if let Err(error) = tokio::signal::ctrl_c().await {
+            tracing::error!("Cannot register interrupt signal: {error}");
+        }
     }
 }

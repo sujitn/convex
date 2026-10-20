@@ -4,7 +4,7 @@
 
 use rust_decimal::Decimal;
 
-use crate::error::{AnalyticsError, AnalyticsResult};
+use crate::error::AnalyticsResult;
 
 /// Calculate simple yield.
 ///
@@ -29,24 +29,13 @@ pub fn simple_yield(
     par_value: Decimal,
     years_to_maturity: Decimal,
 ) -> AnalyticsResult<Decimal> {
-    if clean_price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "clean price must be positive".to_string(),
-        ));
-    }
-
-    if years_to_maturity <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "years to maturity must be positive".to_string(),
-        ));
-    }
-
-    // Annualized capital gain/loss
-    let capital_gain = (par_value - clean_price) / years_to_maturity;
-
-    // Simple yield = (coupon + capital gain) / price × 100
-    let simple = (annual_coupon + capital_gain) / clean_price * Decimal::ONE_HUNDRED;
-    Ok(simple)
+    convex_bonds::pricing::yield_scalars::simple_decimal_percent(
+        annual_coupon,
+        clean_price,
+        par_value,
+        years_to_maturity,
+    )
+    .map_err(super::current::scalar_error)
 }
 
 #[cfg(test)]

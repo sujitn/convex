@@ -15,6 +15,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::error::TraitError;
+pub use crate::quote_event::*;
 use convex_core::ids::*;
 use convex_core::Date;
 
@@ -31,6 +32,46 @@ pub enum SourceType {
     Database,
     /// Manual entry
     Manual,
+}
+
+/// Explicit delivery failures. Loss never looks like end-of-stream.
+#[derive(Debug, thiserror::Error)]
+pub enum StreamError {
+    /// Consumer missed messages; stop fresh output and request a validated image.
+    #[error("stream lagged by {missed} messages")]
+    Lagged {
+        /// Number discarded by the bounded transport.
+        missed: u64,
+    },
+    /// No further messages will arrive after buffered messages drain.
+    #[error("stream closed")]
+    Closed,
+    /// Adapter failure, including malformed replay evidence.
+    #[error("stream failure: {0}")]
+    Failure(#[from] TraitError),
+}
+
+/// One bounded broadcast receiver used by all streaming ports.
+/// This is transient delivery; it provides neither durable checkpoints nor catch-up.
+pub struct StreamReceiver<T> {
+    rx: tokio::sync::broadcast::Receiver<T>,
+}
+
+impl<T: Clone> StreamReceiver<T> {
+    /// Wrap an adapter-owned bounded channel without hiding loss.
+    pub fn new(rx: tokio::sync::broadcast::Receiver<T>) -> Self {
+        Self { rx }
+    }
+
+    /// Receive data, reported lag, or terminal closure.
+    pub async fn recv(&mut self) -> Result<T, StreamError> {
+        self.rx.recv().await.map_err(|error| match error {
+            tokio::sync::broadcast::error::RecvError::Lagged(missed) => {
+                StreamError::Lagged { missed }
+            }
+            tokio::sync::broadcast::error::RecvError::Closed => StreamError::Closed,
+        })
+    }
 }
 
 // =============================================================================
@@ -83,28 +124,13 @@ pub trait QuoteSource: Send + Sync {
     ) -> Result<Vec<RawQuote>, TraitError>;
 
     /// Subscribe to quote updates (streaming sources only).
-    async fn subscribe(&self, instrument_ids: &[InstrumentId])
-        -> Result<QuoteReceiver, TraitError>;
+    async fn subscribe(
+        &self,
+        instrument_ids: &[InstrumentId],
+    ) -> Result<StreamReceiver<QuoteEvent>, TraitError>;
 
     /// Unsubscribe from quote updates.
     async fn unsubscribe(&self, instrument_ids: &[InstrumentId]) -> Result<(), TraitError>;
-}
-
-/// Receiver for streaming quotes.
-pub struct QuoteReceiver {
-    rx: tokio::sync::broadcast::Receiver<RawQuote>,
-}
-
-impl QuoteReceiver {
-    /// Create a new quote receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<RawQuote>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next quote.
-    pub async fn recv(&mut self) -> Option<RawQuote> {
-        self.rx.recv().await.ok()
-    }
 }
 
 // =============================================================================
@@ -113,6 +139,7 @@ impl QuoteReceiver {
 
 /// Curve instrument type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum CurveInstrumentType {
     /// Money market deposit
     Deposit,
@@ -168,24 +195,10 @@ pub trait CurveInputSource: Send + Sync {
     async fn get_curve_inputs(&self, curve_id: &CurveId) -> Result<Vec<CurveInput>, TraitError>;
 
     /// Subscribe to curve input updates.
-    async fn subscribe(&self, curve_ids: &[CurveId]) -> Result<CurveInputReceiver, TraitError>;
-}
-
-/// Receiver for curve input updates.
-pub struct CurveInputReceiver {
-    rx: tokio::sync::broadcast::Receiver<CurveInput>,
-}
-
-impl CurveInputReceiver {
-    /// Create a new curve input receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<CurveInput>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next curve input.
-    pub async fn recv(&mut self) -> Option<CurveInput> {
-        self.rx.recv().await.ok()
-    }
+    async fn subscribe(
+        &self,
+        curve_ids: &[CurveId],
+    ) -> Result<StreamReceiver<CurveInput>, TraitError>;
 }
 
 // =============================================================================
@@ -232,24 +245,7 @@ pub trait IndexFixingSource: Send + Sync {
     async fn subscribe(
         &self,
         indices: &[FloatingRateIndex],
-    ) -> Result<IndexFixingReceiver, TraitError>;
-}
-
-/// Receiver for index fixing updates.
-pub struct IndexFixingReceiver {
-    rx: tokio::sync::broadcast::Receiver<IndexFixing>,
-}
-
-impl IndexFixingReceiver {
-    /// Create a new index fixing receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<IndexFixing>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next fixing.
-    pub async fn recv(&mut self) -> Option<IndexFixing> {
-        self.rx.recv().await.ok()
-    }
+    ) -> Result<StreamReceiver<IndexFixing>, TraitError>;
 }
 
 // =============================================================================
@@ -348,24 +344,10 @@ pub trait VolatilitySource: Send + Sync {
     ) -> Result<Option<Decimal>, TraitError>;
 
     /// Subscribe to vol updates.
-    async fn subscribe(&self, surface_ids: &[VolSurfaceId]) -> Result<VolReceiver, TraitError>;
-}
-
-/// Receiver for volatility updates.
-pub struct VolReceiver {
-    rx: tokio::sync::broadcast::Receiver<VolatilitySurface>,
-}
-
-impl VolReceiver {
-    /// Create a new vol receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<VolatilitySurface>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next vol surface update.
-    pub async fn recv(&mut self) -> Option<VolatilitySurface> {
-        self.rx.recv().await.ok()
-    }
+    async fn subscribe(
+        &self,
+        surface_ids: &[VolSurfaceId],
+    ) -> Result<StreamReceiver<VolatilitySurface>, TraitError>;
 }
 
 // =============================================================================
@@ -410,24 +392,8 @@ pub trait FxRateSource: Send + Sync {
     ) -> Result<Option<Decimal>, TraitError>;
 
     /// Subscribe to FX rate updates.
-    async fn subscribe(&self, pairs: &[CurrencyPair]) -> Result<FxRateReceiver, TraitError>;
-}
-
-/// Receiver for FX rate updates.
-pub struct FxRateReceiver {
-    rx: tokio::sync::broadcast::Receiver<FxRate>,
-}
-
-impl FxRateReceiver {
-    /// Create a new FX rate receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<FxRate>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next FX rate update.
-    pub async fn recv(&mut self) -> Option<FxRate> {
-        self.rx.recv().await.ok()
-    }
+    async fn subscribe(&self, pairs: &[CurrencyPair])
+        -> Result<StreamReceiver<FxRate>, TraitError>;
 }
 
 // =============================================================================
@@ -495,24 +461,10 @@ pub trait InflationFixingSource: Send + Sync {
     ) -> Result<Option<Decimal>, TraitError>;
 
     /// Subscribe to new fixings.
-    async fn subscribe(&self, indices: &[InflationIndex]) -> Result<InflationReceiver, TraitError>;
-}
-
-/// Receiver for inflation fixing updates.
-pub struct InflationReceiver {
-    rx: tokio::sync::broadcast::Receiver<InflationFixing>,
-}
-
-impl InflationReceiver {
-    /// Create a new inflation receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<InflationFixing>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next inflation fixing.
-    pub async fn recv(&mut self) -> Option<InflationFixing> {
-        self.rx.recv().await.ok()
-    }
+    async fn subscribe(
+        &self,
+        indices: &[InflationIndex],
+    ) -> Result<StreamReceiver<InflationFixing>, TraitError>;
 }
 
 // =============================================================================
@@ -545,24 +497,7 @@ pub trait EtfQuoteSource: Send + Sync {
     async fn get_quote(&self, etf_id: &EtfId) -> Result<Option<EtfQuote>, TraitError>;
 
     /// Subscribe to ETF quote updates.
-    async fn subscribe(&self, etf_ids: &[EtfId]) -> Result<EtfQuoteReceiver, TraitError>;
-}
-
-/// Receiver for ETF quote updates.
-pub struct EtfQuoteReceiver {
-    rx: tokio::sync::broadcast::Receiver<EtfQuote>,
-}
-
-impl EtfQuoteReceiver {
-    /// Create a new ETF quote receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<EtfQuote>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next ETF quote.
-    pub async fn recv(&mut self) -> Option<EtfQuote> {
-        self.rx.recv().await.ok()
-    }
+    async fn subscribe(&self, etf_ids: &[EtfId]) -> Result<StreamReceiver<EtfQuote>, TraitError>;
 }
 
 // =============================================================================

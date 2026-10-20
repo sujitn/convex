@@ -1,12 +1,13 @@
 //! Price type for bond pricing.
 
+use convex_math::decimal::BoundedDecimal;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt;
 use std::ops::{Add, Sub};
 
-use super::Currency;
+use super::{quote_display::four_places, Currency};
 use crate::error::{ConvexError, ConvexResult};
 
 /// A bond price with currency.
@@ -21,11 +22,18 @@ use crate::error::{ConvexError, ConvexResult};
 ///
 /// let price = Price::new(dec!(98.50), Currency::USD);
 /// assert_eq!(price.as_percentage(), dec!(98.50));
-/// assert_eq!(price.as_decimal(), dec!(0.9850));
+/// assert_eq!(price.as_decimal().unwrap(), dec!(0.9850));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Price {
     /// Price as a percentage of par (e.g., 98.50 for 98.50%)
+    #[serde(with = "crate::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "crate::contracts::numeric_decimal::schema")
+    )]
     value: Decimal,
     /// Currency of the price
     currency: Currency,
@@ -44,12 +52,16 @@ impl Price {
     }
 
     /// Creates a price from a decimal value (0.985 = 98.5%).
-    #[must_use]
-    pub fn from_decimal(decimal: Decimal, currency: Currency) -> Self {
-        Self {
-            value: decimal * Decimal::ONE_HUNDRED,
+    ///
+    /// # Errors
+    /// Rejects a result outside the exact native Decimal range.
+    pub fn from_decimal(decimal: Decimal, currency: Currency) -> ConvexResult<Self> {
+        Ok(Self {
+            value: BoundedDecimal::decimal(decimal)
+                .multiply(Decimal::ONE_HUNDRED)?
+                .finish_exact()?,
             currency,
-        }
+        })
     }
 
     /// Validates that the price is positive.
@@ -74,9 +86,13 @@ impl Price {
     }
 
     /// Returns the price as a decimal (percentage / 100).
-    #[must_use]
-    pub fn as_decimal(&self) -> Decimal {
-        self.value / Decimal::ONE_HUNDRED
+    ///
+    /// # Errors
+    /// Rejects lost digits, including nonzero values below Decimal precision.
+    pub fn as_decimal(&self) -> ConvexResult<Decimal> {
+        Ok(BoundedDecimal::decimal(self.value)
+            .divide_power_of_ten(2)?
+            .finish_exact()?)
     }
 
     /// Returns the currency.
@@ -115,9 +131,10 @@ impl Price {
     /// Calculates the price difference from par.
     ///
     /// Positive for premium bonds, negative for discount bonds.
-    #[must_use]
-    pub fn discount_or_premium(&self) -> Decimal {
-        self.value - Decimal::ONE_HUNDRED
+    /// # Errors
+    /// Rejects overflow or an inexact difference.
+    pub fn discount_or_premium(&self) -> ConvexResult<Decimal> {
+        Ok((*self - Decimal::ONE_HUNDRED)?.value)
     }
 
     /// Calculates dirty price from clean price and accrued interest.
@@ -125,12 +142,11 @@ impl Price {
     /// # Arguments
     ///
     /// * `accrued` - Accrued interest as percentage of par
-    #[must_use]
-    pub fn to_dirty(&self, accrued: Decimal) -> Self {
-        Self {
-            value: self.value + accrued,
-            currency: self.currency,
-        }
+    ///
+    /// # Errors
+    /// Rejects overflow or an inexact sum.
+    pub fn to_dirty(&self, accrued: Decimal) -> ConvexResult<Self> {
+        *self + accrued
     }
 
     /// Calculates clean price from dirty price and accrued interest.
@@ -138,12 +154,11 @@ impl Price {
     /// # Arguments
     ///
     /// * `accrued` - Accrued interest as percentage of par
-    #[must_use]
-    pub fn to_clean(&self, accrued: Decimal) -> Self {
-        Self {
-            value: self.value - accrued,
-            currency: self.currency,
-        }
+    ///
+    /// # Errors
+    /// Rejects overflow or an inexact difference.
+    pub fn to_clean(&self, accrued: Decimal) -> ConvexResult<Self> {
+        *self - accrued
     }
 
     /// Calculates the dollar value for a given face amount.
@@ -151,9 +166,15 @@ impl Price {
     /// # Arguments
     ///
     /// * `face_value` - Face value of the position
-    #[must_use]
-    pub fn dollar_value(&self, face_value: Decimal) -> Decimal {
-        self.as_decimal() * face_value
+    ///
+    /// # Errors
+    /// Rejects an unrepresentable final amount. The full product precedes the
+    /// per-100 division, retaining small prices against large face amounts.
+    pub fn dollar_value(&self, face_value: Decimal) -> ConvexResult<Decimal> {
+        Ok(BoundedDecimal::decimal(self.value)
+            .multiply(face_value)?
+            .divide_power_of_ten(2)?
+            .finish_exact()?)
     }
 
     /// Rounds the price to the specified number of decimal places.
@@ -173,26 +194,30 @@ impl Price {
 }
 
 impl Add<Decimal> for Price {
-    type Output = Self;
+    type Output = ConvexResult<Self>;
 
     /// Adds a decimal value to the price.
     fn add(self, rhs: Decimal) -> Self::Output {
-        Self {
-            value: self.value + rhs,
+        let mut amount = BoundedDecimal::decimal(self.value);
+        amount.add(&BoundedDecimal::decimal(rhs))?;
+        Ok(Self {
+            value: amount.finish_exact()?,
             currency: self.currency,
-        }
+        })
     }
 }
 
 impl Sub<Decimal> for Price {
-    type Output = Self;
+    type Output = ConvexResult<Self>;
 
     /// Subtracts a decimal value from the price.
     fn sub(self, rhs: Decimal) -> Self::Output {
-        Self {
-            value: self.value - rhs,
+        let mut amount = BoundedDecimal::decimal(self.value);
+        amount.add(&BoundedDecimal::decimal(-rhs))?;
+        Ok(Self {
+            value: amount.finish_exact()?,
             currency: self.currency,
-        }
+        })
     }
 }
 
@@ -208,7 +233,7 @@ impl PartialOrd for Price {
 
 impl fmt::Display for Price {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:.4} {}", self.value, self.currency)
+        write!(f, "{} {}", four_places(self.value, false), self.currency)
     }
 }
 
@@ -226,9 +251,9 @@ mod tests {
 
     #[test]
     fn test_price_from_decimal() {
-        let price = Price::from_decimal(dec!(0.985), Currency::USD);
+        let price = Price::from_decimal(dec!(0.985), Currency::USD).unwrap();
         assert_eq!(price.as_percentage(), dec!(98.5));
-        assert_eq!(price.as_decimal(), dec!(0.985));
+        assert_eq!(price.as_decimal().unwrap(), dec!(0.985));
     }
 
     #[test]
@@ -269,9 +294,9 @@ mod tests {
         let premium = Price::new(dec!(101.50), Currency::USD);
         let par = Price::par(Currency::USD);
 
-        assert_eq!(discount.discount_or_premium(), dec!(-1.50));
-        assert_eq!(premium.discount_or_premium(), dec!(1.50));
-        assert_eq!(par.discount_or_premium(), dec!(0));
+        assert_eq!(discount.discount_or_premium().unwrap(), dec!(-1.50));
+        assert_eq!(premium.discount_or_premium().unwrap(), dec!(1.50));
+        assert_eq!(par.discount_or_premium().unwrap(), dec!(0));
     }
 
     #[test]
@@ -279,10 +304,10 @@ mod tests {
         let clean = Price::new(dec!(98.50), Currency::USD);
         let accrued = dec!(1.25);
 
-        let dirty = clean.to_dirty(accrued);
+        let dirty = clean.to_dirty(accrued).unwrap();
         assert_eq!(dirty.as_percentage(), dec!(99.75));
 
-        let back_to_clean = dirty.to_clean(accrued);
+        let back_to_clean = dirty.to_clean(accrued).unwrap();
         assert_eq!(back_to_clean.as_percentage(), dec!(98.50));
     }
 
@@ -291,7 +316,7 @@ mod tests {
         let price = Price::new(dec!(98.50), Currency::USD);
         let face_value = dec!(1_000_000);
 
-        let dollar_value = price.dollar_value(face_value);
+        let dollar_value = price.dollar_value(face_value).unwrap();
         assert_eq!(dollar_value, dec!(985_000));
     }
 
@@ -317,10 +342,10 @@ mod tests {
     fn test_price_arithmetic() {
         let price = Price::new(dec!(98.50), Currency::USD);
 
-        let added = price + dec!(1.50);
+        let added = (price + dec!(1.50)).unwrap();
         assert_eq!(added.as_percentage(), dec!(100.00));
 
-        let subtracted = price - dec!(0.50);
+        let subtracted = (price - dec!(0.50)).unwrap();
         assert_eq!(subtracted.as_percentage(), dec!(98.00));
     }
 

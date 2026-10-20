@@ -1,0 +1,2005 @@
+{
+  "recorded_at": "2026-10-16T12:29:07.848989+00:00",
+  "status": "independent_fraction_reference_before_following_candidate_execution",
+  "qualified": false,
+  "policy": {
+    "currency_outputs": "greatest96bit Decimal scale<=28 nearest/even, no nonzero erasure",
+    "weighted_Decimal": "same exact final policy",
+    "public_binary64_presentation_maximum_ULPs": 4,
+    "inputs": "All successful supplied scalar cases use exactly binary64-representable integers or powers-of-two fractions; no native result was consulted."
+  },
+  "weighted_cases": [
+    {
+      "id": "healthy-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "98",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "500000",
+          "clean": "102",
+          "accrued": "-0.5",
+          "fx": "1.25",
+          "value": "7",
+          "dv01": "0.25",
+          "cs01": "0.5"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.7882534775888717156105100464",
+      "expected_currency": {
+        "dv01": "6562.5000000000000000000000000",
+        "cs01": "5625.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0065625000000000000000000000",
+        "cs01": "0.0056250000000000000000000000"
+      }
+    },
+    {
+      "id": "healthy-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "98",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "500000",
+          "clean": "102",
+          "accrued": "-0.5",
+          "fx": "1.25",
+          "value": "7",
+          "dv01": "0.25",
+          "cs01": "0.5"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.7692307692307692307692307692",
+      "expected_currency": {
+        "dv01": "6562.5000000000000000000000000",
+        "cs01": "5625.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0065625000000000000000000000",
+        "cs01": "0.0056250000000000000000000000"
+      }
+    },
+    {
+      "id": "healthy-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "98",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "500000",
+          "clean": "102",
+          "accrued": "-0.5",
+          "fx": "1.25",
+          "value": "7",
+          "dv01": "0.25",
+          "cs01": "0.5"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "6.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "6562.5000000000000000000000000",
+        "cs01": "5625.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0065625000000000000000000000",
+        "cs01": "0.0056250000000000000000000000"
+      }
+    },
+    {
+      "id": "actual-zero-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "0",
+          "dv01": "0",
+          "cs01": "0"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "0",
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "actual-zero-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "0",
+          "dv01": "0",
+          "cs01": "0"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "0",
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "actual-zero-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "0",
+          "dv01": "0",
+          "cs01": "0"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "0",
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "negative-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "-1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "-2",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "-2.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "-5000.0000000000000000000000000",
+        "cs01": "-2500.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "-0.0050000000000000000000000000",
+        "cs01": "-0.0025000000000000000000000000"
+      }
+    },
+    {
+      "id": "negative-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "-1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "-2",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "-2.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "-5000.0000000000000000000000000",
+        "cs01": "-2500.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "-0.0050000000000000000000000000",
+        "cs01": "-0.0025000000000000000000000000"
+      }
+    },
+    {
+      "id": "negative-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "-1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "-2",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "-2.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "-5000.0000000000000000000000000",
+        "cs01": "-2500.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "-0.0050000000000000000000000000",
+        "cs01": "-0.0025000000000000000000000000"
+      }
+    },
+    {
+      "id": "zero-normalization-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "-1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "7",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "zero-normalization-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "-1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "7",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "zero-normalization-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "-1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "7",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "6.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "missing-value-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": null,
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "10000.000000000000000000000000",
+        "cs01": "5000.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0050000000000000000000000000"
+      }
+    },
+    {
+      "id": "missing-value-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": null,
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "10000.000000000000000000000000",
+        "cs01": "5000.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0050000000000000000000000000"
+      }
+    },
+    {
+      "id": "missing-value-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": null,
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "10000.000000000000000000000000",
+        "cs01": "5000.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0050000000000000000000000000"
+      }
+    },
+    {
+      "id": "missing-dv01-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": null,
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": null,
+        "cs01": "5000.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": null,
+        "cs01": "0.0050000000000000000000000000"
+      }
+    },
+    {
+      "id": "missing-dv01-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": null,
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": null,
+        "cs01": "5000.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": null,
+        "cs01": "0.0050000000000000000000000000"
+      }
+    },
+    {
+      "id": "missing-dv01-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": null,
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": null,
+        "cs01": "5000.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": null,
+        "cs01": "0.0050000000000000000000000000"
+      }
+    },
+    {
+      "id": "missing-cs01-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": null
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "10000.000000000000000000000000",
+        "cs01": null
+      },
+      "expected_per_share": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": null
+      }
+    },
+    {
+      "id": "missing-cs01-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": null
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "10000.000000000000000000000000",
+        "cs01": null
+      },
+      "expected_per_share": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": null
+      }
+    },
+    {
+      "id": "missing-cs01-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        },
+        {
+          "id": "b",
+          "par": "1000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": null
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "10000.000000000000000000000000",
+        "cs01": null
+      },
+      "expected_per_share": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": null
+      }
+    },
+    {
+      "id": "zero-price-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "0",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "5000.0000000000000000000000000",
+        "cs01": "2500.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0050000000000000000000000000",
+        "cs01": "0.0025000000000000000000000000"
+      }
+    },
+    {
+      "id": "zero-price-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "0",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "5000.0000000000000000000000000",
+        "cs01": "2500.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0050000000000000000000000000",
+        "cs01": "0.0025000000000000000000000000"
+      }
+    },
+    {
+      "id": "zero-price-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "a",
+          "par": "1000000",
+          "clean": "0",
+          "accrued": "0",
+          "fx": "1",
+          "value": "5",
+          "dv01": "0.5",
+          "cs01": "0.25"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "5.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "5000.0000000000000000000000000",
+        "cs01": "2500.0000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0050000000000000000000000000",
+        "cs01": "0.0025000000000000000000000000"
+      }
+    },
+    {
+      "id": "empty-market_value",
+      "weighting": "market_value",
+      "holdings": [],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "empty-par_value",
+      "weighting": "par_value",
+      "holdings": [],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "empty-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [],
+      "shares": "1000000",
+      "expected_weighted_Decimal": null,
+      "expected_currency": {
+        "dv01": "0",
+        "cs01": "0"
+      },
+      "expected_per_share": {
+        "dv01": "0",
+        "cs01": "0"
+      }
+    },
+    {
+      "id": "signed-cancellation-0-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-0-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-0-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-1-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-1-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-1-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-2-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-2-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-2-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-3-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-3-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-3-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-4-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-4-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-4-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-5-market_value",
+      "weighting": "market_value",
+      "holdings": [
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-5-par_value",
+      "weighting": "par_value",
+      "holdings": [
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    },
+    {
+      "id": "signed-cancellation-5-equal_weight",
+      "weighting": "equal_weight",
+      "holdings": [
+        {
+          "id": "short",
+          "par": "-10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        },
+        {
+          "id": "large",
+          "par": "10000000000000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "value": "1",
+          "dv01": "1",
+          "cs01": "1"
+        }
+      ],
+      "shares": "1000000",
+      "expected_weighted_Decimal": "1.0000000000000000000000000000",
+      "expected_currency": {
+        "dv01": "0.0100000000000000000000000000",
+        "cs01": "0.0100000000000000000000000000"
+      },
+      "expected_per_share": {
+        "dv01": "0.0000000100000000000000000000",
+        "cs01": "0.0000000100000000000000000000"
+      }
+    }
+  ],
+  "amount_cases": [
+    {
+      "id": "ordinary",
+      "holding": {
+        "id": "a",
+        "par": "1000000",
+        "clean": "98.5",
+        "accrued": "1.25",
+        "fx": "1.25",
+        "value": "5",
+        "dv01": "0.5",
+        "cs01": "0.25"
+      },
+      "expected": {
+        "market_value_local": {
+          "status": "available",
+          "value": "985000.0000000000000000000000"
+        },
+        "market_value": {
+          "status": "available",
+          "value": "1231250.0000000000000000000000"
+        },
+        "accrued_amount_local": {
+          "status": "available",
+          "value": "12500.000000000000000000000000"
+        },
+        "accrued_amount": {
+          "status": "available",
+          "value": "15625.000000000000000000000000"
+        },
+        "total_value_local": {
+          "status": "available",
+          "value": "997500.0000000000000000000000"
+        },
+        "total_value": {
+          "status": "available",
+          "value": "1246875.0000000000000000000000"
+        },
+        "dirty_price": {
+          "status": "available",
+          "value": "99.75000000000000000000000000"
+        }
+      }
+    },
+    {
+      "id": "negative-par",
+      "holding": {
+        "id": "a",
+        "par": "-1000000",
+        "clean": "100",
+        "accrued": "0",
+        "fx": "1",
+        "value": "5",
+        "dv01": "0.5",
+        "cs01": "0.25"
+      },
+      "expected": {
+        "market_value_local": {
+          "status": "available",
+          "value": "-1000000.0000000000000000000000"
+        },
+        "market_value": {
+          "status": "available",
+          "value": "-1000000.0000000000000000000000"
+        },
+        "accrued_amount_local": {
+          "status": "available",
+          "value": "0"
+        },
+        "accrued_amount": {
+          "status": "available",
+          "value": "0"
+        },
+        "total_value_local": {
+          "status": "available",
+          "value": "-1000000.0000000000000000000000"
+        },
+        "total_value": {
+          "status": "available",
+          "value": "-1000000.0000000000000000000000"
+        },
+        "dirty_price": {
+          "status": "available",
+          "value": "100.00000000000000000000000000"
+        }
+      }
+    },
+    {
+      "id": "ex-coupon",
+      "holding": {
+        "id": "a",
+        "par": "1000000",
+        "clean": "98.5",
+        "accrued": "-0.5",
+        "fx": "1",
+        "value": "5",
+        "dv01": "0.5",
+        "cs01": "0.25"
+      },
+      "expected": {
+        "market_value_local": {
+          "status": "available",
+          "value": "985000.0000000000000000000000"
+        },
+        "market_value": {
+          "status": "available",
+          "value": "985000.0000000000000000000000"
+        },
+        "accrued_amount_local": {
+          "status": "available",
+          "value": "-5000.0000000000000000000000000"
+        },
+        "accrued_amount": {
+          "status": "available",
+          "value": "-5000.0000000000000000000000000"
+        },
+        "total_value_local": {
+          "status": "available",
+          "value": "980000.0000000000000000000000"
+        },
+        "total_value": {
+          "status": "available",
+          "value": "980000.0000000000000000000000"
+        },
+        "dirty_price": {
+          "status": "available",
+          "value": "98.00000000000000000000000000"
+        }
+      }
+    },
+    {
+      "id": "large-final",
+      "holding": {
+        "id": "a",
+        "par": "79228162514264337593543950335",
+        "clean": "2",
+        "accrued": "0",
+        "fx": "1",
+        "value": "5",
+        "dv01": "0.5",
+        "cs01": "0.25"
+      },
+      "expected": {
+        "market_value_local": {
+          "status": "available",
+          "value": "1584563250285286751870879006.7"
+        },
+        "market_value": {
+          "status": "available",
+          "value": "1584563250285286751870879006.7"
+        },
+        "accrued_amount_local": {
+          "status": "available",
+          "value": "0"
+        },
+        "accrued_amount": {
+          "status": "available",
+          "value": "0"
+        },
+        "total_value_local": {
+          "status": "available",
+          "value": "1584563250285286751870879006.7"
+        },
+        "total_value": {
+          "status": "available",
+          "value": "1584563250285286751870879006.7"
+        },
+        "dirty_price": {
+          "status": "available",
+          "value": "2.0000000000000000000000000000"
+        }
+      }
+    },
+    {
+      "id": "price-cancels",
+      "holding": {
+        "id": "a",
+        "par": "0.01",
+        "clean": "79228162514264337593543950335",
+        "accrued": "1",
+        "fx": "1",
+        "value": "5",
+        "dv01": "0.5",
+        "cs01": "0.25"
+      },
+      "expected": {
+        "market_value_local": {
+          "status": "available",
+          "value": "7922816251426433759354395.0335"
+        },
+        "market_value": {
+          "status": "available",
+          "value": "7922816251426433759354395.0335"
+        },
+        "accrued_amount_local": {
+          "status": "available",
+          "value": "0.0001000000000000000000000000"
+        },
+        "accrued_amount": {
+          "status": "available",
+          "value": "0.0001000000000000000000000000"
+        },
+        "total_value_local": {
+          "status": "available",
+          "value": "7922816251426433759354395.034"
+        },
+        "total_value": {
+          "status": "available",
+          "value": "7922816251426433759354395.034"
+        },
+        "dirty_price": {
+          "status": "arithmetic",
+          "reason": "range"
+        }
+      }
+    },
+    {
+      "id": "underflow",
+      "holding": {
+        "id": "a",
+        "par": "0.0000000000000000000000000001",
+        "clean": "1",
+        "accrued": "0",
+        "fx": "1",
+        "value": "5",
+        "dv01": "0.5",
+        "cs01": "0.25"
+      },
+      "expected": {
+        "market_value_local": {
+          "status": "arithmetic",
+          "reason": "nonzero underflow"
+        },
+        "market_value": {
+          "status": "arithmetic",
+          "reason": "nonzero underflow"
+        },
+        "accrued_amount_local": {
+          "status": "available",
+          "value": "0"
+        },
+        "accrued_amount": {
+          "status": "available",
+          "value": "0"
+        },
+        "total_value_local": {
+          "status": "arithmetic",
+          "reason": "nonzero underflow"
+        },
+        "total_value": {
+          "status": "arithmetic",
+          "reason": "nonzero underflow"
+        },
+        "dirty_price": {
+          "status": "available",
+          "value": "1.0000000000000000000000000000"
+        }
+      }
+    },
+    {
+      "id": "overflow",
+      "holding": {
+        "id": "a",
+        "par": "79228162514264337593543950335",
+        "clean": "79228162514264337593543950335",
+        "accrued": "0",
+        "fx": "1",
+        "value": "5",
+        "dv01": "0.5",
+        "cs01": "0.25"
+      },
+      "expected": {
+        "market_value_local": {
+          "status": "arithmetic",
+          "reason": "range"
+        },
+        "market_value": {
+          "status": "arithmetic",
+          "reason": "range"
+        },
+        "accrued_amount_local": {
+          "status": "available",
+          "value": "0"
+        },
+        "accrued_amount": {
+          "status": "available",
+          "value": "0"
+        },
+        "total_value_local": {
+          "status": "arithmetic",
+          "reason": "range"
+        },
+        "total_value": {
+          "status": "arithmetic",
+          "reason": "range"
+        },
+        "dirty_price": {
+          "status": "available",
+          "value": "79228162514264337593543950335"
+        }
+      }
+    },
+    {
+      "id": "negative-dirty",
+      "holding": {
+        "id": "a",
+        "par": "1000000",
+        "clean": "1",
+        "accrued": "-2",
+        "fx": "1",
+        "value": "5",
+        "dv01": "0.5",
+        "cs01": "0.25"
+      },
+      "expected": {
+        "market_value_local": {
+          "status": "available",
+          "value": "10000.000000000000000000000000"
+        },
+        "market_value": {
+          "status": "available",
+          "value": "10000.000000000000000000000000"
+        },
+        "accrued_amount_local": {
+          "status": "available",
+          "value": "-20000.000000000000000000000000"
+        },
+        "accrued_amount": {
+          "status": "available",
+          "value": "-20000.000000000000000000000000"
+        },
+        "total_value_local": {
+          "status": "invalid"
+        },
+        "total_value": {
+          "status": "invalid"
+        },
+        "dirty_price": {
+          "status": "invalid"
+        }
+      }
+    }
+  ],
+  "weighted_cases_count": 45,
+  "amount_case_operations": 56
+}

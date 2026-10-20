@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "task_id": "CVX-059",
+  "certified": false,
+  "independent_quantitative_approval": false,
+  "oracle": {
+    "implementation": "Independent Python stdlib math.erfc Hull-White European ZCB option formula; no Convex/ORE/QuantLib execution or source code is imported",
+    "units": "times ACT/365F years, a per year, sigma decimal rate per sqrt year, DFs dimensionless, strike per unit face, option premium per unit face",
+    "reference": "https://raw.githubusercontent.com/lballabio/QuantLib/v1.40/ql/models/shortrate/onefactormodels/hullwhite.cpp",
+    "reference_kind": "reviewed mathematical formula; independent engineering fixture, not admitted market pack",
+    "generated_at": "2026-10-06",
+    "tolerance": {
+      "absolute": 2e-07,
+      "relative": 1e-11,
+      "justification": "Existing library A&S CDF absolute error <=7.5e-8 yields a combined option error <=(P_m + strike*P_e)*7.5e-8; declared cases fit under 2e-7 per unit."
+    }
+  },
+  "cases": [
+    {
+      "id": "positive-call",
+      "parameters": {
+        "mean_reversion": 0.03,
+        "volatility": 0.01
+      },
+      "expiry": 1,
+      "maturity": 2,
+      "flat_rate": 0.04,
+      "expiry_df": 0.9607894391523232,
+      "maturity_df": 0.9231163463866358,
+      "strike": 0.96,
+      "side": "call",
+      "expected_per_unit": 0.003964829103037304
+    },
+    {
+      "id": "positive-put",
+      "parameters": {
+        "mean_reversion": 0.03,
+        "volatility": 0.01
+      },
+      "expiry": 1,
+      "maturity": 2,
+      "flat_rate": 0.04,
+      "expiry_df": 0.9607894391523232,
+      "maturity_df": 0.9231163463866358,
+      "strike": 0.96,
+      "side": "put",
+      "expected_per_unit": 0.003206344302631836
+    },
+    {
+      "id": "negative-call",
+      "parameters": {
+        "mean_reversion": 0.05,
+        "volatility": 0.015
+      },
+      "expiry": 2,
+      "maturity": 5,
+      "flat_rate": -0.01,
+      "expiry_df": 1.0202013400267558,
+      "maturity_df": 1.0512710963760241,
+      "strike": 1.0,
+      "side": "call",
+      "expected_per_unit": 0.04200612708933116
+    },
+    {
+      "id": "negative-put",
+      "parameters": {
+        "mean_reversion": 0.05,
+        "volatility": 0.015
+      },
+      "expiry": 2,
+      "maturity": 5,
+      "flat_rate": -0.01,
+      "expiry_df": 1.0202013400267558,
+      "maturity_df": 1.0512710963760241,
+      "strike": 1.0,
+      "side": "put",
+      "expected_per_unit": 0.010936370740062984
+    },
+    {
+      "id": "ho_lee-call",
+      "parameters": {
+        "mean_reversion": 0,
+        "volatility": 0.01
+      },
+      "expiry": 1,
+      "maturity": 3,
+      "flat_rate": 0.02,
+      "expiry_df": 0.9801986733067553,
+      "maturity_df": 0.9417645335842487,
+      "strike": 0.95,
+      "side": "call",
+      "expected_per_unit": 0.01392024159662919
+    },
+    {
+      "id": "ho_lee-put",
+      "parameters": {
+        "mean_reversion": 0,
+        "volatility": 0.01
+      },
+      "expiry": 1,
+      "maturity": 3,
+      "flat_rate": 0.02,
+      "expiry_df": 0.9801986733067553,
+      "maturity_df": 0.9417645335842487,
+      "strike": 0.95,
+      "side": "put",
+      "expected_per_unit": 0.0033444476537979884
+    },
+    {
+      "id": "deterministic-call",
+      "parameters": {
+        "mean_reversion": 0.03,
+        "volatility": 0
+      },
+      "expiry": 1,
+      "maturity": 2,
+      "flat_rate": 0.04,
+      "expiry_df": 0.9607894391523232,
+      "maturity_df": 0.9231163463866358,
+      "strike": 0.96,
+      "side": "call",
+      "expected_per_unit": 0.0007584848004055234
+    },
+    {
+      "id": "deterministic-put",
+      "parameters": {
+        "mean_reversion": 0.03,
+        "volatility": 0
+      },
+      "expiry": 1,
+      "maturity": 2,
+      "flat_rate": 0.04,
+      "expiry_df": 0.9607894391523232,
+      "maturity_df": 0.9231163463866358,
+      "strike": 0.96,
+      "side": "put",
+      "expected_per_unit": 0
+    },
+    {
+      "id": "high_reversion-call",
+      "parameters": {
+        "mean_reversion": 0.4,
+        "volatility": 0.03
+      },
+      "expiry": 0.7,
+      "maturity": 4,
+      "flat_rate": 0.03,
+      "expiry_df": 0.9792189645694596,
+      "maturity_df": 0.8869204367171575,
+      "strike": 0.97,
+      "side": "call",
+      "expected_per_unit": 0.0006699650365624837
+    },
+    {
+      "id": "high_reversion-put",
+      "parameters": {
+        "mean_reversion": 0.4,
+        "volatility": 0.03
+      },
+      "expiry": 0.7,
+      "maturity": 4,
+      "flat_rate": 0.03,
+      "expiry_df": 0.9792189645694596,
+      "maturity_df": 0.8869204367171575,
+      "strike": 0.97,
+      "side": "put",
+      "expected_per_unit": 0.0635919239517807
+    },
+    {
+      "id": "zero_expiry-call",
+      "parameters": {
+        "mean_reversion": 0.03,
+        "volatility": 0.01
+      },
+      "expiry": 0,
+      "maturity": 2,
+      "flat_rate": 0.04,
+      "expiry_df": 1.0,
+      "maturity_df": 0.9231163463866358,
+      "strike": 0.96,
+      "side": "call",
+      "expected_per_unit": 0
+    },
+    {
+      "id": "zero_expiry-put",
+      "parameters": {
+        "mean_reversion": 0.03,
+        "volatility": 0.01
+      },
+      "expiry": 0,
+      "maturity": 2,
+      "flat_rate": 0.04,
+      "expiry_df": 1.0,
+      "maturity_df": 0.9231163463866358,
+      "strike": 0.96,
+      "side": "put",
+      "expected_per_unit": 0.03688365361336421
+    }
+  ]
+}

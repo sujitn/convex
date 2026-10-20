@@ -1,0 +1,1364 @@
+{
+  "schema_version": 1,
+  "fixture_id": "CVX-055-supplied-bond-contracts-v1",
+  "reference": "Independent Python Decimal(50), manually declared dates and ICMA references; engineering candidate, not market approval",
+  "certified": false,
+  "units": {
+    "cash": "absolute_contract_currency",
+    "rates": "annualized_decimal",
+    "prices": "per_100_original_face"
+  },
+  "tolerances": {
+    "cash_absolute": "0.0000000000000000000001",
+    "price_absolute": 1e-09,
+    "price_relative": 1e-11
+  },
+  "cases": [
+    {
+      "id": "independent-steps-mid-coupon-amortization",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-01-01",
+        "face_value": "5000",
+        "schedule": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01",
+          "frequency": "Annual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act360",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": ".04"
+            },
+            {
+              "start": "2024-04-01",
+              "end": "2025-01-01",
+              "value": ".08"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "5000"
+            },
+            {
+              "start": "2024-07-01",
+              "end": "2025-01-01",
+              "value": "3000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-05-01",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2024-01-01",
+          "end": "2025-01-01",
+          "payment": "2025-01-01",
+          "references": [],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {},
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2025-01-01",
+            "amount": "274.33333333333333333333333333333333333333333333334",
+            "entitled": true,
+            "accrued": "83.888888888888888888888888888888888888888888888889"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2024-07-01",
+            "payment_date": "2024-07-01",
+            "amount": "2000",
+            "before": "5000",
+            "after": "3000"
+          },
+          {
+            "effective_date": "2025-01-01",
+            "payment_date": "2025-01-01",
+            "amount": "3000",
+            "before": "3000",
+            "after": "0"
+          }
+        ],
+        "accrued": "83.888888888888888888888888888888888888888888888889",
+        "outstanding": "5000",
+        "present_value": "5199.0552602165406876262740715925730383896405552251",
+        "dirty_price": "103.98110520433081375252548143185146076779281110450",
+        "clean_price": "102.30332742655303597474770365407368299001503332672"
+      }
+    },
+    {
+      "id": "coupon-principal-BeforeCouponBoundary",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-01-01",
+        "face_value": "5000",
+        "schedule": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act360",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": ".05"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "5000"
+            },
+            {
+              "start": "2024-07-01",
+              "end": "2025-01-01",
+              "value": "3000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "BeforeCouponBoundary",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-01-01",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2024-01-01",
+          "end": "2024-07-01",
+          "payment": "2024-07-01",
+          "references": [],
+          "ex_date": null
+        },
+        {
+          "start": "2024-07-01",
+          "end": "2025-01-01",
+          "payment": "2025-01-01",
+          "references": [],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {},
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2024-07-01",
+            "amount": "126.38888888888888888888888888888888888888888888889",
+            "entitled": true,
+            "accrued": "0"
+          },
+          {
+            "payment_date": "2025-01-01",
+            "amount": "76.666666666666666666666666666666666666666666666666",
+            "entitled": true,
+            "accrued": "0"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2024-07-01",
+            "payment_date": "2024-07-01",
+            "amount": "2000",
+            "before": "5000",
+            "after": "3000"
+          },
+          {
+            "effective_date": "2025-01-01",
+            "payment_date": "2025-01-01",
+            "amount": "3000",
+            "before": "3000",
+            "after": "0"
+          }
+        ],
+        "accrued": "0",
+        "outstanding": "5000",
+        "present_value": "5080.3092011846470472613673319890307342706852086304",
+        "dirty_price": "101.60618402369294094522734663978061468541370417261",
+        "clean_price": "101.60618402369294094522734663978061468541370417261"
+      }
+    },
+    {
+      "id": "coupon-principal-AfterCouponBoundary",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-01-01",
+        "face_value": "5000",
+        "schedule": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act360",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": ".05"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "5000"
+            },
+            {
+              "start": "2024-07-01",
+              "end": "2025-01-01",
+              "value": "3000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AfterCouponBoundary",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-01-01",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2024-01-01",
+          "end": "2024-07-01",
+          "payment": "2024-07-01",
+          "references": [],
+          "ex_date": null
+        },
+        {
+          "start": "2024-07-01",
+          "end": "2025-01-01",
+          "payment": "2025-01-01",
+          "references": [],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {},
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2024-07-01",
+            "amount": "75.833333333333333333333333333333333333333333333334",
+            "entitled": true,
+            "accrued": "0"
+          },
+          {
+            "payment_date": "2025-01-01",
+            "amount": "0E-52",
+            "entitled": true,
+            "accrued": "0"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2024-07-01",
+            "payment_date": "2024-07-01",
+            "amount": "2000",
+            "before": "5000",
+            "after": "3000"
+          },
+          {
+            "effective_date": "2025-01-01",
+            "payment_date": "2025-01-01",
+            "amount": "3000",
+            "before": "3000",
+            "after": "0"
+          }
+        ],
+        "accrued": "0",
+        "outstanding": "5000",
+        "present_value": "4956.1095637040113550999492315346422447519626580112",
+        "dirty_price": "99.122191274080227101998984630692844895039253160224",
+        "clean_price": "99.122191274080227101998984630692844895039253160224"
+      }
+    },
+    {
+      "id": "between-coupon-priced-sink-and-final-allocation",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-01-01",
+        "face_value": "5000",
+        "schedule": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act360",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": ".05"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-08-10",
+              "value": "5000"
+            },
+            {
+              "start": "2024-08-10",
+              "end": "2025-01-01",
+              "value": "4000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1.1",
+        "principal_prices": [
+          {
+            "effective_date": "2024-08-10",
+            "multiplier": "1.02",
+            "amount": null
+          },
+          {
+            "effective_date": "2025-01-01",
+            "multiplier": "1.03",
+            "amount": "1500"
+          }
+        ],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-07-01",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2024-01-01",
+          "end": "2024-07-01",
+          "payment": "2024-07-01",
+          "references": [],
+          "ex_date": null
+        },
+        {
+          "start": "2024-07-01",
+          "end": "2025-01-01",
+          "payment": "2025-01-01",
+          "references": [],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {},
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2025-01-01",
+            "amount": "107.77777777777777777777777777777777777777777777778",
+            "entitled": true,
+            "accrued": "0"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2024-08-10",
+            "payment_date": "2024-08-10",
+            "amount": "1020.00",
+            "before": "5000",
+            "after": "4000"
+          },
+          {
+            "effective_date": "2025-01-01",
+            "payment_date": "2025-01-01",
+            "amount": "1545.00",
+            "before": "4000",
+            "after": "2500"
+          },
+          {
+            "effective_date": "2025-01-01",
+            "payment_date": "2025-01-01",
+            "amount": "2750.0",
+            "before": "2500",
+            "after": "0"
+          }
+        ],
+        "accrued": "0",
+        "outstanding": "5000",
+        "present_value": "5353.3463441968056803118783359162446076070854164348",
+        "dirty_price": "107.06692688393611360623756671832489215214170832870",
+        "clean_price": "107.06692688393611360623756671832489215214170832870"
+      }
+    },
+    {
+      "id": "joint-holiday-ex-coupon-keeps-principal",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-04-04",
+        "face_value": "1000",
+        "schedule": {
+          "start_date": "2024-04-04",
+          "end_date": "2024-07-04",
+          "frequency": "Quarterly",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Following",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": {
+            "offset": {
+              "CalendarDays": -1
+            },
+            "anchor": "PaymentDate",
+            "boundary": "OnDate"
+          }
+        },
+        "calendars": {
+          "payment": "SIFMA+TARGET2",
+          "reset": "SIFMA+TARGET2",
+          "observation": "SIFMA+TARGET2",
+          "exercise": "SIFMA+TARGET2"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act365Fixed",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-04-04",
+              "end": "2024-07-04",
+              "value": ".05"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-04-04",
+              "end": "2024-07-04",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-04-04",
+              "end": "2024-07-04",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-04-04",
+              "end": "2024-07-04",
+              "value": "1000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-07-04",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2024-04-04",
+          "end": "2024-07-04",
+          "payment": "2024-07-05",
+          "references": [],
+          "ex_date": "2024-07-04"
+        }
+      ],
+      "principal_payment_dates": {
+        "2024-07-04": "2024-07-05"
+      },
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2024-07-05",
+            "amount": "12.465753424657534246575342465753424657534246575342",
+            "entitled": false,
+            "accrued": "0E-48"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2024-07-04",
+            "payment_date": "2024-07-05",
+            "amount": "1000",
+            "before": "1000",
+            "after": "0"
+          }
+        ],
+        "accrued": "0E-48",
+        "outstanding": "0",
+        "present_value": "999.91781159682996048942300126711581939543385902951",
+        "dirty_price": "99.991781159682996048942300126711581939543385902951",
+        "clean_price": "99.991781159682996048942300126711581939543385902951"
+      }
+    },
+    {
+      "id": "long-first-icma-step-leap-reference-periods",
+      "terms": {
+        "schema_version": 1,
+        "currency": "EUR",
+        "issue_date": "2023-11-15",
+        "face_value": "2500",
+        "schedule": {
+          "start_date": "2023-11-15",
+          "end_date": "2025-02-28",
+          "frequency": "SemiAnnual",
+          "stub_type": "LongFirst",
+          "end_of_month": true,
+          "first_regular_date": "2024-08-31",
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "ActActIcma",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2023-11-15",
+              "end": "2024-03-15",
+              "value": ".07"
+            },
+            {
+              "start": "2024-03-15",
+              "end": "2025-02-28",
+              "value": ".04"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2023-11-15",
+              "end": "2025-02-28",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2023-11-15",
+              "end": "2025-02-28",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2023-11-15",
+              "end": "2025-02-28",
+              "value": "2500"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-04-10",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2023-11-15",
+          "end": "2024-08-31",
+          "payment": "2024-08-31",
+          "references": [
+            [
+              "2023-08-31",
+              "2024-02-29"
+            ],
+            [
+              "2024-02-29",
+              "2024-08-31"
+            ]
+          ],
+          "ex_date": null
+        },
+        {
+          "start": "2024-08-31",
+          "end": "2025-02-28",
+          "payment": "2025-02-28",
+          "references": [
+            [
+              "2024-08-31",
+              "2025-02-28"
+            ]
+          ],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {},
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2024-08-31",
+            "amount": "104.01860367892976588628762541806020066889632107023",
+            "entitled": true,
+            "accrued": "65.159908026755852842809364548494983277591973244147"
+          },
+          {
+            "payment_date": "2025-02-28",
+            "amount": "50.000",
+            "entitled": true,
+            "accrued": "0"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2025-02-28",
+            "payment_date": "2025-02-28",
+            "amount": "2500",
+            "before": "2500",
+            "after": "0"
+          }
+        ],
+        "accrued": "65.159908026755852842809364548494983277591973244147",
+        "outstanding": "2500",
+        "present_value": "2585.7925475139035734260858628955524110381397348264",
+        "dirty_price": "103.43170190055614293704343451582209644152558939306",
+        "clean_price": "100.82530557948590882333105993388229711042191046329"
+      }
+    },
+    {
+      "id": "monthly-anchor-does-not-drift",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-01-30",
+        "face_value": "2500",
+        "schedule": {
+          "start_date": "2024-01-30",
+          "end_date": "2024-04-30",
+          "frequency": "Monthly",
+          "stub_type": "ShortLast",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act365Fixed",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-01-30",
+              "end": "2024-02-15",
+              "value": ".03"
+            },
+            {
+              "start": "2024-02-15",
+              "end": "2024-04-30",
+              "value": ".06"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-01-30",
+              "end": "2024-04-30",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-01-30",
+              "end": "2024-04-30",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-01-30",
+              "end": "2024-03-05",
+              "value": "2500"
+            },
+            {
+              "start": "2024-03-05",
+              "end": "2024-04-30",
+              "value": "1800"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-02-20",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2024-01-30",
+          "end": "2024-02-29",
+          "payment": "2024-02-29",
+          "references": [],
+          "ex_date": null
+        },
+        {
+          "start": "2024-02-29",
+          "end": "2024-03-30",
+          "payment": "2024-03-30",
+          "references": [],
+          "ex_date": null
+        },
+        {
+          "start": "2024-03-30",
+          "end": "2024-04-30",
+          "payment": "2024-04-30",
+          "references": [],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {},
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2024-02-29",
+            "amount": "9.0410958904109589041095890410958904109589041095890",
+            "entitled": true,
+            "accrued": "5.3424657534246575342465753424657534246575342465754"
+          },
+          {
+            "payment_date": "2024-03-30",
+            "amount": "9.4520547945205479452054794520547945205479452054794",
+            "entitled": true,
+            "accrued": "0"
+          },
+          {
+            "payment_date": "2024-04-30",
+            "amount": "9.1726027397260273972602739726027397260273972602740",
+            "entitled": true,
+            "accrued": "0"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2024-03-05",
+            "payment_date": "2024-03-05",
+            "amount": "700",
+            "before": "2500",
+            "after": "1800"
+          },
+          {
+            "effective_date": "2024-04-30",
+            "payment_date": "2024-04-30",
+            "amount": "1800",
+            "before": "1800",
+            "after": "0"
+          }
+        ],
+        "accrued": "5.3424657534246575342465753424657534246575342465754",
+        "outstanding": "2500",
+        "present_value": "2516.4447498168909459535920683577720830531302673802",
+        "dirty_price": "100.65778999267563783814368273431088332212521069521",
+        "clean_price": "100.44409136253865153677381972061225318513890932535"
+      }
+    },
+    {
+      "id": "maturity-effective-vs-payment-Include",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-01-01",
+        "face_value": "1000",
+        "schedule": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-07-01",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "BusinessDays": 2
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act360",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": ".05"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "1000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-07-03",
+      "on_payment": "Include",
+      "declared_periods": [
+        {
+          "start": "2024-01-01",
+          "end": "2024-07-01",
+          "payment": "2024-07-03",
+          "references": [],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {
+        "2024-07-01": "2024-07-03"
+      },
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2024-07-03",
+            "amount": "25.277777777777777777777777777777777777777777777778",
+            "entitled": true,
+            "accrued": "0"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2024-07-01",
+            "payment_date": "2024-07-03",
+            "amount": "1000",
+            "before": "1000",
+            "after": "0"
+          }
+        ],
+        "accrued": "0",
+        "outstanding": "0",
+        "present_value": "1025.2777777777777777777777777777777777777777777778",
+        "dirty_price": "102.52777777777777777777777777777777777777777777778",
+        "clean_price": "102.52777777777777777777777777777777777777777777778"
+      }
+    },
+    {
+      "id": "maturity-effective-vs-payment-Exclude",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-01-01",
+        "face_value": "1000",
+        "schedule": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-07-01",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "BusinessDays": 2
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act360",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": ".05"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-07-01",
+              "value": "1000"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-07-03",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2024-01-01",
+          "end": "2024-07-01",
+          "payment": "2024-07-03",
+          "references": [],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {
+        "2024-07-01": "2024-07-03"
+      },
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [],
+        "principal": [],
+        "accrued": "0",
+        "outstanding": "0",
+        "present_value": "0",
+        "dirty_price": "0",
+        "clean_price": "0"
+      }
+    },
+    {
+      "id": "negative-coupon-fully-retired-principal",
+      "terms": {
+        "schema_version": 1,
+        "currency": "USD",
+        "issue_date": "2024-01-01",
+        "face_value": "5000",
+        "schedule": {
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01",
+          "frequency": "Annual",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Unadjusted",
+          "payment_delay": {
+            "CalendarDays": 0
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "payment": "WEEKEND",
+          "reset": "WEEKEND",
+          "observation": "WEEKEND",
+          "exercise": "WEEKEND"
+        },
+        "settlement_lag": {
+          "CalendarDays": 0
+        },
+        "settlement_adjustment": "Unadjusted",
+        "day_count": "Act360",
+        "profiles": {
+          "coupon": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-06-01",
+              "value": "-.02"
+            },
+            {
+              "start": "2024-06-01",
+              "end": "2025-01-01",
+              "value": ".01"
+            }
+          ],
+          "spread": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "gearing": [
+            {
+              "start": "2024-01-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ],
+          "notional": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-08-01",
+              "value": "5000"
+            },
+            {
+              "start": "2024-08-01",
+              "end": "2025-01-01",
+              "value": "0"
+            }
+          ]
+        },
+        "coupon": {
+          "kind": "fixed"
+        },
+        "coupon_principal": "AccrualProfile",
+        "redemption_multiplier": "1",
+        "principal_prices": [],
+        "rounding": "Unrounded",
+        "negative_coupons": "Allow",
+        "ex_coupon_accrual": "SubtractCoupon",
+        "exercise": []
+      },
+      "settlement": "2024-03-01",
+      "on_payment": "Exclude",
+      "declared_periods": [
+        {
+          "start": "2024-01-01",
+          "end": "2025-01-01",
+          "payment": "2025-01-01",
+          "references": [],
+          "ex_date": null
+        }
+      ],
+      "principal_payment_dates": {},
+      "discount_rate": ".03",
+      "expected": {
+        "coupons": [
+          {
+            "payment_date": "2025-01-01",
+            "amount": "-33.750000000000000000000000000000000000000000000000",
+            "entitled": true,
+            "accrued": "-16.666666666666666666666666666666666666666666666667"
+          }
+        ],
+        "principal": [
+          {
+            "effective_date": "2024-08-01",
+            "payment_date": "2024-08-01",
+            "amount": "5000",
+            "before": "5000",
+            "after": "0"
+          }
+        ],
+        "accrued": "-16.666666666666666666666666666666666666666666666667",
+        "outstanding": "5000",
+        "present_value": "4904.6052338984052233087807465380156470033371264303",
+        "dirty_price": "98.092104677968104466175614930760312940066742528606",
+        "clean_price": "98.425438011301437799508948264093646273400075861939"
+      }
+    }
+  ]
+}

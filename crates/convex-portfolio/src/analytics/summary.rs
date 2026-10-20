@@ -63,25 +63,27 @@ impl PortfolioAnalytics {
     /// println!("Duration: {:?}", analytics.risk.best_duration);
     /// println!("Z-Spread: {:?} bps", analytics.spreads.z_spread);
     /// ```
-    #[must_use]
-    pub fn calculate(portfolio: &Portfolio, config: &AnalyticsConfig) -> Self {
-        let nav = super::calculate_nav_breakdown(portfolio);
-        let yields = super::calculate_yield_metrics(&portfolio.holdings, config);
+    pub fn calculate(
+        portfolio: &Portfolio,
+        config: &AnalyticsConfig,
+    ) -> crate::PortfolioResult<Self> {
+        let nav = super::calculate_nav_breakdown(portfolio)?;
+        let yields = super::calculate_yield_metrics(&portfolio.holdings, config)?;
         let risk = super::calculate_risk_metrics(
             &portfolio.holdings,
             portfolio.shares_outstanding,
             config,
-        );
+        )?;
         let spreads = super::calculate_spread_metrics(
             &portfolio.holdings,
             portfolio.shares_outstanding,
             config,
-        );
+        )?;
 
-        let weighted_avg_maturity = weighted_maturity(&portfolio.holdings, config);
-        let weighted_avg_coupon = weighted_coupon(&portfolio.holdings, config);
+        let weighted_avg_maturity = weighted_maturity(&portfolio.holdings, config)?;
+        let weighted_avg_coupon = weighted_coupon(&portfolio.holdings, config)?;
 
-        Self {
+        Ok(Self {
             portfolio_id: portfolio.id.clone(),
             portfolio_name: portfolio.name.clone(),
             as_of_date: portfolio.as_of_date,
@@ -93,13 +95,12 @@ impl PortfolioAnalytics {
             spreads,
             weighted_avg_maturity,
             weighted_avg_coupon,
-        }
+        })
     }
 
     /// Returns whether the portfolio has complete analytics data.
     ///
     /// Complete means all major metrics (YTM, duration, spread) are available.
-    #[must_use]
     pub fn is_complete(&self) -> bool {
         self.yields.ytm.is_some()
             && self.risk.best_duration.is_some()
@@ -109,7 +110,6 @@ impl PortfolioAnalytics {
     /// Returns the overall data coverage as a percentage.
     ///
     /// Average of YTM, duration, and spread coverage.
-    #[must_use]
     pub fn data_coverage_pct(&self) -> f64 {
         let ytm_cov = self.yields.ytm_coverage_pct();
         let dur_cov = self.risk.duration_coverage_pct();
@@ -119,57 +119,20 @@ impl PortfolioAnalytics {
     }
 }
 
-/// Calculates weighted average years to maturity.
-fn weighted_maturity(holdings: &[crate::types::Holding], config: &AnalyticsConfig) -> Option<f64> {
-    use crate::analytics::parallel::maybe_parallel_fold;
-    use rust_decimal::prelude::ToPrimitive;
-
-    let (sum_weighted, sum_weights) = maybe_parallel_fold(
-        holdings,
-        config,
-        (0.0_f64, 0.0_f64),
-        |(sum_w, sum_wt), h| {
-            if let Some(maturity) = h.analytics.years_to_maturity {
-                let weight = h.weight_value(config.weighting).to_f64().unwrap_or(0.0);
-                (sum_w + maturity * weight, sum_wt + weight)
-            } else {
-                (sum_w, sum_wt)
-            }
-        },
-        |(a, b), (c, d)| (a + c, b + d),
-    );
-
-    if sum_weights > 0.0 {
-        Some(sum_weighted / sum_weights)
-    } else {
-        None
-    }
+/// Complete weighted maturity presentation; missing data stays unavailable.
+fn weighted_maturity(
+    holdings: &[crate::types::Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<Option<f64>> {
+    super::metrics::MetricBook::new(holdings, config)?
+        .weighted("years_to_maturity", |h| h.analytics.years_to_maturity)
 }
-
-fn weighted_coupon(holdings: &[crate::types::Holding], config: &AnalyticsConfig) -> Option<f64> {
-    use crate::analytics::parallel::maybe_parallel_fold;
-    use rust_decimal::prelude::ToPrimitive;
-
-    let (sum_weighted, sum_weights) = maybe_parallel_fold(
-        holdings,
-        config,
-        (0.0_f64, 0.0_f64),
-        |(sum_w, sum_wt), h| {
-            if let Some(coupon) = h.analytics.coupon_rate {
-                let weight = h.weight_value(config.weighting).to_f64().unwrap_or(0.0);
-                (sum_w + coupon * weight, sum_wt + weight)
-            } else {
-                (sum_w, sum_wt)
-            }
-        },
-        |(a, b), (c, d)| (a + c, b + d),
-    );
-
-    if sum_weights > 0.0 {
-        Some(sum_weighted / sum_weights)
-    } else {
-        None
-    }
+fn weighted_coupon(
+    holdings: &[crate::types::Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<Option<f64>> {
+    super::metrics::MetricBook::new(holdings, config)?
+        .weighted("coupon_rate", |h| h.analytics.coupon_rate)
 }
 
 /// Convenience function to calculate portfolio analytics.
@@ -179,11 +142,10 @@ fn weighted_coupon(holdings: &[crate::types::Holding], config: &AnalyticsConfig)
 /// ```ignore
 /// let analytics = calculate_portfolio_analytics(&portfolio, &config);
 /// ```
-#[must_use]
 pub fn calculate_portfolio_analytics(
     portfolio: &Portfolio,
     config: &AnalyticsConfig,
-) -> PortfolioAnalytics {
+) -> crate::PortfolioResult<PortfolioAnalytics> {
     PortfolioAnalytics::calculate(portfolio, config)
 }
 
@@ -192,6 +154,7 @@ mod tests {
     use super::*;
     use crate::types::{CashPosition, Holding, HoldingAnalytics};
     use convex_bonds::types::BondIdentifiers;
+    use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
 
     fn create_complete_holding(
@@ -236,7 +199,7 @@ mod tests {
     fn test_portfolio_analytics() {
         let portfolio = create_test_portfolio();
         let config = AnalyticsConfig::default();
-        let analytics = PortfolioAnalytics::calculate(&portfolio, &config);
+        let analytics = PortfolioAnalytics::calculate(&portfolio, &config).unwrap();
 
         assert_eq!(analytics.portfolio_id, "TEST001");
         assert_eq!(analytics.portfolio_name, "Test Portfolio");
@@ -253,7 +216,7 @@ mod tests {
 
         // Risk should be populated
         assert!(analytics.risk.modified_duration.is_some());
-        assert!(analytics.risk.total_dv01 > 0.0);
+        assert!(analytics.risk.total_dv01.unwrap() > Decimal::ZERO);
 
         // Spreads should be populated
         assert!(analytics.spreads.z_spread.is_some());
@@ -267,7 +230,7 @@ mod tests {
     fn test_is_complete() {
         let portfolio = create_test_portfolio();
         let config = AnalyticsConfig::default();
-        let analytics = PortfolioAnalytics::calculate(&portfolio, &config);
+        let analytics = PortfolioAnalytics::calculate(&portfolio, &config).unwrap();
 
         assert!(analytics.is_complete());
     }
@@ -291,7 +254,7 @@ mod tests {
             .unwrap();
 
         let config = AnalyticsConfig::default();
-        let analytics = PortfolioAnalytics::calculate(&portfolio, &config);
+        let analytics = PortfolioAnalytics::calculate(&portfolio, &config).unwrap();
 
         assert!(!analytics.is_complete());
         assert!(analytics.yields.ytm.is_none());
@@ -302,7 +265,7 @@ mod tests {
     fn test_data_coverage() {
         let portfolio = create_test_portfolio();
         let config = AnalyticsConfig::default();
-        let analytics = PortfolioAnalytics::calculate(&portfolio, &config);
+        let analytics = PortfolioAnalytics::calculate(&portfolio, &config).unwrap();
 
         // All holdings have all data, so coverage should be 100%
         assert!((analytics.data_coverage_pct() - 100.0).abs() < 0.01);
@@ -312,7 +275,7 @@ mod tests {
     fn test_weighted_maturity() {
         let portfolio = create_test_portfolio();
         let config = AnalyticsConfig::default();
-        let analytics = PortfolioAnalytics::calculate(&portfolio, &config);
+        let analytics = PortfolioAnalytics::calculate(&portfolio, &config).unwrap();
 
         // Both have 5.5 years, so weighted average is 5.5
         let wam = analytics.weighted_avg_maturity.unwrap();
@@ -324,7 +287,7 @@ mod tests {
         let portfolio = create_test_portfolio();
         let config = AnalyticsConfig::default();
 
-        let analytics = calculate_portfolio_analytics(&portfolio, &config);
+        let analytics = calculate_portfolio_analytics(&portfolio, &config).unwrap();
         assert!(analytics.is_complete());
     }
 }

@@ -28,10 +28,16 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
 
 pub mod calendars;
+pub mod cashflows;
+pub mod contracts;
 pub mod daycounts;
 pub mod error;
+pub mod fixings;
+pub mod futures;
 pub mod traits;
 pub mod types;
 

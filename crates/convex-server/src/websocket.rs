@@ -13,6 +13,7 @@ use std::time::Duration;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
 use axum::response::IntoResponse;
+use axum::Extension;
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
@@ -22,7 +23,10 @@ use tracing::{debug, error, info, warn};
 use convex_core::ids::{EtfId, InstrumentId, PortfolioId};
 use convex_engine::ports::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
 
+use crate::access::http::WsAccess;
+use crate::access::{AccessError, Action, DataScope, Resource, ResourceKind};
 use crate::handlers::AppState;
+use crate::ServerProfile;
 
 // =============================================================================
 // MESSAGE TYPES
@@ -30,7 +34,7 @@ use crate::handlers::AppState;
 
 /// Inbound WebSocket message from client.
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 #[allow(missing_docs)]
 pub enum ClientMessage {
     /// Subscribe to bond quotes
@@ -49,6 +53,10 @@ pub enum ClientMessage {
     SubscribePortfolios { portfolio_ids: Vec<String> },
     /// Unsubscribe from portfolio analytics
     UnsubscribePortfolios { portfolio_ids: Vec<String> },
+    /// Opt in to canonical snapshot-valued results.
+    SubscribeValuations { instrument_ids: Vec<String> },
+    /// Stop canonical valuation updates.
+    UnsubscribeValuations { instrument_ids: Vec<String> },
     /// Ping (client heartbeat)
     Ping { timestamp: i64 },
 }
@@ -74,7 +82,7 @@ pub enum ServerMessage {
         count: usize,
     },
     /// Bond quote update
-    BondQuote(Box<BondQuoteOutput>),
+    BondQuote(#[serde(serialize_with = "serialize_bond_quote")] Box<BondQuoteOutput>),
     /// ETF iNAV update
     EtfQuote(Box<EtfQuoteOutput>),
     /// Portfolio analytics update
@@ -85,15 +93,28 @@ pub enum ServerMessage {
     Error { code: String, message: String },
     /// Server heartbeat
     Heartbeat { server_time: i64 },
-    /// Node recalculated event (from reactive engine)
+    /// Canonical durable result state from the pricing runtime.
+    Valuation(Box<convex_engine::ports::runtime::PublishedValuation>),
+    /// Node recalculated event (from a graph completion)
     NodeRecalculated {
         node_type: String,
         node_id: String,
         source: String,
         timestamp: i64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        completion: Option<Box<convex_engine::CalculationCompletion>>,
     },
     /// Curve update notification
     CurveUpdated { curve_id: String, timestamp: i64 },
+}
+
+fn serialize_bond_quote<S: serde::Serializer>(
+    quote: &BondQuoteOutput,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    crate::handlers::bond_quote_json(quote)
+        .map_err(serde::ser::Error::custom)?
+        .serialize(serializer)
 }
 
 // =============================================================================
@@ -119,6 +140,8 @@ pub enum BroadcastUpdate {
         source: String,
         /// Timestamp
         timestamp: i64,
+        /// Actual committed generation, revision and status; absent for older producers.
+        completion: Option<Box<convex_engine::CalculationCompletion>>,
     },
     /// Curve updated event
     CurveUpdated {
@@ -196,12 +219,14 @@ impl WebSocketState {
         node_id: String,
         source: String,
         timestamp: i64,
+        completion: Option<convex_engine::CalculationCompletion>,
     ) {
         let _ = self.broadcast_tx.send(BroadcastUpdate::NodeRecalculated {
             node_type,
             node_id,
             source,
             timestamp,
+            completion: completion.map(Box::new),
         });
     }
 
@@ -272,50 +297,24 @@ fn update_source_to_string(source: &UpdateSource) -> String {
     }
 }
 
-/// Connect the reactive engine's node update stream to WebSocket broadcasting.
-///
-/// This spawns a background task that listens to node updates from the reactive
-/// engine and forwards them to WebSocket clients via the broadcast channel.
-pub fn connect_reactive_engine(
-    ws_state: Arc<WebSocketState>,
-    mut node_update_rx: tokio::sync::broadcast::Receiver<NodeUpdate>,
-) {
-    tokio::spawn(async move {
-        info!("Reactive engine -> WebSocket bridge started");
-
-        loop {
-            match node_update_rx.recv().await {
-                Ok(update) => {
-                    let (node_type, node_id) = node_id_to_strings(&update.node_id);
-                    let source = update_source_to_string(&update.source);
-
-                    debug!(
-                        "Broadcasting node update: {} {} ({})",
-                        node_type, node_id, source
-                    );
-
-                    ws_state.publish_node_recalculated(
-                        node_type.clone(),
-                        node_id.clone(),
-                        source,
-                        update.timestamp,
-                    );
-
-                    // Also publish curve-specific events for curve nodes
-                    if node_type == "curve" {
-                        ws_state.publish_curve_updated(node_id, update.timestamp);
-                    }
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                    warn!("WebSocket bridge lagged by {} node updates", n);
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                    info!("Reactive engine channel closed, WebSocket bridge shutting down");
-                    break;
-                }
-            }
-        }
-    });
+/// Forward an already committed graph notification synchronously; owns no background task.
+pub fn publish_node_update(ws_state: &WebSocketState, update: NodeUpdate) {
+    let (node_type, node_id) = node_id_to_strings(&update.node_id);
+    ws_state.publish_node_recalculated(
+        node_type.clone(),
+        node_id.clone(),
+        update_source_to_string(&update.source),
+        update.timestamp,
+        update.completion.clone(),
+    );
+    if node_type == "curve"
+        && update.completion.as_ref().is_some_and(|result| {
+            result.status == convex_core::contracts::ResultStatus::Complete
+                && result.quality == convex_core::contracts::DataQuality::Valid
+        })
+    {
+        ws_state.publish_curve_updated(node_id, update.timestamp);
+    }
 }
 
 // =============================================================================
@@ -327,6 +326,7 @@ struct ClientSession {
     session_id: String,
     /// Subscribed bond instrument IDs
     bond_subscriptions: HashSet<InstrumentId>,
+    valuation_subscriptions: HashSet<InstrumentId>,
     /// Subscribe to all bonds
     subscribe_all_bonds: bool,
     /// Subscribed ETF IDs
@@ -336,10 +336,18 @@ struct ClientSession {
 }
 
 impl ClientSession {
+    fn topic_count(&self) -> usize {
+        self.bond_subscriptions.len()
+            + self.valuation_subscriptions.len()
+            + self.etf_subscriptions.len()
+            + self.portfolio_subscriptions.len()
+            + usize::from(self.subscribe_all_bonds)
+    }
     fn new(session_id: String) -> Self {
         Self {
             session_id,
             bond_subscriptions: HashSet::new(),
+            valuation_subscriptions: HashSet::new(),
             subscribe_all_bonds: false,
             etf_subscriptions: HashSet::new(),
             portfolio_subscriptions: HashSet::new(),
@@ -367,15 +375,29 @@ impl ClientSession {
 // =============================================================================
 
 /// WebSocket upgrade handler.
-pub async fn ws_handler(
+pub(crate) async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
+    profile: Option<Extension<ServerProfile>>,
+    authorization: Option<Extension<WsAccess>>,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+    let profile = profile.map_or(ServerProfile::Production, |Extension(profile)| profile);
+    let Some(Extension(authorization)) = authorization else {
+        return crate::access::http::response(AccessError::Unauthenticated);
+    };
+    ws.max_message_size(65536)
+        .max_frame_size(65536)
+        .on_upgrade(move |socket| handle_socket(socket, state, profile, authorization))
+        .into_response()
 }
 
 /// Handle an individual WebSocket connection.
-async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
+async fn handle_socket(
+    socket: WebSocket,
+    state: Arc<AppState>,
+    profile: ServerProfile,
+    mut authorization: WsAccess,
+) {
     let ws_state = &state.ws_state;
 
     // Generate session ID
@@ -392,6 +414,8 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
     // Subscribe to broadcast channel
     let mut broadcast_rx = ws_state.broadcast_tx.subscribe();
+    let mut valuation_rx = state.engine.subscribe_results();
+    let mut shutdown_rx = state.engine.subscribe_shutdown();
 
     // Split socket into sender and receiver
     let (mut sender, mut receiver) = socket.split();
@@ -401,45 +425,71 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         session_id: session_id.clone(),
         server_time: current_timestamp(),
     };
-    if let Err(e) = send_message(&mut sender, &connected_msg).await {
-        error!("Failed to send connected message: {}", e);
+    if send_message(&mut sender, &connected_msg, profile, &authorization)
+        .await
+        .is_err()
+    {
+        error!(code = "WS_SEND_FAILED", "Connected frame could not be sent");
         ws_state
             .connection_count
             .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
         return;
     }
 
+    let mut policy_changes = authorization.access.subscribe_policy();
+    let mut auth_timer = interval(Duration::from_millis(250));
+    auth_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     // Heartbeat interval
     let mut heartbeat_interval = interval(Duration::from_secs(30));
 
     loop {
         tokio::select! {
+            biased;
+            changed = policy_changes.changed() => {
+                if changed.is_err() || session_authorized(&session, &authorization).is_err() { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+            }
+            _ = auth_timer.tick() => {
+                if session_authorized(&session, &authorization).is_err() { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+                if !authorization.access.is_local_development() && authorization.access.session_needs_refresh(&authorization.context) {
+                    match authorization.access.refresh(&authorization.context).await {
+                        Ok(context) => authorization.context = context,
+                        Err(_) => { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+                    }
+                    if session_authorized(&session, &authorization).is_err() { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+                }
+            }
+            changed = shutdown_rx.changed() => {
+                if changed.is_err() || *shutdown_rx.borrow() { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; }
+            }
+            result = valuation_rx.recv() => {
+                match result {
+                    Ok(result) => {
+                        let subscribed = match &result.result.provenance().subject {
+                            convex_core::contracts::ValuationSubject::InstrumentVersion { instrument_id, .. } => session.valuation_subscriptions.contains(&InstrumentId::new(instrument_id.as_str())),
+                            _ => false,
+                        };
+                        if subscribed && send_message(&mut sender, &ServerMessage::Valuation(Box::new(result)), profile, &authorization).await.is_err() { break; }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => {
+                        if send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Read /api/v1/runtime/results and resume by (runtime_id, revision)".into() }, profile, &authorization).await.is_err() { break; }
+                    }
+                    Err(broadcast::error::RecvError::Closed) => break,
+                }
+            }
             // Handle incoming messages from client
-            Some(msg) = receiver.next() => {
+            message = receiver.next() => {
+                let Some(msg) = message else { break; };
+                let admission = match authorization.access.admit_message(&authorization.context) { Ok(admission) => admission, Err(_) => { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; } };
                 match msg {
                     Ok(Message::Text(text)) => {
-                        if let Err(e) = handle_client_message(&text, &mut session, &mut sender).await {
-                            warn!("Error handling client message: {}", e);
-                            // Send error message to client
-                            let error_msg = ServerMessage::Error {
-                                code: "INVALID_MESSAGE".to_string(),
-                                message: e,
-                            };
-                            if send_message(&mut sender, &error_msg).await.is_err() {
-                                break;
-                            }
-                        }
+                        if handle_client_payload(Ok(&text), &mut session, &mut sender, profile, &authorization).await.is_err() { break; }
                     }
                     Ok(Message::Binary(data)) => {
-                        // Try to parse as JSON
-                        if let Ok(text) = String::from_utf8(data) {
-                            if let Err(e) = handle_client_message(&text, &mut session, &mut sender).await {
-                                warn!("Error handling binary message: {}", e);
-                            }
-                        }
+                        let text = std::str::from_utf8(&data).map_err(|_| "INVALID_MESSAGE".to_owned());
+                        if handle_client_payload(text, &mut session, &mut sender, profile, &authorization).await.is_err() { break; }
                     }
                     Ok(Message::Ping(data)) => {
-                        if sender.send(Message::Pong(data)).await.is_err() {
+                        if !tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Pong(data))).await.is_ok_and(|r| r.is_ok()) {
                             break;
                         }
                     }
@@ -450,17 +500,18 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         info!("WebSocket closed by client: {}", session_id);
                         break;
                     }
-                    Err(e) => {
-                        error!("WebSocket error for {}: {}", session_id, e);
+                    Err(_) => {
+                        error!(code = "WS_TRANSPORT_FAILED", "WebSocket transport failed");
                         break;
                     }
                 }
+                drop(admission);
             }
 
             // Handle broadcast updates
             Ok(update) = broadcast_rx.recv() => {
                 if let Some(msg) = filter_update(&session, &update) {
-                    if send_message(&mut sender, &msg).await.is_err() {
+                    if send_message(&mut sender, &msg, profile, &authorization).await.is_err() {
                         break;
                     }
                 }
@@ -471,7 +522,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                 let heartbeat = ServerMessage::Heartbeat {
                     server_time: current_timestamp(),
                 };
-                if send_message(&mut sender, &heartbeat).await.is_err() {
+                if send_message(&mut sender, &heartbeat, profile, &authorization).await.is_err() {
                     break;
                 }
             }
@@ -485,15 +536,59 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     info!("WebSocket connection closed: {}", session_id);
 }
 
+/// Identical safe denial semantics for text and UTF-8 binary frames.
+async fn handle_client_payload(
+    text: Result<&str, String>,
+    session: &mut ClientSession,
+    sender: &mut futures::stream::SplitSink<WebSocket, Message>,
+    profile: ServerProfile,
+    authorization: &WsAccess,
+) -> Result<(), axum::Error> {
+    let result = match text {
+        Ok(text) => handle_client_message(text, session, sender, profile, authorization).await,
+        Err(error) => Err(error),
+    };
+    if let Err(error) = result {
+        let code = if [
+            "FORBIDDEN",
+            "UNAUTHENTICATED",
+            "ACCESS_UNAVAILABLE",
+            "ACCESS_QUOTA_EXCEEDED",
+            "INVALID_ACCESS_REQUEST",
+        ]
+        .contains(&error.as_str())
+        {
+            error.clone()
+        } else {
+            "INVALID_MESSAGE".into()
+        };
+        warn!(code = %code, "WebSocket message rejected");
+        send_message(
+            sender,
+            &ServerMessage::Error {
+                code,
+                message: error,
+            },
+            profile,
+            authorization,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
 /// Handle a client message.
 async fn handle_client_message(
     text: &str,
     session: &mut ClientSession,
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
+    profile: ServerProfile,
+    authorization: &WsAccess,
 ) -> Result<(), String> {
     let msg: ClientMessage =
-        serde_json::from_str(text).map_err(|e| format!("Invalid message: {}", e))?;
+        serde_json::from_str(text).map_err(|_| "INVALID_MESSAGE".to_owned())?;
 
+    authorize_subscription(&msg, session, authorization).map_err(|error| error.to_string())?;
     let response = match msg {
         ClientMessage::SubscribeBonds { instrument_ids } => {
             let count = instrument_ids.len();
@@ -587,15 +682,287 @@ async fn handle_client_message(
                 count,
             }
         }
+        ClientMessage::SubscribeValuations { instrument_ids } => {
+            if instrument_ids.len() > 256
+                || session
+                    .valuation_subscriptions
+                    .len()
+                    .saturating_add(instrument_ids.len())
+                    > 256
+            {
+                return Err("at most 256 valuation subscriptions".into());
+            }
+            for id in &instrument_ids {
+                convex_core::contracts::InstrumentId::new(id)
+                    .map_err(|_| "invalid valuation identity")?;
+            }
+            let count = instrument_ids.len();
+            session
+                .valuation_subscriptions
+                .extend(instrument_ids.iter().map(InstrumentId::new));
+            ServerMessage::Subscribed {
+                subscription_type: "valuations".into(),
+                count,
+            }
+        }
+        ClientMessage::UnsubscribeValuations { instrument_ids } => {
+            if instrument_ids.len() > 256 {
+                return Err("at most 256 valuation subscriptions".into());
+            }
+            let count = instrument_ids.len();
+            for id in &instrument_ids {
+                session
+                    .valuation_subscriptions
+                    .remove(&InstrumentId::new(id));
+            }
+            ServerMessage::Unsubscribed {
+                subscription_type: "valuations".into(),
+                count,
+            }
+        }
         ClientMessage::Ping { timestamp } => ServerMessage::Pong {
             timestamp,
             server_time: current_timestamp(),
         },
     };
 
-    send_message(sender, &response)
+    send_message(sender, &response, profile, authorization)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|_| "WS_SEND_FAILED".to_owned())
+}
+
+fn topic_permission(
+    kind: ResourceKind,
+    id: &str,
+    valuation: bool,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    let mut required = vec![
+        Resource::new(kind, id),
+        Resource::new(ResourceKind::Source, "*"),
+        Resource::new(ResourceKind::Curve, "*"),
+    ];
+    let data = if kind == ResourceKind::Book {
+        required.push(Resource::new(ResourceKind::Instrument, "*"));
+        vec![DataScope::Books, DataScope::Market, DataScope::Results]
+    } else if valuation || kind == ResourceKind::Instrument {
+        vec![DataScope::Reference, DataScope::Market, DataScope::Results]
+    } else {
+        vec![DataScope::Market, DataScope::Results]
+    };
+    authorization.access.authorize(
+        &authorization.context,
+        if valuation {
+            Action::ResultRead
+        } else {
+            Action::MarketRead
+        },
+        &data,
+        &required,
+    )
+}
+fn session_authorized(
+    session: &ClientSession,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    authorization
+        .access
+        .authorize(&authorization.context, Action::Stream, &[], &[])?;
+    if session.topic_count()
+        > authorization
+            .access
+            .subscription_limit(&authorization.context)?
+    {
+        return Err(AccessError::Quota);
+    }
+    if session.subscribe_all_bonds {
+        topic_permission(ResourceKind::Instrument, "*", false, authorization)?;
+    }
+    for id in &session.bond_subscriptions {
+        topic_permission(ResourceKind::Instrument, id.as_str(), false, authorization)?;
+    }
+    for id in &session.valuation_subscriptions {
+        topic_permission(ResourceKind::Instrument, id.as_str(), true, authorization)?;
+    }
+    for id in &session.etf_subscriptions {
+        topic_permission(ResourceKind::Etf, id.as_str(), false, authorization)?;
+    }
+    for id in &session.portfolio_subscriptions {
+        topic_permission(ResourceKind::Book, id.as_str(), false, authorization)?;
+    }
+    Ok(())
+}
+fn authorize_subscription(
+    message: &ClientMessage,
+    session: &ClientSession,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    authorization
+        .access
+        .authorize(&authorization.context, Action::Stream, &[], &[])?;
+    let (ids, kind, valuation, existing): (&[String], ResourceKind, bool, HashSet<String>) =
+        match message {
+            ClientMessage::SubscribeBonds { instrument_ids } => (
+                instrument_ids,
+                ResourceKind::Instrument,
+                false,
+                session
+                    .bond_subscriptions
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            ClientMessage::SubscribeValuations { instrument_ids } => (
+                instrument_ids,
+                ResourceKind::Instrument,
+                true,
+                session
+                    .valuation_subscriptions
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            ClientMessage::SubscribeEtfs { etf_ids } => (
+                etf_ids,
+                ResourceKind::Etf,
+                false,
+                session
+                    .etf_subscriptions
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            ClientMessage::SubscribePortfolios { portfolio_ids } => (
+                portfolio_ids,
+                ResourceKind::Book,
+                false,
+                session
+                    .portfolio_subscriptions
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
+            ),
+            ClientMessage::SubscribeAllBonds => {
+                topic_permission(ResourceKind::Instrument, "*", false, authorization)?;
+                if session
+                    .topic_count()
+                    .saturating_add(usize::from(!session.subscribe_all_bonds))
+                    > authorization
+                        .access
+                        .subscription_limit(&authorization.context)?
+                {
+                    return Err(AccessError::Quota);
+                }
+                return Ok(());
+            }
+            ClientMessage::UnsubscribeBonds { instrument_ids }
+            | ClientMessage::UnsubscribeValuations { instrument_ids } => {
+                if instrument_ids.len() > 256 {
+                    return Err(AccessError::Quota);
+                }
+                return Ok(());
+            }
+            ClientMessage::UnsubscribeEtfs { etf_ids } => {
+                if etf_ids.len() > 256 {
+                    return Err(AccessError::Quota);
+                }
+                return Ok(());
+            }
+            ClientMessage::UnsubscribePortfolios { portfolio_ids } => {
+                if portfolio_ids.len() > 256 {
+                    return Err(AccessError::Quota);
+                }
+                return Ok(());
+            }
+            _ => return Ok(()),
+        };
+    if ids.len() > 256 {
+        return Err(AccessError::Quota);
+    }
+    let mut prospective = existing;
+    let before = prospective.len();
+    for id in ids {
+        if !crate::access::policy::valid_id(id) || id == "*" {
+            return Err(AccessError::InvalidRequest);
+        }
+        topic_permission(kind, id, valuation, authorization)?;
+        prospective.insert(id.clone());
+    }
+    if session
+        .topic_count()
+        .saturating_add(prospective.len().saturating_sub(before))
+        > authorization
+            .access
+            .subscription_limit(&authorization.context)?
+    {
+        return Err(AccessError::Quota);
+    }
+    Ok(())
+}
+fn authorize_delivery(
+    message: &ServerMessage,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    authorization
+        .access
+        .authorize(&authorization.context, Action::Stream, &[], &[])?;
+    if !authorization.access.session_fresh(&authorization.context) {
+        return Err(AccessError::Unauthenticated);
+    }
+    match message {
+        ServerMessage::BondQuote(quote) => topic_permission(
+            ResourceKind::Instrument,
+            quote.instrument_id.as_str(),
+            false,
+            authorization,
+        )?,
+        ServerMessage::EtfQuote(quote) => topic_permission(
+            ResourceKind::Etf,
+            quote.etf_id.as_str(),
+            false,
+            authorization,
+        )?,
+        ServerMessage::PortfolioAnalytics(result) => topic_permission(
+            ResourceKind::Book,
+            result.portfolio_id.as_str(),
+            false,
+            authorization,
+        )?,
+        ServerMessage::Valuation(result) => match &result.result.provenance().subject {
+            convex_core::contracts::ValuationSubject::InstrumentVersion {
+                instrument_id, ..
+            } => topic_permission(
+                ResourceKind::Instrument,
+                instrument_id.as_str(),
+                true,
+                authorization,
+            )?,
+            _ => return Err(AccessError::Forbidden),
+        },
+        ServerMessage::NodeRecalculated {
+            node_type, node_id, ..
+        } => match node_type.as_str() {
+            "bond_price" => {
+                topic_permission(ResourceKind::Instrument, node_id, false, authorization)?
+            }
+            "etf_inav" | "etf_nav" => {
+                topic_permission(ResourceKind::Etf, node_id, false, authorization)?
+            }
+            "portfolio" => topic_permission(ResourceKind::Book, node_id, false, authorization)?,
+            _ => return Err(AccessError::Forbidden),
+        },
+        ServerMessage::CurveUpdated { curve_id, .. } => authorization.access.authorize(
+            &authorization.context,
+            Action::MarketRead,
+            &[DataScope::Market],
+            &[
+                Resource::new(ResourceKind::Curve, curve_id),
+                Resource::new(ResourceKind::Source, "*"),
+            ],
+        )?,
+        _ => {}
+    }
+    Ok(())
 }
 
 /// Filter a broadcast update for a specific client session.
@@ -627,6 +994,7 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
             node_id,
             source,
             timestamp,
+            completion,
         } => {
             // Send node updates to clients that have subscribed to the relevant type
             // For now, send to all subscribed clients based on node type
@@ -654,6 +1022,7 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
                     node_id: node_id.clone(),
                     source: source.clone(),
                     timestamp: *timestamp,
+                    completion: completion.clone(),
                 })
             } else {
                 None
@@ -678,20 +1047,44 @@ fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<Se
 async fn send_message(
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     msg: &ServerMessage,
+    profile: ServerProfile,
+    authorization: &WsAccess,
 ) -> Result<(), axum::Error> {
-    let json = serde_json::to_string(msg).unwrap();
-    sender
-        .send(Message::Text(json))
+    authorize_delivery(msg, authorization).map_err(axum::Error::new)?;
+    let json = serialize_message(msg, profile).map_err(axum::Error::new)?;
+    if json.len() > 65536 {
+        return Err(axum::Error::new(AccessError::Quota));
+    }
+    tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Text(json)))
         .await
+        .map_err(axum::Error::new)?
         .map_err(axum::Error::new)
+}
+
+fn serialize_message(
+    msg: &ServerMessage,
+    profile: ServerProfile,
+) -> Result<String, serde_json::Error> {
+    #[derive(Serialize)]
+    struct WireMessage<'a> {
+        #[serde(flatten)]
+        message: &'a ServerMessage,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        profile: Option<ServerProfile>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        data_quality: Option<&'static str>,
+    }
+    let demo = profile == ServerProfile::Demo;
+    serde_json::to_string(&WireMessage {
+        message: msg,
+        profile: demo.then_some(profile),
+        data_quality: demo.then_some("demo"),
+    })
 }
 
 /// Get current timestamp in milliseconds.
 fn current_timestamp() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64
+    chrono::Utc::now().timestamp_millis()
 }
 
 // =============================================================================
@@ -720,6 +1113,68 @@ pub async fn ws_status(State(state): State<Arc<AppState>>) -> impl IntoResponse 
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
+
+    #[tokio::test]
+    async fn graph_failure_completion_reaches_subscriber_with_generation_revision_and_code() {
+        use convex_engine::{CalculationFailure, CalculationGraph, CommitOutcome, NodeId};
+        let graph = CalculationGraph::new();
+        let node = NodeId::BondPrice {
+            instrument_id: InstrumentId::new("FAILED"),
+        };
+        graph.add_node(node.clone(), vec![]).unwrap();
+        let ticket = graph.begin_calculation(&node).unwrap();
+        let completion = match graph
+            .commit_result(
+                &ticket,
+                Err(CalculationFailure::fixed(
+                    convex_core::contracts::ErrorCode::MissingReference,
+                    "reference missing",
+                )),
+            )
+            .unwrap()
+        {
+            CommitOutcome::Committed { completion } => completion,
+            CommitOutcome::Discarded => panic!("current failure was discarded"),
+        };
+        let state = Arc::new(WebSocketState::new());
+        let mut broadcast = state.broadcast_tx.subscribe();
+        publish_node_update(
+            &state,
+            NodeUpdate {
+                node_id: node,
+                timestamp: 123,
+                source: UpdateSource::Immediate,
+                completion: Some(completion.clone()),
+            },
+        );
+        let update = tokio::time::timeout(std::time::Duration::from_secs(2), broadcast.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let mut session = ClientSession::new("test".into());
+        session.subscribe_all_bonds = true;
+        let message = filter_update(&session, &update).unwrap();
+        let json = serde_json::to_value(message).unwrap();
+        assert_eq!(json["type"], "node_recalculated");
+        assert_eq!(json["node_id"], "FAILED");
+        assert_eq!(json["completion"]["generation"], completion.generation);
+        assert_eq!(json["completion"]["revision"], completion.revision);
+        assert_eq!(json["completion"]["status"], "Failed");
+        assert_eq!(json["completion"]["quality"], "Invalid");
+        assert_eq!(json["completion"]["failure"]["code"], "MISSING_REFERENCE");
+        // Existing producers can omit completion; the original fields retain their wire form.
+        let old = ServerMessage::NodeRecalculated {
+            node_type: "bond_price".into(),
+            node_id: "OLD".into(),
+            source: "immediate".into(),
+            timestamp: 123,
+            completion: None,
+        };
+        assert!(serde_json::to_value(old)
+            .unwrap()
+            .get("completion")
+            .is_none());
+    }
 
     #[test]
     fn test_client_message_subscribe_bonds() {
@@ -766,6 +1221,34 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("\"type\":\"connected\""));
         assert!(json.contains("\"session_id\":\"ws-123\""));
+    }
+
+    #[test]
+    fn demo_wire_labels_preserve_message_content() {
+        let message = ServerMessage::Connected {
+            session_id: "test".into(),
+            server_time: 123,
+        };
+        let original = serde_json::to_value(&message).unwrap();
+        let production: serde_json::Value =
+            serde_json::from_str(&serialize_message(&message, ServerProfile::Production).unwrap())
+                .unwrap();
+        assert_eq!(production, original);
+        let mut demo: serde_json::Value =
+            serde_json::from_str(&serialize_message(&message, ServerProfile::Demo).unwrap())
+                .unwrap();
+        assert_eq!(
+            demo.as_object_mut().unwrap().remove("profile").unwrap(),
+            "demo"
+        );
+        assert_eq!(
+            demo.as_object_mut()
+                .unwrap()
+                .remove("data_quality")
+                .unwrap(),
+            "demo"
+        );
+        assert_eq!(demo, original);
     }
 
     #[test]
@@ -866,6 +1349,9 @@ mod tests {
             pricing_spec: "test".to_string(),
             source: "test".to_string(),
             is_stale: false,
+            zero_pv01_signed: None,
+            z_pv01_signed: None,
+            measure_errors: Vec::new(),
             quality: 100,
         };
 

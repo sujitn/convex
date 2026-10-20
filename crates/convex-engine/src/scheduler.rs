@@ -12,7 +12,7 @@ use chrono::{Local, NaiveTime, Timelike};
 use dashmap::{DashMap, DashSet};
 use tokio::sync::broadcast;
 use tokio::time::{interval, Instant};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::calc_graph::{CalculationGraph, NodeId};
 
@@ -48,6 +48,8 @@ pub struct NodeUpdate {
     pub timestamp: i64,
     /// Update source
     pub source: UpdateSource,
+    /// Some only for an actual generation-checked completion, never a timer/input request.
+    pub completion: Option<crate::calc_graph::CalculationCompletion>,
 }
 
 /// Source of the update.
@@ -130,6 +132,7 @@ impl IntervalScheduler {
                             for node_id in nodes.iter() {
                                 // Check if node is dirty
                                 if calc_graph.is_dirty(node_id) {
+                                    if let Err(error) = calc_graph.request_calculation(node_id) { warn!("Interval work rejected: {error}"); continue; }
                                     debug!("Interval scheduler processing: {}", node_id);
 
                                     // Notify subscribers
@@ -137,6 +140,7 @@ impl IntervalScheduler {
                                         node_id: node_id.clone(),
                                         timestamp,
                                         source: UpdateSource::Interval,
+                                        completion: None,
                                     });
                                 }
                             }
@@ -263,13 +267,14 @@ impl EodScheduler {
                                 debug!("EOD scheduler processing: {}", node_id);
 
                                 // Mark as dirty to trigger recalculation
-                                calc_graph.invalidate(node_id);
+                                if let Err(error) = calc_graph.request_calculation(node_id) { warn!("Scheduled work rejected: {error}"); continue; }
 
                                 // Notify subscribers
                                 let _ = update_tx.send(NodeUpdate {
                                     node_id: node_id.clone(),
                                     timestamp,
                                     source: UpdateSource::EndOfDay,
+                                        completion: None,
                                 });
                             }
                         }
@@ -420,7 +425,6 @@ impl ThrottleManager {
                 let calc_graph = self.calc_graph.clone();
                 let update_tx = self.update_tx.clone();
                 let pending = self.pending.clone();
-                let last_calc_time = self.last_calc_time.clone();
 
                 if let Some(interval) = self.intervals.get(&node_id).map(|i| *i) {
                     let node_id_clone = node_id.clone();
@@ -431,14 +435,17 @@ impl ThrottleManager {
                             debug!("Throttle expired, triggering: {}", node_id_clone);
 
                             // Mark as dirty
-                            calc_graph.invalidate(&node_id_clone);
-                            last_calc_time.insert(node_id_clone.clone(), Instant::now());
+                            if let Err(error) = calc_graph.request_calculation(&node_id_clone) {
+                                warn!("Throttled work rejected: {error}");
+                                return;
+                            }
 
                             // Notify
                             let _ = update_tx.send(NodeUpdate {
                                 node_id: node_id_clone,
                                 timestamp: chrono::Utc::now().timestamp(),
                                 source: UpdateSource::Throttled,
+                                completion: None,
                             });
                         }
                     });
@@ -446,12 +453,16 @@ impl ThrottleManager {
             }
         } else {
             // Can calculate immediately
-            self.mark_calculated(&node_id);
+            if let Err(error) = self.calc_graph.request_calculation(&node_id) {
+                warn!("Throttled work rejected: {error}");
+                return;
+            }
 
             let _ = self.update_tx.send(NodeUpdate {
                 node_id,
                 timestamp: chrono::Utc::now().timestamp(),
                 source: UpdateSource::Throttled,
+                completion: None,
             });
         }
     }
@@ -590,13 +601,14 @@ impl CronScheduler {
                                             debug!("Cron scheduler processing: {}", node_id);
 
                                             // Mark as dirty to trigger recalculation
-                                            calc_graph.invalidate(node_id);
+                                            if let Err(error) = calc_graph.request_calculation(node_id) { warn!("Scheduled work rejected: {error}"); continue; }
 
                                             // Notify subscribers
                                             let _ = update_tx.send(NodeUpdate {
                                                 node_id: node_id.clone(),
                                                 timestamp,
                                                 source: UpdateSource::Interval, // Use Interval as closest match
+                                                completion: None,
                                             });
                                         }
                                     }

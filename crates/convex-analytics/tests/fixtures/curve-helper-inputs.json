@@ -1,0 +1,555 @@
+{
+  "fixture_id": "CVX-056-supplied-helper-terms-v1",
+  "reference_date": "2024-01-01",
+  "provenance": "Synthetic caller-supplied contracts; no admitted market pack or independent model certificate. Exact term roundtrip/validation only; complex product calibration is unsupported.",
+  "helpers": [
+    {
+      "id": "future",
+      "currency": "USD",
+      "terms": {
+        "RateFuture": {
+          "contract_id": "TEST.RATE.JUN24",
+          "contract_version": "contract-v1",
+          "accrual_start": "2024-04-01",
+          "accrual_end": "2024-07-01",
+          "last_trading_date": "2024-03-28",
+          "final_settlement_date": "2024-07-02",
+          "observation_calendar": {
+            "id": "WEEKEND",
+            "version": "supplied-v1"
+          },
+          "settlement_calendar": {
+            "id": "WEEKEND",
+            "version": "supplied-v1"
+          },
+          "day_count": "Act360",
+          "accrual": {
+            "Term": {
+              "index_id": "USD.TERM.3M",
+              "fixing_date": "2024-03-28"
+            }
+          },
+          "tick_size": "0.0025",
+          "price_multiplier": "1000",
+          "tick_value": "2.5000",
+          "convexity": {
+            "Supplied": {
+              "adjustment": {
+                "value": 0,
+                "unit": "BasisPoints"
+              },
+              "model_version": "supplied-zero-assumption-v1"
+            }
+          },
+          "fixing_requirements": [
+            {
+              "index_id": "USD.TERM.3M",
+              "observation_date": "2024-03-28",
+              "expected_publication": "2024-03-28T12:00:00Z"
+            }
+          ],
+          "fixing_context": {
+            "valuation_date": "2024-01-01",
+            "known_at": "2024-01-01T12:00:00Z",
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        }
+      },
+      "quote": {
+        "value": 94.5,
+        "unit": "FuturePrice100MinusRate"
+      },
+      "pillar": "LastRelevantDate",
+      "tolerance": 1e-10,
+      "weight": 2.0,
+      "residual_scale": 1.0
+    },
+    {
+      "id": "bond",
+      "currency": "USD",
+      "terms": {
+        "FixedCouponBond": {
+          "instrument_id": "TEST.STEPPED",
+          "instrument_version": "terms-v1",
+          "issue_date": "2024-01-01",
+          "settlement_date": "2024-02-01",
+          "coupon_schedule": {
+            "schedule": {
+              "start_date": "2024-01-20",
+              "end_date": "2025-01-15",
+              "frequency": "SemiAnnual",
+              "stub_type": "LongFirst",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "ModifiedFollowing",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": {
+                "offset": {
+                  "BusinessDays": -7
+                },
+                "anchor": "PaymentDate",
+                "boundary": "OnDate"
+              }
+            },
+            "day_count": "ActActIcma",
+            "calendar": {
+              "id": "WEEKEND",
+              "version": "supplied-v1"
+            }
+          },
+          "coupons": [
+            {
+              "start": "2024-01-20",
+              "end": "2024-08-15",
+              "value": "0.04"
+            },
+            {
+              "start": "2024-08-15",
+              "end": "2025-01-15",
+              "value": "0.06"
+            }
+          ],
+          "notionals": [
+            {
+              "start": "2024-01-20",
+              "end": "2024-10-15",
+              "value": "100"
+            },
+            {
+              "start": "2024-10-15",
+              "end": "2025-01-15",
+              "value": "60"
+            }
+          ],
+          "quoted_face": "100",
+          "redemption_fraction": "1.025",
+          "coupon_principal": "AccrualProfile",
+          "cash_rounding": {
+            "NearestEven": 2
+          },
+          "negative_coupons": "Allow",
+          "ex_coupon_accrual": "SubtractCoupon",
+          "on_payment_date": "Exclude",
+          "quote_convention": "CleanPrice"
+        }
+      },
+      "quote": {
+        "value": 98.375,
+        "unit": "PricePer100"
+      },
+      "pillar": "LastRelevantDate",
+      "tolerance": 1e-10,
+      "weight": 2.0,
+      "residual_scale": 1.0
+    },
+    {
+      "id": "cds",
+      "currency": "USD",
+      "terms": {
+        "Cds": {
+          "reference_entity": {
+            "id": "TEST.ENTITY",
+            "version": "entity-v1"
+          },
+          "seniority": "senior-unsecured",
+          "documentation": {
+            "id": "SUPPLIED.CDS.CONTRACT",
+            "version": "2024-v1"
+          },
+          "trade_date": "2024-01-01",
+          "step_in_date": "2024-01-02",
+          "cash_settlement_date": "2024-01-04",
+          "protection_start": "2023-12-20",
+          "protection_end": "2029-12-20",
+          "protection_end_inclusive": true,
+          "premium_schedule": {
+            "schedule": {
+              "start_date": "2023-12-20",
+              "end_date": "2029-12-20",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "ModifiedFollowing",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "day_count": "Act360",
+            "calendar": {
+              "id": "WEEKEND",
+              "version": "supplied-v1"
+            }
+          },
+          "notionals": [
+            {
+              "start": "2023-12-20",
+              "end": "2026-12-20",
+              "value": "1000000"
+            },
+            {
+              "start": "2026-12-20",
+              "end": "2029-12-20",
+              "value": "750000"
+            }
+          ],
+          "running_coupon": {
+            "value": 100,
+            "unit": "BasisPoints"
+          },
+          "recovery": 0.4,
+          "settles_accrual_on_default": true,
+          "protection_payment": {
+            "AtDefault": {
+              "calendar_days": 2
+            }
+          },
+          "quote_convention": "CleanUpfront",
+          "discount_curve": {
+            "id": "USD.discount",
+            "version": "supplied-v1"
+          }
+        }
+      },
+      "quote": {
+        "value": 0.025,
+        "unit": "UpfrontFraction"
+      },
+      "pillar": "LastRelevantDate",
+      "tolerance": 1e-10,
+      "weight": 2.0,
+      "residual_scale": 1.0
+    },
+    {
+      "id": "swap",
+      "currency": "USD",
+      "terms": {
+        "Swap": {
+          "fixed": {
+            "schedule": {
+              "schedule": {
+                "start_date": "2024-04-01",
+                "end_date": "2024-10-01",
+                "frequency": "SemiAnnual",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "dates": {
+                "accrual_adjustment": "Unadjusted",
+                "payment_adjustment": "ModifiedFollowing",
+                "payment_delay": {
+                  "BusinessDays": 2
+                },
+                "fixing_offset": null,
+                "observation_offset": null,
+                "ex_coupon": null
+              },
+              "day_count": "Thirty360US",
+              "calendar": {
+                "id": "WEEKEND",
+                "version": "supplied-v1"
+              }
+            },
+            "coupons": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "0.04"
+              }
+            ],
+            "notionals": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "1000000"
+              }
+            ]
+          },
+          "floating": {
+            "schedule": {
+              "schedule": {
+                "start_date": "2024-04-01",
+                "end_date": "2024-10-01",
+                "frequency": "Quarterly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "dates": {
+                "accrual_adjustment": "Unadjusted",
+                "payment_adjustment": "ModifiedFollowing",
+                "payment_delay": {
+                  "BusinessDays": 2
+                },
+                "fixing_offset": {
+                  "BusinessDays": -2
+                },
+                "observation_offset": null,
+                "ex_coupon": null
+              },
+              "day_count": "Act360",
+              "calendar": {
+                "id": "WEEKEND",
+                "version": "supplied-v1"
+              }
+            },
+            "index": {
+              "Term": {
+                "index_id": "USD.TERM.3M",
+                "tenor_months": 3
+              }
+            },
+            "notionals": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "1000000"
+              }
+            ],
+            "spreads": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "1"
+              }
+            ],
+            "projection_curve": {
+              "id": "USD.projection3m",
+              "version": "supplied-v1"
+            },
+            "fixing_requirements": [
+              {
+                "index_id": "USD.TERM.3M",
+                "observation_date": "2024-03-28",
+                "expected_publication": "2024-03-28T12:00:00Z"
+              },
+              {
+                "index_id": "USD.TERM.3M",
+                "observation_date": "2024-06-27",
+                "expected_publication": "2024-06-27T12:00:00Z"
+              }
+            ],
+            "fixing_context": {
+              "valuation_date": "2024-01-01",
+              "known_at": "2024-01-01T12:00:00Z",
+              "unpublished": "Forecast",
+              "final_only": true
+            }
+          },
+          "discount_curve": {
+            "id": "USD.discount",
+            "version": "supplied-v1"
+          }
+        }
+      },
+      "quote": {
+        "value": 4.0,
+        "unit": "PercentRate"
+      },
+      "pillar": "LastRelevantDate",
+      "tolerance": 1e-10,
+      "weight": 2.0,
+      "residual_scale": 1.0
+    },
+    {
+      "id": "basis",
+      "currency": "USD",
+      "terms": {
+        "BasisSwap": {
+          "pay": {
+            "schedule": {
+              "schedule": {
+                "start_date": "2024-04-01",
+                "end_date": "2024-10-01",
+                "frequency": "Quarterly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "dates": {
+                "accrual_adjustment": "Unadjusted",
+                "payment_adjustment": "ModifiedFollowing",
+                "payment_delay": {
+                  "BusinessDays": 2
+                },
+                "fixing_offset": {
+                  "BusinessDays": -2
+                },
+                "observation_offset": null,
+                "ex_coupon": null
+              },
+              "day_count": "Act360",
+              "calendar": {
+                "id": "WEEKEND",
+                "version": "supplied-v1"
+              }
+            },
+            "index": {
+              "Term": {
+                "index_id": "USD.TERM.3M",
+                "tenor_months": 3
+              }
+            },
+            "notionals": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "1000000"
+              }
+            ],
+            "spreads": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "1"
+              }
+            ],
+            "projection_curve": {
+              "id": "USD.projection3m",
+              "version": "supplied-v1"
+            },
+            "fixing_requirements": [
+              {
+                "index_id": "USD.TERM.3M",
+                "observation_date": "2024-03-28",
+                "expected_publication": "2024-03-28T12:00:00Z"
+              },
+              {
+                "index_id": "USD.TERM.3M",
+                "observation_date": "2024-06-27",
+                "expected_publication": "2024-06-27T12:00:00Z"
+              }
+            ],
+            "fixing_context": {
+              "valuation_date": "2024-01-01",
+              "known_at": "2024-01-01T12:00:00Z",
+              "unpublished": "Forecast",
+              "final_only": true
+            }
+          },
+          "receive": {
+            "schedule": {
+              "schedule": {
+                "start_date": "2024-04-01",
+                "end_date": "2024-10-01",
+                "frequency": "SemiAnnual",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "dates": {
+                "accrual_adjustment": "Unadjusted",
+                "payment_adjustment": "ModifiedFollowing",
+                "payment_delay": {
+                  "BusinessDays": 2
+                },
+                "fixing_offset": {
+                  "BusinessDays": -2
+                },
+                "observation_offset": null,
+                "ex_coupon": null
+              },
+              "day_count": "Act360",
+              "calendar": {
+                "id": "WEEKEND",
+                "version": "supplied-v1"
+              }
+            },
+            "index": {
+              "Term": {
+                "index_id": "USD.TERM.6M",
+                "tenor_months": 6
+              }
+            },
+            "notionals": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "1000000"
+              }
+            ],
+            "spreads": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-01",
+                "end": "2024-10-01",
+                "value": "1"
+              }
+            ],
+            "projection_curve": {
+              "id": "USD.projection6m",
+              "version": "supplied-v1"
+            },
+            "fixing_requirements": [
+              {
+                "index_id": "USD.TERM.6M",
+                "observation_date": "2024-03-28",
+                "expected_publication": "2024-03-28T12:00:00Z"
+              }
+            ],
+            "fixing_context": {
+              "valuation_date": "2024-01-01",
+              "known_at": "2024-01-01T12:00:00Z",
+              "unpublished": "Forecast",
+              "final_only": true
+            }
+          },
+          "quoted_leg": "Receive",
+          "discount_curve": {
+            "id": "USD.discount",
+            "version": "supplied-v1"
+          }
+        }
+      },
+      "quote": {
+        "value": 10.0,
+        "unit": "BasisPoints"
+      },
+      "pillar": "LastRelevantDate",
+      "tolerance": 1e-10,
+      "weight": 2.0,
+      "residual_scale": 1.0
+    }
+  ]
+}

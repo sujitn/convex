@@ -229,7 +229,7 @@ impl Default for EngineConfig {
             default_etf_config: NodeConfig::etf_inav(),
             metrics_enabled: true,
             metrics_prefix: "convex".to_string(),
-            max_concurrent_calcs: 1000,
+            max_concurrent_calcs: 4,
         }
     }
 }

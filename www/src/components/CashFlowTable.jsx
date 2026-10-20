@@ -1,71 +1,20 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 
-function CashFlowTable({ cashFlows, analysis }) {
-  // Calculate present values for each cash flow
-  const enrichedFlows = useMemo(() => {
-    if (!cashFlows || cashFlows.length === 0) return [];
-
-    const ytm = analysis?.ytm ? analysis.ytm / 100 : 0.05;
-    const frequency = 2; // Assume semi-annual
-
-    let cumulativePV = 0;
-
-    return cashFlows.map((cf, index) => {
-      // Simple PV calculation: PV = CF / (1 + y/n)^(n*t)
-      const period = index + 1;
-      const discountFactor = Math.pow(1 + ytm / frequency, period);
-      const pv = cf.amount / discountFactor;
-      cumulativePV += pv;
-
-      // Separate coupon and principal
-      let coupon = 0;
-      let principal = 0;
-
-      if (cf.cf_type === 'coupon') {
-        coupon = cf.amount;
-      } else if (cf.cf_type === 'principal') {
-        principal = cf.amount;
-      } else if (cf.cf_type === 'coupon_and_principal') {
-        // Last cash flow includes both
-        principal = 100;
-        coupon = cf.amount - 100;
-      }
-
-      return {
-        ...cf,
-        coupon,
-        principal,
-        pv,
-        cumulativePV,
-      };
-    });
-  }, [cashFlows, analysis]);
-
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-    });
-  };
-
-  const formatNumber = (value, decimals = 2) => {
-    return Number(value).toFixed(decimals);
-  };
-
-  const totalCoupon = enrichedFlows.reduce((sum, cf) => sum + cf.coupon, 0);
-  const totalPrincipal = enrichedFlows.reduce((sum, cf) => sum + cf.principal, 0);
-  const totalAmount = enrichedFlows.reduce((sum, cf) => sum + cf.amount, 0);
-  const totalPV = enrichedFlows.reduce((sum, cf) => sum + cf.pv, 0);
+function CashFlowTable({ cashFlows }) {
+  const flows = Array.isArray(cashFlows) ? cashFlows : [];
+  const formatNumber = (value, decimals = 2) =>
+    value == null || !Number.isFinite(value) ? '--' : value.toFixed(decimals);
+  const formatDate = (value) => new Date(`${value}T00:00:00Z`).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: '2-digit', timeZone: 'UTC',
+  });
+  const total = (field) => flows.reduce((sum, flow) => sum + flow[field], 0);
 
   return (
     <div className="cashflow-panel">
       <div className="panel-header">
-        <h3>Cash Flows</h3>
-        <span className="flow-count">{enrichedFlows.length} payments</span>
+        <h3>Projected Cash Flows</h3>
+        <span className="flow-count">{flows.length} payments</span>
       </div>
-
       <div className="cashflow-table-container">
         <table className="cashflow-table">
           <thead>
@@ -73,43 +22,33 @@ function CashFlowTable({ cashFlows, analysis }) {
               <th>Date</th>
               <th className="number">Coupon</th>
               <th className="number">Principal</th>
+              <th className="number">Fee</th>
               <th className="number">Total</th>
-              <th className="number">PV</th>
-              <th className="number">Cumul PV</th>
             </tr>
           </thead>
           <tbody>
-            {enrichedFlows.map((cf, index) => (
-              <tr key={index} className={cf.principal > 0 ? 'principal-row' : ''}>
-                <td className="date-cell">{formatDate(cf.date)}</td>
-                <td className="number">{cf.coupon > 0 ? formatNumber(cf.coupon) : '-'}</td>
-                <td className="number principal">
-                  {cf.principal > 0 ? formatNumber(cf.principal) : '-'}
-                </td>
-                <td className="number">{formatNumber(cf.amount)}</td>
-                <td className="number pv">{formatNumber(cf.pv, 4)}</td>
-                <td className="number cumulative">{formatNumber(cf.cumulativePV, 4)}</td>
+            {flows.map((flow, index) => (
+              <tr key={`${flow.date}-${index}`} className={flow.principal_amount > 0 ? 'principal-row' : ''}>
+                <td className="date-cell">{formatDate(flow.date)}</td>
+                <td className="number">{formatNumber(flow.coupon_amount)}</td>
+                <td className="number principal">{formatNumber(flow.principal_amount)}</td>
+                <td className="number">{formatNumber(flow.fee_amount)}</td>
+                <td className="number">{formatNumber(flow.amount)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="totals-row">
               <td>Total</td>
-              <td className="number">{formatNumber(totalCoupon)}</td>
-              <td className="number">{formatNumber(totalPrincipal)}</td>
-              <td className="number">{formatNumber(totalAmount)}</td>
-              <td className="number">{formatNumber(totalPV, 4)}</td>
-              <td className="number">-</td>
+              <td className="number">{formatNumber(total('coupon_amount'))}</td>
+              <td className="number">{formatNumber(total('principal_amount'))}</td>
+              <td className="number">{formatNumber(total('fee_amount'))}</td>
+              <td className="number">{formatNumber(total('amount'))}</td>
             </tr>
           </tfoot>
         </table>
       </div>
-
-      {enrichedFlows.length === 0 && (
-        <div className="no-data">
-          No cash flows available. Click Calculate to generate.
-        </div>
-      )}
+      {flows.length === 0 && <div className="no-data">No projected cash flows available.</div>}
     </div>
   );
 }

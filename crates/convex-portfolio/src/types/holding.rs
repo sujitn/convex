@@ -240,75 +240,151 @@ impl Holding {
         HoldingBuilder::new()
     }
 
-    /// Returns the market value in the bond's local currency.
-    #[must_use]
-    pub fn market_value_local(&self) -> Decimal {
-        self.par_amount * self.market_price / Decimal::ONE_HUNDRED
+    pub(crate) fn exact_clean_price(
+        &self,
+    ) -> crate::PortfolioResult<convex_math::decimal::BoundedDecimal> {
+        if self.market_price < Decimal::ZERO {
+            return Err(crate::PortfolioError::invalid_holding(
+                &self.id,
+                "clean price cannot be negative",
+            ));
+        }
+        Ok(convex_math::decimal::BoundedDecimal::decimal(
+            self.market_price,
+        ))
     }
-
-    /// Returns the market value in the portfolio's base currency.
-    #[must_use]
-    pub fn market_value(&self) -> Decimal {
-        self.market_value_local() * self.fx_rate
+    pub(crate) fn exact_dirty_price(
+        &self,
+    ) -> crate::PortfolioResult<convex_math::decimal::BoundedDecimal> {
+        let mut price = self.exact_clean_price()?;
+        price.add(&convex_math::decimal::BoundedDecimal::decimal(
+            self.accrued_interest,
+        ))?;
+        if price.is_negative() {
+            return Err(crate::PortfolioError::invalid_holding(
+                &self.id,
+                "dirty price cannot be negative",
+            ));
+        }
+        Ok(price)
     }
-
-    /// Returns the accrued interest amount in local currency.
-    #[must_use]
-    pub fn accrued_amount_local(&self) -> Decimal {
-        self.par_amount * self.accrued_interest / Decimal::ONE_HUNDRED
+    pub(crate) fn require_positive_fx(&self) -> crate::PortfolioResult<()> {
+        if self.fx_rate <= Decimal::ZERO {
+            return Err(crate::PortfolioError::invalid_holding(
+                &self.id,
+                "positive supplied reporting FX required",
+            ));
+        }
+        Ok(())
     }
-
-    /// Returns the accrued interest amount in base currency.
-    #[must_use]
-    pub fn accrued_amount(&self) -> Decimal {
-        self.accrued_amount_local() * self.fx_rate
-    }
-
-    /// Returns the total value (market value + accrued) in local currency.
-    #[must_use]
-    pub fn total_value_local(&self) -> Decimal {
-        self.market_value_local() + self.accrued_amount_local()
-    }
-
-    /// Returns the total value (market value + accrued) in base currency.
-    #[must_use]
-    pub fn total_value(&self) -> Decimal {
-        self.total_value_local() * self.fx_rate
-    }
-
-    /// Returns the dirty price (clean price + accrued).
-    #[must_use]
-    pub fn dirty_price(&self) -> Decimal {
-        self.market_price + self.accrued_interest
-    }
-
-    /// Returns true if this holding is in the portfolio's base currency.
-    #[must_use]
-    pub fn is_base_currency(&self) -> bool {
-        self.fx_rate == Decimal::ONE
-    }
-
-    /// Returns the weight of this holding for the given weighting method.
-    ///
-    /// For MarketValue, returns the market value.
-    /// For ParValue, returns the par amount.
-    /// For EqualWeight, returns 1.0.
-    #[must_use]
-    pub fn weight_value(&self, method: WeightingMethod) -> Decimal {
-        match method {
-            WeightingMethod::MarketValue => self.market_value(),
-            WeightingMethod::ParValue => self.par_amount * self.fx_rate,
-            WeightingMethod::EqualWeight => Decimal::ONE,
+    pub(crate) fn exact_amount(
+        &self,
+        price: convex_math::decimal::BoundedDecimal,
+        reporting: bool,
+    ) -> crate::PortfolioResult<convex_math::decimal::BoundedDecimal> {
+        let value = price.multiply(self.par_amount)?.divide_power_of_ten(2)?;
+        if reporting {
+            self.require_positive_fx()?;
+            value.multiply(self.fx_rate).map_err(Into::into)
+        } else {
+            Ok(value)
         }
     }
+    /// Checked clean local currency value; rounds only the final Decimal output.
+    pub fn market_value_local(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_amount(self.exact_clean_price()?, false)?
+            .finish()
+            .map_err(Into::into)
+    }
+    /// Checked clean value using the supplied positive reporting FX.
+    pub fn market_value(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_amount(self.exact_clean_price()?, true)?
+            .finish()
+            .map_err(Into::into)
+    }
+    /// Checked local accrued amount, including signed ex-coupon accrued.
+    pub fn accrued_amount_local(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_amount(
+            convex_math::decimal::BoundedDecimal::decimal(self.accrued_interest),
+            false,
+        )?
+        .finish()
+        .map_err(Into::into)
+    }
+    /// Checked reporting accrued amount using the supplied positive FX.
+    pub fn accrued_amount(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_amount(
+            convex_math::decimal::BoundedDecimal::decimal(self.accrued_interest),
+            true,
+        )?
+        .finish()
+        .map_err(Into::into)
+    }
+    /// Checked dirty local value with no premature price or component rounding.
+    pub fn total_value_local(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_amount(self.exact_dirty_price()?, false)?
+            .finish()
+            .map_err(Into::into)
+    }
+    /// Checked dirty reporting value using the supplied positive FX.
+    pub fn total_value(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_amount(self.exact_dirty_price()?, true)?
+            .finish()
+            .map_err(Into::into)
+    }
+    /// Checked clean plus accrued price; rejects an unrepresentable final price.
+    pub fn dirty_price(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_dirty_price()?.finish().map_err(Into::into)
+    }
 
-    /// Returns the total DV01 for this holding (DV01 per par × par amount).
+    /// Compare the actual original currency with an explicit reporting currency.
     #[must_use]
-    pub fn total_dv01(&self) -> Option<Decimal> {
-        self.analytics.dv01.map(|dv01_per_par| {
-            let dv01 = Decimal::from_f64_retain(dv01_per_par).unwrap_or(Decimal::ZERO);
-            dv01 * self.par_amount / Decimal::ONE_HUNDRED * self.fx_rate
-        })
+    pub fn is_base_currency(&self, reporting_currency: Currency) -> bool {
+        self.currency == reporting_currency
+    }
+
+    pub(crate) fn exact_weight(
+        &self,
+        method: WeightingMethod,
+    ) -> crate::PortfolioResult<convex_math::decimal::BoundedDecimal> {
+        use convex_math::decimal::BoundedDecimal;
+        match method {
+            WeightingMethod::MarketValue => self.exact_amount(self.exact_clean_price()?, true),
+            WeightingMethod::ParValue => {
+                self.require_positive_fx()?;
+                BoundedDecimal::decimal(self.par_amount)
+                    .multiply(self.fx_rate)
+                    .map_err(Into::into)
+            }
+            WeightingMethod::EqualWeight => Ok(BoundedDecimal::decimal(Decimal::ONE)),
+        }
+    }
+    /// Checked supplied presentation weight, distinct from monetary factor risk.
+    pub fn weight_value(&self, method: WeightingMethod) -> crate::PortfolioResult<Decimal> {
+        self.exact_weight(method)?.finish().map_err(Into::into)
+    }
+    /// Checked supplied DV01 per100 par times signed par and reporting FX.
+    /// Missing DV01 stays absent; nonfinite/erased/unrepresentable values fail.
+    pub fn total_dv01(&self) -> crate::PortfolioResult<Option<Decimal>> {
+        let Some(value) = self.analytics.dv01 else {
+            return Ok(None);
+        };
+        let exact = Decimal::from_f64_retain(value)
+            .filter(|v| value == 0.0 || !v.is_zero())
+            .ok_or_else(|| {
+                crate::PortfolioError::invalid_holding(
+                    &self.id,
+                    "finite representable non-erased supplied DV01 required",
+                )
+            })?;
+        self.require_positive_fx()?;
+        convex_math::decimal::BoundedDecimal::decimal(exact)
+            .multiply(self.par_amount)?
+            .multiply(self.fx_rate)?
+            .divide_power_of_ten(2)?
+            .finish()
+            .map_err(Into::into)
+            .map(Some)
     }
 }
 
@@ -424,10 +500,10 @@ impl HoldingBuilder {
             .ok_or_else(|| crate::PortfolioError::missing_field("market_price"))?;
 
         // Validate par amount
-        if par_amount <= Decimal::ZERO {
+        if par_amount.is_zero() {
             return Err(crate::PortfolioError::invalid_holding(
                 &id,
-                "par_amount must be positive",
+                "signed par_amount must be nonzero",
             ));
         }
 
@@ -492,8 +568,8 @@ mod tests {
         let holding = create_test_holding();
 
         // MV = 1,000,000 × 98.50 / 100 = 985,000
-        assert_eq!(holding.market_value_local(), dec!(985_000));
-        assert_eq!(holding.market_value(), dec!(985_000)); // No FX conversion
+        assert_eq!(holding.market_value_local().unwrap(), dec!(985_000));
+        assert_eq!(holding.market_value().unwrap(), dec!(985_000)); // No FX conversion
     }
 
     #[test]
@@ -501,7 +577,7 @@ mod tests {
         let holding = create_test_holding();
 
         // Accrued = 1,000,000 × 1.25 / 100 = 12,500
-        assert_eq!(holding.accrued_amount_local(), dec!(12_500));
+        assert_eq!(holding.accrued_amount_local().unwrap(), dec!(12_500));
     }
 
     #[test]
@@ -509,7 +585,7 @@ mod tests {
         let holding = create_test_holding();
 
         // Total = 985,000 + 12,500 = 997,500
-        assert_eq!(holding.total_value_local(), dec!(997_500));
+        assert_eq!(holding.total_value_local().unwrap(), dec!(997_500));
     }
 
     #[test]
@@ -517,7 +593,7 @@ mod tests {
         let holding = create_test_holding();
 
         // Dirty = 98.50 + 1.25 = 99.75
-        assert_eq!(holding.dirty_price(), dec!(99.75));
+        assert_eq!(holding.dirty_price().unwrap(), dec!(99.75));
     }
 
     #[test]
@@ -533,12 +609,12 @@ mod tests {
             .unwrap();
 
         // Local MV = 1,000,000
-        assert_eq!(holding.market_value_local(), dec!(1_000_000));
+        assert_eq!(holding.market_value_local().unwrap(), dec!(1_000_000));
 
         // Base MV = 1,000,000 × 1.10 = 1,100,000
-        assert_eq!(holding.market_value(), dec!(1_100_000));
+        assert_eq!(holding.market_value().unwrap(), dec!(1_100_000));
 
-        assert!(!holding.is_base_currency());
+        assert!(!holding.is_base_currency(Currency::USD));
     }
 
     #[test]
@@ -547,19 +623,19 @@ mod tests {
 
         // Market value weight
         assert_eq!(
-            holding.weight_value(WeightingMethod::MarketValue),
+            holding.weight_value(WeightingMethod::MarketValue).unwrap(),
             dec!(985_000)
         );
 
         // Par value weight
         assert_eq!(
-            holding.weight_value(WeightingMethod::ParValue),
+            holding.weight_value(WeightingMethod::ParValue).unwrap(),
             dec!(1_000_000)
         );
 
         // Equal weight
         assert_eq!(
-            holding.weight_value(WeightingMethod::EqualWeight),
+            holding.weight_value(WeightingMethod::EqualWeight).unwrap(),
             Decimal::ONE
         );
     }
@@ -569,7 +645,7 @@ mod tests {
         let holding = create_test_holding();
 
         // DV01 = 0.05 per 100 par × 1,000,000 / 100 = 500
-        let dv01 = holding.total_dv01().unwrap();
+        let dv01 = holding.total_dv01().unwrap().unwrap();
         assert!((dv01 - dec!(500)).abs() < dec!(0.01));
     }
 
@@ -583,14 +659,14 @@ mod tests {
             .build();
         assert!(result.is_err());
 
-        // Negative par
+        // Signed par admits a short position.
         let result = Holding::builder()
             .id("TEST")
             .identifiers(create_test_identifiers())
             .par_amount(dec!(-1_000_000))
             .market_price(dec!(100))
             .build();
-        assert!(result.is_err());
+        assert_eq!(result.unwrap().par_amount, dec!(-1_000_000));
 
         // Zero FX rate
         let result = Holding::builder()

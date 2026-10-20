@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "contract_version": "CVX-054-supplied-contracts-v1",
+  "scope": "Synthetic caller-supplied contracts and analytic invariants; no market convention pack or independent product certificate.",
+  "units": "Dates exact ISO; rates annualized decimals; cash absolute principal units; year fractions Decimal; cash rounding explicit.",
+  "references": [
+    {"id": "DMO-1998-2007", "url": "https://www.dmo.gov.uk/media/cp1linix/convention_changes.pdf", "version": "1998 convention change paper, January 2007 unrounded-accrual note", "reviewed_on": "2026-10-05", "applies_to": "Regular/long first coupon reference-period split and rebate accrued; use current record-date boundary below."},
+    {"id": "DMO-record-boundary", "url": "https://www.dmo.gov.uk/help/glossary/", "version": "Page inspected 2026-10-05", "applies_to": "Ex-dividend period begins after the record date; explicit AfterDate entitlement fixture."},
+    {"id": "ARRC-FRN-2019", "url": "https://www.newyorkfed.org/medialibrary/Microsites/arrc/files/2019/ARRC_SOFR_FRN_Conventions_Matrix.pdf", "version": "August 2019 FRN matrix", "reviewed_on": "2026-10-05", "applies_to": "Lookback and observation-shift weights are separate contractual choices; no universal convention inferred."},
+    {"id": "NYFED-methodology", "url": "https://www.newyorkfed.org/markets/reference-rates/additional-information-about-reference-rates", "version": "Page inspected 2026-10-05; April 2018 index example", "applies_to": "Business-day compounding, holiday/weekend weights and distinct publication/revision instants."},
+    {"id": "ISDA-30E", "url": "https://www.isda.org/2008/12/22/30-360-day-count-conventions/", "version": "2006 definitions examples published 2008-12-22", "reviewed_on": "2026-10-05", "applies_to": "Checked 30E/360 ISDA February-only termination exception, with analytic date cases."},
+    {"id": "QL-30E-inspection", "url": "https://github.com/lballabio/QuantLib/blob/master/ql/time/daycounters/thirty360.hpp", "version": "Source inspected 2026-10-05; no comparator execution or pinned binary", "applies_to": "Corroborates ISDA 31st versus February termination rules; not an independent execution certificate."}
+  ],
+  "date_cases": [
+    {"id":"short-front", "spec":{"start_date":"2024-03-15","end_date":"2025-06-15","frequency":"SemiAnnual","stub_type":"ShortFirst","end_of_month":true,"first_regular_date":null,"penultimate_date":null},"expected_dates":["2024-03-15","2024-06-15","2024-12-15","2025-06-15"]},
+    {"id":"long-front", "spec":{"start_date":"2024-03-15","end_date":"2025-06-15","frequency":"SemiAnnual","stub_type":"LongFirst","end_of_month":true,"first_regular_date":null,"penultimate_date":null},"expected_dates":["2024-03-15","2024-12-15","2025-06-15"]},
+    {"id":"short-back", "spec":{"start_date":"2024-01-31","end_date":"2025-03-15","frequency":"SemiAnnual","stub_type":"ShortLast","end_of_month":true,"first_regular_date":null,"penultimate_date":null},"expected_dates":["2024-01-31","2024-07-31","2025-01-31","2025-03-15"]},
+    {"id":"long-back", "spec":{"start_date":"2024-01-31","end_date":"2025-03-15","frequency":"SemiAnnual","stub_type":"LongLast","end_of_month":true,"first_regular_date":null,"penultimate_date":null},"expected_dates":["2024-01-31","2024-07-31","2025-03-15"]},
+    {"id":"explicit-both", "spec":{"start_date":"2023-12-01","end_date":"2025-07-15","frequency":"SemiAnnual","stub_type":"None","end_of_month":true,"first_regular_date":"2024-03-31","penultimate_date":"2025-03-31"},"expected_dates":["2023-12-01","2024-03-31","2024-09-30","2025-03-31","2025-07-15"]},
+    {"id":"leap-eom", "spec":{"start_date":"2024-01-31","end_date":"2024-05-31","frequency":"Monthly","stub_type":"None","end_of_month":true,"first_regular_date":null,"penultimate_date":null},"expected_dates":["2024-01-31","2024-02-29","2024-03-31","2024-04-30","2024-05-31"]},
+    {"id":"clamped-month-no-drift", "spec":{"start_date":"2024-01-30","end_date":"2024-05-30","frequency":"Monthly","stub_type":"None","end_of_month":false,"first_regular_date":null,"penultimate_date":null},"expected_dates":["2024-01-30","2024-02-29","2024-03-30","2024-04-30","2024-05-30"]}
+  ],
+  "numeric_policy": {"exact":"Schedules, input identities, profile boundaries, entitlement, principal and rounded cash.","analytic_decimal_absolute":"1e-24","analytic_decimal_relative":"0","justification":"Decimal division/product rounding at scale 28; no floating model error or tolerance refresh.","fed_index_check":"Match published eight-decimal index after explicit NearestEven(8); input rates/days from the methodology table."},
+  "fed_index_example": {"start":"2018-04-02","end":"2018-04-09","rates":["0.0180","0.0183","0.0174","0.0175","0.0175"],"weights_days":[1,1,1,1,3],"expected_rounded_factor":"1.00034365"}
+}

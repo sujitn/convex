@@ -7,7 +7,9 @@
 
 **[Live Demo](https://convex-demo.pages.dev/)** | **[WASM Demo](https://sujitn.github.io/convex/)** - Try the interactive bond analytics calculator
 
-Convex is a production-grade fixed income analytics library providing comprehensive bond pricing, yield curve construction, and risk analytics with industry-standard methodologies.
+Convex is a fixed income analytics library providing bond pricing, yield curve
+construction and risk analytics. Full mandatory library and production
+certification remain open; see [current API capabilities and gaps](docs/LIBRARY-API.md).
 
 ## Features
 
@@ -39,6 +41,11 @@ convex-analytics = "0.13"
 
 The full set of published crates: `convex-core`, `convex-math`,
 `convex-curves`, `convex-bonds`, `convex-analytics`.
+The new workspace `convex-rates` crate provides [supplied IRS/OIS contracts](docs/RATES-CONTRACTS.md) and [native multi-curve valuation](docs/SWAP-VALUATION.md); analytics composes full-contract curve fitting. Ten supplied cases have executed QuantLib 1.40 comparison evidence at the declared bounds. These workspace additions are not yet a published release or an independent market/model certificate.
+
+The workspace `convex-credit` crate provides [single-name CDS valuation and running/upfront conversion](docs/CDS-VALUATION.md), exposed as `convex::credit`, with all 7,164 original USD SOFR ISDA RFR grid cases checked offline. [Credit calibration and risk inputs](docs/CREDIT-CALIBRATION.md) compose full quotes, signed rate/CS01/recovery sensitivities, immediate default scenarios and checked bond/CDS mappings. Lifecycle and host certificates remain owning work.
+
+This application is based on the ISDA CDS Standard Model (version 1.8.3), developed and supported in collaboration with Markit Group Ltd. The separate [ISDA public license](licenses/ISDA-CDS-Standard-Model-Public-License-1.0.txt) applies to that standard-model route.
 
 > **Note:** the `convex` umbrella crate is *not* on crates.io — that name
 > belongs to an unrelated project ([convex.dev](https://convex.dev)). The
@@ -76,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settlement = Date::from_ymd(2025, 5, 15)?;
     let ytm = yield_to_maturity(&bond, settlement, dec!(98.50), Frequency::SemiAnnual)?;
 
-    println!("Yield to Maturity: {:.4}%", ytm.yield_percent());
+    println!("Yield to Maturity: {:.4}%", ytm.yield_percent()?);
 
     Ok(())
 }
@@ -192,6 +199,7 @@ convex/
 ├── convex-math        # Solvers and interpolators (Brent, Newton, LM)            [published]
 ├── convex-curves      # Yield/credit curves, bootstrapping, multi-curve          [published]
 ├── convex-bonds       # Bond instruments (fixed, FRN, callable, zero, sinker)    [published]
+├── convex-rates       # Supplied IRS/OIS terms, expected cash and valuation    [new workspace crate]
 ├── convex-analytics   # Unified analytics: pricing, yields, spreads, risk        [published]
 ├── convex             # Single-import facade re-exporting the public API          (internal)
 ├── convex-portfolio   # Portfolio and ETF analytics                               (internal)
@@ -357,8 +365,11 @@ System.out.printf("Clean Price: %.4f%n", price.clean());
 git clone https://github.com/sujitn/convex.git
 cd convex
 
-# Build all crates
-cargo build --release
+# Unpack the compressed inputs needed by the full regression suite
+python3 tools/fixtures.py materialize
+
+# Build all crates, including the host ABI with panic containment
+cargo build --locked --profile excel
 
 # Run tests
 cargo test --all
@@ -374,8 +385,9 @@ cargo doc --open
 
 ### Prerequisites
 
-- Rust 1.75 or later
+- Rust 1.95 or later; validation uses the pinned toolchain in `rust-toolchain.toml`
 - Cargo
+- Python 3 to unpack the full regression suite's inputs; see [test data](docs/TEST-DATA.md)
 
 ### Running Tests
 
@@ -468,6 +480,12 @@ cargo bench
 ## Documentation
 
 - API Documentation — generate locally with `cargo doc --no-deps --workspace --open`
+- [Dated futures and cash hedge reference inputs](docs/FUTURES-REFERENCE.md)
+- [Supplied futures and cash hedge valuation and risk](docs/FUTURES-VALUATION.md)
+- [Complete supplied mixed rate calibration and tenor basis](docs/RATE-CALIBRATION.md)
+- [Supplied government, issuer basis and repo cash curves](docs/CASH-CURVES.md)
+- [Signed quote risk, full rebuilding and portfolio coverage](docs/QUOTE-RISK.md)
+- [Standalone valuation, inverse and mixed-book workflows](docs/STANDALONE-WORKFLOWS.md)
 - [Live Demo](https://convex-demo.pages.dev/)
 - [WASM Demo](https://sujitn.github.io/convex/)
 
@@ -501,3 +519,8 @@ If you use Convex in academic work, please cite:
 ---
 
 Built with ❤️ in Rust 🦀
+
+Pure supplied lifecycle is available through `convex::lifecycle`; see [events, cash and pending settlement](docs/LIFECYCLE.md).
+
+Full supplied terms and resources can also use `convex::library` and the shared
+`convex_library` JSON/C ABI route. See [API, clients and explicit remaining gaps](docs/LIBRARY-API.md).

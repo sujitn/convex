@@ -8,7 +8,7 @@ use std::sync::Arc;
 use convex_core::types::Date;
 use convex_math::interpolation::{
     CubicSpline, FlatForward, Interpolator, LinearInterpolator, LogLinearInterpolator,
-    MonotoneConvex,
+    MonotoneConvex, PiecewiseConstant,
 };
 
 use crate::error::{CurveError, CurveResult};
@@ -209,8 +209,7 @@ impl DiscreteCurve {
                 }
             }
             InterpolationMethod::PiecewiseConstant => {
-                // Use linear for now, will implement piecewise constant later
-                LinearInterpolator::new(tenors_vec, values_vec)
+                PiecewiseConstant::new(tenors_vec, values_vec)
                     .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
                     .map_err(|e| CurveError::interpolation_error(e.to_string()))
             }
@@ -218,6 +217,11 @@ impl DiscreteCurve {
                 // Parametric models need fitting, not supported in discrete curve
                 Err(CurveError::interpolation_error(
                     "Parametric models require calibration, not direct construction",
+                ))
+            }
+            InterpolationMethod::Segmented | InterpolationMethod::Delegated => {
+                Err(CurveError::interpolation_error(
+                    "Use the complete segmented or delegated source contract",
                 ))
             }
         }
@@ -265,6 +269,57 @@ impl DiscreteCurve {
         self.extrapolation
     }
 
+    /// Fallible raw-value query honoring this curve's extrapolation policy.
+    /// Interpolation failure is propagated instead of replaced by a tail value.
+    /// Semantic rate/probability validation belongs to the checked contract facade.
+    pub fn checked_value_at(&self, t: f64) -> CurveResult<f64> {
+        if !t.is_finite() {
+            return Err(CurveError::invalid_value("query tenor must be finite"));
+        }
+        let (min, max) = self.tenor_bounds();
+        let value = if t < min || t > max {
+            if self.extrapolation == ExtrapolationMethod::None {
+                return Err(CurveError::tenor_out_of_range(t, min, max));
+            }
+            match self.extrapolation {
+                ExtrapolationMethod::FlatForward => {
+                    return Err(CurveError::builder_error(
+                        "checked query does not support approximate FlatForward extrapolation",
+                    ));
+                }
+                ExtrapolationMethod::UfrConvergence { ufr, alpha } => {
+                    if t < min {
+                        return Err(CurveError::tenor_out_of_range(t, min, max));
+                    }
+                    let last =
+                        self.values.last().copied().ok_or_else(|| {
+                            CurveError::builder_error("missing UFR boundary value")
+                        })?;
+                    let derivative = self
+                        .interpolator
+                        .derivative(max)
+                        .map_err(|error| CurveError::interpolation_error(error.to_string()))?;
+                    let extension =
+                        convex_math::extrapolation::UfrConvergence::try_new(ufr, alpha, max)
+                            .map_err(|error| CurveError::invalid_value(error.to_string()))?;
+                    convex_math::extrapolation::Extrapolator::try_extrapolate(
+                        &extension, t, max, last, derivative,
+                    )
+                    .map_err(|error| CurveError::invalid_value(error.to_string()))?
+                }
+                _ => self.extrapolate(t),
+            }
+        } else {
+            self.interpolator
+                .interpolate(t)
+                .map_err(|error| CurveError::interpolation_error(error.to_string()))?
+        };
+        if !value.is_finite() {
+            return Err(CurveError::invalid_value("nonfinite raw curve value"));
+        }
+        Ok(value)
+    }
+
     /// Handles extrapolation for out-of-range tenors.
     fn extrapolate(&self, t: f64) -> f64 {
         let min_t = self.tenors[0];
@@ -296,30 +351,15 @@ impl DiscreteCurve {
                 }
             }
             ExtrapolationMethod::FlatForward => {
-                // For flat forward extrapolation, we use the last instantaneous forward rate
-                // This is complex and depends on value type; fall back to flat for now
-                if t < min_t {
-                    self.values[0]
-                } else {
-                    *self.values.last().unwrap()
-                }
+                // This older raw-value route has no exact tail contract.
+                // Use the checked FlatForward source for an integrated tail.
+                f64::NAN
             }
-            ExtrapolationMethod::UfrConvergence { ufr, alpha } => {
-                if t < min_t {
-                    self.values[0]
-                } else {
-                    let llp = self.max_tenor;
-                    let last_value = *self.values.last().unwrap();
-                    let last_derivative = self.interpolator.derivative(llp).unwrap_or(0.0);
-                    let ext = convex_math::extrapolation::UfrConvergence::new(ufr, alpha, llp);
-                    convex_math::extrapolation::Extrapolator::extrapolate(
-                        &ext,
-                        t,
-                        llp,
-                        last_value,
-                        last_derivative,
-                    )
-                }
+            ExtrapolationMethod::UfrConvergence { .. } => {
+                // Propagate the checked parameter/derivative/domain contract.
+                // Compatibility reports NaN, never a fabricated short-end zero
+                // or a derivative-to-zero fallback.
+                self.checked_value_at(t).unwrap_or(f64::NAN)
             }
         }
     }
@@ -345,6 +385,10 @@ impl TermStructure for DiscreteCurve {
             .unwrap_or_else(|_| self.extrapolate(t))
     }
 
+    fn try_value_at(&self, t: f64) -> CurveResult<f64> {
+        self.checked_value_at(t)
+    }
+
     fn tenor_bounds(&self) -> (f64, f64) {
         (self.tenors[0], self.max_tenor)
     }
@@ -366,10 +410,6 @@ impl TermStructure for DiscreteCurve {
         self.tenor_to_date(self.max_tenor)
     }
 }
-
-// Thread safety: DiscreteCurve uses Arc<dyn Interpolator> which is Send + Sync
-unsafe impl Send for DiscreteCurve {}
-unsafe impl Sync for DiscreteCurve {}
 
 #[cfg(test)]
 mod tests {
