@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useWorkspace, useComputation } from '../state/workspace';
 import { useStore } from '../state/store';
 import { computeYas } from '../analytics/yas';
+import { CURVE_DEFS } from '../analytics/curves';
+import * as R from '../lib/requests';
 import { workoutPaths, workoutRows } from '../lib/callable';
 import { cashConvention } from '../lib/cash';
 import { Panel, Seg, Field, Figure, KV, EngineError, Empty, Prov, Spinner } from '../ui/primitives';
@@ -19,8 +21,11 @@ const KINDS = [
   ['gspread', 'G-spread bp'],
 ];
 
+// Actual Treasuries open on a price: the curve-implied clean price, rounded to
+// the nearest 1/256 the way a screen quotes it, so Z and G read as results.
+// The examples open on a spread, since they have no market of their own.
 function defaultQuote(sec) {
-  return sec.source === 'auction' ? { kind: 'zspread', text: '0' } : { kind: 'zspread', text: '125' };
+  return sec.source === 'auction' ? { kind: 'price', text: '' } : { kind: 'zspread', text: '125' };
 }
 
 /** Debounce typed text so every keystroke doesn't fire a dozen engine calls. */
@@ -50,6 +55,7 @@ export default function Yas({ fn }) {
   const { state, dispatch } = useStore();
   const [quotes, setQuotes] = useState({});
   const quote = (sec && quotes[sec.id]) || (sec && defaultQuote(sec));
+  const seeding = useRef(null);
   const face = state.quote.face || '1000000';
   const dq = useDebounced(quote && `${quote.kind}|${quote.text}`);
   const dFace = useDebounced(face);
@@ -63,6 +69,30 @@ export default function Yas({ fn }) {
     [sec && sec.id, sec, dq, dFace, curve && curve.key && curve.key.version, curve && curve.building, tradeDate, ready],
   );
 
+  // Seed (or re-seed after a curve rebuild) an untouched Treasury quote with
+  // its curve-implied price; a typed quote is never replaced.
+  const stored = sec && quotes[sec.id];
+  const seedable = sec && sec.source === 'auction' && sec.kind !== 'bill' && curve && curve.recipe && !curve.building
+    && CURVE_DEFS[curve.id] && (!stored || (stored.seed && stored.seed.version !== curve.key.version));
+  useEffect(() => {
+    if (!seedable) return;
+    const sig = `${sec.id}|${curve.key.version}`;
+    if (seeding.current === sig) return;
+    seeding.current = sig;
+    const role = R.governmentRole(CURVE_DEFS[curve.id].benchmarkId);
+    engine.call(R.bondPrice(sec, settlement, R.spreadMethod(curve.key, role, 0), [curve.recipe]),
+      { label: `${sec.ticker} curve-implied price` }).then((res) => {
+      if (seeding.current !== sig) return;
+      setQuotes((all) => {
+        const cur = all[sec.id];
+        if (cur && !cur.seed) return all;
+        if (!res.ok) return { ...all, [sec.id]: { kind: 'price', text: '' } };
+        const seed = { version: curve.key.version, curve: curve.def.label, asOf: curve.dataset.asOf };
+        return { ...all, [sec.id]: { kind: 'price', text: formatThirtySeconds(res.data.clean_per100), seed } };
+      });
+    });
+  }, [seedable, sec, settlement, curve, engine]);
+
   const callable = sec && (sec.calls || []).length > 0;
   const workout = useComputation(
     () => (callable && data && Number.isFinite(data.clean)
@@ -72,7 +102,7 @@ export default function Yas({ fn }) {
     [callable, data && data.clean, sec && sec.id, tradeDate],
   );
 
-  const setQuote = (q) => setQuotes((all) => ({ ...all, [sec.id]: { ...quote, ...q } }));
+  const setQuote = (q) => setQuotes((all) => ({ ...all, [sec.id]: { ...quote, ...q, seed: null } }));
   const switchKind = (kind) => {
     if (!data || data.fatal) return setQuote({ kind, text: '' });
     const text = {
@@ -115,8 +145,14 @@ export default function Yas({ fn }) {
             <Field label={quote.kind === 'price' ? (usd32 ? 'Clean price (decimal or 32nds, e.g. 99-16+)' : 'Clean price')
               : quote.kind === 'yield' ? 'Yield, ICMA, % ' : quote.kind === 'zspread' ? `Z-spread over ${curve ? curve.def.label : 'curve'}, bp` : 'G-spread, bp'}>
               <input className="input input--quote" style={{ width: 220 }} value={quote.text}
-                aria-invalid={!quoteValid(quote)} onChange={(e) => setQuote({ text: e.target.value })} />
+                aria-invalid={quote.text !== '' && !quoteValid(quote)} onChange={(e) => setQuote({ text: e.target.value })} />
             </Field>
+            {quote.seed && (
+              <div className="quote-seed">
+                <Prov status="derived">Curve-implied</Prov>
+                <span className="dim">{quote.seed.curve} curve, {formatLong(quote.seed.asOf)}. Type over it to quote your own price.</span>
+              </div>
+            )}
             <Field label="Face amount">
               <input className="input input--num" style={{ width: 150 }} value={face}
                 onChange={(e) => dispatch({ type: 'quote', quote: { face: e.target.value.replace(/[^\d.]/g, '') } })} />
@@ -261,7 +297,9 @@ export default function Yas({ fn }) {
           )}
         </>
       )}
-      {!r && !fatalOrError && <Empty>{curve && curve.building ? 'Building the curve…' : 'Enter a quote to analyse this security.'}</Empty>}
+      {!r && !fatalOrError && (
+        <Empty>{curve && curve.building ? 'Building the curve…' : seedable ? 'Pricing off the curve…' : 'Enter a quote to analyse this security.'}</Empty>
+      )}
     </div>
   );
 }

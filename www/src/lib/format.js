@@ -23,6 +23,8 @@ export function signed(v, dp = 2) {
   const n = toNumber(v);
   if (!Number.isFinite(n)) return '—';
   const s = numberFormat(dp).format(Math.abs(n));
+  // A value that rounds to zero carries no sign ("0.0", never "−0.0").
+  if (Number(s.replace(/[^\d.]/g, '')) === 0) return s;
   return n > 0 ? `+${s}` : n < 0 ? `−${s}` : s;
 }
 
