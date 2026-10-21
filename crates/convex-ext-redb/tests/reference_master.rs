@@ -175,3 +175,9 @@ async fn older_serialized_versions_remain_exact_and_require_explicit_migration_f
 }
 
 use conformance::reference_terms;
+
+#[tokio::test]
+async fn books_page_in_order_and_version_with_compare_and_set() {
+    let (_dir, repo) = repository();
+    conformance::books_page_in_order_and_version_with_compare_and_set(repo).await;
+}

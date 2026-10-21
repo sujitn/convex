@@ -35,3 +35,11 @@ async fn entity_resources_and_corrections_are_pinned() {
 async fn master_compare_and_set_race() {
     conformance::master_compare_and_set_race(Arc::new(MemoryReferenceRepository::default())).await;
 }
+
+#[tokio::test]
+async fn books_page_in_order_and_version_with_compare_and_set() {
+    conformance::books_page_in_order_and_version_with_compare_and_set(Arc::new(
+        MemoryReferenceRepository::default(),
+    ))
+    .await;
+}

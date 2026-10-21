@@ -23,6 +23,7 @@
 
 pub mod access;
 mod analytics;
+mod books;
 mod composition;
 pub mod config;
 pub mod configuration_admin;

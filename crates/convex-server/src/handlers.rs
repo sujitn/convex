@@ -16,7 +16,6 @@ use convex_bonds::types::BondIdentifiers;
 use convex_core::Currency;
 use convex_core::Date;
 use convex_engine::{Portfolio, Position, PricingEngine};
-use convex_ext_file::{InMemoryPortfolioStore, PortfolioFilter, StoredPortfolio, StoredPosition};
 use convex_portfolio::{
     active_weights,
     // Key rate duration
@@ -82,8 +81,6 @@ pub struct AppState {
     pub engine: Arc<PricingEngine>,
     /// WebSocket state for real-time streaming
     pub ws_state: WebSocketState,
-    /// Portfolio store (for CRUD operations)
-    pub portfolio_store: Arc<InMemoryPortfolioStore>,
 }
 
 type PortfolioHandlerError = (StatusCode, Json<serde_json::Value>);
@@ -96,6 +93,13 @@ fn portfolio_result<T, E: std::fmt::Display>(
             Json(serde_json::json!({"code":"INVALID_PORTFOLIO_INPUT","error":error.to_string()})),
         )
     })
+}
+
+fn invalid_portfolio_input(message: &str) -> PortfolioHandlerError {
+    (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Json(serde_json::json!({"code":"INVALID_PORTFOLIO_INPUT","error":message})),
+    )
 }
 
 /// Health check response.
@@ -1446,13 +1450,21 @@ pub async fn batch_calculate_inav(
 // PORTFOLIO ANALYTICS
 // =============================================================================
 
-/// Request for portfolio analytics.
+/// Request for portfolio analytics: inline positions with prices, or a stored book.
 #[derive(Debug, Deserialize)]
 pub struct PortfolioAnalyticsRequest {
-    /// Portfolio definition
-    pub portfolio: PortfolioInput,
-    /// Bond prices
-    pub bond_prices: Vec<BondQuoteOutput>,
+    /// Portfolio definition (inline form)
+    #[serde(default)]
+    pub portfolio: Option<PortfolioInput>,
+    /// Bond prices (inline form)
+    #[serde(default)]
+    pub bond_prices: Option<Vec<BondQuoteOutput>>,
+    /// Stored book to analyse from runtime canonical results (book form)
+    #[serde(default)]
+    pub book_id: Option<String>,
+    /// Exact book version; absent pins the current version, which is reported back
+    #[serde(default)]
+    pub version: Option<u64>,
 }
 
 /// Portfolio input (simplified for API).
@@ -1490,14 +1502,36 @@ pub struct PositionInput {
     pub currency: Option<String>,
 }
 
-/// Calculate analytics for a single portfolio.
+/// Calculate analytics for a single portfolio, from inline positions or a stored book.
 pub async fn calculate_portfolio_analytics(
     State(state): State<Arc<AppState>>,
+    ctx: Option<axum::Extension<crate::access::AccessContext>>,
     Json(request): Json<PortfolioAnalyticsRequest>,
 ) -> Result<impl IntoResponse, PortfolioHandlerError> {
-    let portfolio = portfolio_result(convert_portfolio_input(&request.portfolio))?;
+    let (portfolio, bond_prices) = match request {
+        PortfolioAnalyticsRequest {
+            portfolio: Some(portfolio),
+            bond_prices: Some(bond_prices),
+            book_id: None,
+            version: None,
+        } => (portfolio, bond_prices),
+        PortfolioAnalyticsRequest {
+            portfolio: None,
+            bond_prices: None,
+            book_id: Some(book_id),
+            version,
+        } => {
+            return Err(crate::books::refuse_book_analytics(&state, &ctx, &book_id, version).await)
+        }
+        _ => {
+            return Err(invalid_portfolio_input(
+                "supply either portfolio with bond_prices, or book_id with optional version",
+            ))
+        }
+    };
+    let portfolio = portfolio_result(convert_portfolio_input(&portfolio))?;
     let analyzer = state.engine.portfolio_analyzer();
-    let output = portfolio_result(analyzer.calculate(&portfolio, &request.bond_prices))?;
+    let output = portfolio_result(analyzer.calculate(&portfolio, &bond_prices))?;
     state.ws_state.publish_portfolio_analytics(output.clone());
     Ok((StatusCode::OK, Json(output)))
 }
@@ -2930,335 +2964,6 @@ fn convert_portfolio_input(input: &PortfolioInput) -> Result<Portfolio, String> 
             })
             .collect(),
     })
-}
-
-fn default_limit() -> usize {
-    100
-}
-
-// =============================================================================
-// PORTFOLIO CRUD
-// =============================================================================
-
-/// Query parameters for portfolio listing.
-#[derive(Debug, Deserialize)]
-pub struct PortfolioListQuery {
-    /// Maximum number of portfolios to return
-    #[serde(default = "default_limit")]
-    pub limit: usize,
-    /// Offset for pagination
-    #[serde(default)]
-    pub offset: usize,
-    /// Currency filter
-    pub currency: Option<String>,
-    /// Text search query (searches name, portfolio_id, description)
-    pub q: Option<String>,
-}
-
-/// Response for portfolio listing.
-#[derive(Debug, Serialize)]
-pub struct PortfolioListResponse {
-    /// Portfolios
-    pub portfolios: Vec<StoredPortfolio>,
-    /// Total count (before pagination)
-    pub total: usize,
-    /// Limit used
-    pub limit: usize,
-    /// Offset used
-    pub offset: usize,
-}
-
-/// List portfolios with optional filtering and pagination.
-pub async fn list_portfolios(
-    State(state): State<Arc<AppState>>,
-    axum::extract::Query(query): axum::extract::Query<PortfolioListQuery>,
-) -> impl IntoResponse {
-    // Build filter from query params
-    let filter = PortfolioFilter {
-        currency: query.currency,
-        text_search: query.q,
-    };
-
-    // Get total count
-    let total = state.portfolio_store.count(&filter);
-
-    // Get portfolios with pagination
-    let portfolios = state
-        .portfolio_store
-        .list(&filter, query.limit, query.offset);
-
-    let response = PortfolioListResponse {
-        portfolios,
-        total,
-        limit: query.limit,
-        offset: query.offset,
-    };
-
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
-}
-
-/// Get a single portfolio by ID.
-pub async fn get_portfolio(
-    State(state): State<Arc<AppState>>,
-    Path(portfolio_id): Path<String>,
-) -> impl IntoResponse {
-    match state.portfolio_store.get(&portfolio_id) {
-        Some(portfolio) => (
-            StatusCode::OK,
-            Json(serde_json::to_value(portfolio).unwrap()),
-        ),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
-        ),
-    }
-}
-
-/// Request for creating a portfolio.
-#[derive(Debug, Deserialize)]
-pub struct CreatePortfolioRequest {
-    /// Portfolio identifier
-    pub portfolio_id: String,
-    /// Portfolio name
-    pub name: String,
-    /// Reporting currency (USD, EUR, GBP, etc.)
-    #[serde(default = "default_currency")]
-    pub currency: String,
-    /// Description
-    pub description: Option<String>,
-    /// Initial positions
-    #[serde(default)]
-    pub positions: Vec<StoredPosition>,
-}
-
-/// Create a new portfolio.
-pub async fn create_portfolio(
-    State(state): State<Arc<AppState>>,
-    Json(request): Json<CreatePortfolioRequest>,
-) -> impl IntoResponse {
-    // Check if portfolio already exists
-    if state.portfolio_store.get(&request.portfolio_id).is_some() {
-        return (
-            StatusCode::CONFLICT,
-            Json(serde_json::json!({
-                "error": format!("Portfolio already exists: {}", request.portfolio_id)
-            })),
-        );
-    }
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
-
-    let portfolio = StoredPortfolio {
-        portfolio_id: request.portfolio_id,
-        name: request.name,
-        currency: request.currency,
-        description: request.description,
-        positions: request.positions,
-        created_at: now,
-        updated_at: now,
-    };
-
-    let created = state.portfolio_store.upsert(portfolio);
-
-    (
-        StatusCode::CREATED,
-        Json(serde_json::to_value(created).unwrap()),
-    )
-}
-
-/// Request for updating a portfolio.
-#[derive(Debug, Deserialize)]
-pub struct UpdatePortfolioRequest {
-    /// Portfolio name
-    pub name: Option<String>,
-    /// Reporting currency
-    pub currency: Option<String>,
-    /// Description
-    pub description: Option<String>,
-    /// Positions (if provided, replaces all positions)
-    pub positions: Option<Vec<StoredPosition>>,
-}
-
-/// Update an existing portfolio.
-pub async fn update_portfolio(
-    State(state): State<Arc<AppState>>,
-    Path(portfolio_id): Path<String>,
-    Json(request): Json<UpdatePortfolioRequest>,
-) -> impl IntoResponse {
-    // Get existing portfolio
-    let existing = match state.portfolio_store.get(&portfolio_id) {
-        Some(p) => p,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(
-                    serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) }),
-                ),
-            );
-        }
-    };
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
-
-    // Update fields
-    let portfolio = StoredPortfolio {
-        portfolio_id: existing.portfolio_id,
-        name: request.name.unwrap_or(existing.name),
-        currency: request.currency.unwrap_or(existing.currency),
-        description: request.description.or(existing.description),
-        positions: request.positions.unwrap_or(existing.positions),
-        created_at: existing.created_at,
-        updated_at: now,
-    };
-
-    let updated = state.portfolio_store.upsert(portfolio);
-
-    (StatusCode::OK, Json(serde_json::to_value(updated).unwrap()))
-}
-
-/// Delete a portfolio.
-pub async fn delete_portfolio(
-    State(state): State<Arc<AppState>>,
-    Path(portfolio_id): Path<String>,
-) -> impl IntoResponse {
-    match state.portfolio_store.delete(&portfolio_id) {
-        Some(_) => (StatusCode::NO_CONTENT, Json(serde_json::json!({}))),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
-        ),
-    }
-}
-
-/// Add a position to a portfolio.
-pub async fn add_portfolio_position(
-    State(state): State<Arc<AppState>>,
-    Path(portfolio_id): Path<String>,
-    Json(position): Json<StoredPosition>,
-) -> impl IntoResponse {
-    match state.portfolio_store.add_position(&portfolio_id, position) {
-        Some(portfolio) => (
-            StatusCode::OK,
-            Json(serde_json::to_value(portfolio).unwrap()),
-        ),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
-        ),
-    }
-}
-
-/// Remove a position from a portfolio.
-pub async fn remove_portfolio_position(
-    State(state): State<Arc<AppState>>,
-    Path((portfolio_id, instrument_id)): Path<(String, String)>,
-) -> impl IntoResponse {
-    match state
-        .portfolio_store
-        .remove_position(&portfolio_id, &instrument_id)
-    {
-        Some(portfolio) => (
-            StatusCode::OK,
-            Json(serde_json::to_value(portfolio).unwrap()),
-        ),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": format!("Portfolio not found: {}", portfolio_id) })),
-        ),
-    }
-}
-
-/// Update a position in a portfolio.
-pub async fn update_portfolio_position(
-    State(state): State<Arc<AppState>>,
-    Path((portfolio_id, instrument_id)): Path<(String, String)>,
-    Json(mut position): Json<StoredPosition>,
-) -> impl IntoResponse {
-    // Ensure instrument_id matches path
-    position.instrument_id = instrument_id.clone();
-
-    match state
-        .portfolio_store
-        .update_position(&portfolio_id, position)
-    {
-        Some(portfolio) => (
-            StatusCode::OK,
-            Json(serde_json::to_value(portfolio).unwrap()),
-        ),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "error": format!("Portfolio or position not found: {}/{}", portfolio_id, instrument_id)
-            })),
-        ),
-    }
-}
-
-/// Batch create portfolios.
-#[derive(Debug, Deserialize)]
-pub struct BatchPortfolioCreateRequest {
-    /// Portfolios to create
-    pub portfolios: Vec<CreatePortfolioRequest>,
-}
-
-/// Batch create response.
-#[derive(Debug, Serialize)]
-pub struct BatchPortfolioCreateResponse {
-    /// Number of portfolios created
-    pub created: usize,
-    /// Number of portfolios that already existed (skipped)
-    pub skipped: usize,
-}
-
-/// Batch create portfolios.
-pub async fn batch_create_portfolios(
-    State(state): State<Arc<AppState>>,
-    Json(request): Json<BatchPortfolioCreateRequest>,
-) -> impl IntoResponse {
-    let mut created = 0;
-    let mut skipped = 0;
-
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as i64;
-
-    for req in request.portfolios {
-        // Check if portfolio already exists
-        if state.portfolio_store.get(&req.portfolio_id).is_some() {
-            skipped += 1;
-            continue;
-        }
-
-        let portfolio = StoredPortfolio {
-            portfolio_id: req.portfolio_id,
-            name: req.name,
-            currency: req.currency,
-            description: req.description,
-            positions: req.positions,
-            created_at: now,
-            updated_at: now,
-        };
-
-        state.portfolio_store.upsert(portfolio);
-        created += 1;
-    }
-
-    let response = BatchPortfolioCreateResponse { created, skipped };
-
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
 }
 
 // =============================================================================

@@ -681,3 +681,110 @@ pub async fn master_compare_and_set_race(repository: Arc<dyn ReferenceRepository
         .unwrap()
         .is_none());
 }
+
+fn book(id: &str, instrument: &str, until: Option<&str>) -> MasterChange {
+    MasterChange {
+        expected_version: None,
+        definition: MasterDefinition::Book(Box::new(BookDefinition {
+            book_id: ReferenceDataId::new(id).unwrap(),
+            owning_system: SourceId::new("bms").unwrap(),
+            name: None,
+            currency: Some("USD".into()),
+            description: None,
+            effective: EffectiveInterval {
+                from: time("2025-01-01T00:00:00Z"),
+                until: until.map(time),
+            },
+            positions: vec![BookPosition {
+                instrument_id: InstrumentId::new(instrument).unwrap(),
+                quantity: ExactDecimal::parse("1000000.50").unwrap(),
+                unit: QuantityUnit::Face,
+                reference_version: None,
+                source_identifier: None,
+                sector: None,
+                rating: None,
+            }],
+            provenance: ReferenceProvenance {
+                source: SourceId::new("bms").unwrap(),
+                evidence_reference: "conformance".into(),
+            },
+        })),
+    }
+}
+
+/// Books are ordinary versioned masters: ordered cursor paging, compare-and-set,
+/// exact history and a typed rejection of duplicate instruments or an oversized book.
+pub async fn books_page_in_order_and_version_with_compare_and_set(
+    repository: Arc<dyn ReferenceRepository>,
+) {
+    let at = time("2025-01-02T00:00:00Z");
+    let changes = vec![
+        book("B-3", "I-3", None),
+        book("B-1", "I-1", None),
+        book("B-2", "I-2", None),
+    ];
+    repository
+        .commit(&command("books-seed", vec![], changes), at)
+        .await
+        .unwrap();
+    let id = |value: &str| ReferenceDataId::new(value).unwrap();
+    let first = repository.list_books(None, 2).await.unwrap();
+    let keys: Vec<_> = first.iter().map(|r| r.definition.key()).collect();
+    assert_eq!(
+        keys,
+        vec![MasterKey::Book(id("B-1")), MasterKey::Book(id("B-2"))]
+    );
+    let rest = repository.list_books(Some(&id("B-2")), 2).await.unwrap();
+    assert_eq!(rest.len(), 1);
+    assert!(repository.list_books(None, 0).await.is_err());
+
+    // Replace version 1 once; the stale expectation then conflicts and history stays exact.
+    let mut next = book("B-1", "I-9", None);
+    next.expected_version = Some(version(1));
+    repository
+        .commit(&command("books-v2", vec![], vec![next.clone()]), at)
+        .await
+        .unwrap();
+    next.definition = book("B-1", "I-8", None).definition;
+    assert!(matches!(
+        repository
+            .commit(&command("books-v3", vec![], vec![next]), at)
+            .await,
+        Err(ReferenceError::Conflict(_))
+    ));
+    let key = MasterKey::Book(id("B-1"));
+    let v1 = repository
+        .get_master_version(&key, version(1))
+        .await
+        .unwrap()
+        .unwrap();
+    let MasterDefinition::Book(old) = v1.definition else {
+        panic!("not a book")
+    };
+    assert_eq!(old.positions[0].instrument_id.as_str(), "I-1");
+    assert_eq!(
+        repository.get_master(&key).await.unwrap().unwrap().version,
+        version(2)
+    );
+
+    // Bounds are typed: duplicates and over-capacity books never commit.
+    let MasterDefinition::Book(mut duplicate) = book("B-D", "I-1", None).definition else {
+        panic!("not a book")
+    };
+    duplicate.positions.push(duplicate.positions[0].clone());
+    assert!(matches!(
+        duplicate.validate(),
+        Err(ReferenceError::InvalidInput(_))
+    ));
+    let MasterDefinition::Book(mut large) = book("B-L", "I-1", None).definition else {
+        panic!("not a book")
+    };
+    let template = large.positions[0].clone();
+    large.positions = (0..=MAX_BOOK_POSITIONS)
+        .map(|n| BookPosition {
+            instrument_id: InstrumentId::new(format!("I-{n}")).unwrap(),
+            ..template.clone()
+        })
+        .collect();
+    assert_eq!(large.validate(), Err(ReferenceError::CapacityExceeded));
+}

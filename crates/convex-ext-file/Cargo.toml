@@ -23,7 +23,6 @@ serde_json = { workspace = true }
 # Async
 async-trait = "0.1"
 tokio = { version = "1", features = ["sync", "fs"] }
-dashmap = "6"
 
 # Core dependencies
 rust_decimal = { workspace = true }

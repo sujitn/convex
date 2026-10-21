@@ -26,6 +26,8 @@ async fn default_router_denies_anonymous_read_write_ws_and_job_access() {
     for (method, path) in [
         ("GET", "/api/v1/bonds"),
         ("POST", "/api/v1/portfolios"),
+        ("PUT", "/api/v1/books/BOOK-A"),
+        ("GET", "/api/v1/books"),
         ("GET", "/ws"),
         ("GET", "/api/v1/ws"),
         ("POST", "/api/v1/jobs"),
@@ -63,13 +65,13 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         s.store.clone(),
         convex_engine::RuntimeInput::Captured,
     );
-    let portfolios = Arc::new(convex_ext_file::InMemoryPortfolioStore::new());
-    let router = convex_server::routes::create_router_with_access_and_portfolios(
-        engine.clone(),
-        portfolios.clone(),
-        true,
-        access.clone(),
-    );
+    let router =
+        convex_server::routes::create_router_with_access(engine.clone(), true, access.clone());
+    let book = |id: &str| {
+        convex_engine::ports::reference_master::MasterKey::Book(
+            convex_core::contracts::ReferenceDataId::new(id).unwrap(),
+        )
+    };
     let (status, _, bond) = request(
         router.clone(),
         "GET",
@@ -128,7 +130,12 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         .0,
         StatusCode::FORBIDDEN
     );
-    assert!(portfolios.get("BOOK-A").is_none());
+    assert!(engine
+        .reference_repository()
+        .get_master(&book("BOOK-A"))
+        .await
+        .unwrap()
+        .is_none());
     let batch = json!({"portfolios":[{"portfolio_id":"BOOK-A","name":"allowed","positions":[]},{"portfolio_id":"BOOK-B","name":"forbidden","positions":[]}]});
     assert_eq!(
         request(
@@ -142,7 +149,12 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         .0,
         StatusCode::FORBIDDEN
     );
-    assert!(portfolios.get("BOOK-A").is_none());
+    assert!(engine
+        .reference_repository()
+        .get_master(&book("BOOK-A"))
+        .await
+        .unwrap()
+        .is_none());
     let (status, _, _) = request(
         router.clone(),
         "POST",
@@ -176,16 +188,44 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         .0,
         StatusCode::FORBIDDEN
     );
-    portfolios
-        .add_position(
-            "BOOK-A",
-            convex_ext_file::StoredPosition {
-                instrument_id: "BOND-002".into(),
-                notional: rust_decimal::Decimal::ONE,
-                sector: None,
-                rating: None,
-            },
+    // Plant an ungranted instrument directly in the book, bypassing HTTP entitlement.
+    let planted = engine
+        .reference_repository()
+        .get_master(&book("BOOK-A"))
+        .await
+        .unwrap()
+        .unwrap();
+    let convex_engine::ports::reference_master::MasterDefinition::Book(mut definition) =
+        planted.definition.clone()
+    else {
+        panic!("not a book")
+    };
+    definition
+        .positions
+        .push(convex_engine::ports::reference_master::BookPosition {
+            instrument_id: convex_core::contracts::InstrumentId::new("BOND-002").unwrap(),
+            quantity: convex_core::contracts::ExactDecimal::new(rust_decimal::Decimal::ONE),
+            unit: convex_engine::ports::reference_master::QuantityUnit::Face,
+            reference_version: None,
+            source_identifier: None,
+            sector: None,
+            rating: None,
+        });
+    definition.effective.from = planted.recorded_at;
+    let command = convex_engine::ports::reference_repository::ReferenceCommand {
+        idempotency_key: convex_core::contracts::RequestId::new("access-plant-1").unwrap(),
+        changes: Vec::new(),
+        master_changes: vec![convex_engine::ports::reference_master::MasterChange {
+            expected_version: Some(planted.version),
+            definition: convex_engine::ports::reference_master::MasterDefinition::Book(definition),
+        }],
+    };
+    engine
+        .commit_reference(
+            &command,
+            convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap(),
         )
+        .await
         .unwrap();
     assert_eq!(
         request(

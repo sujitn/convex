@@ -31,7 +31,7 @@ use convex_engine::PricingEngineBuilder;
 use convex_ext_file::{
     EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource, EmptyFxRateSource,
     EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
-    EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource, InMemoryPortfolioStore,
+    EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
 // These economic/API fixtures explicitly use local development. Access denial has its own suite.
 fn create_router(engine: Arc<convex_engine::PricingEngine>) -> axum::Router {
@@ -41,18 +41,6 @@ fn create_router(engine: Arc<convex_engine::PricingEngine>) -> axum::Router {
         convex_server::access::AccessControl::local_development(),
     )
 }
-fn create_router_with_portfolio_store(
-    engine: Arc<convex_engine::PricingEngine>,
-    portfolios: Arc<InMemoryPortfolioStore>,
-) -> axum::Router {
-    convex_server::routes::create_router_with_access_and_portfolios(
-        engine,
-        portfolios,
-        true,
-        convex_server::access::AccessControl::local_development(),
-    )
-}
-
 async fn reference_request(
     app: axum::Router,
     method: &str,
@@ -2374,14 +2362,9 @@ async fn test_websocket_upgrade_request() {
 // PORTFOLIO CRUD TESTS
 // =============================================================================
 
-/// Create test resources with all stores (engine + portfolio store).
-fn create_all_test_resources() -> (
-    Arc<convex_engine::PricingEngine>,
-    Arc<InMemoryPortfolioStore>,
-) {
-    let engine = create_test_engine();
-    let portfolio_store = Arc::new(InMemoryPortfolioStore::new());
-    (engine, portfolio_store)
+/// Portfolios are books in the engine's reference repository, so one engine is the store.
+fn create_all_test_resources() -> Arc<convex_engine::PricingEngine> {
+    create_test_engine()
 }
 
 #[tokio::test]
@@ -2430,10 +2413,10 @@ async fn test_create_portfolio() {
 
 #[tokio::test]
 async fn test_create_and_get_portfolio() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let request_body = json!({
         "portfolio_id": "PORT002",
         "name": "Investment Portfolio",
@@ -2443,7 +2426,7 @@ async fn test_create_and_get_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Get portfolio
-    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app2 = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/portfolios/PORT002")
         .body(Body::empty())
@@ -2475,10 +2458,10 @@ async fn test_get_portfolio_not_found() {
 
 #[tokio::test]
 async fn test_create_portfolio_duplicate() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let request_body = json!({
         "portfolio_id": "DUPE_PORT",
         "name": "First Portfolio"
@@ -2487,7 +2470,7 @@ async fn test_create_portfolio_duplicate() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Try to create duplicate
-    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app2 = create_router(engine);
     let request_body = json!({
         "portfolio_id": "DUPE_PORT",
         "name": "Second Portfolio"
@@ -2499,10 +2482,10 @@ async fn test_create_portfolio_duplicate() {
 
 #[tokio::test]
 async fn test_update_portfolio() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let request_body = json!({
         "portfolio_id": "UPDATE_PORT",
         "name": "Original Name",
@@ -2512,7 +2495,7 @@ async fn test_update_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Update portfolio
-    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app2 = create_router(engine);
     let request = Request::builder()
         .method("PUT")
         .header("Idempotency-Key", next_test_key())
@@ -2563,10 +2546,10 @@ async fn test_update_portfolio_not_found() {
 
 #[tokio::test]
 async fn test_delete_portfolio() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let request_body = json!({
         "portfolio_id": "DELETE_PORT",
         "name": "To Delete"
@@ -2575,7 +2558,7 @@ async fn test_delete_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Delete portfolio
-    let app2 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app2 = create_router(engine.clone());
     let request = Request::builder()
         .method("DELETE")
         .header("Idempotency-Key", next_test_key())
@@ -2588,7 +2571,7 @@ async fn test_delete_portfolio() {
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
     // Verify deleted
-    let app3 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app3 = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/portfolios/DELETE_PORT")
         .body(Body::empty())
@@ -2649,10 +2632,10 @@ async fn test_create_portfolio_with_positions() {
 
 #[tokio::test]
 async fn test_add_position_to_portfolio() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolio
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let request_body = json!({
         "portfolio_id": "ADDPOS_PORT",
         "name": "Add Position Test",
@@ -2662,7 +2645,7 @@ async fn test_add_position_to_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Add position
-    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app2 = create_router(engine);
     let position = json!({
         "instrument_id": "BOND003",
         "notional": "2000000",
@@ -2678,10 +2661,10 @@ async fn test_add_position_to_portfolio() {
 
 #[tokio::test]
 async fn test_remove_position_from_portfolio() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolio with positions
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let request_body = json!({
         "portfolio_id": "REMPOS_PORT",
         "name": "Remove Position Test",
@@ -2694,7 +2677,7 @@ async fn test_remove_position_from_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Remove position
-    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app2 = create_router(engine);
     let request = Request::builder()
         .method("DELETE")
         .header("Idempotency-Key", next_test_key())
@@ -2714,10 +2697,10 @@ async fn test_remove_position_from_portfolio() {
 
 #[tokio::test]
 async fn test_update_position_in_portfolio() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolio with position
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let request_body = json!({
         "portfolio_id": "UPDPOS_PORT",
         "name": "Update Position Test",
@@ -2729,7 +2712,7 @@ async fn test_update_position_in_portfolio() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Update position
-    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app2 = create_router(engine);
     let request = Request::builder()
         .method("PUT")
         .header("Idempotency-Key", next_test_key())
@@ -2759,11 +2742,11 @@ async fn test_update_position_in_portfolio() {
 
 #[tokio::test]
 async fn test_list_portfolios_with_pagination() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create multiple portfolios
     for i in 0..5 {
-        let app = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+        let app = create_router(engine.clone());
         let request_body = json!({
             "portfolio_id": format!("PAGE_PORT{:03}", i),
             "name": format!("Portfolio {}", i),
@@ -2774,7 +2757,7 @@ async fn test_list_portfolios_with_pagination() {
     }
 
     // Get first page
-    let app = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app = create_router(engine.clone());
     let request = Request::builder()
         .uri("/api/v1/portfolios?limit=2&offset=0")
         .body(Body::empty())
@@ -2793,10 +2776,10 @@ async fn test_list_portfolios_with_pagination() {
 
 #[tokio::test]
 async fn test_list_portfolios_with_currency_filter() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolios with different currencies
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let (status, _) = post_json(
         app1,
         "/api/v1/portfolios",
@@ -2809,7 +2792,7 @@ async fn test_list_portfolios_with_currency_filter() {
     .await;
     assert_eq!(status, StatusCode::CREATED);
 
-    let app2 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app2 = create_router(engine.clone());
     let (status, _) = post_json(
         app2,
         "/api/v1/portfolios",
@@ -2823,7 +2806,7 @@ async fn test_list_portfolios_with_currency_filter() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Filter by currency
-    let app3 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app3 = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/portfolios?currency=EUR")
         .body(Body::empty())
@@ -2840,10 +2823,10 @@ async fn test_list_portfolios_with_currency_filter() {
 
 #[tokio::test]
 async fn test_text_search_portfolios() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create portfolios with specific names
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let (status, _) = post_json(
         app1,
         "/api/v1/portfolios",
@@ -2856,7 +2839,7 @@ async fn test_text_search_portfolios() {
     .await;
     assert_eq!(status, StatusCode::CREATED);
 
-    let app2 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app2 = create_router(engine.clone());
     let (status, _) = post_json(
         app2,
         "/api/v1/portfolios",
@@ -2870,7 +2853,7 @@ async fn test_text_search_portfolios() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Search for "Equity"
-    let app3 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app3 = create_router(engine);
     let request = Request::builder()
         .uri("/api/v1/portfolios?q=Equity")
         .body(Body::empty())
@@ -2910,10 +2893,10 @@ async fn test_batch_create_portfolios() {
 
 #[tokio::test]
 async fn test_batch_create_portfolios_with_duplicates() {
-    let (engine, portfolio_store) = create_all_test_resources();
+    let engine = create_all_test_resources();
 
     // Create one portfolio first
-    let app1 = create_router_with_portfolio_store(engine.clone(), portfolio_store.clone());
+    let app1 = create_router(engine.clone());
     let (status, _) = post_json(
         app1,
         "/api/v1/portfolios",
@@ -2926,7 +2909,7 @@ async fn test_batch_create_portfolios_with_duplicates() {
     assert_eq!(status, StatusCode::CREATED);
 
     // Batch create with duplicate
-    let app2 = create_router_with_portfolio_store(engine, portfolio_store);
+    let app2 = create_router(engine);
     let request_body = json!({
         "portfolios": [
             { "portfolio_id": "BATCH_DUPE", "name": "Duplicate" },

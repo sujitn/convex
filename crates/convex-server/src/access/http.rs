@@ -28,6 +28,7 @@ fn book_transport(path: &str) -> bool {
             | "/api/v1/reference/commits/:key"
             | "/api/v1/analytics/snapshots/:snapshot_id"
             | "/api/v1/analytics/results/:result_id"
+            | "/api/v1/books/:book_id"
     )
 }
 /// Retained by the upgrade callback; quota is released even if upgrade fails.
@@ -287,6 +288,19 @@ fn requirement(
             req.action = Stream;
             req.data.clear();
             req.body_required = false;
+        }
+        "/api/v1/books" => {
+            req.action = BookRead;
+            req.data = vec![D::Books];
+            req.resources.push(Resource::new(R::Book, "*"));
+        }
+        "/api/v1/books/:book_id"
+        | "/api/v1/books/:book_id/versions/:version"
+        | "/api/v1/books/:book_id/history" => {
+            exact(R::Book, "book_id")?;
+            req.action = if read { BookRead } else { BookWrite };
+            req.data = vec![D::Books];
+            req.body_required = !read;
         }
         "/api/v1/portfolios" | "/api/v1/portfolios/batch" => {
             req.action = if read { BookRead } else { BookWrite };

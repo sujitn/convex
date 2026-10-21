@@ -6,8 +6,8 @@ use axum::routing::{get, post};
 use axum::Router;
 
 use convex_engine::PricingEngine;
-use convex_ext_file::InMemoryPortfolioStore;
 
+use crate::books;
 use crate::handlers::{self, AppState};
 use crate::reference;
 use crate::websocket::{self, WebSocketState};
@@ -22,47 +22,13 @@ pub fn create_router(engine: Arc<PricingEngine>) -> Router {
 
 /// Create the API router with optional WebSocket routes on the HTTP listener.
 pub fn create_router_with_websocket(engine: Arc<PricingEngine>, enabled: bool) -> Router {
-    create_router_with_options(engine, Arc::new(InMemoryPortfolioStore::new()), enabled)
-}
-
-/// Create the API router with a supplied portfolio fixture. Bond references come from the engine.
-pub fn create_router_with_portfolio_store(
-    engine: Arc<PricingEngine>,
-    portfolio_store: Arc<InMemoryPortfolioStore>,
-) -> Router {
-    create_router_with_options(engine, portfolio_store, true)
-}
-
-fn create_router_with_options(
-    engine: Arc<PricingEngine>,
-    portfolio_store: Arc<InMemoryPortfolioStore>,
-    websocket_enabled: bool,
-) -> Router {
-    create_router_with_access_and_portfolios(
-        engine,
-        portfolio_store,
-        websocket_enabled,
-        crate::access::AccessControl::deny_all(),
-    )
+    create_router_with_access(engine, enabled, crate::access::AccessControl::deny_all())
 }
 
 /// Compose explicit access control; default constructors deny protected requests.
+/// Portfolios and books live in the engine's reference repository.
 pub fn create_router_with_access(
     engine: Arc<PricingEngine>,
-    enabled: bool,
-    access: Arc<crate::access::AccessControl>,
-) -> Router {
-    create_router_with_access_and_portfolios(
-        engine,
-        Arc::new(InMemoryPortfolioStore::new()),
-        enabled,
-        access,
-    )
-}
-/// Supplied portfolio and access boundaries for embedded composition and conformance fixtures.
-pub fn create_router_with_access_and_portfolios(
-    engine: Arc<PricingEngine>,
-    portfolio_store: Arc<InMemoryPortfolioStore>,
     websocket_enabled: bool,
     access: Arc<crate::access::AccessControl>,
 ) -> Router {
@@ -73,7 +39,6 @@ pub fn create_router_with_access_and_portfolios(
         access: access.clone(),
         engine,
         ws_state: WebSocketState::new(),
-        portfolio_store,
     });
 
     let router = Router::new()
@@ -288,29 +253,43 @@ pub fn create_router_with_access_and_portfolios(
             "/api/v1/credit/analysis",
             post(handlers::calculate_credit_analysis),
         )
-        // Portfolio Reference Data CRUD
+        // Books: durable position snapshots from an external book management system
+        .route("/api/v1/books", get(books::list_books))
+        .route(
+            "/api/v1/books/:book_id",
+            get(books::get_book).put(books::put_book),
+        )
+        .route(
+            "/api/v1/books/:book_id/versions/:version",
+            get(books::get_book_version),
+        )
+        .route(
+            "/api/v1/books/:book_id/history",
+            get(books::get_book_history),
+        )
+        // Portfolio alias over books (one release)
         .route(
             "/api/v1/portfolios",
-            get(handlers::list_portfolios).post(handlers::create_portfolio),
+            get(books::list_portfolios).post(books::create_portfolio),
         )
         .route(
             "/api/v1/portfolios/batch",
-            post(handlers::batch_create_portfolios),
+            post(books::batch_create_portfolios),
         )
         .route(
             "/api/v1/portfolios/:portfolio_id",
-            get(handlers::get_portfolio)
-                .put(handlers::update_portfolio)
-                .delete(handlers::delete_portfolio),
+            get(books::get_portfolio)
+                .put(books::update_portfolio)
+                .delete(books::delete_portfolio),
         )
         .route(
             "/api/v1/portfolios/:portfolio_id/positions",
-            post(handlers::add_portfolio_position),
+            post(books::add_portfolio_position),
         )
         .route(
             "/api/v1/portfolios/:portfolio_id/positions/:instrument_id",
-            axum::routing::put(handlers::update_portfolio_position)
-                .delete(handlers::remove_portfolio_position),
+            axum::routing::put(books::update_portfolio_position)
+                .delete(books::remove_portfolio_position),
         );
     let router = if websocket_enabled {
         router

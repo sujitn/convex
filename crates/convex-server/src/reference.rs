@@ -116,12 +116,12 @@ fn one_header<'a>(headers: &'a HeaderMap, name: &'static str) -> Result<&'a str,
         .map_err(|_| ReferenceError::InvalidInput("invalid mutation header"))
 }
 
-fn key(headers: &HeaderMap) -> Result<RequestId, ReferenceError> {
+pub(crate) fn key(headers: &HeaderMap) -> Result<RequestId, ReferenceError> {
     RequestId::new(one_header(headers, "idempotency-key")?)
         .map_err(|_| ReferenceError::InvalidInput("invalid idempotency key"))
 }
 
-fn expected_version(headers: &HeaderMap) -> Result<Version, ReferenceError> {
+pub(crate) fn expected_version(headers: &HeaderMap) -> Result<Version, ReferenceError> {
     let raw = one_header(headers, "if-match")?;
     let raw = raw
         .strip_prefix('"')
@@ -145,7 +145,7 @@ fn identity(raw: String) -> Result<InstrumentId, ReferenceError> {
     Ok(id)
 }
 
-fn now() -> Result<UtcTimestamp, ReferenceError> {
+pub(crate) fn now() -> Result<UtcTimestamp, ReferenceError> {
     UtcTimestamp::from_datetime(chrono::Utc::now()).map_err(|_| ReferenceError::Unavailable)
 }
 

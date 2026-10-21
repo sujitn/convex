@@ -725,7 +725,6 @@ dependencies = [
  "convex-core",
  "convex-ports",
  "csv",
- "dashmap",
  "rust_decimal",
  "serde",
  "serde_json",

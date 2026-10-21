@@ -244,7 +244,6 @@ async fn recipes_survived(server: &Running, recipes: Vec<Value>) {
 /// Step 3 (P6): a book management system ingests a full position snapshot that
 /// resolves external identifiers through the reference repository.
 #[tokio::test]
-#[ignore = "P6: PUT /api/v1/books/{book_id}"]
 async fn book_snapshot_ingest_resolves_external_identifiers() {
     let seed = seed();
     let (_directory, path) = storage();
@@ -262,7 +261,56 @@ async fn book_snapshot_ingest_resolves_external_identifiers() {
         .await
         .unwrap();
     assert!(response.status().is_success(), "{}", response.status());
-    assert!(response.headers().contains_key("etag"));
+    assert_eq!(response.headers()["etag"], "\"1\"");
+
+    // The seed maps the ISIN to the same instrument: replace version 1 through it.
+    let replaced = server
+        .client
+        .put(server.url("/api/v1/books/SHOWCASE-BOOK"))
+        .header("idempotency-key", "showcase-book-2")
+        .header("if-match", "\"1\"")
+        .json(&serde_json::json!({
+            "positions": [{"identifier": {"kind": "isin", "value": "OLD-ISIN"}, "quantity": "2500000.5"}]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(replaced.status(), StatusCode::OK);
+    assert_eq!(replaced.headers()["etag"], "\"2\"");
+    let stored: Value = server
+        .client
+        .get(server.url("/api/v1/books/SHOWCASE-BOOK"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(stored["positions"][0]["instrument_id"], instrument.as_str());
+    assert_eq!(
+        stored["positions"][0]["source_identifier"]["value"],
+        "OLD-ISIN"
+    );
+
+    // An unknown identifier rejects the whole snapshot with its own row error.
+    let rejected = server
+        .client
+        .put(server.url("/api/v1/books/SHOWCASE-BOOK"))
+        .header("idempotency-key", "showcase-book-3")
+        .header("if-match", "\"2\"")
+        .json(&serde_json::json!({
+            "positions": [
+                {"instrument_id": instrument, "quantity": "1"},
+                {"identifier": {"kind": "isin", "value": "NO-SUCH-ISIN"}, "quantity": "1"}
+            ]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body: Value = rejected.json().await.unwrap();
+    assert_eq!(body["rows"][0]["index"], 1);
+    assert_eq!(body["rows"][0]["code"], "UNKNOWN_IDENTIFIER");
     server.stop().await;
 }
 

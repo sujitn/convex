@@ -278,11 +278,58 @@ File imports use `convex_ext_file::import_reference_file` for a strict versioned
 
 The initial adapters bound retained identities including tombstones to 100,000, commits to 100,000 and immutable versions to 1,000,000. Capacity exhaustion rejects writes; history/deduplication is never silently discarded. Queries and identifier resolution scan bounded local state. These bounds are safeguards, not measured throughput or latency targets. redb provides single-process transactions; managed shared-writer persistence remains future work.
 
+## Books and portfolios
+
+A book is a durable, versioned position snapshot owned by an external book management
+system. It is a `MasterKey::Book` resource in the same reference repository as bonds, so it
+inherits compare-and-set versions, immutable history, idempotency receipts, atomic redb
+commits and `convex-redb backup`. No other store exists.
+
+| Route | Result |
+| --- | --- |
+| `PUT /api/v1/books/{book_id}` | Full snapshot. 201 on version 1, 200 on a replace, 422 with per-row errors, 409 on a version or key conflict, 413 over the bound |
+| `GET /api/v1/books?limit=&after=` | Summaries by book ID, at most 500 per page; `next_after` resumes |
+| `GET /api/v1/books/{book_id}` | Current version, pinned in `ETag` |
+| `GET /api/v1/books/{book_id}/versions/{v}` | One immutable version |
+| `GET /api/v1/books/{book_id}/history?from=&limit=` | Version summaries, oldest first, at most 500 per page |
+
+`Idempotency-Key` is required on every write. On `PUT`, an absent `If-Match` creates the book
+and conflicts if the ID was ever used; a present `If-Match` replaces exactly that version. A
+retry with the same key and body returns the original receipt; the same key with another body
+conflicts. A snapshot holds at most 1,000 positions (`MAX_BOOK_POSITIONS`): a book is
+serialized four times in one redb transaction against its 8 MiB budget, and 1,000 rows is also
+below the 1,024 distinct-identity ceiling of the HTTP entitlement scan.
+
+Each row gives `instrument_id` or an external `identifier` (`isin`, `cusip` or a `provider`
+namespace for BMS keys), a `quantity`, an optional `unit` (`face`, default, or `units`), and an
+optional exact `reference_version`. External identifiers resolve through the identifier
+mappings at the time of the request; unknown or ambiguous identifiers are rejected, never
+guessed. Every row must resolve or nothing commits, and the 422 body lists each failed row
+as `{index, code, reason}` (the first 100 are reported). The 2xx body adds `resolutions` with
+the instrument and mapping versions consumed. Delta and fill ingest are not supported.
+
+`/api/v1/portfolios*` is a one-release alias over books with the former request and response
+shapes. Position edits read the current version and commit with it as the expected version
+(a caller `If-Match` replaces it), so a concurrent writer gets 409. `DELETE` retires a book by
+closing its effective interval; a retired id is treated as absent and can be created again.
+The alias list reads one repository page (1,000 books) and refuses with 503 beyond that; use
+`/api/v1/books` for larger estates. Alias positions are not checked against the instrument
+master, as before; `/api/v1/books` checks every row.
+
+`POST /api/v1/portfolio/analytics` also accepts `{"book_id": "...", "version": n}` instead of
+inline positions. It requires a complete, valid runtime result for every position and
+otherwise refuses the whole request (422 `BOOK_RESULTS_UNAVAILABLE`, naming the missing
+instruments and the pinned book version); it never returns a partial portfolio. The runtime
+universe is a fixed plan today, so this normally refuses. When all positions have results it
+still refuses with 501 `RUNTIME_RESULT_ADAPTER_UNAVAILABLE`, because no adapter from
+canonical results to the analyzer inputs exists yet. Other portfolio analytics routes take
+inline positions only.
+
 ## Reference schema and Rust migration
 
 The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. A complete earlier three-table repository adds the master tables atomically while retaining exact prior content and receipts. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
 
-Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). `ReferenceDataProvider` covers auxiliary issuer, rating and ETF sources. Default router helpers deny protected access. Supply `create_router_with_access` or `create_router_with_access_and_portfolios` with the verified boundary; the access guide describes embedding migration.
+Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). `ReferenceDataProvider` covers auxiliary issuer, rating and ETF sources. Default router helpers deny protected access. Supply `create_router_with_access` with the verified boundary; the access guide describes embedding migration.
 
 `create_test_storage` names the file-backed redb test helper accurately. Prefer `create_redb_storage` with an owned temporary directory when deterministic file cleanup is required. The validated analytics risk wrapper is now `ValidatedRiskResponse`; the former name has no compatibility alias. Pure pricing formulas, units and signs are unchanged.
 
