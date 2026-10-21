@@ -76,8 +76,10 @@ fn cancelled_waiter_retains_both_admissions_until_blocking_work_finishes() {
             );
             drop(release);
             blocker.await.unwrap();
+            // The worker drops its admission, then its permit: wait for both.
             tokio::time::timeout(std::time::Duration::from_secs(5), async {
-                while retained.upgrade().is_some() {
+                while retained.upgrade().is_some() || state.analytics_slots.available_permits() == 0
+                {
                     tokio::task::yield_now().await;
                 }
             })
