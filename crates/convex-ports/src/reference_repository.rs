@@ -242,6 +242,15 @@ pub trait ReferenceRepository: Send + Sync {
         key: &MasterKey,
         lookup: ReferenceLookup,
     ) -> Result<Option<MasterRecord>, ReferenceError>;
+    /// Current book records ordered by book ID, strictly after the cursor, at most `limit`.
+    /// Backends without book support refuse rather than return an empty page.
+    async fn list_books(
+        &self,
+        _after: Option<&BookId>,
+        _limit: usize,
+    ) -> Result<Vec<MasterRecord>, ReferenceError> {
+        Err(ReferenceError::Unsupported("book listing"))
+    }
     /// Resolve historical mapping assertions from one read snapshot. Ambiguity is never selected away.
     async fn resolve_at(
         &self,

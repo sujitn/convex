@@ -396,6 +396,37 @@ impl ReferenceRepository for RedbReferenceRepository {
             .map(|v| decode(v.value()))
             .transpose()
     }
+    async fn list_books(
+        &self,
+        after: Option<&BookId>,
+        limit: usize,
+    ) -> Result<Vec<MasterRecord>, ReferenceError> {
+        if limit == 0 || limit > MAX_REFERENCE_PAGE {
+            return Err(ReferenceError::InvalidInput("invalid book page size"));
+        }
+        let read = self
+            .db
+            .begin_read()
+            .map_err(|_| ReferenceError::Unavailable)?;
+        let table = read
+            .open_table(MASTER_CURRENT)
+            .map_err(|_| ReferenceError::Unavailable)?;
+        // "book0" is the first key after every "book/..." key.
+        let cursor = after.map(|id| MasterKey::Book(id.clone()).storage_key());
+        let start = cursor.as_deref().map_or(
+            std::ops::Bound::Included("book/"),
+            std::ops::Bound::Excluded,
+        );
+        table
+            .range::<&str>((start, std::ops::Bound::Excluded("book0")))
+            .map_err(|_| ReferenceError::Unavailable)?
+            .take(limit)
+            .map(|entry| {
+                let (_, value) = entry.map_err(|_| ReferenceError::Unavailable)?;
+                decode(value.value())
+            })
+            .collect()
+    }
     async fn get_master_version(
         &self,
         key: &MasterKey,

@@ -198,6 +198,11 @@ pub async fn request(
         .method(method)
         .uri(path)
         .header("content-type", "application/json");
+    if method != "GET" && method != "HEAD" {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        req = req.header("idempotency-key", format!("access-fixture-{n}"));
+    }
     if let Some(token) = token {
         req = req.header("authorization", format!("Bearer {token}"));
     }

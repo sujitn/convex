@@ -304,6 +304,119 @@ pub struct IdentifierMapping {
     pub provenance: ReferenceProvenance,
 }
 
+/// Internal book identity; the same token grammar as every other reference identity.
+pub type BookId = ReferenceDataId;
+
+/// Maximum positions in one book snapshot.
+///
+/// A committed book is serialized four times in one redb transaction (current,
+/// history, retained command and retained receipt), against the 8 MiB atomic
+/// transaction budget. One row is at most about 0.9 KiB (instrument 128 B, source
+/// identifier ~300 B, quantity 59 B, two 64 B classifications, framing), so 1,000
+/// rows are at most ~0.9 MiB per copy and ~3.6 MiB per transaction. The bound also
+/// stays below the 1,024 distinct-identity ceiling the HTTP access layer applies when
+/// it scopes a request or response to instruments, so entitlement checks never
+/// have to be skipped for a large book.
+pub const MAX_BOOK_POSITIONS: usize = 1_000;
+
+/// How a position quantity is denominated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QuantityUnit {
+    /// Face (notional) amount in the instrument currency.
+    Face,
+    /// Number of units/securities.
+    Units,
+}
+
+/// One position. The instrument is always a resolved internal identity; an external
+/// identifier it was resolved from is retained only as evidence.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BookPosition {
+    /// Resolved internal instrument.
+    pub instrument_id: InstrumentId,
+    /// Signed quantity; negative is short.
+    pub quantity: ExactDecimal,
+    /// Denomination of the quantity.
+    pub unit: QuantityUnit,
+    /// Optional exact instrument version the owning system priced against.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_version: Option<Version>,
+    /// External identifier the owning system supplied, kept for audit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_identifier: Option<ExternalIdentifier>,
+    /// Supplied sector classification.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sector: Option<String>,
+    /// Supplied credit rating label.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rating: Option<String>,
+}
+
+/// Versioned position snapshot owned by one external system.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BookDefinition {
+    /// Internal book identity.
+    pub book_id: BookId,
+    /// System of record that supplies the snapshots.
+    pub owning_system: SourceId,
+    /// Optional display name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// Optional reporting currency code.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// Optional description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Validity of this snapshot; a bounded end retires the book.
+    pub effective: EffectiveInterval,
+    /// Complete positions, unique by instrument.
+    pub positions: Vec<BookPosition>,
+    /// Source evidence.
+    pub provenance: ReferenceProvenance,
+}
+
+impl BookDefinition {
+    /// Validate bounds and uniqueness independently of backend state.
+    pub fn validate(&self) -> Result<(), ReferenceError> {
+        if self.positions.len() > MAX_BOOK_POSITIONS {
+            return Err(ReferenceError::CapacityExceeded);
+        }
+        for text in [&self.name, &self.description].into_iter().flatten() {
+            bounded_text(text, 1024)?;
+        }
+        if let Some(code) = &self.currency {
+            if convex_core::Currency::from_code(code).is_none() {
+                return Err(ReferenceError::InvalidInput("unknown book currency"));
+            }
+        }
+        let mut seen = BTreeSet::new();
+        for position in &self.positions {
+            if !seen.insert(position.instrument_id.as_str()) {
+                return Err(ReferenceError::InvalidInput("duplicate instrument in book"));
+            }
+            position.validate()?;
+        }
+        Ok(())
+    }
+}
+
+impl BookPosition {
+    /// Validate bounded evidence and classification text.
+    pub fn validate(&self) -> Result<(), ReferenceError> {
+        if let Some(identifier) = &self.source_identifier {
+            identifier.validate()?;
+        }
+        for text in [&self.sector, &self.rating].into_iter().flatten() {
+            bounded_text(text, 64)?;
+        }
+        Ok(())
+    }
+}
+
 /// Typed master key. Same text in different resource kinds is a different key.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(
@@ -331,6 +444,8 @@ pub enum MasterKey {
     Basket(ReferenceDataId),
     /// Actual cash hedge candidates and their market/eligibility inputs.
     CashUniverse(ReferenceDataId),
+    /// Position snapshot owned by an external book management system.
+    Book(BookId),
 }
 
 impl MasterKey {
@@ -346,6 +461,7 @@ impl MasterKey {
             Self::Futures(id) => format!("futures/{}", id.as_str()),
             Self::Basket(id) => format!("basket/{}", id.as_str()),
             Self::CashUniverse(id) => format!("cash_universe/{}", id.as_str()),
+            Self::Book(id) => format!("book/{}", id.as_str()),
         }
     }
 }
@@ -377,6 +493,8 @@ pub enum MasterDefinition {
     Basket(Box<crate::futures_reference::BasketDefinition>),
     /// Exact cash hedge input universe.
     CashUniverse(Box<crate::futures_reference::CashUniverseDefinition>),
+    /// Complete position snapshot; omission never means merge with an older snapshot.
+    Book(Box<BookDefinition>),
 }
 
 impl MasterDefinition {
@@ -392,6 +510,7 @@ impl MasterDefinition {
             Self::Futures(v) => MasterKey::Futures(v.contract.instrument_id.clone()),
             Self::Basket(v) => MasterKey::Basket(v.basket.stamp.id.clone()),
             Self::CashUniverse(v) => MasterKey::CashUniverse(v.universe.stamp.id.clone()),
+            Self::Book(v) => MasterKey::Book(v.book_id.clone()),
         }
     }
     /// Economic validity.
@@ -406,6 +525,7 @@ impl MasterDefinition {
             Self::Futures(v) => v.effective,
             Self::Basket(v) => v.effective,
             Self::CashUniverse(v) => v.effective,
+            Self::Book(v) => v.effective,
         }
     }
     /// Validate complete bounded fields, independently of backend state.
@@ -461,6 +581,10 @@ impl MasterDefinition {
                 v.universe
                     .validate()
                     .map_err(|e| ReferenceError::InvalidInput(e.reason))?;
+                &v.provenance
+            }
+            Self::Book(v) => {
+                v.validate()?;
                 &v.provenance
             }
         };
@@ -872,6 +996,28 @@ pub fn validate_reference_links(
                     if !matches!(value.definition, MasterDefinition::IssuerScope(_)) {
                         return Err(ReferenceError::InvalidInput(
                             "exact issuer scope resource required",
+                        ));
+                    }
+                }
+            }
+            MasterDefinition::Book(book) => {
+                // Pinned rows must name an instrument version that already exists.
+                for position in &book.positions {
+                    let Some(version) = position.reference_version else {
+                        continue;
+                    };
+                    let id: convex_core::ids::InstrumentId = position.instrument_id.clone().into();
+                    let known = commit
+                        .records
+                        .iter()
+                        .find(|r| r.instrument_id == id && r.version == version)
+                        .cloned()
+                        .map(|r| Ok(Some(r)))
+                        .unwrap_or_else(|| bond_version(&id, version))?;
+                    if known.is_none_or(|r| r.bond.is_none() || r.recorded_at > commit.recorded_at)
+                    {
+                        return Err(ReferenceError::InvalidInput(
+                            "book position pins a missing instrument version",
                         ));
                     }
                 }

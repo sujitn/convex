@@ -80,6 +80,16 @@ published fixings and supplied curves. Generation-safe graph publication, real
 curve calibration/configuration, complete product workflow admission, corporate-action
 lifecycles and provider sessions remain separate.
 
+The closed `book` master definition holds a position snapshot owned by an external
+book management system: an owning system, positions (resolved instrument, exact
+quantity, `face` or `units`, optional pinned instrument version) and an effective
+interval whose bounded end retires the book. At most `MAX_BOOK_POSITIONS` (1,000)
+rows fit, because the commit stores a book four times inside one transaction.
+`ReferenceRepository::list_books` pages current books by ID; a backend without it
+returns `Unsupported`. Older binaries reject the new kind. Conformance:
+`books_page_in_order_and_version_with_compare_and_set`. HTTP surface: see the
+server README, "Books and portfolios".
+
 CVX-022 adds closed `futures`, `basket` and `cash_universe` master definitions
 and a futures mapping target. Exact reciprocal contract/basket revisions,
 published factors, actual security versions, calendar coverage and source
