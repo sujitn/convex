@@ -34,10 +34,18 @@ test('SOFR OIS curve calibrates from par swap rates and reprices every swap', as
   assert.ok(c.repricing.every((r) => Math.abs(r.residual) < 1e-9), JSON.stringify(c.repricing.map((r) => r.residual)));
   assert.equal(c.recipe.role.kind, 'Discount');
   assert.ok(c.publications > 3500 && c.publications < 4000, `${c.publications}`);
-  // The re-supplied direct curve gives back the swap rate's discount factors: the
-  // 1Y swap (single annual period) satisfies DF(pay) = 1 / (1 + r * accrual).
-  const zero = await nodeEngine.call(R.curveQuery([c.recipe], c.key, R.zeroQuery(5, 'Continuous')));
-  assert.ok(zero.ok && zero.data.value > 0.03 && zero.data.value < 0.04, JSON.stringify(zero));
+  // The re-supplied direct curve gives back the swap rate's discount factors. The
+  // 1Y swap has one annual period from spot (2026-10-22) to 2027-10-22; with the
+  // overnight rate projected off the same curve, its par rate r satisfies
+  // DF(end) / DF(start) = 1 / (1 + r × days / 360). Both legs pay on the same
+  // delayed date, so that discount factor cancels.
+  const df = async (date) => {
+    const res = await nodeEngine.call(R.curveQuery([c.recipe], c.key, R.dfQuery({ Date: date })));
+    assert.ok(res.ok, JSON.stringify(res.error));
+    return res.data.value;
+  };
+  const ratio = (await df('2027-10-22')) / (await df('2026-10-22'));
+  assert.ok(Math.abs(ratio - 1 / (1 + 0.036 * (365 / 360))) < 1e-10, `${ratio}`);
 });
 
 test('an OIS tenor past the publication limit is refused before the engine is called', async () => {

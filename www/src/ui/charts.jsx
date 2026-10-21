@@ -105,7 +105,7 @@ export function LineChart({ series, height = 260, xFormat = (v) => v, yFormat = 
     const rows = series
       .map((s) => {
         let best = null;
-        for (const p of s.points) if (!best || Math.abs(p.x - x) < Math.abs(best.x - x)) best = p;
+        for (const p of s.points) if (Number.isFinite(p.x) && Number.isFinite(p.y) && (!best || Math.abs(p.x - x) < Math.abs(best.x - x))) best = p;
         return best && { s, p: best };
       })
       .filter(Boolean);

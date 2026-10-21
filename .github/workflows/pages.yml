@@ -3,11 +3,15 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-  # Pull requests touching the browser app build and test it without deploying.
+  # Pull requests touching the browser app or anything compiled into its engine
+  # build and test it without deploying.
   pull_request:
     paths:
       - 'www/**'
-      - 'crates/convex-wasm/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

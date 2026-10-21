@@ -9,8 +9,7 @@ import { fmt, ms } from '../lib/format';
 import { formatLong, tenorYears } from '../lib/dates';
 
 const COMPOUNDINGS = ['Continuous', 'Annual', 'SemiAnnual', 'Quarterly', 'Simple'];
-const SERIES = { 'USD.UST': '--s1', 'EUR.AAA': '--s2', 'EUR.ALL': '--s4', 'CAD.GOC': '--s3' };
-const CUSTOM_SERIES = ['--s5', '--s6'];
+const PALETTE = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6'];
 const METHOD = {
   par: 'Piecewise par-coupon calibration',
   ois: 'Piecewise OIS calibration from par swaps',
@@ -18,10 +17,11 @@ const METHOD = {
 };
 const INPUT = { par: 'Par input', ois: 'Swap rate input', zero: 'Spot input' };
 
-function seriesColor(defs, cid) {
-  if (SERIES[cid]) return SERIES[cid];
-  const custom = Object.values(defs).filter((d) => d.custom).map((d) => d.id);
-  return CUSTOM_SERIES[Math.max(0, custom.indexOf(cid)) % CUSTOM_SERIES.length];
+// Built-in curves then yours, in a fixed order, so a curve keeps its colour; past
+// six, the palette repeats with a dashed line rather than a generated hue.
+function seriesStyle(defs, cid) {
+  const i = Math.max(0, Object.keys(defs).indexOf(cid));
+  return { color: PALETTE[i % PALETTE.length], dash: i >= PALETTE.length };
 }
 
 function QueryTool({ curve }) {
@@ -32,7 +32,7 @@ function QueryTool({ curve }) {
   const t = Number(tenor);
   const e = Number(end);
   const valid = t > 0 && e > t;
-  const { data, busy } = useComputation(async () => {
+  const { data, busy, error } = useComputation(async () => {
     if (!valid || !curve.recipe) return null;
     const res = await engine.callMany([
       R.curveQuery([curve.recipe], curve.key, R.zeroQuery(t, comp)),
@@ -40,14 +40,14 @@ function QueryTool({ curve }) {
       R.curveQuery([curve.recipe], curve.key, R.forwardQuery(t, e, comp)),
     ], { label: `${curve.key.id} point query` });
     return res;
-  }, [curve.key && curve.key.version, t, e, comp, valid]);
+  }, [curve.key && curve.key.id, curve.key && curve.key.version, t, e, comp, valid]);
   const v = (i) => (data && data[i].ok ? data[i].data.value : NaN);
   return (
     <Panel title="Point query" note="native curve_query">
       <div className="form form--2" style={{ marginBottom: 10 }}>
         <Field label="Tenor, years"><input className="input--num" value={tenor} onChange={(x) => setTenor(x.target.value)} /></Field>
         <Field label="Forward end, years"><input className="input--num" value={end} onChange={(x) => setEnd(x.target.value)} /></Field>
-        <Field label="Rate compounding" wide>
+        <Field label="Rate compounding" wide as="div">
           <Seg value={comp} onChange={setComp} options={COMPOUNDINGS.map((c) => [c, c === 'SemiAnnual' ? 'Semi' : c])} label="Compounding" />
         </Field>
       </div>
@@ -59,6 +59,7 @@ function QueryTool({ curve }) {
           [`Forward ${tenor}Y → ${end}Y`, `${fmt(v(2) * 100, 5)}%`, comp],
         ]} />
       )}
+      <EngineError error={error} context="Point query" />
       {data && data.find((d) => !d.ok) && <EngineError error={data.find((d) => !d.ok).error} />}
     </Panel>
   );
@@ -74,7 +75,7 @@ export default function Curves({ fn }) {
 
   const sample = useComputation(
     () => (curve && curve.recipe && !curve.building ? sampleCurve(engine, curve) : null),
-    [id, curve && curve.key && curve.key.version, curve && curve.interpolation, curve && curve.building],
+    [id, curve && curve.key && curve.key.id, curve && curve.key && curve.key.version, curve && curve.interpolation, curve && curve.building],
   );
   const others = useComputation(async () => {
     if (!compare) return null;
@@ -83,7 +84,7 @@ export default function Curves({ fn }) {
       if (c && c.recipe && cid !== id) out[cid] = await sampleCurve(engine, c, { step: 0.5 });
     }
     return out;
-  }, [compare, id, Object.values(curves).map((c) => c && c.key && c.key.version).join('|')]);
+  }, [compare, id, Object.values(curves).map((c) => c && c.key && `${c.key.id}@${c.key.version}`).join('|')]);
 
   const ds = def.custom ? def : datasets[def.dataset];
   const rows = sample.data ? sample.data.rows : [];
@@ -95,9 +96,9 @@ export default function Curves({ fn }) {
       markers: inputPoints },
   ] : [];
   const compareSeries = compare && others.data && rows.length ? [
-    { id, label: def.label, color: seriesColor(curveDefs, id), points: rows.filter((_, i) => i % 2 === 1).map((r) => ({ x: r.t, y: r.zero * 100 })) },
+    { id, label: def.label, ...seriesStyle(curveDefs, id), points: rows.filter((_, i) => i % 2 === 1).map((r) => ({ x: r.t, y: r.zero * 100 })) },
     ...Object.entries(others.data).filter(([cid]) => curveDefs[cid]).map(([cid, s]) => ({
-      id: cid, label: curveDefs[cid].label, color: seriesColor(curveDefs, cid), points: s.rows.map((r) => ({ x: r.t, y: r.zero * 100 })),
+      id: cid, label: curveDefs[cid].label, ...seriesStyle(curveDefs, cid), points: s.rows.map((r) => ({ x: r.t, y: r.zero * 100 })),
     })),
   ] : null;
 
@@ -132,7 +133,7 @@ export default function Curves({ fn }) {
                   xFormat={(v) => `${Math.round(v)}Y`} yFormat={(v) => v.toFixed(2)}
                   tipX={(v) => `${fmt(v, 2)} years`} tipY={(v) => `${v.toFixed(4)}%`} />
               )}
-              <EngineError error={sample.data && sample.data.error} context="Sampling" />
+              <EngineError error={sample.error || (sample.data && sample.data.error)} context="Sampling" />
             </Panel>
             <div className="stack">
               <Panel title="Construction">
@@ -149,6 +150,7 @@ export default function Curves({ fn }) {
                   ['Engine time', ms(curve.ms)],
                   ['Market data', <Prov key="p" status={curve.dataset.status}>{def.custom ? 'Yours, ' : ''}{formatLong(curve.dataset.asOf)}</Prov>],
                 ]} />
+                {def.note && <div className="note" style={{ marginTop: 10 }}>{def.note}</div>}
               </Panel>
               <QueryTool curve={curve} />
             </div>
@@ -164,7 +166,7 @@ export default function Curves({ fn }) {
                       const node = curve.nodes[i + 1];
                       return (
                         <tr key={r.helper_id}>
-                          <td>{r.helper_id.split('.').pop()}</td><td>{formatLong(r.pillar)}</td>
+                          <td>{r.helper_id.slice(curve.key.id.length + 1)}</td><td>{formatLong(r.pillar)}</td>
                           <td className="num">{fmt(r.input.value * 100, 4)}</td>
                           <td className="num">{fmt(r.model.value * 100, 6)}</td>
                           <td className="num dim">{r.residual.toExponential(2)}</td>

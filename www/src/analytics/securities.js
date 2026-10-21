@@ -223,6 +223,36 @@ export const EXAMPLES = [
     eom: 'auto',
     redemption: '100',
   },
+  {
+    // Compounded SOFR in arrears, two-day observation shift: the standard US
+    // corporate and agency SOFR floater. Priced on FRN.
+    id: 'EX-FRN-2029',
+    source: 'example',
+    kind: 'floating',
+    issuer: 'Example Bank N.A. (hypothetical)',
+    name: 'Example Bank SOFR + 85 FRN 2029',
+    ticker: 'EXBK FRN 08/15/29',
+    currency: 'USD',
+    index: 'USD.SOFR',
+    spreadBp: '85',
+    lookbackDays: 2,
+    observationShift: true,
+    lockoutDays: 0,
+    paymentDelayDays: 0,
+    issueDate: '2025-08-15',
+    datedDate: '2025-08-15',
+    firstCouponDate: null,
+    maturity: '2029-08-15',
+    frequency: 'Quarterly',
+    dayCount: 'Act360',
+    face: '100',
+    calendar: 'US.SIFMA',
+    settlementDays: 1,
+    accrualAdjustment: 'ModifiedFollowing',
+    paymentAdjustment: 'ModifiedFollowing',
+    eom: false,
+    redemption: '100',
+  },
 ];
 
 export function curveForCurrency(currency) {

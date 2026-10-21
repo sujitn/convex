@@ -3,11 +3,22 @@
 
 const DAY_MS = 86400000;
 
+// Date.UTC reads years 0-99 as 1900-1999; setUTCFullYear takes the year as
+// given. Month and day overflow still roll over (day 0 = last of the month before).
+function utc(y, monthIndex, day) {
+  const d = new Date(0);
+  d.setUTCFullYear(y, monthIndex, day);
+  return d;
+}
+
 export function parseIso(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(typeof iso === 'string' ? iso : '');
   if (!m) throw new Error(`Invalid date "${iso}" (expected YYYY-MM-DD)`);
-  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
-  if (d.getUTCMonth() !== +m[2] - 1) throw new Error(`Invalid date "${iso}"`);
+  const [y, mo, day] = [+m[1], +m[2], +m[3]];
+  const d = utc(y, mo - 1, day);
+  if (d.getUTCFullYear() !== y || d.getUTCMonth() !== mo - 1 || d.getUTCDate() !== day) {
+    throw new Error(`Invalid date "${iso}"`);
+  }
   return d;
 }
 
@@ -25,7 +36,7 @@ export function isIso(iso) {
 }
 
 export function ymd(y, m, d) {
-  return toIso(new Date(Date.UTC(y, m - 1, d)));
+  return toIso(utc(y, m - 1, d));
 }
 
 export function addDays(iso, n) {
@@ -37,7 +48,7 @@ export function addMonths(iso, n) {
   const d = parseIso(iso);
   const y = d.getUTCFullYear();
   const m = d.getUTCMonth() + n;
-  const target = new Date(Date.UTC(y, m, 1));
+  const target = utc(y, m, 1);
   const last = daysInMonth(target.getUTCFullYear(), target.getUTCMonth() + 1);
   target.setUTCDate(Math.min(d.getUTCDate(), last));
   return toIso(target);
@@ -48,7 +59,7 @@ export function addYears(iso, n) {
 }
 
 export function daysInMonth(y, m) {
-  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return utc(y, m, 0).getUTCDate();
 }
 
 export function daysBetween(a, b) {

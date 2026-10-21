@@ -4,11 +4,19 @@ import { useStore } from '../state/store';
 import { exportData, readImport } from '../lib/userdata';
 import { CURVE_METHODS, customCurveDef, CALENDAR_FOR } from '../analytics/curves';
 import { OIS_INDICES, MAX_OIS_YEARS, EXAMPLE_OIS, examplePoints } from '../lib/ois';
-import { tenorYears, formatLong } from '../lib/dates';
+import { tenorYears, formatLong, isIso } from '../lib/dates';
 import { fmt } from '../lib/format';
 import { Panel, Field, Seg, Select, Prov, Spinner, Icon, KV, EngineError } from '../ui/primitives';
 import { LineChart } from '../ui/charts';
 import PointsEditor from '../ui/PointsEditor';
+import BondImport from './BondImport';
+
+// Tenors offered in the copyable curve template, by curve type.
+const TEMPLATE_TENORS = {
+  ois: ['1W', '1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '12Y', '15Y'],
+  par: ['1M', '3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '20Y', '30Y'],
+  zero: ['3M', '6M', '1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '15Y', '20Y', '30Y', '40Y', '50Y'],
+};
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD'];
 const DAY_COUNTS = [['Act360', 'Act/360'], ['Act365Fixed', 'Act/365F'], ['ActActIsda', 'Act/Act ISDA']];
@@ -64,7 +72,8 @@ function NewCurve({ onCreate, onCancel, existing, tradeDate }) {
           {method === 'par' && <>Enter par yields in percent. The engine calibrates from one par bond per tenor, semi-annual, settling T+1 on the {CALENDAR_FOR[ccy] || 'US.SIFMA'} calendar.</>}
           {method === 'zero' && <>Enter continuously compounded zero rates in percent, Act/365F time. They are used directly as curve nodes, any horizon.</>}
         </div>
-        <PointsEditor points={points} onChange={(p) => { setPoints(p); setExample(false); }} maxHeight={260} />
+        <PointsEditor key={method} points={points} onChange={(p) => { setPoints(p); setExample(false); }} maxHeight={260}
+          pasteOpen templateTenors={TEMPLATE_TENORS[method]} />
         {method === 'ois' && EXAMPLE_OIS[index] && (
           <div className="row" style={{ gap: 10, alignItems: 'center' }}>
             <button type="button" className="btn btn--sm" onClick={() => { setPoints(examplePoints(index)); setExample(true); }}>
@@ -142,7 +151,8 @@ function CurveEditor({ def, curve, onRemove }) {
         </div>
         <Conventions def={def} update={update} />
         <div className="cols cols--2" style={{ gap: 16 }}>
-          <PointsEditor points={def.points} onChange={(points) => update({ points })} valueLabel={def.method === 'ois' ? 'Swap rate %' : def.method === 'par' ? 'Par yield %' : 'Zero %'} />
+          <PointsEditor points={def.points} onChange={(points) => update({ points })} templateTenors={TEMPLATE_TENORS[def.method]}
+            valueLabel={def.method === 'ois' ? 'Swap rate %' : def.method === 'par' ? 'Par yield %' : 'Zero %'} />
           <div>
             <LineChart height={220}
               series={[
@@ -180,6 +190,7 @@ function Transfer() {
   const [message, setMessage] = useState(null);
   const counts = {
     curves: Object.keys(state.customCurves).length,
+    credit: Object.keys(state.credit || {}).length,
     securities: Object.keys(state.custom).length,
     prices: Object.keys(state.benchPrices).length,
     datasets: Object.values(state.datasets).filter((d) => d && d.status === 'manual').length,
@@ -198,10 +209,13 @@ function Transfer() {
     if (!f) return;
     f.text().then((text) => {
       try {
-        const data = readImport(JSON.parse(text));
+        const data = readImport(JSON.parse(text), { customCurves: state.customCurves });
         dispatch({ type: 'importData', data });
-        setMessage({ ok: true, text: `Imported ${Object.keys(data.customCurves).length} curves, ${Object.keys(data.custom).length} securities, `
-          + `${Object.keys(data.benchPrices).length} benchmark prices and ${Object.keys(data.datasets).length} edited datasets.` });
+        const skipped = data.rejected.length;
+        setMessage({ ok: true, text: `Imported ${Object.keys(data.customCurves).length} curves, ${Object.keys(data.credit).length} credit curves, ${Object.keys(data.custom).length} securities, `
+          + `${Object.keys(data.benchPrices).length} benchmark prices and ${Object.keys(data.datasets).length} edited datasets.`
+          + (skipped ? ` Skipped ${skipped} malformed record${skipped === 1 ? '' : 's'}: `
+            + `${data.rejected.slice(0, 3).map((r) => `${r.section} ${r.id} (${r.reason})`).join('; ')}${skipped > 3 ? '…' : ''}.` : '') });
       } catch (err) {
         setMessage({ ok: false, text: err.message });
       }
@@ -212,7 +226,7 @@ function Transfer() {
     <Panel title="Save and share your data" note="one JSON file">
       <div className="stack">
         <div className="dim" style={{ fontSize: 12.5 }}>
-          In this browser: {counts.curves} curves, {counts.securities} securities, {counts.prices} benchmark prices, {counts.datasets} edited datasets.
+          In this browser: {counts.curves} curves, {counts.credit} credit curves, {counts.securities} securities, {counts.prices} benchmark prices, {counts.datasets} edited datasets.
           Download them to keep a copy or move them to another browser; importing merges into what is here.
         </div>
         <div className="row" style={{ gap: 8 }}>
@@ -227,8 +241,9 @@ function Transfer() {
 }
 
 const SUPPLY = [
-  ['Swap and other curves', 'Below: OIS swap rates (SOFR, €STR, SONIA, CORRA) calibrated by the engine, par yields, or zero rates. Use one for spreads on YAS, CFL and OAS.'],
-  ['Market data', 'Every loaded value on the other tabs can be edited; add tenors or paste a whole table into any curve.'],
+  ['Swap and other curves', 'Below: paste a tenor and rate column from Excel as OIS swap rates (SOFR, €STR, SONIA, CORRA) calibrated by the engine, par yields, or zero rates. Use one for spreads on YAS, CFL and OAS.'],
+  ['Bonds', 'Below or on SEC: paste bond reference data (CUSIP or ISIN, coupon, maturity, optional dates, conventions, price, calls) from a spreadsheet.'],
+  ['Market data', 'Curve values on the other tabs can be edited; add tenors or paste a whole table into any curve.'],
   ['Benchmark prices', 'On YAS, type actual prices for the on-the-run Treasuries; G-spread then uses yours instead of curve-implied ones.'],
   ['Securities', 'On SEC, copy any bond as a custom security and change its terms, calls, steps or sinking schedule.'],
   ['Model inputs', 'Volatility and mean reversion on OAS; trade date and face on every screen.'],
@@ -262,7 +277,7 @@ export default function YourData() {
                   onClick={() => setEditing(d.id)} onKeyDown={(e) => e.key === 'Enter' && setEditing(d.id)}>
                   <div>
                     <div><b>{d.label}</b></div>
-                    <div className="dim" style={{ fontSize: 11.5 }}>{CURVE_METHODS[d.method]}, {d.points.length} points, {formatLong(d.asOf)}</div>
+                    <div className="dim" style={{ fontSize: 11.5 }}>{CURVE_METHODS[d.method]}, {d.points.length} points, {isIso(d.asOf) ? formatLong(d.asOf) : d.asOf}</div>
                   </div>
                   <Prov status={status}>{!c || c.building ? 'Building' : c.error ? 'Failed' : 'Built'}</Prov>
                 </div>
@@ -279,6 +294,7 @@ export default function YourData() {
             onRemove={() => { removeCurve(current.id); setEditing(mine.find((d) => d.id !== current.id)?.id || 'new'); }} />
         )}
       </div>
+      <BondImport />
       <Transfer />
     </div>
   );

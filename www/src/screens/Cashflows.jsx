@@ -50,13 +50,15 @@ async function loadCashflows(engine, sec, settlement, curve) {
 
 export default function Cashflows({ fn }) {
   const { engine, selected: sec, settlement, curve } = useWorkspace();
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
   const face = Number(state.quote.face || '1000000');
   const ok = sec && sec.kind === 'fixed';
-  const { data, busy } = useComputation(
+  const { data: stale, busy, current } = useComputation(
     () => (ok && curve && !curve.building ? loadCashflows(engine, { ...sec, calls: [] }, settlement, curve) : null),
-    [sec, settlement, curve && curve.key && curve.key.version, curve && curve.building],
+    [sec, settlement, curve && curve.key && curve.key.id, curve && curve.key && curve.key.version, curve && curve.building],
   );
+  // Rows belong to the security they were built for; never show them for another or for a non-bond.
+  const data = ok && current ? stale : null;
   const scale = sec ? face / Number(sec.face || 100) : 1;
   const rows = data && data.rows ? data.rows : [];
   const total = rows.reduce((a, r) => a + r.coupon + r.principal, 0);
@@ -68,10 +70,14 @@ export default function Cashflows({ fn }) {
         <CurvePicker label="Discount curve" />
       </ScreenHead>
       <SecurityBand sec={sec} settlement={settlement} />
-      {!ok && <Empty>Cash flows are shown for coupon bonds. Bills have a single redemption; see BILL.</Empty>}
-      {ok && busy && !data && <Empty><Spinner /></Empty>}
+      {sec && sec.kind === 'floating' && (
+        <div className="note">This note's coupons follow SOFR: its cash flows are projected from fixings and a SOFR curve on <button
+          type="button" className="btn btn--sm" onClick={() => dispatch({ type: 'screen', screen: 'FRN' })}>FRN</button>, each marked fixed or projected.</div>
+      )}
+      {!ok && !(sec && sec.kind === 'floating') && <Empty>Cash flows are shown for coupon bonds. Bills have a single redemption; see BILL.</Empty>}
+      {ok && (busy || !current) && !data && <Empty><Spinner /></Empty>}
       {data && data.error && <EngineError error={data.error} context="Cash flows" />}
-      {sec && sec.calls && sec.calls.length > 0 && (
+      {ok && sec.calls && sec.calls.length > 0 && (
         <div className="note note--warn" style={{ marginBottom: 16 }}>Shown to maturity, assuming no call is exercised.</div>
       )}
       {rows.length > 0 && (

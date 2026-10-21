@@ -1,8 +1,11 @@
 // Rule-generated holiday calendars. The library never infers a calendar from
 // a name, so every request carries the actual holiday table; these rules are
 // how the browser produces it. Each pin names the rule set and its year span.
+// The US, UK and TARGET2 rules mirror the repository's Rust calendars in
+// crates/convex-core/src/calendars (sifma.rs, us_calendar.rs, uk.rs,
+// target2.rs); Canada has no Rust counterpart.
 
-import { ymd, weekday, addDays, parseIso, toIso } from './dates.js';
+import { ymd, weekday, addDays } from './dates.js';
 
 export const CALENDAR_YEARS = [2000, 2080];
 const WEEKEND = [5, 6]; // Saturday, Sunday (Monday = 0)
@@ -33,7 +36,7 @@ function nthWeekday(y, m, wd, n) {
     const offset = (wd - weekday(first) + 7) % 7;
     return addDays(first, offset + 7 * (n - 1));
   }
-  const last = toIso(new Date(Date.UTC(y, m, 0)));
+  const last = ymd(y, m + 1, 0);
   const back = (weekday(last) - wd + 7) % 7;
   return addDays(last, -back);
 }
@@ -54,39 +57,48 @@ function nextMonday(iso) {
   return iso;
 }
 
-function usSifma(y) {
-  // A Saturday New Year's Day is not observed on the preceding Friday.
+// Saturday fixed-date holidays observed on the Friday before, per calendar,
+// as published: SIFMA closes the Friday before a Saturday Juneteenth,
+// Independence Day, Veterans Day or Christmas, but not before a Saturday New
+// Year's Day; the Federal Reserve Banks stay open on the Friday before any
+// Saturday holiday. The Rust calendars move all of them (crates/convex-core),
+// which these deliberately do not follow.
+const SATURDAY_TO_FRIDAY = {
+  'US.SIFMA': new Set(['Juneteenth', 'Independence Day', 'Veterans Day', 'Christmas Day']),
+  'US.FED': new Set(),
+};
+// Juneteenth became a federal holiday on 17 June 2021, too late for markets:
+// the Fed and SIFMA first closed for it in 2022.
+const JUNETEENTH_FROM = 2022;
+
+function usFixed(y, code) {
+  const fri = SATURDAY_TO_FRIDAY[code];
   return [
-    ["New Year's Day", observed(ymd(y, 1, 1), false)],
-    ['Martin Luther King Jr. Day', nthWeekday(y, 1, 0, 3)],
-    ["Washington's Birthday", nthWeekday(y, 2, 0, 3)],
-    ['Good Friday', addDays(easterSunday(y), -2)],
-    ['Memorial Day', nthWeekday(y, 5, 0, -1)],
-    ['Juneteenth', y >= 2022 ? observed(ymd(y, 6, 19), true) : null],
-    ['Independence Day', observed(ymd(y, 7, 4), true)],
-    ['Labor Day', nthWeekday(y, 9, 0, 1)],
-    ['Columbus Day', nthWeekday(y, 10, 0, 2)],
-    ['Veterans Day', observed(ymd(y, 11, 11), false)],
-    ['Thanksgiving', nthWeekday(y, 11, 3, 4)],
-    ['Christmas Day', observed(ymd(y, 12, 25), true)],
+    ["New Year's Day", observed(ymd(y, 1, 1), fri.has("New Year's Day"))],
+    ['Juneteenth', y >= JUNETEENTH_FROM ? observed(ymd(y, 6, 19), fri.has('Juneteenth')) : null],
+    ['Independence Day', observed(ymd(y, 7, 4), fri.has('Independence Day'))],
+    ['Veterans Day', observed(ymd(y, 11, 11), fri.has('Veterans Day'))],
+    ['Christmas Day', observed(ymd(y, 12, 25), fri.has('Christmas Day'))],
   ];
 }
 
-function usFedwire(y) {
-  // Federal Reserve: Saturday holidays are not observed; Sunday → Monday.
+function usFloating(y) {
   return [
-    ["New Year's Day", observed(ymd(y, 1, 1), false)],
     ['Martin Luther King Jr. Day', nthWeekday(y, 1, 0, 3)],
     ["Washington's Birthday", nthWeekday(y, 2, 0, 3)],
     ['Memorial Day', nthWeekday(y, 5, 0, -1)],
-    ['Juneteenth', y >= 2022 ? observed(ymd(y, 6, 19), false) : null],
-    ['Independence Day', observed(ymd(y, 7, 4), false)],
     ['Labor Day', nthWeekday(y, 9, 0, 1)],
     ['Columbus Day', nthWeekday(y, 10, 0, 2)],
-    ['Veterans Day', observed(ymd(y, 11, 11), false)],
     ['Thanksgiving', nthWeekday(y, 11, 3, 4)],
-    ['Christmas Day', observed(ymd(y, 12, 25), false)],
   ];
+}
+
+function usSifma(y) {
+  return [...usFixed(y, 'US.SIFMA'), ...usFloating(y), ['Good Friday', addDays(easterSunday(y), -2)]];
+}
+
+function usFedwire(y) {
+  return [...usFixed(y, 'US.FED'), ...usFloating(y)];
 }
 
 function target2(y) {
@@ -101,6 +113,22 @@ function target2(y) {
   ];
 }
 
+// Moved and one-off England & Wales bank holidays, exactly as the Rust UK
+// calendar has them. It does not have the 2002 Golden Jubilee (3 and 4 June)
+// or the 2012 move of the spring bank holiday from 28 May to 4 June.
+const UK_MOVED = {
+  'Early May bank holiday': { 2020: '2020-05-08' }, // VE Day 75th anniversary
+  'Spring bank holiday': { 2002: '2002-06-04', 2012: '2012-06-04', 2022: '2022-06-02' }, // the three jubilees
+};
+const UK_ONE_OFF = [
+  ['Golden Jubilee', '2002-06-03'],
+  ['Royal Wedding', '2011-04-29'],
+  ['Diamond Jubilee', '2012-06-05'],
+  ['Platinum Jubilee', '2022-06-03'],
+  ['State Funeral of Queen Elizabeth II', '2022-09-19'],
+  ['Coronation of King Charles III', '2023-05-08'],
+];
+
 function ukEnglandWales(y) {
   const easter = easterSunday(y);
   const xmas = ymd(y, 12, 25);
@@ -110,15 +138,17 @@ function ukEnglandWales(y) {
   if (weekday(xmas) === 5) { xmasObs = ymd(y, 12, 27); boxingObs = ymd(y, 12, 28); }
   else if (weekday(xmas) === 6) { xmasObs = ymd(y, 12, 27); boxingObs = ymd(y, 12, 26); }
   else if (weekday(boxing) === 5) boxingObs = ymd(y, 12, 28);
+  const moved = (name, d) => (UK_MOVED[name] && UK_MOVED[name][y]) || d;
   return [
     ["New Year's Day", nextMonday(ymd(y, 1, 1))],
     ['Good Friday', addDays(easter, -2)],
     ['Easter Monday', addDays(easter, 1)],
-    ['Early May bank holiday', nthWeekday(y, 5, 0, 1)],
-    ['Spring bank holiday', nthWeekday(y, 5, 0, -1)],
+    ['Early May bank holiday', moved('Early May bank holiday', nthWeekday(y, 5, 0, 1))],
+    ['Spring bank holiday', moved('Spring bank holiday', nthWeekday(y, 5, 0, -1))],
     ['Summer bank holiday', nthWeekday(y, 8, 0, -1)],
     ['Christmas Day', xmasObs],
     ['Boxing Day', boxingObs],
+    ...UK_ONE_OFF.filter(([, d]) => Number(d.slice(0, 4)) === y),
   ];
 }
 
@@ -157,15 +187,24 @@ export const CALENDAR_RULES = {
 };
 
 const cache = new Map();
+const holidaySets = new Map();
+
+const inYear = (d, y) => Number(d.slice(0, 4)) === y;
 
 /** The full `CalendarInput` the library expects, generated for `CALENDAR_YEARS`. */
 export function calendarInput(code) {
   if (cache.has(code)) return cache.get(code);
   const def = CALENDAR_RULES[code];
   if (!def) throw new Error(`Unknown calendar ${code}`);
+  const [first, last] = CALENDAR_YEARS;
   const set = new Set();
-  for (let y = CALENDAR_YEARS[0]; y <= CALENDAR_YEARS[1]; y++) {
-    for (const [, d] of def.rule(y)) if (d && !WEEKEND.includes(weekday(d))) set.add(d);
+  // A year's rules can land in the year before (a Saturday 1 January observed
+  // on 31 December), so one year past the span is generated and both ends trimmed.
+  for (let y = first; y <= last + 1; y++) {
+    for (const [, d] of def.rule(y)) {
+      const year = d && Number(d.slice(0, 4));
+      if (d && year >= first && year <= last && !WEEKEND.includes(weekday(d))) set.add(d);
+    }
   }
   const input = {
     pin: calendarPin(code),
@@ -173,6 +212,7 @@ export function calendarInput(code) {
     weekend_days: WEEKEND,
   };
   cache.set(code, input);
+  holidaySets.set(code, set);
   return input;
 }
 
@@ -183,14 +223,20 @@ export function calendarPin(code) {
 
 export function isBusinessDay(code, iso) {
   if (WEEKEND.includes(weekday(iso))) return false;
-  return !calendarInput(code).holidays.includes(iso);
+  calendarInput(code);
+  return !holidaySets.get(code).has(iso);
 }
 
+/**
+ * Move `n` business days, forward or (negative) back, not counting the start
+ * date; zero returns the date unchanged even when it is not a business day.
+ */
 export function addBusinessDays(code, iso, n) {
+  if (!Number.isInteger(n)) throw new Error(`Business-day offset ${n} is not a whole number`);
+  const step = n < 0 ? -1 : 1;
   let d = iso;
-  let left = n;
-  while (left > 0) {
-    d = addDays(d, 1);
+  for (let left = Math.abs(n); left > 0;) {
+    d = addDays(d, step);
     if (isBusinessDay(code, d)) left -= 1;
   }
   return d;
@@ -210,9 +256,9 @@ export function previousBusinessDay(code, iso) {
 
 /** Named holidays for display: [{ date, name }] within one year. */
 export function holidaysInYear(code, year) {
-  return CALENDAR_RULES[code]
-    .rule(year)
-    .filter(([, d]) => d && !WEEKEND.includes(weekday(d)) && parseIso(d).getUTCFullYear() === year)
+  const rule = CALENDAR_RULES[code].rule;
+  return [...rule(year), ...rule(year + 1)]
+    .filter(([, d]) => d && !WEEKEND.includes(weekday(d)) && inYear(d, year))
     .map(([name, date]) => ({ date, name }))
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 }

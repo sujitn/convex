@@ -44,7 +44,7 @@ export default function Bills({ fn }) {
   useEffect(() => {
     setKind('discount');
     setText(published ? published.discount : (bill && bill.auction.discountRate) || '4.00');
-  }, [bill && bill.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bill && bill.id, published && published.discount]); // eslint-disable-line react-hooks/exhaustive-deps
   const face = Number(state.quote.face || '1000000');
 
   const valid = bill && isDecimal(text) && Number(text) > 0;
@@ -63,7 +63,7 @@ export default function Bills({ fn }) {
       const sec = treasuries.find((s) => s.cusip === cusip) || null;
       return { tenor, cusip, sec, maturity: billRates.extra.maturity[tenor], discount: billRates.extra.discount[tenor],
         published: (billRates.points.find((p) => p.tenor === tenor) || {}).value };
-    }).filter((r) => r.maturity > tradeDate);
+    }).filter((r) => r.maturity > tradeDate && (!r.sec || r.sec.issueDate <= settlementFor(r.sec, tradeDate)));
     const known = rows.filter((r) => r.sec);
     const res = await engine.callMany(known.map((r) => billFromDiscountRate(r.sec, settlementFor(r.sec, tradeDate), r.discount)),
       { label: 'bill curve' });
@@ -72,7 +72,7 @@ export default function Bills({ fn }) {
       if (i < 0) return { ...r, result: null, error: { code: 'missing_input', message: 'Issue date not in the loaded auction results' } };
       return { ...r, result: res[i].ok ? billResult(res[i].data) : null, error: res[i].ok ? null : res[i].error };
     });
-  }, [billRates && billRates.asOf, billRates && billRates.status, treasuries.length, tradeDate]);
+  }, [billRates && billRates.asOf, billRates && billRates.status, treasuries, tradeDate]);
 
   const r = data && data.ok ? billResult(data.data) : null;
   return (
@@ -101,7 +101,7 @@ export default function Bills({ fn }) {
                 extra={bill.auction && <div className="fact"><span className="fact__label">Auction</span><span className="fact__value">{formatLong(bill.auction.date)} · {bill.auction.discountRate}% disc.</span></div>} />
               <Panel>
                 <div className="row" style={{ alignItems: 'flex-end', gap: 16 }}>
-                  <Field label="Quote as"><Seg value={kind} onChange={(k) => {
+                  <Field label="Quote as" as="div"><Seg value={kind} onChange={(k) => {
                     if (r) setText(k === 'discount' ? fmt(Number(r.discountPercent), 6) : k === 'investment' ? fmt(Number(r.investmentPercent), 6) : fmt(Number(r.pricePer100), 6));
                     setKind(k);
                   }} options={KINDS} label="Quote type" /></Field>

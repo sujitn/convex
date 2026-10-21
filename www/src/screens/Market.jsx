@@ -203,8 +203,8 @@ export default function Market({ fn }) {
   return (
     <div className="screen">
       <ScreenHead fn={fn} dates={false}
-        lede="Free public sources, loaded straight from the publishers. Every value can be edited; edits stay in this browser and are marked as such.">
-        <button type="button" className="btn btn--primary" onClick={() => loadAll()} disabled={busy}>
+        lede="Free public sources, loaded straight from the publishers. Curve values can be edited, extended with tenors or replaced by a pasted table; edits stay in this browser and are marked.">
+        <button type="button" className="btn btn--primary" onClick={() => loadAll({ keepManual: false })} disabled={busy}>
           {busy ? <Spinner label="Loading" /> : <Icon name="refresh" />} Load all latest
         </button>
       </ScreenHead>

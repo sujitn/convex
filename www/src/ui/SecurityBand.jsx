@@ -1,6 +1,6 @@
 import React from 'react';
 import Rosette from './Rosette';
-import { formatLong } from '../lib/dates';
+import { formatLong, isIso } from '../lib/dates';
 import { CALENDAR_RULES } from '../lib/calendars';
 
 const DAY_COUNTS = {
@@ -10,6 +10,8 @@ const DAY_COUNTS = {
 const FREQ = { Annual: 'Annual', SemiAnnual: 'Semi-annual', Quarterly: 'Quarterly', Monthly: 'Monthly' };
 
 export const dayCountLabel = (d) => DAY_COUNTS[d] || d;
+// Overnight indices a floating-rate note can reference, as the band names them.
+const FLOATING_INDEX = { 'USD.SOFR': 'Compounded SOFR' };
 export const frequencyLabel = (f) => FREQ[f] || f;
 
 function Fact({ label, children }) {
@@ -25,6 +27,7 @@ function Fact({ label, children }) {
 export default function SecurityBand({ sec, settlement, extra }) {
   if (!sec) return null;
   const bill = sec.kind === 'bill';
+  const floating = sec.kind === 'floating';
   return (
     <section className="cert" aria-label="Security">
       <Rosette className="cert__rosette" />
@@ -33,14 +36,24 @@ export default function SecurityBand({ sec, settlement, extra }) {
       <div className="cert__facts">
         {sec.cusip && <Fact label="CUSIP">{sec.cusip}</Fact>}
         {sec.isin && <Fact label="ISIN">{sec.isin}</Fact>}
-        {!bill && <Fact label="Coupon">{sec.coupon}%{sec.steps && sec.steps.length ? ' step-up' : ''}</Fact>}
+        {floating && <Fact label="Index">{FLOATING_INDEX[sec.index] || sec.index} + {sec.spreadBp} bp</Fact>}
+        {floating && (
+          <Fact label="Observation">
+            {sec.lookbackDays} day {sec.observationShift === false ? 'lookback' : 'shift'}{sec.lockoutDays ? `, ${sec.lockoutDays} day lockout` : ''}
+          </Fact>
+        )}
+        {!bill && !floating && <Fact label="Coupon">{sec.coupon}%{sec.steps && sec.steps.length ? ' step-up' : ''}</Fact>}
         <Fact label="Maturity">{formatLong(sec.maturity)}</Fact>
         {!bill && <Fact label="Dated">{formatLong(sec.datedDate || sec.issueDate)}</Fact>}
         {!bill && <Fact label="Frequency">{frequencyLabel(sec.frequency)}</Fact>}
         {!bill && <Fact label="Day count">{dayCountLabel(sec.dayCount)}</Fact>}
         <Fact label="Settlement">T+{sec.settlementDays}{settlement ? ` · ${formatLong(settlement)}` : ''}</Fact>
         <Fact label="Calendar">{CALENDAR_RULES[sec.calendar] ? CALENDAR_RULES[sec.calendar].label : sec.calendar}</Fact>
-        {sec.calls && sec.calls.length > 0 && <Fact label="Calls">{sec.calls.length} dates from {formatLong(sec.calls[0].date)}</Fact>}
+        {sec.calls && sec.calls.length > 0 && (
+          <Fact label="Calls">
+            {sec.calls.length} date{sec.calls.length === 1 ? '' : 's'}{isIso(sec.calls[0].date) ? ` from ${formatLong(sec.calls[0].date)}` : ''}
+          </Fact>
+        )}
         {sec.sinking && sec.sinking.length > 0 && <Fact label="Sinking fund">{sec.sinking.length} payments</Fact>}
         {extra}
       </div>

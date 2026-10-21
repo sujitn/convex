@@ -11,7 +11,7 @@
   --rule-strong: #33465c;
   --text: #e6ecf3;
   --text-2: #a4b2c3;
-  --text-3: #6f8094;
+  --text-3: #7d8da1;
   --accent: #d9ae5b;
   --accent-soft: rgba(217, 174, 91, 0.14);
   --accent-ink: #1b1407;
@@ -52,7 +52,7 @@
     --rule-strong: #c2cad4;
     --text: #0f1b2a;
     --text-2: #4a5a6c;
-    --text-3: #77859a;
+    --text-3: #5f6d7f;
     --accent: #946410;
     --accent-soft: rgba(148, 100, 16, 0.1);
     --accent-ink: #fffaf0;
@@ -82,7 +82,7 @@
   --rule-strong: #c2cad4;
   --text: #0f1b2a;
   --text-2: #4a5a6c;
-  --text-3: #77859a;
+  --text-3: #5f6d7f;
   --accent: #946410;
   --accent-soft: rgba(148, 100, 16, 0.1);
   --accent-ink: #fffaf0;
@@ -319,7 +319,6 @@ a:hover { text-decoration: underline; }
   .cols--wide, .cols--side { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
-  .form--3 { grid-template-columns: minmax(0, 1fr); }
   :root { --rail: 0px; }
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'top' 'main' 'rail' 'status'; grid-template-rows: var(--top) minmax(0, 1fr) auto var(--status); }
   .brand { width: 52px; }
@@ -387,7 +386,7 @@ table.grid td.edit input:focus { border-color: var(--focus); background: var(--f
 table.grid .row-action { opacity: 0; transition: opacity 120ms; }
 table.grid tr:hover .row-action, table.grid .row-action:focus-visible { opacity: 1; }
 table.grid tfoot .points__add td { border-top: 1px solid var(--rule); }
-table.grid .points__add td.edit input { text-align: left; }
+table.grid .points__add td.edit:first-child input { text-align: left; }
 .points__bar { display: flex; gap: 4px; padding: 6px 4px 0; }
 .paste { display: grid; gap: 8px; margin-top: 8px; }
 .paste textarea { min-height: 120px; padding: 8px 9px; font: 12px/1.5 var(--mono); background: var(--field); color: var(--text);
@@ -408,6 +407,9 @@ table.grid .points__add td.edit input { text-align: left; }
 .form { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 12px; }
 .form--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .form--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) {
+  .form--3 { grid-template-columns: minmax(0, 1fr); }
+}
 .field { display: grid; gap: 4px; min-width: 0; }
 .field > span { color: var(--text-2); font-size: 12px; }
 .field input, .field select, .field textarea, .input {
@@ -460,7 +462,7 @@ table.grid .points__add td.edit input { text-align: left; }
 
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--rule); margin-bottom: 14px; overflow-x: auto; }
 .tabs button { border: 0; background: none; padding: 9px 12px 8px; cursor: pointer; color: var(--text-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
-.tabs button[aria-selected='true'] { color: var(--text); border-bottom-color: var(--accent); }
+.tabs button[aria-pressed='true'] { color: var(--text); border-bottom-color: var(--accent); }
 .tabs button:hover { color: var(--text); }
 
 /* -------------------------------------------------- provenance badges */
@@ -579,3 +581,15 @@ table.grid .points__add td.edit input { text-align: left; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+.row-button { all: unset; display: block; width: 100%; cursor: pointer; }
+.row-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+
+
+/* FRN: where a coupon rate comes from. Shape-coded like provenance: a solid
+   square is fixed from published fixings, half-filled is partly fixed, a
+   dashed outline is projected. Colours match the fixings chart. */
+.rate-origin { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rate-origin i { width: 8px; height: 8px; flex: none; border-radius: 1px; box-sizing: border-box; }
+.rate-origin--fixed i { background: var(--s1); }
+.rate-origin--partial i { border: 1.5px solid var(--s1); background: linear-gradient(90deg, var(--s1) 50%, transparent 50%); }
+.rate-origin--projected i { border: 1.5px dashed var(--s2); }

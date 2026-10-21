@@ -36,27 +36,37 @@ export default function Callable({ fn }) {
   const [mr, setMr] = useState('3.0');
   const [vol, setVol] = useState('1.00');
   const inputs = useDebounced(`${price}|${mr}|${vol}`);
-  const callable = sec && (sec.calls || []).length > 0;
+  // The tree prices fixed coupons only; a callable floater's paths are on FRN.
+  const floating = !!sec && sec.kind === 'floating';
+  const callable = sec && !floating && (sec.calls || []).length > 0;
   const clean = num(price);
   const meanReversion = Number(mr) / 100;
   const volatility = Number(vol) / 100;
-  const valid = Number.isFinite(clean) && clean > 0 && meanReversion >= 0 && volatility > 0;
+  const valid = Number.isFinite(clean) && clean > 0 && Number.isFinite(meanReversion) && meanReversion >= 0
+    && Number.isFinite(volatility) && volatility > 0;
   const ready = callable && curve && curve.recipe && !curve.building && valid;
 
-  const { data, busy, error } = useComputation(
+  const { data: stale, busy, error, current } = useComputation(
     () => (ready ? analyseCallable(engine, { sec, tradeDate, settlement, curve, cleanPrice: clean, meanReversion, volatility }) : null),
-    [ready, sec, settlement, tradeDate, curve && curve.key && curve.key.version, inputs],
+    [ready, sec, settlement, tradeDate, curve && curve.key && curve.key.id, curve && curve.key && curve.key.version, inputs],
   );
+  // Never show results for a different security, price or curve while the next solve runs.
+  const data = current ? stale : null;
 
   if (!callable) {
-    const options = universe.filter((s) => (s.calls || []).length > 0);
+    const options = universe.filter((s) => s.kind !== 'floating' && (s.calls || []).length > 0);
     return (
       <div className="screen">
         <ScreenHead fn={fn} lede="Option-adjusted spread on a Hull-White one-factor tree, with option value, effective risk and every workout path." />
         <SecurityBand sec={sec} settlement={settlement} />
         <div className="note">
-          {sec ? `${sec.ticker || sec.name} has no call provisions.` : 'No security selected.'} OAS applies to bonds with an
+          {floating ? `${sec.ticker || sec.name} is a floating-rate note: OAS here values fixed coupons on a short-rate tree.`
+            : sec ? `${sec.ticker || sec.name} has no call provisions.` : 'No security selected.'} OAS applies to bonds with an
           embedded call. Choose one below, or add calls to an example on SEC.
+          {floating && (
+            <> A floater's discount margin to each call date is on <button type="button" className="btn btn--sm"
+              onClick={() => dispatch({ type: 'screen', screen: 'FRN' })}>FRN</button>.</>
+          )}
         </div>
         <div className="row" style={{ marginTop: 12 }}>
           {options.map((s) => (
@@ -93,7 +103,7 @@ export default function Callable({ fn }) {
           a smoother curve, or another discount curve; the inspector has each grid's price.
         </div>
       )}
-      {error && <EngineError error={error} />}
+      {current && error && <EngineError error={error} />}
       {r && (
         <div className="stack">
           <div className="panel">
@@ -168,7 +178,7 @@ export default function Callable({ fn }) {
           <div className="source-line"><Prov status="derived">Assumed model</Prov> {r.model.reason}</div>
         </div>
       )}
-      {!r && !(data && data.fatal) && <Empty>{busy ? <Spinner /> : 'Enter a price to solve for OAS.'}</Empty>}
+      {!r && !(data && data.fatal) && <Empty>{busy || !current ? <Spinner /> : 'Enter a price and valid model parameters to solve for OAS.'}</Empty>}
     </div>
   );
 }

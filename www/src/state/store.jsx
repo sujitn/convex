@@ -25,8 +25,10 @@ function save(state) {
       datasets: Object.fromEntries(Object.entries(state.datasets).filter(([, d]) => d && d.status === 'manual')),
       custom: state.custom,
       customCurves: state.customCurves,
+      credit: state.credit,
       spreadCurve: state.spreadCurve,
       benchPrices: state.benchPrices,
+      benchmarkChoice: state.benchmarkChoice,
       selectedId: state.selectedId,
       proxy: state.proxy,
       tradeDate: state.tradeDateOverride ? state.tradeDate : undefined,
@@ -79,6 +81,15 @@ function reducer(state, action) {
       const spreadCurve = Object.fromEntries(Object.entries(state.spreadCurve).filter(([, id]) => id !== action.id));
       return { ...state, customCurves, spreadCurve };
     }
+    case 'benchmarkChoice':
+      return { ...state, benchmarkChoice: { ...state.benchmarkChoice, ...action.choice } };
+    case 'creditCurve':
+      return { ...state, credit: { ...state.credit, [action.curve.id]: action.curve } };
+    case 'removeCreditCurve': {
+      const credit = { ...state.credit };
+      delete credit[action.id];
+      return { ...state, credit };
+    }
     case 'spreadCurve':
       return { ...state, spreadCurve: { ...state.spreadCurve, [action.currency]: action.id } };
     case 'benchPrice': {
@@ -94,7 +105,9 @@ function reducer(state, action) {
         datasets: { ...state.datasets, ...(d.datasets || {}) },
         custom: { ...state.custom, ...(d.custom || {}) },
         customCurves: { ...state.customCurves, ...(d.customCurves || {}) },
+        credit: { ...state.credit, ...(d.credit || {}) },
         benchPrices: { ...state.benchPrices, ...(d.benchPrices || {}) },
+        spreadCurve: { ...state.spreadCurve, ...(d.spreadCurve || {}) },
       };
     }
     case 'tradeDate':
@@ -124,8 +137,12 @@ export function StoreProvider({ initial, children }) {
       errors: {},
       custom: {},
       customCurves: {},
+      credit: {},
       spreadCurve: {},
       benchPrices: {},
+      // G-spread benchmarks: the on-the-run Treasuries, or securities you pick;
+      // interpolated by maturity or the one maturing the same day.
+      benchmarkChoice: { mode: 'otr', ids: [], selection: 'LinearMaturity' },
       selectedId: null,
       proxy: '',
       tradeDate: null,

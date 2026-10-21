@@ -113,16 +113,27 @@ export function createEngine({ workerFactory } = {}) {
     return out;
   }
 
+  // Same contract as `call`: a worker failure (trap, restart, failed reload)
+  // resolves every member with an `engine` error envelope instead of rejecting.
   async function callMany(requests, { label } = {}) {
     if (!requests.length) return [];
     await ready;
     const started = Date.now();
-    const res = await post('library', requests.map((r) => JSON.stringify(r)), true);
-    const results = res.value.map((text, i) => ({ ...parseEnvelope(text), ms: res.times[i] }));
+    let results;
+    let responses;
+    try {
+      const res = await post('library', requests.map((r) => JSON.stringify(r)), true);
+      results = res.value.map((text, i) => ({ ...parseEnvelope(text), ms: res.times[i] }));
+      responses = res.value;
+    } catch (error) {
+      results = requests.map(() => ({ ok: false, error: { code: 'engine', message: error.message }, ms: 0 }));
+      responses = requests.map(() => null);
+    }
     const failed = results.filter((r) => !r.ok);
     pushLog({ id: ++logSeq, at: started, label: label || `${operationLabel(requests[0])} ×${requests.length}`,
-      op: operationLabel(requests[0]), ms: res.times.reduce((a, b) => a + b, 0), count: requests.length,
-      ok: failed.length === 0, error: failed[0] && failed[0].error, request: requests[0], response: res.value[0] });
+      op: operationLabel(requests[0]), ms: results.reduce((a, r) => a + r.ms, 0), count: requests.length,
+      ok: failed.length === 0, error: failed[0] && failed[0].error, failures: failed.length,
+      request: requests[0], response: responses[0], requests, responses });
     return results;
   }
 

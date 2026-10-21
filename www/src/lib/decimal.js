@@ -67,20 +67,25 @@ export function fromNumber(n, maxFraction = 12) {
 /**
  * Treasury-style price text to a per-100 number: "99-16" = 99 16/32,
  * "99-16+" = 99 16.5/32, "99-162" = 99 16.25/32, plain decimals pass through.
+ * A sign applies to the whole price: "-99-16" = -99.5.
  */
 export function parsePrice(text) {
-  const s = String(text).trim();
-  const m = /^(-?\d+)-(\d{2})([+\d])?$/.exec(s);
-  if (!m) {
-    const v = Number(s);
-    if (!Number.isFinite(v)) throw new Error(`"${text}" is not a price`);
-    return v;
+  const s = String(text ?? '').trim();
+  const m = /^([+-]?)(\d+)-(\d{2})([+0-7])?$/.exec(s);
+  let v;
+  if (m) {
+    const ticks = Number(m[3]);
+    if (ticks >= 32) throw new Error(`"${text}": 32nds must be below 32`);
+    const eighths = m[4] === '+' ? 4 : m[4] ? Number(m[4]) : 0;
+    v = Number(m[2]) + (ticks + eighths / 8) / 32;
+    if (m[1] === '-') v = -v;
+  } else {
+    // Number() would also take "0x10", "1e2", "Infinity" and blank text.
+    if (!/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(s)) throw new Error(`"${text}" is not a price`);
+    v = Number(s);
   }
-  const whole = Number(m[1]);
-  const ticks = Number(m[2]);
-  if (ticks >= 32) throw new Error(`"${text}": 32nds must be below 32`);
-  const eighth = m[3] === '+' ? 4 : m[3] ? Number(m[3]) : 0;
-  return whole + (ticks + eighth / 8) / 32;
+  if (!Number.isFinite(v)) throw new Error(`"${text}" is not a price`);
+  return v;
 }
 
 /** Per-100 price → "99-16+" (nearest 1/256). */

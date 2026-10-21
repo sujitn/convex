@@ -74,10 +74,18 @@ export default function Inspector({ engine, onClose, onOpenInConsole }) {
   const [log, setLog] = useState(engine.getLog());
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('request');
+  // Batch member shown, remembered per entry so switching entries starts at 1.
+  const [pick, setPick] = useState({ id: null, index: 0 });
   useEffect(() => engine.onLog(setLog), [engine]);
   const entry = log.find((e) => e.id === selected) || log[0];
-  const requestText = entry ? JSON.stringify(entry.request, null, 2) : '';
-  const responseText = entry && entry.response ? entry.response : '';
+  const requests = entry ? entry.requests || [entry.request] : [];
+  const responses = entry ? entry.responses || [entry.response] : [];
+  const member = entry && pick.id === entry.id ? Math.min(pick.index, requests.length - 1) : 0;
+  const setMember = (i) => setPick({ id: entry.id, index: Math.max(0, Math.min(requests.length - 1, i)) });
+  const request = requests[member];
+  const requestText = entry ? JSON.stringify(request, null, 2) : '';
+  const responseText = responses[member] || '';
+  const batch = requests.length > 1;
   return (
     <aside className="inspector" aria-label="Library requests">
       <div className="inspector__head">
@@ -106,19 +114,35 @@ export default function Inspector({ engine, onClose, onOpenInConsole }) {
           <>
             <div className="row" style={{ borderBottom: '1px solid var(--rule)', paddingRight: 8 }}>
               <Tabs value={tab} onChange={setTab} label="Payload"
-                options={[['request', 'Request'], ['response', entry.count > 1 ? 'Response (first)' : 'Response']]} />
+                options={[['request', 'Request'], ['response', 'Response']]} />
               <div className="grow" />
               <button type="button" className="icon-btn" title="Copy" aria-label="Copy JSON"
                 onClick={() => copy(tab === 'request' ? requestText : responseText)}><Icon name="copy" /></button>
               <button type="button" className="icon-btn" title="Download" aria-label="Download JSON"
-                onClick={() => download(`${entry.op}-${tab}.json`, tab === 'request' ? requestText : responseText)}>
+                onClick={() => download(`${entry.op}${batch ? `-${member + 1}` : ''}-${tab}.json`,
+                  tab === 'request' ? requestText : responseText)}>
                 <Icon name="download" />
               </button>
               {onOpenInConsole && (
-                <button type="button" className="btn btn--sm" onClick={() => onOpenInConsole(entry.request)}>Edit in API</button>
+                <button type="button" className="btn btn--sm" onClick={() => onOpenInConsole(request)}>Edit in API</button>
               )}
             </div>
-            <JsonView key={`${entry.id}-${tab}`} {...(tab === 'request' ? { value: entry.request } : { text: responseText })} />
+            {batch && (
+              <div className="row" style={{ gap: 6, padding: '4px 8px', borderBottom: '1px solid var(--rule)' }}>
+                <button type="button" className="btn btn--ghost btn--sm" aria-label="Previous member"
+                  disabled={member === 0} onClick={() => setMember(member - 1)}>‹</button>
+                <label className="muted">
+                  Member{' '}
+                  <input type="number" min={1} max={requests.length} value={member + 1} style={{ width: '5em' }}
+                    aria-label="Batch member" onChange={(e) => setMember(Number(e.target.value) - 1 || 0)} />
+                  {' '}of {requests.length}
+                </label>
+                <button type="button" className="btn btn--ghost btn--sm" aria-label="Next member"
+                  disabled={member === requests.length - 1} onClick={() => setMember(member + 1)}>›</button>
+                {entry.failures > 0 && <span className="neg">{entry.failures} failed</span>}
+              </div>
+            )}
+            <JsonView key={`${entry.id}-${member}-${tab}`} {...(tab === 'request' ? { value: request } : { text: responseText })} />
           </>
         ) : (
           <div />

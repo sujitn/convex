@@ -11,6 +11,8 @@ import SecurityBand, { dayCountLabel } from '../ui/SecurityBand';
 import ScreenHead from '../ui/ScreenHead';
 import { JsonView } from '../ui/Inspector';
 import { fmt } from '../lib/format';
+import BondImport from './BondImport';
+import { FrnTermsForm, FrnContract } from './Frn';
 
 const DAY_COUNTS = ['ActActIcma', 'Thirty360US', 'Thirty360E', 'Act365Fixed', 'Act360', 'ActActIsda'];
 const FREQS = ['SemiAnnual', 'Annual', 'Quarterly', 'Monthly'];
@@ -32,19 +34,24 @@ function SecurityList({ universe, selected, onSelect }) {
         <input className="input" placeholder="Filter by CUSIP or name" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter securities" />
       </div>
       <div style={{ padding: '0 6px' }}>
-        <Tabs value={group} onChange={setGroup} options={[['coupon', 'Treasuries'], ['bills', 'Bills'], ['other', 'Examples']]} label="Group" />
+        <Tabs value={group} onChange={setGroup} options={[['coupon', 'Treasuries'], ['bills', 'Bills'], ['other', 'Yours and examples']]} label="Group" />
       </div>
       <div className="table-wrap" style={{ maxHeight: 560 }}>
         <table className="grid">
           <tbody>
             {rows.map((s) => (
               <tr key={s.id} className={selected && s.id === selected.id ? 'is-active' : ''} style={{ cursor: 'pointer' }}
-                onClick={() => onSelect(s)} tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onSelect(s)}>
+                onClick={() => onSelect(s)}>
                 <td>
-                  <div>{s.ticker || s.name}</div>
-                  <div className="muted" style={{ fontSize: 11.5 }}>{s.cusip || (s.source === 'custom' ? 'Custom' : 'Example')}</div>
+                  <button type="button" className="row-button" aria-pressed={!!selected && s.id === selected.id}
+                    onClick={(e) => { e.stopPropagation(); onSelect(s); }}>
+                    <div>{s.ticker || s.name}</div>
+                    <div className="muted" style={{ fontSize: 11.5 }}>
+                      {s.cusip || s.isin || (s.imported ? 'Imported' : s.source === 'custom' ? 'Custom' : 'Example')}
+                    </div>
+                  </button>
                 </td>
-                <td className="num dim">{formatLong(s.maturity)}</td>
+                <td className="num dim">{isIso(s.maturity) ? formatLong(s.maturity) : ''}</td>
               </tr>
             ))}
           </tbody>
@@ -94,7 +101,12 @@ function TermsEditor({ sec, onApply }) {
   const set = (k) => (v) => setDraft((d) => ({ ...d, [k]: v }));
   const text = (k) => ({ value: draft[k] ?? '', onChange: (e) => set(k)(e.target.value) });
   const dirty = JSON.stringify(draft) !== JSON.stringify(sec);
-  const valid = isDecimal(draft.coupon || '') && isIso(draft.issueDate) && isIso(draft.maturity) && draft.maturity > draft.issueDate;
+  const optionalDate = (d) => !d || isIso(d);
+  const rowsValid = (rows, valueKey) => (rows || []).every((r) => isIso(r.date) && isDecimal(r[valueKey] || ''));
+  const valid = isDecimal(draft.coupon || '') && isIso(draft.issueDate) && isIso(draft.maturity) && draft.maturity > draft.issueDate
+    && optionalDate(draft.datedDate) && optionalDate(draft.firstCouponDate)
+    && isDecimal(draft.face || '') && Number(draft.face) > 0 && isDecimal(draft.redemption || '') && Number(draft.redemption) > 0
+    && rowsValid(draft.calls, 'price') && rowsValid(draft.steps, 'coupon') && rowsValid(draft.sinking, 'amount');
   return (
     <Panel title="Terms" note={sec.source === 'auction' ? 'Treasury terms are read-only; copy to edit' : 'editable'}
       actions={sec.source !== 'auction' && (
@@ -113,8 +125,8 @@ function TermsEditor({ sec, onApply }) {
           <Field label="Day count"><Select value={draft.dayCount} onChange={set('dayCount')} options={DAY_COUNTS.map((d) => [d, dayCountLabel(d)])} /></Field>
           <Field label="Calendar"><Select value={draft.calendar} onChange={set('calendar')} options={Object.entries(CALENDAR_RULES).map(([k, v]) => [k, v.label])} /></Field>
           <Field label="Settlement days"><input className="input--num" value={draft.settlementDays} onChange={(e) => set('settlementDays')(Number(e.target.value.replace(/\D/g, '')) || 0)} /></Field>
-          <Field label="Redemption % of face"><input className="input--num" {...text('redemption')} /></Field>
-          <Field label="Face (quote unit)"><input className="input--num" {...text('face')} /></Field>
+          <Field label="Redemption % of face"><input className="input--num" {...text('redemption')} aria-invalid={!isDecimal(draft.redemption || '')} /></Field>
+          <Field label="Face (quote unit)"><input className="input--num" {...text('face')} aria-invalid={!isDecimal(draft.face || '')} /></Field>
         </div>
         {sec.source !== 'auction' && (
           <div className="form" style={{ marginTop: 14 }}>
@@ -138,6 +150,7 @@ export default function Security({ fn }) {
   const { engine, universe, selected: sec, settlement, tradeDate } = useWorkspace();
   const { dispatch } = useStore();
   const [view, setView] = useState('schedule');
+  const [importing, setImporting] = useState(false);
 
   const built = useComputation(
     () => (sec && sec.kind === 'fixed' ? engine.call(R.bondCashflows(sec, settlement), { label: `${sec.ticker || sec.name} schedule` }) : null),
@@ -158,22 +171,27 @@ export default function Security({ fn }) {
   const copy = () => {
     const id = `CUSTOM-${Date.now().toString(36).toUpperCase()}`;
     dispatch({ type: 'custom', select: true,
-      security: { ...sec, id, source: 'custom', cusip: undefined, isin: undefined, issuer: 'Custom security',
-        name: `${sec.name} (copy)`, ticker: `${sec.ticker} copy` } });
+      security: { ...sec, id, source: 'custom', cusip: undefined, isin: undefined, auction: undefined, imported: undefined,
+        issuer: 'Custom security', name: `${sec.name} (copy)`, ticker: `${sec.ticker} copy` } });
   };
 
   const cash = built.data && built.data.ok ? built.data.data : null;
   return (
     <div className="screen">
-      <ScreenHead fn={fn} lede="The full contract each calculation uses. Treasuries come from auction results; examples are editable." />
+      <ScreenHead fn={fn} lede="The full contract each calculation uses. Treasuries come from auction results; examples, copies and bonds you import are editable.">
+        <button type="button" className="btn" onClick={() => setImporting((v) => !v)} aria-expanded={importing}>
+          <Icon name="upload" /> Import from Excel
+        </button>
+      </ScreenHead>
+      {importing && <div style={{ marginBottom: 16 }}><BondImport onClose={() => setImporting(false)} /></div>}
       <div className="cols cols--side">
         <SecurityList universe={universe} selected={sec} onSelect={(s) => dispatch({ type: 'select', id: s.id })} />
         <div className="stack">
           <SecurityBand sec={sec} settlement={settlement} />
           {sec && (
             <div className="row">
-              <button type="button" className="btn btn--sm" onClick={() => dispatch({ type: 'screen', screen: sec.kind === 'bill' ? 'BILL' : 'YAS' })}>Analyse</button>
-              {sec.kind === 'fixed' && <button type="button" className="btn btn--sm" onClick={copy}>Copy as custom security</button>}
+              <button type="button" className="btn btn--sm" onClick={() => dispatch({ type: 'screen', screen: sec.kind === 'bill' ? 'BILL' : sec.kind === 'floating' ? 'FRN' : 'YAS' })}>Analyse</button>
+              {(sec.kind === 'fixed' || sec.kind === 'floating') && <button type="button" className="btn btn--sm" onClick={copy}>Copy as custom security</button>}
               {sec.source === 'custom' && (
                 <button type="button" className="btn btn--sm btn--ghost" onClick={() => { dispatch({ type: 'removeCustom', id: sec.id }); dispatch({ type: 'select', id: null }); }}>
                   <Icon name="trash" /> Delete
@@ -188,10 +206,13 @@ export default function Security({ fn }) {
             </div>
           )}
           {sec && sec.kind === 'fixed' && <TermsEditor sec={sec} onApply={apply} />}
+          {sec && sec.kind === 'floating' && <FrnTermsForm sec={sec} tradeDate={tradeDate} onApply={(d) => apply({ ...sec, ...d })} />}
+          {sec && sec.kind === 'floating' && <FrnContract sec={sec} settlement={settlement} />}
           {sec && sec.kind === 'fixed' && (
             <Panel title="Contract" flush actions={<Tabs value={view} onChange={setView} options={[['schedule', 'Generated schedule'], ['terms', 'BondTerms JSON']]} label="View" />}>
               {view === 'terms' ? (terms && !terms.error ? <JsonView value={terms} /> : <div className="panel__body"><EngineError error={{ code: 'invalid_input', message: terms && terms.error }} /></div>) : (
                 <>
+                  {built.error && <div className="panel__body"><EngineError error={built.error} context="Construction" /></div>}
                   {built.data && !built.data.ok && <div className="panel__body"><EngineError error={built.data.error} context="Construction" /></div>}
                   {cash && (
                     <div className="table-wrap" style={{ maxHeight: 420 }}>

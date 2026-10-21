@@ -35,6 +35,8 @@ const BUILT_IN = {
     dayCount: 'Act365Fixed',
     benchmarkId: 'CA.GOC',
     sovereign: 'CA',
+    note: 'Bank of Canada benchmark bond yields are calibrated here as par yields. That is an approximation: '
+      + 'benchmark bonds trade away from par, so their yields are not exactly par yields.',
   },
   'EUR.AAA': {
     label: 'Euro area AAA',
@@ -59,6 +61,11 @@ const BUILT_IN = {
 export const CURVE_DEFS = Object.fromEntries(Object.entries(BUILT_IN).map(([id, d]) => [id, { id, role: 'government', ...d }]));
 
 export const CALENDAR_FOR = { USD: 'US.SIFMA', EUR: 'EU.TARGET2', GBP: 'GB.LON', CAD: 'CA.TOR' };
+
+/** A dataset point with a quote; '' / null / undefined mark a tenor with none. */
+export function hasValue(p) {
+  return p.value !== '' && p.value !== null && p.value !== undefined;
+}
 
 /** Curve role in the recipe: a government benchmark curve or a collateral discount curve. */
 export function curveRole(def) {
@@ -110,9 +117,7 @@ export async function buildCurve(engine, idOrDef, dataset, { interpolation } = {
   const tradeDate = dataset.asOf;
   const version = `${dataset.asOf}.${dataset.status}${dataset.revision ? `.r${dataset.revision}` : ''}`;
   const key = R.curveKey(id, version);
-  const points = dataset.points
-    .filter((p) => p.value !== '' && p.value !== null && p.value !== undefined)
-    .sort((a, b) => tenorYears(a.tenor) - tenorYears(b.tenor));
+  const points = dataset.points.filter(hasValue).sort((a, b) => tenorYears(a.tenor) - tenorYears(b.tenor));
   const base = { id, def, key, tradeDate, spreadRole: spreadRole(def),
     dataset: { id: dataset.id || id, asOf: dataset.asOf, status: dataset.status } };
   if (points.length < 2) {
@@ -211,13 +216,17 @@ export async function sampleCurve(engine, curve, { maxYears = 30, step = 0.25 } 
   return { rows, error: failed && failed.error };
 }
 
-/** Recalibrate with every par quote shifted by `shiftBp(tenorYears)` basis points. */
+/**
+ * Recalibrate with every par quote shifted by `shiftBp(tenorYears)` basis
+ * points. A tenor without a quote stays without one.
+ */
 export function shiftedDataset(dataset, shiftBp, label) {
   return {
     ...dataset,
     status: 'derived',
     revision: label,
     points: dataset.points.map((p) => {
+      if (!hasValue(p)) return p;
       const bp = shiftBp(tenorYears(p.tenor));
       const v = Number(p.value) + bp / 100;
       return { ...p, value: v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '') };

@@ -5,7 +5,7 @@ import { loadSource, SOURCES } from '../market/feeds';
 import { buildCurve, CURVE_DEFS } from '../analytics/curves';
 import { treasuryUniverse, onTheRun, EXAMPLES, curveForCurrency } from '../analytics/securities';
 import { settlementFor } from '../lib/terms';
-import { todayIso } from '../lib/dates';
+import { todayIso, yearsBetween } from '../lib/dates';
 
 // Derived workspace: market datasets (snapshot → live → edited), curves built
 // from them and from the curves you supply, the security universe, the selected
@@ -18,6 +18,9 @@ export function WorkspaceProvider({ engine, children }) {
   const [curves, setCurves] = useState({});
   const [curveOptions, setCurveOptions] = useState({});
   const building = useRef({});
+  // Bumped on every edit or reset so a live response that started earlier is dropped.
+  const editGen = useRef({});
+  const datasetsRef = useRef({});
 
   const datasets = useMemo(() => {
     const out = { ...SNAPSHOT.datasets };
@@ -25,11 +28,19 @@ export function WorkspaceProvider({ engine, children }) {
     return out;
   }, [state.datasets]);
 
+  datasetsRef.current = datasets;
+
   const loadOne = useCallback(
     async (id) => {
+      const gen = editGen.current[id] || 0;
       dispatch({ type: 'loading', id, value: true });
       try {
         const ds = await loadSource(id, { proxy: state.proxy || null });
+        if ((editGen.current[id] || 0) !== gen) {
+          // Edited while the fetch was in flight: keep the edit.
+          dispatch({ type: 'loading', id, value: false });
+          return null;
+        }
         dispatch({ type: 'dataset', dataset: ds });
         return ds;
       } catch (error) {
@@ -40,14 +51,22 @@ export function WorkspaceProvider({ engine, children }) {
     [dispatch, state.proxy],
   );
 
+  // The automatic startup load leaves your edits alone; the Market button passes
+  // keepManual: false to replace them on purpose.
   const loadAll = useCallback(
-    () => Promise.all(SOURCES.filter((s) => !s.corsRequired || state.proxy).map((s) => loadOne(s.id))),
+    ({ keepManual = true } = {}) => Promise.all(
+      SOURCES
+        .filter((s) => !s.corsRequired || state.proxy)
+        .filter((s) => !(keepManual && datasetsRef.current[s.id] && datasetsRef.current[s.id].status === 'manual'))
+        .map((s) => loadOne(s.id)),
+    ),
     [loadOne, state.proxy],
   );
 
   const editDataset = useCallback(
     (id, points) => {
       const base = datasets[id];
+      editGen.current[id] = (editGen.current[id] || 0) + 1;
       dispatch({
         type: 'dataset',
         dataset: { ...base, points, status: 'manual', editedAt: new Date().toISOString(), revision: Date.now() % 100000 },
@@ -57,7 +76,10 @@ export function WorkspaceProvider({ engine, children }) {
   );
 
   const resetDataset = useCallback(
-    (id) => dispatch({ type: 'dataset', dataset: SNAPSHOT.datasets[id] }),
+    (id) => {
+      editGen.current[id] = (editGen.current[id] || 0) + 1;
+      dispatch({ type: 'dataset', dataset: SNAPSHOT.datasets[id] });
+    },
     [dispatch],
   );
 
@@ -74,7 +96,7 @@ export function WorkspaceProvider({ engine, children }) {
       if (!ds) continue;
       const interpolation = curveOptions[cid] || (def.custom ? def.interpolation : undefined);
       const sig = def.custom
-        ? JSON.stringify(def)
+        ? `${JSON.stringify(def)}|${interpolation || ''}`
         : `${ds.asOf}|${ds.status}|${ds.revision || ''}|${ds.fetchedAt || ''}|${interpolation || ''}`;
       if (building.current[cid] === sig) continue;
       building.current[cid] = sig;
@@ -101,6 +123,7 @@ export function WorkspaceProvider({ engine, children }) {
 
   const treasuries = useMemo(() => treasuryUniverse(datasets['ust-auctions']), [datasets]);
   const benchmarks = useMemo(() => onTheRun(treasuries), [treasuries]);
+  const benchmarkChoice = state.benchmarkChoice;
   const universe = useMemo(
     () => [...treasuries, ...EXAMPLES.map((e) => state.custom[e.id] || e),
       ...Object.values(state.custom).filter((c) => !EXAMPLES.some((e) => e.id === c.id))],
@@ -128,6 +151,18 @@ export function WorkspaceProvider({ engine, children }) {
   const tradeDate = state.tradeDateOverride && state.tradeDate ? state.tradeDate : (ust && ust.asOf) || todayIso();
   const settlement = selected ? settlementFor(selected, tradeDate) : tradeDate;
 
+  // G-spread benchmarks in the selected security's currency: the on-the-run
+  // Treasuries, or the bullet bonds you picked (any currency you have bonds in).
+  const benchmarkSet = useMemo(() => {
+    if (benchmarkChoice.mode !== 'custom') return currency === 'USD' ? benchmarks : [];
+    return benchmarkChoice.ids
+      .map((id) => universe.find((s) => s.id === id))
+      .filter((s) => s && s.kind === 'fixed' && s.currency === currency && !(s.calls || []).length)
+      .sort((a, b) => (a.maturity < b.maturity ? -1 : a.maturity > b.maturity ? 1 : 0))
+      .map((s) => ({ bucket: Math.round(yearsBetween(tradeDate, s.maturity) * 10) / 10, sec: s }));
+  }, [benchmarkChoice, benchmarks, universe, currency, tradeDate]);
+  const setBenchmarkChoice = useCallback((choice) => dispatch({ type: 'benchmarkChoice', choice }), [dispatch]);
+
   const value = useMemo(
     () => ({
       engine,
@@ -142,6 +177,9 @@ export function WorkspaceProvider({ engine, children }) {
       saveCurve,
       removeCurve,
       benchPrices: state.benchPrices,
+      benchmarkChoice,
+      benchmarkSet,
+      setBenchmarkChoice,
       setInterpolation: (cid, interp) => setCurveOptions((o) => ({ ...o, [cid]: interp })),
       curveOptions,
       loadOne,
@@ -158,7 +196,7 @@ export function WorkspaceProvider({ engine, children }) {
       settlement,
     }),
     [engine, datasets, curves, curve, curveId, govCurve, curveDefs, curveChoices, setSpreadCurve, saveCurve, removeCurve,
-      state.benchPrices, curveOptions, loadOne, loadAll, editDataset, resetDataset,
+      state.benchPrices, benchmarkChoice, benchmarkSet, setBenchmarkChoice, curveOptions, loadOne, loadAll, editDataset, resetDataset,
       state.loading, state.errors, treasuries, benchmarks, universe, selected, tradeDate, settlement],
   );
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
@@ -172,10 +210,11 @@ export function useWorkspace() {
 
 /**
  * Run an async engine computation whenever `deps` change; stale results are
- * dropped. Returns { data, error, busy }.
+ * dropped. Returns { data, error, busy, current }; `current` is false while `data` still
+ * belongs to earlier deps (it is kept so the screen doesn't flash empty).
  */
 export function useComputation(fn, deps) {
-  const [out, setOut] = useState({ data: null, error: null, busy: false });
+  const [out, setOut] = useState({ data: null, error: null, busy: false, deps: null });
   const seq = useRef(0);
   useEffect(() => {
     const n = ++seq.current;
@@ -183,10 +222,11 @@ export function useComputation(fn, deps) {
     Promise.resolve()
       .then(fn)
       .then(
-        (data) => n === seq.current && setOut({ data, error: null, busy: false }),
-        (error) => n === seq.current && setOut({ data: null, error: { code: 'app', message: error.message }, busy: false }),
+        (data) => n === seq.current && setOut({ data, error: null, busy: false, deps }),
+        (error) => n === seq.current && setOut({ data: null, error: { code: 'app', message: error.message }, busy: false, deps }),
       );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
-  return out;
+  const current = !!out.deps && out.deps.length === deps.length && out.deps.every((d, i) => Object.is(d, deps[i]));
+  return { ...out, current };
 }

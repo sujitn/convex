@@ -1,56 +1,105 @@
 // Tenor/rate tables pasted from a spreadsheet, a terminal or a web page.
-// Accepts one point per line, tenor then rate, separated by tabs, commas,
-// semicolons or spaces. Header lines and blank lines are skipped; anything
-// else that doesn't parse is reported, never guessed.
+// Accepts one point per line, tenor then rate. A line with a tab is split on
+// tabs only and one with a semicolon on semicolons only (so a European "3,85"
+// survives); anything else is split on commas and spaces. Header and blank
+// lines are skipped; anything else that doesn't parse is reported, never guessed.
 
-import { isDecimal } from './decimal.js';
-import { tenorYears } from './dates.js';
+import { decimal } from './decimal.js';
+import { tenorMonths } from './dates.js';
 
 const UNITS = { D: 'D', DAY: 'D', DAYS: 'D', W: 'W', WK: 'W', WEEK: 'W', WEEKS: 'W', M: 'M', MO: 'M', MON: 'M', MONTH: 'M',
   MONTHS: 'M', Y: 'Y', YR: 'Y', YRS: 'Y', YEAR: 'Y', YEARS: 'Y' };
 
-/** "10 yr", "10Y", "3 Mo", "1w" → "10Y", "3M", "1W"; anything else → null. */
+// Longest tenor accepted: 100 years. Anything longer is a typo, not a curve point.
+const MAX_MONTHS = 1200;
+
+/** "10 yr", "10Y", "3 Mo", "1w", "1.5Y" → "10Y", "3M", "1W", "1.5Y"; anything else → null. */
 export function normaliseTenor(text) {
-  const m = /^(\d+)\s*([a-z]+)$/i.exec(String(text).trim());
+  const m = /^(\d+(?:\.\d+)?)\s*([a-z]+)$/i.exec(String(text ?? '').trim());
   if (!m) return null;
   const unit = UNITS[m[2].toUpperCase()];
-  if (!unit || Number(m[1]) <= 0) return null;
-  return `${Number(m[1])}${unit}`;
+  if (!unit) return null;
+  // Months and years may be fractional (1.5Y = 18M); days and weeks are whole.
+  if (m[1].includes('.') && (unit === 'D' || unit === 'W')) return null;
+  const tenor = `${decimal(m[1])}${unit}`; // the typed digits, never Number() text such as 1e+21
+  const months = tenorMonths(tenor);
+  return months > 0 && months <= MAX_MONTHS ? tenor : null;
+}
+
+/** A tenor's length in months, so "12M" and "1Y" (or "18M" and "1.5Y") are the same point. */
+export function tenorKey(tenor) {
+  return Number(tenorMonths(tenor).toFixed(9));
+}
+
+const PLAIN = /^[+-]?(?:\d+\.?\d*|\.\d+)$/;
+
+/**
+ * A rate as typed → plain decimal text, or null. Surrounding spaces and a
+ * trailing % go; with both "," and "." the commas are thousands separators
+ * ("1,234.5"), a single "," with no "." is a decimal comma ("3,85" → "3.85"),
+ * and several commas alone are thousands separators ("1,000,000"). The digits
+ * are otherwise kept exactly as typed ("3.90" stays "3.90").
+ */
+export function normaliseRate(text) {
+  let s = String(text ?? '').trim().replace(/\s*%$/, '');
+  const commas = (s.match(/,/g) || []).length;
+  if (commas === 1 && !s.includes('.')) s = s.replace(',', '.');
+  else if (commas) {
+    if (!/^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?$/.test(s)) return null;
+    s = s.replace(/,/g, '');
+  }
+  return PLAIN.test(s) ? s : null;
+}
+
+// Words that mark a column-heading line rather than a data line.
+const HEADER = /\b(?:tenors?|terms?|maturity|maturities|rates?|yields?|par|zero|spot|swaps?|ois|coupon|value|mid|bid|ask|curve|date|pct|percent)\b/i;
+
+function cells(line) {
+  if (line.includes('\t')) return line.split('\t').map((c) => c.trim()).filter(Boolean);
+  if (line.includes(';')) return line.split(';').map((c) => c.trim()).filter(Boolean);
+  return line.split(/[,\s]+/).filter(Boolean);
 }
 
 /** Parse pasted text → { points: [{ tenor, value }], errors: [{ line, text, reason }] }. */
 export function parseTenorTable(text) {
-  const points = [];
+  const byKey = new Map();
   const errors = [];
-  const seen = new Map();
   String(text).split(/\r?\n/).forEach((raw, i) => {
     const line = raw.trim();
     if (!line || line.startsWith('#')) return;
-    // "10Y 4.25", "10 yr, 4.25%", tab-separated: the tenor may be one token or two.
-    const tokens = line.split(/[,;\s]+/).filter(Boolean);
+    const fail = (reason) => errors.push({ line: i + 1, text: raw, reason });
+    // "10Y 4.25", "10 yr, 4.25%", tab-separated: the tenor may be one cell or two.
+    const tokens = cells(line);
     let tenor = normaliseTenor(tokens[0]);
-    let value = tokens[1];
+    let rest = tokens.slice(1);
     if (!tenor && tokens.length >= 2) {
       tenor = normaliseTenor(`${tokens[0]}${tokens[1]}`);
-      value = tokens[2];
+      if (tenor) rest = tokens.slice(2);
     }
-    if (value) value = value.replace(/%$/, '');
-    if (!tenor && !/^-?\d/.test(tokens[0])) return; // header line
     if (!tenor) {
-      errors.push({ line: i + 1, text: raw, reason: 'no tenor such as 3M or 10Y' });
+      if (!/^[+-]?\d/.test(line) && HEADER.test(line)) return; // column headings
+      fail('no tenor such as 3M, 1.5Y or 10Y (at most 100 years)');
       return;
     }
-    if (!value || !isDecimal(value)) {
-      errors.push({ line: i + 1, text: raw, reason: 'rate is not a plain decimal number' });
+    if (!rest.length) {
+      fail('no rate after the tenor');
       return;
     }
-    if (seen.has(tenor)) points[seen.get(tenor)] = { tenor, value };
-    else {
-      seen.set(tenor, points.length);
-      points.push({ tenor, value });
+    if (rest.length > 1) {
+      fail(`unexpected extra column "${rest[1]}"`);
+      return;
     }
+    const value = normaliseRate(rest[0]);
+    if (value === null) {
+      fail('rate is not a plain decimal number');
+      return;
+    }
+    // A later line for the same tenor (12M after 1Y) replaces the earlier one.
+    const key = tenorKey(tenor);
+    byKey.delete(key);
+    byKey.set(key, { tenor, value });
   });
-  points.sort((a, b) => tenorYears(a.tenor) - tenorYears(b.tenor));
+  const points = [...byKey.entries()].sort((a, b) => a[0] - b[0]).map(([, p]) => p);
   return { points, errors };
 }
 

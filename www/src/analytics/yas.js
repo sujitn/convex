@@ -21,7 +21,7 @@ const icmaValue = (data) => data.quotation.value;
 
 /** Price, yields, spreads, risk, invoice and ladder for one security and quote. */
 export async function computeYas(engine, { sec: security, tradeDate, settlement, quote, face, curve, benchmarks = [],
-  benchmarkCurve = curve, benchPrices = {} }) {
+  benchmarkCurve = curve, benchPrices = {}, benchmarkSelection = 'LinearMaturity' }) {
   // Straight yield of an optional bond is conditional on no exercise, so the
   // straight analysis runs on the bond with its calls explicitly removed and
   // says so; workouts and OAS treat the calls.
@@ -53,7 +53,8 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
   } else if (quote.kind === 'gspread') {
     const bench = await benchmarkQuotes(engine, benchmarks, settlement, benchmarkCurve, benchPrices);
     if (bench.error) return { ...out, fatal: bench.error };
-    const res = await engine.call(governmentSpreadPrice(sec, quote.text, bench.list, { tradeDate, settlement, faceAmount: face }),
+    const res = await engine.call(governmentSpreadPrice(sec, quote.text, bench.list,
+      { tradeDate, settlement, faceAmount: face, selection: benchmarkSelection, benchmarkId: benchmarkIdFor(sec.currency) }),
       { label: `${label} price from G-spread` });
     if (!res.ok) return { ...out, fatal: res.error };
     clean = res.data.valuation.clean_per100;
@@ -125,7 +126,8 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
     { label: `${label} current and simple yield` });
   out.currentYield = scalars[0].ok ? Number(scalars[0].data.value) / 100 : NaN;
   out.simpleYield = scalars[1].ok ? Number(scalars[1].data.value) / 100 : NaN;
-  if (!scalars[0].ok) out.errors.scalars = scalars[0].error;
+  if (!scalars[0].ok) out.errors.scalars = scalars[0].error; // current yield
+  if (!scalars[1].ok) out.errors.simpleYield = scalars[1].error;
 
   // 6. Z-spread over the chosen curve and spread risk.
   if (curve && curve.recipe) {
@@ -140,32 +142,39 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
         const [dm, dp] = zb.map((r) => r.data.dirty_per100);
         out.spreadDuration = (dm - dp) / (2 * h * out.dirty);
         out.cs01 = ((dm - dp) / 2) * (Number(face) / 100);
-      }
+      } else out.errors.spreadRisk = zb.find((r) => !r.ok).error;
     } else out.errors.zspread = zr.error;
     out.sources.curve = curve.key;
   } else out.errors.zspread = { code: 'missing_input', message: 'No curve is available for this currency.' };
 
-  // 7. G-spread against actual benchmark securities.
-  if (benchmarks.length >= 2 && sec.currency === 'USD') {
-    const bench = await benchmarkQuotes(engine, benchmarks, settlement, benchmarkCurve, benchPrices);
+  // 7. G-spread against actual benchmark securities in the target's currency:
+  // interpolated between the two that bracket its maturity, or the one that
+  // matures the same day.
+  const usable = benchmarks.filter((b) => b.sec.currency === sec.currency);
+  const needed = benchmarkSelection === 'ExactMaturity' ? 1 : 2;
+  if (usable.length >= needed) {
+    const bench = await benchmarkQuotes(engine, usable, settlement, benchmarkCurve, benchPrices);
     if (bench.error) out.errors.gspread = bench.error;
     else {
       const gr = await engine.call(governmentSpread(sec, { kind: 'CleanPrice', value: cleanText }, bench.list,
-        { tradeDate, settlement }), { label: `${label} G-spread` });
+        { tradeDate, settlement, selection: benchmarkSelection, benchmarkId: benchmarkIdFor(sec.currency) }),
+      { label: `${label} G-spread` });
       if (gr.ok) {
         out.gspread = {
           bp: gr.data.basis_points,
           decimal: gr.data.decimal_spread,
           benchYield: gr.data.benchmark_decimal_yield,
-          targetYield: gr.data.target_decimal_yield,
+          targetYield: gr.data.target.yield_inverse.decimal_parameter,
           selected: gr.data.selected,
           benchmarks: bench.list,
           convention: cashConvention(sec),
+          selection: benchmarkSelection,
         };
       } else out.errors.gspread = gr.error;
     }
-  } else if (sec.currency !== 'USD') {
-    out.errors.gspread = { code: 'not_applicable', message: 'Benchmark securities are loaded for US Treasuries only.' };
+  } else {
+    out.errors.gspread = { code: 'not_applicable', message: `G-spread needs ${needed === 1 ? 'a' : 'at least two'} ${sec.currency} `
+      + `benchmark securit${needed === 1 ? 'y' : 'ies'}; choose them under G-spread benchmarks.` };
   }
 
   // 8. Invoice for the face amount.
@@ -186,25 +195,45 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
   return out;
 }
 
+/** The government benchmark identity sent with G-spread requests, per currency. */
+export function benchmarkIdFor(currency) {
+  return currency === 'USD' ? 'US.TREASURY' : `${currency}.GOVERNMENT`;
+}
+
 /**
- * Benchmark quotes: the actual on-the-run securities, at the price you entered
- * for a CUSIP, otherwise priced off the fitted government curve (curve-implied).
+ * Benchmark quotes: actual securities, at the price you entered for one (by
+ * CUSIP, or id for a bond without one), else the price it was imported with,
+ * else priced off the fitted government curve (curve-implied). A price you
+ * entered that can't be read is an input error, never replaced.
  */
 export async function benchmarkQuotes(engine, benchmarks, settlement, curve, prices = {}) {
-  const yours = benchmarks.map((b) => {
-    const text = prices[b.sec.cusip];
-    if (!text) return null;
-    try {
-      const v = parsePrice(text);
-      return Number.isFinite(v) && v > 0 ? v : null;
-    } catch {
-      return null;
+  const yours = [];
+  for (const b of benchmarks) {
+    const key = b.sec.cusip || b.sec.id;
+    const text = prices[key] !== undefined && String(prices[key]).trim() !== '' ? prices[key] : b.sec.price;
+    if (text === undefined || text === null || String(text).trim() === '') {
+      yours.push(null);
+      continue;
     }
-  });
+    let v = NaN;
+    try {
+      v = parsePrice(text);
+    } catch {
+      /* reported below */
+    }
+    if (!(v > 0)) {
+      return { error: { code: 'invalid_input', details: { field: 'benchmark_price', cusip: key },
+        message: `The benchmark price "${text}" you entered for ${key} is not a positive price per 100 `
+          + '(e.g. 99.5 or 99-16+). Correct it or clear it to use the curve-implied price.' } };
+    }
+    yours.push(v);
+  }
   const implied = benchmarks.filter((_, i) => yours[i] === null);
   let res = [];
   if (implied.length) {
-    if (!curve || !curve.recipe) return { error: { code: 'missing_input', message: 'The Treasury curve is not built yet.' } };
+    if (!curve || !curve.recipe) {
+      return { error: { code: 'missing_input', message: 'No government curve for curve-implied benchmark prices: enter a price for each benchmark.' } };
+    }
     res = await engine.callMany(
       implied.map((b) => R.bondPrice(b.sec, settlement, R.spreadMethod(curve.key, curve.spreadRole, 0), [curve.recipe])),
       { label: 'benchmark curve-implied prices' },
@@ -221,7 +250,7 @@ export async function benchmarkQuotes(engine, benchmarks, settlement, curve, pri
         sec: b.sec,
         bucket: b.bucket,
         quote: { kind: 'CleanPrice', value: fromNumber(price, 10) },
-        provenance: own ? 'manual' : 'curve-implied',
+        provenance: own ? (prices[b.sec.cusip || b.sec.id] ? 'manual' : 'imported') : 'curve-implied',
       };
     }),
   };

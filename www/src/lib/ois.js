@@ -9,12 +9,19 @@ import { percentToRate } from './decimal.js';
 import { request, inputs } from './requests.js';
 
 // Market conventions used for the standard spot-starting swaps. They are the
-// defaults the editor shows; every one can be changed per curve.
+// defaults the editor shows; every one can be changed per curve. Each rate is
+// published on the next business day at the administrator's local time:
+// SOFR 08:00 New York, €STR 08:00 CET, SONIA 09:00 London, and CORRA between
+// 09:00 and 11:00 Toronto (the end of that window is used).
 export const OIS_INDICES = {
-  'USD.SOFR': { label: 'SOFR', currency: 'USD', calendar: 'US.SIFMA', spotLag: 2, paymentDelay: 2, dayCount: 'Act360', publishedAt: '12:00:00Z' },
-  'EUR.ESTR': { label: '€STR', currency: 'EUR', calendar: 'EU.TARGET2', spotLag: 2, paymentDelay: 1, dayCount: 'Act360', publishedAt: '07:00:00Z' },
-  'GBP.SONIA': { label: 'SONIA', currency: 'GBP', calendar: 'GB.LON', spotLag: 0, paymentDelay: 0, dayCount: 'Act365Fixed', publishedAt: '08:00:00Z' },
-  'CAD.CORRA': { label: 'CORRA', currency: 'CAD', calendar: 'CA.TOR', spotLag: 1, paymentDelay: 1, dayCount: 'Act365Fixed', publishedAt: '15:00:00Z' },
+  'USD.SOFR': { label: 'SOFR', currency: 'USD', calendar: 'US.SIFMA', spotLag: 2, paymentDelay: 2, dayCount: 'Act360',
+    publication: { time: '08:00', zone: 'America/New_York' } },
+  'EUR.ESTR': { label: '€STR', currency: 'EUR', calendar: 'EU.TARGET2', spotLag: 2, paymentDelay: 1, dayCount: 'Act360',
+    publication: { time: '08:00', zone: 'Europe/Berlin' } },
+  'GBP.SONIA': { label: 'SONIA', currency: 'GBP', calendar: 'GB.LON', spotLag: 0, paymentDelay: 0, dayCount: 'Act365Fixed',
+    publication: { time: '09:00', zone: 'Europe/London' } },
+  'CAD.CORRA': { label: 'CORRA', currency: 'CAD', calendar: 'CA.TOR', spotLag: 1, paymentDelay: 1, dayCount: 'Act365Fixed',
+    publication: { time: '11:00', zone: 'America/Toronto' } },
 };
 
 // Illustrative swap rates so the OIS route can be shown end to end. They are
@@ -36,9 +43,44 @@ export function examplePoints(index) {
 
 // One request carries at most 4,096 items per array, and the calibration needs
 // one publication record per overnight observation date, so a single fit
-// reaches about 15 years. Longer points can be supplied as zero rates.
+// reaches about 15 years. Longer points can be supplied as zero rates. The
+// native swap fit also takes at most 128 helpers (its fit dimension).
 export const MAX_PUBLICATIONS = 4000;
 export const MAX_OIS_YEARS = 15;
+export const MAX_OIS_QUOTES = 128;
+
+const zoneFormats = new Map();
+
+// The wall-clock reading of instant `ms` in `zone`, as if it were UTC.
+function wallClock(ms, zone) {
+  let f = zoneFormats.get(zone);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: '2-digit',
+      day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    zoneFormats.set(zone, f);
+  }
+  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour) % 24, Number(p.minute), Number(p.second));
+}
+
+/** Local `time` ("08:00") on ISO `date` in IANA `zone` → UTC timestamp text ("…T12:00:00Z"). */
+export function zonedTimestamp(date, time, zone) {
+  const [y, m, d] = date.split('-').map(Number);
+  const [hh, mm] = time.split(':').map(Number);
+  const wall = Date.UTC(y, m - 1, d, hh, mm);
+  let at = wall - (wallClock(wall, zone) - wall);
+  // Near a daylight-saving change the first offset can be the other side's.
+  const check = wallClock(at, zone);
+  if (check !== wall) at += wall - check;
+  return new Date(at).toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
+function limitError(limit, message) {
+  const err = new Error(message);
+  err.code = 'input_limit';
+  err.limit = limit;
+  return err;
+}
 
 function leg(pin, start, end, def) {
   return {
@@ -67,22 +109,34 @@ function leg(pin, start, end, def) {
   };
 }
 
+/** Spot: `spotLag` business days after the trade date, and a business day even at lag 0. */
+export function oisEffectiveDate(def, tradeDate) {
+  return adjustFollowing(def.calendar, addBusinessDays(def.calendar, tradeDate, def.spotLag));
+}
+
 /** Swap dates for each quote: effective (spot), maturity and final payment (the pillar). */
 export function oisSchedule(def, tradeDate, tenors) {
-  const effective = addBusinessDays(def.calendar, tradeDate, def.spotLag);
+  const effective = oisEffectiveDate(def, tradeDate);
   return tenors.map((tenor) => {
     const maturity = addTenor(effective, tenor);
-    const pillar = addBusinessDays(def.calendar, adjustFollowing(def.calendar, maturity), def.paymentDelay);
+    // As the engine dates a payment: the delay counts business days from the
+    // unadjusted accrual end, then the result is adjusted (Following).
+    const pillar = adjustFollowing(def.calendar, addBusinessDays(def.calendar, maturity, def.paymentDelay));
     return { tenor, effective, maturity, pillar };
   });
 }
 
-/** Expected publication for every overnight observation from the trade date to the last payment. */
-export function oisPublications(def, tradeDate, lastDate) {
+/**
+ * Expected publication for every overnight observation from the first one the
+ * swaps need (`from`, moved to a business day) to `lastDate`: the next
+ * business day at the index's local publication time.
+ */
+export function oisPublications(def, from, lastDate) {
+  const { time, zone } = def.publication;
   const out = [];
-  for (let d = tradeDate; d <= lastDate;) {
+  for (let d = adjustFollowing(def.calendar, from); d <= lastDate;) {
     const next = addBusinessDays(def.calendar, d, 1);
-    out.push({ expected_publication: `${next}T${def.publishedAt}`, index_id: def.index, observation_date: d });
+    out.push({ expected_publication: zonedTimestamp(next, time, zone), index_id: def.index, observation_date: d });
     d = next;
   }
   return out;
@@ -90,24 +144,38 @@ export function oisPublications(def, tradeDate, lastDate) {
 
 /**
  * Calibration request for one OIS discount curve. `def` = { index, calendar,
- * spotLag, paymentDelay, dayCount, publishedAt, currency }, `quotes` =
- * [{ tenor, value }] with value in percent. Throws with a plain message when
- * the horizon exceeds what one request can carry.
+ * spotLag, paymentDelay, dayCount, publication, currency }, `quotes` =
+ * [{ tenor, value }] with value in percent. Throws with a plain message
+ * (`code: 'input_limit'`, `limit: 'quotes' | 'publications'`) when the quotes
+ * exceed what one fit or one request can carry, and when two quotes end on the
+ * same payment date.
  */
 export function oisCurveCalibration({ key, projectionKey, def, tradeDate, quotes, interpolation = 'Linear' }) {
-  const pin = calendarPin(def.calendar);
-  const dates = oisSchedule(def, tradeDate, quotes.map((q) => q.tenor));
-  const last = dates.reduce((a, d) => (d.pillar > a ? d.pillar : a), tradeDate);
-  const publications = oisPublications(def, tradeDate, last);
-  if (publications.length > MAX_PUBLICATIONS) {
-    const err = new Error(`Reaching ${quotes[quotes.length - 1].tenor} needs ${publications.length.toLocaleString()} daily `
-      + `${def.label || def.index} publications; one request carries at most ${MAX_PUBLICATIONS.toLocaleString()}. `
-      + `Keep swap tenors to ${MAX_OIS_YEARS} years, or supply longer points as zero rates.`);
-    err.code = 'input_limit';
-    throw err;
+  const name = def.label || def.index;
+  if (quotes.length > MAX_OIS_QUOTES) {
+    throw limitError('quotes', `${quotes.length} ${name} swap quotes are more than one fit takes: the engine solves `
+      + `at most ${MAX_OIS_QUOTES} swaps per curve. Remove some tenors.`);
   }
-  const helpers = quotes.map((q, i) => {
-    const { effective, maturity, pillar } = dates[i];
+  const pin = calendarPin(def.calendar);
+  // Helpers and pillars go to the engine in payment-date order, which is not
+  // always tenor order (1M from 31 January ends before 30D does).
+  const dated = oisSchedule(def, tradeDate, quotes.map((q) => q.tenor))
+    .map((d, i) => ({ ...d, quote: quotes[i] }))
+    .sort((a, b) => (a.pillar < b.pillar ? -1 : a.pillar > b.pillar ? 1 : 0));
+  for (let i = 1; i < dated.length; i++) {
+    if (dated[i].pillar === dated[i - 1].pillar) {
+      throw new Error(`${dated[i - 1].tenor} and ${dated[i].tenor} both pay on ${dated[i].pillar}; keep one of them.`);
+    }
+  }
+  const effective = oisEffectiveDate(def, tradeDate);
+  const last = dated.length ? dated[dated.length - 1].pillar : effective;
+  const publications = oisPublications(def, effective, last);
+  if (publications.length > MAX_PUBLICATIONS) {
+    throw limitError('publications', `Reaching ${dated[dated.length - 1].tenor} needs ${publications.length.toLocaleString()} `
+      + `daily ${name} publications; one request carries at most ${MAX_PUBLICATIONS.toLocaleString()}. `
+      + `Keep swap tenors to ${MAX_OIS_YEARS} years, or supply longer points as zero rates.`);
+  }
+  const helpers = dated.map(({ quote: q, maturity, pillar }) => {
     const rate = percentToRate(q.value);
     const id = `${key.id}.${q.tenor}`;
     return {

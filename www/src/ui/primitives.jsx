@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 export function Panel({ title, note, actions, children, flush, foot, className = '', ...rest }) {
   return (
@@ -16,7 +16,18 @@ export function Panel({ title, note, actions, children, flush, foot, className =
   );
 }
 
-export function Field({ label, hint, wide, children }) {
+/** `as="div"` wraps composite controls (Seg) in a labelled group instead of a <label>. */
+export function Field({ label, hint, wide, as, children }) {
+  const labelId = useId();
+  if (as === 'div') {
+    return (
+      <div className={`field${wide ? ' field--wide' : ''}`} role="group" aria-labelledby={labelId}>
+        <span id={labelId}>{label}</span>
+        {children}
+        {hint && <em className="field__hint">{hint}</em>}
+      </div>
+    );
+  }
   return (
     <label className={`field${wide ? ' field--wide' : ''}`}>
       <span>{label}</span>
@@ -58,11 +69,11 @@ export function Seg({ value, onChange, options, label }) {
 
 export function Tabs({ value, onChange, options, label }) {
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
+    <div className="tabs" role="group" aria-label={label}>
       {options.map((o) => {
         const [v, l] = Array.isArray(o) ? o : [o, o];
         return (
-          <button key={v} type="button" role="tab" aria-selected={value === v} onClick={() => onChange(v)}>
+          <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}>
             {l}
           </button>
         );

@@ -64,3 +64,14 @@ test('52-week bill uses the long-bill branch; native rejects a bad CUSIP', () =>
   assert.equal(env.ok, 'false');
   assert.equal(env.error.code, 'invalid_input');
 });
+
+test('a decimal face (100.5): the price per 100 is scaled exactly and comes back unchanged', () => {
+  const b = { ...bill('2027-01-21'), face: '100.5' };
+  const tb = run(B.billFromPrice(b, SETTLE, '98.8'));
+  assert.equal(Number(tb.calculation.price_per100), 98.8);
+  const at100 = B.billResult(run(B.billFromPrice(bill('2027-01-21'), SETTLE, '98.8')));
+  assert.equal(B.billResult(tb).discountPercent, at100.discountPercent);
+  const conv = run(B.billConversions(b, SETTLE, '98.8'));
+  assert.equal(conv.price_original_face, '99.294');
+  assert.equal(conv.discount_yield_percent, run(B.billConversions(bill('2027-01-21'), SETTLE, '98.8')).discount_yield_percent);
+});

@@ -9,6 +9,7 @@ import {
   parseBoeRates, parseJgbCsv, loadUstPar, loadUstBillRates, loadEcbAaaSpot, loadSofrHistory,
   loadJgbCurve, loadTreasuryAuctions, proxied, SOURCES, loadSource,
 } from '../src/market/feeds.js';
+import * as feeds from '../src/market/feeds.js';
 
 const fx = (name) =>
   readFileSync(fileURLToPath(new URL(`./fixtures/market/${name}`, import.meta.url)), 'utf8');
@@ -197,12 +198,15 @@ test('errors are clear', async () => {
 test('source registry is complete and well-formed', () => {
   const ids = new Set();
   for (const s of SOURCES) {
-    assert.ok(!ids.has(s.id));
+    assert.ok(!ids.has(s.id), `${s.id} registered twice`);
     ids.add(s.id);
     for (const k of ['label', 'currency', 'kind', 'loader', 'url', 'homepage', 'description']) assert.ok(s[k], `${s.id}.${k}`);
     assert.equal(typeof s.corsRequired, 'boolean');
+    assert.equal(typeof feeds[s.loader], 'function', `${s.id}: loader ${s.loader} is exported`);
   }
-  for (const id of ['ust-par', 'ust-auctions', 'nyfed-rates', 'sofr-history', 'ecb-aaa', 'estr', 'boc-benchmarks', 'corra']) {
-    assert.ok(ids.has(id), id);
-  }
+  // Exactly these sources, no more and no fewer: a new one must be added here on purpose.
+  assert.deepEqual([...ids].sort(), [
+    'boc-benchmarks', 'boe-rates', 'corra', 'ecb-aaa', 'ecb-all', 'estr', 'jgb', 'nyfed-rates', 'sofr-history',
+    'ust-auctions', 'ust-bills', 'ust-par',
+  ]);
 });

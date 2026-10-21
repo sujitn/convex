@@ -25,10 +25,13 @@ export function endOfMonthRule(sec) {
   return sec.eom === 'auto' || sec.eom === undefined ? isMonthEnd(sec.maturity) : !!sec.eom;
 }
 
-/** Regular dates anchored on maturity, stepping back `k` periods (EOM-aware). */
-export function anchoredDate(maturity, months, k, eom) {
-  const d = addMonths(maturity, -months * k);
-  return eom ? monthEnd(d) : d;
+/**
+ * Regular date `k` periods before `anchor` (negative k: after). As the engine
+ * rolls, the end-of-month rule applies only when the anchor is a month end.
+ */
+export function anchoredDate(anchor, months, k, eom) {
+  const d = addMonths(anchor, -months * k);
+  return eom && isMonthEnd(anchor) ? monthEnd(d) : d;
 }
 
 /** Contractual coupon dates after `from` up to maturity, anchored on maturity. */
@@ -62,11 +65,28 @@ function profile(start, end, base, changes = []) {
   return segs;
 }
 
+const blank = (v) => v === undefined || v === null || String(v).trim() === '';
+
+/**
+ * Schedule rows (calls, coupon steps, sinking-fund payments) that will be used.
+ * A row with every field blank is an empty editor line and is left out; a
+ * partly filled row is an error, never silently dropped.
+ */
+function filledRows(rows, fields, what) {
+  return (rows || []).filter((row, i) => {
+    const missing = fields.filter((f) => blank(row[f]));
+    if (missing.length === fields.length) return false;
+    if (missing.length) throw new Error(`${what} row ${i + 1} is incomplete: enter its ${missing.join(' and ')}.`);
+    return true;
+  });
+}
+
 /** Outstanding-notional changes implied by a sinking-fund schedule (face units). */
 function notionalChanges(sec) {
   let outstanding = decimal(sec.face);
   const out = [];
-  for (const s of [...(sec.sinking || [])].sort((a, b) => compareIso(a.date, b.date))) {
+  const rows = filledRows(sec.sinking, ['date', 'amount'], 'Sinking-fund');
+  for (const s of rows.sort((a, b) => compareIso(a.date, b.date))) {
     outstanding = subtractDecimal(outstanding, decimal(s.amount));
     out.push({ date: s.date, value: outstanding });
   }
@@ -101,7 +121,7 @@ export function calendarPins(code) {
 }
 
 function exerciseTerms(sec) {
-  const calls = (sec.calls || []).filter((c) => c.date && c.price);
+  const calls = filledRows(sec.calls, ['date', 'price'], 'Call');
   if (!calls.length) return [];
   const lag = { BusinessDays: 0 };
   const base = {
@@ -132,8 +152,7 @@ export function bondTerms(sec) {
   const start = accrualStart(sec);
   const end = sec.maturity;
   const coupon = percentToRate(sec.coupon);
-  const steps = (sec.steps || [])
-    .filter((s) => s.date && s.coupon !== '')
+  const steps = filledRows(sec.steps, ['date', 'coupon'], 'Coupon step')
     .map((s) => ({ date: s.date, value: percentToRate(s.coupon) }));
   const face = decimal(sec.face || '100');
   const zeroProfile = [{ start, end, value: '0' }];
@@ -190,22 +209,28 @@ export function settlementFor(sec, tradeDate) {
 }
 
 /**
- * The complete ICMA nominal determination mesh: regular periods anchored on
- * maturity, from two periods before the accrual start to two past maturity.
+ * The complete ICMA nominal determination mesh: regular periods from two
+ * periods before the accrual start to two past maturity. The engine checks it
+ * against the schedule's own anchor, which is the first regular coupon date
+ * when one is given (the schedule rolls forward from it) and maturity otherwise.
  */
 export function icmaPeriods(sec) {
   const months = FREQ_MONTHS[sec.frequency];
   const eom = endOfMonthRule(sec);
   const start = accrualStart(sec);
-  const dates = [];
-  let before = 0;
-  for (let k = -2; k < 4000; k++) {
-    const d = anchoredDate(sec.maturity, months, k, eom);
-    dates.unshift(d);
-    if (compareIso(d, start) < 0 && ++before >= 2) break;
+  const anchor = sec.firstCouponDate || sec.maturity;
+  const at = (k) => anchoredDate(anchor, months, -k, eom); // k periods after the anchor
+  const LIMIT = 4000;
+  let last = 0;
+  while (compareIso(at(last), sec.maturity) < 0) if (++last > LIMIT) throw new Error('ICMA mesh: maturity is not reached');
+  last += 2;
+  let first = 0;
+  for (let before = compareIso(at(0), start) < 0 ? 1 : 0; before < 2;) {
+    if (--first < -LIMIT) throw new Error('ICMA mesh: accrual start is not reached');
+    if (compareIso(at(first), start) < 0) before += 1;
   }
   const periods = [];
-  for (let i = 0; i + 1 < dates.length; i++) periods.push({ start: dates[i], end: dates[i + 1] });
+  for (let k = first; k < last; k++) periods.push({ start: at(k), end: at(k + 1) });
   return periods;
 }
 

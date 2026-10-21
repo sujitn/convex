@@ -73,19 +73,25 @@ export const billFromInvestmentRate = (bill, settlement, investmentPercent) =>
 
 /** From a purchase price per 100 of face (scaled to original face when face != 100). */
 export function billFromPrice(bill, settlement, pricePer100) {
-  const face = decimal(bill.face || '100');
-  return billQuote(bill, settlement, { kind: 'price', price_original_face: scaleToFace(pricePer100, face) });
+  return billQuote(bill, settlement, { kind: 'price', price_original_face: scaleToFace(pricePer100, bill.face || '100') });
 }
 
-// price/100 * face as exact decimal text (face must be a whole number).
-function scaleToFace(pricePer100, face) {
+// Canonical decimal text → [signed integer of all its digits, digits after the point].
+function scaled(text) {
+  const [i, f = ''] = text.split('.');
+  return [BigInt(i + f), f.length];
+}
+
+// price/100 × face as exact decimal text: the product of both digit strings,
+// with the point moved back by both scales and the per-100 divisor.
+export function scaleToFace(pricePer100, face) {
   const p = decimal(pricePer100);
-  if (face === '100') return p;
-  if (!/^[0-9]+$/.test(face)) throw new Error(`face ${face} must be a whole number for exact scaling`);
-  const neg = p.startsWith('-');
-  const [i, fr = ''] = p.replace('-', '').split('.');
-  const n = BigInt(i + fr) * BigInt(face);
-  return decimal(`${neg ? '-' : ''}${shift(n.toString(), fr.length + 2)}`);
+  const f = decimal(face);
+  if (f.startsWith('-') || !/[1-9]/.test(f)) throw new Error(`face ${face} must be a positive amount`);
+  if (f === '100') return p;
+  const [pi, ps] = scaled(p);
+  const [fi, fs] = scaled(f);
+  return shift((pi * fi).toString(), ps + fs + 2);
 }
 
 /**
@@ -94,7 +100,7 @@ function scaleToFace(pricePer100, face) {
  * remaining days only. Outputs are PERCENT decimal strings.
  */
 export const billConversions = (bill, settlement, pricePer100) =>
-  zeroRequest(bill, { kind: 'bill_conversions', settlement, price_original_face: scaleToFace(pricePer100, decimal(bill.face || '100')) });
+  zeroRequest(bill, { kind: 'bill_conversions', settlement, price_original_face: scaleToFace(pricePer100, bill.face || '100') });
 
 /** Generic zero pricing from a clean price per 100 (semi-annual compounding yield, not the Treasury convention). */
 export const billGenericFromPrice = (bill, settlement, cleanPer100) =>

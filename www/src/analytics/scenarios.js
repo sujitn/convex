@@ -3,7 +3,7 @@
 // an unchanged Z-spread. Nothing is approximated from durations.
 
 import * as R from '../lib/requests.js';
-import { CURVE_DEFS, shiftedDataset } from './curves.js';
+import { CURVE_DEFS, shiftedDataset, hasValue } from './curves.js';
 import { addTenor, tenorYears } from '../lib/dates.js';
 import { addBusinessDays } from '../lib/calendars.js';
 
@@ -30,20 +30,21 @@ function pivot(t, short, long) {
   return short + ((long - short) * (t - 2)) / 28;
 }
 
-function calibrationRequest(curveId, ds) {
-  const def = CURVE_DEFS[curveId];
+/** The par recalibration of a shifted dataset, with the same points and interpolation `buildCurve` used. */
+export function calibrationRequest(def, ds, interpolation) {
   const tradeDate = ds.asOf;
   const settlement = addBusinessDays(def.calendar, tradeDate, def.settlementDays);
-  const key = R.curveKey(curveId, `${ds.asOf}.${ds.revision}`);
-  const quotes = [...ds.points]
+  const key = R.curveKey(def.id, `${ds.asOf}.${ds.revision}`);
+  const quotes = ds.points
+    .filter(hasValue)
     .sort((a, b) => tenorYears(a.tenor) - tenorYears(b.tenor))
     .map((p) => ({ tenor: p.tenor, parPct: p.value, maturity: addTenor(settlement, p.tenor) }));
   return R.parCurveCalibration({ key, currency: def.currency, calendar: def.calendar, tradeDate, settlement,
-    settlementDays: def.settlementDays, benchmarkId: def.benchmarkId, quotes, frequency: def.frequency, dayCount: def.dayCount });
+    settlementDays: def.settlementDays, benchmarkId: def.benchmarkId, quotes, frequency: def.frequency, dayCount: def.dayCount,
+    interpolation });
 }
 
-function directFrom(curveId, ds, data) {
-  const def = CURVE_DEFS[curveId];
+function directFrom(def, ds, data) {
   const c = data.result.curves[0];
   const g = c.interpolation_grid;
   return R.directZeroCurve({ key: c.recipe.key, currency: def.currency, referenceDate: ds.asOf,
@@ -57,15 +58,19 @@ function directFrom(curveId, ds, data) {
  * the scenario dirty price, or the native error for that scenario.
  */
 export async function repriceUnderShifts(engine, { sec, settlement, curve, dataset, zDecimal, variants, label }) {
-  const def = CURVE_DEFS[curve.id];
+  const def = curve.def || CURVE_DEFS[curve.id];
   const role = R.governmentRole(def.benchmarkId);
   const shifted = variants.map((v) => shiftedDataset(dataset, v.shift, v.id));
-  const cals = await engine.callMany(shifted.map((ds) => calibrationRequest(curve.id, ds)), { label: `${label} recalibrations` });
+  // Recalibrate exactly as the base curve was built, interpolation included,
+  // so a scenario differs from the base only by its shift.
+  const cals = await engine.callMany(shifted.map((ds) => calibrationRequest(def, ds, curve.interpolation)),
+    { label: `${label} recalibrations` });
   const prices = await engine.callMany(
-    cals.map((c, i) => (c.ok
-      ? R.bondPrice(sec, settlement, R.spreadMethod(directFrom(curve.id, shifted[i], c.data).key, role, zDecimal),
-        [directFrom(curve.id, shifted[i], c.data)])
-      : R.bondPrice(sec, settlement, R.spreadMethod(curve.key, role, zDecimal), [curve.recipe]))),
+    cals.map((c, i) => {
+      if (!c.ok) return R.bondPrice(sec, settlement, R.spreadMethod(curve.key, role, zDecimal), [curve.recipe]);
+      const direct = directFrom(def, shifted[i], c.data);
+      return R.bondPrice(sec, settlement, R.spreadMethod(direct.key, role, zDecimal), [direct]);
+    }),
     { label: `${label} scenario prices` },
   );
   return variants.map((v, i) => ({
@@ -76,9 +81,10 @@ export async function repriceUnderShifts(engine, { sec, settlement, curve, datas
   }));
 }
 
-/** One-basis-point bump per par tenor: market-quote key-rate durations. */
+/** One-basis-point bump per quoted par tenor: market-quote key-rate durations. */
 export function keyRateVariants(dataset) {
-  return [...dataset.points]
+  return dataset.points
+    .filter(hasValue)
     .sort((a, b) => tenorYears(a.tenor) - tenorYears(b.tenor))
     .map((p) => ({ id: `kr-${p.tenor}`, label: p.tenor, tenor: p.tenor, shift: (t) => (Math.abs(t - tenorYears(p.tenor)) < 1e-9 ? 1 : 0) }));
 }

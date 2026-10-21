@@ -14,7 +14,7 @@ function ringPath(cx, cy, radius, amp, lobes, phase, steps = 360) {
   return `${d}Z`;
 }
 
-export default function Rosette({ className, rings = 18, lobes = 14, size = 300, strokeWidth = 0.6 }) {
+export default function Rosette({ className, rings = 18, lobes = 14, size = 300, strokeWidth = 0.6, ...rest }) {
   const paths = useMemo(() => {
     const c = size / 2;
     const out = [];
@@ -25,7 +25,7 @@ export default function Rosette({ className, rings = 18, lobes = 14, size = 300,
     return out;
   }, [rings, lobes, size]);
   return (
-    <svg className={className} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+    <svg className={className} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" {...rest}>
       {paths.map((d, i) => (
         <path key={i} d={d} fill="none" stroke="currentColor" strokeWidth={strokeWidth} />
       ))}

@@ -13,6 +13,8 @@ import Yas from './screens/Yas';
 import Cashflows from './screens/Cashflows';
 import Callable from './screens/Callable';
 import Bills from './screens/Bills';
+import Frn from './screens/Frn';
+import Cds from './screens/Cds';
 import Scenarios from './screens/Scenarios';
 import Calendars from './screens/Calendars';
 import ApiConsole from './screens/ApiConsole';
@@ -25,6 +27,8 @@ export const FUNCTIONS = [
   { code: 'CFL', name: 'Cash', title: 'Cash flows', Screen: Cashflows },
   { code: 'SCN', name: 'Scenario', title: 'Scenarios and key-rate risk', Screen: Scenarios },
   { code: 'OAS', name: 'Callable', title: 'Callable bonds: OAS and workouts', Screen: Callable },
+  { code: 'FRN', name: 'Floaters', title: 'Floating-rate notes: discount margin', Screen: Frn },
+  { code: 'CDS', name: 'Credit', title: 'Credit default swaps', Screen: Cds },
   { code: 'BILL', name: 'Bills', title: 'Treasury bills', Screen: Bills },
   { code: 'CAL', name: 'Calendars', title: 'Holiday calendars', Screen: Calendars, sep: true },
   { code: 'API', name: 'API', title: 'Library console', Screen: ApiConsole },
@@ -88,6 +92,7 @@ function CommandLine() {
         role="combobox"
         aria-expanded={open}
         aria-controls="cmd-menu"
+        aria-activedescendant={open && items.length > 0 && items[active] ? `cmd-opt-${active}` : undefined}
         onChange={(e) => {
           setText(e.target.value);
           setOpen(true);
@@ -108,7 +113,7 @@ function CommandLine() {
       {open && items.length > 0 && (
         <div className="cmd__menu" id="cmd-menu" role="listbox">
           {items.map((it, i) => (
-            <div key={`${it.kind}${it.key}`} className="cmd__item" role="option" aria-selected={i === active}
+            <div key={`${it.kind}${it.key}`} id={`cmd-opt-${i}`} className="cmd__item" role="option" aria-selected={i === active}
               onMouseDown={(e) => {
                 e.preventDefault();
                 choose(it);

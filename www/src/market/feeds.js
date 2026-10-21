@@ -315,7 +315,11 @@ export async function loadNyFedRates(opts = {}) {
   }, opts, new Date());
 }
 
-export async function loadSofrHistory({ count = 60, ...opts } = {}) {
+// Enough business days for a semi-annual coupon period plus its lookback, so
+// a SOFR floating-rate note's current coupon is covered by published fixings.
+export const SOFR_HISTORY_COUNT = 140;
+
+export async function loadSofrHistory({ count = SOFR_HISTORY_COUNT, ...opts } = {}) {
   const name = 'NY Fed SOFR history';
   const url = `${NYFED}/secured/sofr/last/${count}.json`;
   const points = parseSofrHistory(await getText(name, url, opts));
@@ -565,8 +569,8 @@ export const SOURCES = [
     url: `${NYFED}/all/latest.json`, corsRequired: false, homepage: 'https://www.newyorkfed.org/markets/reference-rates',
     description: 'Latest SOFR, EFFR, OBFR, TGCR and BGCR fixings with SOFR averages.' },
   { id: 'sofr-history', label: 'SOFR history', currency: 'USD', kind: 'rates', loader: 'loadSofrHistory',
-    url: `${NYFED}/secured/sofr/last/60.json`, corsRequired: false, homepage: 'https://www.newyorkfed.org/markets/reference-rates/sofr',
-    description: 'Recent daily SOFR fixings, oldest first.' },
+    url: `${NYFED}/secured/sofr/last/${SOFR_HISTORY_COUNT}.json`, corsRequired: false, homepage: 'https://www.newyorkfed.org/markets/reference-rates/sofr',
+    description: 'Daily SOFR fixings for about the last six months, oldest first.' },
   { id: 'ecb-aaa', label: 'ECB AAA euro spot curve', currency: 'EUR', kind: 'zero', loader: 'loadEcbAaaSpot',
     url: ecbCurveUrl('G_N_A', ECB_TENORS), corsRequired: false,
     homepage: 'https://www.ecb.europa.eu/stats/financial_markets_and_interest_rates/euro_area_yield_curves/html/index.en.html',

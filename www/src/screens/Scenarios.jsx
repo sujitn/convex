@@ -28,28 +28,43 @@ export default function Scenarios({ fn }) {
   const parCurve = def && def.method === 'par';
   const z = zText ?? (sec && sec.source === 'auction' ? '0' : '125');
   const dz = useDebounced(z);
-  const zDecimal = Number(dz) / 10000;
+  const zOk = z.trim() !== '' && Number.isFinite(Number(z));
+  const zDecimal = zOk ? Number(dz) / 10000 : NaN;
   const bullet = sec ? { ...sec, calls: [] } : null;
   const ready = sec && sec.kind === 'fixed' && curve && curve.recipe && !curve.building && parCurve && Number.isFinite(zDecimal);
   const label = sec ? sec.ticker || sec.name : '';
 
-  const base = useComputation(async () => {
+  const base0 = useComputation(async () => {
     if (!ready) return null;
     const role = curve.spreadRole;
     return engine.call(R.bondPrice(bullet, settlement, R.spreadMethod(curve.key, role, zDecimal), [curve.recipe]),
       { label: `${label} base price` });
-  }, [ready, sec, settlement, curve && curve.key && curve.key.version, zDecimal]);
+  }, [ready, sec, settlement, curve && curve.key && curve.key.id, curve && curve.key && curve.key.version, zDecimal]);
 
-  const scen = useComputation(
+  const scen0 = useComputation(
     () => (ready ? repriceUnderShifts(engine, { sec: bullet, settlement, curve, dataset: datasets[def.dataset],
       zDecimal, variants: SCENARIOS, label }) : null),
-    [ready, sec, settlement, curve && curve.key && curve.key.version, zDecimal],
+    [ready, sec, settlement, curve && curve.key && curve.key.id, curve && curve.key && curve.key.version, zDecimal],
   );
-  const krd = useComputation(
+  const krd0 = useComputation(
     () => (ready ? repriceUnderShifts(engine, { sec: bullet, settlement, curve, dataset: datasets[def.dataset],
       zDecimal, variants: keyRateVariants(datasets[def.dataset]), label: `${label} key rates` }) : null),
-    [ready, sec, settlement, curve && curve.key && curve.key.version, zDecimal],
+    [ready, sec, settlement, curve && curve.key && curve.key.id, curve && curve.key && curve.key.version, zDecimal],
   );
+
+  // Results for another security, curve or spread are not shown while the next run is under way.
+  const base = { ...base0, data: base0.current ? base0.data : null };
+  const scen = { ...scen0, data: scen0.current ? scen0.data : null };
+  const krd = { ...krd0, data: krd0.current ? krd0.data : null };
+  const pending = !zOk ? (
+    <div className="note note--error" role="alert">Enter the Z-spread as a number of basis points, for example 125.</div>
+  ) : !curve || curve.building ? (
+    <Empty><Spinner /> Building {def ? def.label : 'the government curve'}…</Empty>
+  ) : curve.error ? (
+    <EngineError error={curve.error} context={def ? def.label : 'Government curve'} />
+  ) : scen0.error || krd0.error ? (
+    <EngineError error={scen0.error || krd0.error} context="Scenarios" />
+  ) : <Empty><Spinner /></Empty>;
 
   const p0 = base.data && base.data.ok ? base.data.data.dirty_per100 : NaN;
   const scale = sec ? face / Number(sec.face || 100) : 1;
@@ -105,7 +120,7 @@ export default function Scenarios({ fn }) {
                     })}
                   </tbody>
                 </table>
-              ) : <Empty><Spinner /></Empty>}
+              ) : pending}
             </Panel>
             <Panel title="Key-rate durations" note="+1 bp on one par quote at a time">
               {krRows.length ? (
@@ -121,7 +136,7 @@ export default function Scenarios({ fn }) {
                     ['DV01 by bucket sum', fmt((krSum * p0 * 1e-4) * scale, 2), `for ${money(face, 0)} face`],
                   ]} />
                 </>
-              ) : <Empty><Spinner /></Empty>}
+              ) : pending}
             </Panel>
           </div>
           {krRows.length > 0 && (

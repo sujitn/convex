@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Panel, Seg, Field, KV } from '../ui/primitives';
 import ScreenHead from '../ui/ScreenHead';
 import { CALENDAR_RULES, CALENDAR_YEARS, calendarInput, holidaysInYear, addBusinessDays, isBusinessDay } from '../lib/calendars';
@@ -12,6 +12,11 @@ export default function Calendars({ fn }) {
   const [code, setCode] = useState('US.SIFMA');
   const [year, setYear] = useState(Number(tradeDate.slice(0, 4)));
   const [from, setFrom] = useState(tradeDate);
+  const [edited, setEdited] = useState(false);
+  // Follow the shared trade date until the field is edited here.
+  useEffect(() => {
+    if (!edited) setFrom(tradeDate);
+  }, [tradeDate, edited]);
   const [lag, setLag] = useState('1');
   const input = calendarInput(code);
   const list = holidaysInYear(code, year);
@@ -42,7 +47,10 @@ export default function Calendars({ fn }) {
         <div className="stack">
           <Panel title="Settlement date">
             <div className="form form--2" style={{ marginBottom: 10 }}>
-              <Field label="Trade date"><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
+              <Field label="Trade date"><input type="date" value={from} onChange={(e) => {
+                setEdited(true);
+                setFrom(e.target.value);
+              }} /></Field>
               <Field label="Business days (T+n)"><input className="input--num" value={lag} onChange={(e) => setLag(e.target.value)} /></Field>
             </div>
             <KV rows={[
