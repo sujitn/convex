@@ -210,9 +210,11 @@ fn requirement(
             req.resources.push(Resource::new(R::Source, "*"));
             req.resources.push(Resource::new(R::Curve, "*"));
         }
-        // Stateless calculator: stores nothing, so it is a calculation, not a curve write.
+        // Stateless calculator: stores nothing, so it is a calculation, not a curve
+        // write. Its `curve_id` is an echoed label, not a scoped curve.
         "/api/v1/curves/bootstrap" => {
             req.data = vec![D::Market];
+            req.inspect_output_resources = false;
         }
         "/api/v1/curves" => {
             req.action = if read { MarketRead } else { CurveWrite };
@@ -648,11 +650,14 @@ async fn enforce_inner(
         .map_err(|_| AccessError::InvalidRequest)?
         .map_err(|_| AccessError::InvalidRequest)?;
         let value = strict_json(&bytes)?;
-        let scopes = if book {
+        let mut scopes = if book {
             resources_bounded(&value, true)?
         } else {
             resources(&value)?
         };
+        if path == "/api/v1/curves/bootstrap" {
+            scopes.retain(|s| s.kind != ResourceKind::Curve);
+        }
         if path == "/api/v1/reference/transactions"
             && value
                 .get("master_changes")

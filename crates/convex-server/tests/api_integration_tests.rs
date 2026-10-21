@@ -1560,7 +1560,12 @@ async fn get_json(app: axum::Router, uri: &str) -> (StatusCode, axum::http::Head
     (
         status,
         headers,
-        serde_json::from_slice(&body).unwrap_or(json!({})),
+        serde_json::from_slice(&body).unwrap_or_else(|e| {
+            panic!(
+                "{uri}: non-JSON body ({e}): {}",
+                String::from_utf8_lossy(&body)
+            )
+        }),
     )
 }
 

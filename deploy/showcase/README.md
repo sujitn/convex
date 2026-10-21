@@ -44,8 +44,8 @@ The seed is a dated capture: everything is recorded at 2026-10-07T12:00:00Z and
 the curves' `max_age_ms` is one day. Curve reads and price-by-ID take an
 explicit cutoff, so the showcase prices at the capture time, for example
 `GET /api/v1/quotes/INSTRUMENT-001?market_price=99.5&known_at=2026-10-07T12:00:00Z`.
-At the current time the same request is refused with `MISSING_INPUT` (stale
-curve) rather than priced without curves. The response headers report the
+Without `known_at` the cutoff is the current time, and the request is refused
+with `MISSING_INPUT` (stale curve) rather than priced without curves. The response headers report the
 reference, configuration and curve versions consumed.
 
 ## CORS

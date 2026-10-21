@@ -55,6 +55,18 @@ impl ApiError {
             ..Self::new(StatusCode::SERVICE_UNAVAILABLE, "UNAVAILABLE", message)
         }
     }
+    /// A failure reading stored inputs. Scan bounds and adapter support belong
+    /// to the store, not the request, so they are not reported as client errors.
+    pub(crate) fn stored(error: TraitError) -> Self {
+        match error {
+            TraitError::CapacityExceeded | TraitError::Unsupported(_) => Self::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "UNAVAILABLE",
+                error.to_string(),
+            ),
+            other => other.into(),
+        }
+    }
 }
 
 impl IntoResponse for ApiError {
@@ -86,6 +98,10 @@ impl From<TraitError> for ApiError {
             TraitError::UnknownOutcome => {
                 Self::new(StatusCode::SERVICE_UNAVAILABLE, "UNKNOWN_OUTCOME", message)
             }
+            // Retrying cannot repair malformed data or an encoding failure.
+            TraitError::ParseError(_) | TraitError::SerializationError(_) => {
+                Self::new(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL", message)
+            }
             _ => Self::unavailable(message),
         }
     }
@@ -94,7 +110,7 @@ impl From<TraitError> for ApiError {
 impl From<CurveResolutionError> for ApiError {
     fn from(error: CurveResolutionError) -> Self {
         match error {
-            CurveResolutionError::Port(error) => error.into(),
+            CurveResolutionError::Port(error) => Self::stored(error),
             other => Self::missing_input(other.to_string()),
         }
     }

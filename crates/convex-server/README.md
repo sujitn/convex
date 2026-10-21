@@ -243,10 +243,10 @@ recipes (`SnapshotCurveRecipe`) in redb; the server keeps no curve cache.
 | `GET /api/v1/curves?after=&limit=` | Each curve's highest stored revision, in identity order, `limit` 1..=256 (default 100). `next` names the cursor for the following page. |
 | `GET /api/v1/curves/{id}?known_at=` | The highest revision recorded at or before `known_at`, with `x-convex-curve-version`. `404` when none. |
 | `GET /api/v1/curves/{id}/zero/{t}`, `/discount/{t}`, `/forward/{t1}/{t2}` | Build that revision and its exact dependencies, then query. A missing or stale curve is `422 MISSING_INPUT`. |
-| `POST /api/v1/curves/bootstrap` | Stateless calibration: returns points and residuals, stores nothing. Unknown or incomplete instruments are `400`. At most 256 instruments. |
+| `POST /api/v1/curves/bootstrap` | Stateless calibration: returns points and residuals, stores nothing. Unknown or incomplete instruments are `400`. At most 128 instruments, the calibrators' bound. |
 
 There is no `DELETE`: revisions are history. `known_at` defaults to the current
-time and every curve and quote response echoes it in `x-convex-known-at`.
+time; cutoff-aware curve reads and quote responses echo it in `x-convex-known-at`.
 
 `GET /api/v1/quotes/{id}?market_price=&settlement_date=&known_at=` prices a
 stored bond with curves. The reference terms are read at `known_at`. The
@@ -259,7 +259,9 @@ request is refused with `422 MISSING_INPUT`; it never prices without curves.
 The response reports what it consumed in `x-convex-reference-version`,
 `x-convex-pricing-config` (`id@version`), `x-convex-curve-versions`
 (`id@version,...`, including dependencies) and `x-convex-known-at`. The
-settlement date defaults to the `known_at` date.
+settlement date defaults to the `known_at` date. `market_price` is required; a
+request without it is `422 MISSING_INPUT`. Only a request without `known_at` is
+broadcast to WebSocket subscribers as a live quote.
 
 Curve and quote errors share one body, `{"error", "code", "retryable"}`
 (`crate::error::ApiError`); other routes migrate to it over time.

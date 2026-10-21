@@ -235,6 +235,9 @@ pub async fn get_bond_quote(
     let bond = reference
         .bond
         .ok_or_else(|| ApiError::not_found(format!("Bond not found: {instrument_id}")))?;
+    let market_price = query.market_price.ok_or_else(|| {
+        ApiError::missing_input("market_price is required; no model or market value is substituted")
+    })?;
     let settlement_date = match query.settlement_date {
         Some(ref text) => parse_date(text).map_err(ApiError::invalid)?,
         None => {
@@ -248,7 +251,7 @@ pub async fn get_bond_quote(
         bond,
         settlement_date,
         market_price_bid: None,
-        market_price_mid: query.market_price,
+        market_price_mid: Some(market_price),
         market_price_ask: None,
         discount_curve: Some(curves.discount),
         benchmark_curve: curves.benchmark,
@@ -261,8 +264,11 @@ pub async fn get_bond_quote(
         .pricing_router()
         .price(&input)
         .map_err(|e| ApiError::calculation(format!("Pricing failed: {e}")))?;
-    // Retired with REST-triggered WebSocket messages in P3.
-    state.ws_state.publish_bond_quote(quote.clone());
+    // Retired with REST-triggered WebSocket messages in P3. A historical
+    // cutoff is not a live quote, so it is never broadcast.
+    if query.known_at.is_none() {
+        state.ws_state.publish_bond_quote(quote.clone());
+    }
     let value =
         bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
     let pins: Vec<_> = curves

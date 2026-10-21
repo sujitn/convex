@@ -575,6 +575,12 @@ impl BondFilter {
         if self.is_callable.is_some() {
             score += 10;
         }
+        if self.is_floating.is_some() {
+            score += 10;
+        }
+        if self.is_inflation_linked.is_some() {
+            score += 10;
+        }
 
         // Currency
         if self.currency.is_some() {
@@ -586,6 +592,9 @@ impl BondFilter {
             score += 5;
         }
         if self.maturity_to.is_some() {
+            score += 5;
+        }
+        if self.text_search.is_some() {
             score += 5;
         }
 

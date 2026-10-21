@@ -148,7 +148,7 @@ separate from complete recipe replay.
 `CurveStore`, the same write as `POST /api/v1/analytics/curves`. The record is
 validated before storage; a different record under a stored version conflicts.
 `GET /api/v1/curves/{id}` and its zero, discount and forward queries read the
-revision current at an explicit `known_at` and report it in
+revision current at the supplied `known_at` (the current time when omitted) and report it in
 `x-convex-curve-version`.
 
 Run the offline consumer in a directory whose parent already exists:

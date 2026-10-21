@@ -838,3 +838,46 @@ async fn policy_replacement_has_one_winner_and_file_errors_do_not_retain_authori
     assert_eq!(bad.validate(), Err(AccessError::InvalidPolicy));
     issuer.finish().await;
 }
+
+#[tokio::test]
+async fn bootstrap_curve_label_is_not_a_scoped_curve() {
+    let issuer = IssuerFixture::start().await;
+    let mut document = policy();
+    for grant in &mut document.grants {
+        grant
+            .resources
+            .insert(ResourceKind::Curve, vec!["CURVE-A".into()]);
+    }
+    let access = AccessControl::new(issuer.verifier.clone(), document).unwrap();
+    let s = support::setup().await;
+    let engine = support::make_engine(
+        &s,
+        support::archive(&s),
+        s.plan.clone(),
+        s.store.clone(),
+        convex_engine::RuntimeInput::Captured,
+    );
+    let router = convex_server::routes::create_router_with_access(engine, true, access);
+    let payload = json!({"curve_id":"UNGRANTED-LABEL","reference_date":"2026-01-02","instruments":[
+        {"type":"Deposit","tenor":0.5,"quote":0.04},
+        {"type":"Swap","tenor":2.0,"quote":0.041}]});
+    let (status, _, body) = request(
+        router.clone(),
+        "POST",
+        "/api/v1/curves/bootstrap",
+        Some(HUMAN_TOKEN),
+        Some(payload),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["curve_id"], "UNGRANTED-LABEL");
+    let read = request(
+        router,
+        "GET",
+        "/api/v1/curves/UNGRANTED-LABEL",
+        Some(HUMAN_TOKEN),
+        None,
+    )
+    .await;
+    assert_eq!(read.0, StatusCode::FORBIDDEN, "a stored curve stays scoped");
+}

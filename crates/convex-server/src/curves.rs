@@ -28,8 +28,8 @@ use serde::{Deserialize, Serialize};
 use crate::error::ApiError;
 use crate::handlers::AppState;
 
-/// Instruments accepted by one bootstrap request.
-const MAX_BOOTSTRAP_INSTRUMENTS: usize = 256;
+/// Instruments accepted by one bootstrap request: the calibrators' own bound.
+const MAX_BOOTSTRAP_INSTRUMENTS: usize = 128;
 /// Curve heads returned when the request names no limit.
 const DEFAULT_CURVE_LISTING: usize = 100;
 
@@ -135,7 +135,8 @@ pub(crate) async fn get_curve(
         .engine
         .curve_store()
         .recipe_at(&CurveId::new(&curve_id), known_at)
-        .await?
+        .await
+        .map_err(ApiError::stored)?
         .ok_or_else(|| ApiError::not_found(format!("curve {curve_id} at {}", rfc3339(known_at))))?;
     let version = record.version.get().to_string();
     let response = with_header(
@@ -290,7 +291,7 @@ pub struct BootstrapCurveRequest {
     pub curve_id: String,
     /// Reference date (YYYY-MM-DD); today when absent.
     pub reference_date: Option<String>,
-    /// Instruments to calibrate, at most 256.
+    /// Instruments to calibrate, at most 128.
     pub instruments: Vec<BootstrapInstrumentInput>,
     /// Calibration method: "GlobalFit", "Piecewise" (default: GlobalFit)
     pub method: Option<String>,
@@ -401,9 +402,19 @@ fn instrument_set(
     let mut instruments = InstrumentSet::new();
     for (row, input) in inputs.iter().enumerate() {
         let incomplete = || ApiError::invalid(format!("instrument {row}: missing tenor"));
+        let positive = |tenor: Option<f64>| match tenor {
+            Some(years) if years.is_finite() && years > 0.0 => Ok(years),
+            Some(_) => Err(ApiError::invalid(format!(
+                "instrument {row}: tenor must be finite and positive"
+            ))),
+            None => Err(incomplete()),
+        };
+        if !input.quote.is_finite() {
+            return Err(ApiError::invalid(format!("instrument {row}: quote")));
+        }
         match input.instrument_type.to_uppercase().as_str() {
             "DEPOSIT" => {
-                let tenor = input.tenor.ok_or_else(incomplete)?;
+                let tenor = positive(input.tenor)?;
                 instruments.add(Deposit::from_tenor(reference_date, tenor, input.quote, dc));
             }
             "FRA" => {
@@ -412,6 +423,14 @@ fn instrument_set(
                     .zip(input.end_tenor)
                     .ok_or_else(incomplete)?;
                 let months = |years: f64| (years * 12.0).round() as i32;
+                if !(start.is_finite() && end.is_finite())
+                    || months(start) < 0
+                    || months(end) <= months(start)
+                {
+                    return Err(ApiError::invalid(format!(
+                        "instrument {row}: FRA needs 0 <= start_tenor < end_tenor"
+                    )));
+                }
                 let (Ok(start_date), Ok(end_date)) = (
                     reference_date.add_months(months(start)),
                     reference_date.add_months(months(end)),
@@ -427,7 +446,7 @@ fn instrument_set(
                 ));
             }
             "SWAP" => {
-                let tenor = input.tenor.ok_or_else(incomplete)?;
+                let tenor = positive(input.tenor)?;
                 instruments.add(Swap::from_tenor(
                     reference_date,
                     tenor,
@@ -437,7 +456,7 @@ fn instrument_set(
                 ));
             }
             "OIS" => {
-                let tenor = input.tenor.ok_or_else(incomplete)?;
+                let tenor = positive(input.tenor)?;
                 instruments.add(Ois::from_tenor(reference_date, tenor, input.quote, dc));
             }
             other => {

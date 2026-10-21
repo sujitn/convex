@@ -84,8 +84,9 @@ impl ResolvedCurves {
 }
 
 /// Resolve `roots` at `known_at`. Each root is the highest revision recorded by
-/// the cutoff; each dependency is the exact version its recipe names, which must
-/// also be recorded by the cutoff. Every consumed record must be fresh at it.
+/// the cutoff; each dependency is a revision whose native key is exactly the
+/// one its recipe names, also recorded by the cutoff. Every consumed record must
+/// be fresh at it.
 pub async fn resolve_curves(
     store: &dyn CurveStore,
     roots: &[CurveId],
@@ -107,7 +108,7 @@ pub async fn resolve_curves(
     }
     let mut next = 0;
     while next < records.len() {
-        for (id, version) in dependencies(&records[next]) {
+        for (id, label) in dependencies(&records[next]) {
             if records.iter().any(|r| r.curve_id.as_str() == id.as_str()) {
                 continue; // a different pinned version fails the native build below
             }
@@ -115,11 +116,9 @@ pub async fn resolve_curves(
                 return Err(TraitError::CapacityExceeded.into());
             }
             let missing = || CurveResolutionError::Missing(id.clone());
-            let version = version.ok_or_else(missing)?;
-            let record = store
-                .get_recipe(&id, version)
+            let label = label.ok_or_else(missing)?;
+            let record = dependency_record(store, &id, &label, known_at)
                 .await?
-                .filter(|r| r.recorded_at <= known_at)
                 .ok_or_else(missing)?;
             records.push(record);
         }
@@ -164,9 +163,31 @@ fn check_fresh(
     Ok(())
 }
 
-/// Dependencies named by the native recipe. The native key version is the
-/// record revision in decimal; anything else cannot be resolved (`None`).
-fn dependencies(record: &SnapshotCurveRecipe) -> Vec<(CurveId, Option<Version>)> {
+/// The stored revision of `id` whose native key version is exactly `label`,
+/// recorded by the cutoff. Two candidates are tried, nothing else is searched:
+/// the revision numbered `label` when it is decimal, then the revision current
+/// at the cutoff.
+async fn dependency_record(
+    store: &dyn CurveStore,
+    id: &CurveId,
+    label: &str,
+    known_at: UtcTimestamp,
+) -> Result<Option<SnapshotCurveRecipe>, TraitError> {
+    let exact = |r: &SnapshotCurveRecipe| {
+        r.recorded_at <= known_at
+            && r.recipe.pointer("/key/version").and_then(|v| v.as_str()) == Some(label)
+    };
+    if let Some(version) = label.parse::<u64>().ok().and_then(|v| Version::new(v).ok()) {
+        if let Some(record) = store.get_recipe(id, version).await?.filter(exact) {
+            return Ok(Some(record));
+        }
+    }
+    Ok(store.recipe_at(id, known_at).await?.filter(exact))
+}
+
+/// Dependencies named by the native recipe, with their native key version
+/// labels; `None` when a dependency names no version.
+fn dependencies(record: &SnapshotCurveRecipe) -> Vec<(CurveId, Option<String>)> {
     let Some(items) = record.recipe.get("dependencies").and_then(|v| v.as_array()) else {
         return Vec::new();
     };
@@ -174,12 +195,11 @@ fn dependencies(record: &SnapshotCurveRecipe) -> Vec<(CurveId, Option<Version>)>
         .iter()
         .filter_map(|item| {
             let id = item.get("id")?.as_str()?;
-            let version = item
+            let label = item
                 .get("version")
                 .and_then(|v| v.as_str())
-                .and_then(|v| v.parse::<u64>().ok())
-                .and_then(|v| Version::new(v).ok());
-            Some((CurveId::new(id), version))
+                .map(str::to_owned);
+            Some((CurveId::new(id), label))
         })
         .collect()
 }
