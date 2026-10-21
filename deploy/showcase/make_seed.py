@@ -15,7 +15,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 import core_snapshot_workflow as core  # noqa: E402
+import fixtures  # noqa: E402
 
+# prepare() reads xz-packed library fixtures; a clean checkout has only the archives.
+fixtures.materialize()
 capture, _plan, _factors = core.prepare()
 master = json.loads((ROOT / 'crates/convex-ext-file/tests/fixtures/instrument-master.json').read_text())
 curves = [c for c in capture['curves'] if c['version'] == 1]
