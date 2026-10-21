@@ -3,8 +3,7 @@ import { useWorkspace } from '../state/workspace';
 import { useStore } from '../state/store';
 import { exportData, readImport } from '../lib/userdata';
 import { CURVE_METHODS, customCurveDef, CALENDAR_FOR } from '../analytics/curves';
-import { OIS_INDICES, MAX_OIS_YEARS } from '../lib/ois';
-import { parseTenorTable } from '../lib/paste';
+import { OIS_INDICES, MAX_OIS_YEARS, EXAMPLE_OIS, examplePoints } from '../lib/ois';
 import { tenorYears, formatLong } from '../lib/dates';
 import { fmt } from '../lib/format';
 import { Panel, Field, Seg, Select, Prov, Spinner, Icon, KV, EngineError } from '../ui/primitives';
@@ -14,15 +13,6 @@ import PointsEditor from '../ui/PointsEditor';
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD'];
 const DAY_COUNTS = [['Act360', 'Act/360'], ['Act365Fixed', 'Act/365F'], ['ActActIsda', 'Act/Act ISDA']];
 const PAR_DAY_COUNTS = [['ActActIcma', 'Act/Act ICMA'], ['Act365Fixed', 'Act/365F'], ['Thirty360US', '30/360 US'], ['Thirty360E', '30E/360']];
-
-// Illustrative swap rates so the OIS route can be shown end to end. They are
-// not market data; a curve built from them is marked as an example.
-const EXAMPLE_OIS = {
-  'USD.SOFR': '1W 3.92\n1M 3.90\n3M 3.85\n6M 3.75\n1Y 3.60\n2Y 3.45\n3Y 3.40\n5Y 3.42\n7Y 3.50\n10Y 3.62\n12Y 3.70\n15Y 3.78',
-  'EUR.ESTR': '1W 1.93\n1M 1.92\n3M 1.90\n6M 1.88\n1Y 1.86\n2Y 1.90\n3Y 1.98\n5Y 2.12\n7Y 2.25\n10Y 2.42\n12Y 2.50\n15Y 2.58',
-  'GBP.SONIA': '1W 3.70\n1M 3.68\n3M 3.62\n6M 3.55\n1Y 3.45\n2Y 3.40\n3Y 3.42\n5Y 3.55\n7Y 3.68\n10Y 3.85\n12Y 3.95\n15Y 4.05',
-  'CAD.CORRA': '1W 2.25\n1M 2.25\n3M 2.24\n6M 2.22\n1Y 2.20\n2Y 2.30\n3Y 2.42\n5Y 2.62\n7Y 2.80\n10Y 3.00\n12Y 3.08\n15Y 3.18',
-};
 
 function slug(text) {
   return String(text).trim().toUpperCase().replace(/[^A-Z0-9]+/g, '.').replace(/^\.+|\.+$/g, '') || 'CURVE';
@@ -77,7 +67,7 @@ function NewCurve({ onCreate, onCancel, existing, tradeDate }) {
         <PointsEditor points={points} onChange={(p) => { setPoints(p); setExample(false); }} maxHeight={260} />
         {method === 'ois' && EXAMPLE_OIS[index] && (
           <div className="row" style={{ gap: 10, alignItems: 'center' }}>
-            <button type="button" className="btn btn--sm" onClick={() => { setPoints(parseTenorTable(EXAMPLE_OIS[index]).points); setExample(true); }}>
+            <button type="button" className="btn btn--sm" onClick={() => { setPoints(examplePoints(index)); setExample(true); }}>
               Fill with example rates
             </button>
             <span className="dim" style={{ fontSize: 12 }}>Hypothetical levels to try the route, not market data. The curve is marked as an example.</span>

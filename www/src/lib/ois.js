@@ -17,6 +17,23 @@ export const OIS_INDICES = {
   'CAD.CORRA': { label: 'CORRA', currency: 'CAD', calendar: 'CA.TOR', spotLag: 1, paymentDelay: 1, dayCount: 'Act365Fixed', publishedAt: '15:00:00Z' },
 };
 
+// Illustrative swap rates so the OIS route can be shown end to end. They are
+// not market data; a curve built from them is marked as an example.
+export const EXAMPLE_OIS = {
+  'USD.SOFR': '1W 3.92, 1M 3.90, 3M 3.86, 6M 3.80, 1Y 3.70, 2Y 3.58, 3Y 3.52, 5Y 3.50, 7Y 3.54, 10Y 3.62, 12Y 3.68, 15Y 3.75',
+  'EUR.ESTR': '1W 1.93, 1M 1.92, 3M 1.90, 6M 1.88, 1Y 1.86, 2Y 1.90, 3Y 1.98, 5Y 2.12, 7Y 2.25, 10Y 2.42, 12Y 2.50, 15Y 2.58',
+  'GBP.SONIA': '1W 3.70, 1M 3.68, 3M 3.62, 6M 3.55, 1Y 3.45, 2Y 3.40, 3Y 3.42, 5Y 3.55, 7Y 3.68, 10Y 3.85, 12Y 3.95, 15Y 4.05',
+  'CAD.CORRA': '1W 2.25, 1M 2.25, 3M 2.24, 6M 2.22, 1Y 2.20, 2Y 2.30, 3Y 2.42, 5Y 2.62, 7Y 2.80, 10Y 3.00, 12Y 3.08, 15Y 3.18',
+};
+
+/** Example rates as points. */
+export function examplePoints(index) {
+  return EXAMPLE_OIS[index].split(', ').map((cell) => {
+    const [tenor, value] = cell.split(' ');
+    return { tenor, value };
+  });
+}
+
 // One request carries at most 4,096 items per array, and the calibration needs
 // one publication record per overnight observation date, so a single fit
 // reaches about 15 years. Longer points can be supplied as zero rates.

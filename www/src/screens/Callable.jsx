@@ -87,6 +87,12 @@ export default function Callable({ fn }) {
         </div>
       </Panel>
       {(data && data.fatal) && <EngineError error={data.fatal} context="OAS" />}
+      {data && data.fatal && data.fatal.code === 'no_convergence' && (
+        <div className="note" style={{ marginBottom: 16 }}>
+          The engine's tree prices did not settle as it refined the grid on {curve.def.label}. Try another volatility,
+          a smoother curve, or another discount curve; the inspector has each grid's price.
+        </div>
+      )}
       {error && <EngineError error={error} />}
       {r && (
         <div className="stack">

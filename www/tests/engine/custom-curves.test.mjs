@@ -9,6 +9,7 @@ import { treasuryUniverse, onTheRun, EXAMPLES } from '../../src/analytics/securi
 import { computeYas, benchmarkQuotes } from '../../src/analytics/yas.js';
 import { analyseCallable } from '../../src/analytics/callable.js';
 import { parseTenorTable } from '../../src/lib/paste.js';
+import { EXAMPLE_OIS, examplePoints } from '../../src/lib/ois.js';
 import { settlementFor } from '../../src/lib/terms.js';
 import * as R from '../../src/lib/requests.js';
 
@@ -115,16 +116,26 @@ test('custom par and zero curves build and price in their roles', async () => {
   assert.ok(res.ok, JSON.stringify(res.error));
 });
 
-test('OAS of the example callable over a SOFR curve', async () => {
-  // Yearly pillars: with the dense short end above, the engine's tree refinement
-  // check reports no_convergence for this bond, which the app shows verbatim.
-  const def = customCurveDef({ id: 'USD.SOFR.Y', label: 'SOFR yearly', currency: 'USD', method: 'ois', asOf: TRADE,
-    points: parseTenorTable('1Y 3.60\n2Y 3.45\n3Y 3.40\n5Y 3.42\n7Y 3.50\n10Y 3.62\n15Y 3.78').points, index: 'USD.SOFR' });
+test('OAS of the example callable over the example SOFR curve', async () => {
+  const def = customCurveDef({ id: 'USD.SOFR.EX', label: 'SOFR example', currency: 'USD', method: 'ois', asOf: TRADE,
+    points: examplePoints('USD.SOFR'), index: 'USD.SOFR' });
   const c = await buildCurve(nodeEngine, def, def);
   const callable = EXAMPLES.find((e) => (e.calls || []).length > 0 && e.currency === 'USD');
   const settlement = settlementFor(callable, TRADE);
+  // The OAS screen's opening inputs: clean 97.00, σ 1.00%, a 3.0%.
   const out = await analyseCallable(nodeEngine, { sec: callable, tradeDate: TRADE, settlement, curve: c, cleanPrice: 97,
     meanReversion: 0.03, volatility: 0.01 });
   assert.equal(out.fatal, undefined, JSON.stringify(out.fatal));
   assert.ok(Number.isFinite(out.oas));
+  assert.ok(out.risk, JSON.stringify(out.errors.risk));
+});
+
+test('every example OIS set calibrates', async () => {
+  for (const index of Object.keys(EXAMPLE_OIS)) {
+    const currency = index.slice(0, 3);
+    const def = customCurveDef({ id: `${currency}.EX`, label: index, currency, method: 'ois', asOf: TRADE,
+      points: examplePoints(index), index });
+    const c = await buildCurve(nodeEngine, def, def);
+    assert.equal(c.error, undefined, `${index}: ${JSON.stringify(c.error)}`);
+  }
 });
