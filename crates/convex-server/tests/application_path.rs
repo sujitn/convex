@@ -126,82 +126,115 @@ fn seeded_bullet(seed: &Value) -> (String, chrono::NaiveDate, chrono::NaiveDate)
     )
 }
 
-/// Steps 1, 2 and the stored half of 8: commit references, price the stored bond by
-/// identifier from the same repository, save a curve recipe, restart, and read the
-/// same versions back.
+/// Import the seed with the offline importer, exactly as the showcase
+/// entrypoint does before the server opens the store. References are recorded
+/// at the capture time, so one cutoff sees them and fresh curves together.
+fn import_seed(storage: &Path) {
+    let seed = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/showcase/seed.json");
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_convex-core-inputs"))
+        .arg(storage)
+        .arg(seed)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+}
+
+/// The seed curves' recording time: the explicit cutoff at which they are fresh.
+fn capture_time(seed: &Value) -> String {
+    seed["curves"][0]["recorded_at"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+async fn get(server: &Running, path: &str) -> reqwest::Response {
+    server.client.get(server.url(path)).send().await.unwrap()
+}
+
+/// Steps 1, 2 and the stored half of 8: import the showcase seed, retry its
+/// reference and curve writes over HTTP (idempotent), price the stored bond by
+/// identifier with the configured curves at an explicit cutoff, restart, and read
+/// the same versions back.
 #[tokio::test]
 async fn stored_references_and_curve_recipes_price_and_survive_restart() {
     let seed = seed();
     let (_directory, path) = storage();
-    let (instrument, issue, maturity) = seeded_bullet(&seed);
+    let (instrument, _, _) = seeded_bullet(&seed);
     let bond_path = format!("/api/v1/bonds/{instrument}");
+    import_seed(&path);
 
     let server = Running::start(&path).await;
     commit_references(&server, &seed).await;
-    let created = server
-        .client
-        .get(server.url(&bond_path))
-        .send()
-        .await
-        .unwrap();
+    let recipes = save_curve_recipes(&server, &seed).await;
+    let created = get(&server, &bond_path).await;
     assert_eq!(created.status(), StatusCode::OK);
     assert_eq!(created.headers()["x-convex-data-quality"], "demo");
     let etag = created.headers()["etag"].clone();
 
-    // Price by identifier resolves the reference just committed, not a separate store.
-    let settlement = issue + (maturity - issue) / 2;
-    let quote_path =
-        format!("/api/v1/quotes/{instrument}?settlement_date={settlement}&market_price=99.5");
-    let quote = server
-        .client
-        .get(server.url(&quote_path))
-        .send()
-        .await
-        .unwrap();
+    let known_at = capture_time(&seed);
+    let quote_path = format!("/api/v1/quotes/{instrument}?market_price=99.5&known_at={known_at}");
+    let quote = get(&server, &quote_path).await;
     assert_eq!(quote.status(), StatusCode::OK);
-    let version = quote.headers()["x-convex-reference-version"].clone();
+    let pins = quote_pins(&quote);
+    assert_eq!(pins[1], "SHOWCASE-USD@1");
+    assert_eq!(pins[2], "D.OIS@1,P.SOFR@1");
+    assert_eq!(pins[3], known_at);
     let body: Value = quote.json().await.unwrap();
     assert_eq!(body["instrument_id"], instrument.as_str());
     assert!(body["ytm_mid"].is_number() || body["ytm_mid"].is_string());
 
-    #[cfg(unix)]
-    let recipes = save_curve_recipes(&server, &seed).await;
+    // At the current time the dated capture is outside its one-day budget, and
+    // the quote is refused rather than priced without its curves.
+    let stale = get(
+        &server,
+        &format!("/api/v1/quotes/{instrument}?market_price=99.5"),
+    )
+    .await;
+    assert_eq!(stale.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body: Value = stale.json().await.unwrap();
+    assert_eq!(body["code"], "MISSING_INPUT", "{body}");
+
+    let listing: Value = get(&server, "/api/v1/curves").await.json().await.unwrap();
+    assert_eq!(listing["curves"].as_array().unwrap().len(), recipes.len());
+    let zero = get(
+        &server,
+        &format!("/api/v1/curves/D.OIS/zero/5?known_at={known_at}"),
+    )
+    .await;
+    assert_eq!(zero.status(), StatusCode::OK);
+    assert_eq!(zero.headers()["x-convex-curve-version"], "1");
     server.stop().await;
 
     let server = Running::start(&path).await;
-    let reopened = server
-        .client
-        .get(server.url(&bond_path))
-        .send()
-        .await
-        .unwrap();
+    let reopened = get(&server, &bond_path).await;
     assert_eq!(reopened.status(), StatusCode::OK);
     assert_eq!(reopened.headers()["etag"], etag);
-    let quote = server
-        .client
-        .get(server.url(&quote_path))
-        .send()
-        .await
-        .unwrap();
+    let quote = get(&server, &quote_path).await;
     assert_eq!(quote.status(), StatusCode::OK);
-    assert_eq!(quote.headers()["x-convex-reference-version"], version);
-    // Retrying the original transactions is idempotent after restart.
+    assert_eq!(quote_pins(&quote), pins);
     commit_references(&server, &seed).await;
-    #[cfg(unix)]
     recipes_survived(&server, recipes).await;
     server.stop().await;
 }
 
-/// Curve recipes are saved through the core workflow port, composed on Unix only
-/// until the redb snapshot adapter lands (P4).
-#[cfg(unix)]
+/// Reference version, pricing configuration, curve versions and cutoff consumed.
+fn quote_pins(response: &reqwest::Response) -> [String; 4] {
+    [
+        "x-convex-reference-version",
+        "x-convex-pricing-config",
+        "x-convex-curve-versions",
+        "x-convex-known-at",
+    ]
+    .map(|name| response.headers()[name].to_str().unwrap().to_owned())
+}
+
 async fn save_curve_recipes(server: &Running, seed: &Value) -> Vec<Value> {
     let recipes = seed["curves"].as_array().unwrap().clone();
     assert!(!recipes.is_empty(), "seed has a curve recipe");
     for recipe in &recipes {
         let response = server
             .client
-            .post(server.url("/api/v1/analytics/curves"))
+            .post(server.url("/api/v1/curves"))
             .json(recipe)
             .send()
             .await
@@ -213,7 +246,7 @@ async fn save_curve_recipes(server: &Running, seed: &Value) -> Vec<Value> {
 
 /// An identical recipe is an idempotent no-op, while different content under the
 /// same identity and version conflicts: the stored version survived the restart.
-#[cfg(unix)]
+/// `/api/v1/analytics/curves` is the same write as `/api/v1/curves`.
 async fn recipes_survived(server: &Running, recipes: Vec<Value>) {
     for recipe in &recipes {
         let same = server
@@ -226,19 +259,15 @@ async fn recipes_survived(server: &Running, recipes: Vec<Value>) {
         assert_eq!(same.status(), StatusCode::NO_CONTENT);
     }
     let mut changed = recipes[0].clone();
-    changed["max_age_ms"] = Value::from(changed["max_age_ms"].as_i64().unwrap() + 1);
+    changed["source"] = Value::from("changed-source");
     let conflict = server
         .client
-        .post(server.url("/api/v1/analytics/curves"))
+        .post(server.url("/api/v1/curves"))
         .json(&changed)
         .send()
         .await
         .unwrap();
-    assert!(
-        conflict.status().is_client_error(),
-        "changed recipe at a stored version must be refused: {}",
-        conflict.status()
-    );
+    assert_eq!(conflict.status(), StatusCode::CONFLICT);
 }
 
 /// Step 3 (P6): a book management system ingests a full position snapshot that

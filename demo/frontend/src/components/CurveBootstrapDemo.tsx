@@ -118,23 +118,23 @@ export function CurveBootstrapDemo() {
   }, []);
 
   // Convert frontend instruments to API format
+  // The server rejects instrument types it cannot calibrate; bond helpers are not supported yet.
   const toApiInstruments = (insts: CalibrationInstrument[]): BootstrapInstrumentInput[] => {
-    return insts.map(inst => {
-      const base = {
-        type: inst.type,
-        quote: inst.type === 'Bond' ? 0 : inst.quote, // Bond uses price, not quote
-        description: inst.description,
-      };
+    return insts
+      .filter((inst): inst is Exclude<CalibrationInstrument, { type: 'Bond' }> => inst.type !== 'Bond')
+      .map(inst => {
+        const base = {
+          type: inst.type,
+          quote: inst.quote,
+          description: inst.description,
+        };
 
-      if (inst.type === 'FRA') {
-        return { ...base, start_tenor: inst.startTenor, end_tenor: inst.endTenor };
-      } else if (inst.type === 'Bond') {
-        // Bond pricing not fully supported yet - skip
-        return { ...base, tenor: inst.maturity };
-      } else {
-        return { ...base, tenor: inst.tenor };
-      }
-    });
+        if (inst.type === 'FRA') {
+          return { ...base, start_tenor: inst.startTenor, end_tenor: inst.endTenor };
+        } else {
+          return { ...base, tenor: inst.tenor };
+        }
+      });
   };
 
   // Convert API response to frontend CalibrationResult format

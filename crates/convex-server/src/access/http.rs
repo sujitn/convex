@@ -210,7 +210,11 @@ fn requirement(
             req.resources.push(Resource::new(R::Source, "*"));
             req.resources.push(Resource::new(R::Curve, "*"));
         }
-        "/api/v1/curves" | "/api/v1/curves/bootstrap" => {
+        // Stateless calculator: stores nothing, so it is a calculation, not a curve write.
+        "/api/v1/curves/bootstrap" => {
+            req.data = vec![D::Market];
+        }
+        "/api/v1/curves" => {
             req.action = if read { MarketRead } else { CurveWrite };
             req.data = vec![D::Market];
             req.resources.push(Resource::new(R::Source, "*"));

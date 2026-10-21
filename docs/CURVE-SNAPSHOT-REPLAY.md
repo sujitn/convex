@@ -144,11 +144,12 @@ fabricated `points` grid. Existing compatible integer-day zero inputs retain
 their original route. Other older raw-value/convenience qualification remains
 separate from complete recipe replay.
 
-The existing `POST /api/v1/curves` point constructor requires at least two
-distinct positive pillars for its checked MonotoneConvex owner. Empty and
-single-pillar requests return HTTP 400 before installing a curve. A single
-point no longer produces a successful unbuilt object or an implicit flat curve;
-callers must supply the original complete source and explicit model they need.
+`POST /api/v1/curves` stores one complete `SnapshotCurveRecipe` revision in
+`CurveStore`, the same write as `POST /api/v1/analytics/curves`. The record is
+validated before storage; a different record under a stored version conflicts.
+`GET /api/v1/curves/{id}` and its zero, discount and forward queries read the
+revision current at an explicit `known_at` and report it in
+`x-convex-curve-version`.
 
 Run the offline consumer in a directory whose parent already exists:
 

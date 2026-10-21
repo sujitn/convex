@@ -529,5 +529,27 @@
    }
   }
  ],
- "fixings": []
+ "fixings": [],
+ "pricing_configs": [
+  {
+   "config_id": "SHOWCASE-USD",
+   "description": "Showcase: USD bonds use the demo D.OIS discount and P.SOFR swap curves",
+   "applies_to": {
+    "currency": "USD"
+   },
+   "pricing_spec": "Auto",
+   "bid_ask_spread": null,
+   "analytics_curves": {
+    "discount_curve": "D.OIS",
+    "government_curve": null,
+    "swap_curve": "P.SOFR",
+    "frn_reference_curve": null
+   },
+   "priority": null,
+   "active": true,
+   "version": 1,
+   "created_at": 1791374400000,
+   "updated_at": 1791374400000
+  }
+ ]
 }

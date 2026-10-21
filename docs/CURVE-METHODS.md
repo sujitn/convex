@@ -86,9 +86,8 @@ The original checked `Nodes` route retains its method constraints. Use the
 new explicit source for these models. The older raw `DiscreteCurve` FlatForward
 tail no longer substitutes a flat raw value: checked queries reject it and
 its infallible compatibility query returns NaN. See [route migration](ROUTE-MIGRATION.md).
-The older engine `CurveBuilder` now declares its actual `Flat` zero-tail default.
-It rejects a `FlatForward` selection before provider access or cache publication.
-`BuiltCurve::from_snapshot` rejects `ZeroExtrapolation::FlatForward` rather than
+The older engine `CurveBuilder` cache has been removed; curves are stored as
+complete recipes in `CurveStore`. `BuiltCurve::from_snapshot` rejects `ZeroExtrapolation::FlatForward` rather than
 relabeling the supplied policy. Full checked flat-forward recipes are available
 through the pure shared library and [complete schema-2 snapshot replay](CURVE-SNAPSHOT-REPLAY.md). Existing flat-zero snapshots retain their policy.
 DF/survival/issuer-basis/periodic-zero reinterpretations, UFR, product/helper

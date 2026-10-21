@@ -12,11 +12,11 @@
 	@reads method GET HEAD OPTIONS
 
 	# Stateless calculators only. `path` is exact unless it contains `*`.
-	# /api/v1/curves and /curves/bootstrap store into the unbounded in-memory
-	# CurveBuilder (a CurveWrite in the access table), so they stay private until P1.
+	# POST /api/v1/curves writes the durable recipe store and stays private;
+	# /api/v1/curves/bootstrap calibrates and returns a curve without storing it.
 	@calculators {
 		method POST
-		path /api/v1/quote /api/v1/batch/price /api/v1/analytics /api/v1/runtime/valuation /api/v1/reference/resolve /api/v1/etf/* /api/v1/portfolio/* /api/v1/benchmark/* /api/v1/liquidity/* /api/v1/credit/*
+		path /api/v1/quote /api/v1/batch/price /api/v1/analytics /api/v1/runtime/valuation /api/v1/reference/resolve /api/v1/curves/bootstrap /api/v1/etf/* /api/v1/portfolio/* /api/v1/benchmark/* /api/v1/liquidity/* /api/v1/credit/*
 	}
 
 	handle @reads {

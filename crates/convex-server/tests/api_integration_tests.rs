@@ -276,7 +276,7 @@ async fn inline_pricing_refuses_missing_terms_resources_and_unsupported_models()
 
 #[tokio::test]
 async fn authoritative_reference_version_matches_api_and_pricing() {
-    let engine = create_test_engine();
+    let engine = engine_with_pricing_inputs().await;
     let app = create_router(engine.clone());
     let bond = create_test_bond("SHARED-VERSION", dec!(0.05), 2030);
     let (status, headers, created) = reference_request(
@@ -716,7 +716,12 @@ async fn production_readiness_failed_calculation_is_not_empty_success() {
 #[tokio::test]
 async fn production_readiness_no_synthetic_curves_without_demo_opt_in() {
     let engine = create_test_engine();
-    assert!(engine.curve_builder().list().is_empty());
+    assert!(engine
+        .curve_store()
+        .recipe_heads(None, 1)
+        .await
+        .unwrap()
+        .is_empty());
     let app = create_router(engine);
     let (status, response) = post_json(
         app,
@@ -1491,347 +1496,222 @@ async fn test_portfolio_analytics_missing_prices() {
 }
 
 // =============================================================================
-// CURVES ENDPOINT TESTS
+// CURVES ENDPOINT TESTS: one durable owner, the recipe store
 // =============================================================================
 
-#[tokio::test]
-async fn test_list_curves() {
-    let engine = create_test_engine();
-    let app = create_router(engine);
+const SHOWCASE_SEED: &str = include_str!("../../../deploy/showcase/seed.json");
 
-    let request = Request::builder()
-        .uri("/api/v1/curves")
-        .body(Body::empty())
+fn showcase_seed() -> Value {
+    serde_json::from_str(SHOWCASE_SEED).unwrap()
+}
+
+/// A complete native recipe from the showcase seed.
+fn seed_recipe(id: &str) -> Value {
+    showcase_seed()["curves"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["curve_id"] == id)
+        .cloned()
+        .unwrap()
+}
+
+fn seed_known_at() -> String {
+    seed_recipe("D.OIS")["recorded_at"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+/// The seed recipe re-recorded now, for tests whose references are committed now.
+fn recipe_recorded_now(id: &str) -> convex_engine::ports::snapshot::SnapshotCurveRecipe {
+    use chrono::{SubsecRound, Utc};
+    let mut recipe: convex_engine::ports::snapshot::SnapshotCurveRecipe =
+        serde_json::from_value(seed_recipe(id)).unwrap();
+    let now = UtcTimestamp::from_datetime(Utc::now().trunc_subsecs(0)).unwrap();
+    recipe.source_time = now;
+    recipe.recorded_at = now;
+    recipe
+}
+
+/// Test engine holding the showcase pricing configuration and fresh curves.
+async fn engine_with_pricing_inputs() -> Arc<convex_engine::PricingEngine> {
+    let storage = convex_ext_redb::create_test_storage().unwrap();
+    let config = serde_json::from_value(showcase_seed()["pricing_configs"][0].clone()).unwrap();
+    storage.configs.save(&config).await.unwrap();
+    for id in ["D.OIS", "P.SOFR"] {
+        storage
+            .curves
+            .save_recipe(&recipe_recorded_now(id))
+            .await
+            .unwrap();
+    }
+    create_test_engine_with_storage(storage)
+}
+
+async fn get_json(app: axum::Router, uri: &str) -> (StatusCode, axum::http::HeaderMap, Value) {
+    let response = app
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
         .unwrap();
-
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
+    let status = response.status();
+    let headers = response.headers().clone();
     let body = response.into_body().collect().await.unwrap().to_bytes();
-    let json: Value = serde_json::from_slice(&body).unwrap();
-
-    assert!(json["curves"].is_array());
+    (
+        status,
+        headers,
+        serde_json::from_slice(&body).unwrap_or(json!({})),
+    )
 }
 
 #[tokio::test]
-async fn test_get_curve_not_found() {
-    let engine = create_test_engine();
-    let app = create_router(engine);
+async fn curve_recipes_are_stored_listed_and_read_at_a_cutoff() {
+    let app = create_router(create_test_engine());
+    let (status, _, empty) = get_json(app.clone(), "/api/v1/curves").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(empty, json!({"curves": [], "next": null}));
+    let (status, _, missing) = get_json(app.clone(), "/api/v1/curves/D.OIS").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(missing["code"], "NOT_FOUND");
 
-    let request = Request::builder()
-        .uri("/api/v1/curves/NONEXISTENT")
-        .body(Body::empty())
-        .unwrap();
+    let first = seed_recipe("D.OIS");
+    let (status, _) = post_json(app.clone(), "/api/v1/curves", first.clone()).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let mut second = first.clone();
+    second["version"] = json!(2);
+    second["recipe"]["key"]["version"] = json!("2");
+    second["source_time"] = json!("2026-10-08T12:00:00Z");
+    second["recorded_at"] = json!("2026-10-08T12:00:00Z");
+    let (status, _) = post_json(app.clone(), "/api/v1/analytics/curves", second).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
 
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn test_create_curve() {
-    let engine = create_test_engine();
-    let app = create_router(engine);
-
-    let request_body = json!({
-        "curve_id": "USD_OIS",
-        "reference_date": "2025-06-17",
-        "points": [
-            { "tenor": 0.25, "rate": 0.04 },
-            { "tenor": 0.5, "rate": 0.0425 },
-            { "tenor": 1.0, "rate": 0.045 },
-            { "tenor": 2.0, "rate": 0.048 },
-            { "tenor": 5.0, "rate": 0.052 },
-            { "tenor": 10.0, "rate": 0.055 }
-        ]
-    });
-
-    let (status, json) = post_json(app, "/api/v1/curves", request_body).await;
-
-    assert_eq!(status, StatusCode::CREATED);
-    assert_eq!(json["curve_id"], "USD_OIS");
-    assert_eq!(json["reference_date"], "2025-06-17");
-    assert!(json["points"].is_array());
-    assert_eq!(json["points"].as_array().unwrap().len(), 6);
-    assert!(json["built_at"].is_number());
-}
-
-#[tokio::test]
-async fn test_create_curve_invalid_date() {
-    let engine = create_test_engine();
-    let app = create_router(engine);
-
-    let request_body = json!({
-        "curve_id": "USD_OIS",
-        "reference_date": "invalid-date",
-        "points": [
-            { "tenor": 1.0, "rate": 0.045 }
-        ]
-    });
-
-    let (status, json) = post_json(app, "/api/v1/curves", request_body).await;
-
+    for (known_at, version) in [("2026-10-07T12:00:00Z", "1"), ("2026-10-09T00:00:00Z", "2")] {
+        let uri = format!("/api/v1/curves/D.OIS?known_at={known_at}");
+        let (status, headers, body) = get_json(app.clone(), &uri).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(headers["x-convex-curve-version"], version);
+        assert_eq!(headers["x-convex-known-at"], known_at);
+        assert_eq!(body["version"].to_string(), version);
+    }
+    let early = "/api/v1/curves/D.OIS?known_at=2026-10-01T00:00:00Z";
+    let (status, _, body) = get_json(app.clone(), early).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+    let (_, _, listing) = get_json(app.clone(), "/api/v1/curves?limit=1").await;
+    assert_eq!(listing["curves"][0]["curve_id"], "D.OIS");
+    assert_eq!(listing["curves"][0]["version"], 2);
+    assert_eq!(listing["next"], "D.OIS");
+    let (status, _, _) = get_json(app, "/api/v1/curves?limit=0").await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(json["error"].is_string());
 }
 
 #[tokio::test]
-async fn test_create_curve_empty_points() {
-    let engine = create_test_engine();
-    let app = create_router(engine);
-
-    let request_body = json!({
-        "curve_id": "EMPTY_CURVE",
-        "reference_date": "2025-06-17",
-        "points": []
-    });
-
-    let (status, json) = post_json(app, "/api/v1/curves", request_body).await;
-
+async fn curve_writes_are_immutable_and_validated() {
+    let app = create_router(create_test_engine());
+    let recipe = seed_recipe("D.OIS");
+    let (status, _) = post_json(app.clone(), "/api/v1/curves", recipe.clone()).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = post_json(app.clone(), "/api/v1/curves", recipe.clone()).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "identical retry");
+    let mut changed = recipe.clone();
+    changed["source"] = json!("changed-source");
+    let (status, body) = post_json(app.clone(), "/api/v1/curves", changed).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(body["code"], "CONFLICT");
+    let mut mismatched = recipe;
+    mismatched["recipe"]["key"]["id"] = json!("OTHER");
+    let (status, body) = post_json(app.clone(), "/api/v1/curves", mismatched).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(json["error"].as_str().unwrap().contains("point"));
+    assert_eq!(body["code"], "INVALID_INPUT");
+    let (status, _) = post_json(app.clone(), "/api/v1/curves", json!({"curve_id": "X"})).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    // Recipes are immutable history: there is no delete.
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/api/v1/curves/D.OIS")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
 }
 
 #[tokio::test]
-async fn test_create_curve_and_query_zero_rate() {
-    let engine = create_test_engine();
+async fn curve_queries_build_the_stored_recipe_and_refuse_stale_or_missing_curves() {
+    let app = create_router(create_test_engine());
+    let (status, _) = post_json(app.clone(), "/api/v1/curves", seed_recipe("D.OIS")).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let known_at = seed_known_at();
+    let queries = [
+        format!("/api/v1/curves/D.OIS/zero/2.5?known_at={known_at}"),
+        format!("/api/v1/curves/D.OIS/zero/2.5?compounding=annual&known_at={known_at}"),
+        format!("/api/v1/curves/D.OIS/discount/2.5?known_at={known_at}"),
+        format!("/api/v1/curves/D.OIS/forward/1.0/2.0?known_at={known_at}"),
+    ];
+    for uri in &queries {
+        let (status, headers, body) = get_json(app.clone(), uri).await;
+        assert_eq!(status, StatusCode::OK, "{uri}: {body}");
+        assert_eq!(headers["x-convex-curve-version"], "1");
+        assert_eq!(body["curve_id"], "D.OIS");
+    }
+    let (_, _, continuous) = get_json(app.clone(), &queries[0]).await;
+    let (_, _, discount) = get_json(app.clone(), &queries[2]).await;
+    let rate = continuous["zero_rate"].as_f64().unwrap();
+    let df = discount["discount_factor"].as_f64().unwrap();
+    assert!((df - (-rate * 2.5).exp()).abs() < 1e-12, "{rate} {df}");
 
-    // Create curve first
-    let app1 = create_router(engine.clone());
-    let request_body = json!({
-        "curve_id": "USD_SOFR",
-        "reference_date": "2025-06-17",
-        "points": [
-            { "tenor": 1.0, "rate": 0.045 },
-            { "tenor": 2.0, "rate": 0.048 },
-            { "tenor": 5.0, "rate": 0.052 }
+    // The dated capture is outside its freshness budget at the current time.
+    let (status, _, stale) = get_json(app.clone(), "/api/v1/curves/D.OIS/zero/2.5").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(stale["code"], "MISSING_INPUT");
+    let uri = format!("/api/v1/curves/NOPE/zero/1.0?known_at={known_at}");
+    let (status, _, missing) = get_json(app.clone(), &uri).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(missing["code"], "MISSING_INPUT");
+    let uri = format!("/api/v1/curves/D.OIS/zero/1.0?compounding=weekly&known_at={known_at}");
+    let (status, _, _) = get_json(app, &uri).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn bootstrap_is_a_stateless_calculator() {
+    let engine = create_test_engine();
+    let app = create_router(engine.clone());
+    let request = json!({
+        "curve_id": "demo",
+        "reference_date": "2026-10-07",
+        "method": "Piecewise",
+        "instruments": [
+            {"type": "Deposit", "tenor": 0.25, "quote": 0.040},
+            {"type": "Deposit", "tenor": 0.5, "quote": 0.041},
+            {"type": "Swap", "tenor": 2.0, "quote": 0.042},
+            {"type": "Swap", "tenor": 5.0, "quote": 0.043}
         ]
     });
-
-    let (status, _) = post_json(app1, "/api/v1/curves", request_body).await;
-    assert_eq!(status, StatusCode::CREATED);
-
-    // Now query zero rate at 1.5 years (interpolated)
-    let app2 = create_router(engine);
-    let request = Request::builder()
-        .uri("/api/v1/curves/USD_SOFR/zero/1.5")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app2.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let json: Value = serde_json::from_slice(&body).unwrap();
-
-    assert_eq!(json["curve_id"], "USD_SOFR");
-    assert_eq!(json["tenor"], 1.5);
-    // Rate should be interpolated between 0.045 and 0.048
-    let rate = json["zero_rate"].as_f64().unwrap();
+    let (status, body) = post_json(app.clone(), "/api/v1/curves/bootstrap", request.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["curve_id"], "demo");
+    assert!(!body["points"].as_array().unwrap().is_empty());
+    assert!(engine
+        .curve_store()
+        .recipe_heads(None, 1)
+        .await
+        .unwrap()
+        .is_empty());
+    let mut unknown = request.clone();
+    unknown["instruments"][0]["type"] = json!("Bond");
+    let (status, body) = post_json(app.clone(), "/api/v1/curves/bootstrap", unknown).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(
-        rate > 0.045 && rate < 0.048,
-        "Rate {} should be between 0.045 and 0.048",
-        rate
+        body["error"].as_str().unwrap().contains("instrument 0"),
+        "{body}"
     );
-}
-
-#[tokio::test]
-async fn test_create_curve_and_query_discount_factor() {
-    let engine = create_test_engine();
-
-    // Create curve first
-    let app1 = create_router(engine.clone());
-    let request_body = json!({
-        "curve_id": "USD_DF_TEST",
-        "reference_date": "2025-06-17",
-        "points": [
-            { "tenor": 1.0, "rate": 0.05 },
-            { "tenor": 2.0, "rate": 0.05 }
-        ]
-    });
-
-    let (status, _) = post_json(app1, "/api/v1/curves", request_body).await;
-    assert_eq!(status, StatusCode::CREATED);
-
-    // Query discount factor at 1 year
-    let app2 = create_router(engine);
-    let request = Request::builder()
-        .uri("/api/v1/curves/USD_DF_TEST/discount/1.0")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app2.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let json: Value = serde_json::from_slice(&body).unwrap();
-
-    assert_eq!(json["curve_id"], "USD_DF_TEST");
-    assert_eq!(json["tenor"], 1.0);
-    // DF at 1Y with 5% continuous rate ≈ exp(-0.05 * 1) ≈ 0.9512
-    let df = json["discount_factor"].as_f64().unwrap();
-    assert!(
-        (df - 0.9512).abs() < 0.001,
-        "DF {} should be approximately 0.9512",
-        df
-    );
-}
-
-#[tokio::test]
-async fn test_create_curve_and_query_forward_rate() {
-    let engine = create_test_engine();
-
-    // Create a flat curve for easier testing
-    let app1 = create_router(engine.clone());
-    let request_body = json!({
-        "curve_id": "USD_FWD_TEST",
-        "reference_date": "2025-06-17",
-        "points": [
-            { "tenor": 1.0, "rate": 0.05 },
-            { "tenor": 2.0, "rate": 0.05 },
-            { "tenor": 5.0, "rate": 0.05 }
-        ]
-    });
-
-    let (status, _) = post_json(app1, "/api/v1/curves", request_body).await;
-    assert_eq!(status, StatusCode::CREATED);
-
-    // Query forward rate from 1Y to 2Y
-    let app2 = create_router(engine);
-    let request = Request::builder()
-        .uri("/api/v1/curves/USD_FWD_TEST/forward/1.0/2.0")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app2.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let json: Value = serde_json::from_slice(&body).unwrap();
-
-    assert_eq!(json["curve_id"], "USD_FWD_TEST");
-    assert_eq!(json["t1"], 1.0);
-    assert_eq!(json["t2"], 2.0);
-    // Flat curve should have forward rate = spot rate
-    let fwd = json["forward_rate"].as_f64().unwrap();
-    assert!(
-        (fwd - 0.05).abs() < 0.001,
-        "Forward rate {} should be approximately 0.05",
-        fwd
-    );
-}
-
-#[tokio::test]
-async fn test_query_zero_rate_curve_not_found() {
-    let engine = create_test_engine();
-    let app = create_router(engine);
-
-    let request = Request::builder()
-        .uri("/api/v1/curves/NONEXISTENT/zero/1.0")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn test_delete_curve() {
-    let engine = create_test_engine();
-
-    // Create curve first
-    let app1 = create_router(engine.clone());
-    let request_body = json!({
-        "curve_id": "TO_DELETE",
-        "reference_date": "2025-06-17",
-        "points": [
-            { "tenor": 1.0, "rate": 0.045 },
-            { "tenor": 2.0, "rate": 0.045 }
-        ]
-    });
-
-    let (status, _) = post_json(app1, "/api/v1/curves", request_body).await;
-    assert_eq!(status, StatusCode::CREATED);
-
-    // Delete the curve
-    let app2 = create_router(engine.clone());
-    let request = Request::builder()
-        .method("DELETE")
-        .header("Idempotency-Key", next_test_key())
-        .header("If-Match", "1")
-        .uri("/api/v1/curves/TO_DELETE")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app2.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NO_CONTENT);
-
-    // Verify it's deleted
-    let app3 = create_router(engine);
-    let request = Request::builder()
-        .uri("/api/v1/curves/TO_DELETE")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app3.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn test_delete_curve_not_found() {
-    let engine = create_test_engine();
-    let app = create_router(engine);
-
-    let request = Request::builder()
-        .method("DELETE")
-        .header("Idempotency-Key", next_test_key())
-        .header("If-Match", "1")
-        .uri("/api/v1/curves/NONEXISTENT")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn test_query_zero_rate_with_compounding() {
-    let engine = create_test_engine();
-
-    // Create curve first
-    let app1 = create_router(engine.clone());
-    let request_body = json!({
-        "curve_id": "USD_COMP_TEST",
-        "reference_date": "2025-06-17",
-        "points": [
-            { "tenor": 1.0, "rate": 0.05 },
-            { "tenor": 2.0, "rate": 0.05 }
-        ]
-    });
-
-    let (status, _) = post_json(app1, "/api/v1/curves", request_body).await;
-    assert_eq!(status, StatusCode::CREATED);
-
-    // Query with annual compounding
-    let app2 = create_router(engine);
-    let request = Request::builder()
-        .uri("/api/v1/curves/USD_COMP_TEST/zero/1.0?compounding=annual")
-        .body(Body::empty())
-        .unwrap();
-
-    let response = app2.oneshot(request).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let body = response.into_body().collect().await.unwrap().to_bytes();
-    let json: Value = serde_json::from_slice(&body).unwrap();
-
-    assert_eq!(json["compounding"], "annual");
-    // Annual rate from 5% continuous: exp(0.05) - 1 ≈ 0.0513
-    let rate = json["zero_rate"].as_f64().unwrap();
-    assert!(
-        (rate - 0.0513).abs() < 0.001,
-        "Annual rate {} should be approximately 0.0513",
-        rate
-    );
+    let mut incomplete = request;
+    incomplete["instruments"][1]["tenor"] = Value::Null;
+    let (status, _) = post_json(app, "/api/v1/curves/bootstrap", incomplete).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
 // =============================================================================

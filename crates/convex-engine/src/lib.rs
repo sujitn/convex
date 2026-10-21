@@ -5,7 +5,7 @@
 //! This crate provides:
 //! - [`CalculationGraph`]: Dependency tracking and reactive recalculation
 //! - [`PricingRouter`]: Model selection and batch pricing
-//! - [`CurveBuilder`]: Curve construction from market data
+//! - [`curve_resolution`]: Stored curve recipes resolved at an explicit cutoff
 //! - [`EtfPricer`]: ETF iNAV calculation from holdings
 //! - [`PortfolioAnalyzer`]: Portfolio-level risk aggregation
 //! - [`PricingEngine`]: Main engine orchestrating all components
@@ -18,7 +18,7 @@
 //! ## Architecture
 //!
 //! ```text
-//! Market Data ─┬─> CurveBuilder ─> Curves
+//! CurveStore ──┬─> curve_resolution ─> Curves
 //!              │
 //!              └─> CalculationGraph ─> PricingRouter ─┬─> BondQuotes
 //!                                                     │
@@ -54,6 +54,7 @@ pub mod calibration_replay;
 pub mod core_workflow;
 pub mod curve_builder;
 pub mod curve_replay;
+pub mod curve_resolution;
 pub mod error;
 pub mod etf_pricing;
 pub mod market_data_listener;
@@ -75,7 +76,7 @@ pub use calc_graph::{
     GraphError, GraphLimits, NodeId, NodePhase, NodeRole, NodeSpec, NodeValue, ShardAssignment,
     ShardConfig, ShardStrategy,
 };
-pub use curve_builder::{BuiltCurve, CurveBuilder};
+pub use curve_builder::BuiltCurve;
 pub use error::EngineError;
 pub use etf_pricing::EtfPricer;
 pub use market_data_listener::{
@@ -98,6 +99,19 @@ use crate::ports::market_data::MarketDataProvider;
 use crate::ports::reference_data::ReferenceDataProvider;
 use crate::ports::storage::StorageAdapter;
 
+/// Curves and the configuration consumed by one priced request, for reporting.
+#[derive(Debug, Clone)]
+pub struct PricingCurves {
+    /// The applicable pricing configuration that named the curve roles.
+    pub config: ports::storage::BondPricingConfig,
+    /// Configured discount curve.
+    pub discount: BuiltCurve,
+    /// Configured swap benchmark, when the configuration names one.
+    pub benchmark: Option<BuiltCurve>,
+    /// Every consumed (curve, version) pin, including dependencies.
+    pub curves: Vec<(String, convex_core::contracts::Version)>,
+}
+
 /// The main pricing engine.
 pub struct PricingEngine {
     /// Engine configuration
@@ -105,9 +119,6 @@ pub struct PricingEngine {
 
     /// Calculation graph
     calc_graph: Arc<CalculationGraph>,
-
-    /// Curve builder
-    curve_builder: Arc<CurveBuilder>,
 
     /// Pricing router
     pricing_router: Arc<PricingRouter>,
@@ -142,7 +153,6 @@ impl PricingEngine {
     ) -> Self {
         let concurrency = config.max_concurrent_calcs;
         let calc_graph = Arc::new(CalculationGraph::new());
-        let curve_builder = Arc::new(CurveBuilder::new(market_data.clone(), calc_graph.clone()));
         let pricing_router = Arc::new(PricingRouter::new());
         let etf_pricer = Arc::new(EtfPricer::new());
         let portfolio_analyzer = Arc::new(PortfolioAnalyzer::new());
@@ -150,7 +160,6 @@ impl PricingEngine {
         Self {
             config,
             calc_graph,
-            curve_builder,
             pricing_router,
             etf_pricer,
             portfolio_analyzer,
@@ -268,9 +277,54 @@ impl PricingEngine {
         &self.calc_graph
     }
 
-    /// Get the curve builder.
-    pub fn curve_builder(&self) -> &Arc<CurveBuilder> {
-        &self.curve_builder
+    /// The single durable curve owner.
+    pub fn curve_store(&self) -> &Arc<dyn ports::storage::CurveStore> {
+        &self.storage.curves
+    }
+
+    /// Curves for pricing `bond` at `known_at`. The applicable pricing
+    /// configuration names the discount and swap-benchmark roles; the curve
+    /// store supplies the revisions current at the cutoff. Government and FRN
+    /// reference roles are not consumed here, as in snapshot valuation.
+    pub async fn pricing_curves(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+        known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<PricingCurves, curve_resolution::CurveResolutionError> {
+        use curve_resolution::CurveResolutionError;
+        let configs = self.storage.configs.list().await?;
+        let config = ports::storage::select_pricing_config(&configs, bond)?
+            .ok_or(CurveResolutionError::NoConfiguration)?
+            .clone();
+        let roles = &config.analytics_curves;
+        let mut roots = vec![roles.discount_curve.clone()];
+        roots.extend(roles.swap_curve.clone());
+        let resolved =
+            curve_resolution::resolve_curves(self.storage.curves.as_ref(), &roots, known_at)
+                .await?;
+        let checked = |id: &convex_core::ids::CurveId, discount: bool| {
+            let native = resolved.native(id)?;
+            if !curve_resolution::pricing_role_matches(native.recipe(), discount, bond.currency) {
+                return Err(CurveResolutionError::Role(id.clone()));
+            }
+            resolved.curve(id)
+        };
+        let discount = checked(&roles.discount_curve, true)?;
+        let benchmark = roles
+            .swap_curve
+            .as_ref()
+            .map(|id| checked(id, false))
+            .transpose()?;
+        let curves = resolved
+            .pins()
+            .map(|(id, version)| (id.to_owned(), version))
+            .collect();
+        Ok(PricingCurves {
+            config,
+            discount,
+            benchmark,
+            curves,
+        })
     }
 
     /// Get the pricing router.

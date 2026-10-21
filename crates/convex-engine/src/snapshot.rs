@@ -500,16 +500,11 @@ impl SnapshotValuator {
                     .curves
                     .get(key)
                     .map_err(|_| TraitError::InvalidInput("missing exact complete curve"))?;
-                let recipe = selected.recipe();
-                let expected_role = if id == &configuration.analytics_curves.discount_curve {
-                    matches!(recipe.role, convex_curves::contracts::CurveRole::Discount { collateral_currency } if collateral_currency == bond.currency)
-                } else {
-                    matches!(
-                        recipe.role,
-                        convex_curves::contracts::CurveRole::Projection { .. }
-                    )
-                };
-                if !expected_role || recipe.currency != bond.currency {
+                if !crate::curve_resolution::pricing_role_matches(
+                    selected.recipe(),
+                    id == &configuration.analytics_curves.discount_curve,
+                    bond.currency,
+                ) {
                     return Err(TraitError::InvalidInput(
                         "snapshot pricing curve role/currency mismatch",
                     ));

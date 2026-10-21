@@ -86,10 +86,7 @@ pub fn create_router_with_access_and_portfolios(
         .route("/api/v1/runtime/results", get(handlers::runtime_results))
         .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
         .route("/api/v1/analytics", post(crate::analytics::calculate))
-        .route(
-            "/api/v1/analytics/curves",
-            post(crate::core_workflow::save_curve),
-        )
+        .route("/api/v1/analytics/curves", post(crate::curves::save_curve))
         .route(
             "/api/v1/analytics/fixings",
             post(crate::core_workflow::save_fixings),
@@ -160,27 +157,27 @@ pub fn create_router_with_access_and_portfolios(
             get(handlers::get_bond_quote),
         )
         .route("/api/v1/quote", post(handlers::price_single_bond))
-        // Curves
+        // Curves: one durable owner, the recipe store
         .route(
             "/api/v1/curves",
-            get(handlers::list_curves).post(handlers::create_curve),
+            get(crate::curves::list_curves).post(crate::curves::save_curve),
         )
-        .route("/api/v1/curves/bootstrap", post(handlers::bootstrap_curve))
         .route(
-            "/api/v1/curves/:curve_id",
-            get(handlers::get_curve).delete(handlers::delete_curve),
+            "/api/v1/curves/bootstrap",
+            post(crate::curves::bootstrap_curve),
         )
+        .route("/api/v1/curves/:curve_id", get(crate::curves::get_curve))
         .route(
             "/api/v1/curves/:curve_id/zero/:tenor",
-            get(handlers::get_curve_zero_rate),
+            get(crate::curves::get_curve_zero_rate),
         )
         .route(
             "/api/v1/curves/:curve_id/discount/:tenor",
-            get(handlers::get_curve_discount_factor),
+            get(crate::curves::get_curve_discount_factor),
         )
         .route(
             "/api/v1/curves/:curve_id/forward/:t1/:t2",
-            get(handlers::get_curve_forward_rate),
+            get(crate::curves::get_curve_forward_rate),
         )
         // Batch Pricing
         .route("/api/v1/batch/price", post(handlers::batch_price))

@@ -15,8 +15,7 @@ use configuration_fixture::snapshot::reference_terms;
 struct Seed {
     fixture_id: String,
     configs: Vec<BondPricingConfig>,
-    curve_config: CurveConfig,
-    snapshots: Vec<CurveSnapshot>,
+    curve_recipes: Vec<convex_ports::snapshot::SnapshotCurveRecipe>,
     audit: Vec<AuditEntry>,
     reference_bond: BondReferenceData,
     reference_revision_description: String,
@@ -77,13 +76,8 @@ async fn populate(path: &Path) {
     for config in &seed.configs {
         storage.configs.save(config).await.unwrap();
     }
-    storage
-        .curves
-        .save_config(&seed.curve_config)
-        .await
-        .unwrap();
-    for snapshot in &seed.snapshots {
-        storage.curves.save_snapshot(snapshot).await.unwrap();
+    for recipe in &seed.curve_recipes {
+        storage.curves.save_recipe(recipe).await.unwrap();
     }
     for entry in &seed.audit {
         storage.audit.append(entry).await.unwrap();
@@ -193,22 +187,17 @@ async fn verify_state(path: &Path, check_retries: bool) {
             .len(),
         2
     );
-    assert_eq!(
-        storage
-            .curves
-            .get_config(&seed.curve_config.curve_id)
-            .await
-            .unwrap(),
-        Some(seed.curve_config.clone())
-    );
-    assert_eq!(
-        storage
-            .curves
-            .list_snapshots(&seed.curve_config.curve_id, i64::MIN, i64::MAX)
-            .await
-            .unwrap(),
-        seed.snapshots
-    );
+    for recipe in &seed.curve_recipes {
+        assert_eq!(
+            storage
+                .curves
+                .get_recipe(&recipe.curve_id.clone().into(), recipe.version)
+                .await
+                .unwrap()
+                .as_ref(),
+            Some(recipe)
+        );
+    }
     let audit = storage
         .audit
         .query(&AuditFilter::default(), &Pagination::new(0, 1000))

@@ -27,6 +27,8 @@ mod composition;
 pub mod config;
 pub mod configuration_admin;
 mod core_workflow;
+mod curves;
+mod error;
 pub mod handlers;
 pub mod health;
 mod reference;

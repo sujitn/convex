@@ -226,7 +226,7 @@ The server is configured to allow all origins. If you see CORS errors:
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/health` | GET | Health check |
-| `/api/v1/curves` | GET/POST | List/create curves |
+| `/api/v1/curves` | GET/POST | List curve recipes / store a recipe revision |
 | `/api/v1/bonds` | GET/POST | List/create bonds |
 | `/api/v1/quotes/:id` | GET | Get bond quote |
 | `/api/v1/quote` | POST | Price single bond |

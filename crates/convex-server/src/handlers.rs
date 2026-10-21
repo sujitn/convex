@@ -68,7 +68,7 @@ use convex_portfolio::{
 };
 
 use crate::websocket::WebSocketState;
-use convex_core::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
+use convex_core::ids::{EtfId, InstrumentId, PortfolioId};
 use convex_engine::ports::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
 use convex_engine::ports::reference_data::{BondReferenceData, EtfHoldingEntry, EtfHoldings};
 
@@ -189,10 +189,12 @@ impl ErrorResponse {
 /// Query parameters for single bond quote.
 #[derive(Debug, Deserialize)]
 pub struct BondQuoteQuery {
-    /// Settlement date (YYYY-MM-DD). Defaults to today.
+    /// Settlement date (YYYY-MM-DD). Defaults to the `known_at` date.
     pub settlement_date: Option<String>,
     /// Market price for spread calculations.
     pub market_price: Option<Decimal>,
+    /// Information cutoff for reference and curve revisions. Defaults to now.
+    pub known_at: Option<convex_core::contracts::UtcTimestamp>,
 }
 
 pub(crate) fn bond_quote_json(
@@ -205,99 +207,79 @@ pub(crate) fn bond_quote_json(
     Ok(value)
 }
 
-/// Get bond quote by instrument ID.
-///
-/// Looks up bond reference data and prices the bond.
+/// Price a stored bond with the curves its applicable pricing configuration
+/// names, current at `known_at` (now when absent). The response reports the
+/// reference, configuration and curve versions consumed; a missing or stale
+/// curve refuses the request rather than pricing without it.
 pub async fn get_bond_quote(
     State(state): State<Arc<AppState>>,
     Path(instrument_id): Path<String>,
-    axum::extract::Query(query): axum::extract::Query<BondQuoteQuery>,
-) -> axum::response::Response {
+    query: Result<axum::extract::Query<BondQuoteQuery>, axum::extract::rejection::QueryRejection>,
+) -> Result<axum::response::Response, crate::error::ApiError> {
+    use crate::curves::{known_at_or_now, rfc3339, with_header};
+    use crate::error::ApiError;
+    use convex_engine::ports::reference_master::ReferenceLookup;
     use convex_engine::pricing_router::PricingInput;
 
-    let id = InstrumentId::new(&instrument_id);
-
-    // Look up bond reference data
-    let reference = match state.engine.reference_for_pricing(&id).await {
-        Ok(Some(reference)) => reference,
-        Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({
-                    "error": format!("Bond not found: {}", instrument_id)
-                })),
-            )
-                .into_response();
-        }
-        Err(error) => return crate::reference::reference_error(error),
+    let axum::extract::Query(query) = query.map_err(|e| ApiError::invalid(e.body_text()))?;
+    let known_at = known_at_or_now(query.known_at)?;
+    let lookup = ReferenceLookup {
+        as_of: known_at,
+        known_at,
     };
-
-    let version = reference.version;
-    let bond = match reference.bond {
-        Some(bond) => bond,
-        None => {
-            return crate::reference::reference_error(
-                convex_engine::ports::reference_repository::ReferenceError::NotFound,
-            )
-        }
-    };
-
-    // Parse or default settlement date
+    let reference = state
+        .engine
+        .reference_at_for_pricing(&InstrumentId::new(&instrument_id), lookup)
+        .await?
+        .ok_or_else(|| ApiError::not_found(format!("Bond not found: {instrument_id}")))?;
+    let bond = reference
+        .bond
+        .ok_or_else(|| ApiError::not_found(format!("Bond not found: {instrument_id}")))?;
     let settlement_date = match query.settlement_date {
-        Some(ref date_str) => match parse_date(date_str) {
-            Ok(d) => d,
-            Err(e) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(serde_json::json!({ "error": e })),
-                )
-                    .into_response();
-            }
-        },
+        Some(ref text) => parse_date(text).map_err(ApiError::invalid)?,
         None => {
-            // Default to today
-            let now = chrono::Utc::now();
-            match Date::from_ymd(now.year(), now.month(), now.day()) {
-                Ok(date) => date,
-                Err(_) => {
-                    return crate::reference::reference_error(
-                        convex_engine::ports::reference_repository::ReferenceError::Unavailable,
-                    )
-                }
-            }
+            let day = known_at.datetime().date_naive();
+            Date::from_ymd(day.year(), day.month(), day.day())
+                .map_err(|e| ApiError::invalid(e.to_string()))?
         }
     };
-
-    // Build pricing input
-    let input = PricingInput::with_mid_price(
+    let curves = state.engine.pricing_curves(&bond, known_at).await?;
+    let input = PricingInput {
         bond,
         settlement_date,
-        query.market_price,
-        None, // discount_curve
-        None, // benchmark_curve
-        None, // government_curve
-        None, // volatility
-    );
-
-    // Price the bond
-    let router = state.engine.pricing_router();
-    match router.price(&input) {
-        Ok(quote) => {
-            // Publish to WebSocket subscribers
-            state.ws_state.publish_bond_quote(quote.clone());
-            match bond_quote_json(&quote) {
-                Ok(value) => crate::reference::with_consumed_reference_version(Json(value).into_response(), version),
-                Err(_) => (StatusCode::INTERNAL_SERVER_ERROR,Json(serde_json::json!({"code":"UNAVAILABLE","error":"quote serialization failed"}))).into_response(),
-            }
-        }
-        Err(e) => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(serde_json::json!({
-                "code":"INVALID_INPUT", "error": format!("Pricing failed: {}", e)
-            })),
-        )
-            .into_response(),
-    }
+        market_price_bid: None,
+        market_price_mid: query.market_price,
+        market_price_ask: None,
+        discount_curve: Some(curves.discount),
+        benchmark_curve: curves.benchmark,
+        government_curve: None,
+        volatility: None,
+        bid_ask_config: curves.config.bid_ask_spread.clone(),
+    };
+    let quote = state
+        .engine
+        .pricing_router()
+        .price(&input)
+        .map_err(|e| ApiError::calculation(format!("Pricing failed: {e}")))?;
+    // Retired with REST-triggered WebSocket messages in P3.
+    state.ws_state.publish_bond_quote(quote.clone());
+    let value =
+        bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
+    let pins: Vec<_> = curves
+        .curves
+        .iter()
+        .map(|(id, version)| format!("{id}@{}", version.get()))
+        .collect();
+    let config = format!("{}@{}", curves.config.config_id, curves.config.version);
+    let response = Json(value).into_response();
+    let response = with_header(
+        response,
+        "x-convex-reference-version",
+        &reference.version.get().to_string(),
+    )?;
+    let response = with_header(response, "x-convex-pricing-config", &config)?;
+    let response = with_header(response, "x-convex-curve-versions", &pins.join(","))?;
+    with_header(response, "x-convex-known-at", &rfc3339(known_at))
 }
 
 // =============================================================================
@@ -485,521 +467,6 @@ pub async fn price_single_bond(
             Json(serde_json::json!({
                 "code":"INVALID_INPUT", "error": format!("Pricing failed: {}", e)
             })),
-        ),
-    }
-}
-
-/// Get curve.
-pub async fn get_curve(
-    State(state): State<Arc<AppState>>,
-    Path(curve_id): Path<String>,
-) -> impl IntoResponse {
-    let id = CurveId::new(curve_id);
-
-    if let Some(curve) = state.engine.curve_builder().get(&id) {
-        (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "curve_id": curve.curve_id.as_str(),
-                "built_at": curve.built_at,
-                "points": curve.points,
-            })),
-        )
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "error": "Curve not found"
-            })),
-        )
-    }
-}
-
-/// List curves.
-pub async fn list_curves(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let curves: Vec<String> = state
-        .engine
-        .curve_builder()
-        .list()
-        .iter()
-        .map(|c| c.as_str().to_string())
-        .collect();
-
-    Json(serde_json::json!({
-        "curves": curves
-    }))
-}
-
-// =============================================================================
-// CURVE MANAGEMENT
-// =============================================================================
-
-/// Request for creating a curve.
-#[derive(Debug, Deserialize)]
-pub struct CreateCurveRequest {
-    /// Curve identifier
-    pub curve_id: String,
-    /// Reference date (YYYY-MM-DD)
-    pub reference_date: String,
-    /// At least two distinct positive ACT/365F continuous-zero pillars for
-    /// the checked MonotoneConvex builder: [(tenor_years, zero_rate_decimal), ...].
-    pub points: Vec<CurvePointInput>,
-}
-
-/// Curve point input.
-#[derive(Debug, Deserialize)]
-pub struct CurvePointInput {
-    /// Tenor in years
-    pub tenor: f64,
-    /// Zero rate as decimal (e.g., 0.04 for 4%)
-    pub rate: f64,
-}
-
-/// Response for curve creation.
-#[derive(Debug, Serialize)]
-pub struct CurveResponse {
-    /// Curve identifier
-    pub curve_id: String,
-    /// Reference date (YYYY-MM-DD)
-    pub reference_date: String,
-    /// Curve points
-    pub points: Vec<(f64, f64)>,
-    /// Build timestamp
-    pub built_at: i64,
-}
-
-/// Create a new curve from points.
-pub async fn create_curve(
-    State(state): State<Arc<AppState>>,
-    Json(request): Json<CreateCurveRequest>,
-) -> impl IntoResponse {
-    // Parse reference date
-    let reference_date = match parse_date(&request.reference_date) {
-        Ok(d) => d,
-        Err(e) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "error": e })),
-            );
-        }
-    };
-
-    // Validate points
-    if request.points.len() < 2 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "At least two curve points are required" })),
-        );
-    }
-
-    // Convert points
-    let points: Vec<(f64, f64)> = request.points.iter().map(|p| (p.tenor, p.rate)).collect();
-
-    let curve_id = CurveId::new(&request.curve_id);
-
-    // Create the curve
-    match state
-        .engine
-        .curve_builder()
-        .create_from_points(curve_id.clone(), reference_date, points)
-    {
-        Ok(curve) => {
-            let response = CurveResponse {
-                curve_id: curve.curve_id.as_str().to_string(),
-                reference_date: format!(
-                    "{:04}-{:02}-{:02}",
-                    curve.reference_date.year(),
-                    curve.reference_date.month(),
-                    curve.reference_date.day()
-                ),
-                points: curve.points.clone(),
-                built_at: curve.built_at,
-            };
-            (
-                StatusCode::CREATED,
-                Json(serde_json::to_value(response).unwrap()),
-            )
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "error": e.to_string() })),
-        ),
-    }
-}
-
-/// Delete a curve.
-pub async fn delete_curve(
-    State(state): State<Arc<AppState>>,
-    Path(curve_id): Path<String>,
-) -> impl IntoResponse {
-    let id = CurveId::new(&curve_id);
-
-    if state.engine.curve_builder().delete(&id) {
-        (StatusCode::NO_CONTENT, Json(serde_json::json!({})))
-    } else {
-        (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({ "error": "Curve not found" })),
-        )
-    }
-}
-
-// ============================================================================
-// CURVE BOOTSTRAPPING
-// ============================================================================
-
-/// Input instrument for curve bootstrapping.
-#[derive(Debug, Clone, Deserialize)]
-pub struct BootstrapInstrumentInput {
-    /// Instrument type: "Deposit", "FRA", "Swap", "OIS"
-    #[serde(rename = "type")]
-    pub instrument_type: String,
-    /// Tenor in years (for Deposit, Swap, OIS)
-    pub tenor: Option<f64>,
-    /// Start tenor for FRA
-    pub start_tenor: Option<f64>,
-    /// End tenor for FRA
-    pub end_tenor: Option<f64>,
-    /// Market quote (rate as decimal, e.g., 0.04 for 4%)
-    pub quote: f64,
-    /// Optional description
-    pub description: Option<String>,
-}
-
-/// Request for curve bootstrapping.
-#[derive(Debug, Deserialize)]
-pub struct BootstrapCurveRequest {
-    /// Curve identifier
-    pub curve_id: String,
-    /// Reference date (YYYY-MM-DD)
-    pub reference_date: Option<String>,
-    /// Instruments to calibrate
-    pub instruments: Vec<BootstrapInstrumentInput>,
-    /// Interpolation method: "Linear", "LogLinear", "CubicSpline" (default: Linear)
-    pub interpolation: Option<String>,
-    /// Calibration method: "GlobalFit", "Piecewise" (default: GlobalFit)
-    pub method: Option<String>,
-}
-
-/// Response from curve bootstrapping.
-#[derive(Debug, Serialize)]
-pub struct BootstrapCurveResponse {
-    /// Curve identifier
-    pub curve_id: String,
-    /// Reference date
-    pub reference_date: String,
-    /// Calibrated curve points: [(tenor, zero_rate), ...]
-    pub points: Vec<(f64, f64)>,
-    /// Calibration statistics
-    pub calibration: CalibrationStats,
-}
-
-/// Calibration statistics.
-#[derive(Debug, Serialize)]
-pub struct CalibrationStats {
-    /// Whether calibration converged
-    pub converged: bool,
-    /// Number of iterations
-    pub iterations: usize,
-    /// RMS error (in rate terms)
-    pub rms_error: f64,
-    /// RMS error in basis points
-    pub rms_error_bps: f64,
-    /// Max error in basis points
-    pub max_error_bps: f64,
-    /// Per-instrument residuals in basis points
-    pub residuals_bps: Vec<f64>,
-    /// Method used
-    pub method: String,
-}
-
-/// Bootstrap a curve from market instruments.
-pub async fn bootstrap_curve(
-    State(state): State<Arc<AppState>>,
-    Json(request): Json<BootstrapCurveRequest>,
-) -> impl IntoResponse {
-    use convex_core::daycounts::DayCountConvention;
-    use convex_core::types::Frequency;
-    use convex_curves::calibration::{
-        CalibrationResult, Deposit, Fra, GlobalFitter, InstrumentSet, Ois, PiecewiseBootstrapper,
-        Swap,
-    };
-
-    // Parse reference date
-    let reference_date = match &request.reference_date {
-        Some(date_str) => match Date::parse(date_str) {
-            Ok(d) => d,
-            Err(_) => {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(
-                        serde_json::json!({ "error": "Invalid reference_date format. Use YYYY-MM-DD" }),
-                    ),
-                );
-            }
-        },
-        None => Date::today(),
-    };
-
-    // Build instrument set
-    let mut instruments = InstrumentSet::new();
-    let dc = DayCountConvention::Act360;
-    let swap_dc = DayCountConvention::Thirty360US;
-
-    for inst in &request.instruments {
-        match inst.instrument_type.to_uppercase().as_str() {
-            "DEPOSIT" => {
-                if let Some(tenor) = inst.tenor {
-                    instruments.add(Deposit::from_tenor(reference_date, tenor, inst.quote, dc));
-                }
-            }
-            "FRA" => {
-                if let (Some(start), Some(end)) = (inst.start_tenor, inst.end_tenor) {
-                    // Convert tenors (in years) to dates
-                    let start_months = (start * 12.0).round() as i32;
-                    let end_months = (end * 12.0).round() as i32;
-                    if let (Ok(start_date), Ok(end_date)) = (
-                        reference_date.add_months(start_months),
-                        reference_date.add_months(end_months),
-                    ) {
-                        instruments.add(Fra::new(
-                            reference_date,
-                            start_date,
-                            end_date,
-                            inst.quote,
-                            dc,
-                        ));
-                    }
-                }
-            }
-            "SWAP" => {
-                if let Some(tenor) = inst.tenor {
-                    instruments.add(Swap::from_tenor(
-                        reference_date,
-                        tenor,
-                        inst.quote,
-                        Frequency::SemiAnnual,
-                        swap_dc,
-                    ));
-                }
-            }
-            "OIS" => {
-                if let Some(tenor) = inst.tenor {
-                    instruments.add(Ois::from_tenor(reference_date, tenor, inst.quote, dc));
-                }
-            }
-            _ => {
-                // Skip unknown instrument types
-            }
-        }
-    }
-
-    if instruments.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "No valid instruments provided" })),
-        );
-    }
-
-    // Determine calibration method
-    let method = request.method.as_deref().unwrap_or("GlobalFit");
-    let result: CalibrationResult = match method.to_uppercase().as_str() {
-        "PIECEWISE" => {
-            let bootstrapper = PiecewiseBootstrapper::new();
-            match bootstrapper.bootstrap(reference_date, &instruments) {
-                Ok(r) => r,
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({ "error": format!("Calibration failed: {}", e) })),
-                    );
-                }
-            }
-        }
-        _ => {
-            // Default to GlobalFit
-            let fitter = GlobalFitter::default();
-            match fitter.fit(reference_date, &instruments) {
-                Ok(r) => r,
-                Err(e) => {
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({ "error": format!("Calibration failed: {}", e) })),
-                    );
-                }
-            }
-        }
-    };
-
-    // Extract curve points
-    let points: Vec<(f64, f64)> = result
-        .curve
-        .tenors()
-        .iter()
-        .zip(result.curve.values().iter())
-        .map(|(&t, &v)| (t, v))
-        .collect();
-
-    // Store the curve in the engine
-    let curve_id = CurveId::new(&request.curve_id);
-    let _ = state.engine.curve_builder().create_from_points(
-        curve_id.clone(),
-        reference_date,
-        points.clone(),
-    );
-
-    let response = BootstrapCurveResponse {
-        curve_id: request.curve_id,
-        reference_date: format!(
-            "{}-{:02}-{:02}",
-            reference_date.year(),
-            reference_date.month(),
-            reference_date.day()
-        ),
-        points,
-        calibration: CalibrationStats {
-            converged: result.converged,
-            iterations: result.iterations,
-            rms_error: result.rms_error,
-            rms_error_bps: result.rms_error * 10_000.0,
-            max_error_bps: result.max_error() * 10_000.0,
-            residuals_bps: result.errors_bps(),
-            method: method.to_string(),
-        },
-    };
-
-    (
-        StatusCode::OK,
-        Json(serde_json::to_value(response).unwrap()),
-    )
-}
-
-/// Query parameters for curve rate queries.
-#[derive(Debug, Deserialize)]
-pub struct CurveRateQuery {
-    /// Compounding convention (continuous, annual, semiannual, quarterly, monthly)
-    #[serde(default = "default_compounding")]
-    pub compounding: String,
-}
-
-fn default_compounding() -> String {
-    "continuous".to_string()
-}
-
-/// Get zero rate for a tenor.
-pub async fn get_curve_zero_rate(
-    State(state): State<Arc<AppState>>,
-    Path((curve_id, tenor)): Path<(String, f64)>,
-    axum::extract::Query(query): axum::extract::Query<CurveRateQuery>,
-) -> impl IntoResponse {
-    use convex_curves::{Compounding, RateCurveDyn};
-
-    let id = CurveId::new(&curve_id);
-
-    let curve = match state.engine.curve_builder().get(&id) {
-        Some(c) => c,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": "Curve not found" })),
-            );
-        }
-    };
-
-    let compounding = match query.compounding.to_lowercase().as_str() {
-        "simple" => Compounding::Simple,
-        "annual" => Compounding::Annual,
-        "semiannual" | "semi_annual" => Compounding::SemiAnnual,
-        "quarterly" => Compounding::Quarterly,
-        "monthly" => Compounding::Monthly,
-        "daily" => Compounding::Daily,
-        _ => Compounding::Continuous,
-    };
-
-    match curve.zero_rate(tenor, compounding) {
-        Ok(rate) => (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "curve_id": curve_id,
-                "tenor": tenor,
-                "zero_rate": rate,
-                "compounding": query.compounding
-            })),
-        ),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e.to_string() })),
-        ),
-    }
-}
-
-/// Get discount factor for a tenor.
-pub async fn get_curve_discount_factor(
-    State(state): State<Arc<AppState>>,
-    Path((curve_id, tenor)): Path<(String, f64)>,
-) -> impl IntoResponse {
-    use convex_curves::RateCurveDyn;
-
-    let id = CurveId::new(&curve_id);
-
-    let curve = match state.engine.curve_builder().get(&id) {
-        Some(c) => c,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": "Curve not found" })),
-            );
-        }
-    };
-
-    match curve.discount_factor(tenor) {
-        Ok(df) => (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "curve_id": curve_id,
-                "tenor": tenor,
-                "discount_factor": df
-            })),
-        ),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e.to_string() })),
-        ),
-    }
-}
-
-/// Get forward rate between two tenors.
-pub async fn get_curve_forward_rate(
-    State(state): State<Arc<AppState>>,
-    Path((curve_id, t1, t2)): Path<(String, f64, f64)>,
-) -> impl IntoResponse {
-    use convex_curves::RateCurveDyn;
-
-    let id = CurveId::new(&curve_id);
-
-    let curve = match state.engine.curve_builder().get(&id) {
-        Some(c) => c,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({ "error": "Curve not found" })),
-            );
-        }
-    };
-
-    match curve.forward_rate(t1, t2) {
-        Ok(rate) => (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "curve_id": curve_id,
-                "t1": t1,
-                "t2": t2,
-                "forward_rate": rate
-            })),
-        ),
-        Err(e) => (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": e.to_string() })),
         ),
     }
 }
