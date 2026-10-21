@@ -2924,6 +2924,41 @@ async fn test_batch_create_portfolios_with_duplicates() {
     assert_eq!(json["skipped"].as_u64().unwrap(), 1);
 }
 
+#[tokio::test]
+async fn test_batch_create_portfolios_replays_only_the_same_payload() {
+    let engine = create_test_engine();
+    let send = |body: Value| {
+        let app = create_router(engine.clone());
+        async move {
+            let request = Request::builder()
+                .method("POST")
+                .uri("/api/v1/portfolios/batch")
+                .header("Idempotency-Key", "batch-replay-fixed-key")
+                .header("Content-Type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap();
+            app.oneshot(request).await.unwrap().status()
+        }
+    };
+    let original = json!({"portfolios": [
+        { "portfolio_id": "REPLAY_A", "name": "A", "currency": "USD" },
+        { "portfolio_id": "REPLAY_B", "name": "B", "currency": "EUR" }
+    ]});
+    assert_eq!(send(original.clone()).await, StatusCode::OK);
+    assert_eq!(send(original).await, StatusCode::OK, "exact retry replays");
+    let renamed = json!({"portfolios": [
+        { "portfolio_id": "REPLAY_A", "name": "changed", "currency": "USD" },
+        { "portfolio_id": "REPLAY_B", "name": "B", "currency": "EUR" }
+    ]});
+    assert_eq!(send(renamed).await, StatusCode::CONFLICT);
+    let extended = json!({"portfolios": [
+        { "portfolio_id": "REPLAY_A", "name": "A", "currency": "USD" },
+        { "portfolio_id": "REPLAY_B", "name": "B", "currency": "EUR" },
+        { "portfolio_id": "REPLAY_C", "name": "C", "currency": "GBP" }
+    ]});
+    assert_eq!(send(extended).await, StatusCode::CONFLICT);
+}
+
 // =============================================================================
 // RISK CONTRIBUTION TESTS
 // =============================================================================
