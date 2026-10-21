@@ -218,7 +218,7 @@ export function creditQuotes(def, tradeDate) {
       problems.push(`${p.tenor}: standard CDS tenors are whole quarters (3M, 6M, 1Y, …)`);
       continue;
     }
-    rows.push({ tenor: p.tenor, bp: decimal(p.value), maturity: standardMaturity(tradeDate, p.tenor) });
+    rows.push({ tenor: p.tenor, bp: decimal(p.value), maturity: standardMaturity(tradeDate, p.tenor), version: p.version || 1 });
   }
   rows.sort((a, b) => (a.maturity < b.maturity ? -1 : a.maturity > b.maturity ? 1 : 0));
   for (let i = 1; i < rows.length; i++) {
@@ -457,6 +457,16 @@ export function quoteCs01(cal, discount, input, helper, stepBp = 1) {
     }),
     revisions: revisions(key, `cs01.${helper.id}`),
   });
+}
+
+/**
+ * The largest central step (up to 1 point) that keeps both bumped recoveries inside [0, 1), or null when
+ * none does: the derivative is per unit fraction, so a smaller step near a boundary is still the same measure.
+ */
+export function recoveryStep(recovery) {
+  const room = Math.min(recovery, 1 - recovery) / 2;
+  if (!(room > 0)) return null;
+  return Math.min(0.01, room);
 }
 
 /** Recovery derivative per unit fraction; `response` holds survival or refits it at unchanged quotes. */

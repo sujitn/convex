@@ -176,16 +176,18 @@ export async function contractRisk(engine, built, terms, context) {
   const disc = built.discount.recipe;
   const input = C.creditRiskInput({ recipe: built.recipe, terms, context });
   const helpers = built.recipe.helpers;
+  // A recovery at 0% or near 100% has no valid central bump; say so rather than send an out-of-range recovery.
+  const recStep = C.recoveryStep(built.recipe.curve.role.recovery);
   const requests = [
     ...helpers.map((h) => C.quoteCs01(cal, disc, input, h)),
     C.quoteScenario(cal, disc, input, 1),
     C.quoteScenario(cal, disc, input, -1),
-    C.recoveryRisk(cal, disc, input, 'RecalibrateQuotes'),
-    C.recoveryRisk(cal, disc, input, 'HoldSurvival'),
+    ...(recStep ? [C.recoveryRisk(cal, disc, input, 'RecalibrateQuotes', recStep), C.recoveryRisk(cal, disc, input, 'HoldSurvival', recStep)] : []),
     C.discountRisk(cal, disc, input),
   ];
   const res = await engine.callMany(requests, { label: `CDS ${built.def.entity} risk ×${requests.length}` });
   const n = helpers.length;
+  const unavailable = { error: { code: 'unavailable', message: 'Recovery risk is not available at this recovery rate (a bump would leave 0–100%).' } };
   const sens = (r) => (r.ok ? { value: r.data.value, measure: r.data.measure } : { error: r.error });
   const buckets = built.quotes.map((q, i) => ({ tenor: q.tenor, maturity: q.maturity, ...sens(res[i]) }));
   const up = res[n];
@@ -197,8 +199,8 @@ export async function contractRisk(engine, built, terms, context) {
   return {
     buckets,
     parallel,
-    recovery: sens(res[n + 2]),
-    recoveryHeld: sens(res[n + 3]),
-    rates: sens(res[n + 4]),
+    recovery: recStep ? sens(res[n + 2]) : unavailable,
+    recoveryHeld: recStep ? sens(res[n + 3]) : unavailable,
+    rates: sens(res[recStep ? n + 4 : n + 2]),
   };
 }

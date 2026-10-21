@@ -21,7 +21,7 @@ Live: <https://sujitn.github.io/convex/>
 | `SCN` | Thirteen government-curve scenarios and par-quote key-rate durations, each by full recalibration and repricing at constant Z-spread. | `calibration.build`, `bond.price` |
 | `OAS` | Callables on a Hull-White one-factor tree over the chosen discount curve: OAS, option value, effective duration and convexity, OAS by volatility, workouts, exercise schedule, tree convergence. | `optional_bond.*`, `workout` |
 | `FRN` | SOFR floating-rate notes, compounded in arrears (lookback, observation shift or lag, lockout, payment delay): quote by clean price or discount margin, accrued from the published NY Fed fixings, the current coupon's fixings and projected days, every coupon marked fixed, partly fixed or projected, DM01 and spread duration (DM ± 1bp), IR01 and rate duration (SOFR curve ± 1bp, coupons re-projected), a DM ladder, and the DM to each call date for callable notes. Your own notes from a terms form or a pasted table. | `bond.construct`, `bond.price`, `bond.spread_inverse`, `floating_workout` |
-| `CDS` | Credit default swaps: credit curves from par spreads you supply (entity, seniority, recovery, restructuring clause, 6M–10Y), natively calibrated to a survival curve on your SOFR/€STR swap curve or, labelled, the government curve; repricing table, survival, default probability and hazard by tenor; a standard contract (roll-date maturity, 100/500bp coupon, buy or sell protection) with points upfront, cash amount, par spread, legs, RPV01, CS01 overall and by tenor, recovery and discount sensitivity, the premium leg, and spread ↔ upfront conversion. | `calibration.build`, `curve_query`, `cds.price`, `cds.convert`, `credit_risk.sensitivity`, `credit_risk.scenario` |
+| `CDS` | Credit default swaps: credit curves from par spreads you supply (entity, seniority, recovery, restructuring clause, 6M–10Y), natively calibrated to a survival curve on your SOFR/€STR swap curve or, labelled, the government curve; repricing table, survival, default probability and hazard by tenor; a standard contract (roll-date maturity, USD 100/500bp or EUR 25/100/300/500/750/1000bp coupon, buy or sell protection) with points upfront, cash amount, par spread, legs, RPV01, CS01 overall and by tenor, recovery and discount sensitivity, the premium leg, and spread ↔ upfront conversion. | `calibration.build`, `curve_query`, `cds.price`, `cds.convert`, `credit_risk.sensitivity`, `credit_risk.scenario` |
 | `BILL` | Treasury bills on the official convention: discount rate, investment rate and price from each other, and the daily bill curve. | `zero.treasury_bill` |
 | `CAL` | The rule-generated holiday tables each request carries, and a settlement calculator. | — |
 | `API` | A console for `library()` with templates built from the current security and curve, and a browser for the generated request schema. | any |
@@ -195,11 +195,14 @@ The library never looks anything up. Calendar-dependent requests carry:
 
 - **G-spread benchmarks** are actual securities: by default the on-the-run
   Treasuries from auction results, or the bullet bonds you pick on `YAS`
-  (Treasuries, examples or bonds you imported, in the target's currency). The
-  engine either interpolates the benchmark yield between the two maturities
-  bracketing the target or uses the bond maturing the same day; a spread to a
-  single benchmark of a different maturity is not an engine measure and is not
-  shown. Benchmark prices are curve-implied from the fitted government curve
+  (Treasuries, examples or bonds you imported, in the target's currency; never
+  the security itself, callable or sinking-fund bonds, and the on-the-run set
+  is USD only). The engine either interpolates the benchmark yield between the
+  two maturities bracketing the target (the target must lie within the set) or
+  uses the one bond maturing the same day (the library takes exactly one
+  security then, so only same-maturity bonds are offered and the first is
+  used); a spread to a single benchmark of a different maturity is not an
+  engine measure and is not shown. Benchmark prices are curve-implied from the fitted government curve
   (labelled) unless you typed one or the bond was imported with one; there is
   no free intraday source of individual bond prices.
 - **Default quote**: an actual Treasury opens on its curve-implied clean price,

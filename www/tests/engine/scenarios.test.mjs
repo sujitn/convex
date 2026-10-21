@@ -51,7 +51,8 @@ test('a zero shift reprices to the base price; missing tenors stay out', async (
     dataset, zDecimal: z, label: 'test', variants: [{ id: 'zero', label: 'No shift', shift: () => 0 }] });
   assert.equal(spline.seen[0].reqs[0].operation.input.cash[0].recipe.curve.interpolation, 'CubicSpline');
   assert.ok(Number.isNaN(refused.dirty));
-  assert.equal(refused.error.code, 'invalid_input');
+  assert.equal(refused.error.code, 'invalid_input'); // the engine's code for a method it does not admit here
+  assert.match(refused.error.message, /Linear/);
 });
 
 test('key rates bump only quoted tenors', () => {

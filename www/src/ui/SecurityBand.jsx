@@ -39,7 +39,7 @@ export default function SecurityBand({ sec, settlement, extra }) {
         {floating && <Fact label="Index">{FLOATING_INDEX[sec.index] || sec.index} + {sec.spreadBp} bp</Fact>}
         {floating && (
           <Fact label="Observation">
-            {sec.lookbackDays} day {sec.observationShift === false ? 'lookback' : 'shift'}{sec.lockoutDays ? `, ${sec.lockoutDays} day lockout` : ''}
+            {sec.lookbackDays ?? 2} business day{(sec.lookbackDays ?? 2) === 1 ? '' : 's'}{sec.observationShift === false ? ' lookback' : ' observation shift'}{sec.lockoutDays ? `, ${sec.lockoutDays} business day${sec.lockoutDays === 1 ? '' : 's'} lockout` : ''}
           </Fact>
         )}
         {!bill && !floating && <Fact label="Coupon">{sec.coupon}%{sec.steps && sec.steps.length ? ' step-up' : ''}</Fact>}

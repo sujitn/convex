@@ -220,17 +220,18 @@ export function accrualCutoffs(sec, periods, settlement) {
 }
 
 /**
- * Expected publications for every observation the unpaid coupons can need:
- * from a margin before the first unpaid period's start back past the
- * lookback, to the last period's end.
+ * Expected publications for exactly the overnight observations the unpaid
+ * coupons compound: each business day in an accrual period, moved back by the
+ * lookback. The first is the earliest period's first business day shifted;
+ * the last is the day before the final accrual end, shifted.
  */
 export function frnPublications(sec, periods, settlement) {
   const idx = FRN_INDICES[sec.index || SOFR];
   const owed = activePeriods(periods, settlement);
   if (!owed.length) return [];
-  const back = whole(sec.lookbackDays, 2) + whole(sec.lockoutDays, 0) + 5;
-  const from = addBusinessDays(idx.calendar, owed[0].accrual_start, -back);
-  const to = owed[owed.length - 1].accrual_end;
+  const lookback = whole(sec.lookbackDays, 2);
+  const from = addBusinessDays(idx.calendar, adjustFollowing(idx.calendar, owed[0].accrual_start), -lookback);
+  const to = addBusinessDays(idx.calendar, adjustFollowing(idx.calendar, owed[owed.length - 1].accrual_end), -1 - lookback);
   const out = oisPublications(idx, from, to);
   if (out.length > MAX_PUBLICATIONS) {
     const err = new Error(`The remaining coupons need ${out.length.toLocaleString()} daily ${idx.label} publication records; `

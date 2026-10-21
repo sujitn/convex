@@ -4,7 +4,7 @@
 // missing figure.
 
 import * as F from '../lib/frn.js';
-import { parsePrice } from '../lib/decimal.js';
+import { parsePrice, isDecimal } from '../lib/decimal.js';
 import { compareIso } from '../lib/dates.js';
 
 export const DM_LADDER_BP = [-50, -25, -10, -5, 0, 5, 10, 25, 50];
@@ -73,6 +73,9 @@ export async function analyseFrn(engine, { sec: security, tradeDate, settlement,
   const out = { errors: {}, callsIgnored: callable };
 
   if (!curve || !curve.recipe) return fail(out, { code: 'missing_input', message: 'No SOFR discount curve is built.' });
+  if (!isDecimal(String(face ?? '')) || !(Number(face) > 0)) {
+    return fail(out, { code: 'invalid_input', message: `Face amount "${face ?? ''}" must be a positive decimal number.` });
+  }
 
   const built = await engine.call(F.frnConstruct(sec, settlement), { label: `${label} periods` });
   if (!built.ok) return fail(out, built.error);

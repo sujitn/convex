@@ -1284,18 +1284,1138 @@ export const SNAPSHOT = {
   },
   "sofr-history": {
    "id": "sofr-history",
-   "label": "SOFR history (last 60 fixings)",
+   "label": "SOFR history (last 140 fixings)",
    "currency": "USD",
    "kind": "rates",
    "asOf": "2026-10-19",
-   "fetchedAt": "2026-10-20T21:38:18Z",
+   "fetchedAt": "2026-10-21T08:34:32Z",
    "status": "snapshot",
    "source": {
     "name": "Federal Reserve Bank of New York",
-    "url": "https://markets.newyorkfed.org/api/rates/secured/sofr/last/60.json",
+    "url": "https://markets.newyorkfed.org/api/rates/secured/sofr/last/140.json",
     "corsRequired": false
    },
    "points": [
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-03-30",
+     "extra": {
+      "volumeBn": 3082,
+      "p1": "3.60",
+      "p25": "3.62",
+      "p75": "3.69",
+      "p99": "3.73"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.68",
+     "date": "2026-03-31",
+     "extra": {
+      "volumeBn": 3280,
+      "p1": "3.62",
+      "p25": "3.66",
+      "p75": "3.75",
+      "p99": "3.78"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.65",
+     "date": "2026-04-01",
+     "extra": {
+      "volumeBn": 3265,
+      "p1": "3.61",
+      "p25": "3.62",
+      "p75": "3.71",
+      "p99": "3.75"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.66",
+     "date": "2026-04-02",
+     "extra": {
+      "volumeBn": 3251,
+      "p1": "3.62",
+      "p25": "3.63",
+      "p75": "3.73",
+      "p99": "3.75"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.65",
+     "date": "2026-04-06",
+     "extra": {
+      "volumeBn": 3217,
+      "p1": "3.60",
+      "p25": "3.63",
+      "p75": "3.71",
+      "p99": "3.74"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-04-07",
+     "extra": {
+      "volumeBn": 3260,
+      "p1": "3.55",
+      "p25": "3.61",
+      "p75": "3.68",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.59",
+     "date": "2026-04-08",
+     "extra": {
+      "volumeBn": 3169,
+      "p1": "3.55",
+      "p25": "3.58",
+      "p75": "3.66",
+      "p99": "3.69"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.57",
+     "date": "2026-04-09",
+     "extra": {
+      "volumeBn": 3147,
+      "p1": "3.53",
+      "p25": "3.54",
+      "p75": "3.63",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.61",
+     "date": "2026-04-10",
+     "extra": {
+      "volumeBn": 3063,
+      "p1": "3.57",
+      "p25": "3.59",
+      "p75": "3.68",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-04-13",
+     "extra": {
+      "volumeBn": 3135,
+      "p1": "3.60",
+      "p25": "3.61",
+      "p75": "3.69",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.66",
+     "date": "2026-04-14",
+     "extra": {
+      "volumeBn": 3116,
+      "p1": "3.60",
+      "p25": "3.64",
+      "p75": "3.71",
+      "p99": "3.75"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.72",
+     "date": "2026-04-15",
+     "extra": {
+      "volumeBn": 3117,
+      "p1": "3.65",
+      "p25": "3.70",
+      "p75": "3.78",
+      "p99": "3.82"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.67",
+     "date": "2026-04-16",
+     "extra": {
+      "volumeBn": 3107,
+      "p1": "3.63",
+      "p25": "3.64",
+      "p75": "3.73",
+      "p99": "3.75"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.65",
+     "date": "2026-04-17",
+     "extra": {
+      "volumeBn": 3042,
+      "p1": "3.60",
+      "p25": "3.62",
+      "p75": "3.71",
+      "p99": "3.73"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-04-20",
+     "extra": {
+      "volumeBn": 3010,
+      "p1": "3.59",
+      "p25": "3.60",
+      "p75": "3.69",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-04-21",
+     "extra": {
+      "volumeBn": 3021,
+      "p1": "3.59",
+      "p25": "3.61",
+      "p75": "3.69",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.64",
+     "date": "2026-04-22",
+     "extra": {
+      "volumeBn": 2960,
+      "p1": "3.59",
+      "p25": "3.62",
+      "p75": "3.70",
+      "p99": "3.73"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.65",
+     "date": "2026-04-23",
+     "extra": {
+      "volumeBn": 3011,
+      "p1": "3.59",
+      "p25": "3.63",
+      "p75": "3.70",
+      "p99": "3.74"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.66",
+     "date": "2026-04-24",
+     "extra": {
+      "volumeBn": 3047,
+      "p1": "3.60",
+      "p25": "3.65",
+      "p75": "3.73",
+      "p99": "3.76"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.66",
+     "date": "2026-04-27",
+     "extra": {
+      "volumeBn": 3058,
+      "p1": "3.60",
+      "p25": "3.65",
+      "p75": "3.72",
+      "p99": "3.76"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.64",
+     "date": "2026-04-28",
+     "extra": {
+      "volumeBn": 3021,
+      "p1": "3.60",
+      "p25": "3.62",
+      "p75": "3.69",
+      "p99": "3.73"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-04-29",
+     "extra": {
+      "volumeBn": 2964,
+      "p1": "3.59",
+      "p25": "3.61",
+      "p75": "3.69",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.66",
+     "date": "2026-04-30",
+     "extra": {
+      "volumeBn": 3275,
+      "p1": "3.59",
+      "p25": "3.64",
+      "p75": "3.72",
+      "p99": "3.75"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.64",
+     "date": "2026-05-01",
+     "extra": {
+      "volumeBn": 3150,
+      "p1": "3.61",
+      "p25": "3.63",
+      "p75": "3.69",
+      "p99": "3.73"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-05-04",
+     "extra": {
+      "volumeBn": 3113,
+      "p1": "3.59",
+      "p25": "3.61",
+      "p75": "3.67",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-05-05",
+     "extra": {
+      "volumeBn": 3148,
+      "p1": "3.58",
+      "p25": "3.60",
+      "p75": "3.66",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.61",
+     "date": "2026-05-06",
+     "extra": {
+      "volumeBn": 3129,
+      "p1": "3.57",
+      "p25": "3.60",
+      "p75": "3.66",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.60",
+     "date": "2026-05-07",
+     "extra": {
+      "volumeBn": 3106,
+      "p1": "3.57",
+      "p25": "3.58",
+      "p75": "3.65",
+      "p99": "3.69"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.60",
+     "date": "2026-05-08",
+     "extra": {
+      "volumeBn": 3087,
+      "p1": "3.56",
+      "p25": "3.58",
+      "p75": "3.65",
+      "p99": "3.68"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.60",
+     "date": "2026-05-11",
+     "extra": {
+      "volumeBn": 3090,
+      "p1": "3.55",
+      "p25": "3.58",
+      "p75": "3.64",
+      "p99": "3.68"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.60",
+     "date": "2026-05-12",
+     "extra": {
+      "volumeBn": 3097,
+      "p1": "3.56",
+      "p25": "3.58",
+      "p75": "3.65",
+      "p99": "3.69"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.59",
+     "date": "2026-05-13",
+     "extra": {
+      "volumeBn": 3119,
+      "p1": "3.55",
+      "p25": "3.58",
+      "p75": "3.64",
+      "p99": "3.68"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.56",
+     "date": "2026-05-14",
+     "extra": {
+      "volumeBn": 3115,
+      "p1": "3.53",
+      "p25": "3.55",
+      "p75": "3.62",
+      "p99": "3.67"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.55",
+     "date": "2026-05-15",
+     "extra": {
+      "volumeBn": 3157,
+      "p1": "3.51",
+      "p25": "3.53",
+      "p75": "3.61",
+      "p99": "3.65"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.53",
+     "date": "2026-05-18",
+     "extra": {
+      "volumeBn": 3159,
+      "p1": "3.50",
+      "p25": "3.52",
+      "p75": "3.58",
+      "p99": "3.62"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.51",
+     "date": "2026-05-19",
+     "extra": {
+      "volumeBn": 3111,
+      "p1": "3.48",
+      "p25": "3.51",
+      "p75": "3.54",
+      "p99": "3.59"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.50",
+     "date": "2026-05-20",
+     "extra": {
+      "volumeBn": 3082,
+      "p1": "3.46",
+      "p25": "3.50",
+      "p75": "3.52",
+      "p99": "3.56"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.51",
+     "date": "2026-05-21",
+     "extra": {
+      "volumeBn": 3077,
+      "p1": "3.48",
+      "p25": "3.51",
+      "p75": "3.55",
+      "p99": "3.62"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.55",
+     "date": "2026-05-22",
+     "extra": {
+      "volumeBn": 3078,
+      "p1": "3.51",
+      "p25": "3.53",
+      "p75": "3.61",
+      "p99": "3.65"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-05-26",
+     "extra": {
+      "volumeBn": 3127,
+      "p1": "3.56",
+      "p25": "3.61",
+      "p75": "3.69",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-05-27",
+     "extra": {
+      "volumeBn": 3176,
+      "p1": "3.60",
+      "p25": "3.62",
+      "p75": "3.69",
+      "p99": "3.73"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-05-28",
+     "extra": {
+      "volumeBn": 3139,
+      "p1": "3.58",
+      "p25": "3.60",
+      "p75": "3.68",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-05-29",
+     "extra": {
+      "volumeBn": 3201,
+      "p1": "3.58",
+      "p25": "3.61",
+      "p75": "3.69",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.65",
+     "date": "2026-06-01",
+     "extra": {
+      "volumeBn": 3224,
+      "p1": "3.60",
+      "p25": "3.63",
+      "p75": "3.71",
+      "p99": "3.74"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-06-02",
+     "extra": {
+      "volumeBn": 3148,
+      "p1": "3.59",
+      "p25": "3.61",
+      "p75": "3.68",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.61",
+     "date": "2026-06-03",
+     "extra": {
+      "volumeBn": 3098,
+      "p1": "3.58",
+      "p25": "3.59",
+      "p75": "3.67",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-06-04",
+     "extra": {
+      "volumeBn": 3147,
+      "p1": "3.58",
+      "p25": "3.59",
+      "p75": "3.67",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-06-05",
+     "extra": {
+      "volumeBn": 3131,
+      "p1": "3.58",
+      "p25": "3.61",
+      "p75": "3.68",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-06-08",
+     "extra": {
+      "volumeBn": 3115,
+      "p1": "3.57",
+      "p25": "3.61",
+      "p75": "3.68",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.60",
+     "date": "2026-06-09",
+     "extra": {
+      "volumeBn": 3063,
+      "p1": "3.56",
+      "p25": "3.59",
+      "p75": "3.65",
+      "p99": "3.69"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.59",
+     "date": "2026-06-10",
+     "extra": {
+      "volumeBn": 3023,
+      "p1": "3.55",
+      "p25": "3.57",
+      "p75": "3.64",
+      "p99": "3.67"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.60",
+     "date": "2026-06-11",
+     "extra": {
+      "volumeBn": 3061,
+      "p1": "3.57",
+      "p25": "3.58",
+      "p75": "3.66",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.65",
+     "date": "2026-06-12",
+     "extra": {
+      "volumeBn": 3059,
+      "p1": "3.59",
+      "p25": "3.63",
+      "p75": "3.70",
+      "p99": "3.74"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.69",
+     "date": "2026-06-15",
+     "extra": {
+      "volumeBn": 3147,
+      "p1": "3.62",
+      "p25": "3.67",
+      "p75": "3.74",
+      "p99": "3.78"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-06-16",
+     "extra": {
+      "volumeBn": 3137,
+      "p1": "3.60",
+      "p25": "3.61",
+      "p75": "3.69",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-06-17",
+     "extra": {
+      "volumeBn": 3114,
+      "p1": "3.59",
+      "p25": "3.61",
+      "p75": "3.68",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-06-18",
+     "extra": {
+      "volumeBn": 3148,
+      "p1": "3.58",
+      "p25": "3.60",
+      "p75": "3.67",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.61",
+     "date": "2026-06-22",
+     "extra": {
+      "volumeBn": 3073,
+      "p1": "3.57",
+      "p25": "3.59",
+      "p75": "3.67",
+      "p99": "3.69"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-06-23",
+     "extra": {
+      "volumeBn": 3105,
+      "p1": "3.55",
+      "p25": "3.60",
+      "p75": "3.67",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-06-24",
+     "extra": {
+      "volumeBn": 3116,
+      "p1": "3.57",
+      "p25": "3.61",
+      "p75": "3.68",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.64",
+     "date": "2026-06-25",
+     "extra": {
+      "volumeBn": 3145,
+      "p1": "3.58",
+      "p25": "3.62",
+      "p75": "3.69",
+      "p99": "3.74"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-06-26",
+     "extra": {
+      "volumeBn": 3171,
+      "p1": "3.58",
+      "p25": "3.60",
+      "p75": "3.67",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-06-29",
+     "extra": {
+      "volumeBn": 3126,
+      "p1": "3.58",
+      "p25": "3.60",
+      "p75": "3.68",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.68",
+     "date": "2026-06-30",
+     "extra": {
+      "volumeBn": 3418,
+      "p1": "3.61",
+      "p25": "3.64",
+      "p75": "3.73",
+      "p99": "3.80"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.66",
+     "date": "2026-07-01",
+     "extra": {
+      "volumeBn": 3321,
+      "p1": "3.61",
+      "p25": "3.63",
+      "p75": "3.71",
+      "p99": "3.73"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.64",
+     "date": "2026-07-02",
+     "extra": {
+      "volumeBn": 3208,
+      "p1": "3.60",
+      "p25": "3.62",
+      "p75": "3.70",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-07-06",
+     "extra": {
+      "volumeBn": 3212,
+      "p1": "3.58",
+      "p25": "3.61",
+      "p75": "3.68",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-07-07",
+     "extra": {
+      "volumeBn": 3154,
+      "p1": "3.58",
+      "p25": "3.60",
+      "p75": "3.67",
+      "p99": "3.71"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.58",
+     "date": "2026-07-08",
+     "extra": {
+      "volumeBn": 3158,
+      "p1": "3.55",
+      "p25": "3.57",
+      "p75": "3.64",
+      "p99": "3.67"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.53",
+     "date": "2026-07-09",
+     "extra": {
+      "volumeBn": 3126,
+      "p1": "3.50",
+      "p25": "3.51",
+      "p75": "3.57",
+      "p99": "3.65"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.55",
+     "date": "2026-07-10",
+     "extra": {
+      "volumeBn": 3056,
+      "p1": "3.51",
+      "p25": "3.52",
+      "p75": "3.60",
+      "p99": "3.67"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.60",
+     "date": "2026-07-13",
+     "extra": {
+      "volumeBn": 3096,
+      "p1": "3.55",
+      "p25": "3.58",
+      "p75": "3.65",
+      "p99": "3.69"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.63",
+     "date": "2026-07-14",
+     "extra": {
+      "volumeBn": 3092,
+      "p1": "3.55",
+      "p25": "3.62",
+      "p75": "3.69",
+      "p99": "3.72"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.64",
+     "date": "2026-07-15",
+     "extra": {
+      "volumeBn": 3104,
+      "p1": "3.58",
+      "p25": "3.62",
+      "p75": "3.70",
+      "p99": "3.73"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-07-16",
+     "extra": {
+      "volumeBn": 3038,
+      "p1": "3.58",
+      "p25": "3.59",
+      "p75": "3.67",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.59",
+     "date": "2026-07-17",
+     "extra": {
+      "volumeBn": 3030,
+      "p1": "3.55",
+      "p25": "3.56",
+      "p75": "3.64",
+      "p99": "3.67"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.57",
+     "date": "2026-07-20",
+     "extra": {
+      "volumeBn": 3012,
+      "p1": "3.54",
+      "p25": "3.54",
+      "p75": "3.62",
+      "p99": "3.66"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.61",
+     "date": "2026-07-21",
+     "extra": {
+      "volumeBn": 2975,
+      "p1": "3.56",
+      "p25": "3.58",
+      "p75": "3.66",
+      "p99": "3.69"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.62",
+     "date": "2026-07-22",
+     "extra": {
+      "volumeBn": 3026,
+      "p1": "3.56",
+      "p25": "3.60",
+      "p75": "3.67",
+      "p99": "3.70"
+     }
+    },
+    {
+     "tenor": "ON",
+     "id": "SOFR",
+     "label": "Secured Overnight Financing Rate",
+     "value": "3.64",
+     "date": "2026-07-23",
+     "extra": {
+      "volumeBn": 2971,
+      "p1": "3.58",
+      "p25": "3.62",
+      "p75": "3.70",
+      "p99": "3.72"
+     }
+    },
     {
      "tenor": "ON",
      "id": "SOFR",

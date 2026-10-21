@@ -10,6 +10,7 @@ import { parsePrice } from './decimal.js';
 import { normaliseTenor } from './paste.js';
 import { FREQ_MONTHS } from './terms.js';
 import { CURVE_DEFS, INTERPOLATIONS } from '../analytics/curves.js';
+import { EXAMPLES } from '../analytics/securities.js';
 import { SOURCES } from '../market/feeds.js';
 import { SENIORITIES, DOC_CLAUSES, CDS_CALENDARS, CALENDAR_CHOICES } from './cds.js';
 import { FRN_INDICES } from './frn.js';
@@ -58,6 +59,7 @@ function pointsProblem(points, missingOk) {
   return null;
 }
 
+const CURVE_ROLES = ['discount', 'government'];
 const CURVE_SOURCES = new Map(SOURCES.filter((s) => s.kind === 'par' || s.kind === 'zero').map((s) => [s.id, s]));
 
 function datasetProblem(id, d) {
@@ -81,6 +83,13 @@ function curveProblem(id, c) {
     if (index.currency !== c.currency) return `${c.index} is not a ${c.currency} index`;
   } else if (c.method === 'par' || c.method === 'zero') {
     if (!CALENDAR_RULES[c.calendar]) return `calendar ${c.calendar} is not known`;
+    if (c.method === 'par') {
+      // buildCurve sends these straight to the engine as par-swap conventions.
+      if (!FREQ_MONTHS[c.frequency]) return `coupon frequency ${c.frequency} is not supported`;
+      if (!DAY_COUNTS.includes(c.dayCount)) return `day count ${c.dayCount} is not supported`;
+      if (!(Number.isInteger(c.settlementDays) && c.settlementDays >= 0 && c.settlementDays <= 10)) return 'settlement days is not a whole number from 0 to 10';
+    }
+    if (!CURVE_ROLES.includes(c.role)) return `role ${c.role} is not discount or government`;
   } else return `method ${c.method} is not supported`;
   return pointsProblem(c.points, false);
 }
@@ -111,6 +120,8 @@ function rowsProblem(rows, field, what) {
 
 function securityProblem(id, s) {
   if (!isObject(s) || s.id !== id) return 'id does not match its entry';
+  // An edited example is saved under its own id and stays source "example"; anything else may not take it.
+  if (EXAMPLES.some((e) => e.id === id) && s.source !== 'example') return `"${id}" is a built-in example security id`;
   if (s.kind !== undefined && s.kind !== 'fixed' && s.kind !== 'floating') return `kind ${s.kind} cannot be imported`;
   if (!isCurrency(s.currency)) return 'currency is not a three-letter code';
   if (s.kind === 'floating') {

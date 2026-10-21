@@ -51,6 +51,14 @@ export const MAX_OIS_QUOTES = 128;
 
 const zoneFormats = new Map();
 
+// Date.UTC reads years 0 to 99 as 1900 to 1999; setUTCFullYear does not.
+function utcMs(y, m, d, hh, mm, ss = 0) {
+  const t = new Date(0);
+  t.setUTCFullYear(y, m - 1, d);
+  t.setUTCHours(hh, mm, ss, 0);
+  return t.getTime();
+}
+
 // The wall-clock reading of instant `ms` in `zone`, as if it were UTC.
 function wallClock(ms, zone) {
   let f = zoneFormats.get(zone);
@@ -60,14 +68,14 @@ function wallClock(ms, zone) {
     zoneFormats.set(zone, f);
   }
   const p = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
-  return Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour) % 24, Number(p.minute), Number(p.second));
+  return utcMs(Number(p.year), Number(p.month), Number(p.day), Number(p.hour) % 24, Number(p.minute), Number(p.second));
 }
 
 /** Local `time` ("08:00") on ISO `date` in IANA `zone` → UTC timestamp text ("…T12:00:00Z"). */
 export function zonedTimestamp(date, time, zone) {
   const [y, m, d] = date.split('-').map(Number);
   const [hh, mm] = time.split(':').map(Number);
-  const wall = Date.UTC(y, m - 1, d, hh, mm);
+  const wall = utcMs(y, m, d, hh, mm);
   let at = wall - (wallClock(wall, zone) - wall);
   // Near a daylight-saving change the first offset can be the other side's.
   const check = wallClock(at, zone);

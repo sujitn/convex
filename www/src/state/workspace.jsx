@@ -153,14 +153,18 @@ export function WorkspaceProvider({ engine, children }) {
 
   // G-spread benchmarks in the selected security's currency: the on-the-run
   // Treasuries, or the bullet bonds you picked (any currency you have bonds in).
+  // Never the security being analysed, and never callable or sinking-fund bonds.
+  const selectedId = selected && selected.id;
   const benchmarkSet = useMemo(() => {
-    if (benchmarkChoice.mode !== 'custom') return currency === 'USD' ? benchmarks : [];
+    // The on-the-run Treasuries are a USD set; other currencies use your selection.
+    if (benchmarkChoice.mode !== 'custom' && currency === 'USD') return benchmarks.filter((b) => b.sec.id !== selectedId);
     return benchmarkChoice.ids
       .map((id) => universe.find((s) => s.id === id))
-      .filter((s) => s && s.kind === 'fixed' && s.currency === currency && !(s.calls || []).length)
+      .filter((s) => s && s.id !== selectedId && s.kind === 'fixed' && s.currency === currency
+        && !(s.calls || []).length && !(s.sinking || []).length)
       .sort((a, b) => (a.maturity < b.maturity ? -1 : a.maturity > b.maturity ? 1 : 0))
       .map((s) => ({ bucket: Math.round(yearsBetween(tradeDate, s.maturity) * 10) / 10, sec: s }));
-  }, [benchmarkChoice, benchmarks, universe, currency, tradeDate]);
+  }, [benchmarkChoice, benchmarks, universe, currency, tradeDate, selectedId]);
   const setBenchmarkChoice = useCallback((choice) => dispatch({ type: 'benchmarkChoice', choice }), [dispatch]);
 
   const value = useMemo(

@@ -251,9 +251,11 @@ test('OIS helpers go in payment-date order; same-date quotes and the item limits
   const projectionKey = R.curveKey('USD.OIS.ON', '1');
   // SONIA from Friday 2025-01-31: 1M pays 28 February, 30D (Sunday 2 March) pays 3 March.
   const req = oisCurveCalibration({ key, projectionKey, def: sonia, tradeDate: '2025-01-31',
-    quotes: [{ tenor: '30D', value: '3.9' }, { tenor: '1M', value: '3.9' }, { tenor: '1Y', value: '3.7' }] });
+    quotes: [{ tenor: '30D', value: '3.95' }, { tenor: '1M', value: '3.85' }, { tenor: '1Y', value: '3.7' }] });
   const recipe = req.operation.input.rates[0].recipe;
   assert.deepEqual(recipe.helpers.map((h) => h.id), ['USD.OIS.1M', 'USD.OIS.30D', 'USD.OIS.1Y']);
+  // Each helper carries its own quote: 1M (3.85%) pays before 30D (3.95%); quotes are decimals.
+  assert.deepEqual(recipe.helpers.map((h) => String(h.quote.value)), ['0.0385', '0.0395', '0.037']);
   assert.deepEqual(recipe.pillars, ['2025-02-28', '2025-03-03', '2026-02-02']);
   assert.deepEqual(recipe.pillars, [...recipe.pillars].sort());
   assert.deepEqual(recipe.curve.source.Helpers, recipe.helpers.map((h) => h.id));
@@ -276,4 +278,32 @@ test('credit curves export and import; malformed ones are skipped with a reason'
   assert.deepEqual(Object.keys(back.credit), [good.id]);
   assert.deepEqual(back.credit[good.id].points, good.points);
   assert.ok(back.rejected.some((r) => r.section === 'credit' && r.id === 'BAD'));
+});
+
+test('par and zero curves are checked for their calibration fields; built-in example ids are not taken', () => {
+  const par = customCurveDef({ id: 'USD.PAR', label: 'Par', currency: 'USD', method: 'par', asOf: TRADE,
+    points: [{ tenor: '1Y', value: '4' }, { tenor: '2Y', value: '4.1' }] });
+  const zero = customCurveDef({ id: 'USD.ZERO', label: 'Zero', currency: 'USD', method: 'zero', asOf: TRADE,
+    points: [{ tenor: '1Y', value: '4' }, { tenor: '2Y', value: '4.1' }] });
+  const curves = {
+    'USD.PAR': par, 'USD.ZERO': zero,
+    'P.FREQ': { ...par, id: 'P.FREQ', frequency: 'Weekly' },
+    'P.DC': { ...par, id: 'P.DC', dayCount: undefined },
+    'P.LAG': { ...par, id: 'P.LAG', settlementDays: -1 },
+    'P.LAGTEXT': { ...par, id: 'P.LAGTEXT', settlementDays: '1' },
+    'Z.ROLE': { ...zero, id: 'Z.ROLE', role: 'other' },
+    'Z.NOROLE': { ...zero, id: 'Z.NOROLE', role: undefined },
+    'Z.INTERP': { ...zero, id: 'Z.INTERP', interpolation: 'Quintic' },
+  };
+  const back = readImport({ kind: 'convex-terminal.data', version: 1, customCurves: curves });
+  assert.deepEqual(Object.keys(back.customCurves), ['USD.PAR', 'USD.ZERO']);
+  assert.deepEqual(back.rejected.map((r) => r.id), ['P.FREQ', 'P.DC', 'P.LAG', 'P.LAGTEXT', 'Z.ROLE', 'Z.NOROLE', 'Z.INTERP']);
+
+  const edited = { ...security, id: 'EX-CALL-2034', source: 'example' };
+  const clash = { ...security, id: 'EX-CALL-2034' };
+  const kept = readImport({ kind: 'convex-terminal.data', version: 1, custom: { 'EX-CALL-2034': edited } });
+  assert.deepEqual(kept.rejected, []); // an edited example round-trips
+  const refused = readImport({ kind: 'convex-terminal.data', version: 1, custom: { 'EX-CALL-2034': clash } });
+  assert.deepEqual(Object.keys(refused.custom), []);
+  assert.match(refused.rejected[0].reason, /built-in example/);
 });

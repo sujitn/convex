@@ -133,3 +133,20 @@ test('risk requests name the factor the engine checks: dated tenor, document ver
   assert.equal(up.shock.Quotes.moves.length, 8);
   assert.ok(up.shock.Quotes.moves.every((m) => m.delta.unit === 'BasisPoints' && m.delta.value === 1));
 });
+
+test('recovery risk: a central bump stays inside 0 to 100%, or there is none', () => {
+  assert.equal(C.recoveryStep(0.4), 0.01);
+  assert.equal(C.recoveryStep(0), null);
+  assert.equal(C.recoveryStep(1), null);
+  for (const r of [0.005, 0.99, 0.995]) {
+    const s = C.recoveryStep(r);
+    assert.ok(s > 0 && r - s >= 0 && r + s < 1, `${r} ${s}`);
+  }
+});
+
+test('par spread quotes keep the supplied revision as the helper quote version', () => {
+  const def = C.creditCurveDef({ entity: 'ACME', currency: 'USD' });
+  def.points = [{ tenor: '1Y', value: '50', version: 3 }, { tenor: '5Y', value: '120' }];
+  const { quotes } = C.creditQuotes(def, TRADE);
+  assert.deepEqual(quotes.map((q) => q.version), [3, 1]);
+});

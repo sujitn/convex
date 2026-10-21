@@ -257,7 +257,8 @@ export default function Frn({ fn }) {
   const quote = (sec && quotes[sec.id]) || (sec && defaultQuote(sec));
   const dq = useDebounced(quote && `${quote.kind}|${quote.text}`);
   const dFace = useDebounced(face);
-  const ready = !!(sec && curve && curve.recipe && !curve.building && history && quoteValid(quote));
+  const ready = !!(sec && curve && curve.recipe && !curve.building && history && quoteValid(quote)
+    && isDecimal(dFace) && Number(dFace) > 0);
   const { data: stale, error, busy, current } = useComputation(
     () => (ready ? analyseFrn(engine, { sec, tradeDate, settlement, curve, history, quote, face: dFace }) : null),
     [ready, sec, settlement, tradeDate, dq, dFace, curve && curve.key && curve.key.id, curve && curve.key && curve.key.version, histSig],
@@ -367,6 +368,7 @@ export default function Frn({ fn }) {
               </Field>
               <Field label="Face amount">
                 <input className="input input--num" style={{ width: 150 }} value={face}
+                  aria-invalid={!(isDecimal(face) && Number(face) > 0)}
                   onChange={(e) => dispatch({ type: 'quote', quote: { face: e.target.value.replace(/[^\d.]/g, '') } })} />
               </Field>
               <div className="grow" />
@@ -416,7 +418,7 @@ export default function Frn({ fn }) {
             <div className="figures">
               <Figure label="Clean price" value={fmt(r.clean, 6)} sub={`Dirty ${fmt(r.dirty, 6)}`} />
               <Figure label="Discount margin" value={signedBp(r.dm, 2)} unit="bp" sub={`quoted margin ${sec.spreadBp} bp`} />
-              <Figure label="Current coupon index" value={cur && cur.rate ? pct(cur.rate, 4) : '—'} unit="%"
+              <Figure label="Current coupon index" value={cur && cur.rate != null ? pct(cur.rate, 4) : '—'} unit="%"
                 sub={cur ? `compounded SOFR, ${cur.published} of ${cur.observations.length} fixed` : ''} />
               <Figure label="Spread duration" value={r.dmRisk ? fmt(r.dmRisk.duration, 3) : '—'} sub="from DM ± 1 bp" />
               <Figure label={`DM01 for ${money(face, 0)}`} value={r.dmRisk ? signed(r.dmRisk.dm01, 2) : '—'} sub="price change, +1 bp DM" />
@@ -484,7 +486,7 @@ export default function Frn({ fn }) {
                         <td>{formatLong(c.paymentDate)}</td>
                         <td className="dim">{formatShort(c.accrualStart)} – {formatShort(c.accrualEnd)}</td>
                         <td className="num">{daysBetween(c.accrualStart, c.accrualEnd)}</td>
-                        <td className="num">{c.rate ? pct(c.rate, 4) : '—'}</td>
+                        <td className="num">{c.rate != null ? pct(c.rate, 4) : '—'}</td>
                         <td className="num">{sec.spreadBp}</td>
                         <td><RateOrigin row={c} /></td>
                         <td className="num">{money(Number(c.amount) * scale)}</td>
@@ -579,7 +581,7 @@ export default function Frn({ fn }) {
         </>
       )}
       {!r && !fatal && curveDef && !(curve && curve.error) && (
-        <Empty>{!curve || curve.building ? 'Building the SOFR curve…' : busy ? <Spinner /> : 'Enter a quote to analyse this note.'}</Empty>
+        <Empty>{!curve || curve.building ? 'Building the SOFR curve…' : busy ? <Spinner /> : !(isDecimal(dFace) && Number(dFace) > 0) ? 'Enter a positive face amount.' : 'Enter a quote to analyse this note.'}</Empty>
       )}
     </div>
   );

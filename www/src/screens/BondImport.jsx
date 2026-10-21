@@ -23,17 +23,35 @@ export default function BondImport({ onClose }) {
     () => (text.trim() ? parseBondTable(text, { tradeDate, dayFirst: order === 'auto' ? undefined : order === 'dmy' }) : null),
     [text, tradeDate, order],
   );
+  // A row whose generated id is already in the workspace gets a fresh one, so adding
+  // never replaces a security you have; the preview says which rows were renamed.
+  const rows = useMemo(() => {
+    if (!parsed) return [];
+    const have = new Set(universe.map((s) => s.id));
+    const reserved = new Set([...have, ...parsed.rows.map((r) => r.sec.id)]);
+    return parsed.rows.map((r) => {
+      if (!have.has(r.sec.id)) return r;
+      let n = 2;
+      while (reserved.has(`${r.sec.id}-${n}`)) n++;
+      const id = `${r.sec.id}-${n}`;
+      reserved.add(id);
+      return { ...r, sec: { ...r.sec, id }, renamedFrom: r.sec.id };
+    });
+  }, [parsed, universe]);
   const mine = universe.filter((s) => s.imported);
   // Real securities make the best sample: the current on-the-run Treasuries.
   const sample = bondTemplate(benchmarks.map((b) => b.sec));
   const add = () => {
-    const custom = Object.fromEntries(parsed.rows.map((r) => [r.sec.id, r.sec]));
+    const custom = Object.fromEntries(rows.map((r) => [r.sec.id, r.sec]));
     dispatch({ type: 'importData', data: { custom } });
-    setDone({ count: parsed.rows.length, first: parsed.rows[0].sec.id });
+    setDone({ count: rows.length, first: rows[0].sec.id });
     setText('');
   };
-  const removeAll = () => mine.forEach((s) => dispatch({ type: 'removeCustom', id: s.id }));
-  const slashDates = parsed && parsed.rows.length > 0 && /\d{1,2}[/.]\d{1,2}[/.]\d{2,4}/.test(text);
+  const removeAll = () => {
+    mine.forEach((s) => dispatch({ type: 'removeCustom', id: s.id }));
+    setDone(null);
+  };
+  const slashDates = rows.length > 0 && /(?<!\d)\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}(?!\d)/.test(text);
 
   return (
     <Panel title="Bonds from a spreadsheet" note="paste rows from Excel, a CSV file or a terminal export"
@@ -60,7 +78,7 @@ export default function BondImport({ onClose }) {
         </div>
         {slashDates && (
           <div className="row" style={{ gap: 10, alignItems: 'center' }}>
-            <span className="dim" style={{ fontSize: 12 }}>Dates like 03/04/2030 read as</span>
+            <span className="dim" style={{ fontSize: 12 }}>Dates like 03/04/2030 or 03-04-2030 read as</span>
             <Seg value={order} onChange={setOrder} label="Date order"
               options={[['auto', `Auto (${parsed.dayFirst ? 'day first' : 'month first'})`], ['mdy', 'Month first'], ['dmy', 'Day first']]} />
           </div>
@@ -76,7 +94,7 @@ export default function BondImport({ onClose }) {
             </ul>
           </div>
         )}
-        {parsed && parsed.rows.length > 0 && (
+        {parsed && rows.length > 0 && (
           <div className="table-wrap" style={{ maxHeight: 320 }}>
             <table className="grid">
               <thead>
@@ -84,7 +102,7 @@ export default function BondImport({ onClose }) {
                   <th>Coupons</th><th>Day count</th><th className="num">Price</th><th>Defaults applied</th></tr>
               </thead>
               <tbody>
-                {parsed.rows.map(({ line, sec, assumed, warnings }) => (
+                {rows.map(({ line, sec, assumed, warnings, renamedFrom }) => (
                   <tr key={line}>
                     <td className="dim">{line}</td>
                     <td>{sec.name}{sec.calls.length > 0 && <span className="dim"> · {sec.calls.length} calls</span>}</td>
@@ -96,6 +114,7 @@ export default function BondImport({ onClose }) {
                     <td className="num">{sec.price || ''}</td>
                     <td className="dim" style={{ fontSize: 11.5, whiteSpace: 'normal', minWidth: 200 }}>
                       {assumed.join(', ')}
+                      {renamedFrom && <div className="neg">{renamedFrom} is already in your securities; added as {sec.id}</div>}
                       {warnings.map((w) => <div key={w} className="neg">{w}</div>)}
                     </td>
                   </tr>
@@ -120,8 +139,8 @@ export default function BondImport({ onClose }) {
             </span>
           )}
           <div className="grow" />
-          <button type="button" className="btn btn--primary" disabled={!parsed || !parsed.rows.length} onClick={add}>
-            {parsed && parsed.rows.length ? `Add ${parsed.rows.length} bond${parsed.rows.length === 1 ? '' : 's'}` : 'Add bonds'}
+          <button type="button" className="btn btn--primary" disabled={!rows.length} onClick={add}>
+            {rows.length ? `Add ${rows.length} bond${rows.length === 1 ? '' : 's'}` : 'Add bonds'}
           </button>
         </div>
       </div>

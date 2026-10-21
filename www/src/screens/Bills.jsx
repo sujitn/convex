@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWorkspace, useComputation } from '../state/workspace';
 import { useStore } from '../state/store';
 import { billFromDiscountRate, billFromInvestmentRate, billFromPrice, billResult } from '../lib/bills';
@@ -41,7 +41,14 @@ export default function Bills({ fn }) {
   const published = bill ? dailyRate(billRates, bill.cusip) : null;
   const [kind, setKind] = useState('discount');
   const [text, setText] = useState('');
+  // The feed seeds the quote for a newly selected bill; a refresh only reseeds an input the user has not touched.
+  const touched = useRef(false);
+  const seededFor = useRef(null);
   useEffect(() => {
+    const newBill = seededFor.current !== (bill && bill.id);
+    seededFor.current = bill && bill.id;
+    if (newBill) touched.current = false;
+    else if (touched.current) return;
     setKind('discount');
     setText(published ? published.discount : (bill && bill.auction.discountRate) || '4.00');
   }, [bill && bill.id, published && published.discount]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -103,10 +110,11 @@ export default function Bills({ fn }) {
                 <div className="row" style={{ alignItems: 'flex-end', gap: 16 }}>
                   <Field label="Quote as" as="div"><Seg value={kind} onChange={(k) => {
                     if (r) setText(k === 'discount' ? fmt(Number(r.discountPercent), 6) : k === 'investment' ? fmt(Number(r.investmentPercent), 6) : fmt(Number(r.pricePer100), 6));
+                    touched.current = true;
                     setKind(k);
                   }} options={KINDS} label="Quote type" /></Field>
                   <Field label={KINDS.find((k) => k[0] === kind)[1]}>
-                    <input className="input input--quote" style={{ width: 200 }} value={text} onChange={(e) => setText(e.target.value)} aria-invalid={!valid} />
+                    <input className="input input--quote" style={{ width: 200 }} value={text} onChange={(e) => { touched.current = true; setText(e.target.value); }} aria-invalid={!valid} />
                   </Field>
                   <div className="grow" />
                   {published && <Prov status={billRates.status}>Daily {published.tenor} bill rate {formatLong(billRates.asOf)}: {published.discount}% discount</Prov>}

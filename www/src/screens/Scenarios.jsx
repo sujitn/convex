@@ -29,7 +29,8 @@ export default function Scenarios({ fn }) {
   const z = zText ?? (sec && sec.source === 'auction' ? '0' : '125');
   const dz = useDebounced(z);
   const zOk = z.trim() !== '' && Number.isFinite(Number(z));
-  const zDecimal = zOk ? Number(dz) / 10000 : NaN;
+  // Only a spread that has settled, valid and equal to what is typed, is used; until then nothing runs or shows.
+  const zDecimal = zOk && dz === z ? Number(dz) / 10000 : NaN;
   const bullet = sec ? { ...sec, calls: [] } : null;
   const ready = sec && sec.kind === 'fixed' && curve && curve.recipe && !curve.building && parCurve && Number.isFinite(zDecimal);
   const label = sec ? sec.ticker || sec.name : '';
@@ -54,16 +55,16 @@ export default function Scenarios({ fn }) {
 
   // Results for another security, curve or spread are not shown while the next run is under way.
   const base = { ...base0, data: base0.current ? base0.data : null };
-  const scen = { ...scen0, data: scen0.current ? scen0.data : null };
-  const krd = { ...krd0, data: krd0.current ? krd0.data : null };
+  const scen = { ...scen0, data: scen0.current ? scen0.data : null, error: scen0.current ? scen0.error : null };
+  const krd = { ...krd0, data: krd0.current ? krd0.data : null, error: krd0.current ? krd0.error : null };
   const pending = !zOk ? (
     <div className="note note--error" role="alert">Enter the Z-spread as a number of basis points, for example 125.</div>
   ) : !curve || curve.building ? (
     <Empty><Spinner /> Building {def ? def.label : 'the government curve'}…</Empty>
   ) : curve.error ? (
     <EngineError error={curve.error} context={def ? def.label : 'Government curve'} />
-  ) : scen0.error || krd0.error ? (
-    <EngineError error={scen0.error || krd0.error} context="Scenarios" />
+  ) : scen.error || krd.error ? (
+    <EngineError error={scen.error || krd.error} context="Scenarios" />
   ) : <Empty><Spinner /></Empty>;
 
   const p0 = base.data && base.data.ok ? base.data.data.dirty_per100 : NaN;

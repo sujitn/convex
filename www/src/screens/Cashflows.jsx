@@ -75,7 +75,9 @@ export default function Cashflows({ fn }) {
           type="button" className="btn btn--sm" onClick={() => dispatch({ type: 'screen', screen: 'FRN' })}>FRN</button>, each marked fixed or projected.</div>
       )}
       {!ok && !(sec && sec.kind === 'floating') && <Empty>Cash flows are shown for coupon bonds. Bills have a single redemption; see BILL.</Empty>}
-      {ok && (busy || !current) && !data && <Empty><Spinner /></Empty>}
+      {ok && !data && (busy || !current || !curve || curve.building) && (
+        <Empty>{!curve ? 'No discount curve is available for this currency.' : <Spinner />}{curve && curve.building ? ' Building the curve…' : ''}</Empty>
+      )}
       {data && data.error && <EngineError error={data.error} context="Cash flows" />}
       {ok && sec.calls && sec.calls.length > 0 && (
         <div className="note note--warn" style={{ marginBottom: 16 }}>Shown to maturity, assuming no call is exercised.</div>

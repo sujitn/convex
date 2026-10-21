@@ -150,7 +150,7 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
   // 7. G-spread against actual benchmark securities in the target's currency:
   // interpolated between the two that bracket its maturity, or the one that
   // matures the same day.
-  const usable = benchmarks.filter((b) => b.sec.currency === sec.currency);
+  const usable = gspreadBenchmarks(security, benchmarks, benchmarkSelection);
   const needed = benchmarkSelection === 'ExactMaturity' ? 1 : 2;
   if (usable.length >= needed) {
     const bench = await benchmarkQuotes(engine, usable, settlement, benchmarkCurve, benchPrices);
@@ -173,8 +173,9 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
       } else out.errors.gspread = gr.error;
     }
   } else {
-    out.errors.gspread = { code: 'not_applicable', message: `G-spread needs ${needed === 1 ? 'a' : 'at least two'} ${sec.currency} `
-      + `benchmark securit${needed === 1 ? 'y' : 'ies'}; choose them under G-spread benchmarks.` };
+    out.errors.gspread = { code: 'not_applicable', message: needed === 1
+      ? `G-spread on the same maturity needs a ${sec.currency} benchmark maturing ${sec.maturity}; choose one under G-spread benchmarks.`
+      : `G-spread needs at least two ${sec.currency} benchmark securities other than this one; choose them under G-spread benchmarks.` };
   }
 
   // 8. Invoice for the face amount.
@@ -193,6 +194,25 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
     out.nextCoupon = current.payment_date;
   }
   return out;
+}
+
+/**
+ * The benchmarks a G-spread can use: the target's currency, never the target
+ * itself, no sinking-fund bonds. The library takes exactly one security for
+ * ExactMaturity, so that mode keeps the first one maturing on the target's date.
+ */
+export function gspreadBenchmarks(sec, benchmarks, selection) {
+  const usable = benchmarks.filter((b) => b.sec.currency === sec.currency && b.sec.id !== sec.id && !(b.sec.sinking || []).length);
+  return selection === 'ExactMaturity' ? usable.filter((b) => b.sec.maturity === sec.maturity).slice(0, 1) : usable;
+}
+
+/** Whether the engine can select a benchmark yield: an exact maturity match, or (interpolated) a target inside the set's maturities. */
+export function gspreadAvailable(sec, benchmarks, selection) {
+  const set = gspreadBenchmarks(sec, benchmarks, selection);
+  if (set.some((b) => b.sec.maturity === sec.maturity)) return true;
+  if (selection === 'ExactMaturity' || set.length < 2) return false;
+  const mats = set.map((b) => b.sec.maturity).sort();
+  return mats[0] <= sec.maturity && sec.maturity <= mats[mats.length - 1];
 }
 
 /** The government benchmark identity sent with G-spread requests, per currency. */

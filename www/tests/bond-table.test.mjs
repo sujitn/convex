@@ -169,3 +169,40 @@ test('European semicolon CSV: decimal commas are decimals, ambiguous commas are 
   assert.equal(out.errors.length, 1);
   assert.match(out.errors[0].reason, /coupon/);
 });
+
+test('hyphenated and full-month-name dates read; day-first is detected from them and from Calls', () => {
+  assert.equal(parseDate('15-03-2034', { dayFirst: true }), '2034-03-15');
+  assert.equal(parseDate('15 April 2034'), '2034-04-15');
+  assert.equal(parseDate('April 15, 2034'), '2034-04-15');
+  assert.equal(parseDate('15-September-2034'), '2034-09-15');
+  assert.equal(parseDate('15 Sept 2034'), '2034-09-15');
+  assert.equal(parseDate('15 Aprilx 2034'), null);
+  const hyphen = parseBondTable('Coupon\tMaturity\n5\t15-03-2034', { tradeDate: TRADE });
+  assert.equal(hyphen.dayFirst, true);
+  assert.equal(hyphen.rows[0].sec.maturity, '2034-03-15');
+  const calls = parseBondTable('Coupon\tMaturity\tIssue Date\tCalls\n5\t2034-03-15\t2024-03-15\t15/03/2029@101', { tradeDate: TRADE });
+  assert.equal(calls.errors.length, 0, JSON.stringify(calls.errors));
+  assert.deepEqual(calls.rows[0].sec.calls, [{ date: '2029-03-15', price: '101' }]);
+});
+
+test('numbers: only a trailing percent goes; embedded junk and non-positive redemption are refused', () => {
+  const head = 'Coupon\tMaturity\tIssue Date\tRedemption\n';
+  const run = (cpn, red) => parseBondTable(`${head}${cpn}\t2034-03-15\t2024-03-15\t${red}`, { tradeDate: TRADE });
+  assert.equal(run('5%', '100').rows[0].sec.coupon, '5');
+  assert.equal(run('2,5', '100').rows[0].sec.coupon, '2.5');
+  assert.equal(run('5%2', '100').rows.length, 0);
+  assert.equal(run('5 2', '100').rows.length, 0);
+  assert.equal(run('5', '10%0').rows.length, 0);
+  for (const bad of ['0', '-100']) assert.match(run('5', bad).errors[0].reason, /redemption .* positive/);
+});
+
+test('Settle Date is a trade date, not the issue date; a missing issue date honours month-end maturities', () => {
+  const out = parseBondTable('Coupon\tMaturity\tSettle Date\n5\t2034-05-31\t2026-10-21', { tradeDate: TRADE });
+  assert.deepEqual(out.unknown, ['Settle Date']);
+  // A 31 May maturity pays 30 Nov / 31 May: the derived issue date is 31 May 2026, not 30 May.
+  assert.equal(out.rows[0].sec.issueDate, '2026-05-31');
+  const feb = parseBondTable('Coupon\tMaturity\n5\t2034-02-28', { tradeDate: '2026-10-20' });
+  assert.equal(feb.rows[0].sec.issueDate, '2026-08-31'); // 28 Feb 2034 is a month end
+  const nov = parseBondTable('Coupon\tMaturity\n5\t2034-05-31', { tradeDate: '2026-12-15' });
+  assert.equal(nov.rows[0].sec.issueDate, '2026-11-30');
+});

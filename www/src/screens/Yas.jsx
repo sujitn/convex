@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useWorkspace, useComputation } from '../state/workspace';
 import { useStore } from '../state/store';
-import { computeYas } from '../analytics/yas';
+import { computeYas, gspreadBenchmarks, gspreadAvailable } from '../analytics/yas';
 import * as R from '../lib/requests';
 import { workoutPaths, workoutRows } from '../lib/callable';
 import { cashConvention } from '../lib/cash';
@@ -65,21 +65,31 @@ export default function Yas({ fn }) {
   const dFace = useDebounced(face);
   const usd = sec && sec.currency === 'USD';
 
-  const benchKey = JSON.stringify([benchPrices, benchmarkSet.map((b) => b.sec.id), benchmarkChoice.selection]);
-  // G-spread needs one same-maturity benchmark, or two to interpolate between.
-  const gAvail = benchmarkSet.length >= (benchmarkChoice.selection === 'ExactMaturity' ? 1 : 2);
+  // The records, not just their ids: editing an imported benchmark reruns the solve.
+  const benchKey = JSON.stringify([benchPrices, benchmarkSet, benchmarkChoice.selection]);
+  // G-spread needs a benchmark maturing the same day, or a target inside the maturities of the set.
+  const gAvail = !!sec && gspreadAvailable(sec, benchmarkSet, benchmarkChoice.selection);
+  const gCount = sec ? gspreadBenchmarks(sec, benchmarkSet, benchmarkChoice.selection).length : 0;
   const gSub = benchmarkChoice.selection === 'ExactMaturity' ? 'vs the same-maturity benchmark'
-    : benchmarkChoice.mode === 'custom' ? `vs ${benchmarkSet.length} chosen benchmarks` : 'vs on-the-run Treasuries';
+    : !usd || benchmarkChoice.mode === 'custom' ? `vs ${gCount} chosen benchmarks` : 'vs on-the-run Treasuries';
   const ready = sec && sec.kind !== 'bill' && sec.kind !== 'floating' && curve && !curve.building && quote && quoteValid(quote)
     && !(govCurve && govCurve.building);
-  const { data, error, busy } = useComputation(
+  const resultKey = `${sec && sec.id}|${benchKey}`;
+  const comp = useComputation(
     () => (ready
       ? computeYas(engine, { sec, tradeDate, settlement, quote, face: dFace, curve, benchmarks: benchmarkSet,
-        benchmarkCurve: govCurve, benchPrices, benchmarkSelection: benchmarkChoice.selection })
+        benchmarkCurve: govCurve, benchPrices, benchmarkSelection: benchmarkChoice.selection }).then((out) => ({ ...out, resultKey }))
       : null),
     [sec && sec.id, sec, dq, dFace, curve && curve.key && curve.key.id, curve && curve.key && curve.key.version, curve && curve.building,
       govCurve && govCurve.key && govCurve.key.version, benchKey, tradeDate, ready],
   );
+
+  // A quote edit keeps the last figures on screen while it recomputes; a new
+  // security or benchmark set never shows the previous one's G-spread.
+  const fresh = comp.current || (comp.data && comp.data.resultKey === resultKey);
+  const data = fresh ? comp.data : null;
+  const error = fresh ? comp.error : null;
+  const { busy } = comp;
 
   // Seed (or re-seed after a curve rebuild) an untouched Treasury quote with
   // its price off the Treasury curve; a typed quote is never replaced.
@@ -154,6 +164,7 @@ export default function Yas({ fn }) {
   const r = data && !data.fatal ? data : null;
   const fatal = data && data.fatal;
   const fatalOrError = fatal || error;
+  const g = r ? r.gspread : null;
 
   return (
     <div className="screen">
@@ -302,56 +313,56 @@ export default function Yas({ fn }) {
               )}
             </Panel>
           </div>
-
-          {sec.kind === 'fixed' && (
-            <Panel title="G-spread benchmarks" flush
-              note="actual securities; type a price to replace the curve-implied one"
-              foot={r.gspread ? `Common dated-cash convention: ${dayCountLabel(r.gspread.convention.day_count)}, ${r.gspread.convention.compounding}. ${r.gspread.selection === 'ExactMaturity' ? 'Benchmark maturing the same day.' : 'Benchmark yield interpolated linearly by maturity.'} Prices you enter are kept in this browser.` : null}>
-              <div className="panel__body"><BenchmarkPicker sec={sec} /></div>
-              {!gAvail && <div className="panel__body"><div className="note">{benchmarkChoice.selection === 'ExactMaturity' ? 'Choose a benchmark that matures the same day' : `Choose at least two ${sec.currency} benchmarks`} to calculate G-spread.</div></div>}
-              {gAvail && !r.gspread && <div className="panel__body"><EngineError error={r.errors.gspread} context="G-spread" /></div>}
-              {r.gspread && (
-              <div className="table-wrap">
-                <table className="grid">
-                  <thead><tr><th>Bucket</th><th>Security</th><th>CUSIP</th><th className="num">Coupon</th><th>Maturity</th><th className="num">Clean price</th><th className="num">Weight</th><th>Quote source</th></tr></thead>
-                  <tbody>
-                    {r.gspread.benchmarks.map((b, i) => {
-                      const s = r.gspread.selected || {};
-                      const w = i === s.lower_index ? s.lower_weight : i === s.upper_index ? s.upper_weight : null;
-                      const key = b.sec.cusip || b.sec.id;
-                      return (
-                        <tr key={key} className={w ? 'is-active' : ''}>
-                          <td>{b.bucket}Y</td><td>{b.sec.ticker || b.sec.name}</td><td className="dim">{b.sec.cusip || b.sec.isin || ''}</td>
-                          <td className="num">{b.sec.coupon}</td><td>{formatLong(b.sec.maturity)}</td>
-                          <td className="edit">
-                            <BenchPrice cusip={key} own={benchPrices[key]} implied={Number(b.quote.value)}
-                              onSet={(text) => dispatch({ type: 'benchPrice', cusip: key, text })} />
-                          </td>
-                          <td className="num">{w !== null && w !== undefined ? fmt(w, 4) : ''}</td>
-                          <td>
-                            {b.provenance === 'manual' ? (
-                              <span className="row" style={{ gap: 6 }}>
-                                <Prov status="manual">Yours</Prov>
-                                <button type="button" className="btn btn--ghost btn--sm" onClick={() => dispatch({ type: 'benchPrice', cusip: key, text: '' })}>
-                                  {b.sec.price ? 'Use imported' : 'Use curve'}
-                                </button>
-                              </span>
-                            ) : b.provenance === 'imported' ? <Prov status="manual">Imported price</Prov>
-                              : <Prov status="derived">Curve-implied</Prov>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              )}
-            </Panel>
-          )}
         </>
       )}
+
+      {sec.kind === 'fixed' && (r || (comp.data && !comp.data.fatal)) && (
+        <Panel title="G-spread benchmarks" flush
+          note="actual securities; type a price to replace the curve-implied one"
+          foot={g ? `Common dated-cash convention: ${dayCountLabel(g.convention.day_count)}, ${g.convention.compounding}. ${g.selection === 'ExactMaturity' ? 'Benchmark maturing the same day.' : 'Benchmark yield interpolated linearly by maturity.'} Prices you enter are kept in this browser.` : null}>
+          <div className="panel__body"><BenchmarkPicker sec={sec} /></div>
+          {!gAvail && <div className="panel__body"><div className="note">{benchmarkChoice.selection === 'ExactMaturity' ? `Choose a benchmark that matures ${formatLong(sec.maturity)}` : `Choose ${sec.currency} benchmarks maturing before and after ${formatLong(sec.maturity)}`} to calculate G-spread.</div></div>}
+          {gAvail && !g && <div className="panel__body">{r ? <EngineError error={r.errors.gspread} context="G-spread" /> : <><Spinner /> Calculating</>}</div>}
+          {g && (
+          <div className="table-wrap">
+            <table className="grid">
+              <thead><tr><th>Bucket</th><th>Security</th><th>CUSIP</th><th className="num">Coupon</th><th>Maturity</th><th className="num">Clean price</th><th className="num">Weight</th><th>Quote source</th></tr></thead>
+              <tbody>
+                {g.benchmarks.map((b, i) => {
+                  const s = g.selected || {};
+                  const w = i === s.lower_index ? s.lower_weight : i === s.upper_index ? s.upper_weight : null;
+                  const key = b.sec.cusip || b.sec.id;
+                  return (
+                    <tr key={key} className={w ? 'is-active' : ''}>
+                      <td>{b.bucket}Y</td><td>{b.sec.ticker || b.sec.name}</td><td className="dim">{b.sec.cusip || b.sec.isin || ''}</td>
+                      <td className="num">{b.sec.coupon}</td><td>{formatLong(b.sec.maturity)}</td>
+                      <td className="edit">
+                        <BenchPrice cusip={key} own={benchPrices[key]} implied={Number(b.quote.value)}
+                          onSet={(text) => dispatch({ type: 'benchPrice', cusip: key, text })} />
+                      </td>
+                      <td className="num">{w !== null && w !== undefined ? fmt(w, 4) : ''}</td>
+                      <td>
+                        {b.provenance === 'manual' ? (
+                          <span className="row" style={{ gap: 6 }}>
+                            <Prov status="manual">Yours</Prov>
+                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => dispatch({ type: 'benchPrice', cusip: key, text: '' })}>
+                              {b.sec.price ? 'Use imported' : 'Use curve'}
+                            </button>
+                          </span>
+                        ) : b.provenance === 'imported' ? <Prov status="manual">Imported price</Prov>
+                          : <Prov status="derived">Curve-implied</Prov>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          )}
+        </Panel>
+      )}
       {!r && !fatalOrError && (
-        <Empty>{curve && curve.building ? 'Building the curve…' : seedable ? 'Pricing off the curve…' : 'Enter a quote to analyse this security.'}</Empty>
+        <Empty>{curve && curve.building ? 'Building the curve…' : busy ? <><Spinner /> Calculating</> : seedable ? 'Pricing off the curve…' : 'Enter a quote to analyse this security.'}</Empty>
       )}
     </div>
   );

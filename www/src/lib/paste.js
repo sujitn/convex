@@ -1,7 +1,8 @@
 // Tenor/rate tables pasted from a spreadsheet, a terminal or a web page.
 // Accepts one point per line, tenor then rate. A line with a tab is split on
 // tabs only and one with a semicolon on semicolons only (so a European "3,85"
-// survives); anything else is split on commas and spaces. Header and blank
+// survives); anything else is split on commas and spaces (except that a row ending in
+// "space integer,digits", as in "1Y 3,85", keeps that last cell whole). Header and blank
 // lines are skipped; anything else that doesn't parse is reported, never guessed.
 
 import { decimal } from './decimal.js';
@@ -57,6 +58,9 @@ const HEADER = /\b(?:tenors?|terms?|maturity|maturities|rates?|yields?|par|zero|
 function cells(line) {
   if (line.includes('\t')) return line.split('\t').map((c) => c.trim()).filter(Boolean);
   if (line.includes(';')) return line.split(';').map((c) => c.trim()).filter(Boolean);
+  // "1Y 3,85": a space-separated row ending in integer,digits is a decimal comma.
+  const eu = /^(.*[^\s,])\s+([+-]?\d+,\d+\s*%?)$/.exec(line);
+  if (eu && !/,\s*$/.test(eu[1])) return [...eu[1].split(/[,\s]+/).filter(Boolean), eu[2].replace(/\s+/g, '')];
   return line.split(/[,\s]+/).filter(Boolean);
 }
 

@@ -136,3 +136,10 @@ test('scenario datasets: tenors without a quote stay without one and are never b
   assert.equal(recipe.curve.interpolation, 'CubicSpline');
   assert.deepEqual(recipe.helpers.map((h) => h.input.id), ['USD.UST.1Y', 'USD.UST.10Y']);
 });
+
+test('publication instants: years 0000 to 0099 keep their own year', async () => {
+  const { zonedTimestamp } = await import('../src/lib/ois.js');
+  assert.match(zonedTimestamp('0050-07-01', '08:00', 'UTC'), /^0050-07-01T08:00:00Z$/);
+  assert.match(zonedTimestamp('0099-12-31', '08:00', 'Europe/Berlin'), /^0099-12-31T0[67]:/);
+  assert.equal(zonedTimestamp('2024-07-01', '08:00', 'America/New_York'), '2024-07-01T12:00:00Z');
+});

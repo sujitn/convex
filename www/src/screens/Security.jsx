@@ -26,12 +26,12 @@ function SecurityList({ universe, selected, onSelect }) {
     if (group === 'bills' && s.kind !== 'bill') return false;
     if (group === 'other' && s.source === 'auction') return false;
     const t = q.trim().toUpperCase();
-    return !t || [s.cusip, s.ticker, s.name].filter(Boolean).some((v) => v.toUpperCase().includes(t));
+    return !t || [s.cusip, s.isin, s.ticker, s.name].filter(Boolean).some((v) => v.toUpperCase().includes(t));
   });
   return (
     <Panel title="Securities" flush>
       <div style={{ padding: '10px 12px 0' }}>
-        <input className="input" placeholder="Filter by CUSIP or name" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter securities" />
+        <input className="input" placeholder="Filter by CUSIP, ISIN or name" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Filter securities" />
       </div>
       <div style={{ padding: '0 6px' }}>
         <Tabs value={group} onChange={setGroup} options={[['coupon', 'Treasuries'], ['bills', 'Bills'], ['other', 'Yours and examples']]} label="Group" />

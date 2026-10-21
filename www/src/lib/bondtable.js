@@ -4,10 +4,11 @@
 // market default, reported per row, so nothing is assumed silently. Rows that
 // can't be read are reported with the reason, never guessed.
 
-import { isIso, addMonths } from './dates.js';
+import { isIso } from './dates.js';
 import { isDecimal, parsePrice } from './decimal.js';
 import { normaliseRate } from './paste.js';
 import { isinCheck, couponShort } from '../analytics/securities.js';
+import { anchoredDate, isMonthEnd } from './terms.js';
 import { frnSecurity, frnTicker, SOFR } from './frn.js';
 
 const MONTHS = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, SEPT: 9, OCT: 10, NOV: 11, DEC: 12 };
@@ -18,7 +19,7 @@ export const BOND_COLUMNS = [
   { key: 'name', label: 'Name', aliases: ['name', 'description', 'security', 'securityname', 'issuer', 'bond', 'desc'] },
   { key: 'coupon', label: 'Coupon %', required: true, aliases: ['coupon', 'cpn', 'couponrate', 'rate', 'couponpct'] },
   { key: 'maturity', label: 'Maturity', required: true, aliases: ['maturity', 'maturitydate', 'mty', 'matdate', 'maturitydt', 'redemptiondate'] },
-  { key: 'issueDate', label: 'Issue date', aliases: ['issuedate', 'issue', 'issuedt', 'settledate'] },
+  { key: 'issueDate', label: 'Issue date', aliases: ['issuedate', 'issue', 'issuedt'] },
   { key: 'datedDate', label: 'Dated date', aliases: ['dateddate', 'accrualdate', 'interestaccrualdate', 'firstaccrualdate', 'intaccrualdate'] },
   { key: 'firstCouponDate', label: 'First coupon', aliases: ['firstcoupon', 'firstcoupondate', 'firstcpn', 'firstcpndt', 'firstpaymentdate'] },
   { key: 'currency', label: 'Currency', aliases: ['currency', 'ccy', 'crncy', 'cur'] },
@@ -121,6 +122,10 @@ function ymd(y, m, d) {
 }
 const fullYear = (y) => (y.length === 2 ? 2000 + Number(y) - (Number(y) > 70 ? 100 : 0) : Number(y));
 
+const FULL_MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+// "Apr", "April", "Sept" and "September" read; "Aprilx" does not.
+const monthNumber = (word) => MONTHS[word.toUpperCase()] || FULL_MONTHS.indexOf(word.toUpperCase()) + 1 || null;
+
 /**
  * A date as typed or copied from a sheet: 2034-03-15, 03/15/2034, 15/03/2034
  * (dayFirst), 15-Mar-2034, 15 Mar 34, Mar 15, 2034, 20340315 or an Excel
@@ -135,10 +140,10 @@ export function parseDate(text, { dayFirst = false } = {}) {
   if (m) return ymd(+m[1], +m[2], +m[3]);
   m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(s);
   if (m) return dayFirst ? ymd(fullYear(m[3]), +m[2], +m[1]) : ymd(fullYear(m[3]), +m[1], +m[2]);
-  m = /^(\d{1,2})[\s-]([A-Za-z]{3,4})[a-z]*[\s-](\d{2}|\d{4})$/.exec(s);
-  if (m && MONTHS[m[2].toUpperCase()]) return ymd(fullYear(m[3]), MONTHS[m[2].toUpperCase()], +m[1]);
-  m = /^([A-Za-z]{3,4})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(s);
-  if (m && MONTHS[m[1].toUpperCase()]) return ymd(+m[3], MONTHS[m[1].toUpperCase()], +m[2]);
+  m = /^(\d{1,2})[\s-]([A-Za-z]{3,9})[\s-](\d{2}|\d{4})$/.exec(s);
+  if (m && monthNumber(m[2])) return ymd(fullYear(m[3]), monthNumber(m[2]), +m[1]);
+  m = /^([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(s);
+  if (m && monthNumber(m[1])) return ymd(+m[3], monthNumber(m[1]), +m[2]);
   if (/^\d{5}$/.test(s)) {
     // Excel serial: day 1 is 1900-01-01, with the 1900 leap-year bug.
     const n = Number(s);
@@ -150,22 +155,21 @@ export function parseDate(text, { dayFirst = false } = {}) {
   return null;
 }
 
-/** Whether slash dates in the date columns read day-first (any first part above 12). */
-function guessDayFirst(rows, dateIndexes) {
-  for (const cells of rows) {
-    for (const i of dateIndexes) {
-      const m = /^(\d{1,2})[/.](\d{1,2})[/.]\d{2,4}$/.exec(cells[i] || '');
-      if (m && +m[1] > 12) return true;
-      if (m && +m[2] > 12) return false;
-    }
+/** Whether numeric dates (slashes, dots or hyphens) read day-first: any first part above 12. */
+function guessDayFirst(dates) {
+  for (const text of dates) {
+    const m = /^(\d{1,2})[/.-](\d{1,2})[/.-]\d{2,4}$/.exec(text || '');
+    if (m && +m[1] > 12) return true;
+    if (m && +m[2] > 12) return false;
   }
   return false;
 }
 
 // "2,5" is a decimal comma (European Excel), "1,000.5" has thousands
-// separators; any other comma form is refused rather than guessed.
+// separators; a trailing % goes and any other punctuation ("5%2", "3,5,1") is
+// refused rather than guessed.
 function cleanDecimal(text) {
-  const t = normaliseRate(String(text || '').replace(/\s/g, ''));
+  const t = normaliseRate(String(text || '').trim());
   return t !== null && isDecimal(t) ? t : null;
 }
 
@@ -188,10 +192,11 @@ function parseCalls(text, opts) {
   return out.sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
-/** Last regular coupon date on or before `date`, stepping back from maturity. */
+/** Last regular coupon date on or before `date`, stepping back from maturity (month-end maturities keep month ends, as the engine rolls). */
 function couponOnOrBefore(maturity, months, date) {
+  const eom = isMonthEnd(maturity);
   let d = maturity;
-  for (let k = 1; d > date && k < 2000; k++) d = addMonths(maturity, -k * months);
+  for (let k = 1; d > date && k < 2000; k++) d = anchoredDate(maturity, months, k, eom);
   return d;
 }
 
@@ -222,7 +227,10 @@ export function parseBondTable(text, { tradeDate, dayFirst: forced } = {}) {
   }
   const body = lines.slice(1).map((l) => ({ ...l, cells: splitLine(l.text, sep) }));
   const dateIdx = columns.map((c, i) => (['maturity', 'issueDate', 'datedDate', 'firstCouponDate'].includes(c) ? i : -1)).filter((i) => i >= 0);
-  const dayFirst = forced ?? guessDayFirst(body.map((b) => b.cells), dateIdx);
+  const callsIdx = columns.indexOf('calls');
+  // Call dates ("15/03/2029@101; ...") take part in the day-first guess too.
+  const callDates = callsIdx < 0 ? [] : body.flatMap((b) => String(b.cells[callsIdx] || '').split(/[;|]/).map((p) => p.split('@')[0].trim()));
+  const dayFirst = forced ?? guessDayFirst([...body.flatMap((b) => dateIdx.map((i) => b.cells[i])), ...callDates]);
   const rows = [];
   const errors = [];
   const ids = new Set();
@@ -307,7 +315,7 @@ export function parseBondTable(text, { tradeDate, dayFirst: forced } = {}) {
     if (!(maturity > issueDate)) { fail('maturity must be after the issue date'); continue; }
 
     const redemption = get('redemption') ? cleanDecimal(get('redemption')) : '100';
-    if (redemption === null) { fail(`redemption "${get('redemption')}" is not a number`); continue; }
+    if (redemption === null || !(Number(redemption) > 0)) { fail(`redemption "${get('redemption')}" is not a positive number`); continue; }
 
     let price;
     if (get('price')) {

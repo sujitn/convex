@@ -327,6 +327,9 @@ function Calibration({ def, discount, built, table, choice }) {
   );
 }
 
+// A computation's result belongs to earlier inputs until `current`; hide it rather than show it under new ones.
+const settled = (c) => (c.current ? c : { ...c, data: null, error: null });
+
 // ---- the contract -----------------------------------------------------------------
 
 function Contract({ built, def }) {
@@ -350,29 +353,29 @@ function Contract({ built, def }) {
   const contract = { side, notional: dNotional, coupon: couponBp, maturity };
   const sig = JSON.stringify(contract);
 
-  const priced = useComputation(() => (ready ? priceContract(engine, built, contract) : null), [built, sig, ready]);
+  const priced = settled(useComputation(() => (ready ? priceContract(engine, built, contract) : null), [built, sig, ready]));
   const p = priced.data && priced.data.price;
-  const risk = useComputation(
+  const risk = settled(useComputation(
     () => (p ? contractRisk(engine, built, priced.data.terms, priced.data.context) : null),
     [priced.data],
-  );
+  ));
 
   // Conversion: the quoted spread defaults to the contract's par spread on the curve.
   const dSpread = useDebounced(spreadText);
   const dPoints = useDebounced(pointsText);
   const spreadBp = dSpread.trim() || (p ? fromNumber(p.par_spread_decimal * 1e4, 6) : '');
   const spreadOk = isDecimal(spreadBp) && Number(spreadBp) >= 0;
-  const toUpfront = useComputation(
+  const toUpfront = settled(useComputation(
     () => (ready && spreadOk ? convertQuote(engine, built, contract, { kind: 'spread', bp: spreadBp }) : null),
     [built, sig, ready, spreadBp],
-  );
+  ));
   const u = toUpfront.data && toUpfront.data.data;
   const pointsIn = dPoints.trim() || (u ? fromNumber(u.valuation.clean_upfront_fraction * 100, 10) : '');
   const pointsOk = isDecimal(pointsIn);
-  const toSpread = useComputation(
+  const toSpread = settled(useComputation(
     () => (ready && pointsOk ? convertQuote(engine, built, contract, { kind: 'upfront', points: pointsIn }) : null),
     [built, sig, ready, pointsIn],
-  );
+  ));
   const s = toSpread.data && toSpread.data.data;
 
   const r = risk.data;
@@ -480,7 +483,7 @@ function Contract({ built, def }) {
                   ]} />
                   <EngineError error={r.parallel.error} context="CS01" />
                   <EngineError error={r.recovery.error} context="Recovery" />
-                  <EngineError error={r.recoveryHeld.error} context="Recovery" />
+                  {r.recoveryHeld.error !== r.recovery.error && <EngineError error={r.recoveryHeld.error} context="Recovery" />}
                   <EngineError error={r.rates.error} context="Discount risk" />
                 </>
               ) : risk.error ? <EngineError error={risk.error} context="Risk" /> : <span className="dim"><Spinner /> Risk…</span>}
@@ -600,15 +603,17 @@ function CreditAnalysis({ def }) {
     [ready, curve && curve.key && `${curve.key.id}|${curve.key.version}`, curve && curve.error, horizon, choice && choice.kind],
   );
   const sig = JSON.stringify([def.entity, def.seniority, def.recovery, def.docClause, def.calendar, def.points, def.revision]);
+  // The discount result belongs to the previous curve until `current`; calibrate and price only on the chosen one.
+  const disc = discount.current ? discount : { ...discount, data: null, error: null };
   const built = useComputation(
-    () => (discount.data ? buildCredit(engine, def, { tradeDate, discount: discount.data }) : null),
-    [discount.data, sig, tradeDate],
+    () => (disc.data ? buildCredit(engine, def, { tradeDate, discount: disc.data }) : null),
+    [disc.data, sig, tradeDate],
   );
-  const b = built.current ? built.data : null;
+  const b = built.current && disc.data ? built.data : null;
   const table = useComputation(() => (b && b.survival ? creditTable(engine, b) : null), [b]);
   return (
     <>
-      <Calibration def={def} discount={discount.data} built={b} table={table.current ? table.data : null} choice={choice} />
+      <Calibration def={def} discount={disc.data} built={b} table={table.current ? table.data : null} choice={choice} />
       {b && b.survival && <Contract built={b} def={def} />}
     </>
   );
