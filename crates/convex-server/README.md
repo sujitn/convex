@@ -230,6 +230,8 @@ ServerConfig::from_env and apply_env_overrides now return Result. ServerConfig::
 
 The startup configuration changes preserve pricing conventions. The reference repository schema and write requirements are described below.
 
+`convex_server::compose(config)` is the single composition root. The executable and `tests/application_path.rs` both call it. It validates startup settings, opens storage and builds the engine and server. It does not start or bind anything. Call `composition.engine.start()`, then `composition.server.start()` or `serve_until`. Composition failures return `StartupError::Composition { stage, .. }`. Dropping a stopped composition releases the redb file, so calling `compose` again reopens the same state. The Fly showcase image is described in [deploy/showcase](../../deploy/showcase/README.md).
+
 ## Authoritative bond reference data
 
 Bond CRUD and pricing reads use the same `ReferenceRepository` configured in the engine's `StorageAdapter`. The executable uses redb. Creating another router for the same engine shares its references; it does not allocate another bond store. `MemoryReferenceRepository` is available for volatile fixtures and explicit embedded demonstrations.

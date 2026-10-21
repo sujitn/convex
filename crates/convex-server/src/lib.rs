@@ -12,11 +12,10 @@
 //! ## Usage
 //!
 //! ```ignore
-//! use convex_server::Server;
-//!
-//! let access = convex_server::access::AccessControl::from_settings(&config.access).await?;
-//! let server = Server::with_access_control(config, engine, access);
-//! server.start().await?;
+//! // The executable and the acceptance tests share this one composition root.
+//! let composition = convex_server::compose(config).await?;
+//! composition.engine.start().await?;
+//! composition.server.start().await?;
 //! ```
 
 #![warn(missing_docs)]
@@ -24,6 +23,7 @@
 
 pub mod access;
 mod analytics;
+mod composition;
 pub mod config;
 pub mod configuration_admin;
 mod core_workflow;
@@ -46,6 +46,7 @@ use tracing::info;
 
 use convex_engine::PricingEngine;
 
+pub use composition::{compose, Composition};
 pub use config::{ConfigError, ServerConfig, ServerProfile};
 
 /// Startup failures preserve configuration and listener error classifications.
@@ -63,6 +64,14 @@ pub enum StartupError {
     /// Missing or inconsistent access composition.
     #[error(transparent)]
     Access(#[from] access::AccessError),
+    /// A storage, adapter or identity dependency could not be composed.
+    #[error("COMPOSITION_FAILED: {stage}: {source}")]
+    Composition {
+        /// Composition step that failed.
+        stage: &'static str,
+        /// Underlying adapter error.
+        source: Box<dyn std::error::Error + Send + Sync>,
+    },
 }
 
 /// Composition-root executable identity; release builds supply CONVEX_BUILD_ID at compile time.

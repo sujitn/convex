@@ -1,0 +1,14 @@
+# Showcase server config (Fly.io app convex-pricing-api).
+# The server binds loopback only and runs local_development access: it has NO
+# authentication. Caddy (see Caddyfile) is the only public listener and the
+# only write guard; do not expose this port directly.
+profile = "demo"
+host = "127.0.0.1"
+port = 8081
+websocket_enabled = true
+storage_path = "/app/data/convex.redb"
+
+[access]
+mode = "local_development"
+tls_boundary = "local_only"
+cors_origins = ["https://convex-demo.pages.dev"]
