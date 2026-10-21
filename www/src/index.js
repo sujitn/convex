@@ -1,50 +1,30 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import './styles/bloomberg.css';
-// WASM initialization fix
+import Boot from './ui/Boot';
+import { createEngine } from './engine/client';
+import './styles/app.css';
 
-// Initialize WASM module
-let wasmModule = null;
-
-async function initWasm() {
-  try {
-    // Dynamic import of the WASM module (web target)
-    const wasm = await import('../pkg');
-    // With --target web, we need to call the default init function first
-    if (wasm.default) {
-      await wasm.default();
-    }
-    wasmModule = wasm;
-    console.log('WASM module initialized successfully');
-    return wasm;
-  } catch (error) {
-    console.error('Failed to initialize WASM module:', error);
-    throw error;
-  }
-}
-
-// Export for use in components
-export function getWasmModule() {
-  return wasmModule;
-}
-
-// Initialize and render
-async function main() {
-  const wasm = await initWasm();
-  wasmModule = wasm;
-
-  const container = document.getElementById('root');
+// The analytics engine must load before anything is shown: there is no mock
+// or fallback calculator. Until it is ready the boot screen shows download
+// progress; if it fails, an error is rendered instead of the application.
+export async function main({ engineFactory = createEngine, container = document.getElementById('root') } = {}) {
   const root = createRoot(container);
-  root.render(
-    <React.StrictMode>
-      <App wasmModule={wasm} />
-    </React.StrictMode>
-  );
+  let engine;
+  try {
+    engine = engineFactory();
+    root.render(<Boot engine={engine} />);
+    await engine.ready;
+  } catch (error) {
+    root.render(
+      <div className="boot-error" role="alert">
+        <p>Unable to load the analytics engine.</p>
+        <p className="boot-error__detail">{String((error && error.message) || error)}</p>
+      </div>,
+    );
+    return;
+  }
+  root.render(<App engine={engine} />);
 }
 
-main().catch(() => {
-  createRoot(document.getElementById('root')).render(
-    <div className="error-banner" role="alert">Unable to load the analytics engine.</div>
-  );
-});
+if (typeof window !== 'undefined' && !window.__CONVEX_NO_AUTOSTART__) main();

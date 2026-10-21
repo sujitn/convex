@@ -5,7 +5,7 @@
 [![Build Status](https://github.com/sujitn/convex/workflows/CI/badge.svg)](https://github.com/sujitn/convex/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**[Live Demo](https://convex-demo.pages.dev/)** | **[WASM Demo](https://sujitn.github.io/convex/)** - Try the interactive bond analytics calculator
+**[Live Demo](https://convex-demo.pages.dev/)** | **[Convex Terminal](https://sujitn.github.io/convex/)** - bond yield, spread, curve and risk analytics in the browser on free public market data ([www/](www/README.md))
 
 Convex is a fixed income analytics library providing bond pricing, yield curve
 construction and risk analytics. Full mandatory library and production
@@ -23,7 +23,7 @@ certification remain open; see [current API capabilities and gaps](docs/LIBRARY-
 - **Holiday Calendars**: SIFMA, TARGET2, UK, Japan with O(1) lookups + dynamic calendars
 - **High Performance**: Microsecond-level pricing
 - **Type Safety**: Leverage Rust's type system to prevent errors
-- **WebAssembly**: Full browser support via wasm-pack ([Live Demo](https://convex-demo.pages.dev/) | [WASM Demo](https://sujitn.github.io/convex/))
+- **WebAssembly**: the full supplied-input `library()` API via wasm-pack; the [Convex Terminal](https://sujitn.github.io/convex/) runs it in a Web Worker against live Treasury, NY Fed, ECB and Bank of Canada data ([www/](www/README.md))
 - **Language Bindings**: C FFI and Java (published to Maven Central) available; Python and C# planned
 
 ## Quick Start
