@@ -22,26 +22,31 @@ rules to what is forwarded.
   preflights. The server answers only valid preflights for existing routes.
 - `POST` on the stateless calculators: `/api/v1/quote`, `/api/v1/batch/price`,
   `/api/v1/analytics` (exact), `/api/v1/runtime/valuation`,
-  `/api/v1/reference/resolve`, `/api/v1/etf/*`, `/api/v1/portfolio/*`,
-  `/api/v1/benchmark/*`, `/api/v1/liquidity/*`, `/api/v1/credit/*`
+  `/api/v1/reference/resolve`, `/api/v1/curves/bootstrap`, `/api/v1/etf/*`,
+  `/api/v1/portfolio/*`, `/api/v1/benchmark/*`, `/api/v1/liquidity/*`,
+  `/api/v1/credit/*`
 
-`POST /api/v1/curves` and `/api/v1/curves/bootstrap` are not public. Both
-write to the unbounded in-memory `CurveBuilder`, so the frontend's curve
-calibration page fails on the showcase until P1 makes bootstrap stateless.
+`POST /api/v1/curves` (the durable recipe store) is not public.
+`/api/v1/curves/bootstrap` calibrates and returns a curve without storing it.
 
 ## Storage and seed
 
 Storage (`/app/data/convex.redb`) is ephemeral and reseeded on every boot.
 `seed.json` holds one fictional bond (with its issuer, calendar, convention and
-identifier mappings, from `crates/convex-ext-file/tests/fixtures/instrument-master.json`)
-and six synthetic `Demo` curve recipes (from `tools/core_snapshot_workflow.py`).
-Regenerate it with `python3 deploy/showcase/make_seed.py`; the script first
-materializes the packed test fixtures it reads.
+identifier mappings, from `crates/convex-ext-file/tests/fixtures/instrument-master.json`),
+six synthetic `Demo` curve recipes (from `tools/core_snapshot_workflow.py`) and
+one pricing configuration, `SHOWCASE-USD`, that gives USD bonds the `D.OIS`
+discount and `P.SOFR` swap-benchmark curves. Regenerate it with
+`python3 deploy/showcase/make_seed.py`; the script first materializes the packed
+test fixtures it reads.
 
-The curve recipes are a dated capture: `source_time` is 2026-10-07 and
-`max_age_ms` is one day. A core snapshot assembled at the current time rejects
-them as stale. Nothing public consumes them in this phase. P1, which prices
-by curve, needs fresh recipes or an explicit historical cutoff.
+The seed is a dated capture: everything is recorded at 2026-10-07T12:00:00Z and
+the curves' `max_age_ms` is one day. Curve reads and price-by-ID take an
+explicit cutoff, so the showcase prices at the capture time, for example
+`GET /api/v1/quotes/INSTRUMENT-001?market_price=99.5&known_at=2026-10-07T12:00:00Z`.
+Without `known_at` the cutoff is the current time, and the request is refused
+with `MISSING_INPUT` (stale curve) rather than priced without curves. The response headers report the
+reference, configuration and curve versions consumed.
 
 ## CORS
 

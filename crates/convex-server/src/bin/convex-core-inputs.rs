@@ -11,6 +11,7 @@ use convex_engine::ports::{
     fixing::{FixingRepository, PublishedFixing},
     reference_repository::ReferenceCommand,
     snapshot::SnapshotCurveRecipe,
+    storage::{validate_pricing_config, BondPricingConfig},
 };
 use serde::Deserialize;
 use std::{io::Read, process::ExitCode};
@@ -27,6 +28,9 @@ struct Import {
     references: Vec<ReferenceImport>,
     curves: Vec<SnapshotCurveRecipe>,
     fixings: Vec<PublishedFixing>,
+    /// Pricing configurations naming each instrument's curve roles.
+    #[serde(default)]
+    pricing_configs: Vec<BondPricingConfig>,
 }
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -63,6 +67,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         || input.references.len() > 32
         || input.curves.len() > 256
         || input.fixings.len() > 100_000
+        || input.pricing_configs.len() > 64
     {
         return Err("invalid core import schema/bounds".into());
     }
@@ -75,6 +80,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     for f in &input.fixings {
         f.validate()?;
     }
+    for p in &input.pricing_configs {
+        validate_pricing_config(p)?;
+    }
     let (storage, _, fixings) = convex_ext_redb::create_redb_storage_with_core(&args[0])?;
     for r in &input.references {
         storage.bonds.commit(&r.command, r.recorded_at).await?;
@@ -82,12 +90,15 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     for c in &input.curves {
         storage.curves.save_recipe(c).await?;
     }
+    for p in &input.pricing_configs {
+        storage.configs.save(p).await?;
+    }
     if !input.fixings.is_empty() {
         fixings.publish(&input.fixings).await?;
     }
     println!(
         "{}",
-        serde_json::json!({"schema_version":1,"reference_commands":input.references.len(),"curve_recipes":input.curves.len(),"fixing_revisions":input.fixings.len()})
+        serde_json::json!({"schema_version":1,"reference_commands":input.references.len(),"curve_recipes":input.curves.len(),"fixing_revisions":input.fixings.len(),"pricing_configs":input.pricing_configs.len()})
     );
     Ok(())
 }

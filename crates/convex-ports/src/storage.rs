@@ -575,6 +575,12 @@ impl BondFilter {
         if self.is_callable.is_some() {
             score += 10;
         }
+        if self.is_floating.is_some() {
+            score += 10;
+        }
+        if self.is_inflation_linked.is_some() {
+            score += 10;
+        }
 
         // Currency
         if self.currency.is_some() {
@@ -588,6 +594,9 @@ impl BondFilter {
         if self.maturity_to.is_some() {
             score += 5;
         }
+        if self.text_search.is_some() {
+            score += 5;
+        }
 
         score
     }
@@ -597,43 +606,21 @@ impl BondFilter {
 // CURVE STORE
 // =============================================================================
 
-/// Curve configuration (what instruments to use for building).
+/// Bound on `CurveStore::recipe_heads` results, the curve listing page size.
+pub const MAX_CURVE_LISTING: usize = 256;
+
+/// Latest stored revision of one curve, for bounded management listings.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CurveConfig {
-    /// Curve identifier
+pub struct CurveRecipeHead {
+    /// Curve identity.
     pub curve_id: CurveId,
-    /// Curve name
-    pub name: String,
-    /// Currency
-    pub currency: convex_core::Currency,
-    /// Interpolation method
-    pub interpolation: String,
-    /// Day count convention
-    pub day_count: String,
-    /// Instrument tenors (e.g., ["1M", "3M", "1Y", "5Y", "10Y"])
-    pub tenors: Vec<String>,
-    /// Build schedule
-    pub build_schedule: String,
-    /// Last updated
-    pub last_updated: i64,
+    /// Highest stored record revision.
+    pub version: convex_core::contracts::Version,
+    /// Recording time of that revision.
+    pub recorded_at: convex_core::contracts::UtcTimestamp,
 }
 
-/// Curve snapshot (built curve at a point in time).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CurveSnapshot {
-    /// Curve identifier
-    pub curve_id: CurveId,
-    /// As-of timestamp
-    pub as_of: i64,
-    /// Curve points (tenor days -> zero rate)
-    pub points: Vec<(u32, f64)>,
-    /// Inputs hash (for change detection)
-    pub inputs_hash: String,
-    /// Build duration (ms)
-    pub build_duration_ms: u64,
-}
-
-/// Curve storage (configs and snapshots).
+/// The single durable curve owner: immutable, versioned native curve recipes.
 #[async_trait]
 pub trait CurveStore: Send + Sync {
     /// Save one immutable complete native curve recipe. Same revision/different content conflicts.
@@ -651,45 +638,24 @@ pub trait CurveStore: Send + Sync {
     ) -> Result<Option<crate::snapshot::SnapshotCurveRecipe>, TraitError> {
         Err(TraitError::Unsupported("complete curve recipe persistence"))
     }
-    // Config methods
-
-    /// Get curve config by ID.
-    async fn get_config(&self, id: &CurveId) -> Result<Option<CurveConfig>, TraitError>;
-
-    /// Save curve config.
-    async fn save_config(&self, config: &CurveConfig) -> Result<(), TraitError>;
-
-    /// List all curve configs.
-    async fn list_configs(&self) -> Result<Vec<CurveConfig>, TraitError>;
-
-    /// Delete curve config.
-    async fn delete_config(&self, id: &CurveId) -> Result<bool, TraitError>;
-
-    // Snapshot methods
-
-    /// Save curve snapshot.
-    async fn save_snapshot(&self, snapshot: &CurveSnapshot) -> Result<(), TraitError>;
-
-    /// Get curve snapshot at a specific time.
-    async fn get_snapshot(
+    /// Highest revision recorded at or before `known_at`. The caller supplies the
+    /// cutoff and reports the returned version; there is no implicit latest.
+    async fn recipe_at(
         &self,
-        id: &CurveId,
-        as_of: i64,
-    ) -> Result<Option<CurveSnapshot>, TraitError>;
-
-    /// Get latest curve snapshot.
-    async fn get_latest_snapshot(&self, id: &CurveId) -> Result<Option<CurveSnapshot>, TraitError>;
-
-    /// List snapshots in time range.
-    async fn list_snapshots(
+        _id: &CurveId,
+        _known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<Option<crate::snapshot::SnapshotCurveRecipe>, TraitError> {
+        Err(TraitError::Unsupported("complete curve recipe persistence"))
+    }
+    /// Up to `limit` (at most [`MAX_CURVE_LISTING`]) curve heads in identity order,
+    /// starting after `after` when given.
+    async fn recipe_heads(
         &self,
-        id: &CurveId,
-        from: i64,
-        to: i64,
-    ) -> Result<Vec<CurveSnapshot>, TraitError>;
-
-    /// Delete snapshots before a timestamp.
-    async fn delete_snapshots_before(&self, id: &CurveId, before: i64) -> Result<u64, TraitError>;
+        _after: Option<&CurveId>,
+        _limit: usize,
+    ) -> Result<Vec<CurveRecipeHead>, TraitError> {
+        Err(TraitError::Unsupported("complete curve recipe persistence"))
+    }
 }
 
 // =============================================================================
@@ -733,6 +699,36 @@ impl BondPricingConfig {
         self.priority
             .unwrap_or_else(|| self.applies_to.specificity() as i32)
     }
+}
+
+/// The active configuration that applies to `bond` with the highest effective
+/// priority. `Ok(None)` when none applies; a tie between distinct configurations
+/// is refused rather than broken by an arbitrary order.
+pub fn select_pricing_config<'a>(
+    configs: &'a [BondPricingConfig],
+    bond: &BondReferenceData,
+) -> Result<Option<&'a BondPricingConfig>, TraitError> {
+    let mut best: Option<&BondPricingConfig> = None;
+    let mut tied = false;
+    for config in configs
+        .iter()
+        .filter(|c| c.active && c.applies_to.matches(bond))
+    {
+        match best.map(|b| config.effective_priority().cmp(&b.effective_priority())) {
+            None | Some(std::cmp::Ordering::Greater) => {
+                best = Some(config);
+                tied = false;
+            }
+            Some(std::cmp::Ordering::Equal) => tied = true,
+            Some(std::cmp::Ordering::Less) => {}
+        }
+    }
+    if tied {
+        return Err(TraitError::Conflict(
+            "ambiguous applicable pricing configuration",
+        ));
+    }
+    Ok(best)
 }
 
 /// Config version info.

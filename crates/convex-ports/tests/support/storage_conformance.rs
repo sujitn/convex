@@ -367,65 +367,79 @@ pub async fn audit_is_append_only(store: Arc<dyn AuditStore>) {
     assert_eq!(page.total, 1);
 }
 
-pub async fn curve_snapshots_are_immutable_and_ordered(store: Arc<dyn CurveStore>) {
-    let id = CurveId::new("USD");
-    let snapshot = |as_of| CurveSnapshot {
-        curve_id: id.clone(),
-        as_of,
-        points: vec![(365, -0.0025), (730, 0.012)],
-        inputs_hash: format!("fixture-{as_of}"),
-        build_duration_ms: 1,
+pub async fn curve_recipes_resolve_at_known_at(store: Arc<dyn CurveStore>) {
+    use convex_core::contracts::{DataQuality, ModelId, SourceId, UtcTimestamp, Version};
+    use convex_ports::snapshot::SnapshotCurveRecipe;
+    let time = |v: &str| UtcTimestamp::parse(v).unwrap();
+    let recipe = |id: &str, version: u64, recorded: &str| SnapshotCurveRecipe {
+        schema_version: 1,
+        curve_id: convex_core::contracts::CurveId::new(id).unwrap(),
+        version: Version::new(version).unwrap(),
+        source_time: time(recorded),
+        recorded_at: time(recorded),
+        source: SourceId::new("fixture-source").unwrap(),
+        model_id: ModelId::new("fixture-model").unwrap(),
+        input_versions: vec![],
+        quality: DataQuality::Valid,
+        max_age_ms: 86_400_000,
+        recipe: serde_json::json!({"key": {"id": id, "version": version.to_string()}}),
     };
-    for time in [300, 100, 200] {
-        store.save_snapshot(&snapshot(time)).await.unwrap();
+    let id = CurveId::new("USD");
+    let first = recipe("USD", 1, "2026-10-01T12:00:00Z");
+    let second = recipe("USD", 2, "2026-10-02T12:00:00Z");
+    for record in [&second, &first, &recipe("EUR", 1, "2026-10-01T12:00:00Z")] {
+        store.save_recipe(record).await.unwrap();
     }
-    store.save_snapshot(&snapshot(100)).await.unwrap();
-    let mut changed = snapshot(100);
-    changed.points[0].1 = 0.0025;
+    store.save_recipe(&first).await.unwrap();
+    let mut changed = first.clone();
+    changed.max_age_ms = 1;
     assert!(matches!(
-        store.save_snapshot(&changed).await,
+        store.save_recipe(&changed).await,
         Err(TraitError::Conflict(_))
     ));
-    let mut other = snapshot(999);
-    other.curve_id = CurveId::new("USD-OTHER");
-    store.save_snapshot(&other).await.unwrap();
+    let at = |v| store.recipe_at(&id, time(v));
+    assert_eq!(at("2026-09-30T00:00:00Z").await.unwrap(), None);
     assert_eq!(
-        store.get_latest_snapshot(&id).await.unwrap(),
-        Some(snapshot(300))
+        at("2026-10-01T12:00:00Z").await.unwrap(),
+        Some(first.clone())
     );
     assert_eq!(
-        store.list_snapshots(&id, 100, 200).await.unwrap(),
-        [snapshot(100), snapshot(200)]
+        at("2026-10-02T11:59:59Z").await.unwrap(),
+        Some(first.clone())
     );
+    assert_eq!(
+        at("2026-10-03T00:00:00Z").await.unwrap(),
+        Some(second.clone())
+    );
+    assert_eq!(
+        store
+            .get_recipe(&id, Version::new(1).unwrap())
+            .await
+            .unwrap(),
+        Some(first)
+    );
+    assert_eq!(
+        store
+            .recipe_at(&CurveId::new("GBP"), time("2026-10-03T00:00:00Z"))
+            .await
+            .unwrap(),
+        None
+    );
+    let heads = store.recipe_heads(None, 10).await.unwrap();
+    let listed: Vec<_> = heads
+        .iter()
+        .map(|h| (h.curve_id.as_str().to_owned(), h.version.get()))
+        .collect();
+    assert_eq!(listed, [("EUR".to_owned(), 1), ("USD".to_owned(), 2)]);
+    assert_eq!(heads[1].recorded_at, second.recorded_at);
+    let page = store
+        .recipe_heads(Some(&CurveId::new("EUR")), 1)
+        .await
+        .unwrap();
+    assert_eq!(page.len(), 1);
+    assert_eq!(page[0].curve_id, id);
     assert!(matches!(
-        store.list_snapshots(&id, 200, 100).await,
-        Err(TraitError::InvalidInput(_))
+        store.recipe_heads(None, MAX_CURVE_LISTING + 1).await,
+        Err(TraitError::CapacityExceeded)
     ));
-    assert_eq!(store.delete_snapshots_before(&id, 200).await.unwrap(), 1);
-    assert_eq!(
-        store.get_snapshot(&id, 200).await.unwrap(),
-        Some(snapshot(200))
-    );
-    assert!(store.get_snapshot(&id, 100).await.unwrap().is_none());
-    assert_eq!(
-        store.delete_snapshots_before(&id, i64::MIN).await.unwrap(),
-        0
-    );
-    assert_eq!(
-        store.get_latest_snapshot(&other.curve_id).await.unwrap(),
-        Some(other)
-    );
-    let mut invalid = snapshot(400);
-    invalid.points[0].1 = f64::INFINITY;
-    assert!(matches!(
-        store.save_snapshot(&invalid).await,
-        Err(TraitError::InvalidInput(_))
-    ));
-    invalid = snapshot(400);
-    invalid.points.swap(0, 1);
-    assert!(matches!(
-        store.save_snapshot(&invalid).await,
-        Err(TraitError::InvalidInput(_))
-    ));
-    assert!(store.get_snapshot(&id, 400).await.unwrap().is_none());
 }

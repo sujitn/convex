@@ -232,6 +232,40 @@ The startup configuration changes preserve pricing conventions. The reference re
 
 `convex_server::compose(config)` is the single composition root. The executable and `tests/application_path.rs` both call it. It validates startup settings, opens storage and builds the engine and server. It does not start or bind anything. Call `composition.engine.start()`, then `composition.server.start()` or `serve_until`. Adapter failures while opening storage, snapshots, the result publisher, the quote replay or the build identity return `StartupError::Composition { stage, .. }`. Configuration, access, I/O and engine-build failures keep their own `StartupError` variants. Dropping a stopped composition releases the redb file, so calling `compose` again reopens the same state. The Fly showcase image is described in [deploy/showcase](../../deploy/showcase/README.md).
 
+## Curves and price-by-ID
+
+`CurveStore` is the single curve owner. It holds immutable, versioned native
+recipes (`SnapshotCurveRecipe`) in redb; the server keeps no curve cache.
+
+| Route | Behaviour |
+|---|---|
+| `POST /api/v1/curves` | Store one recipe revision (same write as `POST /api/v1/analytics/curves`). `204`; an identical retry is `204`; different content under a stored version is `409 CONFLICT`. |
+| `GET /api/v1/curves?after=&limit=` | Each curve's highest stored revision, in identity order, `limit` 1..=256 (default 100). `next` names the cursor for the following page. |
+| `GET /api/v1/curves/{id}?known_at=` | The highest revision recorded at or before `known_at`, with `x-convex-curve-version`. `404` when none. |
+| `GET /api/v1/curves/{id}/zero/{t}`, `/discount/{t}`, `/forward/{t1}/{t2}` | Build that revision and its exact dependencies, then query. A missing or stale curve is `422 MISSING_INPUT`. |
+| `POST /api/v1/curves/bootstrap` | Stateless calibration: returns points and residuals, stores nothing. Unknown or incomplete instruments are `400`. At most 128 instruments, the calibrators' bound. |
+
+There is no `DELETE`: revisions are history. `known_at` defaults to the current
+time; cutoff-aware curve reads and quote responses echo it in `x-convex-known-at`.
+
+`GET /api/v1/quotes/{id}?market_price=&settlement_date=&known_at=` prices a
+stored bond with curves. The reference terms are read at `known_at`. The
+applicable pricing configuration (active, `applies_to` matches, highest
+priority; a tie is refused) names the discount curve and optional swap
+benchmark. Those curves are the revisions current at `known_at` and must be
+fresh at it, by the same rule as core snapshot assembly. If no configuration
+applies, or a curve is missing, stale or has the wrong role or currency, the
+request is refused with `422 MISSING_INPUT`; it never prices without curves.
+The response reports what it consumed in `x-convex-reference-version`,
+`x-convex-pricing-config` (`id@version`), `x-convex-curve-versions`
+(`id@version,...`, including dependencies) and `x-convex-known-at`. The
+settlement date defaults to the `known_at` date. `market_price` is required; a
+request without it is `422 MISSING_INPUT`. Only a request without `known_at` is
+broadcast to WebSocket subscribers as a live quote.
+
+Curve and quote errors share one body, `{"error", "code", "retryable"}`
+(`crate::error::ApiError`); other routes migrate to it over time.
+
 ## Authoritative bond reference data
 
 Bond CRUD and pricing reads use the same `ReferenceRepository` configured in the engine's `StorageAdapter`. The executable uses redb. Creating another router for the same engine shares its references; it does not allocate another bond store. `MemoryReferenceRepository` is available for volatile fixtures and explicit embedded demonstrations.

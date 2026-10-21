@@ -14,7 +14,7 @@ use support::*;
 use tower::ServiceExt;
 
 #[tokio::test]
-async fn existing_curve_creation_rejects_single_pillar_without_installing_a_curve() {
+async fn curve_creation_rejects_an_invalid_recipe_without_storing_it() {
     let setup = setup().await;
     let engine = make_engine(
         &setup,
@@ -23,7 +23,7 @@ async fn existing_curve_creation_rejects_single_pillar_without_installing_a_curv
         setup.store.clone(),
         RuntimeInput::Captured,
     );
-    let curve_id = convex_core::ids::CurveId::new("REJECT-SINGLE-PILLAR");
+    let curve_id = convex_core::ids::CurveId::new("REJECT-MISMATCHED-KEY");
     let router = convex_server::routes::create_router_with_access(
         engine.clone(),
         true,
@@ -35,12 +35,19 @@ async fn existing_curve_creation_rejects_single_pillar_without_installing_a_curv
                 .method("POST")
                 .uri("/api/v1/curves")
                 .header("content-type", "application/json")
-                .header("Idempotency-Key", "cvx063-single-pillar")
                 .body(Body::from(
                     serde_json::to_vec(&serde_json::json!({
+                        "schema_version": 1,
                         "curve_id": curve_id.as_str(),
-                        "reference_date": "2026-10-02",
-                        "points": [{"tenor": 1.0, "rate": 0.023}]
+                        "version": 1,
+                        "source_time": "2026-10-02T12:00:00Z",
+                        "recorded_at": "2026-10-02T12:00:00Z",
+                        "source": "fixture-source",
+                        "model_id": "fixture-model",
+                        "input_versions": [],
+                        "quality": "Valid",
+                        "max_age_ms": 86_400_000,
+                        "recipe": {"key": {"id": "SOME-OTHER-CURVE", "version": "1"}}
                     }))
                     .unwrap(),
                 ))
@@ -49,10 +56,16 @@ async fn existing_curve_creation_rejects_single_pillar_without_installing_a_curv
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert!(engine.curve_builder().get(&curve_id).is_none());
     let body: serde_json::Value =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert!(body["error"].as_str().unwrap().contains("two"));
+    assert_eq!(body["code"], "INVALID_INPUT", "{body}");
+    let later = UtcTimestamp::parse("2027-01-01T00:00:00Z").unwrap();
+    assert!(engine
+        .curve_store()
+        .recipe_at(&curve_id, later)
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]

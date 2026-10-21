@@ -46,40 +46,7 @@ async fn audit_is_append_only() {
     conformance::audit_is_append_only(s.audit).await;
 }
 #[tokio::test]
-async fn curve_snapshots_are_immutable_and_ordered() {
+async fn curve_recipes_resolve_at_known_at() {
     let (_directory, s) = storage();
-    conformance::curve_snapshots_are_immutable_and_ordered(s.curves).await;
-}
-#[tokio::test]
-async fn curve_config_projection_queries_and_deletion_are_consistent() {
-    use convex_core::ids::CurveId;
-    use convex_core::Currency;
-    use convex_ports::storage::CurveConfig;
-    let (_directory, s) = storage();
-    let first = CurveConfig {
-        curve_id: CurveId::new("Z"),
-        name: "fictional curve".into(),
-        currency: Currency::USD,
-        interpolation: "Linear".into(),
-        day_count: "Act365Fixed".into(),
-        tenors: vec!["1Y".into()],
-        build_schedule: "manual".into(),
-        last_updated: 0,
-    };
-    let mut second = first.clone();
-    second.curve_id = CurveId::new("A");
-    s.curves.save_config(&first).await.unwrap();
-    s.curves.save_config(&second).await.unwrap();
-    assert_eq!(
-        s.curves.list_configs().await.unwrap(),
-        [second, first.clone()]
-    );
-    assert!(s.curves.delete_config(&first.curve_id).await.unwrap());
-    assert!(s
-        .curves
-        .get_config(&first.curve_id)
-        .await
-        .unwrap()
-        .is_none());
-    assert!(!s.curves.delete_config(&first.curve_id).await.unwrap());
+    conformance::curve_recipes_resolve_at_known_at(s.curves).await;
 }

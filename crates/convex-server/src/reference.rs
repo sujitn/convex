@@ -19,25 +19,7 @@ use serde::Deserialize;
 use crate::handlers::AppState;
 
 pub(crate) fn reference_error(error: ReferenceError) -> Response {
-    let (status, code, retryable) = match error {
-        ReferenceError::InvalidInput(_) => (StatusCode::BAD_REQUEST, "INVALID_INPUT", false),
-        ReferenceError::Conflict(_) => (StatusCode::CONFLICT, "VERSION_CONFLICT", false),
-        ReferenceError::AmbiguousIdentifier => {
-            (StatusCode::CONFLICT, "AMBIGUOUS_IDENTIFIER", false)
-        }
-        ReferenceError::NotFound => (StatusCode::NOT_FOUND, "MISSING_REFERENCE", false),
-        ReferenceError::CapacityExceeded => (StatusCode::SERVICE_UNAVAILABLE, "UNAVAILABLE", false),
-        ReferenceError::Unavailable => (StatusCode::SERVICE_UNAVAILABLE, "UNAVAILABLE", true),
-        ReferenceError::UnknownOutcome => {
-            (StatusCode::SERVICE_UNAVAILABLE, "UNKNOWN_OUTCOME", false)
-        }
-        ReferenceError::Unsupported(_) => (StatusCode::SERVICE_UNAVAILABLE, "UNAVAILABLE", false),
-    };
-    (
-        status,
-        Json(serde_json::json!({"error":error.to_string(), "code":code, "retryable":retryable})),
-    )
-        .into_response()
+    crate::error::ApiError::from(error).into_response()
 }
 
 pub(crate) async fn commit_reference_transaction(

@@ -27,6 +27,8 @@ mod composition;
 pub mod config;
 pub mod configuration_admin;
 mod core_workflow;
+mod curves;
+mod error;
 pub mod handlers;
 pub mod health;
 mod reference;
@@ -159,6 +161,10 @@ impl Server {
                 HeaderName::from_static("x-convex-profile"),
                 HeaderName::from_static("x-convex-data-quality"),
                 HeaderName::from_static("x-convex-reference-version"),
+                HeaderName::from_static("x-convex-curve-version"),
+                HeaderName::from_static("x-convex-curve-versions"),
+                HeaderName::from_static("x-convex-pricing-config"),
+                HeaderName::from_static("x-convex-known-at"),
                 HeaderName::from_static("etag"),
             ]);
 

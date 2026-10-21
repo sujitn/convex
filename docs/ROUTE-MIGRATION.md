@@ -168,8 +168,8 @@ retain their original owners and release requirements.
 
 The older engine's default and flat-zero pricing/benchmark fixtures explicitly
 select `Flat`, replacing their misleading `FlatForward` labels. Numerical input
-values and pricing assertions are unchanged. `CurveBuilder` with `FlatForward`
-now fails before provider access or publication, and `BuiltCurve::from_snapshot`
+values and pricing assertions are unchanged. The engine `CurveBuilder` cache
+has been removed, and `BuiltCurve::from_snapshot`
 rejects a `ZeroExtrapolation::FlatForward` record. Such a snapshot must not be
 silently rewritten as flat zero: supply the complete checked flat-forward recipe
 to the shared library. Full direct recipes use [schema-2 replay](CURVE-SNAPSHOT-REPLAY.md); full original
@@ -215,13 +215,12 @@ calibration and original quote-risk graphs use
 [schema-3 replay](CALIBRATION-SNAPSHOT-REPLAY.md). Remaining raw-value/convenience
 qualification retains its original owners.
 
-`POST /api/v1/curves` continues to use checked MonotoneConvex over supplied
-ACT/365F continuous-zero pillars. It requires at least two distinct positive
-pillars; empty and single-pillar inputs return HTTP 400 before installation.
-The former single-point success lacked a validated curve and depended on a
-fallback that is now removed. Supply valid original pillars or a complete
-native recipe with its explicit model; no synthetic second point or implicit
-flat model is constructed by the server.
+`POST /api/v1/curves` no longer accepts a points list. It stores a complete
+`SnapshotCurveRecipe` in `CurveStore`, the single curve owner, and
+`DELETE /api/v1/curves/{id}` is removed because recipe revisions are immutable.
+`POST /api/v1/curves/bootstrap` returns its calibrated points without storing
+them. No synthetic second point or implicit flat model is constructed by the
+server.
 
 
 Complete original product graph capture, fitted-output/solver/helper diagnostic

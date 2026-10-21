@@ -257,3 +257,35 @@ fn failed_legacy_rebuild_clears_old_owner_and_never_substitutes_values() {
     curve.rebuild_inner().unwrap();
     assert!(curve.to_points().is_err());
 }
+
+#[tokio::test]
+async fn stored_dependencies_resolve_by_native_key_label() {
+    use convex_core::ids::CurveId as StoreCurveId;
+    use convex_engine::curve_resolution::{resolve_curves, CurveResolutionError};
+    let dir = tempfile::tempdir().unwrap();
+    let storage = convex_ext_redb::create_redb_storage(dir.path().join("curves.redb")).unwrap();
+    let mut base = recipe();
+    base["key"]["id"] = "base".into();
+    let mut derived = recipe();
+    derived["key"]["id"] = "derived".into();
+    derived["dependencies"] = serde_json::json!([base["key"]]);
+    derived["source"] = serde_json::json!({"DiscountEquivalent":{"base":base["key"]}});
+    let mut orphan = derived.clone();
+    orphan["key"]["id"] = "orphan".into();
+    orphan["dependencies"] = serde_json::json!([{"id":"base","version":"absent.label"}]);
+    for value in [base, derived, orphan] {
+        storage.curves.save_recipe(&record(value)).await.unwrap();
+    }
+    let at = fixture::time("2026-10-02T15:00:05Z");
+    let resolved = resolve_curves(storage.curves.as_ref(), &[StoreCurveId::new("derived")], at)
+        .await
+        .unwrap();
+    let pins: Vec<_> = resolved
+        .pins()
+        .map(|(id, v)| (id.to_owned(), v.get()))
+        .collect();
+    assert_eq!(pins, [("derived".to_owned(), 7), ("base".to_owned(), 7)]);
+    assert!(resolved.curve(&StoreCurveId::new("derived")).is_ok());
+    let missing = resolve_curves(storage.curves.as_ref(), &[StoreCurveId::new("orphan")], at).await;
+    assert!(matches!(missing, Err(CurveResolutionError::Missing(id)) if id.as_str() == "base"));
+}

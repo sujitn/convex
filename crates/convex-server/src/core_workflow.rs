@@ -15,10 +15,7 @@ use axum::{
 };
 use convex_core::contracts::SnapshotId;
 use convex_engine::core_workflow::{CoreWorkflow, CoreWorkflowError};
-use convex_engine::ports::{
-    core_workflow::CoreSnapshotPlan, fixing::PublishedFixing, snapshot::SnapshotCurveRecipe,
-    TraitError,
-};
+use convex_engine::ports::{core_workflow::CoreSnapshotPlan, fixing::PublishedFixing, TraitError};
 use std::sync::Arc;
 
 type Service = Option<Extension<Arc<CoreWorkflow>>>;
@@ -92,16 +89,6 @@ async fn admitted(
             Json(serde_json::json!({"code":"CORE_WORKER_FAILED"})),
         )
             .into_response(),
-    }
-}
-pub(crate) async fn save_curve(core: Service, Json(recipe): Json<SnapshotCurveRecipe>) -> Response {
-    let core = match service(core) {
-        Ok(v) => v,
-        Err(r) => return r.into_response(),
-    };
-    match core.curves.save_recipe(&recipe).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => failure(e.into()),
     }
 }
 pub(crate) async fn save_fixings(

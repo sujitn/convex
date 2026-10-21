@@ -62,51 +62,42 @@
       "updated_at": 200
     }
   ],
-  "curve_config": {
-    "curve_id": "USD-FIXTURE",
-    "name": "Fictional discount curve",
-    "currency": "USD",
-    "interpolation": "Linear",
-    "day_count": "Act365Fixed",
-    "tenors": [
-      "1Y",
-      "2Y"
-    ],
-    "build_schedule": "manual",
-    "last_updated": 100
-  },
-  "snapshots": [
+  "curve_recipes": [
     {
+      "schema_version": 1,
       "curve_id": "USD-FIXTURE",
-      "as_of": 100,
-      "points": [
-        [
-          365,
-          -0.0025
-        ],
-        [
-          730,
-          0.012
-        ]
-      ],
-      "inputs_hash": "fictional-inputs-v1",
-      "build_duration_ms": 2
+      "version": 1,
+      "source_time": "2026-10-01T12:00:00Z",
+      "recorded_at": "2026-10-01T12:00:00Z",
+      "source": "fixture-source",
+      "model_id": "fixture-model",
+      "input_versions": [],
+      "quality": "Valid",
+      "max_age_ms": 86400000,
+      "recipe": {
+        "key": {
+          "id": "USD-FIXTURE",
+          "version": "1"
+        }
+      }
     },
     {
+      "schema_version": 1,
       "curve_id": "USD-FIXTURE",
-      "as_of": 200,
-      "points": [
-        [
-          365,
-          -0.003
-        ],
-        [
-          730,
-          0.011
-        ]
-      ],
-      "inputs_hash": "fictional-inputs-v2",
-      "build_duration_ms": 2
+      "version": 2,
+      "source_time": "2026-10-02T12:00:00Z",
+      "recorded_at": "2026-10-02T12:00:00Z",
+      "source": "fixture-source",
+      "model_id": "fixture-model",
+      "input_versions": [],
+      "quality": "Valid",
+      "max_age_ms": 86400000,
+      "recipe": {
+        "key": {
+          "id": "USD-FIXTURE",
+          "version": "2"
+        }
+      }
     }
   ],
   "audit": [
