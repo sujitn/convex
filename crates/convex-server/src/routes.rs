@@ -257,7 +257,9 @@ pub fn create_router_with_access(
         .route("/api/v1/books", get(books::list_books))
         .route(
             "/api/v1/books/:book_id",
-            get(books::get_book).put(books::put_book),
+            get(books::get_book)
+                .put(books::put_book)
+                .layer(axum::extract::DefaultBodyLimit::max(8 * 1024 * 1024)),
         )
         .route(
             "/api/v1/books/:book_id/versions/:version",

@@ -210,18 +210,12 @@ impl ReferenceRepository for MemoryReferenceRepository {
             return Err(ReferenceError::InvalidInput("invalid book page size"));
         }
         let state = self.state.read().map_err(|_| ReferenceError::Unavailable)?;
-        let mut books: Vec<&MasterRecord> = state
+        let books: Vec<&MasterRecord> = state
             .master_current
             .iter()
             .filter(|(key, _)| matches!(key, MasterKey::Book(id) if after.is_none_or(|a| id > a)))
             .map(|(_, record)| record)
             .collect();
-        books.sort_by(|a, b| {
-            a.definition
-                .key()
-                .storage_key()
-                .cmp(&b.definition.key().storage_key())
-        });
         Ok(books.into_iter().take(limit).cloned().collect())
     }
 

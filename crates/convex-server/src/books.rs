@@ -1036,7 +1036,7 @@ pub(crate) async fn get_portfolio(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct CreatePortfolioRequest {
     portfolio_id: String,
     name: String,
@@ -1149,6 +1149,7 @@ pub(crate) async fn update_portfolio(
         if let Some(currency) = request.currency {
             book.currency = Some(currency);
         }
+        // A null description means "unchanged" (as before books); it cannot clear one.
         if request.description.is_some() {
             book.description = request.description;
         }
@@ -1311,15 +1312,15 @@ pub(crate) async fn batch_create_portfolios(
     }
     let total = request.portfolios.len();
     let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
-    match batch_replay(repo, &idempotency_key, &request.portfolios).await {
-        Ok(Some(created)) => return batch_counts(created, total),
-        Ok(None) => {}
-        Err(error) => return reference_error(error),
-    }
     let at = match now() {
         Ok(at) => at,
         Err(error) => return reference_error(error),
     };
+    match batch_replay(repo, &idempotency_key, &request.portfolios, at).await {
+        Ok(Some(created)) => return batch_counts(created, total),
+        Ok(None) => {}
+        Err(error) => return reference_error(error),
+    }
     let changes = match batch_changes(repo, request.portfolios, &idempotency_key, at).await {
         Ok(changes) => changes,
         Err(error) => return reference_error(error),
@@ -1344,24 +1345,61 @@ fn batch_counts(created: usize, total: usize) -> Response {
         .into_response()
 }
 
-/// A retained receipt for this key must cover only portfolios named in this request.
+/// A retained receipt for this key must match this request: every retained book is one
+/// this request names, created by this operation with the same content, and any other
+/// named portfolio already existed.
 async fn batch_replay(
     repo: &dyn ReferenceRepository,
     idempotency_key: &RequestId,
     portfolios: &[CreatePortfolioRequest],
+    at: UtcTimestamp,
 ) -> Result<Option<usize>, ReferenceError> {
     let Some(prior) = repo.get_commit(idempotency_key).await? else {
         return Ok(None);
     };
-    let named: BTreeSet<&str> = portfolios.iter().map(|p| p.portfolio_id.as_str()).collect();
+    let different = ReferenceError::Conflict("idempotency key was used with a different payload");
+    if !prior.records.is_empty() || prior.master_records.is_empty() {
+        return Err(different);
+    }
     for record in &prior.master_records {
-        match &record.definition {
-            MasterDefinition::Book(book) if named.contains(book.book_id.as_str()) => {}
-            _ => {
-                return Err(ReferenceError::Conflict(
-                    "idempotency key was used with a different payload",
-                ))
-            }
+        let MasterDefinition::Book(book) = &record.definition else {
+            return Err(different);
+        };
+        // `batch_changes` keeps the first occurrence of a repeated id.
+        let Some(request) = portfolios
+            .iter()
+            .find(|p| p.portfolio_id == book.book_id.as_str())
+        else {
+            return Err(different);
+        };
+        let expected = new_definition(request.clone(), idempotency_key, at)?;
+        let same = book.owning_system == expected.owning_system
+            && book.provenance == expected.provenance
+            && book.name == expected.name
+            && book.currency == expected.currency
+            && book.description == expected.description
+            && book.positions == expected.positions;
+        if !same {
+            return Err(different);
+        }
+    }
+    // A named portfolio the receipt did not create must already have been live.
+    let created: BTreeSet<&str> = prior
+        .master_records
+        .iter()
+        .filter_map(|r| match &r.definition {
+            MasterDefinition::Book(book) => Some(book.book_id.as_str()),
+            _ => None,
+        })
+        .collect();
+    for request in portfolios {
+        if created.contains(request.portfolio_id.as_str()) {
+            continue;
+        }
+        let id = book_id(request.portfolio_id.clone())?;
+        match repo.get_master(&MasterKey::Book(id)).await? {
+            Some(record) if book_of(&record).is_ok_and(|b| is_live(b, at)) => {}
+            _ => return Err(different),
         }
     }
     Ok(Some(prior.master_records.len()))

@@ -735,7 +735,10 @@ pub async fn books_page_in_order_and_version_with_compare_and_set(
         vec![MasterKey::Book(id("B-1")), MasterKey::Book(id("B-2"))]
     );
     let rest = repository.list_books(Some(&id("B-2")), 2).await.unwrap();
-    assert_eq!(rest.len(), 1);
+    assert_eq!(
+        rest.iter().map(|r| r.definition.key()).collect::<Vec<_>>(),
+        vec![MasterKey::Book(id("B-3"))]
+    );
     assert!(repository.list_books(None, 0).await.is_err());
 
     // Replace version 1 once; the stale expectation then conflicts and history stays exact.
@@ -772,10 +775,21 @@ pub async fn books_page_in_order_and_version_with_compare_and_set(
         panic!("not a book")
     };
     duplicate.positions.push(duplicate.positions[0].clone());
+    let invalid = |definition: Box<BookDefinition>| MasterChange {
+        expected_version: None,
+        definition: MasterDefinition::Book(definition),
+    };
     assert!(matches!(
-        duplicate.validate(),
+        repository
+            .commit(&command("books-dup", vec![], vec![invalid(duplicate)]), at)
+            .await,
         Err(ReferenceError::InvalidInput(_))
     ));
+    assert!(repository
+        .get_master(&MasterKey::Book(id("B-D")))
+        .await
+        .unwrap()
+        .is_none());
     let MasterDefinition::Book(mut large) = book("B-L", "I-1", None).definition else {
         panic!("not a book")
     };
@@ -786,5 +800,16 @@ pub async fn books_page_in_order_and_version_with_compare_and_set(
             ..template.clone()
         })
         .collect();
-    assert_eq!(large.validate(), Err(ReferenceError::CapacityExceeded));
+    assert_eq!(
+        repository
+            .commit(&command("books-big", vec![], vec![invalid(large)]), at)
+            .await
+            .err(),
+        Some(ReferenceError::CapacityExceeded)
+    );
+    assert!(repository
+        .get_master(&MasterKey::Book(id("B-L")))
+        .await
+        .unwrap()
+        .is_none());
 }
