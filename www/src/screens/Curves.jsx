@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useWorkspace, useComputation } from '../state/workspace';
-import { CURVE_DEFS, INTERPOLATIONS, sampleCurve } from '../analytics/curves';
+import { INTERPOLATIONS, sampleCurve } from '../analytics/curves';
 import * as R from '../lib/requests';
 import { Panel, Seg, Field, KV, EngineError, Empty, Prov, Spinner, Select } from '../ui/primitives';
 import { LineChart } from '../ui/charts';
@@ -10,6 +10,19 @@ import { formatLong, tenorYears } from '../lib/dates';
 
 const COMPOUNDINGS = ['Continuous', 'Annual', 'SemiAnnual', 'Quarterly', 'Simple'];
 const SERIES = { 'USD.UST': '--s1', 'EUR.AAA': '--s2', 'EUR.ALL': '--s4', 'CAD.GOC': '--s3' };
+const CUSTOM_SERIES = ['--s5', '--s6'];
+const METHOD = {
+  par: 'Piecewise par-coupon calibration',
+  ois: 'Piecewise OIS calibration from par swaps',
+  zero: 'Supplied zero nodes',
+};
+const INPUT = { par: 'Par input', ois: 'Swap rate input', zero: 'Spot input' };
+
+function seriesColor(defs, cid) {
+  if (SERIES[cid]) return SERIES[cid];
+  const custom = Object.values(defs).filter((d) => d.custom).map((d) => d.id);
+  return CUSTOM_SERIES[Math.max(0, custom.indexOf(cid)) % CUSTOM_SERIES.length];
+}
 
 function QueryTool({ curve }) {
   const { engine } = useWorkspace();
@@ -52,11 +65,12 @@ function QueryTool({ curve }) {
 }
 
 export default function Curves({ fn }) {
-  const { engine, curves, curveOptions, setInterpolation, datasets } = useWorkspace();
-  const [id, setId] = useState('USD.UST');
+  const { engine, curves, curveOptions, setInterpolation, datasets, curveDefs } = useWorkspace();
+  const [pick, setId] = useState('USD.UST');
   const [compare, setCompare] = useState(false);
+  const id = curveDefs[pick] ? pick : 'USD.UST';
   const curve = curves[id];
-  const def = CURVE_DEFS[id];
+  const def = curveDefs[id];
 
   const sample = useComputation(
     () => (curve && curve.recipe && !curve.building ? sampleCurve(engine, curve) : null),
@@ -71,27 +85,32 @@ export default function Curves({ fn }) {
     return out;
   }, [compare, id, Object.values(curves).map((c) => c && c.key && c.key.version).join('|')]);
 
-  const ds = datasets[def.dataset];
+  const ds = def.custom ? def : datasets[def.dataset];
   const rows = sample.data ? sample.data.rows : [];
   const inputPoints = ds ? ds.points.map((p) => ({ x: tenorYears(p.tenor), y: Number(p.value) })) : [];
   const series = rows.length ? [
     { id: 'zero', label: 'Zero (cont.)', color: '--s1', points: rows.map((r) => ({ x: r.t, y: r.zero * 100 })) },
     { id: 'fwd', label: '3M forward', color: '--s2', points: rows.map((r) => ({ x: r.t, y: r.fwd * 100 })), dash: true },
-    { id: 'in', label: def.method === 'par' ? 'Par input' : 'Spot input', color: '--s3', points: inputPoints.sort((a, b) => a.x - b.x),
+    { id: 'in', label: INPUT[def.method], color: '--s3', points: inputPoints.sort((a, b) => a.x - b.x),
       markers: inputPoints },
   ] : [];
   const compareSeries = compare && others.data && rows.length ? [
-    { id, label: def.label, color: SERIES[id], points: rows.filter((_, i) => i % 2 === 1).map((r) => ({ x: r.t, y: r.zero * 100 })) },
-    ...Object.entries(others.data).map(([cid, s]) => ({
-      id: cid, label: CURVE_DEFS[cid].label, color: SERIES[cid], points: s.rows.map((r) => ({ x: r.t, y: r.zero * 100 })),
+    { id, label: def.label, color: seriesColor(curveDefs, id), points: rows.filter((_, i) => i % 2 === 1).map((r) => ({ x: r.t, y: r.zero * 100 })) },
+    ...Object.entries(others.data).filter(([cid]) => curveDefs[cid]).map(([cid, s]) => ({
+      id: cid, label: curveDefs[cid].label, color: seriesColor(curveDefs, cid), points: s.rows.map((r) => ({ x: r.t, y: r.zero * 100 })),
     })),
   ] : null;
 
   return (
     <div className="screen">
       <ScreenHead fn={fn} dates={false}
-        lede="Curves are built by the engine from the market data screen: par yields are calibrated from par-coupon bonds, published spot curves are used as nodes.">
-        <Seg value={id} onChange={setId} options={Object.entries(CURVE_DEFS).map(([k, d]) => [k, d.label])} label="Curve" />
+        lede="Curves are built by the engine from the market data screen: par yields are calibrated from par-coupon bonds, swap rates from par OIS swaps, published spot curves are used as nodes. Add your own under MKT, Your data.">
+        {Object.keys(curveDefs).length <= 5 ? (
+          <Seg value={id} onChange={setId} options={Object.values(curveDefs).map((d) => [d.id, d.label])} label="Curve" />
+        ) : (
+          <Select className="input" style={{ width: 260 }} value={id} onChange={setId} aria-label="Curve"
+            options={Object.values(curveDefs).map((d) => [d.id, d.custom ? `${d.label} (yours)` : d.label])} />
+        )}
       </ScreenHead>
       {!curve || curve.building ? <Empty><Spinner /> Building {def.label}…</Empty> : curve.error ? (
         <EngineError error={curve.error} context={def.label} />
@@ -105,7 +124,7 @@ export default function Curves({ fn }) {
                   {def.method === 'zero' ? (
                     <Select value={curveOptions[id] || curve.interpolation} onChange={(v) => setInterpolation(id, v)}
                       options={INTERPOLATIONS.map((i) => [i, i === 'CubicSpline' ? 'Cubic spline' : 'Linear zero'])} aria-label="Interpolation" />
-                  ) : <span className="panel__note" title="The native par-coupon calibration fits linear continuous zero rates">Linear zero (calibration)</span>}
+                  ) : <span className="panel__note" title="The native calibration fits linear continuous zero rates">Linear zero (calibration)</span>}
                 </>
               )}>
               {sample.busy && !rows.length ? <Empty><Spinner /></Empty> : (
@@ -120,13 +139,15 @@ export default function Curves({ fn }) {
                 <KV rows={[
                   ['Curve', curve.key.id, `version ${curve.key.version}`],
                   ['Reference date', formatLong(curve.tradeDate)],
-                  ['Method', curve.method === 'par' ? 'Piecewise par-coupon calibration' : 'Supplied spot nodes'],
+                  ['Method', METHOD[curve.method] || curve.method],
+                  ['Role', def.role === 'discount' ? `Discount (${def.currency} collateral)` : `Government (${def.benchmarkId})`],
                   ['Representation', 'Zero rates, continuous, Act/365F time'],
                   ['Interpolation', curve.interpolation],
-                  curve.repricing && ['Helpers', `${curve.repricing.length} par bonds`],
+                  curve.repricing && ['Helpers', `${curve.repricing.length} ${curve.method === 'ois' ? 'spot-starting par OIS swaps' : 'par bonds'}`],
+                  curve.publications && ['Publications supplied', curve.publications.toLocaleString(), `daily ${def.index} observation dates`],
                   curve.evaluations && ['Price evaluations', curve.evaluations],
                   ['Engine time', ms(curve.ms)],
-                  ['Market data', <Prov key="p" status={curve.dataset.status}>{formatLong(curve.dataset.asOf)}</Prov>],
+                  ['Market data', <Prov key="p" status={curve.dataset.status}>{def.custom ? 'Yours, ' : ''}{formatLong(curve.dataset.asOf)}</Prov>],
                 ]} />
               </Panel>
               <QueryTool curve={curve} />
@@ -137,7 +158,7 @@ export default function Curves({ fn }) {
             <Panel title="Calibration repricing" note="every helper repriced by the engine on the fitted curve" flush>
               <div className="table-wrap">
                 <table className="grid">
-                  <thead><tr><th>Helper</th><th>Pillar</th><th className="num">Par yield %</th><th className="num">Model %</th><th className="num">Residual</th><th className="num">Zero at pillar %</th></tr></thead>
+                  <thead><tr><th>Helper</th><th>Pillar</th><th className="num">{curve.method === 'ois' ? 'Swap rate %' : 'Par yield %'}</th><th className="num">Model %</th><th className="num">Residual</th><th className="num">Zero at pillar %</th></tr></thead>
                   <tbody>
                     {curve.repricing.map((r, i) => {
                       const node = curve.nodes[i + 1];

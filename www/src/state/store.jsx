@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 
 // Application state: market datasets (with provenance), the security
-// universe, the selected security and screen, and UI preferences. Market data
-// edits and custom securities persist per browser as a convenience only.
+// universe, the selected security and screen, and UI preferences. Your data
+// (edited datasets, curves and securities you supply, benchmark prices) persists
+// per browser as a convenience, and can be exported and imported as JSON.
 
 const STORAGE_KEY = 'convex-terminal:v1';
 
@@ -23,6 +24,9 @@ function save(state) {
       // Only hand edits persist; live data is refetched rather than replayed as "live".
       datasets: Object.fromEntries(Object.entries(state.datasets).filter(([, d]) => d && d.status === 'manual')),
       custom: state.custom,
+      customCurves: state.customCurves,
+      spreadCurve: state.spreadCurve,
+      benchPrices: state.benchPrices,
       selectedId: state.selectedId,
       proxy: state.proxy,
       tradeDate: state.tradeDateOverride ? state.tradeDate : undefined,
@@ -67,6 +71,32 @@ function reducer(state, action) {
       delete custom[action.id];
       return { ...state, custom };
     }
+    case 'customCurve':
+      return { ...state, customCurves: { ...state.customCurves, [action.curve.id]: action.curve } };
+    case 'removeCustomCurve': {
+      const customCurves = { ...state.customCurves };
+      delete customCurves[action.id];
+      const spreadCurve = Object.fromEntries(Object.entries(state.spreadCurve).filter(([, id]) => id !== action.id));
+      return { ...state, customCurves, spreadCurve };
+    }
+    case 'spreadCurve':
+      return { ...state, spreadCurve: { ...state.spreadCurve, [action.currency]: action.id } };
+    case 'benchPrice': {
+      const benchPrices = { ...state.benchPrices };
+      if (action.text) benchPrices[action.cusip] = action.text;
+      else delete benchPrices[action.cusip];
+      return { ...state, benchPrices };
+    }
+    case 'importData': {
+      const d = action.data;
+      return {
+        ...state,
+        datasets: { ...state.datasets, ...(d.datasets || {}) },
+        custom: { ...state.custom, ...(d.custom || {}) },
+        customCurves: { ...state.customCurves, ...(d.customCurves || {}) },
+        benchPrices: { ...state.benchPrices, ...(d.benchPrices || {}) },
+      };
+    }
     case 'tradeDate':
       return { ...state, tradeDate: action.date, tradeDateOverride: !!action.override };
     case 'proxy':
@@ -93,6 +123,9 @@ export function StoreProvider({ initial, children }) {
       loading: {},
       errors: {},
       custom: {},
+      customCurves: {},
+      spreadCurve: {},
+      benchPrices: {},
       selectedId: null,
       proxy: '',
       tradeDate: null,

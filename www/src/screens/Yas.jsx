@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useWorkspace, useComputation } from '../state/workspace';
 import { useStore } from '../state/store';
 import { computeYas } from '../analytics/yas';
-import { CURVE_DEFS } from '../analytics/curves';
 import * as R from '../lib/requests';
 import { workoutPaths, workoutRows } from '../lib/callable';
 import { cashConvention } from '../lib/cash';
@@ -10,6 +9,7 @@ import { Panel, Seg, Field, Figure, KV, EngineError, Empty, Prov, Spinner } from
 import SecurityBand, { dayCountLabel } from '../ui/SecurityBand';
 import { LineChart } from '../ui/charts';
 import ScreenHead from '../ui/ScreenHead';
+import CurvePicker from '../ui/CurvePicker';
 import { fmt, pct, bp, signedBp, signed, money } from '../lib/format';
 import { formatThirtySeconds, parsePrice } from '../lib/decimal';
 import { formatLong } from '../lib/dates';
@@ -51,7 +51,7 @@ function quoteValid(q) {
 }
 
 export default function Yas({ fn }) {
-  const { engine, selected: sec, curve, benchmarks, tradeDate, settlement } = useWorkspace();
+  const { engine, selected: sec, curve, govCurve, benchmarks, benchPrices, tradeDate, settlement } = useWorkspace();
   const { state, dispatch } = useStore();
   const [quotes, setQuotes] = useState({});
   const quote = (sec && quotes[sec.id]) || (sec && defaultQuote(sec));
@@ -61,37 +61,41 @@ export default function Yas({ fn }) {
   const dFace = useDebounced(face);
   const usd = sec && sec.currency === 'USD';
 
-  const ready = sec && sec.kind !== 'bill' && curve && !curve.building && quote && quoteValid(quote);
+  const benchKey = JSON.stringify(benchPrices);
+  const ready = sec && sec.kind !== 'bill' && curve && !curve.building && quote && quoteValid(quote)
+    && !(usd && govCurve && govCurve.building);
   const { data, error, busy } = useComputation(
     () => (ready
-      ? computeYas(engine, { sec, tradeDate, settlement, quote, face: dFace, curve, benchmarks: usd ? benchmarks : [] })
+      ? computeYas(engine, { sec, tradeDate, settlement, quote, face: dFace, curve, benchmarks: usd ? benchmarks : [],
+        benchmarkCurve: govCurve, benchPrices })
       : null),
-    [sec && sec.id, sec, dq, dFace, curve && curve.key && curve.key.version, curve && curve.building, tradeDate, ready],
+    [sec && sec.id, sec, dq, dFace, curve && curve.key && curve.key.version, curve && curve.building,
+      govCurve && govCurve.key && govCurve.key.version, benchKey, tradeDate, ready],
   );
 
   // Seed (or re-seed after a curve rebuild) an untouched Treasury quote with
-  // its curve-implied price; a typed quote is never replaced.
+  // its price off the Treasury curve; a typed quote is never replaced.
   const stored = sec && quotes[sec.id];
-  const seedable = sec && sec.source === 'auction' && sec.kind !== 'bill' && curve && curve.recipe && !curve.building
-    && CURVE_DEFS[curve.id] && (!stored || (stored.seed && stored.seed.version !== curve.key.version));
+  const gov = govCurve;
+  const seedable = sec && sec.source === 'auction' && sec.kind !== 'bill' && gov && gov.recipe && !gov.building
+    && (!stored || (stored.seed && stored.seed.version !== gov.key.version));
   useEffect(() => {
     if (!seedable) return;
-    const sig = `${sec.id}|${curve.key.version}`;
+    const sig = `${sec.id}|${gov.key.version}`;
     if (seeding.current === sig) return;
     seeding.current = sig;
-    const role = R.governmentRole(CURVE_DEFS[curve.id].benchmarkId);
-    engine.call(R.bondPrice(sec, settlement, R.spreadMethod(curve.key, role, 0), [curve.recipe]),
+    engine.call(R.bondPrice(sec, settlement, R.spreadMethod(gov.key, gov.spreadRole, 0), [gov.recipe]),
       { label: `${sec.ticker} curve-implied price` }).then((res) => {
       if (seeding.current !== sig) return;
       setQuotes((all) => {
         const cur = all[sec.id];
         if (cur && !cur.seed) return all;
         if (!res.ok) return { ...all, [sec.id]: { kind: 'price', text: '' } };
-        const seed = { version: curve.key.version, curve: curve.def.label, asOf: curve.dataset.asOf };
+        const seed = { version: gov.key.version, curve: gov.def.label, asOf: gov.dataset.asOf };
         return { ...all, [sec.id]: { kind: 'price', text: formatThirtySeconds(res.data.clean_per100), seed } };
       });
     });
-  }, [seedable, sec, settlement, curve, engine]);
+  }, [seedable, sec, settlement, gov, engine]);
 
   const callable = sec && (sec.calls || []).length > 0;
   const workout = useComputation(
@@ -138,25 +142,25 @@ export default function Yas({ fn }) {
 
       <section className="panel" aria-label="Quote" style={{ marginBottom: 16 }}>
         <div className="panel__body">
-          <div className="row" style={{ alignItems: 'flex-end', gap: 16 }}>
+          <div className="row" style={{ alignItems: 'flex-start', gap: 16 }}>
             <Field label="Quote as">
               <Seg value={quote.kind} onChange={switchKind} options={usd ? KINDS : KINDS.slice(0, 3)} label="Quote type" />
             </Field>
             <Field label={quote.kind === 'price' ? (usd32 ? 'Clean price (decimal or 32nds, e.g. 99-16+)' : 'Clean price')
-              : quote.kind === 'yield' ? 'Yield, ICMA, % ' : quote.kind === 'zspread' ? `Z-spread over ${curve ? curve.def.label : 'curve'}, bp` : 'G-spread, bp'}>
+              : quote.kind === 'yield' ? 'Yield, ICMA, % ' : quote.kind === 'zspread' ? `Z-spread over ${curve ? curve.def.label : 'curve'}, bp` : 'G-spread, bp'}
+              hint={quote.seed ? (
+                <span title="Type over it to quote your own price.">
+                  <Prov status="derived">Curve-implied</Prov> {quote.seed.curve}, {formatLong(quote.seed.asOf)}
+                </span>
+              ) : null}>
               <input className="input input--quote" style={{ width: 220 }} value={quote.text}
                 aria-invalid={quote.text !== '' && !quoteValid(quote)} onChange={(e) => setQuote({ text: e.target.value })} />
             </Field>
-            {quote.seed && (
-              <div className="quote-seed">
-                <Prov status="derived">Curve-implied</Prov>
-                <span className="dim">{quote.seed.curve} curve, {formatLong(quote.seed.asOf)}. Type over it to quote your own price.</span>
-              </div>
-            )}
             <Field label="Face amount">
               <input className="input input--num" style={{ width: 150 }} value={face}
                 onChange={(e) => dispatch({ type: 'quote', quote: { face: e.target.value.replace(/[^\d.]/g, '') } })} />
             </Field>
+            <CurvePicker />
             <div className="grow" />
             <div className="dim" style={{ fontSize: 12, textAlign: 'right' }}>
               {busy || (curve && curve.building) ? <><Spinner /> Calculating</> : r ? 'Calculated' : ''}
@@ -181,7 +185,8 @@ export default function Yas({ fn }) {
             <div className="figures">
               <Figure label="Clean price" value={fmt(r.clean, 6)} sub={usd32 ? formatThirtySeconds(r.clean) : `Dirty ${fmt(r.dirty, 6)}`} />
               <Figure label="Yield to maturity" value={pct(r.ytm, 4)} unit="%" sub="ICMA, street-equivalent" />
-              <Figure label="Z-spread" value={r.zspread !== undefined ? signedBp(r.zspread, 1) : '—'} unit="bp"
+              <Figure label={curve && curve.def.role === 'discount' ? 'Z-spread to swaps' : 'Z-spread'}
+                value={r.zspread !== undefined ? signedBp(r.zspread, 1) : '—'} unit="bp"
                 sub={curve ? `over ${curve.def.label}` : ''} />
               {usd && <Figure label="G-spread" value={r.gspread ? signed(r.gspread.bp, 1) : '—'} unit="bp" sub="vs on-the-run Treasuries" />}
               <Figure label="Modified duration" value={r.risk ? fmt(r.risk.modified, 3) : '—'} sub={r.risk ? `Convexity ${fmt(r.risk.convexity, 2)}` : ''} />
@@ -271,11 +276,11 @@ export default function Yas({ fn }) {
 
           {usd && r.gspread && (
             <Panel title="G-spread benchmarks" flush
-              note="actual on-the-run securities; quotes are curve-implied prices from the fitted Treasury curve"
-              foot={`Common dated-cash convention: ${dayCountLabel(r.gspread.convention.day_count)}, ${r.gspread.convention.compounding}. Benchmark yield interpolated linearly by maturity.`}>
+              note="actual on-the-run securities; type a price to replace the curve-implied one"
+              foot={`Common dated-cash convention: ${dayCountLabel(r.gspread.convention.day_count)}, ${r.gspread.convention.compounding}. Benchmark yield interpolated linearly by maturity. Prices you enter are kept in this browser.`}>
               <div className="table-wrap">
                 <table className="grid">
-                  <thead><tr><th>Bucket</th><th>Security</th><th>CUSIP</th><th className="num">Coupon</th><th>Maturity</th><th className="num">Price</th><th className="num">Weight</th><th>Quote source</th></tr></thead>
+                  <thead><tr><th>Bucket</th><th>Security</th><th>CUSIP</th><th className="num">Coupon</th><th>Maturity</th><th className="num">Clean price</th><th className="num">Weight</th><th>Quote source</th></tr></thead>
                   <tbody>
                     {r.gspread.benchmarks.map((b, i) => {
                       const s = r.gspread.selected || {};
@@ -284,9 +289,19 @@ export default function Yas({ fn }) {
                         <tr key={b.sec.cusip} className={w ? 'is-active' : ''}>
                           <td>{b.bucket}Y</td><td>{b.sec.ticker}</td><td className="dim">{b.sec.cusip}</td>
                           <td className="num">{b.sec.coupon}</td><td>{formatLong(b.sec.maturity)}</td>
-                          <td className="num">{fmt(Number(b.quote.value), 4)}</td>
+                          <td className="edit">
+                            <BenchPrice cusip={b.sec.cusip} own={benchPrices[b.sec.cusip]} implied={Number(b.quote.value)}
+                              onSet={(text) => dispatch({ type: 'benchPrice', cusip: b.sec.cusip, text })} />
+                          </td>
                           <td className="num">{w !== null && w !== undefined ? fmt(w, 4) : ''}</td>
-                          <td><Prov status="derived">Curve-implied</Prov></td>
+                          <td>
+                            {b.provenance === 'manual' ? (
+                              <span className="row" style={{ gap: 6 }}>
+                                <Prov status="manual">Yours</Prov>
+                                <button type="button" className="btn btn--ghost btn--sm" onClick={() => dispatch({ type: 'benchPrice', cusip: b.sec.cusip, text: '' })}>Use curve</button>
+                              </span>
+                            ) : <Prov status="derived">Curve-implied</Prov>}
+                          </td>
                         </tr>
                       );
                     })}
@@ -301,6 +316,38 @@ export default function Yas({ fn }) {
         <Empty>{curve && curve.building ? 'Building the curve…' : seedable ? 'Pricing off the curve…' : 'Enter a quote to analyse this security.'}</Empty>
       )}
     </div>
+  );
+}
+
+/** Benchmark price cell: shows your price or the curve-implied one, commits on blur or Enter. */
+function BenchPrice({ cusip, own, implied, onSet }) {
+  const [draft, setDraft] = useState(null);
+  const shown = draft ?? own ?? fmt(implied, 4).replace(/,/g, '');
+  const commit = (text) => {
+    setDraft(null);
+    const t = text.trim();
+    if (!t) return onSet('');
+    if (own === undefined && t === fmt(implied, 4).replace(/,/g, '')) return undefined;
+    try {
+      if (parsePrice(t) > 0) onSet(t);
+    } catch {
+      /* not a price: keep the previous one */
+    }
+    return undefined;
+  };
+  let invalid = false;
+  if (draft !== null && draft.trim()) {
+    try {
+      invalid = !(parsePrice(draft) > 0);
+    } catch {
+      invalid = true;
+    }
+  }
+  return (
+    <input value={shown} aria-label={`Clean price for ${cusip}`} aria-invalid={invalid}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={(e) => draft !== null && commit(e.target.value)}
+      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
   );
 }
 

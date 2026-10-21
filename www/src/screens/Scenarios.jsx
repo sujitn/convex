@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useWorkspace, useComputation } from '../state/workspace';
 import { useStore } from '../state/store';
 import * as R from '../lib/requests';
-import { CURVE_DEFS } from '../analytics/curves';
 import { SCENARIOS, repriceUnderShifts, keyRateVariants } from '../analytics/scenarios';
 import { Panel, Field, EngineError, Empty, Spinner, KV } from '../ui/primitives';
 import SecurityBand from '../ui/SecurityBand';
@@ -20,11 +19,12 @@ function useDebounced(value, delay = 400) {
 }
 
 export default function Scenarios({ fn }) {
-  const { engine, selected: sec, settlement, curve, datasets } = useWorkspace();
+  // Scenarios shift the government curve's par quotes and recalibrate it.
+  const { engine, selected: sec, settlement, govCurve: curve, datasets } = useWorkspace();
   const { state } = useStore();
   const face = Number(state.quote.face || '1000000');
   const [zText, setZText] = useState(null);
-  const def = curve && CURVE_DEFS[curve.id];
+  const def = curve && curve.def;
   const parCurve = def && def.method === 'par';
   const z = zText ?? (sec && sec.source === 'auction' ? '0' : '125');
   const dz = useDebounced(z);
@@ -35,7 +35,7 @@ export default function Scenarios({ fn }) {
 
   const base = useComputation(async () => {
     if (!ready) return null;
-    const role = R.governmentRole(def.benchmarkId);
+    const role = curve.spreadRole;
     return engine.call(R.bondPrice(bullet, settlement, R.spreadMethod(curve.key, role, zDecimal), [curve.recipe]),
       { label: `${label} base price` });
   }, [ready, sec, settlement, curve && curve.key && curve.key.version, zDecimal]);

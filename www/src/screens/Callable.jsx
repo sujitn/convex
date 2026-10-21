@@ -5,6 +5,7 @@ import { analyseCallable } from '../analytics/callable';
 import { Panel, Field, Figure, KV, EngineError, Empty, Spinner, Prov } from '../ui/primitives';
 import SecurityBand from '../ui/SecurityBand';
 import ScreenHead from '../ui/ScreenHead';
+import CurvePicker from '../ui/CurvePicker';
 import { LineChart } from '../ui/charts';
 import { WorkoutTable } from './Yas';
 import { fmt, pct, signedBp } from '../lib/format';
@@ -76,6 +77,7 @@ export default function Callable({ fn }) {
           <Field label="Clean price"><input className="input input--quote" style={{ width: 170 }} value={price} onChange={(e) => setPrice(e.target.value)} aria-invalid={!Number.isFinite(clean)} /></Field>
           <Field label="Short-rate volatility, % (normal)"><input className="input input--num" style={{ width: 120 }} value={vol} onChange={(e) => setVol(e.target.value)} /></Field>
           <Field label="Mean reversion, %"><input className="input input--num" style={{ width: 120 }} value={mr} onChange={(e) => setMr(e.target.value)} /></Field>
+          <CurvePicker label="Discount curve" />
           <div className="grow" />
           <div className="dim" style={{ fontSize: 12, maxWidth: 360 }}>
             {busy ? <><Spinner /> Solving on the tree…</> : (

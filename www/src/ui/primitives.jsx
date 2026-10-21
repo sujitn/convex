@@ -141,6 +141,7 @@ export function Icon({ name }) {
     copy: 'M9 9h10v10H9zM5 15V5h10',
     close: 'M6 6l12 12M18 6 6 18',
     download: 'M12 4v11m0 0-4-4m4 4 4-4M5 19h14',
+    upload: 'M12 20V9m0 0-4 4m4-4 4 4M5 5h14',
     plus: 'M12 5v14M5 12h14',
     trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13',
   };

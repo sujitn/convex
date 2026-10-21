@@ -319,6 +319,7 @@ a:hover { text-decoration: underline; }
   .cols--wide, .cols--side { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
+  .form--3 { grid-template-columns: minmax(0, 1fr); }
   :root { --rail: 0px; }
   .shell { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'top' 'main' 'rail' 'status'; grid-template-rows: var(--top) minmax(0, 1fr) auto var(--status); }
   .brand { width: 52px; }
@@ -385,6 +386,18 @@ table.grid td.edit input:hover { border-color: var(--rule); }
 table.grid td.edit input:focus { border-color: var(--focus); background: var(--field); outline: none; }
 table.grid .row-action { opacity: 0; transition: opacity 120ms; }
 table.grid tr:hover .row-action, table.grid .row-action:focus-visible { opacity: 1; }
+table.grid tfoot .points__add td { border-top: 1px solid var(--rule); }
+table.grid .points__add td.edit input { text-align: left; }
+.points__bar { display: flex; gap: 4px; padding: 6px 4px 0; }
+.paste { display: grid; gap: 8px; margin-top: 8px; }
+.paste textarea { min-height: 120px; padding: 8px 9px; font: 12px/1.5 var(--mono); background: var(--field); color: var(--text);
+  border: 1px solid var(--rule-strong, var(--rule)); border-radius: 4px; resize: vertical; }
+.paste textarea:focus { border-color: var(--focus); outline: none; }
+.paste__errors { margin: 0; padding-left: 18px; color: var(--text-3); font-size: 11.5px; }
+.list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 9px 12px;
+  border-bottom: 1px solid var(--rule); cursor: pointer; }
+.list-row:hover { background: var(--raised); }
+.list-row.is-active { background: var(--accent-soft); }
 .pos { color: var(--pos); }
 .neg { color: var(--neg); }
 .muted { color: var(--text-3); }
@@ -394,6 +407,7 @@ table.grid tr:hover .row-action, table.grid .row-action:focus-visible { opacity:
 
 .form { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 12px; }
 .form--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .field { display: grid; gap: 4px; min-width: 0; }
 .field > span { color: var(--text-2); font-size: 12px; }
 .field input, .field select, .field textarea, .input {
@@ -409,8 +423,7 @@ table.grid tr:hover .row-action, table.grid .row-action:focus-visible { opacity:
 .field input:focus, .field select:focus, .field textarea:focus, .input:focus { border-color: var(--focus); outline: none; }
 .field input[aria-invalid='true'] { border-color: var(--neg); }
 .field--wide { grid-column: 1 / -1; }
-.field__hint { color: var(--text-3); font-size: 11px; }
-.quote-seed { display: grid; gap: 3px; align-self: flex-end; padding-bottom: 2px; font-size: 11.5px; max-width: 260px; }
+.field__hint { color: var(--text-3); font-size: 11px; font-style: normal; }
 .input--num { text-align: right; font-variant-numeric: tabular-nums; }
 .input--quote { height: 40px !important; font-size: 20px !important; font-weight: 500; text-align: right; }
 

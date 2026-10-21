@@ -4,7 +4,6 @@
 import * as R from '../lib/requests.js';
 import { optionalPrice, optionalOas, optionalRisk, hw1fAssumedModel, workoutPaths, workoutRows } from '../lib/callable.js';
 import { cashConvention } from '../lib/cash.js';
-import { CURVE_DEFS } from './curves.js';
 
 /**
  * The optional-bond route discounts on a curve in the Discount role. The
@@ -49,9 +48,8 @@ export async function analyseCallable(engine, { sec, tradeDate, settlement, curv
   out.grids = oas.data.price.grids;
 
   // Straight bond at the same constant spread: the option is the difference.
-  const def = CURVE_DEFS[curve.id];
   const straight = await engine.call(
-    R.bondPrice({ ...sec, calls: [] }, settlement, R.spreadMethod(curve.key, R.governmentRole(def.benchmarkId), out.oas), [curve.recipe]),
+    R.bondPrice({ ...sec, calls: [] }, settlement, R.spreadMethod(curve.key, curve.spreadRole, out.oas), [curve.recipe]),
     { label: `${label} straight bond at OAS` },
   );
   if (straight.ok) {

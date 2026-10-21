@@ -1,15 +1,17 @@
 // Curve construction from market datasets, through the engine. Par yield
 // sets (Treasury, Canada) are calibrated natively from par-coupon helpers;
-// published zero curves (ECB) are supplied directly as continuous zero nodes.
-// The calibrated node grid is then re-supplied as a Direct curve with the
-// same representation and interpolation, so later requests reuse it exactly.
+// published zero curves (ECB) are supplied directly as continuous zero nodes;
+// OIS swap rates you supply are calibrated natively from par swaps. The
+// calibrated node grid is then re-supplied as a Direct curve with the same
+// representation and interpolation, so later requests reuse it exactly.
 
 import * as R from '../lib/requests.js';
 import { addTenor, tenorYears } from '../lib/dates.js';
 import { addBusinessDays } from '../lib/calendars.js';
 import { percentToRate } from '../lib/decimal.js';
+import { OIS_INDICES, oisCurveCalibration } from '../lib/ois.js';
 
-export const CURVE_DEFS = {
+const BUILT_IN = {
   'USD.UST': {
     label: 'US Treasury',
     currency: 'USD',
@@ -54,26 +56,68 @@ export const CURVE_DEFS = {
   },
 };
 
+export const CURVE_DEFS = Object.fromEntries(Object.entries(BUILT_IN).map(([id, d]) => [id, { id, role: 'government', ...d }]));
+
+export const CALENDAR_FOR = { USD: 'US.SIFMA', EUR: 'EU.TARGET2', GBP: 'GB.LON', CAD: 'CA.TOR' };
+
+/** Curve role in the recipe: a government benchmark curve or a collateral discount curve. */
+export function curveRole(def) {
+  return def.role === 'discount'
+    ? { kind: 'Discount', collateral_currency: def.currency }
+    : { kind: 'Government', benchmark_id: def.benchmarkId };
+}
+
+/** The matching bond reference role for spread pricing. */
+export function spreadRole(def) {
+  return def.role === 'discount' ? R.collateralRole() : R.governmentRole(def.benchmarkId);
+}
+
+export const CURVE_METHODS = {
+  ois: 'OIS swap rates',
+  par: 'Par yields',
+  zero: 'Zero rates (continuous)',
+};
+
+/** A new curve you supply. Its points live on the definition, which is also its dataset. */
+export function customCurveDef({ id, label, currency, method, asOf, points = [], index, role }) {
+  const base = {
+    id, label, currency, method, asOf, points, custom: true, status: 'manual', revision: 1,
+    interpolation: 'Linear', benchmarkId: id,
+  };
+  if (method === 'ois') {
+    const conv = OIS_INDICES[index];
+    return { ...base, role: 'discount', index, calendar: conv.calendar, spotLag: conv.spotLag,
+      paymentDelay: conv.paymentDelay, dayCount: conv.dayCount };
+  }
+  if (method === 'par') {
+    return { ...base, role: 'government', calendar: CALENDAR_FOR[currency] || 'US.SIFMA', settlementDays: 1,
+      frequency: 'SemiAnnual', dayCount: currency === 'USD' ? 'ActActIcma' : 'Act365Fixed' };
+  }
+  return { ...base, role: role || 'discount', calendar: CALENDAR_FOR[currency] || 'US.SIFMA', interpolation: 'CubicSpline' };
+}
+
 // The checked curve route interpolates zero-rate nodes linearly or by cubic spline.
 export const INTERPOLATIONS = ['Linear', 'CubicSpline'];
 
-function role(def) {
-  return { kind: 'Government', benchmark_id: def.benchmarkId };
-}
-
 /**
- * Build one curve. Returns { id, key, recipe, tradeDate, settlement, method,
+ * Build one curve from a definition (or a built-in id) and its dataset.
+ * Returns { id, def, key, recipe, spreadRole, tradeDate, settlement, method,
  * repricing, nodes, ms, error }; `recipe` is null on failure.
  */
-export async function buildCurve(engine, id, dataset, { interpolation } = {}) {
-  const def = CURVE_DEFS[id];
+export async function buildCurve(engine, idOrDef, dataset, { interpolation } = {}) {
+  const def = typeof idOrDef === 'string' ? CURVE_DEFS[idOrDef] : idOrDef;
+  const { id } = def;
   const tradeDate = dataset.asOf;
   const version = `${dataset.asOf}.${dataset.status}${dataset.revision ? `.r${dataset.revision}` : ''}`;
   const key = R.curveKey(id, version);
   const points = dataset.points
     .filter((p) => p.value !== '' && p.value !== null && p.value !== undefined)
     .sort((a, b) => tenorYears(a.tenor) - tenorYears(b.tenor));
-  const base = { id, def, key, tradeDate, dataset: { id: dataset.id, asOf: dataset.asOf, status: dataset.status } };
+  const base = { id, def, key, tradeDate, spreadRole: spreadRole(def),
+    dataset: { id: dataset.id || id, asOf: dataset.asOf, status: dataset.status } };
+  if (points.length < 2) {
+    return { ...base, recipe: null, error: { code: 'missing_input', message: 'A curve needs at least two points.' } };
+  }
 
   if (def.method === 'zero') {
     const interp = interpolation || 'CubicSpline';
@@ -81,7 +125,7 @@ export async function buildCurve(engine, id, dataset, { interpolation } = {}) {
       .map((p) => [tenorYears(p.tenor), Number(percentToRate(p.value))])
       .sort((a, b) => a[0] - b[0]);
     const recipe = R.directZeroCurve({
-      key, currency: def.currency, referenceDate: tradeDate, role: role(def), nodes,
+      key, currency: def.currency, referenceDate: tradeDate, role: curveRole(def), nodes,
       compounding: 'Continuous', interpolation: interp, extrapolation: 'Flat',
     });
     const res = await engine.call(R.curvesBuild([recipe]), { label: `${def.label} curve` });
@@ -90,6 +134,8 @@ export async function buildCurve(engine, id, dataset, { interpolation } = {}) {
     return { ...base, recipe, settlement: tradeDate, method: 'zero', nodes,
       grid: built.interpolation_grid, domain: built.domain, ms: res.ms, interpolation: interp };
   }
+
+  if (def.method === 'ois') return buildOisCurve(engine, def, points, base, interpolation);
 
   const interp = interpolation || 'Linear';
   const settlement = addBusinessDays(def.calendar, tradeDate, def.settlementDays);
@@ -105,13 +151,41 @@ export async function buildCurve(engine, id, dataset, { interpolation } = {}) {
   const grid = curve.interpolation_grid;
   const nodes = grid.tenors.map((t, i) => [t, grid.values[i]]);
   const recipe = R.directZeroCurve({
-    key, currency: def.currency, referenceDate: tradeDate, role: role(def), nodes,
+    key, currency: def.currency, referenceDate: tradeDate, role: curveRole(def), nodes,
     compounding: 'Continuous', interpolation: interp, extrapolation: 'Flat',
   });
   return {
     ...base, recipe, settlement, method: 'par', nodes, grid, domain: curve.domain, interpolation: interp,
     repricing: res.data.repricing, iterations: curve.diagnostics && curve.diagnostics.iterations,
     evaluations: res.data.price_evaluations, ms: res.ms, quotes,
+  };
+}
+
+async function buildOisCurve(engine, def, points, base, interpolation) {
+  const { key, tradeDate } = base;
+  const conv = { ...OIS_INDICES[def.index], index: def.index, currency: def.currency };
+  for (const f of ['calendar', 'spotLag', 'paymentDelay', 'dayCount']) if (def[f] !== undefined) conv[f] = def[f];
+  const interp = interpolation || 'Linear';
+  let req;
+  try {
+    req = oisCurveCalibration({ key, projectionKey: R.curveKey(`${def.id}.ON`, key.version), def: conv, tradeDate,
+      quotes: points, interpolation: interp });
+  } catch (e) {
+    return { ...base, recipe: null, error: { code: e.code || 'invalid_input', message: e.message } };
+  }
+  const res = await engine.call(req, { label: `${def.label} OIS calibration` });
+  if (!res.ok) return { ...base, recipe: null, error: res.error, ms: res.ms };
+  const curve = res.data.result.curves.find((c) => c.recipe.key.id === key.id);
+  const grid = curve.interpolation_grid;
+  const nodes = grid.tenors.map((t, i) => [t, grid.values[i]]);
+  const recipe = R.directZeroCurve({
+    key, currency: def.currency, referenceDate: tradeDate, role: curveRole(def), nodes,
+    compounding: 'Continuous', interpolation: interp, extrapolation: 'Flat',
+  });
+  return {
+    ...base, recipe, settlement: tradeDate, method: 'ois', nodes, grid, domain: curve.domain, interpolation: interp,
+    repricing: res.data.repricing, iterations: curve.diagnostics && curve.diagnostics.iterations,
+    evaluations: res.data.price_evaluations, ms: res.ms, publications: res.data.publications.length,
   };
 }
 

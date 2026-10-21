@@ -8,7 +8,6 @@ import { currentYield, simpleYield } from '../lib/scalars.js';
 import { parsePrice, fromNumber, percentToRate } from '../lib/decimal.js';
 import { FREQ_PER_YEAR } from '../lib/terms.js';
 import { daysBetween } from '../lib/dates.js';
-import { CURVE_DEFS } from './curves.js';
 
 const DC = { ActActIsda: 'Act/Act ISDA', Thirty360US: '30/360 US', Thirty360E: '30E/360', Act365Fixed: 'Act/365F', Act360: 'Act/360' };
 
@@ -21,7 +20,8 @@ function compounding(sec) {
 const icmaValue = (data) => data.quotation.value;
 
 /** Price, yields, spreads, risk, invoice and ladder for one security and quote. */
-export async function computeYas(engine, { sec: security, tradeDate, settlement, quote, face, curve, benchmarks = [] }) {
+export async function computeYas(engine, { sec: security, tradeDate, settlement, quote, face, curve, benchmarks = [],
+  benchmarkCurve = curve, benchPrices = {} }) {
   // Straight yield of an optional bond is conditional on no exercise, so the
   // straight analysis runs on the bond with its calls explicitly removed and
   // says so; workouts and OAS treat the calls.
@@ -29,9 +29,9 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
   const sec = callable ? { ...security, calls: [] } : security;
   const out = { errors: {}, sources: {}, callsIgnored: callable };
   const comp = compounding(sec);
-  const curveDef = curve && CURVE_DEFS[curve.id];
-  // The government role names the curve's own benchmark identity exactly.
-  const role = curveDef ? R.governmentRole(curveDef.benchmarkId) : null;
+  // The spread role names the curve's own identity exactly: its government
+  // benchmark, or collateral for a swap (discount) curve.
+  const role = curve ? curve.spreadRole : null;
   const label = sec.ticker || sec.name;
 
   // 1. Resolve the quote to a clean price.
@@ -51,7 +51,7 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
     if (!res.ok) return { ...out, fatal: res.error };
     clean = res.data.clean_per100;
   } else if (quote.kind === 'gspread') {
-    const bench = await benchmarkQuotes(engine, benchmarks, settlement, curve, role);
+    const bench = await benchmarkQuotes(engine, benchmarks, settlement, benchmarkCurve, benchPrices);
     if (bench.error) return { ...out, fatal: bench.error };
     const res = await engine.call(governmentSpreadPrice(sec, quote.text, bench.list, { tradeDate, settlement, faceAmount: face }),
       { label: `${label} price from G-spread` });
@@ -127,7 +127,7 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
   out.simpleYield = scalars[1].ok ? Number(scalars[1].data.value) / 100 : NaN;
   if (!scalars[0].ok) out.errors.scalars = scalars[0].error;
 
-  // 6. Z-spread over the government curve and spread risk.
+  // 6. Z-spread over the chosen curve and spread risk.
   if (curve && curve.recipe) {
     const zr = await engine.call(R.bondSpreadInverse(sec, settlement, { kind: 'clean', value: clean }, curve.recipe, role),
       { label: `${label} Z-spread` });
@@ -143,11 +143,11 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
       }
     } else out.errors.zspread = zr.error;
     out.sources.curve = curve.key;
-  } else out.errors.zspread = { code: 'missing_input', message: 'No government curve is available for this currency.' };
+  } else out.errors.zspread = { code: 'missing_input', message: 'No curve is available for this currency.' };
 
   // 7. G-spread against actual benchmark securities.
   if (benchmarks.length >= 2 && sec.currency === 'USD') {
-    const bench = await benchmarkQuotes(engine, benchmarks, settlement, curve, role);
+    const bench = await benchmarkQuotes(engine, benchmarks, settlement, benchmarkCurve, benchPrices);
     if (bench.error) out.errors.gspread = bench.error;
     else {
       const gr = await engine.call(governmentSpread(sec, { kind: 'CleanPrice', value: cleanText }, bench.list,
@@ -186,21 +186,43 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
   return out;
 }
 
-/** Benchmark quotes: actual on-the-run securities priced off the fitted curve (curve-implied). */
-export async function benchmarkQuotes(engine, benchmarks, settlement, curve, role) {
-  if (!curve || !curve.recipe) return { error: { code: 'missing_input', message: 'The Treasury curve is not built yet.' } };
-  const res = await engine.callMany(
-    benchmarks.map((b) => R.bondPrice(b.sec, settlement, R.spreadMethod(curve.key, role, 0), [curve.recipe])),
-    { label: 'benchmark curve-implied prices' },
-  );
-  const bad = res.find((r) => !r.ok);
-  if (bad) return { error: bad.error };
+/**
+ * Benchmark quotes: the actual on-the-run securities, at the price you entered
+ * for a CUSIP, otherwise priced off the fitted government curve (curve-implied).
+ */
+export async function benchmarkQuotes(engine, benchmarks, settlement, curve, prices = {}) {
+  const yours = benchmarks.map((b) => {
+    const text = prices[b.sec.cusip];
+    if (!text) return null;
+    try {
+      const v = parsePrice(text);
+      return Number.isFinite(v) && v > 0 ? v : null;
+    } catch {
+      return null;
+    }
+  });
+  const implied = benchmarks.filter((_, i) => yours[i] === null);
+  let res = [];
+  if (implied.length) {
+    if (!curve || !curve.recipe) return { error: { code: 'missing_input', message: 'The Treasury curve is not built yet.' } };
+    res = await engine.callMany(
+      implied.map((b) => R.bondPrice(b.sec, settlement, R.spreadMethod(curve.key, curve.spreadRole, 0), [curve.recipe])),
+      { label: 'benchmark curve-implied prices' },
+    );
+    const bad = res.find((r) => !r.ok);
+    if (bad) return { error: bad.error };
+  }
+  let k = 0;
   return {
-    list: benchmarks.map((b, i) => ({
-      sec: b.sec,
-      bucket: b.bucket,
-      quote: { kind: 'CleanPrice', value: fromNumber(res[i].data.clean_per100, 10) },
-      provenance: 'curve-implied',
-    })),
+    list: benchmarks.map((b, i) => {
+      const own = yours[i] !== null;
+      const price = own ? yours[i] : res[k++].data.clean_per100;
+      return {
+        sec: b.sec,
+        bucket: b.bucket,
+        quote: { kind: 'CleanPrice', value: fromNumber(price, 10) },
+        provenance: own ? 'manual' : 'curve-implied',
+      };
+    }),
   };
 }

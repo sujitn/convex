@@ -3,7 +3,6 @@ import { useWorkspace } from '../state/workspace';
 import { useStore } from '../state/store';
 import * as R from '../lib/requests';
 import { cashConvention } from '../lib/cash';
-import { CURVE_DEFS } from '../analytics/curves';
 import { Panel, Tabs, EngineError, Spinner, Prov } from '../ui/primitives';
 import ScreenHead from '../ui/ScreenHead';
 import { JsonView, stringify } from '../ui/Inspector';
@@ -30,7 +29,7 @@ function templates({ sec, settlement, curve }) {
       { id: 'yinv', label: `${sec.ticker} yield from 99.5 (dated cash)`, build: () => R.bondYieldInverse(bullet, settlement, { kind: 'clean', value: 99.5 }, cashConvention(sec)) },
     );
     if (curve && curve.recipe) {
-      const role = R.governmentRole(CURVE_DEFS[curve.id].benchmarkId);
+      const role = curve.spreadRole;
       out.push({ id: 'zinv', label: `${sec.ticker} Z-spread from 99.5`, build: () => R.bondSpreadInverse(bullet, settlement, { kind: 'clean', value: 99.5 }, curve.recipe, role) });
     }
   }

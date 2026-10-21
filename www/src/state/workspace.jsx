@@ -8,7 +8,8 @@ import { settlementFor } from '../lib/terms';
 import { todayIso } from '../lib/dates';
 
 // Derived workspace: market datasets (snapshot → live → edited), curves built
-// from them by the engine, the security universe and the selected security.
+// from them and from the curves you supply, the security universe, the selected
+// security, and the curve each currency is spread against.
 
 const WorkspaceContext = createContext(null);
 
@@ -60,22 +61,43 @@ export function WorkspaceProvider({ engine, children }) {
     [dispatch],
   );
 
+  // Built-in curves read their dataset; a curve you supply carries its own points.
+  const curveDefs = useMemo(() => ({ ...CURVE_DEFS, ...state.customCurves }), [state.customCurves]);
+
+  const saveCurve = useCallback((curve) => dispatch({ type: 'customCurve', curve }), [dispatch]);
+  const removeCurve = useCallback((id) => dispatch({ type: 'removeCustomCurve', id }), [dispatch]);
+
   // Rebuild a curve whenever its dataset (or chosen interpolation) changes.
   useEffect(() => {
-    for (const [cid, def] of Object.entries(CURVE_DEFS)) {
-      const ds = datasets[def.dataset];
+    for (const [cid, def] of Object.entries(curveDefs)) {
+      const ds = def.custom ? def : datasets[def.dataset];
       if (!ds) continue;
-      const interpolation = curveOptions[cid];
-      const sig = `${ds.asOf}|${ds.status}|${ds.revision || ''}|${ds.fetchedAt || ''}|${interpolation || ''}`;
+      const interpolation = curveOptions[cid] || (def.custom ? def.interpolation : undefined);
+      const sig = def.custom
+        ? JSON.stringify(def)
+        : `${ds.asOf}|${ds.status}|${ds.revision || ''}|${ds.fetchedAt || ''}|${interpolation || ''}`;
       if (building.current[cid] === sig) continue;
       building.current[cid] = sig;
       setCurves((c) => ({ ...c, [cid]: { ...(c[cid] || {}), id: cid, def, building: true } }));
-      buildCurve(engine, cid, ds, { interpolation }).then((curve) => {
-        if (building.current[cid] !== sig) return;
-        setCurves((c) => ({ ...c, [cid]: { ...curve, building: false } }));
-      });
+      buildCurve(engine, def, ds, { interpolation })
+        .catch((e) => ({ id: cid, def, recipe: null, error: { code: 'app', message: e.message } }))
+        .then((curve) => {
+          if (building.current[cid] !== sig) return;
+          setCurves((c) => ({ ...c, [cid]: { ...curve, building: false } }));
+        });
     }
-  }, [datasets, engine, curveOptions]);
+    // Forget curves whose definitions were removed.
+    for (const cid of Object.keys(building.current)) {
+      if (!curveDefs[cid]) {
+        delete building.current[cid];
+        setCurves((c) => {
+          const next = { ...c };
+          delete next[cid];
+          return next;
+        });
+      }
+    }
+  }, [datasets, engine, curveOptions, curveDefs]);
 
   const treasuries = useMemo(() => treasuryUniverse(datasets['ust-auctions']), [datasets]);
   const benchmarks = useMemo(() => onTheRun(treasuries), [treasuries]);
@@ -91,8 +113,16 @@ export function WorkspaceProvider({ engine, children }) {
   }, [benchmarks, universe]);
 
   const selected = universe.find((s) => s.id === state.selectedId) || universe.find((s) => s.id === defaultId) || null;
-  const curveId = selected ? curveForCurrency(selected.currency) : 'USD.UST';
-  const curve = curves[curveId] || null;
+  // The government curve for the currency (G-spread benchmarks, scenarios) and
+  // the curve spreads are quoted against, the government one unless you chose another.
+  const currency = selected ? selected.currency : 'USD';
+  const govId = curveForCurrency(currency);
+  const curveChoices = useMemo(() => Object.values(curveDefs).filter((d) => d.currency === currency), [curveDefs, currency]);
+  const chosen = state.spreadCurve[currency];
+  const curveId = (chosen && curveDefs[chosen] && chosen) || govId || (curveChoices[0] && curveChoices[0].id) || null;
+  const curve = (curveId && curves[curveId]) || null;
+  const govCurve = (govId && curves[govId]) || null;
+  const setSpreadCurve = useCallback((id) => dispatch({ type: 'spreadCurve', currency, id }), [dispatch, currency]);
 
   const ust = datasets['ust-par'];
   const tradeDate = state.tradeDateOverride && state.tradeDate ? state.tradeDate : (ust && ust.asOf) || todayIso();
@@ -105,6 +135,13 @@ export function WorkspaceProvider({ engine, children }) {
       curves,
       curve,
       curveId,
+      govCurve,
+      curveDefs,
+      curveChoices,
+      setSpreadCurve,
+      saveCurve,
+      removeCurve,
+      benchPrices: state.benchPrices,
       setInterpolation: (cid, interp) => setCurveOptions((o) => ({ ...o, [cid]: interp })),
       curveOptions,
       loadOne,
@@ -120,7 +157,8 @@ export function WorkspaceProvider({ engine, children }) {
       tradeDate,
       settlement,
     }),
-    [engine, datasets, curves, curve, curveId, curveOptions, loadOne, loadAll, editDataset, resetDataset,
+    [engine, datasets, curves, curve, curveId, govCurve, curveDefs, curveChoices, setSpreadCurve, saveCurve, removeCurve,
+      state.benchPrices, curveOptions, loadOne, loadAll, editDataset, resetDataset,
       state.loading, state.errors, treasuries, benchmarks, universe, selected, tradeDate, settlement],
   );
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

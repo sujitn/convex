@@ -7,15 +7,17 @@ import { Panel, Prov, Tabs, Icon, Spinner, Field } from '../ui/primitives';
 import { LineChart } from '../ui/charts';
 import ScreenHead from '../ui/ScreenHead';
 import { tenorYears, formatLong } from '../lib/dates';
-import { isDecimal } from '../lib/decimal';
 import { fmt } from '../lib/format';
 import { treasuryFromAuction } from '../analytics/securities';
+import PointsEditor from '../ui/PointsEditor';
+import YourData from './YourData';
 
 const GROUPS = [
   ['USD', 'United States'],
   ['EUR', 'Euro area'],
   ['CAD', 'Canada'],
   ['OTHER', 'UK and Japan'],
+  ['MINE', 'Your data'],
 ];
 
 function SourceLine({ ds, error }) {
@@ -50,44 +52,16 @@ function LoadButtons({ id }) {
 function CurveDataset({ id, title }) {
   const { datasets, errors, editDataset, curves } = useWorkspace();
   const ds = datasets[id];
-  const [draft, setDraft] = useState({});
   if (!ds) return null;
   const pts = [...ds.points].sort((a, b) => tenorYears(a.tenor) - tenorYears(b.tenor));
   const curve = Object.values(curves).find((c) => c && c.def && c.def.dataset === id);
-  const commit = (tenor, text) => {
-    setDraft((d) => ({ ...d, [tenor]: undefined }));
-    if (!isDecimal(text)) return;
-    editDataset(id, ds.points.map((p) => (p.tenor === tenor ? { ...p, value: text.trim() } : p)));
-  };
-  const remove = (tenor) => editDataset(id, ds.points.filter((p) => p.tenor !== tenor));
   return (
     <Panel title={title || ds.label} actions={<LoadButtons id={id} />}
       foot={<SourceLine ds={ds} error={errors[id]} />} flush>
       <div className="cols cols--2" style={{ gap: 0 }}>
-        <div className="table-wrap" style={{ maxHeight: 360, borderRight: '1px solid var(--rule)' }}>
-          <table className="grid">
-            <thead>
-              <tr><th>Tenor</th><th className="num">{ds.kind === 'zero' ? 'Spot %' : 'Yield %'}</th><th /></tr>
-            </thead>
-            <tbody>
-              {pts.map((p) => (
-                <tr key={p.tenor}>
-                  <td>{p.tenor}</td>
-                  <td className="edit">
-                    <input value={draft[p.tenor] ?? p.value} aria-label={`${p.tenor} rate`}
-                      aria-invalid={draft[p.tenor] !== undefined && !isDecimal(draft[p.tenor])}
-                      onChange={(e) => setDraft((d) => ({ ...d, [p.tenor]: e.target.value }))}
-                      onBlur={(e) => draft[p.tenor] !== undefined && commit(p.tenor, e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
-                  </td>
-                  <td style={{ width: 34 }}>
-                    <button type="button" className="icon-btn row-action" style={{ width: 24, height: 24 }}
-                      aria-label={`Remove ${p.tenor}`} onClick={() => remove(p.tenor)}><Icon name="close" /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ borderRight: '1px solid var(--rule)', paddingBottom: 6 }}>
+          <PointsEditor points={ds.points} onChange={(points) => editDataset(id, points)}
+            valueLabel={ds.kind === 'zero' ? 'Spot %' : 'Yield %'} />
         </div>
         <div style={{ padding: '10px 12px' }}>
           <LineChart height={240} legend={false}
@@ -262,6 +236,7 @@ export default function Market({ fn }) {
         </div>
       )}
       {group === 'OTHER' && <ProxySettings />}
+      {group === 'MINE' && <YourData />}
     </div>
   );
 }
