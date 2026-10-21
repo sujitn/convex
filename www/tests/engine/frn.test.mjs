@@ -8,7 +8,7 @@ import { SNAPSHOT } from '../../src/market/snapshot.js';
 import { buildCurve, customCurveDef } from '../../src/analytics/curves.js';
 import { EXAMPLES } from '../../src/analytics/securities.js';
 import { analyseFrn } from '../../src/analytics/frn.js';
-import { floatingTerms, frnConstruct, accrualCutoffs, historyFixings } from '../../src/lib/frn.js';
+import { floatingTerms, frnConstruct, accrualCutoffs, historyFixings, frnPublications } from '../../src/lib/frn.js';
 import { examplePoints } from '../../src/lib/ois.js';
 import { settlementFor } from '../../src/lib/terms.js';
 import { daysBetween } from '../../src/lib/dates.js';
@@ -171,6 +171,13 @@ test('an FRN pasted from a spreadsheet prices at its pasted price', async () => 
   assert.ok(Math.abs(r.clean - 99.85) < 1e-8);
   assert.ok(r.dm > 0.00625, `${r.dm}`); // below par: DM above the margin
   assert.ok(r.coupons.length > 4 && r.coupons[0].origin === 'partial');
+});
+
+test('publications start at the business day on or before a weekend accrual start, as the engine observes', () => {
+  const periods = [{ accrual_start: '2026-08-15', accrual_end: '2026-11-16', payment_date: '2026-11-16' }]; // a Saturday
+  const lag = frnPublications({ ...FRN, observationShift: false, lookbackDays: 2 }, periods, '2026-10-21');
+  assert.equal(lag[0].observation_date, '2026-08-12'); // Friday 14 August, two business days back
+  assert.equal(lag[lag.length - 1].observation_date, '2026-11-10'); // Friday 13 November, two back over Veterans Day
 });
 
 test('other conventions price too: lag without shift, lockout, monthly, payment delay, a weekend maturity', async () => {

@@ -80,12 +80,39 @@ test('the header must name coupon and maturity', () => {
   assert.match(out.errors[0].reason, /Coupon % and Maturity not found/);
 });
 
-test('the template parses back to the same bonds', () => {
-  const out = parseBondTable('CUSIP\tCoupon\tMaturity\tIssue Date\n91282CRF0\t4.625\t2036-08-15\t2026-08-15', { tradeDate: TRADE });
+test('the template parses back to the same bonds, prices and calls included', () => {
+  const out = parseBondTable([
+    'CUSIP\tCoupon\tMaturity\tIssue Date\tPrice\tCalls',
+    '91282CRF0\t4.625\t2036-08-15\t2026-08-15\t96-16+\t',
+    '\t5.25\t2034-03-15\t2024-03-15\t97.5\t2029-03-15@101; 2030-03-15@100',
+  ].join('\n'), { tradeDate: TRADE });
+  assert.equal(out.errors.length, 0, JSON.stringify(out.errors));
+  assert.equal(out.rows.length, 2);
   const again = parseBondTable(bondTemplate(out.rows.map((r) => r.sec)), { tradeDate: TRADE });
-  assert.equal(again.errors.length, 0);
-  for (const k of ['cusip', 'coupon', 'maturity', 'issueDate', 'currency', 'frequency', 'dayCount']) {
-    assert.equal(again.rows[0].sec[k], out.rows[0].sec[k], k);
+  assert.equal(again.errors.length, 0, JSON.stringify(again.errors));
+  assert.equal(again.rows.length, 2);
+  out.rows.forEach((row, i) => {
+    for (const k of ['cusip', 'coupon', 'maturity', 'issueDate', 'currency', 'frequency', 'dayCount', 'price']) {
+      assert.equal(again.rows[i].sec[k], row.sec[k], `${i} ${k}`);
+    }
+    assert.deepEqual(again.rows[i].sec.calls, row.sec.calls);
+  });
+  assert.equal(out.rows[1].sec.calls.length, 2);
+});
+
+test('Treasury ISINs accrue Act/Act ICMA like Treasury CUSIPs', () => {
+  const out = parseBondTable('ISIN\tCoupon\tMaturity\nUS91282CRF04\t4.625\t2036-08-15', { tradeDate: TRADE });
+  assert.equal(out.errors.length, 0, JSON.stringify(out.errors));
+  assert.equal(out.rows[0].sec.isin, 'US91282CRF04');
+  assert.equal(out.rows[0].sec.dayCount, 'ActActIcma');
+});
+
+test('calls on or after maturity, before issue, or at a zero price are refused', () => {
+  const head = 'Coupon\tMaturity\tIssue Date\tCalls';
+  for (const call of ['2034-03-15@100', '2035-03-15@100', '2023-03-15@100', '2029-03-15@0']) {
+    const out = parseBondTable(`${head}\n5.25\t2034-03-15\t2024-03-15\t${call}`, { tradeDate: TRADE });
+    assert.equal(out.rows.length, 0, call);
+    assert.match(out.errors[0].reason, /after the issue date and before maturity, at a positive price/);
   }
 });
 

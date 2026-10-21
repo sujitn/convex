@@ -68,8 +68,9 @@ export default function BondImport({ onClose }) {
         <div className="dim" style={{ fontSize: 12.5 }}>
           The first line names the columns, in any order. Required: <b>Coupon</b> and <b>Maturity</b>. Optional:{' '}
           {BOND_COLUMNS.filter((c) => !c.required).map((c) => c.label).join(', ')}. Calls are written
-          as <code>date@price</code> separated by semicolons. Missing values get the currency's market default, listed
-          per row below.
+          as <code>date@price</code> separated by semicolons. Missing conventions (currency, frequency, day count,
+          settlement days, issue date) get the currency's market default, listed per row below; redemption defaults
+          to 100, and a missing identifier, name, price or calls stay blank.
         </div>
         <div className="paste">
           <textarea value={text} onChange={(e) => { setText(e.target.value); setDone(null); }} spellCheck={false}

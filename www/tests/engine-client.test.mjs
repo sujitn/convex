@@ -77,7 +77,7 @@ test('a trap during a batch resolves every member with an engine error, logs it,
   assert.equal(one.error.code, 'engine');
 });
 
-test('a replacement worker that failed to load answers with errors, which become envelopes', async () => {
+test('a worker whose engine failed to load answers with errors, which become envelopes', async () => {
   const { make } = factory(() => ({ type: 'result', error: 'Engine download failed: HTTP 503' }));
   const engine = createEngine({ workerFactory: make });
   await engine.ready;
@@ -85,4 +85,39 @@ test('a replacement worker that failed to load answers with errors, which become
   assert.deepEqual(out.map((r) => r.error.code), ['engine', 'engine', 'engine']);
   assert.match(out[0].error.message, /HTTP 503/);
   assert.equal(engine.getLog()[0].count, 3);
+});
+
+test('a replacement worker that dies before loading fails its requests instead of leaving them pending', async () => {
+  const workers = [];
+  const make = () => {
+    const first = workers.length === 0;
+    const w = {
+      onmessage: null,
+      onerror: null,
+      terminated: false,
+      // The first worker traps on any request; the replacement never answers.
+      postMessage(msg) {
+        if (first) setTimeout(() => !w.terminated && w.onmessage({ data: { id: msg.id, type: 'fatal', message: 'unreachable' } }), 0);
+      },
+      terminate() {
+        w.terminated = true;
+      },
+    };
+    if (first) setTimeout(() => w.onmessage({ data: { type: 'ready', bytes: 1, ms: 1 } }), 0);
+    else setTimeout(() => w.onerror({ message: 'worker script failed to load' }), 5);
+    workers.push(w);
+    return w;
+  };
+  const engine = createEngine({ workerFactory: make });
+  await engine.ready;
+  assert.match((await engine.call(req(0))).error.message, /Engine stopped/);
+  // Sent while the replacement is still loading.
+  const out = await engine.callMany([req(1), req(2)]);
+  assert.deepEqual(out.map((r) => r.error.code), ['engine', 'engine']);
+  assert.match(out[0].error.message, /worker script failed to load/);
+  assert.equal(engine.getStatus().state, 'failed');
+  // Once failed, a request is answered at once.
+  const later = await engine.call(req(3));
+  assert.equal(later.error.code, 'engine');
+  assert.equal(workers.length, 2);
 });

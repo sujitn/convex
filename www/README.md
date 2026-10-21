@@ -81,8 +81,10 @@ or a terminal export. Under `MKT` → Your data:
   CUSIP or ISIN, name, coupon, maturity, issue/dated/first coupon dates,
   currency, frequency, day count, settlement days, redemption, clean price
   (decimal or 32nds) and calls (`date@price; date@price`). Coupon and maturity
-  are required; anything else missing gets the currency's market default, and
-  the preview lists each default applied before you add the bonds. Dates may be
+  are required. Missing conventions (currency, frequency, day count,
+  settlement days, issue date) get the currency's market default, and the
+  preview lists each default applied before you add the bonds; redemption
+  defaults to 100, and a missing identifier, name, price or calls stay blank. Dates may be
   ISO, US or day-first (detected, or chosen), `15-Mar-2034` or Excel serials.
   Without an issue date a bond is taken as regular, accruing from its last
   coupon date. A pasted price becomes the bond's opening quote on `YAS`.

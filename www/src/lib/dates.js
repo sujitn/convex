@@ -49,6 +49,7 @@ export function addMonths(iso, n) {
   const y = d.getUTCFullYear();
   const m = d.getUTCMonth() + n;
   const target = utc(y, m, 1);
+  if (target.getUTCFullYear() < 0 || target.getUTCFullYear() > 9999) throw new Error(`${iso} shifted ${n} months is outside years 0000-9999`);
   const last = daysInMonth(target.getUTCFullYear(), target.getUTCMonth() + 1);
   target.setUTCDate(Math.min(d.getUTCDate(), last));
   return toIso(target);

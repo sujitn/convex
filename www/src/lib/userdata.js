@@ -1,5 +1,6 @@
 // Everything you supplied (edited datasets, your curves and securities,
-// benchmark prices, the curve chosen for spreads per currency) as one JSON
+// benchmark prices and the G-spread benchmark choice, the curve chosen for
+// spreads per currency) as one JSON
 // document, and the checked way back in. Every record is checked whole: a
 // malformed one is left out and listed in `rejected`, never partly imported.
 
@@ -31,6 +32,7 @@ export function exportData(state) {
     credit: state.credit || {},
     spreadCurve: state.spreadCurve || {},
     benchPrices: state.benchPrices,
+    benchmarkChoice: state.benchmarkChoice,
   };
 }
 
@@ -81,6 +83,8 @@ function curveProblem(id, c) {
     const index = OIS_INDICES[c.index];
     if (!index) return `overnight index ${c.index} is not supported`;
     if (index.currency !== c.currency) return `${c.index} is not a ${c.currency} index`;
+    // The OIS fit is always built in the collateral discount role.
+    if (c.role !== 'discount') return `role ${c.role}: an OIS curve is a discount curve`;
   } else if (c.method === 'par' || c.method === 'zero') {
     if (!CALENDAR_RULES[c.calendar]) return `calendar ${c.calendar} is not known`;
     if (c.method === 'par') {
@@ -152,6 +156,14 @@ function securityProblem(id, s) {
     || rowsProblem(s.sinking, 'amount', 'sinking-fund');
 }
 
+function benchmarkChoiceProblem(c) {
+  if (!isObject(c)) return 'not a { mode, ids, selection } record';
+  if (c.mode !== 'otr' && c.mode !== 'custom') return `benchmark set ${c.mode} is not otr or custom`;
+  if (c.selection !== 'LinearMaturity' && c.selection !== 'ExactMaturity') return `selection ${c.selection} is not LinearMaturity or ExactMaturity`;
+  if (!Array.isArray(c.ids) || !c.ids.every(isText)) return 'ids are not a list of security ids';
+  return null;
+}
+
 function benchPriceProblem(cusip, text) {
   if (!isText(cusip)) return 'no CUSIP';
   if (typeof text !== 'string') return 'price is not text';
@@ -164,7 +176,8 @@ function benchPriceProblem(cusip, text) {
 
 /**
  * Check an imported document; returns `{ datasets, customCurves, custom,
- * benchPrices, spreadCurve, rejected }` or throws when the file is not one of
+ * benchPrices, spreadCurve, benchmarkChoice, rejected }` (benchmarkChoice
+ * undefined when the file has none) or throws when the file is not one of
  * ours. `rejected` lists every record left out: `{ section, id, reason }`.
  * Pass the current custom curves as `existing.customCurves` so a spread-curve
  * choice may name a curve you already have.
@@ -201,5 +214,14 @@ export function readImport(json, existing = {}) {
     if (!curve) return `curve ${JSON.stringify(id)} is neither built in nor one of your curves`;
     return curve.currency === currency ? null : `curve ${id} is not a ${currency} curve`;
   });
-  return { datasets, customCurves, credit, custom, benchPrices, spreadCurve, rejected };
+  let benchmarkChoice;
+  if (json.benchmarkChoice !== undefined) {
+    const reason = benchmarkChoiceProblem(json.benchmarkChoice);
+    if (reason) rejected.push({ section: 'benchmarkChoice', id: null, reason });
+    else {
+      const { mode, ids, selection } = json.benchmarkChoice;
+      benchmarkChoice = { mode, ids: [...ids], selection };
+    }
+  }
+  return { datasets, customCurves, credit, custom, benchPrices, spreadCurve, benchmarkChoice, rejected };
 }

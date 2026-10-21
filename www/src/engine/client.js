@@ -40,6 +40,12 @@ export function createEngine({ workerFactory } = {}) {
     statusListeners.forEach((fn) => fn(status));
   };
 
+  // A worker that failed to start, or died, answers nothing more.
+  const failPending = (message) => {
+    for (const [, p] of pending) p.reject(new Error(message));
+    pending.clear();
+  };
+
   const pushLog = (entry) => {
     log = [entry, ...log].slice(0, LOG_LIMIT);
     logListeners.forEach((fn) => fn(log));
@@ -72,6 +78,7 @@ export function createEngine({ workerFactory } = {}) {
         setStatus({ state: 'failed', message });
         rejectReady(new Error(message));
       }
+      failPending(message);
     };
   }
 
@@ -87,6 +94,10 @@ export function createEngine({ workerFactory } = {}) {
 
   function post(method, payload, batch) {
     return new Promise((resolve, reject) => {
+      if (status.state === 'failed') {
+        reject(new Error(status.message || 'Engine failed to load'));
+        return;
+      }
       const id = ++seq;
       pending.set(id, { resolve, reject });
       worker.postMessage({ id, method, payload, batch });

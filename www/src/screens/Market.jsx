@@ -27,7 +27,7 @@ function SourceLine({ ds, error }) {
       <Prov status={error ? 'error' : ds.status} title={error || undefined} />
       <span>As of <b className="dim">{formatLong(ds.asOf)}</b></span>
       {ds.source && <a href={ds.source.url} target="_blank" rel="noreferrer">{ds.source.name}</a>}
-      {ds.status === 'snapshot' && <span>bundled {formatLong(SNAPSHOT.capturedAt.slice(0, 10))}</span>}
+      {ds.status === 'snapshot' && <span>bundled {formatLong((ds.fetchedAt || SNAPSHOT.capturedAt).slice(0, 10))}</span>}
       {ds.status === 'manual' && <span>edited in this browser</span>}
       {error && <span className="neg">Live load failed: {error}</span>}
     </div>

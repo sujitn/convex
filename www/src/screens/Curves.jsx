@@ -20,7 +20,10 @@ const INPUT = { par: 'Par input', ois: 'Swap rate input', zero: 'Spot input' };
 // Built-in curves then yours, in a fixed order, so a curve keeps its colour; past
 // six, the palette repeats with a dashed line rather than a generated hue.
 function seriesStyle(defs, cid) {
-  const i = Math.max(0, Object.keys(defs).indexOf(cid));
+  // Partitioned: an integer-like custom id would otherwise enumerate first.
+  const ids = Object.keys(defs);
+  const order = [...ids.filter((id) => !defs[id].custom), ...ids.filter((id) => defs[id].custom)];
+  const i = Math.max(0, order.indexOf(cid));
   return { color: PALETTE[i % PALETTE.length], dash: i >= PALETTE.length };
 }
 

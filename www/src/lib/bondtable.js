@@ -275,8 +275,9 @@ export function parseBondTable(text, { tradeDate, dayFirst: forced } = {}) {
       if (!frequency) { fail(`frequency "${get('frequency')}" not recognised (annual, semi-annual, quarterly, monthly or 1/2/4/12)`); continue; }
     } else assumed.push(`${frequency === 'SemiAnnual' ? 'semi-annual' : frequency.toLowerCase()} coupons`);
 
-    // Treasuries (CUSIP 912...) and gilts accrue Act/Act ICMA; corporates 30/360.
-    let dayCount = floating ? 'Act360' : cusip && cusip.startsWith('912') ? 'ActActIcma' : d.dayCount;
+    // Treasuries (CUSIP 912..., ISIN US912...) and gilts accrue Act/Act ICMA; corporates 30/360.
+    const treasury = (cusip && cusip.startsWith('912')) || (isin && isin.startsWith('US912'));
+    let dayCount = floating ? 'Act360' : treasury ? 'ActActIcma' : d.dayCount;
     if (get('dayCount')) {
       dayCount = DAY_COUNTS.get(norm(get('dayCount')));
       if (!dayCount) { fail(`day count "${get('dayCount')}" not recognised (e.g. ACT/ACT, 30/360, 30E/360, ACT/365, ACT/360)`); continue; }
@@ -336,6 +337,8 @@ export function parseBondTable(text, { tradeDate, dayFirst: forced } = {}) {
         fail(e.message);
         continue;
       }
+      const late = calls.find((c) => !(c.date > issueDate && c.date < maturity) || !(Number(c.price) > 0));
+      if (late) { fail(`call ${late.date}@${late.price} must fall after the issue date and before maturity, at a positive price`); continue; }
     }
 
     const label = cusip || isin || idText || (floating ? `FRN ${maturity}` : `${couponShort(coupon)} ${maturity}`);
@@ -394,11 +397,15 @@ export function bondTemplate(secs = []) {
   const dc = { ActActIcma: 'ACT/ACT', Thirty360US: '30/360', Thirty360E: '30E/360', Act365Fixed: 'ACT/365', Act360: 'ACT/360', ActActIsda: 'ACT/ACT ISDA' };
   // Floating-rate notes add their index columns; fixed rows leave them blank.
   const floaters = secs.some((s) => s.kind === 'floating');
+  const callable = secs.some((s) => (s.calls || []).length);
   const rows = secs.map((s) => {
     const floating = s.kind === 'floating';
     const row = [s.cusip || s.isin || '', s.name, floating ? '' : s.coupon, s.maturity, s.issueDate, s.currency,
       freq[s.frequency] || s.frequency, dc[s.dayCount] || s.dayCount, s.price || ''];
-    return floaters ? [...row, floating ? 'SOFR' : '', floating ? s.spreadBp : '', floating ? s.lookbackDays : ''] : row;
+    if (floaters) row.push(floating ? 'SOFR' : '', floating ? s.spreadBp : '', floating ? s.lookbackDays : '');
+    if (callable) row.push((s.calls || []).map((c) => `${c.date}@${c.price}`).join('; '));
+    return row;
   });
-  return [floaters ? [...head, 'Index', 'Spread', 'Lookback'] : head, ...rows].map((r) => r.join('\t')).join('\n');
+  const header = [...head, ...(floaters ? ['Index', 'Spread', 'Lookback'] : []), ...(callable ? ['Calls'] : [])];
+  return [header, ...rows].map((r) => r.join('\t')).join('\n');
 }

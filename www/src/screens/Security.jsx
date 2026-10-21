@@ -95,6 +95,9 @@ function RowsEditor({ title, rows, columns, onChange, empty }) {
   );
 }
 
+// isDecimal accepts thousands separators ("1,000"); Number does not.
+const positive = (text) => Number(String(text).replace(/,/g, '')) > 0;
+
 function TermsEditor({ sec, onApply }) {
   const [draft, setDraft] = useState(sec);
   useEffect(() => setDraft(sec), [sec]);
@@ -105,7 +108,7 @@ function TermsEditor({ sec, onApply }) {
   const rowsValid = (rows, valueKey) => (rows || []).every((r) => isIso(r.date) && isDecimal(r[valueKey] || ''));
   const valid = isDecimal(draft.coupon || '') && isIso(draft.issueDate) && isIso(draft.maturity) && draft.maturity > draft.issueDate
     && optionalDate(draft.datedDate) && optionalDate(draft.firstCouponDate)
-    && isDecimal(draft.face || '') && Number(draft.face) > 0 && isDecimal(draft.redemption || '') && Number(draft.redemption) > 0
+    && isDecimal(draft.face || '') && positive(draft.face) && isDecimal(draft.redemption || '') && positive(draft.redemption)
     && rowsValid(draft.calls, 'price') && rowsValid(draft.steps, 'coupon') && rowsValid(draft.sinking, 'amount');
   return (
     <Panel title="Terms" note={sec.source === 'auction' ? 'Treasury terms are read-only; copy to edit' : 'editable'}

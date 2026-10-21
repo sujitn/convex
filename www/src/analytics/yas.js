@@ -151,7 +151,7 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
   // interpolated between the two that bracket its maturity, or the one that
   // matures the same day.
   const usable = gspreadBenchmarks(security, benchmarks, benchmarkSelection);
-  const needed = benchmarkSelection === 'ExactMaturity' ? 1 : 2;
+  const needed = isExact(benchmarkSelection) ? 1 : 2;
   if (usable.length >= needed) {
     const bench = await benchmarkQuotes(engine, usable, settlement, benchmarkCurve, benchPrices);
     if (bench.error) out.errors.gspread = bench.error;
@@ -201,16 +201,18 @@ export async function computeYas(engine, { sec: security, tradeDate, settlement,
  * itself, no sinking-fund bonds. The library takes exactly one security for
  * ExactMaturity, so that mode keeps the first one maturing on the target's date.
  */
+const isExact = (selection) => selection === 'ExactMaturity' || selection === 'Exact';
+
 export function gspreadBenchmarks(sec, benchmarks, selection) {
   const usable = benchmarks.filter((b) => b.sec.currency === sec.currency && b.sec.id !== sec.id && !(b.sec.sinking || []).length);
-  return selection === 'ExactMaturity' ? usable.filter((b) => b.sec.maturity === sec.maturity).slice(0, 1) : usable;
+  return isExact(selection) ? usable.filter((b) => b.sec.maturity === sec.maturity).slice(0, 1) : usable;
 }
 
 /** Whether the engine can select a benchmark yield: an exact maturity match, or (interpolated) a target inside the set's maturities. */
 export function gspreadAvailable(sec, benchmarks, selection) {
   const set = gspreadBenchmarks(sec, benchmarks, selection);
   if (set.some((b) => b.sec.maturity === sec.maturity)) return true;
-  if (selection === 'ExactMaturity' || set.length < 2) return false;
+  if (isExact(selection) || set.length < 2) return false;
   const mats = set.map((b) => b.sec.maturity).sort();
   return mats[0] <= sec.maturity && sec.maturity <= mats[mats.length - 1];
 }

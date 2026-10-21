@@ -149,4 +149,7 @@ test('par spread quotes keep the supplied revision as the helper quote version',
   def.points = [{ tenor: '1Y', value: '50', version: 3 }, { tenor: '5Y', value: '120' }];
   const { quotes } = C.creditQuotes(def, TRADE);
   assert.deepEqual(quotes.map((q) => q.version), [3, 1]);
+  const discountKey = { id: 'USD.SOFR.OIS.DF', version: 'v1' };
+  const recipe = C.creditRecipe({ def, tradeDate: TRADE, key: C.survivalKey(def, TRADE, discountKey), discountKey, quotes });
+  assert.deepEqual(recipe.helpers.map((h) => h.quote_version), [3, 1]);
 });

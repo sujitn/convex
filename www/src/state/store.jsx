@@ -108,6 +108,7 @@ function reducer(state, action) {
         credit: { ...state.credit, ...(d.credit || {}) },
         benchPrices: { ...state.benchPrices, ...(d.benchPrices || {}) },
         spreadCurve: { ...state.spreadCurve, ...(d.spreadCurve || {}) },
+        benchmarkChoice: d.benchmarkChoice || state.benchmarkChoice,
       };
     }
     case 'tradeDate':

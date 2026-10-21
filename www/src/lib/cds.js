@@ -210,7 +210,7 @@ export function creditQuotes(def, tradeDate) {
   const problems = [];
   for (const p of def.points) {
     if (p.value === '' || p.value === null || p.value === undefined) continue;
-    if (!isDecimal(p.value) || !(Number(p.value) > 0)) {
+    if (!isDecimal(p.value) || !(Number(p.value) > 0 && Number.isFinite(Number(p.value)))) {
       problems.push(`${p.tenor}: a par spread must be a positive number of basis points`);
       continue;
     }

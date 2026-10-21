@@ -67,8 +67,9 @@ test('European copies keep their decimal commas; tabs and semicolons split alone
   assert.deepEqual(parseTenorTable('1Y\t3,85').points, [{ tenor: '1Y', value: '3.85' }]);
   assert.deepEqual(parseTenorTable('1Y;3,85').points, [{ tenor: '1Y', value: '3.85' }]);
   assert.deepEqual(parseTenorTable('10 yr, 4.25%').points, [{ tenor: '10Y', value: '4.25' }]);
-  assert.deepEqual(parseTenorTable('Laufzeit;Rendite\n2 Y;2,10\n10 Y;2,65 %').points,
-    [{ tenor: '2Y', value: '2.10' }, { tenor: '10Y', value: '2.65' }]);
+  const german = parseTenorTable('Laufzeit;Rendite\n2 Y;2,10\n10 Y;2,65 %');
+  assert.deepEqual(german.points, [{ tenor: '2Y', value: '2.10' }, { tenor: '10Y', value: '2.65' }]);
+  assert.deepEqual(german.errors, []); // the German header is a header
   assert.deepEqual(parseTenorTable('5Y\t1,234.5\t').points, [{ tenor: '5Y', value: '1234.5' }]);
 });
 
@@ -81,6 +82,8 @@ test('extra columns, unreadable lines and absurd tenors are reported, not ignore
     '1Y\t3.6\t3.7',
     '2Y',
     '3Y 3.5',
+    '4Y\t\t3.5', // an empty rate cell, not a rate
+    '0.001Y 3', // shorter than a day
   ].join('\n'));
   assert.deepEqual(points, [{ tenor: '3Y', value: '3.5' }]);
   assert.deepEqual(errors.map((e) => [e.line, e.reason]), [
@@ -89,6 +92,8 @@ test('extra columns, unreadable lines and absurd tenors are reported, not ignore
     [4, 'no tenor such as 3M, 1.5Y or 10Y (at most 100 years)'],
     [5, 'unexpected extra column "3.7"'],
     [6, 'no rate after the tenor'],
+    [8, 'no rate after the tenor'],
+    [9, 'no tenor such as 3M, 1.5Y or 10Y (at most 100 years)'],
   ]);
 });
 
@@ -123,6 +128,7 @@ test('export and import round trip, with every record intact', () => {
     customCurves: { 'USD.SOFR': sofrCurve },
     spreadCurve: { USD: 'USD.SOFR', EUR: 'EUR.AAA' },
     benchPrices: { '91282CXX1': '99-16' },
+    benchmarkChoice: { mode: 'custom', ids: ['IMP-037833DX5'], selection: 'ExactMaturity' },
   };
   const doc = JSON.parse(JSON.stringify(exportData(state)));
   assert.equal(doc.version, 1);
@@ -136,6 +142,7 @@ test('export and import round trip, with every record intact', () => {
   assert.deepEqual(back.customCurves, state.customCurves);
   assert.deepEqual(back.spreadCurve, state.spreadCurve);
   assert.deepEqual(back.benchPrices, state.benchPrices);
+  assert.deepEqual(back.benchmarkChoice, state.benchmarkChoice);
 });
 
 test('foreign files, other versions and malformed records are refused or left out and listed', () => {
@@ -159,6 +166,7 @@ test('foreign files, other versions and malformed records are refused or left ou
       A: { ...sofrCurve, id: 'B' },
       'USD.BADPT': { ...sofrCurve, id: 'USD.BADPT', points: [{ tenor: '1Y', value: '' }] },
       'USD.BADDATE': { ...sofrCurve, id: 'USD.BADDATE', asOf: '2026-13-01' },
+      'USD.GOVOIS': { ...sofrCurve, id: 'USD.GOVOIS', role: 'government' }, // an OIS fit is a discount curve
     },
     custom: {
       'MY-BOND': security,
@@ -170,6 +178,7 @@ test('foreign files, other versions and malformed records are refused or left ou
     },
     spreadCurve: { USD: 'USD.SOFR', EUR: 'USD.SOFR', GBP: 'GBP.MINE', CAD: 'CAD.GOC', usd: 'USD.UST' },
     benchPrices: { '91282CXX1': '99-16', C: 5, D: '0x10' },
+    benchmarkChoice: { mode: 'custom', ids: 'all', selection: 'ExactMaturity' },
   };
   const back = readImport(doc, { customCurves: { 'GBP.MINE': { id: 'GBP.MINE', currency: 'GBP' } } });
   assert.deepEqual(Object.keys(back.datasets), ['ecb-all']);
@@ -180,12 +189,16 @@ test('foreign files, other versions and malformed records are refused or left ou
   assert.deepEqual(back.benchPrices, { '91282CXX1': '99-16' });
   const ids = (section) => back.rejected.filter((r) => r.section === section).map((r) => r.id);
   assert.deepEqual(ids('datasets'), ['ust-par', 'ecb-aaa', 'boc-benchmarks', 'nyfed-rates']);
-  assert.deepEqual(ids('customCurves'), ['USD.ODD', 'USD.UST', 'A', 'USD.BADPT', 'USD.BADDATE']);
+  assert.deepEqual(ids('customCurves'), ['USD.ODD', 'USD.UST', 'A', 'USD.BADPT', 'USD.BADDATE', 'USD.GOVOIS']);
   assert.deepEqual(ids('custom'), ['NOCOUPON', 'BADDATE', 'BADCAL', 'BADDC', 'HALFCALL']);
   assert.deepEqual(ids('spreadCurve'), ['EUR', 'usd']);
   assert.deepEqual(ids('benchPrices'), ['C', 'D']);
   assert.match(back.rejected.find((r) => r.id === 'USD.UST').reason, /built-in/);
-  assert.equal(back.rejected.length, 18);
+  assert.match(back.rejected.find((r) => r.id === 'USD.GOVOIS').reason, /discount curve/);
+  assert.equal(back.benchmarkChoice, undefined);
+  assert.deepEqual(back.rejected.find((r) => r.section === 'benchmarkChoice'),
+    { section: 'benchmarkChoice', id: null, reason: 'ids are not a list of security ids' });
+  assert.equal(back.rejected.length, 20);
   // A section that is not a record is one rejection, not a crash.
   assert.deepEqual(readImport({ kind: 'convex-terminal.data', version: 1, datasets: [] }).rejected,
     [{ section: 'datasets', id: null, reason: 'datasets is not a record of entries' }]);

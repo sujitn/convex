@@ -7,6 +7,7 @@ import { buildCurve } from '../../src/analytics/curves.js';
 import { computeYas } from '../../src/analytics/yas.js';
 import { parseBondTable } from '../../src/lib/bondtable.js';
 import { settlementFor } from '../../src/lib/terms.js';
+import { parsePrice } from '../../src/lib/decimal.js';
 
 const ds = SNAPSHOT.datasets;
 const TRADE = ds['ust-par'].asOf;
@@ -20,12 +21,18 @@ test('pasted bonds, with and without issue dates, price through YAS at their pas
   ].join('\n');
   const { rows, errors } = parseBondTable(text, { tradeDate: TRADE });
   assert.equal(errors.length, 0, JSON.stringify(errors));
+  assert.equal(rows.length, 3);
   const curve = await buildCurve(nodeEngine, 'USD.UST', ds['ust-par']);
   for (const { sec } of rows) {
-    const out = await computeYas(nodeEngine, { sec, tradeDate: TRADE, settlement: settlementFor(sec, TRADE),
+    const settlement = settlementFor(sec, TRADE);
+    const out = await computeYas(nodeEngine, { sec, tradeDate: TRADE, settlement,
       quote: { kind: 'price', text: sec.price }, face: '1000000', curve });
     assert.equal(out.fatal, undefined, `${sec.name}: ${JSON.stringify(out.fatal)}`);
     assert.ok(out.ytm > 0 && out.ytm < 0.2, `${sec.name}: ${out.ytm}`);
     assert.ok(Number.isFinite(out.zspread), `${sec.name}: ${JSON.stringify(out.errors.zspread)}`);
+    // The solved yield prices back to the pasted price.
+    const back = await computeYas(nodeEngine, { sec, tradeDate: TRADE, settlement,
+      quote: { kind: 'yield', text: String(out.ytm * 100) }, face: '1000000', curve });
+    assert.ok(Math.abs(back.clean - parsePrice(sec.price)) < 1e-6, `${sec.name}: ${back.clean} vs ${sec.price}`);
   }
 });

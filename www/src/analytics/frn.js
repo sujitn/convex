@@ -146,7 +146,7 @@ export async function analyseFrn(engine, { sec: security, tradeDate, settlement,
   ];
   const priced = await engine.callMany(reqs, { label: `${label} DM and curve bumps` });
   const dirty = (r) => (r.ok ? r.data.dirty_per100 : NaN);
-  const scale = Number(face) / Number(sec.face || 100);
+  const scale = Number(face) / 100; // dirty_per100 is per 100 of face
   const [dmDown, dmUp, cvDown, cvUp] = priced.slice(0, 4);
   if (dmDown.ok && dmUp.ok) {
     const pm = dirty(dmDown);

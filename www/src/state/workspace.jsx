@@ -44,6 +44,10 @@ export function WorkspaceProvider({ engine, children }) {
         dispatch({ type: 'dataset', dataset: ds });
         return ds;
       } catch (error) {
+        if ((editGen.current[id] || 0) !== gen) {
+          dispatch({ type: 'loading', id, value: false });
+          return null;
+        }
         dispatch({ type: 'loadError', id, message: error.message });
         return null;
       }
@@ -121,7 +125,8 @@ export function WorkspaceProvider({ engine, children }) {
     }
   }, [datasets, engine, curveOptions, curveDefs]);
 
-  const treasuries = useMemo(() => treasuryUniverse(datasets['ust-auctions']), [datasets]);
+  const auctions = datasets['ust-auctions'];
+  const treasuries = useMemo(() => treasuryUniverse(auctions), [auctions]);
   const benchmarks = useMemo(() => onTheRun(treasuries), [treasuries]);
   const benchmarkChoice = state.benchmarkChoice;
   const universe = useMemo(

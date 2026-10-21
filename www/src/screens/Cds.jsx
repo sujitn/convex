@@ -31,6 +31,8 @@ function useDebounced(value, delay = 350) {
 const validRecovery = (text) => isDecimal(text) && Number(text) >= 0 && Number(text) < 100;
 const pct = (v, dp = 4) => fmt(v * 100, dp);
 const bps = (v, dp = 2) => fmt(v * 1e4, dp);
+// A batch failure gives each member its own error object; the same code and message is one failure.
+const sameError = (a, b) => a === b || (!!a && !!b && a.code === b.code && a.message === b.message);
 
 // ---- the credit curves you supply ---------------------------------------------
 
@@ -43,7 +45,7 @@ function CurveFields({ value, onChange, locked }) {
           onBlur={value.onEntityBlur} />
       </Field>
       <Field label="Currency" as="div">
-        {locked ? <input value={value.currency} readOnly />
+        {locked ? <input value={value.currency} readOnly aria-label="Currency" />
           : <Seg value={value.currency} label="Currency" options={C.CDS_CURRENCIES}
             onChange={(currency) => set({ currency, docClause: C.DEFAULT_DOC[currency], calendar: C.DEFAULT_CALENDAR[currency] })} />}
       </Field>
@@ -483,7 +485,7 @@ function Contract({ built, def }) {
                   ]} />
                   <EngineError error={r.parallel.error} context="CS01" />
                   <EngineError error={r.recovery.error} context="Recovery" />
-                  {r.recoveryHeld.error !== r.recovery.error && <EngineError error={r.recoveryHeld.error} context="Recovery" />}
+                  {!sameError(r.recoveryHeld.error, r.recovery.error) && <EngineError error={r.recoveryHeld.error} context="Recovery" />}
                   <EngineError error={r.rates.error} context="Discount risk" />
                 </>
               ) : risk.error ? <EngineError error={risk.error} context="Risk" /> : <span className="dim"><Spinner /> Risk…</span>}

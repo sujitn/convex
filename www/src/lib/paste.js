@@ -1,7 +1,7 @@
 // Tenor/rate tables pasted from a spreadsheet, a terminal or a web page.
 // Accepts one point per line, tenor then rate. A line with a tab is split on
 // tabs only and one with a semicolon on semicolons only (so a European "3,85"
-// survives); anything else is split on commas and spaces (except that a row ending in
+// survives), keeping empty cells between values so a gap is reported; anything else is split on commas and spaces (except that a row ending in
 // "space integer,digits", as in "1Y 3,85", keeps that last cell whole). Header and blank
 // lines are skipped; anything else that doesn't parse is reported, never guessed.
 
@@ -24,7 +24,8 @@ export function normaliseTenor(text) {
   if (m[1].includes('.') && (unit === 'D' || unit === 'W')) return null;
   const tenor = `${decimal(m[1])}${unit}`; // the typed digits, never Number() text such as 1e+21
   const months = tenorMonths(tenor);
-  return months > 0 && months <= MAX_MONTHS ? tenor : null;
+  // At least one day: 0.001Y would round to a zero-day maturity.
+  return months > 0 && months <= MAX_MONTHS && Math.round(months * 30.4375) > 0 ? tenor : null;
 }
 
 /** A tenor's length in months, so "12M" and "1Y" (or "18M" and "1.5Y") are the same point. */
@@ -53,11 +54,18 @@ export function normaliseRate(text) {
 }
 
 // Words that mark a column-heading line rather than a data line.
-const HEADER = /\b(?:tenors?|terms?|maturity|maturities|rates?|yields?|par|zero|spot|swaps?|ois|coupon|value|mid|bid|ask|curve|date|pct|percent)\b/i;
+const HEADER = /\b(?:tenors?|terms?|maturity|maturities|rates?|yields?|par|zero|spot|swaps?|ois|coupon|value|mid|bid|ask|curve|date|pct|percent|laufzeit|laufzeiten|rendite|renditen|zins|zinssatz)\b/i;
+
+function split(line, separator) {
+  const out = line.split(separator).map((c) => c.trim());
+  while (out.length && !out[out.length - 1]) out.pop();
+  while (out.length && !out[0]) out.shift();
+  return out;
+}
 
 function cells(line) {
-  if (line.includes('\t')) return line.split('\t').map((c) => c.trim()).filter(Boolean);
-  if (line.includes(';')) return line.split(';').map((c) => c.trim()).filter(Boolean);
+  if (line.includes('\t')) return split(line, '\t');
+  if (line.includes(';')) return split(line, ';');
   // "1Y 3,85": a space-separated row ending in integer,digits is a decimal comma.
   const eu = /^(.*[^\s,])\s+([+-]?\d+,\d+\s*%?)$/.exec(line);
   if (eu && !/,\s*$/.test(eu[1])) return [...eu[1].split(/[,\s]+/).filter(Boolean), eu[2].replace(/\s+/g, '')];
@@ -85,7 +93,7 @@ export function parseTenorTable(text) {
       fail('no tenor such as 3M, 1.5Y or 10Y (at most 100 years)');
       return;
     }
-    if (!rest.length) {
+    if (!rest.length || rest[0] === '') {
       fail('no rate after the tenor');
       return;
     }
