@@ -158,3 +158,14 @@ test('the template carries floaters and parses back to the same notes', () => {
     assert.equal(again.rows[1].sec[k], src.rows[1].sec[k], `floating ${k}`);
   }
 });
+
+test('European semicolon CSV: decimal commas are decimals, ambiguous commas are refused', () => {
+  const csv = 'ISIN;Name;Coupon;Maturity;Issue Date;Currency;Price\n'
+    + ';Corp A;2,5;15/03/2034;15/03/2024;EUR;99,5\n'
+    + ';Corp B;4,625;15/03/2035;15/03/2025;EUR;101,25\n'
+    + ';Corp C;3,5,1;15/03/2036;15/03/2026;EUR;100\n';
+  const out = parseBondTable(csv, { tradeDate: '2026-10-20' });
+  assert.deepEqual(out.rows.map((r) => [r.sec.coupon, r.sec.price]), [['2.5', '99.5'], ['4.625', '101.25']]);
+  assert.equal(out.errors.length, 1);
+  assert.match(out.errors[0].reason, /coupon/);
+});

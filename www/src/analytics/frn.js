@@ -163,7 +163,7 @@ export async function analyseFrn(engine, { sec: security, tradeDate, settlement,
       ir01Per100: (pp - pm) / 2,
       ir01: ((pp - pm) / 2) * scale,
       duration: (pm - pp) / (2 * h * out.dirty),
-      nextCoupon: { down: cvDown.data.cash.coupons[0]?.amount, up: cvUp.data.cash.coupons[0]?.amount },
+      nextCoupon: { down: cvDown.data.cash?.coupons?.[0]?.amount, up: cvUp.data.cash?.coupons?.[0]?.amount },
     };
   } else out.errors.curveRisk = (cvDown.ok ? cvUp : cvDown).error;
   const ladder = priced.slice(4);

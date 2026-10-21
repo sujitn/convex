@@ -12,6 +12,8 @@ import { parseTenorTable } from '../../src/lib/paste.js';
 import { EXAMPLE_OIS, examplePoints } from '../../src/lib/ois.js';
 import { settlementFor } from '../../src/lib/terms.js';
 import * as R from '../../src/lib/requests.js';
+import { addBusinessDays } from '../../src/lib/calendars.js';
+import { addTenor, daysBetween } from '../../src/lib/dates.js';
 
 const ds = SNAPSHOT.datasets;
 const TRADE = ds['ust-par'].asOf;
@@ -44,8 +46,10 @@ test('SOFR OIS curve calibrates from par swap rates and reprices every swap', as
     assert.ok(res.ok, JSON.stringify(res.error));
     return res.data.value;
   };
-  const ratio = (await df('2027-10-22')) / (await df('2026-10-22'));
-  assert.ok(Math.abs(ratio - 1 / (1 + 0.036 * (365 / 360))) < 1e-10, `${ratio}`);
+  const spot = addBusinessDays('US.SIFMA', TRADE, 2);
+  const end = addTenor(spot, '1Y');
+  const ratio = (await df(end)) / (await df(spot));
+  assert.ok(Math.abs(ratio - 1 / (1 + 0.036 * (daysBetween(spot, end) / 360))) < 1e-10, `${ratio}`);
 });
 
 test('an OIS tenor past the publication limit is refused before the engine is called', async () => {

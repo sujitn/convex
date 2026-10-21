@@ -208,13 +208,17 @@ export function benchmarkIdFor(currency) {
  */
 export async function benchmarkQuotes(engine, benchmarks, settlement, curve, prices = {}) {
   const yours = [];
+  const sources = [];
   for (const b of benchmarks) {
     const key = b.sec.cusip || b.sec.id;
-    const text = prices[key] !== undefined && String(prices[key]).trim() !== '' ? prices[key] : b.sec.price;
+    const typed = prices[key] !== undefined && prices[key] !== null && String(prices[key]).trim() !== '';
+    const text = typed ? prices[key] : b.sec.price;
     if (text === undefined || text === null || String(text).trim() === '') {
       yours.push(null);
+      sources.push('curve-implied');
       continue;
     }
+    sources.push(typed ? 'manual' : 'imported');
     let v = NaN;
     try {
       v = parsePrice(text);
@@ -250,7 +254,7 @@ export async function benchmarkQuotes(engine, benchmarks, settlement, curve, pri
         sec: b.sec,
         bucket: b.bucket,
         quote: { kind: 'CleanPrice', value: fromNumber(price, 10) },
-        provenance: own ? (prices[b.sec.cusip || b.sec.id] ? 'manual' : 'imported') : 'curve-implied',
+        provenance: sources[i],
       };
     }),
   };

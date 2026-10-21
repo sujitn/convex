@@ -104,12 +104,15 @@ test('accrued compounds the published fixings up to the shifted cutoff', async (
 });
 
 test('a fixing the history lacks is reported missing, never forecast', async () => {
-  const short = { ...HISTORY, points: HISTORY.points.filter((p) => p.date >= '2026-09-01') };
+  // Drop the current period's first published fixing from the history.
+  const full = await analyse({ quote: { kind: 'dm', text: '85' } });
+  const first = full.current.observations.find((o) => o.origin === 'published').date;
+  const short = { ...HISTORY, points: HISTORY.points.filter((p) => p.date > first) };
   const r = await analyse({ quote: { kind: 'dm', text: '85' }, history: short });
   assert.ok(r.fatal);
   assert.equal(r.fatal.code, 'missing_input');
   assert.ok(r.missing && r.missing.count > 0);
-  assert.equal(r.missing.first, '2026-08-13');
+  assert.equal(r.missing.first, first);
   assert.equal(r.missing.index, 'USD.SOFR');
 });
 

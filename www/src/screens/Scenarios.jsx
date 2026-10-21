@@ -59,7 +59,7 @@ export default function Scenarios({ fn }) {
   const pending = !zOk ? (
     <div className="note note--error" role="alert">Enter the Z-spread as a number of basis points, for example 125.</div>
   ) : !curve || curve.building ? (
-    <Empty><Spinner /> Building {def ? def.label : 'the government curve'}…</Empty>
+    <Empty><Spinner /> Building {def ? def.label : 'the government curve'}â€¦</Empty>
   ) : curve.error ? (
     <EngineError error={curve.error} context={def ? def.label : 'Government curve'} />
   ) : scen0.error || krd0.error ? (

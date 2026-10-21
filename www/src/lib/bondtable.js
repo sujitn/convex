@@ -6,6 +6,7 @@
 
 import { isIso, addMonths } from './dates.js';
 import { isDecimal, parsePrice } from './decimal.js';
+import { normaliseRate } from './paste.js';
 import { isinCheck, couponShort } from '../analytics/securities.js';
 import { frnSecurity, frnTicker, SOFR } from './frn.js';
 
@@ -161,9 +162,18 @@ function guessDayFirst(rows, dateIndexes) {
   return false;
 }
 
+// "2,5" is a decimal comma (European Excel), "1,000.5" has thousands
+// separators; any other comma form is refused rather than guessed.
 function cleanDecimal(text) {
-  const t = String(text || '').replace(/[%\s]/g, '').replace(/,(?=\d{3}\b)/g, '');
-  return isDecimal(t) ? t : null;
+  const t = normaliseRate(String(text || '').replace(/\s/g, ''));
+  return t !== null && isDecimal(t) ? t : null;
+}
+
+/** A clean price as typed: 32nds pass through, decimals go through the comma rules. */
+function cleanPrice(text) {
+  const s = String(text || '').trim();
+  if (/^\d+-\d{2}[+0-7]?$/.test(s)) return s;
+  return cleanDecimal(s);
 }
 
 /** "2027-03-15@102; 03/15/2028 @ 101" → [{ date, price }]. */
@@ -302,8 +312,9 @@ export function parseBondTable(text, { tradeDate, dayFirst: forced } = {}) {
     let price;
     if (get('price')) {
       try {
-        if (!(parsePrice(get('price').replace(/,/g, '')) > 0)) throw new Error();
-        price = get('price').replace(/,/g, '');
+        const text = cleanPrice(get('price'));
+        if (text === null || !(parsePrice(text) > 0)) throw new Error();
+        price = text;
       } catch {
         fail(`price "${get('price')}" is not a clean price (decimal or 32nds such as 99-16+)`);
         continue;
