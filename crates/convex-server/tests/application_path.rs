@@ -343,11 +343,12 @@ async fn book_snapshot_ingest_resolves_external_identifiers() {
     server.stop().await;
 }
 
-/// Steps 4–8 (P2, P3): compile and activate a plan from the repository, POST live
+/// Steps 4–8 (P2b, P3): compile and activate a plan from the repository, POST live
 /// quotes, receive a WebSocket `valuation`, read `/api/v1/runtime/results`, and after
 /// a restart recover live values from fresh ticks rather than a stored tick history.
+/// The ingress itself, over a plan file, is covered by `live_ingress.rs`.
 #[tokio::test]
-#[ignore = "P2: plan compiled from the repository and POST /api/v1/market/quotes"]
+#[ignore = "P2b: plan compiled from the repository"]
 async fn live_quotes_price_publish_and_recover_after_restart() {
     let seed = seed();
     let (_directory, path) = storage();
@@ -367,9 +368,22 @@ async fn live_quotes_price_publish_and_recover_after_restart() {
     let response = server
         .client
         .post(server.url("/api/v1/market/quotes"))
-        .json(&serde_json::json!({
-            "quotes": [{"instrument_id": instrument, "clean_price_mid": "99.5"}]
-        }))
+        .json(&serde_json::json!({"events": [{
+            "schema_version": 1,
+            "key": {"instrument_id": instrument, "source": "showcase-feed"},
+            "session": "showcase-1",
+            "sequence": 1,
+            "source_time_ms": chrono::Utc::now().timestamp_millis(),
+            "receive_time_ms": 0,
+            "quality": "live",
+            "entitled": true,
+            "entitlement_tags": [],
+            "evidence_reference": null,
+            "event": {"kind": "image", "fields": [{
+                "field": "mid_price",
+                "update": {"action": "set", "value": {"value": "99.5", "unit": "price_per100"}}
+            }]}
+        }]}))
         .send()
         .await
         .unwrap();

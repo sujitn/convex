@@ -12,7 +12,8 @@
 	@reads method GET HEAD OPTIONS
 
 	# Stateless calculators only. `path` is exact unless it contains `*`.
-	# POST /api/v1/curves writes the durable recipe store and stays private;
+	# POST /api/v1/curves writes the durable recipe store and stays private, as does
+	# POST /api/v1/market/quotes, the live quote ingress;
 	# /api/v1/curves/bootstrap calibrates and returns a curve without storing it.
 	@calculators {
 		method POST

@@ -32,6 +32,7 @@ mod curves;
 mod error;
 pub mod handlers;
 pub mod health;
+pub mod market;
 mod reference;
 pub mod routes;
 pub mod websocket;
@@ -93,6 +94,7 @@ pub struct Server {
     engine: Arc<PricingEngine>,
     access: Arc<access::AccessControl>,
     core: Option<Arc<convex_engine::core_workflow::CoreWorkflow>>,
+    quotes: Option<Arc<market::QuoteIngress>>,
 }
 
 impl Server {
@@ -108,6 +110,7 @@ impl Server {
             engine,
             access,
             core: None,
+            quotes: None,
         }
     }
 
@@ -122,6 +125,7 @@ impl Server {
             engine,
             access,
             core: None,
+            quotes: None,
         }
     }
 
@@ -131,6 +135,12 @@ impl Server {
         core: Arc<convex_engine::core_workflow::CoreWorkflow>,
     ) -> Self {
         self.core = Some(core);
+        self
+    }
+
+    /// Accept live quotes for the Live runtime over `POST /api/v1/market/quotes`.
+    pub fn with_quote_ingress(mut self, quotes: Arc<market::QuoteIngress>) -> Self {
+        self.quotes = Some(quotes);
         self
     }
 
@@ -177,6 +187,9 @@ impl Server {
         );
         if let Some(core) = &self.core {
             router = router.layer(Extension(core.clone()));
+        }
+        if let Some(quotes) = &self.quotes {
+            router = router.layer(Extension(quotes.clone()));
         }
         router
             .layer(Extension(profile))

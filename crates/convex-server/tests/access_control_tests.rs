@@ -921,3 +921,56 @@ async fn bootstrap_curve_label_is_not_a_scoped_curve() {
     .await;
     assert_eq!(read.0, StatusCode::FORBIDDEN, "a stored curve stays scoped");
 }
+
+#[tokio::test]
+async fn live_quote_ingress_needs_writer_market_and_each_event_scope() {
+    let issuer = IssuerFixture::start().await;
+    let mut document = policy();
+    document.grants[0]
+        .resources
+        .insert(ResourceKind::Source, vec!["feed-a".into()]);
+    let access = AccessControl::new(issuer.verifier.clone(), document).unwrap();
+    let s = support::setup().await;
+    let engine = support::make_engine(
+        &s,
+        support::archive(&s),
+        s.plan.clone(),
+        s.store.clone(),
+        convex_engine::RuntimeInput::Captured,
+    );
+    let router = convex_server::routes::create_router_with_access(engine, true, access);
+    let stamp = chrono::Utc::now().timestamp_millis();
+    let event = support::fixture::event(1, stamp, 0, "99.25");
+    let batch =
+        |event: &convex_engine::ports::quote_event::QuoteEvent| Some(json!({ "events": [event] }));
+    // Admitted: the router has no live runtime, so the handler itself answers 503.
+    let (status, _, body) = request(
+        router.clone(),
+        "POST",
+        "/api/v1/market/quotes",
+        Some(HUMAN_TOKEN),
+        batch(&event),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    assert_eq!(body["error"], "this server has no live runtime");
+    let mut other_source = event.clone();
+    other_source.key.source = "feed-b".into();
+    let mut other_instrument = event.clone();
+    other_instrument.key.instrument_id = convex_core::ids::InstrumentId::new("BOND-002");
+    for (token, event) in [
+        (HUMAN_TOKEN, &other_source),
+        (HUMAN_TOKEN, &other_instrument),
+        (SERVICE_TOKEN, &event),
+    ] {
+        let (status, _, body) = request(
+            router.clone(),
+            "POST",
+            "/api/v1/market/quotes",
+            Some(token),
+            batch(event),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
+    }
+}

@@ -50,6 +50,7 @@ pub fn create_router_with_access(
         .route("/api/v1/runtime", get(handlers::runtime_health))
         .route("/api/v1/runtime/results", get(handlers::runtime_results))
         .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
+        .route("/api/v1/market/quotes", post(crate::market::post_quotes))
         .route("/api/v1/analytics", post(crate::analytics::calculate))
         .route("/api/v1/analytics/curves", post(crate::curves::save_curve))
         .route(

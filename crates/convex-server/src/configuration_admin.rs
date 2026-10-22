@@ -18,6 +18,22 @@ use std::sync::Arc;
 pub fn local_replay_capabilities(
     sources: impl IntoIterator<Item = SourceId>,
 ) -> Result<ConfigurationCapabilities, ConfigurationError> {
+    local_capabilities(sources, ProviderCapability::Replay, "jsonl-local")
+}
+
+/// Capabilities of the local live composition: canonical images over HTTP ingress, results
+/// delivered for display only. No live provider is certified.
+pub fn local_live_capabilities(
+    sources: impl IntoIterator<Item = SourceId>,
+) -> Result<ConfigurationCapabilities, ConfigurationError> {
+    local_capabilities(sources, ProviderCapability::LiveImages, "display-only")
+}
+
+fn local_capabilities(
+    sources: impl IntoIterator<Item = SourceId>,
+    mode: ProviderCapability,
+    result_transport: &str,
+) -> Result<ConfigurationCapabilities, ConfigurationError> {
     let mut providers = Vec::new();
     for source in sources {
         if providers
@@ -31,10 +47,7 @@ pub fn local_replay_capabilities(
         }
         providers.push(ProviderBinding {
             source,
-            capabilities: vec![
-                ProviderCapability::CanonicalQuotes,
-                ProviderCapability::Replay,
-            ],
+            capabilities: vec![ProviderCapability::CanonicalQuotes, mode],
             credential: None,
         });
     }
@@ -44,7 +57,8 @@ pub fn local_replay_capabilities(
         durable: true,
         atomic_activation: true,
         shared_writers: false,
-        result_transport: SourceId::new("jsonl-local").map_err(|_| ConfigurationError::Storage)?,
+        result_transport: SourceId::new(result_transport)
+            .map_err(|_| ConfigurationError::Storage)?,
         providers,
     })
 }

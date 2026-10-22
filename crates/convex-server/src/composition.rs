@@ -4,11 +4,15 @@
 use std::io::Read;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use tracing::warn;
 
 use convex_engine::ports::config::EngineConfig;
-use convex_engine::ports::market_data::MarketDataProvider;
+use convex_engine::ports::market_data::{MarketDataProvider, QuoteSource};
 use convex_engine::ports::reference_data::ReferenceDataProvider;
+use convex_engine::ports::runtime::{PublishedValuation, ResultPublisher};
+use convex_engine::ports::snapshot::{MarketSnapshot, SnapshotRepository};
+use convex_engine::ports::TraitError;
 use convex_engine::{
     PricingEngine, PricingEngineBuilder, RuntimeInput, RuntimeMode, RuntimePlan, RuntimeServices,
 };
@@ -18,6 +22,7 @@ use convex_ext_file::{
     EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
 
+use crate::market::QuoteIngress;
 use crate::{ConfigError, Server, ServerConfig, ServerProfile, StartupError};
 
 const MAX_PLAN_BYTES: u64 = 16 * 1024 * 1024;
@@ -48,6 +53,10 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
     if config.profile == ServerProfile::Demo {
         warn!("Demo profile enabled: all server output is demonstration data");
     }
+    let plan = match config.profile {
+        ServerProfile::Replay | ServerProfile::Live => Some(read_plan(&config)?),
+        ServerProfile::Demo | ServerProfile::Production => None,
+    };
 
     let (storage, runtime_store, core_fixings) =
         convex_ext_redb::create_redb_storage_with_core(&config.storage_path)
@@ -73,9 +82,22 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
         None
     };
 
+    // Live quotes arrive only through the HTTP ingress, scoped to the plan's quote keys.
+    let ingress = plan
+        .as_ref()
+        .filter(|plan| plan.mode == RuntimeMode::Live)
+        .map(|plan| {
+            Arc::new(QuoteIngress::new(
+                plan.assembly.quotes.iter().map(|q| q.key.clone()),
+            ))
+        });
+    let quotes: Arc<dyn QuoteSource> = match &ingress {
+        Some(ingress) => ingress.clone(),
+        None => Arc::new(EmptyQuoteSource),
+    };
     // Unused auxiliary product ports are explicit; replay reads the selected canonical event source.
     let market_data = MarketDataProvider {
-        quotes: Arc::new(EmptyQuoteSource),
+        quotes,
         curve_inputs: Arc::new(EmptyCurveInputSource),
         index_fixings: Arc::new(EmptyIndexFixingSource),
         volatility: Arc::new(EmptyVolatilitySource),
@@ -94,26 +116,24 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
         .with_market_data(Arc::new(market_data))
         .with_reference_data(Arc::new(reference_data))
         .with_storage(storage.clone());
-    if config.profile == ServerProfile::Demo {
-        builder = builder.with_demo_mode();
-    } else {
-        builder = with_replay_runtime(builder, &config, &storage, runtime_store).await?;
-    }
+    builder = match plan {
+        Some(plan) => with_runtime(builder, &config, plan, &storage, runtime_store).await?,
+        None => builder.with_demo_mode(),
+    };
     let engine = Arc::new(builder.build()?);
 
     let mut server = Server::with_access_control(config, engine.clone(), access);
     if let Some(core) = core {
         server = server.with_core_workflow(core);
     }
+    if let Some(ingress) = ingress {
+        server = server.with_quote_ingress(ingress);
+    }
     Ok(Composition { server, engine })
 }
 
-async fn with_replay_runtime(
-    builder: PricingEngineBuilder,
-    config: &ServerConfig,
-    storage: &convex_engine::ports::storage::StorageAdapter,
-    runtime_store: Arc<convex_ext_redb::RedbRuntimeStore>,
-) -> Result<PricingEngineBuilder, StartupError> {
+/// The bounded plan file, in the mode its profile names, for this executable.
+fn read_plan(config: &ServerConfig) -> Result<RuntimePlan, StartupError> {
     let path = config
         .runtime_plan
         .as_ref()
@@ -136,25 +156,40 @@ async fn with_replay_runtime(
             field: "runtime_plan",
             expected: "complete supported schema 1 plan",
         })?;
-    if plan.mode != RuntimeMode::Replay || plan.build_id.as_str() != crate::SERVER_BUILD_ID {
+    let mode = match config.profile {
+        ServerProfile::Live => RuntimeMode::Live,
+        _ => RuntimeMode::Replay,
+    };
+    if plan.mode != mode || plan.build_id.as_str() != crate::SERVER_BUILD_ID {
         return Err(
             convex_engine::EngineError::from(convex_engine::RuntimeError::Configuration(
-                "replay plan must select this executable build identity",
+                "runtime plan must select the profile mode and this executable build identity",
             ))
             .into(),
         );
     }
-    let quotes = config
-        .quotes_file
-        .as_ref()
-        .ok_or(ConfigError::InvalidValue {
-            field: "quotes_file",
-            expected: "canonical JSONL quote events",
-        })?;
-    let snapshots = Arc::new(
-        convex_ext_file::FileSnapshotRepository::new(format!("{}.snapshots", config.storage_path))
+    Ok(plan)
+}
+
+async fn with_runtime(
+    builder: PricingEngineBuilder,
+    config: &ServerConfig,
+    plan: RuntimePlan,
+    storage: &convex_engine::ports::storage::StorageAdapter,
+    runtime_store: Arc<convex_ext_redb::RedbRuntimeStore>,
+) -> Result<PricingEngineBuilder, StartupError> {
+    let live = plan.mode == RuntimeMode::Live;
+    let snapshots: Arc<dyn SnapshotRepository> = if live {
+        Arc::new(UnstoredSnapshots)
+    } else {
+        Arc::new(
+            convex_ext_file::FileSnapshotRepository::new(format!(
+                "{}.snapshots",
+                config.storage_path
+            ))
             .map_err(stage("runtime_snapshots"))?,
-    );
+        )
+    };
     let fixings = Arc::new(convex_ext_file::JsonFixingRepository::empty());
     let sources = plan
         .assembly
@@ -163,14 +198,18 @@ async fn with_replay_runtime(
         .map(|q| convex_core::contracts::SourceId::new(&q.key.source))
         .collect::<Result<Vec<_>, _>>()
         .map_err(stage("runtime_plan_sources"))?;
+    let capabilities = if live {
+        crate::configuration_admin::local_live_capabilities(sources)
+    } else {
+        crate::configuration_admin::local_replay_capabilities(sources)
+    };
     let cases = Arc::new(convex_engine::configuration::ConfigurationUseCases::new(
         storage.configuration.clone(),
         storage.bonds.clone(),
         storage.configs.clone(),
         fixings.clone(),
         snapshots.clone(),
-        crate::configuration_admin::local_replay_capabilities(sources)
-            .map_err(stage("configuration_capabilities"))?,
+        capabilities.map_err(stage("configuration_capabilities"))?,
     ));
     let mut builder = builder;
     if let Some(active) = cases
@@ -183,12 +222,25 @@ async fn with_replay_runtime(
             ..EngineConfig::default()
         });
     }
-    let publisher = convex_ext_file::JsonlResultPublisher::new(format!(
-        "{}.results.jsonl",
-        config.storage_path
-    ))
-    .map_err(stage("result_publisher"))?;
-    let replay = convex_ext_file::FileQuoteReplay::open(quotes).map_err(stage("quote_replay"))?;
+    let (publisher, input): (Arc<dyn ResultPublisher>, RuntimeInput) = if live {
+        (Arc::new(DisplayOnlyPublisher), RuntimeInput::Live)
+    } else {
+        let quotes = config
+            .quotes_file
+            .as_ref()
+            .ok_or(ConfigError::InvalidValue {
+                field: "quotes_file",
+                expected: "canonical JSONL quote events",
+            })?;
+        let publisher = convex_ext_file::JsonlResultPublisher::new(format!(
+            "{}.results.jsonl",
+            config.storage_path
+        ))
+        .map_err(stage("result_publisher"))?;
+        let replay =
+            convex_ext_file::FileQuoteReplay::open(quotes).map_err(stage("quote_replay"))?;
+        (Arc::new(publisher), RuntimeInput::Replay(Box::new(replay)))
+    };
     Ok(builder
         .with_configuration_use_cases(cases)
         .with_runtime(RuntimeServices {
@@ -196,9 +248,41 @@ async fn with_replay_runtime(
             snapshots,
             fixings,
             store: runtime_store,
-            publisher: Arc::new(publisher),
-            input: RuntimeInput::Replay(Box::new(replay)),
+            publisher,
+            input,
         }))
+}
+
+/// Live market snapshots are not stored. The Live runtime never publishes one, and
+/// configuration validation only resolves snapshots, so nothing is ever found here.
+struct UnstoredSnapshots;
+
+#[async_trait]
+impl SnapshotRepository for UnstoredSnapshots {
+    async fn publish(&self, _: &MarketSnapshot) -> Result<(), TraitError> {
+        Err(TraitError::Unsupported(
+            "live market snapshots are not stored",
+        ))
+    }
+
+    async fn get(
+        &self,
+        _: &convex_core::contracts::SnapshotId,
+    ) -> Result<Option<MarketSnapshot>, TraitError> {
+        Ok(None)
+    }
+}
+
+/// Live results reach WebSocket subscribers and `/api/v1/runtime/results` only. They are
+/// not archived: the JSONL archive's 100,000 delivery-key bound would fill within about
+/// 400 ticks of a 256-instrument universe.
+struct DisplayOnlyPublisher;
+
+#[async_trait]
+impl ResultPublisher for DisplayOnlyPublisher {
+    async fn publish(&self, _: &PublishedValuation) -> Result<(), TraitError> {
+        Ok(())
+    }
 }
 
 fn stage<E: Into<Cause>>(stage: &'static str) -> impl FnOnce(E) -> StartupError {

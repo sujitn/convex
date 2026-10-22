@@ -20,6 +20,8 @@ pub enum ServerProfile {
     Demo,
     /// Explicit local historical replay; never live/execution readiness.
     Replay,
+    /// Explicit local live runtime fed by `POST /api/v1/market/quotes`; never execution readiness.
+    Live,
 }
 
 /// Configuration failures never include input values, file contents or paths.
@@ -268,10 +270,11 @@ impl ServerConfig {
                         "production" => ServerProfile::Production,
                         "demo" => ServerProfile::Demo,
                         "replay" => ServerProfile::Replay,
+                        "live" => ServerProfile::Live,
                         _ => {
                             return Err(ConfigError::InvalidValue {
                                 field: "profile",
-                                expected: "production, demo or replay",
+                                expected: "production, demo, replay or live",
                             })
                         }
                     }
@@ -353,13 +356,21 @@ impl ServerConfig {
                 });
             }
         }
-        if self.profile == ServerProfile::Replay {
-            if self.runtime_plan.is_none() || self.quotes_file.is_none() {
-                return Err(ConfigError::InvalidValue {
-                    field: "replay",
-                    expected: "runtime_plan and canonical quotes_file",
-                });
-            }
+        if self.profile == ServerProfile::Replay
+            && (self.runtime_plan.is_none() || self.quotes_file.is_none())
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "replay",
+                expected: "runtime_plan and canonical quotes_file",
+            });
+        }
+        if self.profile == ServerProfile::Live && self.runtime_plan.is_none() {
+            return Err(ConfigError::InvalidValue {
+                field: "live",
+                expected: "runtime_plan",
+            });
+        }
+        if matches!(self.profile, ServerProfile::Replay | ServerProfile::Live) {
             if !self.host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
                 return Err(ConfigError::Unsupported {
                     field: "host",
@@ -369,7 +380,7 @@ impl ServerConfig {
         } else if self.runtime_plan.is_some() {
             return Err(ConfigError::Unsupported {
                 field: "runtime_plan",
-                reason: "runtime plan requires the explicit replay profile",
+                reason: "runtime plan requires the explicit replay or live profile",
             });
         }
         Ok(())
@@ -526,6 +537,43 @@ mod tests {
         assert!(!config.websocket_enabled);
         assert_eq!(config.storage_path, "/custom/store");
         config.validate_startup().unwrap();
+    }
+
+    #[test]
+    fn live_profile_needs_a_plan_loopback_and_no_quotes_file() {
+        let mut config = ServerConfig::parse_file("").unwrap();
+        overrides(
+            &mut config,
+            &[
+                ("CONVEX_PROFILE", "live"),
+                ("CONVEX_ACCESS_MODE", "local_development"),
+                ("CONVEX_HOST", "127.0.0.1"),
+                ("CONVEX_RUNTIME_PLAN", "/plan.json"),
+            ],
+        )
+        .unwrap();
+        assert_eq!(config.profile, ServerProfile::Live);
+        config.validate_startup().unwrap();
+        config.runtime_plan = None;
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::InvalidValue { field: "live", .. })
+        ));
+        config.runtime_plan = Some("/plan.json".into());
+        config.quotes_file = Some("/quotes.jsonl".into());
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::Unsupported {
+                field: "quotes_file",
+                ..
+            })
+        ));
+        config.quotes_file = None;
+        config.host = "0.0.0.0".into();
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::Unsupported { field: "host", .. })
+        ));
     }
 
     #[test]

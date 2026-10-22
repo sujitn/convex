@@ -252,6 +252,11 @@ fn requirement(
         "/api/v1/runtime/valuation" => {
             req.data.push(D::Reference);
         }
+        // Feed input, scoped by each event's instrument and source like other market writes.
+        "/api/v1/market/quotes" => {
+            req.action = CurveWrite;
+            req.data = vec![D::Market];
+        }
         "/api/v1/analytics"
         | "/api/v1/analytics/snapshots"
         | "/api/v1/analytics/snapshots/:snapshot_id/run/:calculation"
