@@ -17,7 +17,7 @@ convex-ports = { workspace = true }
 convex-core = { workspace = true }
 
 # Storage backend
-redb = "4"
+redb = "4.4"
 
 # Serialization
 serde_json = { workspace = true }
