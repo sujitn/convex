@@ -68,7 +68,7 @@ pub enum IngressError {
     Batch,
     /// Events the running plan cannot accept.
     Rejected {
-        /// The first [`MAX_ROW_ERRORS`] refused rows.
+        /// The first 64 refused rows.
         rows: Vec<RowError>,
         /// More rows were refused than reported.
         truncated: bool,
