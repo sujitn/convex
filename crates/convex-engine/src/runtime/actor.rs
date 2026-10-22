@@ -117,6 +117,18 @@ impl Actor {
                 "active configuration requires explicit capability composition",
             ));
         }
+        if absent && services.plan.mode == RuntimeMode::Live {
+            // Live values at the current time: a new runtime starts there, after the plan
+            // cutoff, and never before the activation that selected the plan even if the
+            // wall clock has stepped back since.
+            let now = UtcTimestamp::from_datetime(chrono::Utc::now())
+                .map_err(|_| RuntimeError::Source)?;
+            let start = selected
+                .as_ref()
+                .map_or(now, |s| now.max(s.activation.command.activated_at));
+            checkpoint.as_of = checkpoint.as_of.max(start);
+            checkpoint.known_at = checkpoint.known_at.max(start);
+        }
         if let (Some(cases), Some(selected)) = (&configurations, &selected) {
             cases
                 .compatible_runtime(
@@ -550,8 +562,8 @@ impl Actor {
         let now =
             UtcTimestamp::from_datetime(chrono::Utc::now()).map_err(|_| RuntimeError::Source)?;
         let mut next = self.checkpoint.clone();
-        next.as_of = now;
-        next.known_at = now;
+        next.as_of = next.as_of.max(now);
+        next.known_at = next.known_at.max(now);
         next.generation = Version::new(
             next.generation
                 .get()
@@ -718,14 +730,15 @@ impl Actor {
                 event = self.next_event(), if !source_finished => {
                     match event {
                         Ok(event) => {
-                            let (as_of, known_at) = if self.services.plan.mode == RuntimeMode::Live {
+                            let source = UtcTimestamp::from_datetime(chrono::DateTime::from_timestamp_millis(event.source_time_ms).ok_or(RuntimeError::Source)?).map_err(|_| RuntimeError::Source)?;
+                            let receipt = UtcTimestamp::from_datetime(chrono::DateTime::from_timestamp_millis(event.receive_time_ms).ok_or(RuntimeError::Source)?).map_err(|_| RuntimeError::Source)?;
+                            let (mut as_of, mut known_at) = (self.checkpoint.as_of.max(source), self.checkpoint.known_at.max(receipt));
+                            // Live values at the wall clock, which can step back between ticks;
+                            // the cutoff never does.
+                            if self.services.plan.mode == RuntimeMode::Live {
                                 let now = UtcTimestamp::from_datetime(chrono::Utc::now()).map_err(|_| RuntimeError::Source)?;
-                                (now, now)
-                            } else {
-                                let source = UtcTimestamp::from_datetime(chrono::DateTime::from_timestamp_millis(event.source_time_ms).ok_or(RuntimeError::Source)?).map_err(|_| RuntimeError::Source)?;
-                                let receipt = UtcTimestamp::from_datetime(chrono::DateTime::from_timestamp_millis(event.receive_time_ms).ok_or(RuntimeError::Source)?).map_err(|_| RuntimeError::Source)?;
-                                (self.checkpoint.as_of.max(source), self.checkpoint.known_at.max(receipt))
-                            };
+                                (as_of, known_at) = (as_of.max(now), known_at.max(now));
+                            }
                             self.accept(event, as_of, known_at).await?; self.process().await?;
                         }
                         Err(StreamError::Closed) if self.services.plan.mode == RuntimeMode::Replay => { source_finished = true; self.health.write().replay_complete = true; }

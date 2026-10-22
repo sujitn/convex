@@ -49,6 +49,11 @@ impl ResolvedCurves {
             .map(|r| (r.curve_id.as_str(), r.version))
     }
 
+    /// Every consumed stored record, roots first.
+    pub fn records(&self) -> &[SnapshotCurveRecipe] {
+        &self.records
+    }
+
     /// The stored record consumed for `id`.
     pub fn record(&self, id: &CurveId) -> Result<&SnapshotCurveRecipe, CurveResolutionError> {
         self.records

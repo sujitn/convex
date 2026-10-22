@@ -8,7 +8,7 @@
 use convex_server::access::identity::{AccessMode, AccessSettings};
 use convex_server::{compose, ServerConfig, ServerProfile, StartupError};
 use reqwest::{Client, StatusCode};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
 fn seed() -> Value {
@@ -40,7 +40,11 @@ struct Running {
 
 impl Running {
     async fn start(storage: &Path) -> Self {
-        let composition = compose(config(storage)).await.unwrap();
+        Self::start_config(config(storage)).await
+    }
+
+    async fn start_config(config: ServerConfig) -> Self {
+        let composition = compose(config).await.unwrap();
         composition.engine.start().await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
@@ -343,60 +347,272 @@ async fn book_snapshot_ingest_resolves_external_identifiers() {
     server.stop().await;
 }
 
-/// Steps 4–8 (P2b, P3): compile and activate a plan from the repository, POST live
-/// quotes, receive a WebSocket `valuation`, read `/api/v1/runtime/results`, and after
-/// a restart recover live values from fresh ticks rather than a stored tick history.
-/// The ingress itself, over a plan file, is covered by `live_ingress.rs`.
+/// Steps 4–6 and the live half of 8 (P2b): hold the seeded bond in a book, record
+/// fresh curve revisions, then compile, validate, stage and activate a live
+/// configuration offline with `convex-config`. The `live` profile plans the active
+/// configuration. Posted quotes price, and a restart of the same activation waits for
+/// fresh images instead of restoring stored ticks. WebSocket delivery is P3.
 #[tokio::test]
-#[ignore = "P2b: plan compiled from the repository"]
-async fn live_quotes_price_publish_and_recover_after_restart() {
+async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     let seed = seed();
-    let (_directory, path) = storage();
+    let (directory, path) = storage();
+    let (instrument, _, _) = seeded_bullet(&seed);
+    import_seed(&path);
+
     let server = Running::start(&path).await;
-    commit_references(&server, &seed).await;
-    let runtime: Value = server
+    let book = server
         .client
-        .get(server.url("/api/v1/runtime"))
+        .put(server.url("/api/v1/books/SHOWCASE-BOOK"))
+        .header("idempotency-key", "showcase-book-live")
+        .json(&json!({"positions": [{"instrument_id": instrument, "quantity": "1000000"}]}))
         .send()
         .await
-        .unwrap()
+        .unwrap();
+    assert!(book.status().is_success(), "{}", book.status());
+    let book: Value = book.json().await.unwrap();
+    not_before(book["recorded_at"].as_str().unwrap());
+    // The seed's dated Demo curves cannot pass validation; record fresh revisions.
+    for id in ["D.OIS", "P.SOFR"] {
+        let mut recipe = seed["curves"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["curve_id"] == id)
+            .unwrap()
+            .clone();
+        recipe["version"] = json!(2);
+        recipe["recipe"]["key"]["version"] = json!("2");
+        recipe["source_time"] = timestamp();
+        recipe["recorded_at"] = timestamp();
+        recipe["quality"] = json!("Valid");
+        recipe["max_age_ms"] = json!(600_000);
+        let response = server
+            .client
+            .post(server.url("/api/v1/curves"))
+            .json(&recipe)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NO_CONTENT, "{id}");
+    }
+    server.stop().await;
+
+    let file = |name: &str, value: &Value| {
+        let path = directory.path().join(name);
+        std::fs::write(&path, serde_json::to_vec(value).unwrap()).unwrap();
+        path
+    };
+    let selection = file(
+        "selection.json",
+        &json!({
+            "schema_version": 1,
+            "pricing_config": "SHOWCASE-USD",
+            "books": ["SHOWCASE-BOOK"],
+            "source": "showcase-feed",
+            "fields": ["mid_price"],
+            "quote_max_age_ms": 600_000,
+            "max_source_skew_ms": 600_000,
+            "as_of": timestamp(),
+            "known_at": timestamp(),
+            "mode": "live",
+            "settlement_date": chrono::Utc::now().date_naive().to_string(),
+            "measures": ["clean_price_mid", "ytm_mid"],
+            "numerical_settings": {"policy_id": "convex-bond-router-v1", "bump_bps": 1.0},
+            "max_concurrent_calcs": 4
+        }),
+    );
+    let document = config_cli(&path, &["compile".as_ref(), selection.as_os_str()]);
+    assert_eq!(document["runtime"]["runtime_id"], "SHOWCASE-USD-v1");
+    assert_eq!(
+        document["assembly"]["instruments"][0]["instrument_id"],
+        instrument.as_str()
+    );
+    let recipes = document["assembly"]["curve_recipes"].as_array().unwrap();
+    assert_eq!(recipes.len(), 2);
+    assert!(recipes.iter().all(|r| r["version"] == 2), "{recipes:?}");
+
+    // A fixture under the mid market-quote model: the clean mid is the quoted mid.
+    let now = chrono::Utc::now().timestamp_millis();
+    let event = image(&instrument, 1, now, now, "99.5");
+    let fixtures = file(
+        "fixtures.json",
+        &json!([{
+            "id": "showcase-live-mid",
+            "as_of": timestamp(),
+            "known_at": timestamp(),
+            "events": [event],
+            "expected": [{
+                "instrument_id": instrument,
+                "measure": "clean_price_mid",
+                "value": 99.5,
+                "tolerance": 0.0
+            }]
+        }]),
+    );
+    let replay = directory.path().join("fixture-events.jsonl");
+    std::fs::write(&replay, format!("{event}\n")).unwrap();
+    let staged = file(
+        "staged.json",
+        &json!({
+            "document": document,
+            "idempotency_key": "showcase-stage-1",
+            "actor": "operator",
+            "reason": "compiled from SHOWCASE-BOOK",
+            "staged_at": timestamp()
+        }),
+    );
+    let validation = config_cli(
+        &path,
+        &[
+            "stage".as_ref(),
+            staged.as_os_str(),
+            fixtures.as_os_str(),
+            replay.as_os_str(),
+        ],
+    );
+    assert_eq!(validation["valid"], true, "{validation}");
+    let activation = file(
+        "activation.json",
+        &json!({
+            "id": "SHOWCASE-USD",
+            "configuration_version": 1,
+            "expected_revision": 0,
+            "idempotency_key": "showcase-activate-1",
+            "actor": "operator",
+            "reason": "start the live showcase",
+            "activated_at": timestamp(),
+            "mode": "restart_required",
+            "action": {"kind": "activate"}
+        }),
+    );
+    let activated = config_cli(
+        &path,
+        &[
+            "activate".as_ref(),
+            activation.as_os_str(),
+            fixtures.as_os_str(),
+            replay.as_os_str(),
+        ],
+    );
+    assert_eq!(activated["application"], "restart_required");
+
+    let live = ServerConfig {
+        profile: ServerProfile::Live,
+        configuration_id: Some("SHOWCASE-USD".into()),
+        ..config(&path)
+    };
+    let server = Running::start_config(live.clone()).await;
+    let state = runtime(&server).await;
+    assert_eq!(state["mode"], "live", "{state}");
+    assert_eq!(state["ready"], false);
+    let now = chrono::Utc::now().timestamp_millis();
+    post_image(&server, image(&instrument, 1, now, 0, "99.5")).await;
+    let first = wait_ready(&server).await;
+    let results: Value = get(&server, "/api/v1/runtime/results")
+        .await
         .json()
         .await
         .unwrap();
-    assert_eq!(runtime["mode"], "live", "{runtime}");
-    let (instrument, _, _) = seeded_bullet(&seed);
+    let results = results.as_array().unwrap();
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0]["runtime_id"], "SHOWCASE-USD-v1");
+    assert!(results[0]["live_valid_until"].is_string(), "{}", results[0]);
+    server.stop().await;
+
+    // The same activation plans the same digest: the checkpoint restores, and the
+    // runtime waits for a fresh image above the reserved revisions.
+    let server = Running::start_config(live).await;
+    let restored = runtime(&server).await;
+    assert_eq!(restored["ready"], false, "{restored}");
+    assert!(restored["revision"].as_u64() > first["revision"].as_u64());
+    let now = chrono::Utc::now().timestamp_millis();
+    post_image(&server, image(&instrument, 1, now, 0, "99.75")).await;
+    let fresh = wait_ready(&server).await;
+    assert!(fresh["revision"].as_u64() > restored["revision"].as_u64());
+    server.stop().await;
+    // Offline validation opens the snapshot directory; nothing was ever stored in it.
+    let snapshots = std::fs::read_dir(directory.path().join("state.redb.snapshots"));
+    assert!(snapshots.map_or(true, |mut entries| entries.next().is_none()));
+    assert!(!directory.path().join("state.redb.results.jsonl").exists());
+}
+
+/// Latest instant this process has stamped or seen the server stamp.
+static FLOOR: std::sync::Mutex<Option<chrono::DateTime<chrono::Utc>>> = std::sync::Mutex::new(None);
+
+/// The current instant in the canonical timestamp form, never before an instant
+/// already used: the WSL wall clock steps back by up to about a second.
+fn timestamp() -> Value {
+    let mut floor = FLOOR.lock().unwrap();
+    let now = floor.map_or(chrono::Utc::now(), |f| f.max(chrono::Utc::now()));
+    *floor = Some(now);
+    serde_json::to_value(convex_core::contracts::UtcTimestamp::from_datetime(now).unwrap()).unwrap()
+}
+
+/// Keep later test timestamps at or after an instant the server recorded.
+fn not_before(recorded: &str) {
+    let recorded = convex_core::contracts::UtcTimestamp::parse(recorded)
+        .unwrap()
+        .datetime();
+    let mut floor = FLOOR.lock().unwrap();
+    *floor = Some(floor.map_or(recorded, |f| f.max(recorded)));
+}
+
+/// Run the offline configuration operator on the stopped store and parse its report.
+fn config_cli(storage: &Path, args: &[&std::ffi::OsStr]) -> Value {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_convex-config"))
+        .arg(storage)
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    serde_json::from_slice(&output.stdout).unwrap()
+}
+
+/// One canonical mid image for `instrument` from the showcase feed.
+fn image(instrument: &str, sequence: u64, source_ms: i64, receive_ms: i64, mid: &str) -> Value {
+    json!({
+        "schema_version": 1,
+        "key": {"instrument_id": instrument, "source": "showcase-feed"},
+        "session": "showcase-1",
+        "sequence": sequence,
+        "source_time_ms": source_ms,
+        "receive_time_ms": receive_ms,
+        "quality": "live",
+        "entitled": true,
+        "entitlement_tags": [],
+        "evidence_reference": null,
+        "event": {"kind": "image", "fields": [{
+            "field": "mid_price",
+            "update": {"action": "set", "value": {"value": mid, "unit": "price_per100"}}
+        }]}
+    })
+}
+
+async fn post_image(server: &Running, event: Value) {
     let response = server
         .client
         .post(server.url("/api/v1/market/quotes"))
-        .json(&serde_json::json!({"events": [{
-            "schema_version": 1,
-            "key": {"instrument_id": instrument, "source": "showcase-feed"},
-            "session": "showcase-1",
-            "sequence": 1,
-            "source_time_ms": chrono::Utc::now().timestamp_millis(),
-            "receive_time_ms": 0,
-            "quality": "live",
-            "entitled": true,
-            "entitlement_tags": [],
-            "evidence_reference": null,
-            "event": {"kind": "image", "fields": [{
-                "field": "mid_price",
-                "update": {"action": "set", "value": {"value": "99.5", "unit": "price_per100"}}
-            }]}
-        }]}))
+        .json(&json!({ "events": [event] }))
         .send()
         .await
         .unwrap();
-    assert!(response.status().is_success(), "{}", response.status());
-    let results: Value = server
-        .client
-        .get(server.url("/api/v1/runtime/results"))
-        .send()
-        .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap();
-    assert!(!results.as_array().unwrap().is_empty());
-    server.stop().await;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+}
+
+async fn runtime(server: &Running) -> Value {
+    get(server, "/api/v1/runtime").await.json().await.unwrap()
+}
+
+async fn wait_ready(server: &Running) -> Value {
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let runtime = runtime(server).await;
+            if runtime["ready"] == true {
+                return runtime;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap()
 }

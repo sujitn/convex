@@ -54,14 +54,20 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
         warn!("Demo profile enabled: all server output is demonstration data");
     }
     let plan = match config.profile {
-        ServerProfile::Replay | ServerProfile::Live => Some(read_plan(&config)?),
-        ServerProfile::Demo | ServerProfile::Production => None,
+        ServerProfile::Replay | ServerProfile::Live if config.runtime_plan.is_some() => {
+            Some(read_plan(&config)?)
+        }
+        _ => None,
     };
 
     let (storage, runtime_store, core_fixings) =
         convex_ext_redb::create_redb_storage_with_core(&config.storage_path)
             .map_err(stage("storage"))?;
     let storage = Arc::new(storage);
+    let plan = match (plan, &config.configuration_id) {
+        (None, Some(id)) => Some(active_plan(&config, &storage, id).await?),
+        (plan, _) => plan,
+    };
     // The core workflow's file snapshots need Unix directory fsync.
     let core = if cfg!(unix) {
         Some(Arc::new(convex_engine::core_workflow::CoreWorkflow::new(
@@ -156,6 +162,31 @@ fn read_plan(config: &ServerConfig) -> Result<RuntimePlan, StartupError> {
             field: "runtime_plan",
             expected: "complete supported schema 1 plan",
         })?;
+    checked(config, plan)
+}
+
+/// The plan of the stored active configuration, compiled and activated offline with
+/// `convex-config`. Its assembly is stored, so every restart plans the same digest.
+async fn active_plan(
+    config: &ServerConfig,
+    storage: &convex_engine::ports::storage::StorageAdapter,
+    id: &str,
+) -> Result<RuntimePlan, StartupError> {
+    let id = convex_core::contracts::SourceId::new(id).map_err(stage("configuration_id"))?;
+    let active = storage
+        .configuration
+        .active(&id)
+        .await
+        .map_err(stage("active_configuration"))?
+        .ok_or_else(|| stage("active_configuration")("no active configuration for the id"))?;
+    checked(
+        config,
+        convex_engine::configuration::plan(&active.staged.document, vec![]),
+    )
+}
+
+/// A plan runs only in its profile's mode and under this executable's build identity.
+fn checked(config: &ServerConfig, plan: RuntimePlan) -> Result<RuntimePlan, StartupError> {
     let mode = match config.profile {
         ServerProfile::Live => RuntimeMode::Live,
         _ => RuntimeMode::Replay,
