@@ -39,7 +39,7 @@ pub struct RuntimePlan {
     pub mode: RuntimeMode,
     /// Exact initial reference/configuration/curve pins and quote requirements.
     pub assembly: SnapshotAssembly,
-    /// Initial captured trace. Replay mode obtains its trace only from its source.
+    /// Initial captured trace. Replay obtains its trace only from its source; Live has none.
     pub seed_events: Vec<QuoteEvent>,
     /// Explicit settlement; change requires a new runtime identity/plan.
     pub settlement_date: BusinessDate,
@@ -72,7 +72,8 @@ impl RuntimePlan {
             || self.numerical_settings.policy_id.as_str() != crate::snapshot::BOND_NUMERICAL_POLICY
             || self.numerical_settings.bump_bps.get() <= 0.0
             || self.numerical_settings.bump_bps.get() > 10000.0
-            || (self.mode == RuntimeMode::Replay && !self.seed_events.is_empty())
+            // Replay reads its trace from the source; Live takes market data only from its subscription.
+            || (self.mode != RuntimeMode::Captured && !self.seed_events.is_empty())
         {
             return Err(RuntimeError::Configuration(
                 "invalid/unsupported runtime plan",

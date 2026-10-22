@@ -712,21 +712,15 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
     assert_eq!(expired.result.status(), ResultStatus::Failed);
     assert_eq!(expired.last_good, Some(good.result));
     assert!(!engine.runtime_health().ready);
-    let snapshot = setup
+    // The refresh ran at the expiry under the 50 ms base age, so the two-second-old quote is
+    // stale. Live snapshots are not stored.
+    assert!(expired.result.provenance().valuation_time >= expiry);
+    assert!(setup
         .snapshots
         .get(&expired.result.provenance().snapshot_id)
         .await
         .unwrap()
-        .unwrap();
-    assert!(snapshot.content().as_of >= expiry);
-    assert!(snapshot
-        .content()
-        .configuration_capture
-        .as_ref()
-        .unwrap()
-        .applied_overrides
-        .is_empty());
-    assert_eq!(snapshot.content().quotes[0].requirement.max_age_ms, 50);
+        .is_none());
     engine.shutdown().await.unwrap();
     assert!(source
         .unsubscribed

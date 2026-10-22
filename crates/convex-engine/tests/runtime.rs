@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use convex_core::contracts::*;
 use convex_engine::*;
 use convex_ext_file::*;
-use convex_ports::{market_data::*, runtime::*, TraitError};
+use convex_ports::{market_data::*, runtime::*, snapshot::SnapshotRepository, TraitError};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -664,6 +664,131 @@ async fn live_subscription_requires_new_image_expires_without_polling_and_closur
         assert!(source.unsubscribed.load(Ordering::SeqCst));
         assert_eq!(engine.calc_graph().in_flight_count(), 0);
     }
+}
+
+struct CountingStore {
+    inner: Arc<dyn RuntimeStore>,
+    writes: std::sync::atomic::AtomicUsize,
+}
+#[async_trait]
+impl RuntimeStore for CountingStore {
+    async fn load(&self, id: &SourceId) -> Result<Option<RuntimeCheckpoint>, TraitError> {
+        self.inner.load(id).await
+    }
+    async fn checkpoint(&self, expected: u64, image: &RuntimeCheckpoint) -> Result<(), TraitError> {
+        self.writes.fetch_add(1, Ordering::SeqCst);
+        self.inner.checkpoint(expected, image).await
+    }
+}
+fn live_plan(s: &Setup) -> RuntimePlan {
+    let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    let mut plan = s.plan.clone();
+    plan.mode = RuntimeMode::Live;
+    plan.seed_events.clear();
+    plan.assembly.as_of = now;
+    plan.assembly.known_at = now;
+    plan.assembly.curves[0].source_time = now;
+    plan.assembly.curves[0].recorded_at = now;
+    plan.assembly.curves[0].max_age_ms = 600_000;
+    plan.assembly.quotes[0].max_age_ms = 600_000;
+    plan
+}
+fn live_engine(
+    s: &Setup,
+    plan: RuntimePlan,
+    store: Arc<dyn RuntimeStore>,
+    source: Arc<SubscriptionSource>,
+) -> PricingEngine {
+    let mut market = market_data();
+    Arc::get_mut(&mut market).unwrap().quotes = source;
+    PricingEngineBuilder::new()
+        .with_market_data(market)
+        .with_reference_data(Arc::new(create_empty_reference_data()))
+        .with_storage(s.storage.clone())
+        .with_runtime(RuntimeServices {
+            plan,
+            snapshots: s.snapshots.clone(),
+            fixings: Arc::new(JsonFixingRepository::empty()),
+            store,
+            publisher: archive(s),
+            input: RuntimeInput::Live,
+        })
+        .build()
+        .unwrap()
+}
+#[tokio::test]
+async fn live_ticks_stay_in_memory_and_restart_continues_above_reserved_counters() {
+    let s = setup().await;
+    let store = Arc::new(CountingStore {
+        inner: s.store.clone(),
+        writes: Default::default(),
+    });
+    let source = Arc::new(SubscriptionSource::new());
+    let plan = live_plan(&s);
+    let engine = live_engine(&s, plan.clone(), store.clone(), source.clone());
+    engine.start().await.unwrap();
+    // First start stores the initial image, then reserves counters for its first result.
+    assert_eq!(store.writes.load(Ordering::SeqCst), 2);
+    let mut updates = engine.subscribe_results();
+    let mut last = None;
+    for sequence in 1..=20u64 {
+        let stamp = chrono::Utc::now().timestamp_millis();
+        source.send(fixture::event(sequence, stamp, stamp, "99.25"));
+        let result = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.result.status(), ResultStatus::Complete);
+        assert!(s
+            .snapshots
+            .get(&result.result.provenance().snapshot_id)
+            .await
+            .unwrap()
+            .is_none());
+        last = Some(result);
+    }
+    assert!(engine.runtime_health().ready);
+    assert_eq!(store.writes.load(Ordering::SeqCst), 2);
+    engine.shutdown().await.unwrap();
+    let last = last.unwrap();
+    let stored = s.store.load(&s.plan.runtime_id).await.unwrap().unwrap();
+    assert!(stored.events.is_empty() && stored.results.is_empty() && stored.outbox.is_empty());
+    assert!(stored.pending && stored.snapshot_id.is_none());
+    assert!(stored.result_revision > last.revision);
+    assert!(stored.generation > last.generation);
+
+    let source = Arc::new(SubscriptionSource::new());
+    let restarted = live_engine(&s, plan, store.clone(), source.clone());
+    restarted.start().await.unwrap();
+    let restored = restarted.runtime_results();
+    assert_eq!(restored.len(), 1);
+    assert!(restored[0].revision > stored.result_revision);
+    assert!(restored[0].generation > stored.generation);
+    assert_ne!(restored[0].result.status(), ResultStatus::Complete);
+    assert!(!restarted.runtime_health().ready);
+    let mut updates = restarted.subscribe_results();
+    let stamp = chrono::Utc::now().timestamp_millis();
+    source.send(fixture::event(1, stamp, stamp, "99.50"));
+    let fresh = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(fresh.result.status(), ResultStatus::Complete);
+    assert!(fresh.revision > restored[0].revision);
+    assert!(restarted.runtime_health().ready);
+    restarted.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn live_plan_refuses_seed_events() {
+    let s = setup().await;
+    let mut plan = s.plan.clone();
+    plan.mode = RuntimeMode::Live;
+    assert!(!plan.seed_events.is_empty());
+    assert!(matches!(
+        plan.validate(),
+        Err(RuntimeError::Configuration(_))
+    ));
 }
 
 #[tokio::test]
