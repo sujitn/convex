@@ -33,7 +33,8 @@ pricing = dict(
     config_id='SHOWCASE-USD',
     description='Showcase: USD bonds use the demo D.OIS discount and P.SOFR swap curves',
     applies_to=dict(currency='USD'),
-    pricing_spec='Auto',
+    # Configuration validation admits only a mid market-quote model.
+    pricing_spec=dict(MarketQuote=dict(side='Mid')),
     bid_ask_spread=None,
     analytics_curves=dict(
         discount_curve='D.OIS', government_curve=None, swap_curve='P.SOFR', frn_reference_curve=None

@@ -91,6 +91,8 @@ pub struct ServerConfig {
     pub quotes_file: Option<String>,
     /// Complete bounded JSON runtime plan; required in replay mode.
     pub runtime_plan: Option<String>,
+    /// Live only, instead of `runtime_plan`: plan the stored active configuration.
+    pub configuration_id: Option<String>,
     /// Reserved file integration; rejected until the provider is wired.
     pub curves_file: Option<String>,
     /// Reserved file integration; rejected until the provider is wired.
@@ -111,6 +113,7 @@ impl Default for ServerConfig {
             storage_path: "./data/convex.redb".into(),
             quotes_file: None,
             runtime_plan: None,
+            configuration_id: None,
             curves_file: None,
             fixings_file: None,
             bonds_file: None,
@@ -139,6 +142,8 @@ pub struct EffectiveConfig<'a> {
     pub quotes_file: Option<&'static str>,
     /// Redacted optional runtime plan location.
     pub runtime_plan: Option<&'static str>,
+    /// Stored configuration the live runtime plans; an identity, not a path.
+    pub configuration_id: Option<&'a str>,
     /// Redacted optional curve source.
     pub curves_file: Option<&'static str>,
     /// Redacted optional fixing source.
@@ -298,6 +303,7 @@ impl ServerConfig {
                 }
                 "CONVEX_STORAGE_PATH" => candidate.storage_path = value,
                 "CONVEX_RUNTIME_PLAN" => candidate.runtime_plan = Some(value),
+                "CONVEX_CONFIGURATION_ID" => candidate.configuration_id = Some(value),
                 "CONVEX_QUOTES_FILE" => candidate.quotes_file = Some(value),
                 "CONVEX_CURVES_FILE" => candidate.curves_file = Some(value),
                 "CONVEX_FIXINGS_FILE" => candidate.fixings_file = Some(value),
@@ -364,11 +370,27 @@ impl ServerConfig {
                 expected: "runtime_plan and canonical quotes_file",
             });
         }
-        if self.profile == ServerProfile::Live && self.runtime_plan.is_none() {
+        if self.profile == ServerProfile::Live
+            && self.runtime_plan.is_some() == self.configuration_id.is_some()
+        {
             return Err(ConfigError::InvalidValue {
                 field: "live",
-                expected: "runtime_plan",
+                expected: "exactly one of runtime_plan or configuration_id",
             });
+        }
+        if let Some(id) = &self.configuration_id {
+            if self.profile != ServerProfile::Live {
+                return Err(ConfigError::Unsupported {
+                    field: "configuration_id",
+                    reason: "a stored configuration plans only the live profile",
+                });
+            }
+            if convex_core::contracts::SourceId::new(id.as_str()).is_err() {
+                return Err(ConfigError::InvalidValue {
+                    field: "configuration_id",
+                    expected: "a stored configuration identity",
+                });
+            }
         }
         if matches!(self.profile, ServerProfile::Replay | ServerProfile::Live) {
             if !self.host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
@@ -452,6 +474,11 @@ impl ServerConfig {
             storage_path: REDACTED,
             quotes_file: self.quotes_file.as_ref().map(|_| REDACTED),
             runtime_plan: self.runtime_plan.as_ref().map(|_| REDACTED),
+            // Shown only once valid, like `host`.
+            configuration_id: self
+                .configuration_id
+                .as_deref()
+                .filter(|id| convex_core::contracts::SourceId::new(*id).is_ok()),
             curves_file: self.curves_file.as_ref().map(|_| REDACTED),
             fixings_file: self.fixings_file.as_ref().map(|_| REDACTED),
             bonds_file: self.bonds_file.as_ref().map(|_| REDACTED),
@@ -540,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    fn live_profile_needs_a_plan_loopback_and_no_quotes_file() {
+    fn live_profile_needs_one_plan_source_loopback_and_no_quotes_file() {
         let mut config = ServerConfig::parse_file("").unwrap();
         overrides(
             &mut config,
@@ -559,7 +586,14 @@ mod tests {
             config.validate(),
             Err(ConfigError::InvalidValue { field: "live", .. })
         ));
+        config.configuration_id = Some("SHOWCASE-USD".into());
+        config.validate_startup().unwrap();
         config.runtime_plan = Some("/plan.json".into());
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::InvalidValue { field: "live", .. })
+        ));
+        config.configuration_id = None;
         config.quotes_file = Some("/quotes.jsonl".into());
         assert!(matches!(
             config.validate(),
@@ -573,6 +607,17 @@ mod tests {
         assert!(matches!(
             config.validate(),
             Err(ConfigError::Unsupported { field: "host", .. })
+        ));
+        config.host = "127.0.0.1".into();
+        config.profile = ServerProfile::Demo;
+        config.runtime_plan = None;
+        config.configuration_id = Some("SHOWCASE-USD".into());
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::Unsupported {
+                field: "configuration_id",
+                ..
+            })
         ));
     }
 

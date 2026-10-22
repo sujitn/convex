@@ -537,7 +537,11 @@
    "applies_to": {
     "currency": "USD"
    },
-   "pricing_spec": "Auto",
+   "pricing_spec": {
+    "MarketQuote": {
+     "side": "Mid"
+    }
+   },
    "bid_ask_spread": null,
    "analytics_curves": {
     "discount_curve": "D.OIS",

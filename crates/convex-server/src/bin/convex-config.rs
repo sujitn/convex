@@ -12,7 +12,9 @@ use convex_engine::{
 };
 use convex_ext_file::{FileQuoteReplay, FileSnapshotRepository, JsonFixingRepository};
 use convex_server::{
-    configuration_admin::{effective_configuration, local_replay_capabilities},
+    configuration_admin::{
+        effective_configuration, local_live_capabilities, local_replay_capabilities,
+    },
     ServerConfig,
 };
 use serde::de::DeserializeOwned;
@@ -93,7 +95,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         command,
         "validate" | "explain" | "stage" | "activate" | "rollback"
     );
-    let (fixtures, events) = if validation {
+    let fixtures = if validation {
         if args.len() != 5 {
             return Err(usage());
         }
@@ -112,32 +114,41 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
                 "fixture trace differs from actual canonical replay prefix",
             ));
         }
-        (fixtures, events)
+        fixtures
     } else {
-        (vec![], vec![])
+        vec![]
     };
-    let sources = events
-        .iter()
-        .map(|e| {
-            SourceId::new(&e.key.source)
-                .map_err(|_| ConfigurationError::Invalid("invalid replay provider identity"))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
     let storage =
         convex_ext_redb::create_redb_storage(&args[0]).map_err(|_| ConfigurationError::Storage)?;
+    if command == "compile" && args.len() == 3 {
+        let selection: PlanSelection = read(&args[2])?;
+        let capabilities = composed(selection.mode, vec![selection.source.clone()])?;
+        let document = assemble_from_repository(
+            &selection,
+            storage.bonds.as_ref(),
+            storage.configs.as_ref(),
+            storage.curves.as_ref(),
+            &capabilities,
+        )
+        .await?;
+        return Ok((json!(document), true));
+    }
     // Construction checks the existing snapshot directory; dry-run resolve never publishes content.
     let snapshots = Arc::new(
         FileSnapshotRepository::new(PathBuf::from(format!("{}.snapshots", name(&args[0])?)))
             .map_err(|_| ConfigurationError::Storage)?,
     );
-    let cases = ConfigurationUseCases::new(
-        storage.configuration,
-        storage.bonds,
-        storage.configs,
-        Arc::new(JsonFixingRepository::empty()),
-        snapshots,
-        local_replay_capabilities(sources)?,
-    );
+    let cases = |capabilities| {
+        ConfigurationUseCases::new(
+            storage.configuration.clone(),
+            storage.bonds.clone(),
+            storage.configs.clone(),
+            Arc::new(JsonFixingRepository::empty()),
+            snapshots.clone(),
+            capabilities,
+        )
+    };
+    let inspect = || Ok::<_, ConfigurationError>(cases(local_replay_capabilities(Vec::new())?));
     match command {
         "version" if args.len() == 4 => {
             let id = SourceId::new(name(&args[2])?)
@@ -145,7 +156,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
             let revision: u64 = name(&args[3])?
                 .parse()
                 .map_err(|_| ConfigurationError::Invalid("invalid configuration version"))?;
-            let staged = cases
+            let staged = inspect()?
                 .get_version(
                     &id,
                     Version::new(revision).map_err(|_| {
@@ -162,7 +173,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         "export-plan" if args.len() == 3 => {
             let id = SourceId::new(name(&args[2])?)
                 .map_err(|_| ConfigurationError::Invalid("invalid configuration identity"))?;
-            let selected = cases
+            let selected = inspect()?
                 .active(&id)
                 .await?
                 .ok_or(ConfigurationError::Invalid("no active configuration"))?;
@@ -176,12 +187,15 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         }
         "validate" | "explain" => {
             let document: ConfigurationDocument = read(&args[2])?;
-            let report = cases.validate(&document, &fixtures).await?;
+            let report = cases(capabilities(&document)?)
+                .validate(&document, &fixtures)
+                .await?;
             let valid = report.valid;
             Ok((json!(report), valid))
         }
         "stage" => {
             let staged: StagedConfiguration = read(&args[2])?;
+            let cases = cases(capabilities(&staged.document)?);
             Ok((json!(cases.stage(&staged, &fixtures).await?), true))
         }
         "activate" | "rollback" => {
@@ -192,6 +206,12 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
                     "command and activation action differ",
                 ));
             }
+            let staged = storage
+                .configuration
+                .get_staged(&request.id, request.configuration_version)
+                .await?
+                .ok_or(ConfigurationError::Invalid("missing staged configuration"))?;
+            let cases = cases(capabilities(&staged.document)?);
             Ok((
                 json!({"schema_version":1,"activation":cases.activate(&request, &fixtures, false).await?,"application":"restart_required"}),
                 true,
@@ -205,7 +225,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
             let known_at = UtcTimestamp::parse(name(&args[4])?)
                 .map_err(|_| ConfigurationError::Invalid("invalid information cutoff"))?;
             Ok((
-                effective_configuration(&cases, &id, as_of, known_at).await?,
+                effective_configuration(&inspect()?, &id, as_of, known_at).await?,
                 true,
             ))
         }
@@ -218,7 +238,9 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
             let limit = name(&args[4])?
                 .parse()
                 .map_err(|_| ConfigurationError::Invalid("invalid history limit"))?;
-            let page = cases.history(&id, &Pagination::new(offset, limit)).await?;
+            let page = inspect()?
+                .history(&id, &Pagination::new(offset, limit))
+                .await?;
             Ok((
                 json!({"schema_version":1,"items":page.items,"total":page.total,"offset":page.offset,"limit":page.limit}),
                 true,
@@ -227,13 +249,38 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         _ => Err(usage()),
     }
 }
+/// Validation runs against what the server composes for the document: its mode and
+/// the sources its quotes name.
+fn capabilities(
+    document: &ConfigurationDocument,
+) -> Result<ConfigurationCapabilities, ConfigurationError> {
+    let sources = document
+        .assembly
+        .quotes
+        .iter()
+        .map(|q| {
+            SourceId::new(&q.key.source)
+                .map_err(|_| ConfigurationError::Invalid("invalid quote provider identity"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    composed(document.runtime.mode, sources)
+}
+fn composed(
+    mode: RuntimeMode,
+    sources: Vec<SourceId>,
+) -> Result<ConfigurationCapabilities, ConfigurationError> {
+    match mode {
+        RuntimeMode::Live => local_live_capabilities(sources),
+        RuntimeMode::Replay | RuntimeMode::Captured => local_replay_capabilities(sources),
+    }
+}
 fn name(value: &Path) -> Result<&str, ConfigurationError> {
     value
         .to_str()
         .ok_or(ConfigurationError::Invalid("argument encoding is invalid"))
 }
 fn usage() -> ConfigurationError {
-    ConfigurationError::Invalid("usage: convex-config schema | process validate/explain [TOML] | diff OLD NEW | DB validate/explain/stage/activate/rollback JSON FIXTURES REPLAY | DB version ID VERSION | DB export-plan ID | DB effective ID AS_OF KNOWN_AT | DB history ID OFFSET LIMIT")
+    ConfigurationError::Invalid("usage: convex-config schema | process validate/explain [TOML] | diff OLD NEW | DB compile SELECTION | DB validate/explain/stage/activate/rollback JSON FIXTURES REPLAY | DB version ID VERSION | DB export-plan ID | DB effective ID AS_OF KNOWN_AT | DB history ID OFFSET LIMIT")
 }
 fn read<T: DeserializeOwned>(path: &Path) -> Result<T, ConfigurationError> {
     let file = std::fs::File::open(path)

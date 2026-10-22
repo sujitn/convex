@@ -213,14 +213,27 @@ and dependency/strategy readiness. This command explicitly opts into local
 development. v1 synthetic-curve behavior remains an enforced G04 failure.
 
 The loopback-only `live` profile runs a plan with `mode=live` and no `quotes_file`.
+The plan comes from exactly one of two places:
+- `CONVEX_RUNTIME_PLAN`: a plan file.
+- `CONVEX_CONFIGURATION_ID`: the stored active configuration with that id, compiled
+  from books and stored inputs with `convex-config compile`
+  ([configuration guide](CONFIGURATION.md#compile-a-live-configuration-from-books)).
+  The stored assembly does not change, so each restart plans the same digest.
+
 Quotes arrive only over HTTP:
 
 ```sh
 CONVEX_PROFILE=live CONVEX_HOST=127.0.0.1 CONVEX_PORT=8080 CONVEX_ACCESS_MODE=local_development \
 CONVEX_STORAGE_PATH=/absolute/path/inputs.redb \
-CONVEX_RUNTIME_PLAN=/absolute/path/runtime.json \
+CONVEX_CONFIGURATION_ID=SHOWCASE-USD \
 cargo run --locked -p convex-server
 ```
+
+A new Live checkpoint starts at the current time, after the plan cutoff and the
+activation that selected it. Live cutoffs never move backwards: if the wall clock
+steps back, ticks are valued at the last cutoff until the clock catches up. Pinned curve recipes age from their recording time:
+once a recipe passes its `max_age_ms` (at most one day), valuations report the curve
+as stale until a configuration with fresh recipes is compiled and activated.
 
 `POST /api/v1/market/quotes` takes `{"events": [QuoteEvent, ...]}` with 1 to 256
 canonical events. The server replaces each event's `receive_time_ms` with its own

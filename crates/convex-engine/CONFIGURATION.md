@@ -104,6 +104,52 @@ startup; `process explain [TOML]` exports redacted settings and the explicit
 `startup_supported` flag. A valid demo remains unready; production remains
 unsupported. Neither command opens a market-data session or database.
 
+## Compile a live configuration from books
+
+`convex-config DB compile SELECTION` reads stored inputs at one cutoff and prints a
+configuration document for `validate`, `stage` and `activate`. The selection names
+everything the repository does not hold; nothing has a default:
+
+```json
+{
+  "schema_version": 1,
+  "pricing_config": "SHOWCASE-USD",
+  "books": ["SHOWCASE-BOOK"],
+  "source": "showcase-feed",
+  "fields": ["mid_price"],
+  "quote_max_age_ms": 600000,
+  "max_source_skew_ms": 600000,
+  "as_of": "2026-10-22T12:00:00Z",
+  "known_at": "2026-10-22T12:00:00Z",
+  "mode": "live",
+  "settlement_date": "2026-10-22",
+  "measures": ["clean_price_mid", "ytm_mid"],
+  "numerical_settings": {"policy_id": "convex-bond-router-v1", "bump_bps": 1.0},
+  "max_concurrent_calcs": 4
+}
+```
+
+At the cutoff, compile:
+- takes the universe from the live positions of 1 to 64 books (at most 256
+  instruments) and pins each instrument's reference version;
+- uses the latest version of the stored pricing configuration. It must be active,
+  recorded by the cutoff, and apply to every instrument. Its id and version
+  identify the configuration;
+- pins the fresh recipe revisions of every configured curve role and their
+  dependencies;
+- requires one quote per instrument from `source`, which must be a provider the
+  server composes for `mode`;
+- sets the runtime id to `<pricing config>-v<version>`. Each compiled version is a
+  separate runtime with its own checkpoint, and clients resynchronise on the new id.
+
+Validation still needs explicit numerical fixtures. The document is checked against
+the capabilities the server composes for its mode: a live document needs the
+`display-only` result transport and a `live_images` provider.
+
+A staged version is immutable. To change the universe, store a new pricing
+configuration version first, then compile, stage and activate again with the
+server stopped.
+
 ## Stage, activate and roll back
 
 A staging envelope contains `document`, `idempotency_key`, `actor`, `reason`
