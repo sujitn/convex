@@ -135,6 +135,29 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
     assert_eq!(runtime["mode"], "live", "{runtime}");
     assert_eq!(runtime["ready"], false);
 
+    // A body that is not a quote batch is 400; 422 is reserved for row refusals.
+    for body in [
+        json!({"events": [{"key": 1}]}),
+        json!({"events": [], "extra": 1}),
+    ] {
+        let malformed = server
+            .client
+            .post(format!("{}/api/v1/market/quotes", server.base))
+            .json(&body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(malformed.status(), StatusCode::BAD_REQUEST, "{body}");
+    }
+    let untyped = server
+        .client
+        .post(format!("{}/api/v1/market/quotes", server.base))
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(untyped.status(), StatusCode::BAD_REQUEST);
+
     let mut other = image(1, "99.25");
     other.key.source = "feed-b".into();
     let rejected = server.post_quotes(vec![image(1, "99.25"), other]).await;

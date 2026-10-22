@@ -230,7 +230,7 @@ A batch is queued whole or not at all:
 | Status | Meaning |
 | --- | --- |
 | 202 | Queued for the runtime, not yet priced. Body: `accepted`, `receive_time_ms` |
-| 400 | Empty batch, more than 256 events, or malformed JSON |
+| 400 | Empty batch, more than 256 events, or a body that is not a JSON quote batch (malformed JSON, wrong shape, unknown field, or not `application/json`) |
 | 422 `QUOTES_REJECTED` | Per-row `INVALID_EVENT`, `UNKNOWN_KEY` (not a plan instrument/source) or `FUTURE_SOURCE_TIME` |
 | 429 | The runtime's 1,024-event queue cannot take the batch; retry |
 | 503 | No live runtime is composed or subscribed, or the server clock moved backwards |

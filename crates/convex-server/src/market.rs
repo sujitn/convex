@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use axum::extract::rejection::JsonRejection;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
@@ -210,11 +211,16 @@ pub struct QuoteBatch {
 }
 
 /// Queue canonical events for the Live runtime. 202 means queued, not yet priced;
-/// results arrive on the WebSocket and `/api/v1/runtime/results`.
+/// results arrive on the WebSocket and `/api/v1/runtime/results`. A body that is not
+/// a JSON `QuoteBatch` is 400, so 422 always means per-row `QUOTES_REJECTED`.
 pub async fn post_quotes(
     ingress: Option<Extension<Arc<QuoteIngress>>>,
-    Json(batch): Json<QuoteBatch>,
+    payload: Result<Json<QuoteBatch>, JsonRejection>,
 ) -> Response {
+    let batch = match payload {
+        Ok(Json(batch)) => batch,
+        Err(rejection) => return ApiError::invalid(rejection.body_text()).into_response(),
+    };
     let Some(Extension(ingress)) = ingress else {
         return ApiError::unavailable("this server has no live runtime").into_response();
     };
