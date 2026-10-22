@@ -536,6 +536,74 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     assert!(!directory.path().join("state.redb.results.jsonl").exists());
 }
 
+/// P2b-2, the showcase boot: `deploy/showcase/live.sh activate` records the book
+/// and fresh Demo curves, then compiles, validates, stages and activates under the
+/// demo profile's capabilities. The demo profile runs that configuration live: Demo
+/// inputs price, readiness accepts Demo, and every output stays labelled demo.
+/// Without `--demo` the same document fails validation on its Demo inputs.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn demo_profile_runs_the_showcase_configuration_live_on_labelled_demo_data() {
+    let seed = seed();
+    let (directory, path) = storage();
+    let (instrument, _, _) = seeded_bullet(&seed);
+    import_seed(&path);
+    let showcase = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/showcase");
+    let bin = Path::new(env!("CARGO_BIN_EXE_convex-config"))
+        .parent()
+        .unwrap();
+    let work = directory.path().join("boot");
+    let boot = std::process::Command::new("sh")
+        .arg(showcase.join("live.sh"))
+        .arg("activate")
+        .args([
+            path.as_os_str(),
+            bin.as_os_str(),
+            showcase.as_os_str(),
+            work.as_os_str(),
+        ])
+        .arg(&instrument)
+        .output()
+        .unwrap();
+    assert!(boot.status.success(), "{boot:?}");
+
+    // Only the demo capability admits Demo inputs.
+    let refused = std::process::Command::new(env!("CARGO_BIN_EXE_convex-config"))
+        .arg(&path)
+        .arg("validate")
+        .args(["document.json", "fixtures.json", "fixture-events.jsonl"].map(|f| work.join(f)))
+        .output()
+        .unwrap();
+    assert!(!refused.status.success(), "{refused:?}");
+    let report: Value = serde_json::from_slice(&refused.stdout).unwrap();
+    assert_eq!(report["valid"], false, "{report}");
+
+    let demo = ServerConfig {
+        configuration_id: Some("SHOWCASE-USD".into()),
+        ..config(&path)
+    };
+    let server = Running::start_config(demo).await;
+    let runtime = runtime(&server).await;
+    assert_eq!(runtime["mode"], "live", "{runtime}");
+    assert_eq!(runtime["ready"], false);
+    let now = chrono::Utc::now().timestamp_millis();
+    post_image(&server, image(&instrument, 1, now, 0, "99.5")).await;
+    let ready = wait_ready(&server).await;
+    assert_eq!(ready["quality"], "Demo", "{ready}");
+    let response = get(&server, "/api/v1/runtime/results").await;
+    assert_eq!(response.headers()["x-convex-data-quality"], "demo");
+    let results: Value = response.json().await.unwrap();
+    let result = &results[0];
+    assert_eq!(result["runtime_id"], "SHOWCASE-USD-v1", "{result}");
+    assert_eq!(result["result"]["status"], "Complete", "{result}");
+    assert_eq!(result["result"]["quality"], "Demo");
+    assert_eq!(
+        result["result"]["results"]["clean_price_mid"]["quality"],
+        "Demo"
+    );
+    server.stop().await;
+}
+
 /// Latest instant this process has stamped or seen the server stamp.
 static FLOOR: std::sync::Mutex<Option<chrono::DateTime<chrono::Utc>>> = std::sync::Mutex::new(None);
 

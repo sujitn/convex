@@ -155,12 +155,17 @@ fn quality_error(snapshot: &MarketSnapshot) -> ErrorCode {
         _ => ErrorCode::MissingMarketData,
     }
 }
+/// `Valid`, or `Demo` in an explicit demonstration composition.
+pub(super) fn accepted(quality: DataQuality, demo: bool) -> bool {
+    quality == DataQuality::Valid || (demo && quality == DataQuality::Demo)
+}
 pub(super) fn value(
     valuator: &SnapshotValuator,
     snapshot: &MarketSnapshot,
     context: &ValuationContext,
     request: RequestId,
     calculated: UtcTimestamp,
+    demo: bool,
 ) -> Result<SnapshotValuationResult, RuntimeError> {
     context.validate_snapshot(snapshot)?;
     if calculated < context.spec().valuation_time
@@ -174,7 +179,7 @@ pub(super) fn value(
             "unsupported context/time/model policy",
         ));
     }
-    if snapshot.quality().quality != DataQuality::Valid {
+    if !accepted(snapshot.quality().quality, demo) {
         failed(
             context,
             snapshot,
@@ -206,6 +211,7 @@ pub(super) async fn calculate(
     snapshot: Arc<MarketSnapshot>,
     checkpoint: &RuntimeCheckpoint,
     concurrency: usize,
+    demo: bool,
 ) -> Result<Vec<PublishedValuation>, RuntimeError> {
     checkpoint
         .result_revision
@@ -259,7 +265,7 @@ pub(super) async fn calculate(
             let valuator = valuator.clone();
             let snapshot = snapshot.clone();
             jobs.push(tokio::task::spawn_blocking(move || {
-                let result = value(&valuator, &snapshot, &ctx, request, calculated);
+                let result = value(&valuator, &snapshot, &ctx, request, calculated, demo);
                 (ticket, result)
             }));
         }
@@ -286,7 +292,7 @@ pub(super) async fn calculate(
                             }
                         };
                         let last_good = if result.envelope().status() == ResultStatus::Complete
-                            && result.envelope().quality() == DataQuality::Valid
+                            && accepted(result.envelope().quality(), demo)
                         {
                             Some(result.envelope().clone())
                         } else {
@@ -301,7 +307,7 @@ pub(super) async fn calculate(
                         };
                         let retained_quality = last_good.as_ref().map(|good| {
                             if good == result.envelope() {
-                                DataQuality::Valid
+                                good.quality()
                             } else {
                                 DataQuality::Stale
                             }

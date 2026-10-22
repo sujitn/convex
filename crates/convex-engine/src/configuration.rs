@@ -38,6 +38,15 @@ pub struct ConfigurationCapabilities {
     pub result_transport: SourceId,
     /// Actually configured provider identities/capabilities and credential references.
     pub providers: Vec<ProviderBinding>,
+    /// Explicit demonstration composition: every output is labelled demo, so inputs and
+    /// results of `Demo` quality pass validation and readiness. Otherwise only `Valid` does.
+    pub demo: bool,
+}
+impl ConfigurationCapabilities {
+    /// `Valid` always; `Demo` only in an explicit demonstration composition.
+    pub fn accepts(&self, quality: DataQuality) -> bool {
+        quality == DataQuality::Valid || (self.demo && quality == DataQuality::Demo)
+    }
 }
 /// Caller-supplied numerical regression assertion; no expectation is manufactured by the service.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -164,6 +173,10 @@ pub struct ConfigurationUseCases {
     warmed: parking_lot::Mutex<Option<Arc<SnapshotValuator>>>,
 }
 impl ConfigurationUseCases {
+    /// Whether results of this quality count as ready in this composition.
+    pub fn accepts(&self, quality: DataQuality) -> bool {
+        self.capabilities.accepts(quality)
+    }
     /// Compose genuine boundaries; no credentials are resolved inside analytics.
     pub fn new(
         repository: Arc<dyn ConfigurationRepository>,
@@ -282,7 +295,7 @@ impl ConfigurationUseCases {
                     continue;
                 }
             };
-            if snapshot.quality().quality != DataQuality::Valid {
+            if !self.capabilities.accepts(snapshot.quality().quality) {
                 issue(&mut report, "assembly", "INVALID_FIXTURE_INPUTS", "Required quotes/curves or feed continuity do not satisfy the supplied information cutoff");
                 continue;
             }
@@ -316,7 +329,7 @@ impl ConfigurationUseCases {
                     }
                 };
                 if result.envelope().status() != ResultStatus::Complete
-                    || result.envelope().quality() != DataQuality::Valid
+                    || !self.capabilities.accepts(result.envelope().quality())
                 {
                     issue(
                         &mut report,

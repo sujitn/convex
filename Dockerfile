@@ -25,7 +25,7 @@ COPY crates/ crates/
 COPY tools/library/api-capabilities.json tools/library/api-capabilities.json
 
 # Build the server in release mode
-RUN cargo build --locked --release -p convex-server --bin convex-server --bin convex-core-inputs
+RUN cargo build --locked --release -p convex-server --bin convex-server --bin convex-core-inputs --bin convex-config
 
 # ==============================================================================
 # Stage 2: Runtime environment
@@ -50,11 +50,12 @@ RUN mkdir -p /app/data/caddy && chown -R convex:convex /app
 
 WORKDIR /app
 
-# Server, offline seed importer and showcase deploy files
+# Server, offline seed importer and configuration operator, and showcase deploy files
 COPY --from=builder /app/target/release/convex-server /app/convex-server
 COPY --from=builder /app/target/release/convex-core-inputs /app/convex-core-inputs
+COPY --from=builder /app/target/release/convex-config /app/convex-config
 COPY deploy/showcase/ /app/showcase/
-RUN chmod 0755 /app/showcase/entrypoint.sh
+RUN chmod 0755 /app/showcase/entrypoint.sh /app/showcase/live.sh
 
 USER convex
 

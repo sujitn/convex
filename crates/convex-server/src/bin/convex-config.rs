@@ -50,10 +50,16 @@ async fn main() -> ExitCode {
     }
 }
 async fn run() -> Result<(Value, bool), ConfigurationError> {
-    let args = std::env::args_os()
+    let mut args = std::env::args_os()
         .skip(1)
         .map(PathBuf::from)
         .collect::<Vec<_>>();
+    // `--demo` checks a document against the demo profile's composition, which
+    // accepts Demo-quality inputs and results.
+    let demo = args.first().is_some_and(|a| a.as_os_str() == "--demo");
+    if demo {
+        args.remove(0);
+    }
     let Some(first) = args.first().and_then(|p| p.to_str()) else {
         return Err(usage());
     };
@@ -122,7 +128,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         convex_ext_redb::create_redb_storage(&args[0]).map_err(|_| ConfigurationError::Storage)?;
     if command == "compile" && args.len() == 3 {
         let selection: PlanSelection = read(&args[2])?;
-        let capabilities = composed(selection.mode, vec![selection.source.clone()])?;
+        let capabilities = composed(selection.mode, vec![selection.source.clone()], demo)?;
         let document = assemble_from_repository(
             &selection,
             storage.bonds.as_ref(),
@@ -187,7 +193,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         }
         "validate" | "explain" => {
             let document: ConfigurationDocument = read(&args[2])?;
-            let report = cases(capabilities(&document)?)
+            let report = cases(capabilities(&document, demo)?)
                 .validate(&document, &fixtures)
                 .await?;
             let valid = report.valid;
@@ -195,7 +201,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         }
         "stage" => {
             let staged: StagedConfiguration = read(&args[2])?;
-            let cases = cases(capabilities(&staged.document)?);
+            let cases = cases(capabilities(&staged.document, demo)?);
             Ok((json!(cases.stage(&staged, &fixtures).await?), true))
         }
         "activate" | "rollback" => {
@@ -211,7 +217,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
                 .get_staged(&request.id, request.configuration_version)
                 .await?
                 .ok_or(ConfigurationError::Invalid("missing staged configuration"))?;
-            let cases = cases(capabilities(&staged.document)?);
+            let cases = cases(capabilities(&staged.document, demo)?);
             Ok((
                 json!({"schema_version":1,"activation":cases.activate(&request, &fixtures, false).await?,"application":"restart_required"}),
                 true,
@@ -249,10 +255,11 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         _ => Err(usage()),
     }
 }
-/// Validation runs against what the server composes for the document: its mode and
-/// the sources its quotes name.
+/// Validation runs against what the server composes for the document: its mode, the
+/// sources its quotes name, and whether the profile is the demo.
 fn capabilities(
     document: &ConfigurationDocument,
+    demo: bool,
 ) -> Result<ConfigurationCapabilities, ConfigurationError> {
     let sources = document
         .assembly
@@ -263,16 +270,19 @@ fn capabilities(
                 .map_err(|_| ConfigurationError::Invalid("invalid quote provider identity"))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    composed(document.runtime.mode, sources)
+    composed(document.runtime.mode, sources, demo)
 }
 fn composed(
     mode: RuntimeMode,
     sources: Vec<SourceId>,
+    demo: bool,
 ) -> Result<ConfigurationCapabilities, ConfigurationError> {
-    match mode {
-        RuntimeMode::Live => local_live_capabilities(sources),
-        RuntimeMode::Replay | RuntimeMode::Captured => local_replay_capabilities(sources),
-    }
+    let mut capabilities = match mode {
+        RuntimeMode::Live => local_live_capabilities(sources)?,
+        RuntimeMode::Replay | RuntimeMode::Captured => local_replay_capabilities(sources)?,
+    };
+    capabilities.demo = demo;
+    Ok(capabilities)
 }
 fn name(value: &Path) -> Result<&str, ConfigurationError> {
     value
@@ -280,7 +290,7 @@ fn name(value: &Path) -> Result<&str, ConfigurationError> {
         .ok_or(ConfigurationError::Invalid("argument encoding is invalid"))
 }
 fn usage() -> ConfigurationError {
-    ConfigurationError::Invalid("usage: convex-config schema | process validate/explain [TOML] | diff OLD NEW | DB compile SELECTION | DB validate/explain/stage/activate/rollback JSON FIXTURES REPLAY | DB version ID VERSION | DB export-plan ID | DB effective ID AS_OF KNOWN_AT | DB history ID OFFSET LIMIT")
+    ConfigurationError::Invalid("usage: convex-config schema | process validate/explain [TOML] | diff OLD NEW | [--demo] DB compile SELECTION | [--demo] DB validate/explain/stage/activate/rollback JSON FIXTURES REPLAY | DB version ID VERSION | DB export-plan ID | DB effective ID AS_OF KNOWN_AT | DB history ID OFFSET LIMIT")
 }
 fn read<T: DeserializeOwned>(path: &Path) -> Result<T, ConfigurationError> {
     let file = std::fs::File::open(path)

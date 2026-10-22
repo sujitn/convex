@@ -26,6 +26,7 @@ pub fn cases(setup: &Setup) -> Arc<ConfigurationUseCases> {
             shared_writers: false,
             result_transport: document.process.result_transport,
             providers: document.providers,
+            demo: false,
         },
     ))
 }

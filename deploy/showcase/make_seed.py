@@ -8,6 +8,11 @@ Sources, nothing invented:
     (synthetic, quality "Demo")
   * pricing_configs: one USD configuration naming those curves' roles
     (discount D.OIS, swap benchmark P.SOFR), recorded with the curves
+
+It also writes boot.template.json: what the live showcase records at each boot,
+with @NOW@ replaced by the boot time. That is one book holding the seeded bond, and
+version-2 revisions of D.OIS and P.SOFR. They are the same synthetic recipes, still
+quality "Demo", recorded at boot so they are fresh for the live runtime.
 Usage: python deploy/showcase/make_seed.py
 """
 import json
@@ -54,4 +59,41 @@ seed = dict(
 )
 out = Path(__file__).with_name('seed.json')
 out.write_text(json.dumps(seed, indent=1) + '\n', newline='\n')
+print(f'wrote {out} ({out.stat().st_size} bytes)')
+
+
+def at_boot(curve):
+    fresh = json.loads(json.dumps(curve))
+    fresh['version'] = 2
+    fresh['recipe']['key']['version'] = '2'
+    fresh['source_time'] = fresh['recorded_at'] = '@NOW@'
+    return fresh
+
+
+bond_id = master['command']['changes'][0]['bond']['instrument_id']
+book = dict(
+    book_id='SHOWCASE-BOOK',
+    owning_system='showcase-bms',
+    name='Showcase book',
+    currency='USD',
+    description=None,
+    effective={'from': '@NOW@', 'until': None},
+    positions=[dict(
+        instrument_id=bond_id, quantity='1000000', unit='face', reference_version=None,
+        source_identifier=None, sector=None, rating=None,
+    )],
+    provenance=dict(source='showcase-bms', evidence_reference='showcase:boot'),
+)
+boot = dict(
+    schema_version=1,
+    references=[dict(recorded_at='@NOW@', command=dict(
+        idempotency_key='showcase-book-boot',
+        changes=[],
+        master_changes=[dict(expected_version=None, definition=dict(kind='book', definition=book))],
+    ))],
+    curves=[at_boot(c) for c in curves if c['curve_id'] in ('D.OIS', 'P.SOFR')],
+    fixings=[],
+)
+out = Path(__file__).with_name('boot.template.json')
+out.write_text(json.dumps(boot, indent=1) + '\n', newline='\n')
 print(f'wrote {out} ({out.stat().st_size} bytes)')

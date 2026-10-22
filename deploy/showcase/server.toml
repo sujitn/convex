@@ -3,6 +3,9 @@
 # authentication. Caddy (see Caddyfile) is the only public listener and the
 # only write guard; do not expose this port directly.
 profile = "demo"
+# The demo profile runs the stored active SHOWCASE-USD live; entrypoint.sh compiles
+# and activates it at boot. Every output stays labelled demo.
+configuration_id = "SHOWCASE-USD"
 host = "127.0.0.1"
 port = 8081
 websocket_enabled = true

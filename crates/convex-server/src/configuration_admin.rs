@@ -60,6 +60,7 @@ fn local_capabilities(
         result_transport: SourceId::new(result_transport)
             .map_err(|_| ConfigurationError::Storage)?,
         providers,
+        demo: false,
     })
 }
 

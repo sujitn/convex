@@ -379,10 +379,10 @@ impl ServerConfig {
             });
         }
         if let Some(id) = &self.configuration_id {
-            if self.profile != ServerProfile::Live {
+            if !matches!(self.profile, ServerProfile::Live | ServerProfile::Demo) {
                 return Err(ConfigError::Unsupported {
                     field: "configuration_id",
-                    reason: "a stored configuration plans only the live profile",
+                    reason: "a stored configuration plans only the live or demo profile",
                 });
             }
             if convex_core::contracts::SourceId::new(id.as_str()).is_err() {
@@ -609,9 +609,23 @@ mod tests {
             Err(ConfigError::Unsupported { field: "host", .. })
         ));
         config.host = "127.0.0.1".into();
+        // The demo profile may run a stored configuration live; it never takes a plan file.
         config.profile = ServerProfile::Demo;
         config.runtime_plan = None;
         config.configuration_id = Some("SHOWCASE-USD".into());
+        config.validate_startup().unwrap();
+        config.runtime_plan = Some("/plan.json".into());
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::Unsupported {
+                field: "runtime_plan",
+                ..
+            })
+        ));
+        config.runtime_plan = None;
+        config.profile = ServerProfile::Replay;
+        config.quotes_file = Some("/quotes.jsonl".into());
+        config.runtime_plan = Some("/plan.json".into());
         assert!(matches!(
             config.validate(),
             Err(ConfigError::Unsupported {
