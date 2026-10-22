@@ -98,7 +98,7 @@ No token claim grants a local role, and no role grants data/resources implicitly
 |---|---|
 | reader | Reference/market/result/book reads, job reads and WS connection |
 | analyst | Reader operations, calculations and scoped job submit/cancel |
-| reference_writer | Reference mutations and curve construction/deletion |
+| reference_writer | Reference mutations, curve construction/deletion and market input writes (fixings, live quotes) |
 | book_writer | Portfolio/position mutations |
 | operator | Runtime/dependency and configuration inspection |
 
@@ -113,6 +113,7 @@ Combine roles deliberately. `reference_writer` does not automatically include `r
 | v1 quotes/pricing and quote streams | Instrument plus reference/market/results; whole sources and curves because this API does not expose complete scoped dependency selection |
 | Supplied runtime valuation | All selected instrument, curve, source and calibration `InputVersion` dependencies; reference/market/results and any book in the payload |
 | Runtime result resync | Whole instruments/curves/sources and reference/market/results; the current endpoint returns the entire selected runtime |
+| Live quote ingress | Instrument and source of every event; market data; `reference_writer` |
 | Portfolio/position operations | Book ID and every instrument in input/returned content; nested batches are checked before dispatch |
 | Portfolio analytics stream | Book plus whole underlying instrument/curve/source grants and market/results/books |
 | Configuration inspection | Operator, configuration ID and configuration/reference/market grants; returned dependency IDs are checked |

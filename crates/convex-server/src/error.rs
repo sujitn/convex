@@ -55,6 +55,13 @@ impl ApiError {
             ..Self::new(StatusCode::SERVICE_UNAVAILABLE, "UNAVAILABLE", message)
         }
     }
+    /// Admission is full; retry after the queue drains.
+    pub(crate) fn overloaded(message: impl Into<String>) -> Self {
+        Self {
+            retryable: true,
+            ..Self::new(StatusCode::TOO_MANY_REQUESTS, "CAPACITY_EXCEEDED", message)
+        }
+    }
     /// A failure reading stored inputs. Scan bounds and adapter support belong
     /// to the store, not the request, so they are not reported as client errors.
     pub(crate) fn stored(error: TraitError) -> Self {

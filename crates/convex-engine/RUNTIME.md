@@ -212,6 +212,35 @@ documents required identity verification, role/data/book scopes, TLS proxy ingre
 and dependency/strategy readiness. This command explicitly opts into local
 development. v1 synthetic-curve behavior remains an enforced G04 failure.
 
+The loopback-only `live` profile runs a plan with `mode=live` and no `quotes_file`.
+Quotes arrive only over HTTP:
+
+```sh
+CONVEX_PROFILE=live CONVEX_HOST=127.0.0.1 CONVEX_PORT=8080 CONVEX_ACCESS_MODE=local_development \
+CONVEX_STORAGE_PATH=/absolute/path/inputs.redb \
+CONVEX_RUNTIME_PLAN=/absolute/path/runtime.json \
+cargo run --locked -p convex-server
+```
+
+`POST /api/v1/market/quotes` takes `{"events": [QuoteEvent, ...]}` with 1 to 256
+canonical events. The server replaces each event's `receive_time_ms` with its own
+receipt time, stamped and queued under one lock so delivery order is receipt order.
+A batch is queued whole or not at all:
+
+| Status | Meaning |
+| --- | --- |
+| 202 | Queued for the runtime, not yet priced. Body: `accepted`, `receive_time_ms` |
+| 400 | Empty batch, more than 256 events, or malformed JSON |
+| 422 `QUOTES_REJECTED` | Per-row `INVALID_EVENT`, `UNKNOWN_KEY` (not a plan instrument/source) or `FUTURE_SOURCE_TIME` |
+| 429 | The runtime's 1,024-event queue cannot take the batch; retry |
+| 503 | No live runtime is composed or subscribed, or the server clock moved backwards |
+
+The ingress refuses anything the Live runtime would not accept, because the runtime
+stops on such an event. Results reach WebSocket subscribers and
+`/api/v1/runtime/results`; they are not archived, and no snapshot is stored. The
+route requires `reference_writer` with market data and each event's instrument and
+source grants. The public showcase does not expose it.
+
 Run the actual lifecycle fixtures with:
 
 ```sh

@@ -26,7 +26,8 @@ rules to what is forwarded.
   `/api/v1/portfolio/*`, `/api/v1/benchmark/*`, `/api/v1/liquidity/*`,
   `/api/v1/credit/*`
 
-`POST /api/v1/curves` (the durable recipe store) is not public.
+`POST /api/v1/curves` (the durable recipe store) and `POST /api/v1/market/quotes`
+(the live quote ingress) are not public.
 `/api/v1/curves/bootstrap` calibrates and returns a curve without storing it.
 
 ## Storage and seed
