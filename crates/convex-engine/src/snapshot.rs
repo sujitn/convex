@@ -4,7 +4,7 @@
 use convex_core::contracts::*;
 use convex_ports::{
     fixing::FixingRepository,
-    quote_event::{QuoteEvent, QuoteField},
+    quote_event::{QuoteEvent, QuoteField, QuoteKey},
     reference_master::{ReferenceLookup, ResolvedBondReference},
     reference_repository::ReferenceRepository,
     snapshot::*,
@@ -72,8 +72,15 @@ impl SnapshotAssembler {
         events: &[QuoteEvent],
     ) -> Result<MarketSnapshot, TraitError> {
         validate_request(request, events)?;
-        let configuration = self
-            .configurations
+        let configuration = self.configuration(request).await?;
+        self.resolve_with_configuration(request, events, configuration)
+            .await
+    }
+    async fn configuration(
+        &self,
+        request: &SnapshotAssembly,
+    ) -> Result<convex_ports::storage::BondPricingConfig, TraitError> {
+        self.configurations
             .get_version(
                 request.configuration.id.as_str(),
                 request.configuration.version.get(),
@@ -81,9 +88,7 @@ impl SnapshotAssembler {
             .await?
             .ok_or(TraitError::InvalidInput(
                 "missing exact snapshot configuration",
-            ))?;
-        self.resolve_with_configuration(request, events, configuration)
-            .await
+            ))
     }
     /// Resolve supplied immutable quantitative content without staging or publishing it.
     /// The same reference, curve and quality checks govern actual assembly and dry runs.
@@ -94,6 +99,29 @@ impl SnapshotAssembler {
         configuration: convex_ports::storage::BondPricingConfig,
     ) -> Result<MarketSnapshot, TraitError> {
         validate_request(request, events)?;
+        let references = self.references(request, &configuration).await?;
+        let capture = capture_ms(request);
+        let mut quotes = IngestedQuotes::new()?;
+        for event in events {
+            if event.source_time_ms > request.as_of.datetime().timestamp_millis()
+                || event.receive_time_ms > request.known_at.datetime().timestamp_millis()
+                || !request
+                    .quotes
+                    .iter()
+                    .any(|requirement| requirement.key == event.key)
+            {
+                continue;
+            }
+            quotes.ingest(event.clone(), capture);
+        }
+        self.build(request, configuration, references, quotes.quotes(request))
+            .await
+    }
+    async fn references(
+        &self,
+        request: &SnapshotAssembly,
+        configuration: &convex_ports::storage::BondPricingConfig,
+    ) -> Result<Vec<ResolvedBondReference>, TraitError> {
         if configuration.config_id != request.configuration.id.as_str()
             || configuration.version != request.configuration.version.get()
         {
@@ -139,44 +167,28 @@ impl SnapshotAssembler {
                 convention,
             });
         }
-        let mut assembler = MarketDataAssembler::new(IngestionPolicy {
-            max_keys: MAX_SNAPSHOT_INSTRUMENTS,
-            stale_after_ms: 86_400_000,
-            future_tolerance_ms: 0,
-        })?;
-        let capture = request
-            .as_of
-            .max(request.known_at)
-            .datetime()
-            .timestamp_millis();
-        let mut delivered = HashMap::new();
-        for event in events {
-            if event.source_time_ms > request.as_of.datetime().timestamp_millis()
-                || event.receive_time_ms > request.known_at.datetime().timestamp_millis()
-                || !request
-                    .quotes
-                    .iter()
-                    .any(|requirement| requirement.key == event.key)
-            {
-                continue;
-            }
-            let outcome = assembler.ingest(event.clone(), capture);
-            if !matches!(
-                outcome.outcome,
-                IngestionOutcome::Duplicate | IngestionOutcome::OutOfOrder
-            ) {
-                delivered.insert(event.key.clone(), event.clone());
-            }
-        }
-        let quotes = request
-            .quotes
-            .iter()
-            .map(|requirement| SnapshotQuote {
-                requirement: requirement.clone(),
-                delivery_watermark: delivered.remove(&requirement.key),
-                image: assembler.snapshot(&requirement.key, capture),
-            })
-            .collect();
+        Ok(references)
+    }
+    /// Resolve over quote state the caller already ingested, without publishing.
+    /// Live mode keeps that state in memory; market data is not stored.
+    pub(crate) async fn resolve_ingested(
+        &self,
+        request: &SnapshotAssembly,
+        quotes: &IngestedQuotes,
+    ) -> Result<MarketSnapshot, TraitError> {
+        validate_request(request, &[])?;
+        let configuration = self.configuration(request).await?;
+        let references = self.references(request, &configuration).await?;
+        self.build(request, configuration, references, quotes.quotes(request))
+            .await
+    }
+    async fn build(
+        &self,
+        request: &SnapshotAssembly,
+        configuration: convex_ports::storage::BondPricingConfig,
+        references: Vec<ResolvedBondReference>,
+        quotes: Vec<SnapshotQuote>,
+    ) -> Result<MarketSnapshot, TraitError> {
         let mut fixings = Vec::with_capacity(request.fixings.len());
         for key in &request.fixings {
             fixings.push(SnapshotFixing {
@@ -208,6 +220,56 @@ impl SnapshotAssembler {
         })?;
         Ok(snapshot)
     }
+}
+
+/// Quote state ingested once per event in delivery order. Replay rebuilds it from a
+/// trace for each snapshot; Live keeps one instance for the life of the process.
+pub(crate) struct IngestedQuotes {
+    assembler: MarketDataAssembler,
+    delivered: HashMap<QuoteKey, QuoteEvent>,
+}
+impl IngestedQuotes {
+    pub(crate) fn new() -> Result<Self, TraitError> {
+        Ok(Self {
+            assembler: MarketDataAssembler::new(IngestionPolicy {
+                max_keys: MAX_SNAPSHOT_INSTRUMENTS,
+                stale_after_ms: 86_400_000,
+                future_tolerance_ms: 0,
+            })?,
+            delivered: HashMap::new(),
+        })
+    }
+    /// Apply one event at the capture time it was accepted under.
+    pub(crate) fn ingest(&mut self, event: QuoteEvent, capture_ms: i64) {
+        let outcome = self.assembler.ingest(event.clone(), capture_ms);
+        if !matches!(
+            outcome.outcome,
+            IngestionOutcome::Duplicate | IngestionOutcome::OutOfOrder
+        ) {
+            self.delivered.insert(event.key.clone(), event);
+        }
+    }
+    /// Latest delivery and retained image for each requirement, aged at the request cutoff.
+    fn quotes(&self, request: &SnapshotAssembly) -> Vec<SnapshotQuote> {
+        let capture = capture_ms(request);
+        request
+            .quotes
+            .iter()
+            .map(|requirement| SnapshotQuote {
+                requirement: requirement.clone(),
+                delivery_watermark: self.delivered.get(&requirement.key).cloned(),
+                image: self.assembler.snapshot(&requirement.key, capture),
+            })
+            .collect()
+    }
+}
+
+fn capture_ms(request: &SnapshotAssembly) -> i64 {
+    request
+        .as_of
+        .max(request.known_at)
+        .datetime()
+        .timestamp_millis()
 }
 
 fn reference_error(error: convex_ports::reference_repository::ReferenceError) -> TraitError {

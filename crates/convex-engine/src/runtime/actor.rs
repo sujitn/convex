@@ -1,5 +1,15 @@
 //! Single writer for accepted events, exact dependency recovery, result/outbox state and input health.
 use super::*;
+/// Revisions and generations reserved per durable Live write.
+const LIVE_RESERVATION: u64 = 1 << 20;
+/// Live market state lives only in this process; ticks and snapshots are not stored.
+/// Storage holds counter ceilings reserved ahead of use, so a restarted process
+/// continues above every revision and generation it may already have published.
+struct LiveState {
+    quotes: crate::snapshot::IngestedQuotes,
+    last_receive_ms: Option<i64>,
+    reserved: RuntimeCheckpoint,
+}
 pub(super) struct Actor {
     services: RuntimeServices,
     assembler: SnapshotAssembler,
@@ -17,6 +27,7 @@ pub(super) struct Actor {
     configurations: Option<Arc<crate::configuration::ConfigurationUseCases>>,
     baseline_pricing: convex_ports::storage::BondPricingConfig,
     selected: Option<convex_ports::configuration::ActiveConfiguration>,
+    live_state: Option<LiveState>,
 }
 impl Actor {
     pub(super) async fn restore(
@@ -125,6 +136,32 @@ impl Actor {
         if absent {
             bounded(services.store.checkpoint(0, &checkpoint)).await?;
         }
+        let live_state = if services.plan.mode == RuntimeMode::Live {
+            let reserved = checkpoint.clone();
+            if !absent {
+                // Nothing stored describes the market. Recalculate from no quotes, above the ceilings.
+                checkpoint.events.clear();
+                checkpoint.results.clear();
+                checkpoint.outbox.clear();
+                checkpoint.snapshot_id = None;
+                checkpoint.pending = true;
+                checkpoint.generation = Version::new(
+                    checkpoint
+                        .generation
+                        .get()
+                        .checked_add(1)
+                        .ok_or(RuntimeError::CapacityExceeded)?,
+                )
+                .map_err(|_| RuntimeError::CapacityExceeded)?;
+            }
+            Some(LiveState {
+                quotes: crate::snapshot::IngestedQuotes::new()?,
+                last_receive_ms: None,
+                reserved,
+            })
+        } else {
+            None
+        };
         let assembler = SnapshotAssembler::new(
             engine.storage.bonds.clone(),
             engine.storage.configs.clone(),
@@ -164,6 +201,7 @@ impl Actor {
             configurations,
             baseline_pricing,
             selected,
+            live_state,
         };
         // Reopen replay from the beginning, verify its accepted prefix, and only then continue.
         if let RuntimeInput::Replay(source) = &mut actor.services.input {
@@ -226,7 +264,30 @@ impl Actor {
         Ok(request)
     }
     async fn save(&mut self, mut next: RuntimeCheckpoint) -> Result<(), RuntimeError> {
-        next.revision = self
+        let Some(reserve) = self.live_state.as_ref().map(|live| {
+            next.result_revision > live.reserved.result_revision
+                || next.generation > live.reserved.generation
+                || next.configuration_activation != live.reserved.configuration_activation
+        }) else {
+            self.checkpoint = self.commit(next).await?;
+            return Ok(());
+        };
+        next.revision = self.checkpoint.revision;
+        if reserve {
+            let image = self.commit(reservation(&next)?).await?;
+            next.revision = image.revision;
+            if let Some(live) = self.live_state.as_mut() {
+                live.reserved = image;
+            }
+        }
+        self.checkpoint = next;
+        Ok(())
+    }
+    async fn commit(
+        &mut self,
+        mut image: RuntimeCheckpoint,
+    ) -> Result<RuntimeCheckpoint, RuntimeError> {
+        image.revision = self
             .checkpoint
             .revision
             .checked_add(1)
@@ -234,30 +295,32 @@ impl Actor {
         let saved = bounded(
             self.services
                 .store
-                .checkpoint(self.checkpoint.revision, &next),
+                .checkpoint(self.checkpoint.revision, &image),
         )
         .await;
         // Timeout/unknown outcome may have committed; reconcile exact content before accepting or retrying.
         if let Err(error) = saved {
-            if bounded(self.services.store.load(&next.runtime_id))
+            if bounded(self.services.store.load(&image.runtime_id))
                 .await?
                 .as_ref()
-                != Some(&next)
+                != Some(&image)
             {
                 return Err(error);
             }
         }
-        self.checkpoint = next;
-        Ok(())
+        Ok(image)
+    }
+    /// Live resolves held quotes without storing a snapshot; other modes publish one from the trace.
+    async fn snapshot(&mut self) -> Result<Arc<MarketSnapshot>, RuntimeError> {
+        let request = self.request()?;
+        let snapshot = match &self.live_state {
+            Some(live) => bounded(self.assembler.resolve_ingested(&request, &live.quotes)).await?,
+            None => bounded(self.assembler.assemble(&request, &self.checkpoint.events)).await?,
+        };
+        Ok(Arc::new(snapshot))
     }
     async fn restore_dependencies(&mut self) -> Result<(), RuntimeError> {
-        let snapshot = Arc::new(
-            bounded(
-                self.assembler
-                    .assemble(&self.request()?, &self.checkpoint.events),
-            )
-            .await?,
-        );
+        let snapshot = self.snapshot().await?;
         if !self.checkpoint.pending && self.checkpoint.snapshot_id.as_ref() != Some(snapshot.id()) {
             return Err(RuntimeError::RecoveryConflict);
         }
@@ -334,16 +397,14 @@ impl Actor {
             || event.source_time_ms > as_of.datetime().timestamp_millis()
             || event.receive_time_ms > known_at.datetime().timestamp_millis()
             || self
-                .checkpoint
-                .events
-                .last()
-                .is_some_and(|v| v.receive_time_ms > event.receive_time_ms)
+                .last_receive_ms()
+                .is_some_and(|v| v > event.receive_time_ms)
         {
             return Err(RuntimeError::Configuration(
                 "event/cutoff differs from declared ordered input universe",
             ));
         }
-        if self.checkpoint.events.len() == MAX_RUNTIME_EVENTS {
+        if self.live_state.is_none() && self.checkpoint.events.len() == MAX_RUNTIME_EVENTS {
             return Err(RuntimeError::CapacityExceeded);
         }
         let mut next = self.checkpoint.clone();
@@ -361,7 +422,9 @@ impl Actor {
         .map_err(|_| RuntimeError::CapacityExceeded)?;
         next.as_of = as_of;
         next.known_at = known_at;
-        next.events.push(event.clone());
+        if self.live_state.is_none() {
+            next.events.push(event.clone());
+        }
         next.pending = true;
         if matches!(
             event.event,
@@ -373,6 +436,11 @@ impl Actor {
             next.delivery_lost = false;
         }
         self.save(next).await?;
+        if let Some(live) = self.live_state.as_mut() {
+            live.last_receive_ms = Some(event.receive_time_ms);
+            live.quotes
+                .ingest(event, as_of.max(known_at).datetime().timestamp_millis());
+        }
         self.selected = selected;
         {
             let mut health = self.health.write();
@@ -390,14 +458,14 @@ impl Actor {
                 .map(|a| a.revision),
         })
     }
+    fn last_receive_ms(&self) -> Option<i64> {
+        match &self.live_state {
+            Some(live) => live.last_receive_ms,
+            None => self.checkpoint.events.last().map(|e| e.receive_time_ms),
+        }
+    }
     async fn process(&mut self) -> Result<(), RuntimeError> {
-        let snapshot = Arc::new(
-            bounded(
-                self.assembler
-                    .assemble(&self.request()?, &self.checkpoint.events),
-            )
-            .await?,
-        );
+        let snapshot = self.snapshot().await?;
         worker::activate(&self.graph, &self.services.plan, snapshot.clone())?;
         self.calculate(snapshot).await?;
         self.flush_outbox().await?;
@@ -793,4 +861,25 @@ impl Actor {
                 .map(|a| a.revision),
         })
     }
+}
+/// Stored Live image: counters a block ahead of use, without market state or results.
+fn reservation(next: &RuntimeCheckpoint) -> Result<RuntimeCheckpoint, RuntimeError> {
+    let mut image = next.clone();
+    image.events.clear();
+    image.results.clear();
+    image.outbox.clear();
+    image.snapshot_id = None;
+    image.pending = true;
+    image.result_revision = next
+        .result_revision
+        .checked_add(LIVE_RESERVATION)
+        .ok_or(RuntimeError::CapacityExceeded)?;
+    image.generation = Version::new(
+        next.generation
+            .get()
+            .checked_add(LIVE_RESERVATION)
+            .ok_or(RuntimeError::CapacityExceeded)?,
+    )
+    .map_err(|_| RuntimeError::CapacityExceeded)?;
+    Ok(image)
 }

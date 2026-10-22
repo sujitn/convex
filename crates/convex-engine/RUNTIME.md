@@ -47,6 +47,17 @@ the original dependency times. Consumers must respect that deadline, snapshot
 quality and their own product freshness rules. Analytics readiness never grants
 strategy or execution permission.
 
+Live market data is not stored. The actor ingests each event once into quote
+state held in memory and resolves each snapshot from it without publishing the
+snapshot. A result's `snapshot_id` therefore names content that cannot be read
+back, and an intraday live valuation cannot be reproduced later. Live plans take
+no seed events. The checkpoint holds no events, results or outbox. Storage is
+written when the runtime first starts, when result revisions or generations pass
+the stored ceiling (each write reserves 2^20 more), and when the accepted
+activation changes. A restart recalculates from no quotes above the stored
+ceilings, which writes one new reservation. Until new images arrive, every
+instrument publishes a failed result with no retained last-good value.
+
 ## Construction and lifecycle
 
 Use `PricingEngineBuilder::with_runtime(RuntimeServices)` to supply a checked plan,
@@ -130,7 +141,7 @@ becomes zero, par, Empty-success or a current timestamp on an old value.
 | --- | --- |
 | Runtime universe | 256 instruments, one exact configuration |
 | Captured command queue | 128; explicit capacity error |
-| Retained accepted trace | 100,000 normalized events |
+| Retained accepted trace | 100,000 normalized events; Live retains none |
 | Checkpoint | 32 MiB; one atomic image/outbox, schema 1 |
 | Results and output batch | 256 records each |
 | Local checkpoint namespaces | 64 |
