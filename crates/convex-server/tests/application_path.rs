@@ -601,6 +601,19 @@ async fn demo_profile_runs_the_showcase_configuration_live_on_labelled_demo_data
         result["result"]["results"]["clean_price_mid"]["quality"],
         "Demo"
     );
+    let measures = &result["result"]["results"];
+    for (measure, unit) in [
+        ("modified_duration_mid", "years"),
+        ("convexity_mid", "years_squared"),
+        ("dv01_mid", "price_per_100"),
+        ("z_spread_mid", "bp"),
+    ] {
+        assert_eq!(
+            measures[measure]["value"]["unit"], unit,
+            "{measure}: {result}"
+        );
+        assert!(measures[measure]["value"]["value"].is_f64(), "{result}");
+    }
     server.stop().await;
 }
 

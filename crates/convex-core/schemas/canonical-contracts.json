@@ -804,6 +804,14 @@
             "$ref": "#/$defs/ModelBasisPoints"
           },
           {
+            "description": "Finite model duration in years.",
+            "$ref": "#/$defs/ModelYears"
+          },
+          {
+            "description": "Finite model convexity in years squared.",
+            "$ref": "#/$defs/ModelYearsSquared"
+          },
+          {
             "description": "Structured signed factor risk with its bump, basis and snapshot.",
             "$ref": "#/$defs/RiskSensitivity"
           }
@@ -903,6 +911,52 @@
         "type": "string",
         "enum": [
           "decimal_rate"
+        ]
+      },
+      "ModelYears": {
+        "description": "Finite model duration in years, such as modified duration.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelYearsUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelYearsSquared": {
+        "description": "Finite model convexity in years squared.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelYearsSquaredUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelYearsSquaredUnit": {
+        "type": "string",
+        "enum": [
+          "years_squared"
+        ]
+      },
+      "ModelYearsUnit": {
+        "type": "string",
+        "enum": [
+          "years"
         ]
       },
       "Money": {
@@ -2273,6 +2327,14 @@
         "$ref": "#/$defs/ModelBasisPoints"
       },
       {
+        "description": "Finite model duration in years.",
+        "$ref": "#/$defs/ModelYears"
+      },
+      {
+        "description": "Finite model convexity in years squared.",
+        "$ref": "#/$defs/ModelYearsSquared"
+      },
+      {
         "description": "Structured signed factor risk with its bump, basis and snapshot.",
         "$ref": "#/$defs/RiskSensitivity"
       }
@@ -2726,6 +2788,52 @@
         "type": "string",
         "enum": [
           "decimal_rate"
+        ]
+      },
+      "ModelYears": {
+        "description": "Finite model duration in years, such as modified duration.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelYearsUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelYearsSquared": {
+        "description": "Finite model convexity in years squared.",
+        "type": "object",
+        "properties": {
+          "unit": {
+            "$ref": "#/$defs/ModelYearsSquaredUnit"
+          },
+          "value": {
+            "$ref": "#/$defs/FiniteF64"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "ModelYearsSquaredUnit": {
+        "type": "string",
+        "enum": [
+          "years_squared"
+        ]
+      },
+      "ModelYearsUnit": {
+        "type": "string",
+        "enum": [
+          "years"
         ]
       },
       "Money": {

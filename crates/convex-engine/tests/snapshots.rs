@@ -623,3 +623,81 @@ async fn selected_sources_exceeding_skew_policy_are_ineligible_even_with_fresh_c
         .require_execution_quality_at(snapshot.content().as_of)
         .is_err());
 }
+
+#[test]
+fn risk_measures_publish_the_router_quote_in_explicit_units() {
+    use convex_engine::pricing_router::{PricingInput, PricingRouter};
+    let snapshot = fixture::snapshot();
+    let mut spec = context(&snapshot).spec().clone();
+    spec.measures = RUNTIME_MEASURES
+        .iter()
+        .map(|m| MeasureId::new(*m).unwrap())
+        .collect();
+    let ctx = ValuationContext::new(spec).unwrap();
+    let result = calculate(&snapshot, &ctx);
+    let envelope = result.envelope();
+    assert_eq!(
+        envelope.status(),
+        ResultStatus::Complete,
+        "{:?}",
+        envelope.errors()
+    );
+    // The oracle is the router itself, on the inputs the valuator reads from the snapshot.
+    let content = snapshot.content();
+    let quote = PricingRouter { bump_bps: 10.0 }
+        .price_at(
+            &PricingInput {
+                bond: content.references[0].record.bond.clone().unwrap(),
+                settlement_date: ctx.spec().settlement_date.date(),
+                market_price_bid: None,
+                market_price_mid: Some(ExactDecimal::parse("99.25").unwrap().decimal()),
+                market_price_ask: None,
+                discount_curve: Some(
+                    convex_engine::BuiltCurve::from_snapshot(&content.curves[0]).unwrap(),
+                ),
+                benchmark_curve: None,
+                government_curve: None,
+                volatility: None,
+                bid_ask_config: content.configuration.bid_ask_spread.clone(),
+            },
+            fixture::time("2026-10-04T10:00:00Z")
+                .datetime()
+                .timestamp_millis(),
+        )
+        .unwrap();
+    let model = |value: Option<rust_decimal::Decimal>| {
+        ExactDecimal::new(value.unwrap()).to_model().unwrap()
+    };
+    let value = |measure: &str| {
+        envelope.results()[&MeasureId::new(measure).unwrap()]
+            .value
+            .clone()
+    };
+    assert_eq!(
+        value("modified_duration_mid"),
+        MeasureValue::ModelYears(ModelYears::new(model(quote.modified_duration)))
+    );
+    assert_eq!(
+        value("convexity_mid"),
+        MeasureValue::ModelYearsSquared(ModelYearsSquared::new(model(quote.convexity)))
+    );
+    assert_eq!(
+        value("dv01_mid"),
+        MeasureValue::ModelPrice(ModelPricePer100::new(model(quote.dv01)))
+    );
+    assert_eq!(
+        value("z_spread_mid"),
+        MeasureValue::ModelBps(ModelBasisPoints::new(model(quote.z_spread_mid)))
+    );
+    let wire = serde_json::to_value(envelope).unwrap();
+    for (measure, unit) in [
+        ("modified_duration_mid", "years"),
+        ("convexity_mid", "years_squared"),
+        ("dv01_mid", "price_per_100"),
+        ("z_spread_mid", "bp"),
+    ] {
+        assert_eq!(wire["results"][measure]["value"]["unit"], unit, "{wire}");
+    }
+    let back: ResultEnvelope = serde_json::from_value(wire).unwrap();
+    assert_eq!(&back, envelope);
+}

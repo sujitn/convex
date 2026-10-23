@@ -120,10 +120,15 @@ trade economics, unsupported scenario/model or missing field is substituted.
 | `dirty_price_mid` | Finite model price per 100 |
 | `accrued_interest` | Finite model price per 100 |
 | `ytm_mid` | Finite model decimal rate |
+| `modified_duration_mid` | Finite model years |
+| `convexity_mid` | Finite model years squared |
+| `dv01_mid` | Finite model price per 100: the loss for +1 bp of the bond's own quoted yield, not factor risk |
+| `z_spread_mid` | Finite model basis points over the configuration's discount curve |
 
 Calculated values remain model quantities. There is no hidden cash/ledger rounding
 to fit an exact decimal coefficient. Missing marks or unavailable numerical
-calculations produce explicit measure errors; unsupported measures produce
+calculations produce explicit measure errors; a measure the router could not
+produce keeps the router's own error code and reason. Unsupported measures produce
 `InvalidInput`. Existing native formulas, solver limits, tolerances, v1 economic
 units and shared JSON/FFI contracts are unchanged.
 
