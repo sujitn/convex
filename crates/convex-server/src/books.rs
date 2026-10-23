@@ -22,10 +22,13 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use convex_core::contracts::{
-    ExactDecimal, InstrumentId, RequestId, SourceId, UtcTimestamp, Version,
+    DataQuality, ExactDecimal, InstrumentId, RequestId, ResultStatus, SourceId, UtcTimestamp,
+    ValuationSubject, Version,
 };
+use convex_engine::ports::output::PortfolioAnalyticsOutput;
 use convex_engine::ports::reference_master::*;
 use convex_engine::ports::reference_repository::*;
+use convex_engine::ports::runtime::PublishedValuation;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -1455,37 +1458,114 @@ fn refused_reference(error: ReferenceError) -> BookRefusal {
     refusal(status, code, serde_json::Value::Null)
 }
 
-/// Refuse analytics by book. Pins the book (explicit version, else the current one, which
-/// is named in the refusal), then requires a valid runtime canonical result for every
-/// position. All-or-nothing: any gap refuses the whole request and names the instruments
-/// that lack a result.
+/// Analytics by book. Pins the book (explicit version, else the current one, which is
+/// named in a refusal), then requires a complete runtime result of an accepted quality for
+/// every position. All-or-nothing: any gap refuses the whole request and names the
+/// instruments that lack a result.
 ///
-/// The runtime universe is a frozen plan today, so on current deployments this normally
-/// refuses. When every position has a valid result there is still no defined adapter from
-/// canonical valuation results to the portfolio analyzer's inputs; that is refused
-/// explicitly (501) rather than approximated.
-pub(crate) async fn refuse_book_analytics(
+/// Results reach the analyzer through the engine's quote adapter, with the runtime plan's
+/// settlement date and each priced instrument version's currency. Positions must be face
+/// quantities and the book must name its reporting currency: neither is defaulted.
+pub(crate) async fn book_analytics(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
     book: &str,
     version: Option<u64>,
-) -> BookRefusal {
-    let record = match pinned_book(state, book, version).await {
-        Ok(record) => record,
-        Err(refused) => return refused,
-    };
-    match gate_runtime_results(state, ctx, &record) {
-        Ok(()) => refusal(
-            StatusCode::NOT_IMPLEMENTED,
-            "RUNTIME_RESULT_ADAPTER_UNAVAILABLE",
-            serde_json::json!({
-                "book_id":book,
-                "book_version":record.version,
-                "reason":"no defined adapter from canonical valuation results to portfolio analytics inputs",
-            }),
-        ),
-        Err(refused) => refused,
+) -> Result<PortfolioAnalyticsOutput, BookRefusal> {
+    let record = pinned_book(state, book, version).await?;
+    let published = gate_runtime_results(state, ctx, &record)?;
+    let definition = book_of(&record).map_err(refused_reference)?;
+    let detail = |reason: &str| serde_json::json!({"book_id":book, "book_version":record.version, "reason":reason});
+    let currency = definition
+        .currency
+        .as_deref()
+        .and_then(convex_core::Currency::from_code)
+        .ok_or_else(|| {
+            refusal(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "BOOK_CURRENCY_REQUIRED",
+                detail("analytics by book need the book's reporting currency"),
+            )
+        })?;
+    if definition
+        .positions
+        .iter()
+        .any(|p| p.unit != QuantityUnit::Face)
+    {
+        return Err(refusal(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "UNSUPPORTED_QUANTITY_UNIT",
+            detail("analytics by book take face quantities; no unit-to-face conversion is defined"),
+        ));
     }
+    let unavailable = || {
+        refusal(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "UNAVAILABLE",
+            serde_json::Value::Null,
+        )
+    };
+    let settlement = state
+        .engine
+        .runtime_settlement_date()
+        .ok_or_else(unavailable)?;
+    let repo = state.engine.reference_repository();
+    let mut quotes = Vec::with_capacity(published.len());
+    for valuation in &published {
+        let ValuationSubject::InstrumentVersion {
+            instrument_id,
+            version,
+        } = &valuation.result.provenance().subject
+        else {
+            return Err(unavailable());
+        };
+        let priced = repo
+            .get_version(
+                &convex_core::ids::InstrumentId::new(instrument_id.as_str()),
+                *version,
+            )
+            .await
+            .map_err(refused_reference)?;
+        let bond = priced
+            .as_ref()
+            .and_then(|r| r.bond.as_ref())
+            .ok_or_else(|| refused_reference(ReferenceError::NotFound))?;
+        let quote = convex_engine::runtime_bond_quote(valuation, settlement.date(), bond.currency)
+            .map_err(|error| {
+                refusal(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "BOOK_RESULTS_UNAVAILABLE",
+                    detail(&error.to_string()),
+                )
+            })?;
+        quotes.push(quote);
+    }
+    let portfolio = convex_engine::Portfolio {
+        portfolio_id: convex_core::ids::PortfolioId::new(book),
+        name: definition.name.clone().unwrap_or_else(|| book.to_owned()),
+        currency,
+        positions: definition
+            .positions
+            .iter()
+            .map(|p| convex_engine::Position {
+                instrument_id: convex_core::ids::InstrumentId::new(p.instrument_id.as_str()),
+                notional: p.quantity.decimal(),
+                sector: p.sector.clone(),
+                rating: p.rating.clone(),
+            })
+            .collect(),
+    };
+    state
+        .engine
+        .portfolio_analyzer()
+        .calculate(&portfolio, &quotes)
+        .map_err(|error| {
+            refusal(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "BOOK_ANALYTICS_REFUSED",
+                detail(&error.to_string()),
+            )
+        })
 }
 
 async fn pinned_book(
@@ -1510,11 +1590,12 @@ async fn pinned_book(
         .ok_or_else(|| refused_reference(ReferenceError::NotFound))
 }
 
+/// The accepted runtime result for each position, in book order.
 fn gate_runtime_results(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
     record: &MasterRecord,
-) -> Result<(), BookRefusal> {
+) -> Result<Vec<PublishedValuation>, BookRefusal> {
     let book = book_of(record).map_err(refused_reference)?;
     let resources: Vec<Resource> = book
         .positions
@@ -1530,22 +1611,23 @@ fn gate_runtime_results(
         .access
         .authorize(ctx, Action::BookRead, &[DataScope::Books], &resources)
         .map_err(|_| forbidden())?;
-    let valid = valid_runtime_instruments(state);
-    let missing: Vec<&str> = book
-        .positions
-        .iter()
-        .filter(|p| {
-            !valid
-                .get(p.instrument_id.as_str())
-                .is_some_and(|versions| match p.reference_version {
-                    Some(pin) => versions.contains(&pin.get()),
-                    None => !versions.is_empty(),
-                })
-        })
-        .map(|p| p.instrument_id.as_str())
-        .collect();
+    let mut accepted = accepted_runtime_results(state);
+    let mut found = Vec::with_capacity(book.positions.len());
+    let mut missing = Vec::new();
+    for p in &book.positions {
+        let result = accepted
+            .get_mut(p.instrument_id.as_str())
+            .and_then(|versions| match p.reference_version {
+                Some(pin) => versions.remove(&pin.get()),
+                None => versions.pop_last().map(|(_, result)| result),
+            });
+        match result {
+            Some(result) => found.push(result),
+            None => missing.push(p.instrument_id.as_str()),
+        }
+    }
     if missing.is_empty() {
-        return Ok(());
+        return Ok(found);
     }
     Err(refusal(
         StatusCode::UNPROCESSABLE_ENTITY,
@@ -1560,13 +1642,23 @@ fn gate_runtime_results(
     ))
 }
 
-/// Instruments with a complete, valid runtime result, mapped to the versions they priced.
-fn valid_runtime_instruments(state: &AppState) -> BTreeMap<String, BTreeSet<u64>> {
-    use convex_core::contracts::{DataQuality, ResultStatus, ValuationSubject};
-    let mut valid: BTreeMap<String, BTreeSet<u64>> = BTreeMap::new();
+/// Complete runtime results by instrument and priced version. `Valid` is always accepted;
+/// `Demo` only in an explicit demonstration composition, the switch that also lets the
+/// runtime value and serve Demo inputs.
+fn accepted_runtime_results(
+    state: &AppState,
+) -> BTreeMap<String, BTreeMap<u64, PublishedValuation>> {
+    let demo = state
+        .engine
+        .configuration_use_cases()
+        .is_some_and(|cases| cases.accepts(DataQuality::Demo));
+    let mut accepted: BTreeMap<String, BTreeMap<u64, PublishedValuation>> = BTreeMap::new();
     for published in state.engine.runtime_results() {
         let envelope = &published.result;
-        if envelope.status() != ResultStatus::Complete || envelope.quality() != DataQuality::Valid {
+        let quality = envelope.quality();
+        if envelope.status() != ResultStatus::Complete
+            || !(quality == DataQuality::Valid || (demo && quality == DataQuality::Demo))
+        {
             continue;
         }
         if let ValuationSubject::InstrumentVersion {
@@ -1574,11 +1666,9 @@ fn valid_runtime_instruments(state: &AppState) -> BTreeMap<String, BTreeSet<u64>
             version,
         } = &envelope.provenance().subject
         {
-            valid
-                .entry(instrument_id.as_str().to_owned())
-                .or_default()
-                .insert(version.get());
+            let (id, version) = (instrument_id.as_str().to_owned(), version.get());
+            accepted.entry(id).or_default().insert(version, published);
         }
     }
-    valid
+    accepted
 }

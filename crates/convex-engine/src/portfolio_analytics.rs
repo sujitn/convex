@@ -70,6 +70,105 @@ fn arithmetic(error: convex_math::MathError) -> EngineError {
 fn required(value: Option<Decimal>, id: &str, field: &str) -> Result<Decimal, EngineError> {
     value.ok_or_else(|| failure(id, field))
 }
+/// Read one complete runtime valuation as an analyzer quote. The envelope carries neither
+/// settlement nor currency: the caller supplies the runtime plan's settlement date and the
+/// priced instrument version's currency. A measure the result lacks stays absent, so the
+/// analyzer refuses instead of defaulting; a measure in an unexpected unit is refused here.
+pub fn runtime_bond_quote(
+    published: &crate::ports::runtime::PublishedValuation,
+    settlement_date: Date,
+    currency: Currency,
+) -> Result<BondQuoteOutput, EngineError> {
+    use convex_core::contracts::{DataQuality, MeasureValue, ResultStatus, ValuationSubject};
+    let envelope = &published.result;
+    let provenance = envelope.provenance();
+    let ValuationSubject::InstrumentVersion { instrument_id, .. } = &provenance.subject else {
+        return Err(failure("runtime", "instrument valuation required"));
+    };
+    let id = instrument_id.as_str();
+    if envelope.status() != ResultStatus::Complete {
+        return Err(failure(id, "complete runtime result required"));
+    }
+    let model = |value: f64| {
+        Decimal::from_f64_retain(value)
+            .map(Some)
+            .ok_or_else(|| failure(id, "unrepresentable runtime measure"))
+    };
+    let read = |name: &str| -> Result<Option<Decimal>, EngineError> {
+        let Some((_, result)) = envelope.results().iter().find(|(m, _)| m.as_str() == name) else {
+            return Ok(None);
+        };
+        match (name, &result.value) {
+            ("clean_price_mid", MeasureValue::Price(p)) => Ok(Some(p.value().decimal())),
+            ("accrued_interest" | "dv01_mid", MeasureValue::ModelPrice(p)) => {
+                model(p.value().get())
+            }
+            ("ytm_mid", MeasureValue::ModelRate(p)) => model(p.value().get()),
+            ("modified_duration_mid", MeasureValue::ModelYears(p)) => model(p.value().get()),
+            ("convexity_mid", MeasureValue::ModelYearsSquared(p)) => model(p.value().get()),
+            ("z_spread_mid", MeasureValue::ModelBps(p)) => model(p.value().get()),
+            _ => Err(failure(id, "runtime measure has an unexpected unit")),
+        }
+    };
+    let clean = read("clean_price_mid")?;
+    let ytm = read("ytm_mid")?;
+    let z_spread = read("z_spread_mid")?;
+    Ok(BondQuoteOutput {
+        instrument_id: InstrumentId::new(id),
+        isin: None,
+        currency,
+        settlement_date,
+        clean_price_bid: None,
+        clean_price_mid: clean,
+        clean_price_ask: None,
+        accrued_interest: read("accrued_interest")?,
+        ytm_bid: None,
+        ytm_mid: ytm,
+        ytm_ask: None,
+        ytw: None,
+        ytc: None,
+        z_spread_bid: None,
+        z_spread_mid: z_spread,
+        z_spread_ask: None,
+        i_spread_bid: None,
+        i_spread_mid: None,
+        i_spread_ask: None,
+        g_spread_bid: None,
+        g_spread_mid: None,
+        g_spread_ask: None,
+        asw_bid: None,
+        asw_mid: None,
+        asw_ask: None,
+        oas_bid: None,
+        oas_mid: None,
+        oas_ask: None,
+        discount_margin_bid: None,
+        discount_margin_mid: None,
+        discount_margin_ask: None,
+        simple_margin_bid: None,
+        simple_margin_mid: None,
+        simple_margin_ask: None,
+        modified_duration: read("modified_duration_mid")?,
+        macaulay_duration: None,
+        effective_duration: None,
+        spread_duration: None,
+        convexity: read("convexity_mid")?,
+        effective_convexity: None,
+        dv01: read("dv01_mid")?,
+        pv01: None,
+        key_rate_durations: None,
+        cs01: None,
+        zero_pv01_signed: None,
+        z_pv01_signed: None,
+        measure_errors: Vec::new(),
+        timestamp: provenance.calculated_at.datetime().timestamp_millis(),
+        pricing_spec: provenance.model_version.as_str().into(),
+        source: published.runtime_id.as_str().into(),
+        is_stale: envelope.quality() == DataQuality::Stale,
+        // The router's convention: 100 when the mid quote has no measure errors.
+        quality: 100,
+    })
+}
 fn ratio(value: &BoundedDecimal, total: &BoundedDecimal) -> Result<Decimal, EngineError> {
     if total.is_zero() {
         return Err(failure(

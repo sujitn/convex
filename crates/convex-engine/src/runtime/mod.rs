@@ -303,11 +303,13 @@ pub(crate) struct RuntimeController {
     demo: bool,
     stopped: watch::Sender<bool>,
     build_id: Option<ModelId>,
+    settlement_date: Option<BusinessDate>,
     interactive_slots: Arc<tokio::sync::Semaphore>,
 }
 impl RuntimeController {
     pub(crate) fn new(services: Option<RuntimeServices>, demo: bool, concurrency: usize) -> Self {
         let build_id = services.as_ref().map(|s| s.plan.build_id.clone());
+        let settlement_date = services.as_ref().map(|s| s.plan.settlement_date);
         let (updates, _) = broadcast::channel(256);
         let (stopped, _) = watch::channel(false);
         Self {
@@ -324,6 +326,7 @@ impl RuntimeController {
             demo,
             stopped,
             build_id,
+            settlement_date,
             interactive_slots: Arc::new(tokio::sync::Semaphore::new(
                 if (1..=64).contains(&concurrency) {
                     concurrency
@@ -393,6 +396,9 @@ impl RuntimeController {
     }
     pub(crate) fn results(&self) -> Vec<PublishedValuation> {
         self.results.read().clone()
+    }
+    pub(crate) fn settlement_date(&self) -> Option<BusinessDate> {
+        self.settlement_date
     }
     pub(crate) fn subscribe(&self) -> broadcast::Receiver<PublishedValuation> {
         self.updates.subscribe()

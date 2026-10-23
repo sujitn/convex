@@ -517,6 +517,10 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0]["runtime_id"], "SHOWCASE-USD-v1");
     assert!(results[0]["live_valid_until"].is_string(), "{}", results[0]);
+    // Valid results pass the gate; the book names no currency, which is not defaulted.
+    let (status, body) = book_analytics(&server, "SHOWCASE-BOOK").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(body["code"], "BOOK_CURRENCY_REQUIRED", "{body}");
     server.stop().await;
 
     // The same activation plans the same digest: the checkpoint restores, and the
@@ -614,7 +618,95 @@ async fn demo_profile_runs_the_showcase_configuration_live_on_labelled_demo_data
         );
         assert!(measures[measure]["value"]["value"].is_f64(), "{result}");
     }
+
+    // Analytics by book over the Demo results. One position of 1,000,000 face: each
+    // weighted measure is the bond's own, and market value is dirty price times face.
+    let response = server
+        .client
+        .post(server.url("/api/v1/portfolio/analytics"))
+        .json(&json!({"book_id": "SHOWCASE-BOOK"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["x-convex-data-quality"], "demo");
+    let analytics: Value = response.json().await.unwrap();
+    let measure = |name: &str| number(&measures[name]["value"]["value"]);
+    let close = |name: &str, actual: f64, expected: f64| {
+        assert!(
+            (actual - expected).abs() <= expected.abs() * 1e-9,
+            "{name}: {actual} vs {expected}: {analytics}"
+        );
+    };
+    assert_eq!(analytics["num_positions"], 1, "{analytics}");
+    let dirty = measure("clean_price_mid") + measure("accrued_interest");
+    close(
+        "market_value",
+        number(&analytics["market_value"]),
+        dirty * 10_000.0,
+    );
+    close(
+        "duration",
+        number(&analytics["duration"]),
+        measure("modified_duration_mid"),
+    );
+    close(
+        "convexity",
+        number(&analytics["convexity"]),
+        measure("convexity_mid"),
+    );
+    close(
+        "yield",
+        number(&analytics["yield_value"]),
+        measure("ytm_mid"),
+    );
+    close(
+        "spread",
+        number(&analytics["spread"]),
+        measure("z_spread_mid"),
+    );
+    close(
+        "dv01",
+        number(&analytics["dv01"]),
+        measure("dv01_mid") * 10_000.0,
+    );
+
+    // A position held in units has no defined conversion to face.
+    let units = server
+        .client
+        .put(server.url("/api/v1/books/UNITS-BOOK"))
+        .header("idempotency-key", "units-book")
+        .json(&json!({"currency": "USD", "positions": [
+            {"instrument_id": instrument, "quantity": "10", "unit": "units"}
+        ]}))
+        .send()
+        .await
+        .unwrap();
+    assert!(units.status().is_success(), "{}", units.status());
+    let (status, body) = book_analytics(&server, "UNITS-BOOK").await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(body["code"], "UNSUPPORTED_QUANTITY_UNIT", "{body}");
     server.stop().await;
+}
+
+/// A JSON number, or a decimal string.
+#[cfg(target_os = "linux")]
+fn number(value: &Value) -> f64 {
+    value
+        .as_f64()
+        .or_else(|| value.as_str().and_then(|s| s.parse().ok()))
+        .unwrap_or_else(|| panic!("not a number: {value}"))
+}
+
+async fn book_analytics(server: &Running, book: &str) -> (StatusCode, Value) {
+    let response = server
+        .client
+        .post(server.url("/api/v1/portfolio/analytics"))
+        .json(&json!({ "book_id": book }))
+        .send()
+        .await
+        .unwrap();
+    (response.status(), response.json().await.unwrap())
 }
 
 /// Latest instant this process has stamped or seen the server stamp.
