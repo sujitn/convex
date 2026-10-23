@@ -34,13 +34,8 @@ pub use snapshot_repository::*;
 use std::path::Path;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use convex_ports::error::TraitError;
 use convex_ports::market_data::MarketDataProvider;
-use convex_ports::output::{
-    AlertPublisher, AnalyticsPublisher, BondQuoteOutput, CurveOutput, CurvePublisher, EtfPublisher,
-    EtfQuoteOutput, OutputPublisher, PortfolioAnalyticsOutput, PricingAlert, QuotePublisher,
-};
 use convex_ports::reference_data::ReferenceDataProvider;
 
 /// Create a file-based market data provider.
@@ -67,78 +62,5 @@ pub fn create_empty_reference_data() -> ReferenceDataProvider {
         issuers: Arc::new(EmptyIssuerReferenceSource),
         ratings: Arc::new(EmptyRatingSource),
         etf_holdings: Arc::new(EmptyEtfHoldingsSource),
-    }
-}
-
-/// Create an empty output publisher (for testing/development).
-pub fn create_empty_output() -> OutputPublisher {
-    OutputPublisher {
-        quotes: Arc::new(EmptyQuotePublisher),
-        curves: Arc::new(EmptyCurvePublisher),
-        etfs: Arc::new(EmptyEtfPublisher),
-        analytics: Arc::new(EmptyAnalyticsPublisher),
-        alerts: Arc::new(EmptyAlertPublisher),
-    }
-}
-
-// =============================================================================
-// EMPTY OUTPUT PUBLISHERS
-// =============================================================================
-
-/// Empty quote publisher for testing.
-pub struct EmptyQuotePublisher;
-
-#[async_trait]
-impl QuotePublisher for EmptyQuotePublisher {
-    async fn publish(&self, _quote: &BondQuoteOutput) -> Result<(), TraitError> {
-        Ok(())
-    }
-
-    async fn publish_batch(&self, _quotes: &[BondQuoteOutput]) -> Result<(), TraitError> {
-        Ok(())
-    }
-}
-
-/// Empty curve publisher for testing.
-pub struct EmptyCurvePublisher;
-
-#[async_trait]
-impl CurvePublisher for EmptyCurvePublisher {
-    async fn publish(&self, _curve: &CurveOutput) -> Result<(), TraitError> {
-        Ok(())
-    }
-}
-
-/// Empty ETF publisher for testing.
-pub struct EmptyEtfPublisher;
-
-#[async_trait]
-impl EtfPublisher for EmptyEtfPublisher {
-    async fn publish(&self, _quote: &EtfQuoteOutput) -> Result<(), TraitError> {
-        Ok(())
-    }
-
-    async fn publish_batch(&self, _quotes: &[EtfQuoteOutput]) -> Result<(), TraitError> {
-        Ok(())
-    }
-}
-
-/// Empty analytics publisher for testing.
-pub struct EmptyAnalyticsPublisher;
-
-#[async_trait]
-impl AnalyticsPublisher for EmptyAnalyticsPublisher {
-    async fn publish(&self, _analytics: &PortfolioAnalyticsOutput) -> Result<(), TraitError> {
-        Ok(())
-    }
-}
-
-/// Empty alert publisher for testing.
-pub struct EmptyAlertPublisher;
-
-#[async_trait]
-impl AlertPublisher for EmptyAlertPublisher {
-    async fn publish(&self, _alert: &PricingAlert) -> Result<(), TraitError> {
-        Ok(())
     }
 }

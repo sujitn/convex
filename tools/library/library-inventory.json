@@ -3180,8 +3180,6 @@
     "crates/convex-core/src/contracts/numeric_decimal.rs",
     "crates/convex-ffi/src/ingress.rs",
     "demo/frontend/src/hooks/index.ts",
-    "demo/frontend/src/hooks/useBondQuoteStream.ts",
-    "demo/frontend/src/hooks/useEtfStream.ts",
     "demo/frontend/src/hooks/useWebSocket.ts",
     "crates/convex-core/tests/numeric_decimal.rs",
     "crates/convex-core/tests/fixtures/numeric-decimal.json",

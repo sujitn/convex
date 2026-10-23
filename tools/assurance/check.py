@@ -1064,8 +1064,6 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-ffi/src/schemas.rs')
     paths.add('crates/convex-portfolio/src/lib.rs')
     paths.add('demo/frontend/src/hooks/index.ts')
-    paths.add('demo/frontend/src/hooks/useBondQuoteStream.ts')
-    paths.add('demo/frontend/src/hooks/useEtfStream.ts')
     paths.add('demo/frontend/src/hooks/useWebSocket.ts')
     paths.add('crates/convex-analytics/src/risk/hedging/ctd.rs')
     paths.add('crates/convex-analytics/src/risk/hedging/types.rs')

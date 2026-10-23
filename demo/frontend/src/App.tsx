@@ -21,10 +21,9 @@ import BondPricingDemo from './components/BondPricingDemo';
 import PortfolioDemo from './components/PortfolioDemo';
 import ETFAnalyticsDemo from './components/ETFAnalyticsDemo';
 import StreamingDemo from './components/StreamingDemo';
-import ETFStreamingDemo from './components/ETFStreamingDemo';
 import CurveBootstrapDemo from './components/CurveBootstrapDemo';
 
-type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | 'streaming' | 'etf-streaming' | 'bootstrap' | null;
+type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | 'streaming' | 'bootstrap' | null;
 
 function App() {
   const [activeDemo, setActiveDemo] = useState<DemoSection>(null);
@@ -152,18 +151,6 @@ function App() {
                 <span>Streaming</span>
               </button>
               <button
-                onClick={() => setActiveDemo(activeDemo === 'etf-streaming' ? null : 'etf-streaming')}
-                className={cn(
-                  "btn flex items-center space-x-2",
-                  activeDemo === 'etf-streaming'
-                    ? "bg-white text-primary-900"
-                    : "bg-primary-700 text-white hover:bg-primary-600"
-                )}
-              >
-                <Zap className="w-4 h-4" />
-                <span>Live ETF</span>
-              </button>
-              <button
                 onClick={() => setActiveDemo(activeDemo === 'bootstrap' ? null : 'bootstrap')}
                 className={cn(
                   "btn flex items-center space-x-2",
@@ -191,7 +178,6 @@ function App() {
                 {activeDemo === 'portfolio' && 'Portfolio Analytics'}
                 {activeDemo === 'etf' && 'ETF Analytics'}
                 {activeDemo === 'streaming' && 'Real-Time Streaming'}
-                {activeDemo === 'etf-streaming' && 'Live ETF Analytics'}
                 {activeDemo === 'bootstrap' && 'Curve Bootstrapping'}
               </h2>
               <button
@@ -202,13 +188,11 @@ function App() {
               </button>
             </div>
 
-            {/* Streaming demos and bootstrap work without API since they use demo providers / frontend-only code */}
+            {/* These panels report their own server state; the rest need a reachable API */}
             {activeDemo === 'portfolio' ? (
               <PortfolioDemo />
             ) : activeDemo === 'streaming' ? (
               <StreamingDemo />
-            ) : activeDemo === 'etf-streaming' ? (
-              <ETFStreamingDemo />
             ) : activeDemo === 'bootstrap' ? (
               <CurveBootstrapDemo />
             ) : !isApiConnected ? (
@@ -272,7 +256,7 @@ function App() {
             <FeatureCard
               icon={<Zap className="w-6 h-6" />}
               title="Real-Time Streaming"
-              description="WebSocket quote delivery, batch pricing and ETF iNAV integration. Performance depends on the workload and deployment."
+              description="Live runtime valuations streamed over the WebSocket, with batch pricing and ETF iNAV over REST. Performance depends on the workload and deployment."
             />
           </div>
         </div>

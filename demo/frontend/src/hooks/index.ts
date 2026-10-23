@@ -6,18 +6,11 @@
 export {
   useWebSocket,
   type WebSocketMessage,
-  type BondQuoteMessage,
-  type EtfQuoteMessage,
-  type PortfolioAnalyticsMessage,
+  type ValuationMessage,
   type ConnectionState,
 } from './useWebSocket';
 
 export {
-  useBondQuoteStream,
-  type StreamedQuote,
-} from './useBondQuoteStream';
-
-export {
-  useEtfStream,
-  type StreamedEtfQuote,
-} from './useEtfStream';
+  useValuationStream,
+  type StreamedValuation,
+} from './useValuationStream';

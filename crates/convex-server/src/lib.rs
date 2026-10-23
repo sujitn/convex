@@ -5,7 +5,7 @@
 //! ## Features
 //!
 //! - REST API for bond quotes, analytics, and curves
-//! - WebSocket streaming for real-time updates
+//! - WebSocket streaming of runtime valuations
 //! - Health and metrics endpoints
 //! - Configuration via TOML file
 //!

@@ -114,12 +114,10 @@ Node staleness policy and earliest consumed input deadline are both enforced;
 cache reads do not extend deadlines.
 
 The [pricing runtime](RUNTIME.md) owns canonical result publication and durable
-revisions. Graph notifications use `publish_node_update` synchronously; timer/input
-notifications contain no completion. The existing WebSocket `node_recalculated`
-envelope retains its fields and optional `completion` metadata. A failed curve
-never emits a successful `curve_updated` notice. Canonical valuation streaming is
-explicitly subscribed, reports lag and supports current-state resynchronization;
-durable managed catch-up and v2 API adoption remain later work.
+revisions, and its results channel is the only WebSocket source. Graph completions
+are not streamed. Canonical valuation streaming is explicitly subscribed, reports
+lag and supports current-state resynchronization; durable managed catch-up and v2
+API adoption remain later work.
 
 ## Immutable snapshot use
 

@@ -1,41 +1,15 @@
 // =============================================================================
 // Streaming Demo Panel
-// Real-time bond quote streaming with simulation controls
+// Live runtime valuations streamed over the WebSocket
 // =============================================================================
 
-import { useState, useEffect } from 'react';
+import { Wifi, WifiOff, Activity, AlertTriangle, Radio } from 'lucide-react';
+import type { MeasureResult, ResultEnvelope } from '../lib/api';
 import {
-  Play,
-  Pause,
-  RefreshCw,
-  Wifi,
-  WifiOff,
-  Activity,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  Zap,
-  ArrowDown,
-  ArrowUp,
-  Gauge,
-  Radio,
-  Server,
-  ArrowRight,
-  Database,
-  LineChart,
-} from 'lucide-react';
-import {
-  startQuoteSimulation,
-  stopQuoteSimulation,
-  getQuoteProviderStatus,
-  getQuoteProviderQuotes,
-  triggerQuoteTick,
-  applyStressScenario,
-  refreshQuoteProviderCurves,
-  type QuoteState,
-  type QuoteProviderStatus,
-} from '../lib/api';
-import { useBondQuoteStream } from '../hooks/useBondQuoteStream';
+  useValuationStream,
+  measureNumber,
+  type StreamedValuation,
+} from '../hooks/useValuationStream';
 
 // Sparkline component for price history
 function Sparkline({ data, color = '#10b981', height = 24 }: { data: number[]; color?: string; height?: number }) {
@@ -67,299 +41,138 @@ function Sparkline({ data, color = '#10b981', height = 24 }: { data: number[]; c
   );
 }
 
-// Quote row with change indicators
-function QuoteRow({
-  quote,
-  priceHistory,
-}: {
-  quote: QuoteState;
-  priceHistory: number[];
-}) {
-  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
-  const [prevMid, setPrevMid] = useState(quote.mid);
+// The runtime measures, in display order
+const MEASURES: Array<{ id: string; label: string }> = [
+  { id: 'clean_price_mid', label: 'Clean' },
+  { id: 'dirty_price_mid', label: 'Dirty' },
+  { id: 'accrued_interest', label: 'Accrued' },
+  { id: 'ytm_mid', label: 'YTM' },
+  { id: 'modified_duration_mid', label: 'Mod Dur' },
+  { id: 'convexity_mid', label: 'Convexity' },
+  { id: 'dv01_mid', label: 'DV01' },
+  { id: 'z_spread_mid', label: 'Z-Spread' },
+];
 
-  useEffect(() => {
-    if (quote.mid !== prevMid) {
-      setFlash(quote.mid > prevMid ? 'up' : 'down');
-      setPrevMid(quote.mid);
-      const timer = setTimeout(() => setFlash(null), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [quote.mid, prevMid]);
+// Format a measure by the unit it carries; an unknown unit shows the raw value.
+function formatMeasure(measure: MeasureResult | undefined): string {
+  if (!measure) return '-';
+  const value = measureNumber(measure.value);
+  if (value === undefined) return String(measure.value.value);
+  switch (measure.value.unit) {
+    case 'price_per_100':
+      return value.toFixed(4);
+    case 'decimal_rate':
+      return `${(value * 100).toFixed(3)}%`;
+    case 'bp':
+      return `${value.toFixed(1)} bp`;
+    case 'years':
+      return value.toFixed(3);
+    case 'years_squared':
+      return value.toFixed(2);
+    default:
+      return `${value} ${measure.value.unit}`;
+  }
+}
 
-  const bidAskSpread = quote.ask - quote.bid;
-  const flashClass = flash === 'up' ? 'bg-green-100' : flash === 'down' ? 'bg-red-100' : '';
+function statusClass(status: ResultEnvelope['status']): string {
+  if (status === 'Complete') return 'bg-green-100 text-green-700';
+  if (status === 'Partial') return 'bg-amber-100 text-amber-700';
+  return 'bg-red-100 text-red-700';
+}
+
+function ValuationRow({ item }: { item: StreamedValuation }) {
+  const { valuation } = item;
+  // After a failed refresh the runtime keeps the last valid result, for display only.
+  const showLastGood = valuation.result.status === 'Failed' && valuation.last_good !== null;
+  const shown = showLastGood && valuation.last_good ? valuation.last_good : valuation.result;
+  const history = item.priceHistory;
 
   return (
-    <tr className={`border-b border-gray-100 transition-colors ${flashClass}`}>
-      <td className="px-4 py-2 font-mono text-sm font-medium">{quote.instrument_id}</td>
-      <td className="px-4 py-2 text-right font-mono text-sm">{quote.bid.toFixed(3)}</td>
-      <td className="px-4 py-2 text-right font-mono text-sm font-medium">
-        {quote.mid.toFixed(3)}
-        {flash === 'up' && <ArrowUp className="inline ml-1 h-3 w-3 text-green-600" />}
-        {flash === 'down' && <ArrowDown className="inline ml-1 h-3 w-3 text-red-600" />}
-      </td>
-      <td className="px-4 py-2 text-right font-mono text-sm">{quote.ask.toFixed(3)}</td>
-      <td className="px-4 py-2 text-right font-mono text-sm text-gray-600">{bidAskSpread.toFixed(3)}</td>
-      <td className="px-4 py-2 text-right font-mono text-sm">{(quote.yield * 100).toFixed(2)}%</td>
-      <td className="px-4 py-2">
-        <Sparkline
-          data={priceHistory}
-          color={priceHistory.length > 1 && priceHistory[priceHistory.length - 1] >= priceHistory[0] ? '#10b981' : '#ef4444'}
-        />
-      </td>
-    </tr>
+    <>
+      <tr className="border-b border-gray-100">
+        <td className="px-3 py-2 font-mono text-sm font-medium whitespace-nowrap">{item.instrumentId}</td>
+        <td className="px-3 py-2 text-sm whitespace-nowrap">
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClass(valuation.result.status)}`}>
+            {valuation.result.status}
+          </span>
+          <span className="ml-1 text-xs text-gray-500">{valuation.result.quality}</span>
+        </td>
+        {MEASURES.map((m) => (
+          <td
+            key={m.id}
+            className={`px-3 py-2 text-right font-mono text-sm whitespace-nowrap ${showLastGood ? 'text-gray-400' : ''}`}
+          >
+            {formatMeasure(shown.results[m.id])}
+          </td>
+        ))}
+        <td className="px-3 py-2 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+          {valuation.revision}
+        </td>
+        <td className="px-3 py-2 text-right font-mono text-xs text-gray-500 whitespace-nowrap">
+          {new Date(valuation.result.provenance.calculated_at).toLocaleTimeString()}
+        </td>
+        <td className="px-3 py-2">
+          <Sparkline
+            data={history}
+            color={history.length > 1 && history[history.length - 1] >= history[0] ? '#10b981' : '#ef4444'}
+          />
+        </td>
+      </tr>
+      {(valuation.result.errors.length > 0 || showLastGood) && (
+        <tr className="border-b border-gray-100 bg-red-50">
+          <td colSpan={MEASURES.length + 5} className="px-3 py-2 text-xs text-red-700">
+            {showLastGood && (
+              <span className="mr-3">
+                Showing the last good result ({valuation.retained_quality ?? 'retained'}).
+              </span>
+            )}
+            {valuation.result.errors.map((e, i) => (
+              <span key={i} className="mr-3">
+                <code>{e.code}</code>
+                {e.field ? ` ${e.field}` : ''}: {e.message}
+              </span>
+            ))}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
-// Calculation cascade step
-interface CascadeStep {
-  name: string;
-  icon: React.ReactNode;
-  status: 'idle' | 'active' | 'completed';
-  count?: number;
-  latencyMs?: number;
-  lastUpdate?: string;
-}
-
 export function StreamingDemo() {
-  // Provider state
-  const [status, setStatus] = useState<QuoteProviderStatus | null>(null);
-  const [quotes, setQuotes] = useState<QuoteState[]>([]);
-  const [priceHistories, setPriceHistories] = useState<Map<string, number[]>>(new Map());
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Simulation settings
-  const [intervalMs, setIntervalMs] = useState(1000);
-  const [volatility, setVolatility] = useState<'low' | 'medium' | 'high'>('medium');
-  const [mode, setMode] = useState<'static' | 'random_walk' | 'mean_revert' | 'stress'>('random_walk');
-
-  // Polling for quotes
-  const [polling, setPolling] = useState(false);
-  const [tickCount, setTickCount] = useState(0);
-
-  // WebSocket viewer (shows server responses alongside simulation)
   const {
-    isStreaming: wsIsStreaming,
+    valuations,
+    health,
+    loadError,
+    demoLabelled,
     connectionState,
     sessionId,
-    latency: wsLatency,
-    tickCount: wsTickCount,
-    start: startWsStream,
-    stop: stopWsStream,
-    getAllQuotes,
-  } = useBondQuoteStream({ autoConnect: false, subscribeAll: true });
-
-  // Cascade visualization state
-  const [cascadeSteps, setCascadeSteps] = useState<CascadeStep[]>([
-    { name: 'Market Data', icon: <Database className="h-4 w-4" />, status: 'idle' },
-    { name: 'Quote Provider', icon: <Radio className="h-4 w-4" />, status: 'idle' },
-    { name: 'Pricing Engine', icon: <Server className="h-4 w-4" />, status: 'idle' },
-    { name: 'Analytics', icon: <LineChart className="h-4 w-4" />, status: 'idle' },
-  ]);
-
-  // Fetch initial status
-  useEffect(() => {
-    fetchStatus();
-  }, []);
-
-  // Update cascade visualization
-  const updateCascade = (step: number, status: 'idle' | 'active' | 'completed', count?: number, latencyMs?: number) => {
-    setCascadeSteps((prev) => {
-      const newSteps = [...prev];
-      newSteps[step] = {
-        ...newSteps[step],
-        status,
-        count,
-        latencyMs,
-        lastUpdate: new Date().toISOString(),
-      };
-      return newSteps;
-    });
-  };
-
-  // Polling loop for simulation
-  useEffect(() => {
-    if (!polling) return;
-
-    const interval = setInterval(async () => {
-      const tickStart = Date.now();
-      try {
-        // Step 1: Market Data active
-        updateCascade(0, 'active');
-
-        // Step 2: Quote Provider active
-        updateCascade(1, 'active');
-
-        // Trigger a tick
-        const tickResult = await triggerQuoteTick();
-        setTickCount(tickResult.tick);
-
-        // Step 2: Quote Provider completed
-        updateCascade(1, 'completed', tickResult.results.length);
-
-        // Step 3: Pricing Engine active
-        updateCascade(2, 'active');
-
-        // Update quotes and histories
-        const newQuotes = tickResult.results.map((r) => r.quote);
-        setQuotes(newQuotes);
-
-        // Step 3: Pricing Engine completed
-        const pricingLatency = Date.now() - tickStart;
-        updateCascade(2, 'completed', newQuotes.length, pricingLatency);
-
-        // Step 4: Analytics completed
-        updateCascade(3, 'completed', newQuotes.length, pricingLatency);
-
-        setPriceHistories((prev) => {
-          const newHistories = new Map(prev);
-          for (const q of newQuotes) {
-            const history = newHistories.get(q.instrument_id) || [];
-            history.push(q.mid);
-            if (history.length > 50) history.shift();
-            newHistories.set(q.instrument_id, history);
-          }
-          return newHistories;
-        });
-
-        // Reset cascade for next tick
-        setTimeout(() => {
-          setCascadeSteps((prev) => prev.map((s) => ({ ...s, status: 'idle' as const })));
-        }, 500);
-      } catch (e) {
-        console.error('Tick failed:', e);
-        setCascadeSteps((prev) => prev.map((s) => ({ ...s, status: 'idle' as const })));
-      }
-    }, intervalMs);
-
-    return () => clearInterval(interval);
-  }, [polling, intervalMs]);
-
-  const fetchStatus = async () => {
-    try {
-      const s = await getQuoteProviderStatus();
-      setStatus(s);
-    } catch (e) {
-      console.error('Failed to fetch status:', e);
-    }
-  };
-
-  const handleStart = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await startQuoteSimulation({
-        interval_ms: intervalMs,
-        volatility,
-        mode,
-        force: true, // Always force restart if already running
-      });
-      setQuotes(result.initial_quotes);
-
-      // Initialize price histories
-      const histories = new Map<string, number[]>();
-      for (const q of result.initial_quotes) {
-        histories.set(q.instrument_id, [q.mid]);
-      }
-      setPriceHistories(histories);
-
-      setPolling(true);
-      setTickCount(0);
-      await fetchStatus();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to start');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleStop = async () => {
-    setIsLoading(true);
-    setPolling(false);
-    try {
-      await stopQuoteSimulation();
-      await fetchStatus();
-    } catch (e) {
-      console.error('Failed to stop:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRefreshCurves = async () => {
-    setIsLoading(true);
-    try {
-      await refreshQuoteProviderCurves();
-      // Re-fetch quotes after curve refresh
-      const quotesResult = await getQuoteProviderQuotes();
-      setQuotes(quotesResult.quotes);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to refresh curves');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleStress = async (scenario: 'rates_up_100bp' | 'rates_down_100bp' | 'spreads_wide_50bp' | 'spreads_tight_50bp' | 'flight_to_quality' | 'risk_on') => {
-    setIsLoading(true);
-    try {
-      const result = await applyStressScenario(scenario);
-      setQuotes(result.new_quotes);
-
-      // Update histories with new prices
-      setPriceHistories((prev) => {
-        const newHistories = new Map(prev);
-        for (const q of result.new_quotes) {
-          const history = newHistories.get(q.instrument_id) || [];
-          history.push(q.mid);
-          if (history.length > 50) history.shift();
-          newHistories.set(q.instrument_id, history);
-        }
-        return newHistories;
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to apply stress');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // WebSocket quotes for side-by-side comparison
-  const wsQuotesList = getAllQuotes().map(q => ({
-    instrument_id: q.instrumentId,
-    bid: q.mid ? q.mid - 0.05 : 0,
-    mid: q.mid || 0,
-    ask: q.mid ? q.mid + 0.05 : 0,
-    yield: q.ytm || 0,
-    last_update: q.timestamp,
-  }));
+    latency,
+    updateCount,
+    lastUpdate,
+    start,
+    stop,
+  } = useValuationStream();
+  const connected = connectionState === 'connected';
+  const demo = demoLabelled || valuations.some((v) => v.valuation.result.quality === 'Demo');
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Streaming Demo</h2>
-          <p className="text-gray-600">Real-time bond quote streaming with full server round-trip</p>
+          <h2 className="text-2xl font-bold text-gray-900">Live Valuations</h2>
+          <p className="text-gray-600">
+            Results published by the pricing runtime, streamed over the WebSocket
+          </p>
         </div>
         <div className="flex items-center gap-4">
-          {/* Simulation Status */}
-          {status?.running || polling ? (
-            <span className="flex items-center gap-1 text-green-600">
-              <Radio className="h-4 w-4" />
-              Simulation Running
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-gray-400">
-              <Radio className="h-4 w-4" />
-              Simulation Stopped
+          {demo && (
+            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+              Demo data
             </span>
           )}
-
-          {/* WebSocket Status */}
-          {wsIsStreaming ? (
+          {connected ? (
             <span className="flex items-center gap-1 text-blue-600">
               <Wifi className="h-4 w-4" />
               WebSocket: {connectionState}
@@ -367,338 +180,75 @@ export function StreamingDemo() {
           ) : (
             <span className="flex items-center gap-1 text-gray-400">
               <WifiOff className="h-4 w-4" />
-              WebSocket: Off
+              WebSocket: {connectionState}
             </span>
+          )}
+          {connectionState === 'disconnected' ? (
+            <button
+              onClick={start}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              <Wifi className="h-4 w-4" />
+              Connect
+            </button>
+          ) : (
+            <button
+              onClick={stop}
+              className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              <WifiOff className="h-4 w-4" />
+              Disconnect
+            </button>
           )}
         </div>
       </div>
 
-      {error && (
+      {loadError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
           <AlertTriangle className="h-5 w-5" />
-          {error}
-        </div>
-      )}
-
-      {/* Control Panel - Simulation */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Gauge className="h-5 w-5" />
-            Simulation Controls
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            {/* Interval */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tick Interval</label>
-              <select
-                value={intervalMs}
-                onChange={(e) => setIntervalMs(Number(e.target.value))}
-                className="w-full border rounded-lg px-3 py-2"
-                disabled={polling}
-              >
-                <option value={500}>500ms (Fast)</option>
-                <option value={1000}>1s (Normal)</option>
-                <option value={2000}>2s (Slow)</option>
-                <option value={5000}>5s (Very Slow)</option>
-              </select>
-            </div>
-
-            {/* Volatility */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Volatility</label>
-              <select
-                value={volatility}
-                onChange={(e) => setVolatility(e.target.value as 'low' | 'medium' | 'high')}
-                className="w-full border rounded-lg px-3 py-2"
-                disabled={polling}
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-
-            {/* Mode */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Price Mode</label>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as 'static' | 'random_walk' | 'mean_revert' | 'stress')}
-                className="w-full border rounded-lg px-3 py-2"
-                disabled={polling}
-              >
-                <option value="static">Static</option>
-                <option value="random_walk">Random Walk</option>
-                <option value="mean_revert">Mean Reverting</option>
-                <option value="stress">Stress</option>
-              </select>
-            </div>
-
-            {/* Start/Stop */}
-            <div className="flex items-end gap-2">
-              {!polling ? (
-                <button
-                  onClick={handleStart}
-                  disabled={isLoading}
-                  className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-                >
-                  <Play className="h-4 w-4" />
-                  Start
-                </button>
-              ) : (
-                <button
-                  onClick={handleStop}
-                  disabled={isLoading}
-                  className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
-                >
-                  <Pause className="h-4 w-4" />
-                  Stop
-                </button>
-              )}
-              <button
-                onClick={handleRefreshCurves}
-                disabled={isLoading}
-                className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg disabled:opacity-50"
-                title="Refresh curves from FRED"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-          </div>
-
-          {/* Stress Scenarios */}
-          <div className="border-t pt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-              <Zap className="h-4 w-4" />
-              Stress Scenarios
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => handleStress('rates_up_100bp')}
-                disabled={isLoading || !status?.running}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg disabled:opacity-50"
-              >
-                <TrendingUp className="h-3 w-3" />
-                Rates +100bp
-              </button>
-              <button
-                onClick={() => handleStress('rates_down_100bp')}
-                disabled={isLoading || !status?.running}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg disabled:opacity-50"
-              >
-                <TrendingDown className="h-3 w-3" />
-                Rates -100bp
-              </button>
-              <button
-                onClick={() => handleStress('spreads_wide_50bp')}
-                disabled={isLoading || !status?.running}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-lg disabled:opacity-50"
-              >
-                <AlertTriangle className="h-3 w-3" />
-                Spreads +50bp
-              </button>
-              <button
-                onClick={() => handleStress('spreads_tight_50bp')}
-                disabled={isLoading || !status?.running}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-green-100 hover:bg-green-200 text-green-700 rounded-lg disabled:opacity-50"
-              >
-                <Activity className="h-3 w-3" />
-                Spreads -50bp
-              </button>
-              <button
-                onClick={() => handleStress('flight_to_quality')}
-                disabled={isLoading || !status?.running}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg disabled:opacity-50"
-              >
-                Flight to Quality
-              </button>
-              <button
-                onClick={() => handleStress('risk_on')}
-                disabled={isLoading || !status?.running}
-                className="flex items-center gap-1 px-3 py-1.5 text-sm bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg disabled:opacity-50"
-              >
-                Risk On
-              </button>
-            </div>
-          </div>
-
-          {/* WebSocket Toggle */}
-          <div className="border-t pt-4 mt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1">
-                  <Wifi className="h-4 w-4" />
-                  WebSocket Viewer
-                </h4>
-                <p className="text-xs text-gray-500 mt-1">
-                  Connect to server WebSocket to see quotes round-trip back from the pricing engine
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                {wsIsStreaming && (
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span>Session: <code className="bg-gray-100 px-1 rounded">{sessionId?.slice(0, 8) || '-'}</code></span>
-                    <span>Latency: <code className="bg-gray-100 px-1 rounded">{wsLatency ? `${wsLatency}ms` : '-'}</code></span>
-                    <span>Quotes: <code className="bg-gray-100 px-1 rounded">{wsTickCount}</code></span>
-                  </div>
-                )}
-                {!wsIsStreaming ? (
-                  <button
-                    onClick={startWsStream}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-                  >
-                    <Wifi className="h-4 w-4" />
-                    Connect WebSocket
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopWsStream}
-                    className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm"
-                  >
-                    <WifiOff className="h-4 w-4" />
-                    Disconnect
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-      {/* Calculation Cascade Visualization */}
-      {(polling || wsIsStreaming) && (
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Calculation Cascade
-          </h3>
-          <div className="flex items-center justify-center gap-2">
-            {cascadeSteps.map((step, index) => (
-              <div key={step.name} className="flex items-center">
-                <div
-                  className={`flex flex-col items-center p-4 rounded-lg border-2 transition-all min-w-[120px] ${
-                    step.status === 'active'
-                      ? 'border-blue-500 bg-blue-50 animate-pulse'
-                      : step.status === 'completed'
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 bg-gray-50'
-                  }`}
-                >
-                  <div
-                    className={`mb-2 ${
-                      step.status === 'active'
-                        ? 'text-blue-600'
-                        : step.status === 'completed'
-                        ? 'text-green-600'
-                        : 'text-gray-400'
-                    }`}
-                  >
-                    {step.icon}
-                  </div>
-                  <div className="text-sm font-medium text-gray-700">{step.name}</div>
-                  {step.count !== undefined && (
-                    <div className="text-xs text-gray-500 mt-1">{step.count} items</div>
-                  )}
-                  {step.latencyMs !== undefined && (
-                    <div className="text-xs text-gray-500">{step.latencyMs}ms</div>
-                  )}
-                </div>
-                {index < cascadeSteps.length - 1 && (
-                  <ArrowRight
-                    className={`h-5 w-5 mx-2 ${
-                      step.status === 'completed' ? 'text-green-500' : 'text-gray-300'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+          {loadError}
         </div>
       )}
 
       {/* Stats Bar */}
-      {polling && (
-        <div className="grid grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="text-sm text-gray-600">Simulation Ticks</div>
-            <div className="text-2xl font-bold text-gray-900">{tickCount}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="text-sm text-gray-600">Instruments</div>
-            <div className="text-2xl font-bold text-gray-900">{quotes.length}</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="text-sm text-gray-600">Last Sim Update</div>
-            <div className="text-lg font-mono text-gray-900">
-              {quotes[0]?.last_update ? new Date(quotes[0].last_update).toLocaleTimeString() : '-'}
-            </div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border p-4">
-            <div className="text-sm text-gray-600">WebSocket Quotes</div>
-            <div className="text-2xl font-bold text-blue-600">{wsIsStreaming ? wsTickCount : '-'}</div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="text-sm text-gray-600">Runtime</div>
+          <div className="text-lg font-semibold text-gray-900">
+            {health ? `${health.phase}${health.mode ? ` · ${health.mode}` : ''}` : 'unavailable'}
           </div>
         </div>
-      )}
-
-      {/* Quotes Grid - Simulation */}
-      {quotes.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <div className="px-6 py-4 border-b bg-gray-50">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Radio className="h-5 w-5 text-green-600" />
-              Simulation Quotes (from Quote Provider)
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Instrument
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Bid
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mid
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ask
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Spread
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Yield
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price (20 ticks)
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {quotes.map((quote) => (
-                  <QuoteRow
-                    key={quote.instrument_id}
-                    quote={quote}
-                    priceHistory={priceHistories.get(quote.instrument_id) || []}
-                  />
-                ))}
-              </tbody>
-            </table>
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="text-sm text-gray-600">Instruments</div>
+          <div className="text-2xl font-bold text-gray-900">{valuations.length}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="text-sm text-gray-600">Updates Received</div>
+          <div className="text-2xl font-bold text-blue-600">{updateCount}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="text-sm text-gray-600">Last Update</div>
+          <div className="text-lg font-mono text-gray-900">
+            {lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : '-'}
           </div>
         </div>
-      )}
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          <div className="text-sm text-gray-600">Session / Latency</div>
+          <div className="text-sm font-mono text-gray-900">
+            {sessionId ?? '-'} / {latency !== null ? `${latency}ms` : '-'}
+          </div>
+        </div>
+      </div>
 
-      {/* Quotes Grid - WebSocket */}
-      {wsIsStreaming && wsQuotesList.length > 0 && (
+      {/* Valuations Grid */}
+      {valuations.length > 0 ? (
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
           <div className="px-6 py-4 border-b bg-blue-50">
             <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Wifi className="h-5 w-5 text-blue-600" />
-              WebSocket Quotes (from Pricing Server)
+              <Radio className="h-5 w-5 text-blue-600" />
+              Runtime Results
               <span className="text-xs font-normal text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                {wsTickCount} received
+                {valuations[0].valuation.runtime_id}
               </span>
             </h3>
           </div>
@@ -706,49 +256,53 @@ export function StreamingDemo() {
             <table className="w-full">
               <thead className="bg-blue-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">
                     Instrument
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-blue-700 uppercase tracking-wider">
-                    Mid Price
+                  <th className="px-3 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">
+                    Status
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-blue-700 uppercase tracking-wider">
-                    YTM
+                  {MEASURES.map((m) => (
+                    <th
+                      key={m.id}
+                      className="px-3 py-3 text-right text-xs font-medium text-blue-700 uppercase tracking-wider"
+                    >
+                      {m.label}
+                    </th>
+                  ))}
+                  <th className="px-3 py-3 text-right text-xs font-medium text-blue-700 uppercase tracking-wider">
+                    Rev
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-blue-700 uppercase tracking-wider">
-                    Last Update
+                  <th className="px-3 py-3 text-right text-xs font-medium text-blue-700 uppercase tracking-wider">
+                    Calculated
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">
+                    Clean (history)
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {wsQuotesList.map((quote) => (
-                  <tr key={quote.instrument_id} className="border-b border-blue-100">
-                    <td className="px-4 py-2 font-mono text-sm font-medium">{quote.instrument_id}</td>
-                    <td className="px-4 py-2 text-right font-mono text-sm">{quote.mid.toFixed(3)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-sm">{(quote.yield * 100).toFixed(2)}%</td>
-                    <td className="px-4 py-2 text-right font-mono text-sm text-gray-500">
-                      {quote.last_update ? new Date(quote.last_update).toLocaleTimeString() : '-'}
-                    </td>
-                  </tr>
+                {valuations.map((item) => (
+                  <ValuationRow key={item.instrumentId} item={item} />
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-      )}
-
-      {/* Empty State */}
-      {quotes.length === 0 && !polling && (
+      ) : (
         <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
           <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Active Simulation</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Live Valuations</h3>
           <p className="text-gray-600 mb-4">
-            Click "Start" to begin streaming synthetic bond quotes through the pricing server.
+            {health === null
+              ? 'This server does not expose a pricing runtime.'
+              : health.mode === 'live'
+                ? 'The live runtime has not published a result yet. This panel checks again every few seconds.'
+                : `The runtime is ${health.phase}${health.mode ? ` in ${health.mode} mode` : ''}, not live.`}
           </p>
           <p className="text-sm text-gray-500">
-            The simulation generates prices based on live Treasury curves from FRED,
-            applies sector/rating spreads, and pushes quotes to the Convex pricing server.
-            Enable "WebSocket Viewer" to see quotes round-trip back from the server.
+            The panel reads the current results from <code>GET /api/v1/runtime/results</code>, then
+            subscribes to those instruments with <code>subscribe_valuations</code>.
           </p>
         </div>
       )}

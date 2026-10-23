@@ -2,9 +2,8 @@
 
 CVX-017 routes nominal fixed-bullet and zero pricing through pure library
 functions. The engine supplies validated terms, explicit curve roles and a
-completion timestamp. REST and C ABI adapters translate inputs and outputs. REST and WebSocket
-share dirty-price serialization so quote resynchronization preserves the
-same economic payload.
+completion timestamp. REST and C ABI adapters translate inputs and outputs. REST responses
+carry the dirty-price serialization; quotes are not broadcast on the WebSocket.
 There is no provider, database, queue, clock or asynchronous runtime in the
 analytics path. The unused pricing-model selector and engine copies of bond
 pricing/risk mathematics are removed.
@@ -141,11 +140,10 @@ These supplied on-demand requests are indicative calculations. They do not
 acquire a complete immutable historical `ValuationContext`, check current
 market freshness against a valuation cutoff, or grant execution authority.
 Snapshot/replay runtime, access control and release admission retain their
-separate context, quality and ownership rules. WebSocket quote objects retain
+separate context, quality and ownership rules. REST quote objects carry
 the common clean/dirty/accrued fields and the new measure errors/signed
-sensitivities. The v1 quote broadcast does not carry supplied REST curve
-revision metadata; consumers requiring full provenance must use canonical
-context-valued runtime publications. Complete common v2 transport parity
+sensitivities. Consumers requiring full provenance or a stream must use
+canonical context-valued runtime publications. Complete common v2 transport parity
 remains CVX-033/063.
 
 Fixed C ABI `BondSpec` now consumes the supplied business-day convention and

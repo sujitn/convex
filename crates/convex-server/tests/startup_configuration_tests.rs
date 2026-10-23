@@ -336,7 +336,9 @@ async fn explicit_demo_labels_websocket_handshake_and_messages() {
     }
     assert!(connected && pong);
     socket
-        .send(Message::Text(r#"{"type":"subscribe_all_bonds"}"#.into()))
+        .send(Message::Text(
+            r#"{"type":"subscribe_valuations","instrument_ids":["CONFIG-DEMO-TEST"]}"#.into(),
+        ))
         .await
         .unwrap();
     let mut subscribed = false;
@@ -375,30 +377,6 @@ async fn explicit_demo_labels_websocket_handshake_and_messages() {
         .send().await.unwrap();
     assert_eq!(response.status(), 200);
     assert_eq!(response.headers()["x-convex-data-quality"], "demo");
-    let quote: serde_json::Value = response.json().await.unwrap();
-    let mut published = false;
-    for _ in 0..4 {
-        let message = tokio::time::timeout(Duration::from_secs(2), socket.next())
-            .await
-            .unwrap()
-            .unwrap()
-            .unwrap();
-        if let Message::Text(text) = message {
-            let mut json: serde_json::Value = serde_json::from_str(&text).unwrap();
-            assert_eq!(json["profile"], "demo");
-            assert_eq!(json["data_quality"], "demo");
-            if json["type"] == "bond_quote" {
-                let fields = json.as_object_mut().unwrap();
-                fields.remove("profile");
-                fields.remove("data_quality");
-                fields.remove("type");
-                assert_eq!(json, quote);
-                published = true;
-                break;
-            }
-        }
-    }
-    assert!(published);
     socket.close(None).await.unwrap();
 }
 
