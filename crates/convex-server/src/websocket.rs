@@ -1,10 +1,10 @@
-//! WebSocket handlers for real-time quote streaming.
+//! WebSocket streaming of canonical runtime results.
 //!
-//! Supports:
-//! - Subscribing to individual bond quotes
-//! - Subscribing to ETF iNAV updates
-//! - Subscribing to portfolio analytics updates
-//! - Heartbeat/ping-pong for connection health
+//! The runtime results channel (`PricingEngine::subscribe_results`) is the only
+//! source of streamed data. A client opts in with `subscribe_valuations` and
+//! receives a `valuation` message for each published result of those instruments.
+//! REST calculators return their results in the response and never broadcast.
+//! Heartbeat and ping/pong keep the connection healthy.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -18,10 +18,9 @@ use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tokio::time::interval;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
-use convex_core::ids::{EtfId, InstrumentId, PortfolioId};
-use convex_engine::ports::output::{BondQuoteOutput, EtfQuoteOutput, PortfolioAnalyticsOutput};
+use convex_core::ids::InstrumentId;
 
 use crate::access::http::WsAccess;
 use crate::access::{AccessError, Action, DataScope, Resource, ResourceKind};
@@ -32,27 +31,12 @@ use crate::ServerProfile;
 // MESSAGE TYPES
 // =============================================================================
 
-/// Inbound WebSocket message from client.
+/// Inbound WebSocket message from client. Any other `type`, including the retired
+/// bond, ETF and portfolio subscriptions, is refused with `INVALID_MESSAGE`.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 #[allow(missing_docs)]
 pub enum ClientMessage {
-    /// Subscribe to bond quotes
-    SubscribeBonds { instrument_ids: Vec<String> },
-    /// Unsubscribe from bond quotes
-    UnsubscribeBonds { instrument_ids: Vec<String> },
-    /// Subscribe to all bond quotes
-    SubscribeAllBonds,
-    /// Unsubscribe from all bond quotes
-    UnsubscribeAllBonds,
-    /// Subscribe to ETF iNAV updates
-    SubscribeEtfs { etf_ids: Vec<String> },
-    /// Unsubscribe from ETF updates
-    UnsubscribeEtfs { etf_ids: Vec<String> },
-    /// Subscribe to portfolio analytics
-    SubscribePortfolios { portfolio_ids: Vec<String> },
-    /// Unsubscribe from portfolio analytics
-    UnsubscribePortfolios { portfolio_ids: Vec<String> },
     /// Opt in to canonical snapshot-valued results.
     SubscribeValuations { instrument_ids: Vec<String> },
     /// Stop canonical valuation updates.
@@ -81,12 +65,6 @@ pub enum ServerMessage {
         subscription_type: String,
         count: usize,
     },
-    /// Bond quote update
-    BondQuote(#[serde(serialize_with = "serialize_bond_quote")] Box<BondQuoteOutput>),
-    /// ETF iNAV update
-    EtfQuote(Box<EtfQuoteOutput>),
-    /// Portfolio analytics update
-    PortfolioAnalytics(Box<PortfolioAnalyticsOutput>),
     /// Pong (server heartbeat response)
     Pong { timestamp: i64, server_time: i64 },
     /// Error message
@@ -95,61 +73,6 @@ pub enum ServerMessage {
     Heartbeat { server_time: i64 },
     /// Canonical durable result state from the pricing runtime.
     Valuation(Box<convex_engine::ports::runtime::PublishedValuation>),
-    /// Node recalculated event (from a graph completion)
-    NodeRecalculated {
-        node_type: String,
-        node_id: String,
-        source: String,
-        timestamp: i64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        completion: Option<Box<convex_engine::CalculationCompletion>>,
-    },
-    /// Curve update notification
-    CurveUpdated { curve_id: String, timestamp: i64 },
-}
-
-fn serialize_bond_quote<S: serde::Serializer>(
-    quote: &BondQuoteOutput,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    crate::handlers::bond_quote_json(quote)
-        .map_err(serde::ser::Error::custom)?
-        .serialize(serializer)
-}
-
-// =============================================================================
-// BROADCAST TYPES
-// =============================================================================
-
-/// Broadcast update that can be sent to subscribers.
-#[derive(Debug, Clone)]
-pub enum BroadcastUpdate {
-    /// Bond quote update
-    BondQuote(Box<BondQuoteOutput>),
-    /// ETF iNAV update
-    EtfQuote(Box<EtfQuoteOutput>),
-    /// Portfolio analytics update
-    PortfolioAnalytics(Box<PortfolioAnalyticsOutput>),
-    /// Node recalculated event
-    NodeRecalculated {
-        /// Type of node (bond_price, curve, etf_inav, etc.)
-        node_type: String,
-        /// Node identifier
-        node_id: String,
-        /// Source of update (immediate, throttled, interval, eod, on_demand)
-        source: String,
-        /// Timestamp
-        timestamp: i64,
-        /// Actual committed generation, revision and status; absent for older producers.
-        completion: Option<Box<convex_engine::CalculationCompletion>>,
-    },
-    /// Curve updated event
-    CurveUpdated {
-        /// Curve identifier
-        curve_id: String,
-        /// Timestamp
-        timestamp: i64,
-    },
 }
 
 // =============================================================================
@@ -158,8 +81,6 @@ pub enum BroadcastUpdate {
 
 /// WebSocket connection state manager.
 pub struct WebSocketState {
-    /// Broadcast sender for all updates
-    pub broadcast_tx: broadcast::Sender<BroadcastUpdate>,
     /// Active connections count
     pub connection_count: std::sync::atomic::AtomicUsize,
     /// Session ID counter
@@ -169,9 +90,7 @@ pub struct WebSocketState {
 impl WebSocketState {
     /// Create a new WebSocket state manager.
     pub fn new() -> Self {
-        let (broadcast_tx, _) = broadcast::channel(10000);
         Self {
-            broadcast_tx,
             connection_count: std::sync::atomic::AtomicUsize::new(0),
             session_counter: std::sync::atomic::AtomicU64::new(0),
         }
@@ -185,57 +104,10 @@ impl WebSocketState {
         format!("ws-{}", id)
     }
 
-    /// Publish a bond quote update.
-    pub fn publish_bond_quote(&self, quote: BondQuoteOutput) {
-        let _ = self
-            .broadcast_tx
-            .send(BroadcastUpdate::BondQuote(Box::new(quote)));
-    }
-
-    /// Publish an ETF quote update.
-    pub fn publish_etf_quote(&self, quote: EtfQuoteOutput) {
-        let _ = self
-            .broadcast_tx
-            .send(BroadcastUpdate::EtfQuote(Box::new(quote)));
-    }
-
-    /// Publish portfolio analytics update.
-    pub fn publish_portfolio_analytics(&self, analytics: PortfolioAnalyticsOutput) {
-        let _ = self
-            .broadcast_tx
-            .send(BroadcastUpdate::PortfolioAnalytics(Box::new(analytics)));
-    }
-
     /// Get active connection count.
     pub fn active_connections(&self) -> usize {
         self.connection_count
             .load(std::sync::atomic::Ordering::SeqCst)
-    }
-
-    /// Publish a node recalculated event.
-    pub fn publish_node_recalculated(
-        &self,
-        node_type: String,
-        node_id: String,
-        source: String,
-        timestamp: i64,
-        completion: Option<convex_engine::CalculationCompletion>,
-    ) {
-        let _ = self.broadcast_tx.send(BroadcastUpdate::NodeRecalculated {
-            node_type,
-            node_id,
-            source,
-            timestamp,
-            completion: completion.map(Box::new),
-        });
-    }
-
-    /// Publish a curve updated event.
-    pub fn publish_curve_updated(&self, curve_id: String, timestamp: i64) {
-        let _ = self.broadcast_tx.send(BroadcastUpdate::CurveUpdated {
-            curve_id,
-            timestamp,
-        });
     }
 }
 
@@ -246,127 +118,18 @@ impl Default for WebSocketState {
 }
 
 // =============================================================================
-// REACTIVE ENGINE INTEGRATION
-// =============================================================================
-
-use convex_engine::{NodeId as EngineNodeId, NodeUpdate, UpdateSource};
-
-/// Convert engine NodeId to (node_type, node_id) strings.
-fn node_id_to_strings(node_id: &EngineNodeId) -> (String, String) {
-    match node_id {
-        EngineNodeId::Quote { instrument_id } => ("quote".to_string(), instrument_id.to_string()),
-        EngineNodeId::CurveInput {
-            curve_id,
-            instrument,
-        } => (
-            "curve_input".to_string(),
-            format!("{}.{}", curve_id, instrument),
-        ),
-        EngineNodeId::Curve { curve_id } => ("curve".to_string(), curve_id.to_string()),
-        EngineNodeId::VolSurface { surface_id } => {
-            ("vol_surface".to_string(), surface_id.to_string())
-        }
-        EngineNodeId::FxRate { pair } => ("fx_rate".to_string(), pair.to_string()),
-        EngineNodeId::IndexFixing { index, date } => {
-            ("index_fixing".to_string(), format!("{}.{}", index, date))
-        }
-        EngineNodeId::InflationFixing { index, month } => (
-            "inflation_fixing".to_string(),
-            format!("{}.{}", index, month),
-        ),
-        EngineNodeId::Config { config_id } => ("config".to_string(), config_id.clone()),
-        EngineNodeId::BondPrice { instrument_id } => {
-            ("bond_price".to_string(), instrument_id.to_string())
-        }
-        EngineNodeId::EtfInav { etf_id } => ("etf_inav".to_string(), etf_id.to_string()),
-        EngineNodeId::EtfNav { etf_id } => ("etf_nav".to_string(), etf_id.to_string()),
-        EngineNodeId::Portfolio { portfolio_id } => {
-            ("portfolio".to_string(), portfolio_id.to_string())
-        }
-    }
-}
-
-/// Convert engine UpdateSource to string.
-fn update_source_to_string(source: &UpdateSource) -> String {
-    match source {
-        UpdateSource::Immediate => "immediate".to_string(),
-        UpdateSource::Throttled => "throttled".to_string(),
-        UpdateSource::Interval => "interval".to_string(),
-        UpdateSource::EndOfDay => "eod".to_string(),
-        UpdateSource::OnDemand => "on_demand".to_string(),
-    }
-}
-
-/// Forward an already committed graph notification synchronously; owns no background task.
-pub fn publish_node_update(ws_state: &WebSocketState, update: NodeUpdate) {
-    let (node_type, node_id) = node_id_to_strings(&update.node_id);
-    ws_state.publish_node_recalculated(
-        node_type.clone(),
-        node_id.clone(),
-        update_source_to_string(&update.source),
-        update.timestamp,
-        update.completion.clone(),
-    );
-    if node_type == "curve"
-        && update.completion.as_ref().is_some_and(|result| {
-            result.status == convex_core::contracts::ResultStatus::Complete
-                && result.quality == convex_core::contracts::DataQuality::Valid
-        })
-    {
-        ws_state.publish_curve_updated(node_id, update.timestamp);
-    }
-}
-
-// =============================================================================
 // CLIENT SESSION
 // =============================================================================
 
 /// Per-client subscription state.
+#[derive(Default)]
 struct ClientSession {
-    session_id: String,
-    /// Subscribed bond instrument IDs
-    bond_subscriptions: HashSet<InstrumentId>,
     valuation_subscriptions: HashSet<InstrumentId>,
-    /// Subscribe to all bonds
-    subscribe_all_bonds: bool,
-    /// Subscribed ETF IDs
-    etf_subscriptions: HashSet<EtfId>,
-    /// Subscribed portfolio IDs
-    portfolio_subscriptions: HashSet<PortfolioId>,
 }
 
 impl ClientSession {
     fn topic_count(&self) -> usize {
-        self.bond_subscriptions.len()
-            + self.valuation_subscriptions.len()
-            + self.etf_subscriptions.len()
-            + self.portfolio_subscriptions.len()
-            + usize::from(self.subscribe_all_bonds)
-    }
-    fn new(session_id: String) -> Self {
-        Self {
-            session_id,
-            bond_subscriptions: HashSet::new(),
-            valuation_subscriptions: HashSet::new(),
-            subscribe_all_bonds: false,
-            etf_subscriptions: HashSet::new(),
-            portfolio_subscriptions: HashSet::new(),
-        }
-    }
-
-    /// Check if client is subscribed to a bond.
-    fn is_subscribed_to_bond(&self, id: &InstrumentId) -> bool {
-        self.subscribe_all_bonds || self.bond_subscriptions.contains(id)
-    }
-
-    /// Check if client is subscribed to an ETF.
-    fn is_subscribed_to_etf(&self, id: &EtfId) -> bool {
-        self.etf_subscriptions.contains(id)
-    }
-
-    /// Check if client is subscribed to a portfolio.
-    fn is_subscribed_to_portfolio(&self, id: &PortfolioId) -> bool {
-        self.portfolio_subscriptions.contains(id)
+        self.valuation_subscriptions.len()
     }
 }
 
@@ -410,10 +173,9 @@ async fn handle_socket(
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
     // Create client session
-    let mut session = ClientSession::new(session_id.clone());
+    let mut session = ClientSession::default();
 
-    // Subscribe to broadcast channel
-    let mut broadcast_rx = ws_state.broadcast_tx.subscribe();
+    // The runtime results channel is the only source of streamed messages.
     let mut valuation_rx = state.engine.subscribe_results();
     let mut shutdown_rx = state.engine.subscribe_shutdown();
 
@@ -508,15 +270,6 @@ async fn handle_socket(
                 drop(admission);
             }
 
-            // Handle broadcast updates
-            Ok(update) = broadcast_rx.recv() => {
-                if let Some(msg) = filter_update(&session, &update) {
-                    if send_message(&mut sender, &msg, profile, &authorization).await.is_err() {
-                        break;
-                    }
-                }
-            }
-
             // Send heartbeat
             _ = heartbeat_interval.tick() => {
                 let heartbeat = ServerMessage::Heartbeat {
@@ -590,98 +343,6 @@ async fn handle_client_message(
 
     authorize_subscription(&msg, session, authorization).map_err(|error| error.to_string())?;
     let response = match msg {
-        ClientMessage::SubscribeBonds { instrument_ids } => {
-            let count = instrument_ids.len();
-            for id in instrument_ids {
-                session.bond_subscriptions.insert(InstrumentId::new(&id));
-            }
-            debug!(
-                "Session {} subscribed to {} bonds",
-                session.session_id, count
-            );
-            ServerMessage::Subscribed {
-                subscription_type: "bonds".to_string(),
-                count,
-            }
-        }
-        ClientMessage::UnsubscribeBonds { instrument_ids } => {
-            let count = instrument_ids.len();
-            for id in instrument_ids {
-                session.bond_subscriptions.remove(&InstrumentId::new(&id));
-            }
-            ServerMessage::Unsubscribed {
-                subscription_type: "bonds".to_string(),
-                count,
-            }
-        }
-        ClientMessage::SubscribeAllBonds => {
-            session.subscribe_all_bonds = true;
-            debug!("Session {} subscribed to all bonds", session.session_id);
-            ServerMessage::Subscribed {
-                subscription_type: "all_bonds".to_string(),
-                count: 1,
-            }
-        }
-        ClientMessage::UnsubscribeAllBonds => {
-            session.subscribe_all_bonds = false;
-            session.bond_subscriptions.clear();
-            ServerMessage::Unsubscribed {
-                subscription_type: "all_bonds".to_string(),
-                count: 1,
-            }
-        }
-        ClientMessage::SubscribeEtfs { etf_ids } => {
-            let count = etf_ids.len();
-            for id in etf_ids {
-                session.etf_subscriptions.insert(EtfId::new(&id));
-            }
-            debug!(
-                "Session {} subscribed to {} ETFs",
-                session.session_id, count
-            );
-            ServerMessage::Subscribed {
-                subscription_type: "etfs".to_string(),
-                count,
-            }
-        }
-        ClientMessage::UnsubscribeEtfs { etf_ids } => {
-            let count = etf_ids.len();
-            for id in etf_ids {
-                session.etf_subscriptions.remove(&EtfId::new(&id));
-            }
-            ServerMessage::Unsubscribed {
-                subscription_type: "etfs".to_string(),
-                count,
-            }
-        }
-        ClientMessage::SubscribePortfolios { portfolio_ids } => {
-            let count = portfolio_ids.len();
-            for id in portfolio_ids {
-                session
-                    .portfolio_subscriptions
-                    .insert(PortfolioId::new(&id));
-            }
-            debug!(
-                "Session {} subscribed to {} portfolios",
-                session.session_id, count
-            );
-            ServerMessage::Subscribed {
-                subscription_type: "portfolios".to_string(),
-                count,
-            }
-        }
-        ClientMessage::UnsubscribePortfolios { portfolio_ids } => {
-            let count = portfolio_ids.len();
-            for id in portfolio_ids {
-                session
-                    .portfolio_subscriptions
-                    .remove(&PortfolioId::new(&id));
-            }
-            ServerMessage::Unsubscribed {
-                subscription_type: "portfolios".to_string(),
-                count,
-            }
-        }
         ClientMessage::SubscribeValuations { instrument_ids } => {
             if instrument_ids.len() > 256
                 || session
@@ -731,34 +392,17 @@ async fn handle_client_message(
         .map_err(|_| "WS_SEND_FAILED".to_owned())
 }
 
-fn topic_permission(
-    kind: ResourceKind,
-    id: &str,
-    valuation: bool,
-    authorization: &WsAccess,
-) -> Result<(), AccessError> {
-    let mut required = vec![
-        Resource::new(kind, id),
-        Resource::new(ResourceKind::Source, "*"),
-        Resource::new(ResourceKind::Curve, "*"),
-    ];
-    let data = if kind == ResourceKind::Book {
-        required.push(Resource::new(ResourceKind::Instrument, "*"));
-        vec![DataScope::Books, DataScope::Market, DataScope::Results]
-    } else if valuation || kind == ResourceKind::Instrument {
-        vec![DataScope::Reference, DataScope::Market, DataScope::Results]
-    } else {
-        vec![DataScope::Market, DataScope::Results]
-    };
+/// A valuation topic needs result, reference and market read on the instrument.
+fn valuation_permission(id: &str, authorization: &WsAccess) -> Result<(), AccessError> {
     authorization.access.authorize(
         &authorization.context,
-        if valuation {
-            Action::ResultRead
-        } else {
-            Action::MarketRead
-        },
-        &data,
-        &required,
+        Action::ResultRead,
+        &[DataScope::Reference, DataScope::Market, DataScope::Results],
+        &[
+            Resource::new(ResourceKind::Instrument, id),
+            Resource::new(ResourceKind::Source, "*"),
+            Resource::new(ResourceKind::Curve, "*"),
+        ],
     )
 }
 fn session_authorized(
@@ -775,20 +419,8 @@ fn session_authorized(
     {
         return Err(AccessError::Quota);
     }
-    if session.subscribe_all_bonds {
-        topic_permission(ResourceKind::Instrument, "*", false, authorization)?;
-    }
-    for id in &session.bond_subscriptions {
-        topic_permission(ResourceKind::Instrument, id.as_str(), false, authorization)?;
-    }
     for id in &session.valuation_subscriptions {
-        topic_permission(ResourceKind::Instrument, id.as_str(), true, authorization)?;
-    }
-    for id in &session.etf_subscriptions {
-        topic_permission(ResourceKind::Etf, id.as_str(), false, authorization)?;
-    }
-    for id in &session.portfolio_subscriptions {
-        topic_permission(ResourceKind::Book, id.as_str(), false, authorization)?;
+        valuation_permission(id.as_str(), authorization)?;
     }
     Ok(())
 }
@@ -800,92 +432,30 @@ fn authorize_subscription(
     authorization
         .access
         .authorize(&authorization.context, Action::Stream, &[], &[])?;
-    let (ids, kind, valuation, existing): (&[String], ResourceKind, bool, HashSet<String>) =
-        match message {
-            ClientMessage::SubscribeBonds { instrument_ids } => (
-                instrument_ids,
-                ResourceKind::Instrument,
-                false,
-                session
-                    .bond_subscriptions
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect(),
-            ),
-            ClientMessage::SubscribeValuations { instrument_ids } => (
-                instrument_ids,
-                ResourceKind::Instrument,
-                true,
-                session
-                    .valuation_subscriptions
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect(),
-            ),
-            ClientMessage::SubscribeEtfs { etf_ids } => (
-                etf_ids,
-                ResourceKind::Etf,
-                false,
-                session
-                    .etf_subscriptions
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect(),
-            ),
-            ClientMessage::SubscribePortfolios { portfolio_ids } => (
-                portfolio_ids,
-                ResourceKind::Book,
-                false,
-                session
-                    .portfolio_subscriptions
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect(),
-            ),
-            ClientMessage::SubscribeAllBonds => {
-                topic_permission(ResourceKind::Instrument, "*", false, authorization)?;
-                if session
-                    .topic_count()
-                    .saturating_add(usize::from(!session.subscribe_all_bonds))
-                    > authorization
-                        .access
-                        .subscription_limit(&authorization.context)?
-                {
-                    return Err(AccessError::Quota);
-                }
-                return Ok(());
+    let ids = match message {
+        ClientMessage::SubscribeValuations { instrument_ids } => instrument_ids,
+        ClientMessage::UnsubscribeValuations { instrument_ids } => {
+            if instrument_ids.len() > 256 {
+                return Err(AccessError::Quota);
             }
-            ClientMessage::UnsubscribeBonds { instrument_ids }
-            | ClientMessage::UnsubscribeValuations { instrument_ids } => {
-                if instrument_ids.len() > 256 {
-                    return Err(AccessError::Quota);
-                }
-                return Ok(());
-            }
-            ClientMessage::UnsubscribeEtfs { etf_ids } => {
-                if etf_ids.len() > 256 {
-                    return Err(AccessError::Quota);
-                }
-                return Ok(());
-            }
-            ClientMessage::UnsubscribePortfolios { portfolio_ids } => {
-                if portfolio_ids.len() > 256 {
-                    return Err(AccessError::Quota);
-                }
-                return Ok(());
-            }
-            _ => return Ok(()),
-        };
+            return Ok(());
+        }
+        ClientMessage::Ping { .. } => return Ok(()),
+    };
     if ids.len() > 256 {
         return Err(AccessError::Quota);
     }
-    let mut prospective = existing;
+    let mut prospective: HashSet<String> = session
+        .valuation_subscriptions
+        .iter()
+        .map(ToString::to_string)
+        .collect();
     let before = prospective.len();
     for id in ids {
         if !crate::access::policy::valid_id(id) || id == "*" {
             return Err(AccessError::InvalidRequest);
         }
-        topic_permission(kind, id, valuation, authorization)?;
+        valuation_permission(id, authorization)?;
         prospective.insert(id.clone());
     }
     if session
@@ -909,138 +479,15 @@ fn authorize_delivery(
     if !authorization.access.session_fresh(&authorization.context) {
         return Err(AccessError::Unauthenticated);
     }
-    match message {
-        ServerMessage::BondQuote(quote) => topic_permission(
-            ResourceKind::Instrument,
-            quote.instrument_id.as_str(),
-            false,
-            authorization,
-        )?,
-        ServerMessage::EtfQuote(quote) => topic_permission(
-            ResourceKind::Etf,
-            quote.etf_id.as_str(),
-            false,
-            authorization,
-        )?,
-        ServerMessage::PortfolioAnalytics(result) => topic_permission(
-            ResourceKind::Book,
-            result.portfolio_id.as_str(),
-            false,
-            authorization,
-        )?,
-        ServerMessage::Valuation(result) => match &result.result.provenance().subject {
+    if let ServerMessage::Valuation(result) = message {
+        match &result.result.provenance().subject {
             convex_core::contracts::ValuationSubject::InstrumentVersion {
                 instrument_id, ..
-            } => topic_permission(
-                ResourceKind::Instrument,
-                instrument_id.as_str(),
-                true,
-                authorization,
-            )?,
+            } => valuation_permission(instrument_id.as_str(), authorization)?,
             _ => return Err(AccessError::Forbidden),
-        },
-        ServerMessage::NodeRecalculated {
-            node_type, node_id, ..
-        } => match node_type.as_str() {
-            "bond_price" => {
-                topic_permission(ResourceKind::Instrument, node_id, false, authorization)?
-            }
-            "etf_inav" | "etf_nav" => {
-                topic_permission(ResourceKind::Etf, node_id, false, authorization)?
-            }
-            "portfolio" => topic_permission(ResourceKind::Book, node_id, false, authorization)?,
-            _ => return Err(AccessError::Forbidden),
-        },
-        ServerMessage::CurveUpdated { curve_id, .. } => authorization.access.authorize(
-            &authorization.context,
-            Action::MarketRead,
-            &[DataScope::Market],
-            &[
-                Resource::new(ResourceKind::Curve, curve_id),
-                Resource::new(ResourceKind::Source, "*"),
-            ],
-        )?,
-        _ => {}
+        }
     }
     Ok(())
-}
-
-/// Filter a broadcast update for a specific client session.
-fn filter_update(session: &ClientSession, update: &BroadcastUpdate) -> Option<ServerMessage> {
-    match update {
-        BroadcastUpdate::BondQuote(quote) => {
-            if session.is_subscribed_to_bond(&quote.instrument_id) {
-                Some(ServerMessage::BondQuote(quote.clone()))
-            } else {
-                None
-            }
-        }
-        BroadcastUpdate::EtfQuote(quote) => {
-            if session.is_subscribed_to_etf(&quote.etf_id) {
-                Some(ServerMessage::EtfQuote(quote.clone()))
-            } else {
-                None
-            }
-        }
-        BroadcastUpdate::PortfolioAnalytics(analytics) => {
-            if session.is_subscribed_to_portfolio(&analytics.portfolio_id) {
-                Some(ServerMessage::PortfolioAnalytics(analytics.clone()))
-            } else {
-                None
-            }
-        }
-        BroadcastUpdate::NodeRecalculated {
-            node_type,
-            node_id,
-            source,
-            timestamp,
-            completion,
-        } => {
-            // Send node updates to clients that have subscribed to the relevant type
-            // For now, send to all subscribed clients based on node type
-            let should_send = match node_type.as_str() {
-                "bond_price" => {
-                    session.subscribe_all_bonds
-                        || session
-                            .bond_subscriptions
-                            .iter()
-                            .any(|id| id.as_str() == node_id)
-                }
-                "etf_inav" | "etf_nav" => session
-                    .etf_subscriptions
-                    .iter()
-                    .any(|id| id.as_str() == node_id),
-                "portfolio" => session
-                    .portfolio_subscriptions
-                    .iter()
-                    .any(|id| id.as_str() == node_id),
-                _ => false, // Don't send curve or other internal updates by default
-            };
-            if should_send {
-                Some(ServerMessage::NodeRecalculated {
-                    node_type: node_type.clone(),
-                    node_id: node_id.clone(),
-                    source: source.clone(),
-                    timestamp: *timestamp,
-                    completion: completion.clone(),
-                })
-            } else {
-                None
-            }
-        }
-        BroadcastUpdate::CurveUpdated {
-            curve_id,
-            timestamp,
-        } => {
-            // Curve updates are typically internal, but we can broadcast to clients
-            // that want to know when curves change (e.g., for debugging or analytics dashboards)
-            // For now, don't filter - clients can ignore if not interested
-            Some(ServerMessage::CurveUpdated {
-                curve_id: curve_id.clone(),
-                timestamp: *timestamp,
-            })
-        }
-    }
 }
 
 /// Send a server message over WebSocket.
@@ -1112,77 +559,15 @@ pub async fn ws_status(State(state): State<Arc<AppState>>) -> impl IntoResponse 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rust_decimal_macros::dec;
-
-    #[tokio::test]
-    async fn graph_failure_completion_reaches_subscriber_with_generation_revision_and_code() {
-        use convex_engine::{CalculationFailure, CalculationGraph, CommitOutcome, NodeId};
-        let graph = CalculationGraph::new();
-        let node = NodeId::BondPrice {
-            instrument_id: InstrumentId::new("FAILED"),
-        };
-        graph.add_node(node.clone(), vec![]).unwrap();
-        let ticket = graph.begin_calculation(&node).unwrap();
-        let completion = match graph
-            .commit_result(
-                &ticket,
-                Err(CalculationFailure::fixed(
-                    convex_core::contracts::ErrorCode::MissingReference,
-                    "reference missing",
-                )),
-            )
-            .unwrap()
-        {
-            CommitOutcome::Committed { completion } => completion,
-            CommitOutcome::Discarded => panic!("current failure was discarded"),
-        };
-        let state = Arc::new(WebSocketState::new());
-        let mut broadcast = state.broadcast_tx.subscribe();
-        publish_node_update(
-            &state,
-            NodeUpdate {
-                node_id: node,
-                timestamp: 123,
-                source: UpdateSource::Immediate,
-                completion: Some(completion.clone()),
-            },
-        );
-        let update = tokio::time::timeout(std::time::Duration::from_secs(2), broadcast.recv())
-            .await
-            .unwrap()
-            .unwrap();
-        let mut session = ClientSession::new("test".into());
-        session.subscribe_all_bonds = true;
-        let message = filter_update(&session, &update).unwrap();
-        let json = serde_json::to_value(message).unwrap();
-        assert_eq!(json["type"], "node_recalculated");
-        assert_eq!(json["node_id"], "FAILED");
-        assert_eq!(json["completion"]["generation"], completion.generation);
-        assert_eq!(json["completion"]["revision"], completion.revision);
-        assert_eq!(json["completion"]["status"], "Failed");
-        assert_eq!(json["completion"]["quality"], "Invalid");
-        assert_eq!(json["completion"]["failure"]["code"], "MISSING_REFERENCE");
-        // Existing producers can omit completion; the original fields retain their wire form.
-        let old = ServerMessage::NodeRecalculated {
-            node_type: "bond_price".into(),
-            node_id: "OLD".into(),
-            source: "immediate".into(),
-            timestamp: 123,
-            completion: None,
-        };
-        assert!(serde_json::to_value(old)
-            .unwrap()
-            .get("completion")
-            .is_none());
-    }
 
     #[test]
-    fn test_client_message_subscribe_bonds() {
-        let json = r#"{"type":"subscribe_bonds","instrument_ids":["US912810TD00","US037833DV24"]}"#;
+    fn test_client_message_subscribe_valuations() {
+        let json =
+            r#"{"type":"subscribe_valuations","instrument_ids":["US912810TD00","US037833DV24"]}"#;
         let msg: ClientMessage = serde_json::from_str(json).unwrap();
 
         match msg {
-            ClientMessage::SubscribeBonds { instrument_ids } => {
+            ClientMessage::SubscribeValuations { instrument_ids } => {
                 assert_eq!(instrument_ids.len(), 2);
                 assert_eq!(instrument_ids[0], "US912810TD00");
             }
@@ -1191,11 +576,22 @@ mod tests {
     }
 
     #[test]
-    fn test_client_message_subscribe_all_bonds() {
-        let json = r#"{"type":"subscribe_all_bonds"}"#;
-        let msg: ClientMessage = serde_json::from_str(json).unwrap();
-
-        assert!(matches!(msg, ClientMessage::SubscribeAllBonds));
+    fn retired_subscriptions_are_not_client_messages() {
+        for json in [
+            r#"{"type":"subscribe_bonds","instrument_ids":["BOND-001"]}"#,
+            r#"{"type":"unsubscribe_bonds","instrument_ids":["BOND-001"]}"#,
+            r#"{"type":"subscribe_all_bonds"}"#,
+            r#"{"type":"unsubscribe_all_bonds"}"#,
+            r#"{"type":"subscribe_etfs","etf_ids":["ETF-001"]}"#,
+            r#"{"type":"unsubscribe_etfs","etf_ids":["ETF-001"]}"#,
+            r#"{"type":"subscribe_portfolios","portfolio_ids":["BOOK-001"]}"#,
+            r#"{"type":"unsubscribe_portfolios","portfolio_ids":["BOOK-001"]}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<ClientMessage>(json).is_err(),
+                "{json}"
+            );
+        }
     }
 
     #[test]
@@ -1254,7 +650,7 @@ mod tests {
     #[test]
     fn test_server_message_subscribed() {
         let msg = ServerMessage::Subscribed {
-            subscription_type: "bonds".to_string(),
+            subscription_type: "valuations".to_string(),
             count: 5,
         };
 
@@ -1291,79 +687,5 @@ mod tests {
         assert!(id1.starts_with("ws-"));
         assert!(id2.starts_with("ws-"));
         assert_ne!(id1, id2);
-    }
-
-    #[test]
-    fn test_broadcast_bond_quote() {
-        use convex_core::{Currency, Date};
-
-        let state = WebSocketState::new();
-        let mut rx = state.broadcast_tx.subscribe();
-
-        let quote = BondQuoteOutput {
-            instrument_id: InstrumentId::new("TEST"),
-            isin: None,
-            currency: Currency::USD,
-            settlement_date: Date::from_ymd(2025, 6, 17).unwrap(),
-            clean_price_bid: None,
-            clean_price_mid: Some(dec!(100)),
-            clean_price_ask: None,
-            accrued_interest: Some(dec!(0.50)),
-            ytm_bid: None,
-            ytm_mid: Some(dec!(0.05)),
-            ytm_ask: None,
-            ytw: None,
-            ytc: None,
-            z_spread_bid: None,
-            z_spread_mid: None,
-            z_spread_ask: None,
-            i_spread_bid: None,
-            i_spread_mid: None,
-            i_spread_ask: None,
-            g_spread_bid: None,
-            g_spread_mid: None,
-            g_spread_ask: None,
-            asw_bid: None,
-            asw_mid: None,
-            asw_ask: None,
-            oas_bid: None,
-            oas_mid: None,
-            oas_ask: None,
-            discount_margin_bid: None,
-            discount_margin_mid: None,
-            discount_margin_ask: None,
-            simple_margin_bid: None,
-            simple_margin_mid: None,
-            simple_margin_ask: None,
-            modified_duration: Some(dec!(5.0)),
-            macaulay_duration: None,
-            effective_duration: None,
-            spread_duration: None,
-            convexity: Some(dec!(30)),
-            effective_convexity: None,
-            dv01: None,
-            pv01: None,
-            key_rate_durations: None,
-            cs01: None,
-            timestamp: 0,
-            pricing_spec: "test".to_string(),
-            source: "test".to_string(),
-            is_stale: false,
-            zero_pv01_signed: None,
-            z_pv01_signed: None,
-            measure_errors: Vec::new(),
-            quality: 100,
-        };
-
-        state.publish_bond_quote(quote.clone());
-
-        // Should receive the quote
-        let update = rx.try_recv().unwrap();
-        match update {
-            BroadcastUpdate::BondQuote(q) => {
-                assert_eq!(q.instrument_id.as_str(), "TEST");
-            }
-            _ => panic!("Wrong update type"),
-        }
     }
 }

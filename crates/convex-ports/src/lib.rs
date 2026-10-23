@@ -18,7 +18,7 @@
 //! - [`reference_data`] — reference terms and issuer, rating and ETF sources
 //! - [`reference_repository`] — atomic versioned reference commits
 //! - [`storage`] — persistence (bonds, curves, configs, overrides, audit)
-//! - [`output`] — output publishing
+//! - [`output`] — calculator output values (quotes, ETF iNAV, portfolio analytics)
 //! - [`config`] — engine / node configuration value types
 //! - [`error`] — the shared [`error::TraitError`]
 

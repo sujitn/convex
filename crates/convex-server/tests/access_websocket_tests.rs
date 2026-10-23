@@ -99,6 +99,11 @@ async fn websocket_aliases_subscription_scopes_delivery_and_quota_release_use_cu
     let mut doc = policy();
     doc.grants[0].quotas.websocket_sessions = 1;
     doc.grants[0].quotas.subscriptions = 1;
+    // A second granted instrument, so the one-topic quota is reachable with an allowed topic.
+    doc.grants[0].resources.insert(
+        ResourceKind::Instrument,
+        vec!["BOND-001".into(), "BOND-003".into()],
+    );
     let access = AccessControl::new(issuer.verifier.clone(), doc.clone()).unwrap();
     let s = support::setup().await;
     let engine = support::make_engine(
@@ -124,9 +129,11 @@ async fn websocket_aliases_subscription_scopes_delivery_and_quota_release_use_cu
     assert_eq!(next(&mut socket).await["type"], "connected");
     socket
         .send(Message::Binary(
-            serde_json::to_vec(&json!({"type":"subscribe_bonds","instrument_ids":["BOND-002"]}))
-                .unwrap()
-                .into(),
+            serde_json::to_vec(
+                &json!({"type":"subscribe_valuations","instrument_ids":["BOND-002"]}),
+            )
+            .unwrap()
+            .into(),
         ))
         .await
         .unwrap();
@@ -139,12 +146,14 @@ async fn websocket_aliases_subscription_scopes_delivery_and_quota_release_use_cu
     }
     socket
         .send(Message::Text(
-            json!({"type":"subscribe_all_bonds"}).to_string().into(),
+            json!({"type":"subscribe_valuations","instrument_ids":["*"]})
+                .to_string()
+                .into(),
         ))
         .await
         .unwrap();
     let error = until(&mut socket, "error").await;
-    assert_eq!(error["code"], "FORBIDDEN");
+    assert_eq!(error["code"], "INVALID_ACCESS_REQUEST");
     socket
         .send(Message::Text(
             json!({"type":"subscribe_valuations","instrument_ids":["BOND-001","BOND-002"]})
@@ -165,7 +174,7 @@ async fn websocket_aliases_subscription_scopes_delivery_and_quota_release_use_cu
     assert_eq!(until(&mut socket, "subscribed").await["count"], 1);
     socket
         .send(Message::Text(
-            json!({"type":"subscribe_bonds","instrument_ids":["BOND-001"]})
+            json!({"type":"subscribe_valuations","instrument_ids":["BOND-003"]})
                 .to_string()
                 .into(),
         ))

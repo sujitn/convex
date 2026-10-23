@@ -225,6 +225,18 @@ Demo HTTP responses, including WebSocket upgrades, carry `x-convex-profile: demo
 
 Router construction uses the engine’s configured reference repository. Provider capability validation occurs on the server startup path. The replay runtime calculates actual fixed-bullet results with per-measure quality and immutable lineage; complete products, live certification and production release gates remain open.
 
+## WebSocket streaming
+
+`/ws` and `/api/v1/ws` stream canonical runtime results and nothing else. Send
+`{"type":"subscribe_valuations","instrument_ids":[...]}` (at most 256 instruments);
+each published result for those instruments arrives as a `valuation` message with
+its `runtime_id`, `revision` and result envelope. Seed the display from
+`GET /api/v1/runtime/results`. After `RESYNC_REQUIRED`, read it again and
+deduplicate by `(runtime_id, revision)`. REST calculators return their results in
+the response and send nothing on the WebSocket. The bond, ETF and portfolio
+subscriptions are retired and refused with `INVALID_MESSAGE`; see the
+[route migration](../../docs/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
+
 ## Migrating existing startup code
 
 ServerConfig::from_env and apply_env_overrides now return Result. ServerConfig::from_file returns ConfigError, and Server::start returns StartupError. Callers must handle errors. Add an explicit demo profile and local_development access for isolated loopback demonstrations; otherwise compose the required verifier and policy. Previously ignored invalid values, unsupported settings and hostnames must be corrected; they no longer fall back silently.
@@ -261,8 +273,8 @@ The response reports what it consumed in `x-convex-reference-version`,
 `x-convex-pricing-config` (`id@version`), `x-convex-curve-versions`
 (`id@version,...`, including dependencies) and `x-convex-known-at`. The
 settlement date defaults to the `known_at` date. `market_price` is required; a
-request without it is `422 MISSING_INPUT`. Only a request without `known_at` is
-broadcast to WebSocket subscribers as a live quote.
+request without it is `422 MISSING_INPUT`. The quote is returned in the response
+only; it is not sent on the WebSocket.
 
 Curve and quote errors share one body, `{"error", "code", "retryable"}`
 (`crate::error::ApiError`); other routes migrate to it over time.

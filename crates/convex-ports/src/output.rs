@@ -1,19 +1,11 @@
-//! Output publishing traits.
+//! Calculator output values: bond quotes, ETF iNAV and portfolio analytics.
 //!
-//! These traits define interfaces for publishing pricing outputs:
-//! - [`QuotePublisher`]: Bond quote output
-//! - [`CurvePublisher`]: Curve output
-//! - [`EtfPublisher`]: ETF NAV/iNAV output
-//! - [`AnalyticsPublisher`]: Portfolio analytics output
-//! - [`AlertPublisher`]: Pricing alerts
-//!
-//! Output publishers can send to WebSocket, gRPC, Kafka, REST, etc.
+//! REST handlers return these values in their responses. They are not published:
+//! the runtime `ResultPublisher` and its results channel are the only output path.
 
-use async_trait::async_trait;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::error::TraitError;
 use convex_core::ids::*;
 use convex_core::{Currency, Date};
 
@@ -249,46 +241,6 @@ pub struct BondMidValues {
     pub ytm: Option<convex_core::contracts::DecimalRate>,
 }
 
-/// Trait for bond quote publishing.
-#[async_trait]
-pub trait QuotePublisher: Send + Sync {
-    /// Publish a single quote.
-    async fn publish(&self, quote: &BondQuoteOutput) -> Result<(), TraitError>;
-
-    /// Publish multiple quotes.
-    async fn publish_batch(&self, quotes: &[BondQuoteOutput]) -> Result<(), TraitError>;
-}
-
-// =============================================================================
-// CURVE OUTPUT
-// =============================================================================
-
-/// Curve output.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurveOutput {
-    /// Curve identifier
-    pub curve_id: CurveId,
-    /// Currency
-    pub currency: Currency,
-    /// As-of date
-    pub as_of_date: Date,
-    /// Curve points (tenor in days, zero rate)
-    pub points: Vec<(u32, Decimal)>,
-    /// Build timestamp
-    pub timestamp: i64,
-    /// Build duration (ms)
-    pub build_duration_ms: u64,
-    /// Source
-    pub source: String,
-}
-
-/// Trait for curve publishing.
-#[async_trait]
-pub trait CurvePublisher: Send + Sync {
-    /// Publish a curve update.
-    async fn publish(&self, curve: &CurveOutput) -> Result<(), TraitError>;
-}
-
 // =============================================================================
 // ETF OUTPUT
 // =============================================================================
@@ -328,16 +280,6 @@ pub struct EtfQuoteOutput {
     pub timestamp: i64,
     /// Is stale
     pub is_stale: bool,
-}
-
-/// Trait for ETF publishing.
-#[async_trait]
-pub trait EtfPublisher: Send + Sync {
-    /// Publish ETF quote.
-    async fn publish(&self, etf: &EtfQuoteOutput) -> Result<(), TraitError>;
-
-    /// Publish multiple ETF quotes.
-    async fn publish_batch(&self, etfs: &[EtfQuoteOutput]) -> Result<(), TraitError>;
 }
 
 // =============================================================================
@@ -399,76 +341,4 @@ pub struct PortfolioAnalyticsOutput {
     /// Latest actual consumed quote timestamp; no calculation clock is invented.
     /// Calculation timestamp
     pub timestamp: i64,
-}
-
-/// Trait for portfolio analytics publishing.
-#[async_trait]
-pub trait AnalyticsPublisher: Send + Sync {
-    /// Publish portfolio analytics.
-    async fn publish(&self, analytics: &PortfolioAnalyticsOutput) -> Result<(), TraitError>;
-}
-
-// =============================================================================
-// ALERTS
-// =============================================================================
-
-/// Alert severity level.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AlertSeverity {
-    /// Informational
-    Info,
-    /// Warning
-    Warning,
-    /// Error
-    Error,
-    /// Critical
-    Critical,
-}
-
-/// Pricing alert.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PricingAlert {
-    /// Alert ID
-    pub alert_id: String,
-    /// Severity
-    pub severity: AlertSeverity,
-    /// Alert type
-    pub alert_type: String,
-    /// Message
-    pub message: String,
-    /// Related instrument (if any)
-    pub instrument_id: Option<InstrumentId>,
-    /// Related curve (if any)
-    pub curve_id: Option<CurveId>,
-    /// Timestamp
-    pub timestamp: i64,
-    /// Additional details (JSON)
-    pub details: Option<String>,
-}
-
-/// Trait for alert publishing.
-#[async_trait]
-pub trait AlertPublisher: Send + Sync {
-    /// Publish an alert.
-    async fn publish(&self, alert: &PricingAlert) -> Result<(), TraitError>;
-}
-
-// =============================================================================
-// COMBINED OUTPUT PUBLISHER
-// =============================================================================
-
-use std::sync::Arc;
-
-/// Combined output publisher.
-pub struct OutputPublisher {
-    /// Quote publisher
-    pub quotes: Arc<dyn QuotePublisher>,
-    /// Curve publisher
-    pub curves: Arc<dyn CurvePublisher>,
-    /// ETF publisher
-    pub etfs: Arc<dyn EtfPublisher>,
-    /// Analytics publisher
-    pub analytics: Arc<dyn AnalyticsPublisher>,
-    /// Alert publisher
-    pub alerts: Arc<dyn AlertPublisher>,
 }

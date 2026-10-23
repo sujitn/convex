@@ -268,11 +268,6 @@ pub async fn get_bond_quote(
         .pricing_router()
         .price(&input)
         .map_err(|e| ApiError::calculation(format!("Pricing failed: {e}")))?;
-    // Retired with REST-triggered WebSocket messages in P3. A historical
-    // cutoff is not a live quote, so it is never broadcast.
-    if query.known_at.is_none() {
-        state.ws_state.publish_bond_quote(quote.clone());
-    }
     let value =
         bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
     let pins: Vec<_> = curves
@@ -454,24 +449,20 @@ pub async fn price_single_bond(
     // Price the bond
     let router = state.engine.pricing_router();
     match router.price(&input) {
-        Ok(quote) => {
-            // Publish to WebSocket subscribers
-            state.ws_state.publish_bond_quote(quote.clone());
-            match bond_quote_json(&quote) {
-                Ok(mut response) => {
-                    if !curve_versions.is_empty() {
-                        response["curve_versions"] = serde_json::json!(curve_versions);
-                    }
-                    (StatusCode::OK, Json(response))
+        Ok(quote) => match bond_quote_json(&quote) {
+            Ok(mut response) => {
+                if !curve_versions.is_empty() {
+                    response["curve_versions"] = serde_json::json!(curve_versions);
                 }
-                Err(_) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(
-                        serde_json::json!({"code":"UNAVAILABLE","error":"quote serialization failed"}),
-                    ),
-                ),
+                (StatusCode::OK, Json(response))
             }
-        }
+            Err(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    serde_json::json!({"code":"UNAVAILABLE","error":"quote serialization failed"}),
+                ),
+            ),
+        },
         Err(e) => (
             StatusCode::UNPROCESSABLE_ENTITY,
             Json(serde_json::json!({
@@ -638,11 +629,7 @@ pub async fn batch_price(
 
     for (result, instrument_id) in results.into_iter().zip(instrument_ids) {
         match result {
-            Ok(quote) => {
-                // Publish to WebSocket subscribers
-                state.ws_state.publish_bond_quote(quote.clone());
-                quotes.push(quote);
-            }
+            Ok(quote) => quotes.push(quote),
             Err(e) => errors.push(PricingError {
                 instrument_id,
                 error: e.to_string(),
@@ -791,11 +778,7 @@ pub async fn calculate_inav(
     let etf_pricer = state.engine.etf_pricer();
 
     match etf_pricer.calculate_inav(&holdings, &request.bond_prices, settlement_date) {
-        Ok(output) => {
-            // Publish to WebSocket subscribers
-            state.ws_state.publish_etf_quote(output.clone());
-            (StatusCode::OK, Json(serde_json::json!(output)))
-        }
+        Ok(output) => (StatusCode::OK, Json(serde_json::json!(output))),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
@@ -893,11 +876,7 @@ pub async fn batch_calculate_inav(
 
     for (i, result) in results.into_iter().enumerate() {
         match result {
-            Ok(output) => {
-                // Publish to WebSocket subscribers
-                state.ws_state.publish_etf_quote(output.clone());
-                outputs.push(output);
-            }
+            Ok(output) => outputs.push(output),
             Err(e) => errors.push(EtfInavError {
                 etf_id: holdings_list
                     .get(i)
@@ -1007,7 +986,6 @@ pub async fn calculate_portfolio_analytics(
     let portfolio = portfolio_result(convert_portfolio_input(&portfolio))?;
     let analyzer = state.engine.portfolio_analyzer();
     let output = portfolio_result(analyzer.calculate(&portfolio, &bond_prices))?;
-    state.ws_state.publish_portfolio_analytics(output.clone());
     Ok((StatusCode::OK, Json(output)))
 }
 
@@ -1066,7 +1044,6 @@ pub async fn batch_calculate_portfolio_analytics(
         });
         match result {
             Ok(output) => {
-                state.ws_state.publish_portfolio_analytics(output.clone());
                 outcomes.push(PortfolioAnalyticsOutcome::Success {
                     input_index,
                     portfolio_id: input.portfolio_id.clone(),

@@ -971,3 +971,37 @@ fractions. Tenor-based forward inputs retain their original meaning.
 This change does not qualify the remaining nominal inverse, credit integration,
 compounding or wider convention/model/host requirements. The existing checked
 `BuiltCurve::tenor_to_date` remains the precise inverse with explicit rounding.
+
+## REST-triggered WebSocket messages removed
+
+REST calculators no longer broadcast their results. `POST /api/v1/quote`,
+`GET /api/v1/quotes/:instrument_id`, `POST /api/v1/batch/price`,
+`POST /api/v1/etf/inav`, `POST /api/v1/etf/inav/batch`,
+`POST /api/v1/portfolio/analytics` and `POST /api/v1/portfolio/analytics/batch`
+return their results in the response only.
+
+The WebSocket client messages `subscribe_bonds`, `unsubscribe_bonds`,
+`subscribe_all_bonds`, `unsubscribe_all_bonds`, `subscribe_etfs`,
+`unsubscribe_etfs`, `subscribe_portfolios` and `unsubscribe_portfolios` are removed.
+So are the server messages `bond_quote`, `etf_quote`, `portfolio_analytics`,
+`node_recalculated` and `curve_updated`. A removed client message is refused with an
+`error` message, code `INVALID_MESSAGE`. Nothing but a unit test produced
+`node_recalculated` or `curve_updated`, and `publish_node_update` is removed with them.
+
+The runtime results channel is the only WebSocket source. Subscribe with
+`subscribe_valuations`, seed from `GET /api/v1/runtime/results`, and after
+`RESYNC_REQUIRED` read it again and deduplicate by `(runtime_id, revision)`.
+ETF iNAV and portfolio analytics have no streamed equivalent until they are
+runtime results; call the REST endpoints instead.
+
+`convex_ports::output` keeps the `BondQuoteOutput`, `BondMidValues`,
+`EtfQuoteOutput` and `PortfolioAnalyticsOutput` values. Its unused publisher traits
+(`QuotePublisher`, `CurvePublisher`, `EtfPublisher`, `AnalyticsPublisher`,
+`AlertPublisher`, `OutputPublisher`) and the `CurveOutput`, `PricingAlert` and
+`AlertSeverity` values are removed, as are `convex_ext_file::create_empty_output`
+and its `Empty*Publisher` types. Publish runtime results through
+`convex_ports::runtime::ResultPublisher`.
+
+The demo streaming panel now shows runtime valuations. The ETF streaming panel and
+the streaming simulation controls are removed; they relied on demo quote and data
+provider services that are no longer in the repository.

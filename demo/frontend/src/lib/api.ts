@@ -2,9 +2,8 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const DATA_PROVIDER_BASE = import.meta.env.VITE_DATA_PROVIDER_URL || API_BASE;
-const QUOTE_PROVIDER_BASE = import.meta.env.VITE_QUOTE_PROVIDER_URL || API_BASE;
 
-class ConvexApiError extends Error {
+export class ConvexApiError extends Error {
   constructor(
     message: string,
     public status: number,
@@ -484,59 +483,82 @@ export async function calculateKeyRateDuration(
   });
 }
 
-// WebSocket connection
-export function createWebSocket(
-  onMessage: (msg: unknown) => void,
-  onOpen?: () => void,
-  onClose?: () => void,
-  onError?: (error: Event) => void
-) {
-  const wsUrl = import.meta.env.VITE_WS_URL ||
-    `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
+// =============================================================================
+// RUNTIME RESULTS
+// Canonical results published by the pricing runtime. GET /api/v1/runtime/results
+// and the WebSocket `valuation` message carry the same record.
+// =============================================================================
 
-  const ws = new WebSocket(wsUrl);
+// Runtime lifecycle and data condition (GET /api/v1/runtime)
+export interface RuntimeHealth {
+  phase: 'new' | 'starting' | 'ready' | 'degraded' | 'draining' | 'stopped' | 'failed' | 'demo';
+  ready: boolean;
+  mode: string | null;
+  quality: string;
+  generation: number;
+  revision: number;
+  failure: string | null;
+}
 
-  ws.onopen = () => {
-    console.log('WebSocket connected');
-    onOpen?.();
+// A measure value; the unit names its representation. Exact decimals arrive as
+// strings and model values as numbers.
+export interface MeasureValue {
+  value: number | string;
+  unit: string;
+}
+
+export interface MeasureResult {
+  value: MeasureValue;
+  quality: string;
+  method: string;
+  source_observation_id: string | null;
+}
+
+export interface StructuredError {
+  code: string;
+  field: string | null;
+  message: string;
+  retryable: boolean;
+}
+
+export type ValuationSubject =
+  | { kind: 'instrument_version'; instrument_id: string; version: number }
+  | { kind: 'trade_version'; trade_id: string; version: number };
+
+export interface ResultEnvelope {
+  status: 'Complete' | 'Partial' | 'Failed';
+  quality: string;
+  snapshot_id: string;
+  configuration_version: number;
+  results: Record<string, MeasureResult>;
+  errors: StructuredError[];
+  provenance: {
+    subject: ValuationSubject;
+    valuation_time: string;
+    known_at: string;
+    calculated_at: string;
+    model_version: string;
   };
+}
 
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      onMessage(data);
-    } catch (e) {
-      console.error('Failed to parse WebSocket message:', e);
-    }
-  };
+// One published result; (runtime_id, revision) is its delivery key.
+export interface PublishedValuation {
+  runtime_id: string;
+  revision: number;
+  generation: number;
+  context_key: string;
+  live_valid_until?: string;
+  result: ResultEnvelope;
+  last_good: ResultEnvelope | null;
+  retained_quality: string | null;
+}
 
-  ws.onclose = () => {
-    console.log('WebSocket disconnected');
-    onClose?.();
-  };
+export async function getRuntimeHealth() {
+  return fetchJson<RuntimeHealth>('/api/v1/runtime');
+}
 
-  ws.onerror = (error) => {
-    console.error('WebSocket error:', error);
-    onError?.(error);
-  };
-
-  return {
-    subscribe: (channel: string, instrumentIds?: string[]) => {
-      ws.send(JSON.stringify({
-        type: 'subscribe',
-        channel,
-        instrument_ids: instrumentIds,
-      }));
-    },
-    unsubscribe: (channel: string) => {
-      ws.send(JSON.stringify({
-        type: 'unsubscribe',
-        channel,
-      }));
-    },
-    close: () => ws.close(),
-    ws,
-  };
+export async function getRuntimeResults() {
+  return fetchJson<PublishedValuation[]>('/api/v1/runtime/results');
 }
 
 // =============================================================================
@@ -771,170 +793,6 @@ export async function fetchArbitrage(ticker: string, marketPrice?: number): Prom
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch arbitrage: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-// =============================================================================
-// QUOTE PROVIDER API
-// Controls the synthetic quote generator for streaming demos
-// =============================================================================
-
-// Quote provider status
-export interface QuoteProviderStatus {
-  running: boolean;
-  tickCount: number;
-  instrumentCount: number;
-  config?: {
-    interval_ms: number;
-    volatility: 'low' | 'medium' | 'high';
-    mode: 'static' | 'random_walk' | 'mean_revert' | 'stress';
-  };
-  lastTick?: string;
-  instruments?: string[];
-}
-
-// Quote state from provider
-export interface QuoteState {
-  instrument_id: string;
-  bid: number;
-  mid: number;
-  ask: number;
-  yield: number;
-  last_update: string;
-}
-
-// Start simulation config
-export interface SimulationConfig {
-  interval_ms?: number;
-  volatility?: 'low' | 'medium' | 'high';
-  mode?: 'static' | 'random_walk' | 'mean_revert' | 'stress';
-  force?: boolean; // Force restart if already running
-}
-
-// Start response
-export interface StartSimulationResponse {
-  status: string;
-  config: {
-    instruments: unknown[];
-    interval_ms: number;
-    volatility: string;
-    mode: string;
-  };
-  instruments: number;
-  initial_quotes: QuoteState[];
-}
-
-// Tick response
-export interface TickResponse {
-  tick: number;
-  timestamp: string;
-  results: Array<{
-    instrument_id: string;
-    quote: QuoteState;
-    response?: unknown;
-  }>;
-}
-
-// Stress response
-export interface StressResponse {
-  scenario_applied: string;
-  timestamp: string;
-  new_quotes: QuoteState[];
-}
-
-/**
- * Get quote provider status
- */
-export async function getQuoteProviderStatus(): Promise<QuoteProviderStatus> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/status`);
-  if (!response.ok) {
-    throw new Error(`Failed to get quote provider status: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Start the quote simulation
- */
-export async function startQuoteSimulation(config?: SimulationConfig): Promise<StartSimulationResponse> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(config || {}),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `Failed to start simulation: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Stop the quote simulation
- */
-export async function stopQuoteSimulation(): Promise<{ status: string; total_ticks: number }> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/stop`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to stop simulation: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Get current quotes from the quote provider
- */
-export async function getQuoteProviderQuotes(): Promise<{ count: number; timestamp: string; quotes: QuoteState[] }> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/quotes`);
-  if (!response.ok) {
-    throw new Error(`Failed to get quotes: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Trigger a single tick (for manual control)
- */
-export async function triggerQuoteTick(): Promise<TickResponse> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/tick`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `Failed to trigger tick: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Apply a stress scenario
- */
-export async function applyStressScenario(
-  scenario: 'rates_up_100bp' | 'rates_down_100bp' | 'spreads_wide_50bp' | 'spreads_tight_50bp' | 'flight_to_quality' | 'risk_on'
-): Promise<StressResponse> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/stress`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scenario }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `Failed to apply stress: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Refresh curves in the quote provider
- */
-export async function refreshQuoteProviderCurves(): Promise<{ status: string; curves_loaded: number }> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/refresh-curves`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to refresh curves: ${response.statusText}`);
   }
   return response.json();
 }

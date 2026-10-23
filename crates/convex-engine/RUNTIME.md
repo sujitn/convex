@@ -185,8 +185,9 @@ capacity is HTTP 429. This additive endpoint does not replace the planned v2 API
 
 WebSocket clients explicitly opt in with
 `{"type":"subscribe_valuations","instrument_ids":["BOND-001"]}`. A `valuation`
-message carries the canonical record and durable delivery key. Existing bond/ETF/
-portfolio message contracts remain compatible. Lag returns `RESYNC_REQUIRED`;
+message carries the canonical record and durable delivery key. It is the only
+WebSocket data message: REST calculators do not broadcast, and the bond, ETF and
+portfolio subscriptions are retired. Lag returns `RESYNC_REQUIRED`;
 read current results and deduplicate by delivery key. The display channel is
 transient; it does not guarantee durable catch-up. Joined shutdown closes sessions.
 
@@ -280,8 +281,8 @@ unchanged published state. macOS test sandboxes may require temporary loopback a
 Remove `ReactiveEngine`, its builder/factory, `process_dirty_nodes` and the unused
 engine `with_output` bulk-publisher dependency. Use `with_runtime`, `start`,
 `submit_update`, canonical result subscription and awaited `shutdown`.
-`publish_node_update` replaces the old unjoined WebSocket bridge for explicit graph
-notifications. Standalone scheduler/listener utilities are outside this lifecycle;
+Graph notifications are not streamed; the WebSocket carries runtime results only.
+Standalone scheduler/listener utilities are outside this lifecycle;
 the runtime does not start their tasks or support additional timer policies.
 
 Pricing mathematics, units, numerical tolerances and existing DTOs are unchanged.
