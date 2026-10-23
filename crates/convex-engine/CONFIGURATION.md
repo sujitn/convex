@@ -144,7 +144,10 @@ At the cutoff, compile:
 
 Validation still needs explicit numerical fixtures. The document is checked against
 the capabilities the server composes for its mode: a live document needs the
-`display-only` result transport and a `live_images` provider.
+`display-only` result transport and a `live_images` provider. Fixture inputs and
+results must be `Valid`. `convex-config --demo DB ...` checks against the demo
+profile's composition instead, which also accepts `Demo` quality, the label of
+synthetic demonstration data.
 
 A staged version is immutable. To change the universe, store a new pricing
 configuration version first, then compile, stage and activate again with the

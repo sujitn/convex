@@ -231,9 +231,17 @@ cargo run --locked -p convex-server
 
 A new Live checkpoint starts at the current time, after the plan cutoff and the
 activation that selected it. Live cutoffs never move backwards: if the wall clock
-steps back, ticks are valued at the last cutoff until the clock catches up. Pinned curve recipes age from their recording time:
-once a recipe passes its `max_age_ms` (at most one day), valuations report the curve
-as stale until a configuration with fresh recipes is compiled and activated.
+steps back, ticks are valued at the last cutoff until the clock catches up. Pinned
+curve recipes age from their recording time: once a recipe passes its `max_age_ms`
+(at most one day), valuations report the curve as stale until a configuration with
+fresh recipes is compiled and activated.
+
+The `demo` profile can also run a stored configuration live with
+`CONVEX_CONFIGURATION_ID`. Its composition is an explicit demonstration: every
+response and WebSocket message is labelled demo, so inputs of `Demo` quality are
+valued, results keep `Demo` quality, and readiness accepts them. Every other
+composition values and serves only `Valid` inputs. The showcase container runs this
+way ([deploy/showcase](../../deploy/showcase/README.md)).
 
 `POST /api/v1/market/quotes` takes `{"events": [QuoteEvent, ...]}` with 1 to 256
 canonical events. The server replaces each event's `receive_time_ms` with its own

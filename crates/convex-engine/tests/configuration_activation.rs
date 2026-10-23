@@ -547,6 +547,7 @@ async fn committed_unknown_outcomes_reconcile_once_uncommitted_failure_and_false
             shared_writers: false,
             result_transport: document.process.result_transport,
             providers: document.providers,
+            demo: false,
         },
     );
     fault.unknown_stage.store(true, Ordering::SeqCst);
@@ -643,6 +644,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
             shared_writers: false,
             result_transport: doc.process.result_transport.clone(),
             providers: doc.providers.clone(),
+            demo: false,
         },
     ));
     service.stage(&first, &fixture_cases).await.unwrap();

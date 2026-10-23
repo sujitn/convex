@@ -372,10 +372,13 @@ impl RuntimeController {
                 let result =
                     crate::snapshot::SnapshotValuator::new(context.spec().build_id.clone(), 1)
                         .and_then(|valuator| {
-                            worker::value(&valuator, &snapshot, &context, request, calculated)
-                                .map_err(|_| {
-                                    TraitError::InvalidInput("invalid supplied runtime context")
-                                })
+                            // A supplied context is valued only on Valid inputs.
+                            worker::value(
+                                &valuator, &snapshot, &context, request, calculated, false,
+                            )
+                            .map_err(|_| {
+                                TraitError::InvalidInput("invalid supplied runtime context")
+                            })
                         });
                 // A canceled HTTP request abandons its reply, not ownership of the bounded CPU job.
                 let _ = completed.send(result);

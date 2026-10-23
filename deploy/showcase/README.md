@@ -3,14 +3,16 @@
 The root `Dockerfile` builds one image (app `convex-pricing-api`) that runs, under `tini`:
 
 - `convex-server` on `127.0.0.1:8081` (config: `server.toml`, profile `demo`,
-  access `local_development`, loopback only, no authentication).
+  access `local_development`, loopback only, no authentication). It runs the
+  stored `SHOWCASE-USD` configuration live.
 - Caddy on public `:8080` (`Caddyfile`), reverse-proxying to the server.
+- A synthetic quote feed (`live.sh feed`) posting to the server on loopback.
 
 `entrypoint.sh` deletes any old redb state, imports `seed.json` with
-`convex-core-inputs`, then starts the server and Caddy. If either process dies,
-the entrypoint exits non-zero and Fly's restart policy replaces the container.
-The `/health` check only takes a failing machine out of routing; it does not
-restart it.
+`convex-core-inputs`, and activates the live configuration (see below). It then
+starts the server, Caddy and the feed. If any of them dies, the entrypoint exits
+non-zero and Fly's restart policy replaces the container. The `/health` check only
+takes a failing machine out of routing; it does not restart it.
 
 ## Public policy (Caddy is the only write guard)
 
@@ -59,7 +61,28 @@ preview URLs (`https://<hash>.convex-demo.pages.dev`) will not pass; add them to
 
     docker build -t convex-showcase . && docker run -p 8080:8080 convex-showcase
 
-## Not yet available
+## Live demo
 
-The live-quote demo feed arrives with phase P2 (HTTP quote ingress); until then
-the showcase serves seeded reference data and stateless calculators only.
+At each boot, before the server opens the database, `live.sh activate`:
+
+1. imports `boot.template.json` with `@NOW@` set to the boot time. That records
+   `SHOWCASE-BOOK`, holding the seeded bond, and version 2 of `D.OIS` and
+   `P.SOFR`: the same synthetic recipes, still quality `Demo`, fresh for one day;
+2. compiles `SHOWCASE-USD` from the book at the boot time, with settlement today,
+   or on Monday at a weekend;
+3. validates, stages and activates it with `convex-config --demo`. The fixture is
+   exact: under the mid market-quote model the clean mid is the quoted mid.
+
+The feed then posts an `indicative` mid image for the bond once a second, a bounded
+random walk around 99.5. Live results carry quality `Demo`, and every response
+carries `x-convex-data-quality: demo`. Read them with `GET /api/v1/runtime` and
+`GET /api/v1/runtime/results`; `POST /api/v1/market/quotes` stays private.
+
+The boot-time curves are fresh for one day. After 23 hours the entrypoint stops
+cleanly (exit 0), and the next request starts the machine again
+(`auto_start_machines`), which reseeds and restamps. Idle machines already stop
+(`min_machines_running = 0`) and reseed on the next request.
+
+Regenerate `boot.template.json` with `make_seed.py`, alongside `seed.json`.
+`application_path::demo_profile_runs_the_showcase_configuration_live_on_labelled_demo_data`
+runs `live.sh activate` against the real binaries.

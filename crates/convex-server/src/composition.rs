@@ -186,9 +186,10 @@ async fn active_plan(
 }
 
 /// A plan runs only in its profile's mode and under this executable's build identity.
+/// The demo profile runs a stored configuration live, on labelled demonstration data.
 fn checked(config: &ServerConfig, plan: RuntimePlan) -> Result<RuntimePlan, StartupError> {
     let mode = match config.profile {
-        ServerProfile::Live => RuntimeMode::Live,
+        ServerProfile::Live | ServerProfile::Demo => RuntimeMode::Live,
         _ => RuntimeMode::Replay,
     };
     if plan.mode != mode || plan.build_id.as_str() != crate::SERVER_BUILD_ID {
@@ -229,18 +230,21 @@ async fn with_runtime(
         .map(|q| convex_core::contracts::SourceId::new(&q.key.source))
         .collect::<Result<Vec<_>, _>>()
         .map_err(stage("runtime_plan_sources"))?;
-    let capabilities = if live {
+    let mut capabilities = if live {
         crate::configuration_admin::local_live_capabilities(sources)
     } else {
         crate::configuration_admin::local_replay_capabilities(sources)
-    };
+    }
+    .map_err(stage("configuration_capabilities"))?;
+    // Every demo-profile output is labelled demo, so Demo-quality inputs may be valued.
+    capabilities.demo = config.profile == ServerProfile::Demo;
     let cases = Arc::new(convex_engine::configuration::ConfigurationUseCases::new(
         storage.configuration.clone(),
         storage.bonds.clone(),
         storage.configs.clone(),
         fixings.clone(),
         snapshots.clone(),
-        capabilities.map_err(stage("configuration_capabilities"))?,
+        capabilities,
     ));
     let mut builder = builder;
     if let Some(active) = cases

@@ -493,6 +493,7 @@ impl Actor {
             snapshot.clone(),
             &self.checkpoint,
             self.concurrency,
+            self.demo(),
         )
         .await?;
         let mut next = self.checkpoint.clone();
@@ -527,7 +528,7 @@ impl Actor {
     }
     fn set_deadline(&mut self, snapshot: &MarketSnapshot) -> Result<(), RuntimeError> {
         self.data_deadline = if self.services.plan.mode == RuntimeMode::Live
-            && snapshot.quality().quality == DataQuality::Valid
+            && self.accepts(snapshot.quality().quality)
         {
             worker::expiry(snapshot)?.map(|deadline| {
                 let delta = deadline
@@ -593,6 +594,15 @@ impl Actor {
         self.refresh_health();
         self.flush_outbox().await
     }
+    /// An explicit demonstration composition values and serves Demo-quality inputs.
+    fn demo(&self) -> bool {
+        self.configurations
+            .as_ref()
+            .is_some_and(|cases| cases.accepts(DataQuality::Demo))
+    }
+    fn accepts(&self, quality: DataQuality) -> bool {
+        worker::accepted(quality, self.demo())
+    }
     fn refresh_health(&self) {
         let expired = self
             .data_deadline
@@ -600,11 +610,12 @@ impl Actor {
         let quality = if expired {
             DataQuality::Stale
         } else {
-            self.checkpoint
-                .results
-                .iter()
-                .map(|r| r.result.quality())
-                .find(|q| *q != DataQuality::Valid)
+            // The first refused quality, else Demo if any accepted result is Demo.
+            let qualities = self.checkpoint.results.iter().map(|r| r.result.quality());
+            qualities
+                .clone()
+                .find(|q| !self.accepts(*q))
+                .or_else(|| qualities.clone().find(|q| *q == DataQuality::Demo))
                 .unwrap_or(DataQuality::Valid)
         };
         let complete = !self.checkpoint.results.is_empty()
@@ -620,7 +631,7 @@ impl Actor {
             .as_ref()
             .map(|a| a.revision);
         let ready = complete
-            && quality == DataQuality::Valid
+            && self.accepts(quality)
             && !self.checkpoint.delivery_lost
             && self.needs_images.is_empty()
             && self.checkpoint.outbox.is_empty()

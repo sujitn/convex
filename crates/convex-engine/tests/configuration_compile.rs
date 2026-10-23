@@ -134,6 +134,7 @@ fn capabilities(source: &str) -> ConfigurationCapabilities {
             ],
             credential: None,
         }],
+        demo: false,
     }
 }
 
