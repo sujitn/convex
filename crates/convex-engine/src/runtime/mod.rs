@@ -160,6 +160,9 @@ pub struct RuntimeServices {
     /// Owned input path.
     pub input: RuntimeInput,
 }
+/// Setup refusal when no plan measure is published by an instrument's own model.
+pub(crate) const NO_APPLICABLE_MEASURE: &str =
+    "no requested measure applies to this instrument's product";
 /// Lifecycle failure classes contain no provider credentials or raw records.
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum RuntimeError {

@@ -180,6 +180,27 @@ async fn callables_without_a_model_assumption_or_with_american_calls_publish_the
 }
 
 #[tokio::test]
+async fn configuration_validation_reports_a_callable_no_requested_measure_applies_to() {
+    let setup = callable_setup(CallStyle::Bermudan, true).await;
+    let mut document = configuration::fixture::document(1);
+    document.assembly.instruments[0].version = fixture::version(2);
+    document.runtime.measures = vec![MeasureId::new("ytm_mid").unwrap()];
+    let report = configuration::cases(&setup)
+        .validate(&document, &configuration::fixtures(&setup))
+        .await
+        .unwrap();
+    assert!(!report.valid);
+    assert!(
+        report
+            .issues
+            .iter()
+            .any(|i| i.code == "NO_APPLICABLE_MEASURE"),
+        "{:?}",
+        report.issues
+    );
+}
+
+#[tokio::test]
 async fn plans_accept_oas_and_still_refuse_measures_no_model_publishes() {
     let setup = callable_setup(CallStyle::Bermudan, true).await;
     setup.plan.validate().unwrap();

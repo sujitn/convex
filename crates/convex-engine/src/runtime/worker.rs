@@ -1,5 +1,5 @@
 //! Frozen-input CPU work and checked graph commit. No repository/provider reads in workers.
-use super::{RuntimeError, RuntimePlan};
+use super::{RuntimeError, RuntimePlan, NO_APPLICABLE_MEASURE};
 use crate::{
     context::*,
     optional_valuation::{product_measures, product_model},
@@ -46,9 +46,7 @@ pub(super) fn context(
         .cloned()
         .collect();
     if measures.is_empty() {
-        return Err(RuntimeError::Configuration(
-            "no requested measure applies to this instrument's product",
-        ));
+        return Err(RuntimeError::Configuration(NO_APPLICABLE_MEASURE));
     }
     let context = ValuationContext::new(ValuationContextSpec {
         snapshot_id: snapshot.id().clone(),
