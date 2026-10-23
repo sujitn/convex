@@ -3,8 +3,6 @@
 use std::sync::Arc;
 
 use crate::ports::config::EngineConfig;
-use crate::ports::market_data::MarketDataProvider;
-use crate::ports::reference_data::ReferenceDataProvider;
 use crate::ports::storage::StorageAdapter;
 
 use crate::error::EngineError;
@@ -13,8 +11,6 @@ use crate::PricingEngine;
 /// Builder for constructing a [`PricingEngine`].
 pub struct PricingEngineBuilder {
     config: Option<EngineConfig>,
-    market_data: Option<Arc<MarketDataProvider>>,
-    reference_data: Option<Arc<ReferenceDataProvider>>,
     storage: Option<Arc<StorageAdapter>>,
     runtime: Option<crate::runtime::RuntimeServices>,
     configurations: Option<Arc<crate::configuration::ConfigurationUseCases>>,
@@ -26,8 +22,6 @@ impl PricingEngineBuilder {
     pub fn new() -> Self {
         Self {
             config: None,
-            market_data: None,
-            reference_data: None,
             storage: None,
             runtime: None,
             configurations: None,
@@ -38,18 +32,6 @@ impl PricingEngineBuilder {
     /// Set the engine configuration.
     pub fn with_config(mut self, config: EngineConfig) -> Self {
         self.config = Some(config);
-        self
-    }
-
-    /// Set the market data provider.
-    pub fn with_market_data(mut self, provider: Arc<MarketDataProvider>) -> Self {
-        self.market_data = Some(provider);
-        self
-    }
-
-    /// Set the reference data provider.
-    pub fn with_reference_data(mut self, provider: Arc<ReferenceDataProvider>) -> Self {
-        self.reference_data = Some(provider);
         self
     }
 
@@ -84,14 +66,6 @@ impl PricingEngineBuilder {
     pub fn build(self) -> Result<PricingEngine, EngineError> {
         let config = self.config.unwrap_or_default();
 
-        let market_data = self
-            .market_data
-            .ok_or_else(|| EngineError::ConfigError("market_data not configured".into()))?;
-
-        let reference_data = self
-            .reference_data
-            .ok_or_else(|| EngineError::ConfigError("reference_data not configured".into()))?;
-
         let storage = self
             .storage
             .ok_or_else(|| EngineError::ConfigError("storage not configured".into()))?;
@@ -109,7 +83,7 @@ impl PricingEngineBuilder {
                 "max_concurrent_calcs requires 1..=64".into(),
             ));
         }
-        let mut engine = PricingEngine::new(config, market_data, reference_data, storage);
+        let mut engine = PricingEngine::new(config, storage);
         engine.configurations = self.configurations;
         engine.runtime = crate::runtime::RuntimeController::new(
             self.runtime,

@@ -1,6 +1,6 @@
 # Convex access control and readiness
 
-Convex checks authentication, current role and resource grants, and quotas before dispatching protected requests. Every router constructor defaults to denied access. The executable resolves its identity integration and access policy before opening application storage. This is the R0 access boundary for local replay and development; production still refuses the uncertified live provider composition, and strategy readiness stays false.
+Convex checks authentication, current role and resource grants, and quotas before dispatching protected requests. Every router constructor defaults to denied access. The executable resolves its identity integration and access policy before opening application storage. This is the R0 access boundary. The production profile requires it: `access.mode = "required"` with a policy file and introspection, behind `tls_boundary = "proxy"`. Strategy readiness stays false.
 
 ## Start an authenticated replay server
 

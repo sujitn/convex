@@ -724,8 +724,6 @@ dependencies = [
  "async-trait",
  "convex-core",
  "convex-ports",
- "csv",
- "rust_decimal",
  "serde",
  "serde_json",
  "tempfile",

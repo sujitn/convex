@@ -455,11 +455,9 @@ async fn concurrent_start_has_one_owner_and_shutdown_is_idempotent() {
     assert!(engine.start().await.is_err());
 }
 #[tokio::test]
-async fn empty_providers_need_explicit_demo_and_demo_is_never_ready() {
+async fn an_engine_without_a_runtime_needs_explicit_demo_and_is_never_ready() {
     let s = setup().await;
     let engine = PricingEngineBuilder::new()
-        .with_market_data(market_data())
-        .with_reference_data(Arc::new(create_empty_reference_data()))
         .with_storage(s.storage.clone())
         .build()
         .unwrap();
@@ -467,8 +465,6 @@ async fn empty_providers_need_explicit_demo_and_demo_is_never_ready() {
     assert!(!engine.runtime_health().ready);
     engine.shutdown().await.unwrap();
     let demo = PricingEngineBuilder::new()
-        .with_market_data(market_data())
-        .with_reference_data(Arc::new(create_empty_reference_data()))
         .with_storage(s.storage.clone())
         .with_demo_mode()
         .build()
@@ -619,11 +615,7 @@ async fn live_subscription_requires_new_image_expires_without_polling_and_closur
         plan.assembly.curves[0].recorded_at = now;
         plan.assembly.curves[0].max_age_ms = 5000;
         plan.assembly.quotes[0].max_age_ms = 500;
-        let mut market = market_data();
-        Arc::get_mut(&mut market).unwrap().quotes = source.clone();
         let engine = PricingEngineBuilder::new()
-            .with_market_data(market)
-            .with_reference_data(Arc::new(create_empty_reference_data()))
             .with_storage(s.storage.clone())
             .with_runtime(RuntimeServices {
                 plan,
@@ -631,7 +623,7 @@ async fn live_subscription_requires_new_image_expires_without_polling_and_closur
                 fixings: Arc::new(JsonFixingRepository::empty()),
                 store: s.store.clone(),
                 publisher: archive(&s),
-                input: RuntimeInput::Live,
+                input: RuntimeInput::Live(source.clone()),
             })
             .build()
             .unwrap();
@@ -701,11 +693,7 @@ fn live_engine(
     store: Arc<dyn RuntimeStore>,
     source: Arc<SubscriptionSource>,
 ) -> PricingEngine {
-    let mut market = market_data();
-    Arc::get_mut(&mut market).unwrap().quotes = source;
     PricingEngineBuilder::new()
-        .with_market_data(market)
-        .with_reference_data(Arc::new(create_empty_reference_data()))
         .with_storage(s.storage.clone())
         .with_runtime(RuntimeServices {
             plan,
@@ -713,7 +701,7 @@ fn live_engine(
             fixings: Arc::new(JsonFixingRepository::empty()),
             store,
             publisher: archive(s),
-            input: RuntimeInput::Live,
+            input: RuntimeInput::Live(source),
         })
         .build()
         .unwrap()

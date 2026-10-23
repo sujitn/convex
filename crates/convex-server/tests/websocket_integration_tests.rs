@@ -18,14 +18,7 @@ use tokio::time::timeout;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 use convex_engine::ports::config::EngineConfig;
-use convex_engine::ports::market_data::MarketDataProvider;
-use convex_engine::ports::reference_data::ReferenceDataProvider;
 use convex_engine::PricingEngineBuilder;
-use convex_ext_file::{
-    EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource, EmptyFxRateSource,
-    EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
-    EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
-};
 fn create_router(engine: Arc<convex_engine::PricingEngine>) -> axum::Router {
     convex_server::routes::create_router_with_access(
         engine,
@@ -66,28 +59,10 @@ async fn complete_batch_reference(request: &mut Value, engine: &convex_engine::P
 
 /// Create a test engine with empty providers.
 fn create_test_engine() -> Arc<convex_engine::PricingEngine> {
-    let market_data = MarketDataProvider {
-        quotes: Arc::new(EmptyQuoteSource),
-        curve_inputs: Arc::new(EmptyCurveInputSource),
-        index_fixings: Arc::new(EmptyIndexFixingSource),
-        volatility: Arc::new(EmptyVolatilitySource),
-        fx_rates: Arc::new(EmptyFxRateSource),
-        inflation_fixings: Arc::new(EmptyInflationFixingSource),
-        etf_quotes: Arc::new(EmptyEtfQuoteSource),
-    };
-
-    let reference_data = ReferenceDataProvider {
-        issuers: Arc::new(EmptyIssuerReferenceSource),
-        ratings: Arc::new(EmptyRatingSource),
-        etf_holdings: Arc::new(EmptyEtfHoldingsSource),
-    };
-
     let storage = convex_ext_redb::create_test_storage().expect("Failed to create memory storage");
 
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
-        .with_market_data(Arc::new(market_data))
-        .with_reference_data(Arc::new(reference_data))
         .with_storage(Arc::new(storage))
         .build()
         .expect("Failed to build engine");

@@ -4,7 +4,7 @@ The [issuer-default workflow](../../tools/ISSUER-EVENTS.md) reuses this server's
 reference, curve, fixing, snapshot and result ports for bonds/CDS, risk, hedges
 and P&L, including atomic book updates and restart recovery.
 
-The server supports an explicit demo profile and loopback-only historical replay with an immutable plan and canonical quote file. Production is the default and fails before opening storage because production provider composition is not certified. Demo responses contain demonstration inputs; they do not establish production readiness. The [runtime guide](../convex-engine/RUNTIME.md) covers replay, readiness, canonical results and joined recovery.
+The server supports an explicit demo profile and loopback-only historical replay with an immutable plan and canonical quote file. Production is the default. It runs the Live runtime of a stored activated configuration, and starts only with required access (policy file and introspection) behind the `proxy` TLS boundary; otherwise it names the first missing setting and fails before opening storage. Live valuations stay display-only; official durable results are core-workflow snapshot runs. Demo responses contain demonstration inputs; they do not establish production readiness. The [runtime guide](../convex-engine/RUNTIME.md) covers replay, readiness, canonical results and joined recovery.
 
 Authentication defaults to required verification. The [access guide](ACCESS.md) documents authenticated replay, exact role/book/data grants, identity/secret rotation, TLS proxy boundaries, quotas and distinct health states. For a local demonstration, run from the repository root:
 
@@ -91,8 +91,8 @@ identity and request quotas also apply. Only the isolated demo command selects
 `local_development` access.
 
 This extends the supplied-input HTTP workflow. The managed replay runtime still
-has its documented fixed-bullet scope, and the production executable still
-requires a completed provider composition. The example uses rate futures; full
+has its documented fixed-bullet scope, and the production profile runs only a
+stored activated configuration behind required access. The example uses rate futures; full
 delivery-basket/CTD operations remain available through the native library
 contract and this same endpoint. Live provider admission, distributed ownership,
 measured latency and production release qualification remain separate work.
@@ -145,9 +145,10 @@ ports. Unsupported adapter methods fail explicitly. The offline
 `convex-core-inputs DATABASE CAPTURED_INPUTS.json` importer also requires a stopped
 server; interrupted imports recover by retrying the identical captured records.
 
-This is a synthetic, persisted core workflow. Production startup, managed live
-provider composition, distributed ownership and measured latency retain their
-existing release requirements.
+This is a synthetic, persisted core workflow. Under the production profile its
+snapshot runs are the official durable results, while live valuations stay
+display-only. Vendor feed certification, distributed ownership and measured
+latency remain open.
 
 The [provider-neutral market-data adapter](../../tools/MARKET-DATA-ADAPTER.md)
 publishes normalized JSONL curve/fixing captures through these existing write
@@ -202,14 +203,14 @@ These process settings require a restart. Versioned quantitative/integration/pol
 
 | TOML key | Environment variable | Behavior |
 |---|---|---|
-| profile | CONVEX_PROFILE | `production` by default; explicit `demo`, or loopback `replay` or `live`, can start |
+| profile | CONVEX_PROFILE | `production` by default: needs `configuration_id`, `access.mode = required` with policy and introspection, and `access.tls_boundary = proxy`. Explicit `demo`, or loopback `replay` or `live`, start locally |
 | host | CONVEX_HOST | IPv4/IPv6 literal; default `0.0.0.0` must be changed to loopback for the current HTTP executable; hostnames fail |
 | port | CONVEX_PORT | Integer 0–65535; default 8080; zero selects an ephemeral port |
 | websocket_enabled | CONVEX_WEBSOCKET_ENABLED | Boolean; environment accepts true/false or 1/0, case insensitive; default true |
 | websocket_port | CONVEX_WEBSOCKET_PORT | Optional; accepted only when WebSockets are enabled and it equals the HTTP port |
 | storage_path | CONVEX_STORAGE_PATH | Nonempty local redb path; default `./data/convex.redb`; parent directory must exist |
 | runtime_plan | CONVEX_RUNTIME_PLAN | Required explicit plan for replay; for live, this or `configuration_id`; fixed-bullet mode, exact build, no seed events |
-| configuration_id | CONVEX_CONFIGURATION_ID | Live (instead of `runtime_plan`) or demo: run the stored active configuration with this id live; under demo, Demo-quality inputs are valued and labelled |
+| configuration_id | CONVEX_CONFIGURATION_ID | Production (required), live (instead of `runtime_plan`) or demo: run the stored active configuration with this id live; under demo, Demo-quality inputs are valued and labelled |
 | quotes_file | CONVEX_QUOTES_FILE | Required canonical JSONL replay in replay mode; unsupported in other modes |
 | curves_file | CONVEX_CURVES_FILE | Rejected: file provider composition is not implemented |
 | fixings_file | CONVEX_FIXINGS_FILE | Rejected: file provider composition is not implemented |
@@ -388,7 +389,7 @@ Other portfolio analytics routes take inline positions only.
 
 The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. A complete earlier three-table repository adds the master tables atomically while retaining exact prior content and receipts. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
 
-Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). `ReferenceDataProvider` covers auxiliary issuer, rating and ETF sources. Default router helpers deny protected access. Supply `create_router_with_access` with the verified boundary; the access guide describes embedding migration.
+Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). Default router helpers deny protected access. Supply `create_router_with_access` with the verified boundary; the access guide describes embedding migration.
 
 `create_test_storage` names the file-backed redb test helper accurately. Prefer `create_redb_storage` with an owned temporary directory when deterministic file cleanup is required. The validated analytics risk wrapper is now `ValidatedRiskResponse`; the former name has no compatibility alias. Pure pricing formulas, units and signs are unchanged.
 
@@ -396,7 +397,7 @@ The [local redb storage guide](../convex-ext-redb/README.md) documents immutable
 
 ## Market replay and file inputs
 
-[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears, bounds and snapshot-file migration. Run its standalone trace example before wiring an ingestion adapter. File snapshots require recorded timestamps and sources; missing files or malformed records fail explicitly. The owned runtime uses snapshot-consistent pricing; existing v1 synthetic-curve behavior remains the enforced G04 production gap.
+[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears and bounds. Run its standalone trace example before wiring an ingestion adapter. The owned runtime uses snapshot-consistent pricing; existing v1 synthetic-curve behavior remains the enforced G04 production gap.
 
 ## Configuration operator
 

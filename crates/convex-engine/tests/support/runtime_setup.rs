@@ -93,17 +93,6 @@ pub async fn setup() -> Setup {
         plan,
     }
 }
-pub fn market_data() -> Arc<MarketDataProvider> {
-    Arc::new(MarketDataProvider {
-        quotes: Arc::new(EmptyQuoteSource),
-        curve_inputs: Arc::new(EmptyCurveInputSource),
-        index_fixings: Arc::new(EmptyIndexFixingSource),
-        volatility: Arc::new(EmptyVolatilitySource),
-        fx_rates: Arc::new(EmptyFxRateSource),
-        inflation_fixings: Arc::new(EmptyInflationFixingSource),
-        etf_quotes: Arc::new(EmptyEtfQuoteSource),
-    })
-}
 pub fn make_engine(
     s: &Setup,
     publisher: Arc<dyn ResultPublisher>,
@@ -113,8 +102,6 @@ pub fn make_engine(
 ) -> Arc<PricingEngine> {
     Arc::new(
         PricingEngineBuilder::new()
-            .with_market_data(market_data())
-            .with_reference_data(Arc::new(create_empty_reference_data()))
             .with_storage(s.storage.clone())
             .with_runtime(RuntimeServices {
                 plan,

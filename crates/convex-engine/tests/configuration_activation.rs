@@ -673,11 +673,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
         .await
         .unwrap();
     let source = Arc::new(subscription_source::SubscriptionSource::new());
-    let mut market = runtime::market_data();
-    Arc::get_mut(&mut market).unwrap().quotes = source.clone();
     let engine = PricingEngineBuilder::new()
-        .with_market_data(market)
-        .with_reference_data(Arc::new(create_empty_reference_data()))
         .with_storage(setup.storage.clone())
         .with_configuration_use_cases(service)
         .with_runtime(RuntimeServices {
@@ -686,7 +682,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
             fixings: Arc::new(JsonFixingRepository::empty()),
             store: setup.store.clone(),
             publisher: runtime::archive(&setup),
-            input: RuntimeInput::Live,
+            input: RuntimeInput::Live(source.clone()),
         })
         .build()
         .unwrap();

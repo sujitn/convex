@@ -12,7 +12,7 @@ use actor::Actor;
 use convex_core::contracts::*;
 use convex_ports::{
     fixing::FixingRepository,
-    market_data::{QuoteEventSource, StreamError, StreamReceiver},
+    market_data::{QuoteEventSource, QuoteSource, StreamError, StreamReceiver},
     quote_event::QuoteEvent,
     runtime::{
         PublishedValuation, ResultPublisher, RuntimeCheckpoint, RuntimeStore, MAX_RUNTIME_EVENTS,
@@ -135,8 +135,8 @@ pub enum RuntimeInput {
     Captured,
     /// Pull-based canonical source, such as `FileQuoteReplay`.
     Replay(Box<dyn QuoteEventSource>),
-    /// The builder's `MarketDataProvider.quotes` subscription.
-    Live,
+    /// Subscribed quote source, such as the server's HTTP quote ingress.
+    Live(Arc<dyn QuoteSource>),
 }
 /// Runtime I/O dependencies. All pricing dependencies are resolved before CPU work begins.
 pub struct RuntimeServices {

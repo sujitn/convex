@@ -126,7 +126,6 @@ pub enum BenchmarkReference {
 /// Specification for how to derive a bond's price.
 ///
 /// This is the core configuration that determines the pricing methodology.
-/// The actual market data is fetched via `MarketDataProvider` based on this spec.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum PricingSpec {

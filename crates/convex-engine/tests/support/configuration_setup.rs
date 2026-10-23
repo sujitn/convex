@@ -47,8 +47,6 @@ pub fn fixtures(setup: &Setup) -> Vec<ConfigurationFixture> {
 pub fn engine(setup: &Setup, cases: Arc<ConfigurationUseCases>) -> Arc<PricingEngine> {
     Arc::new(
         PricingEngineBuilder::new()
-            .with_market_data(runtime::market_data())
-            .with_reference_data(Arc::new(create_empty_reference_data()))
             .with_storage(setup.storage.clone())
             .with_configuration_use_cases(cases)
             .with_runtime(RuntimeServices {

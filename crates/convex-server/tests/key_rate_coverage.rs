@@ -4,42 +4,15 @@ use axum::{
     http::{Request, StatusCode},
     Router,
 };
-use convex_engine::{
-    ports::{
-        config::EngineConfig, market_data::MarketDataProvider,
-        reference_data::ReferenceDataProvider,
-    },
-    PricingEngineBuilder,
-};
-use convex_ext_file::{
-    EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource, EmptyFxRateSource,
-    EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
-    EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
-};
+use convex_engine::{ports::config::EngineConfig, PricingEngineBuilder};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tower::ServiceExt;
 
 fn app() -> Router {
-    let market = MarketDataProvider {
-        quotes: Arc::new(EmptyQuoteSource),
-        curve_inputs: Arc::new(EmptyCurveInputSource),
-        index_fixings: Arc::new(EmptyIndexFixingSource),
-        volatility: Arc::new(EmptyVolatilitySource),
-        fx_rates: Arc::new(EmptyFxRateSource),
-        inflation_fixings: Arc::new(EmptyInflationFixingSource),
-        etf_quotes: Arc::new(EmptyEtfQuoteSource),
-    };
-    let reference = ReferenceDataProvider {
-        issuers: Arc::new(EmptyIssuerReferenceSource),
-        ratings: Arc::new(EmptyRatingSource),
-        etf_holdings: Arc::new(EmptyEtfHoldingsSource),
-    };
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
-        .with_market_data(Arc::new(market))
-        .with_reference_data(Arc::new(reference))
         .with_storage(Arc::new(convex_ext_redb::create_test_storage().unwrap()))
         .build()
         .unwrap();

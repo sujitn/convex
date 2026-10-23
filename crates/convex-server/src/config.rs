@@ -13,7 +13,8 @@ use thiserror::Error;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ServerProfile {
-    /// Requires real provider composition before the server may start.
+    /// The Live runtime of a stored activated configuration, behind required access and an
+    /// external TLS proxy. The default; startup names the first of these that is missing.
     #[default]
     Production,
     /// Explicitly permits the existing demonstration providers.
@@ -91,7 +92,8 @@ pub struct ServerConfig {
     pub quotes_file: Option<String>,
     /// Complete bounded JSON runtime plan; required in replay mode.
     pub runtime_plan: Option<String>,
-    /// Live only, instead of `runtime_plan`: plan the stored active configuration.
+    /// Plan the stored active configuration: production requires it, live may use it
+    /// instead of `runtime_plan`, and demo runs it on demonstration data.
     pub configuration_id: Option<String>,
     /// Reserved file integration; rejected until the provider is wired.
     pub curves_file: Option<String>,
@@ -379,10 +381,10 @@ impl ServerConfig {
             });
         }
         if let Some(id) = &self.configuration_id {
-            if !matches!(self.profile, ServerProfile::Live | ServerProfile::Demo) {
+            if self.profile == ServerProfile::Replay {
                 return Err(ConfigError::Unsupported {
                     field: "configuration_id",
-                    reason: "a stored configuration plans only the live or demo profile",
+                    reason: "replay runs a plan file, not a stored configuration",
                 });
             }
             if convex_core::contracts::SourceId::new(id.as_str()).is_err() {
@@ -408,11 +410,11 @@ impl ServerConfig {
         Ok(())
     }
 
-    /// Refuse the current placeholder composition in production, before opening storage.
+    /// Refuse an incomplete composition before opening storage.
     pub fn validate_startup(&self) -> Result<(), ConfigError> {
         self.validate()?;
         if self.profile == ServerProfile::Production {
-            return Err(ConfigError::Unsupported { field: "profile", reason: "live production provider composition is not implemented; demo or local replay requires explicit opt-in" });
+            self.validate_production()?;
         }
         if !self.bind_address()?.ip().is_loopback() {
             return Err(ConfigError::Unsupported {
@@ -440,6 +442,27 @@ impl ServerConfig {
                 field: "access.introspection",
                 reason: "HTTP identity fixtures require the local_only TLS boundary",
             });
+        }
+        Ok(())
+    }
+
+    /// Production runs the Live runtime of a stored activated configuration (D23: live
+    /// valuations display-only, official results from core-workflow snapshot runs), behind
+    /// required access and an external TLS proxy. Each missing condition is its own error.
+    fn validate_production(&self) -> Result<(), ConfigError> {
+        use crate::access::identity::{AccessMode, TlsBoundary};
+        let missing = |field, expected| Err(ConfigError::InvalidValue { field, expected });
+        if self.configuration_id.is_none() {
+            return missing(
+                "configuration_id",
+                "a stored activated configuration in production",
+            );
+        }
+        if self.access.mode != AccessMode::Required {
+            return missing("access.mode", "required in production");
+        }
+        if self.access.tls_boundary != TlsBoundary::Proxy {
+            return missing("access.tls_boundary", "proxy in production");
         }
         Ok(())
     }
@@ -675,11 +698,62 @@ mod tests {
         ));
         assert!(matches!(
             ServerConfig::default().validate_startup(),
-            Err(ConfigError::Unsupported {
-                field: "profile",
+            Err(ConfigError::InvalidValue {
+                field: "configuration_id",
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn production_needs_a_stored_configuration_required_access_and_the_tls_proxy() {
+        use crate::access::identity::{AccessMode, IntrospectionSettings, TlsBoundary};
+        let refused = |config: &ServerConfig| match config.validate_startup() {
+            Err(
+                ConfigError::InvalidValue { field, .. } | ConfigError::Unsupported { field, .. },
+            ) => field,
+            other => panic!("{other:?}"),
+        };
+        let mut config = ServerConfig {
+            host: "127.0.0.1".into(),
+            ..Default::default()
+        };
+        assert_eq!(config.profile, ServerProfile::Production);
+        assert_eq!(refused(&config), "configuration_id");
+        config.configuration_id = Some("BOOK-USD".into());
+        config.access.mode = AccessMode::LocalDevelopment;
+        assert_eq!(refused(&config), "access.mode");
+        config.access.mode = AccessMode::Required;
+        assert_eq!(refused(&config), "access.tls_boundary");
+        config.access.tls_boundary = TlsBoundary::Proxy;
+        assert_eq!(refused(&config), "access");
+        config.access.policy_file = Some("/access.json".into());
+        config.access.introspection = Some(IntrospectionSettings {
+            endpoint: "https://identity.example.invalid/introspect".into(),
+            issuer: "https://identity.example.invalid/issuer".into(),
+            audience: "convex-api".into(),
+            client_id: "convex".into(),
+            client_secret_ref: "env://IDENTITY_SECRET".into(),
+            allow_http_loopback: false,
+        });
+        config.validate_startup().unwrap();
+        // A plan file is replay or local live input, never production's.
+        config.runtime_plan = Some("/plan.json".into());
+        assert_eq!(refused(&config), "runtime_plan");
+        config.runtime_plan = None;
+        // The HTTP identity fixture exception stays local-only.
+        let introspection = config.access.introspection.as_mut().unwrap();
+        introspection.endpoint = "http://127.0.0.1:9/introspect".into();
+        introspection.allow_http_loopback = true;
+        assert_eq!(refused(&config), "access.introspection");
+        let introspection = config.access.introspection.as_mut().unwrap();
+        introspection.endpoint = "https://identity.example.invalid/introspect".into();
+        introspection.allow_http_loopback = false;
+        // TLS terminates at the proxy; the executable still binds loopback only.
+        config.host = "0.0.0.0".into();
+        assert_eq!(refused(&config), "host");
+        config.host = "127.0.0.1".into();
+        config.validate_startup().unwrap();
     }
 
     #[test]
