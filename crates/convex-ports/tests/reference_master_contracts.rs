@@ -157,14 +157,14 @@ fn call_terms_are_optional_bytes_and_belong_only_to_a_dated_priced_callable() {
     let mut legacy = callable();
     legacy.contractual_terms.as_mut().unwrap().call_terms = None;
     validate_bond_reference(&legacy).unwrap();
-    let invalid: Vec<Box<dyn Fn(&mut BondReferenceData)>> = vec![
-        Box::new(|b| b.bond_type = convex_ports::reference_data::BondType::FixedBullet),
-        Box::new(|b| b.is_callable = false),
-        Box::new(|b| b.call_schedule.clear()),
-        Box::new(|b| b.call_schedule.swap(0, 1)),
-        Box::new(|b| b.call_schedule[1].call_date = b.maturity_date.add_days(1)),
-        Box::new(|b| b.call_schedule[0].call_price = rust_decimal::Decimal::ZERO),
-        Box::new(|b| {
+    let invalid: [fn(&mut BondReferenceData); 7] = [
+        |b| b.bond_type = convex_ports::reference_data::BondType::FixedBullet,
+        |b| b.is_callable = false,
+        |b| b.call_schedule.clear(),
+        |b| b.call_schedule.swap(0, 1),
+        |b| b.call_schedule[1].call_date = b.maturity_date.add_days(1),
+        |b| b.call_schedule[0].call_price = rust_decimal::Decimal::ZERO,
+        |b| {
             b.contractual_terms
                 .as_mut()
                 .unwrap()
@@ -172,7 +172,7 @@ fn call_terms_are_optional_bytes_and_belong_only_to_a_dated_priced_callable() {
                 .as_mut()
                 .unwrap()
                 .notice_days = 367
-        }),
+        },
     ];
     for change in invalid {
         let mut bond = callable();
