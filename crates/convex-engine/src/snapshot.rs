@@ -30,7 +30,8 @@ pub const BOND_NUMERICAL_POLICY: &str = "convex-bond-router-v1";
 /// Quantitative model implemented by this application slice.
 pub const BOND_SNAPSHOT_MODEL: &str = "convex-fixed-bullet-router-v1";
 /// Measures this slice publishes, each read from the router's quote at the mid mark.
-pub const RUNTIME_MEASURES: [&str; 8] = [
+/// Key-rate measures follow the router's standard tenors and labels.
+pub const RUNTIME_MEASURES: [&str; 26] = [
     "clean_price_mid",
     "dirty_price_mid",
     "accrued_interest",
@@ -39,7 +40,36 @@ pub const RUNTIME_MEASURES: [&str; 8] = [
     "convexity_mid",
     "dv01_mid",
     "z_spread_mid",
+    "i_spread_mid",
+    "asw_mid",
+    "macaulay_duration_mid",
+    "effective_duration_mid",
+    "effective_convexity_mid",
+    "spread_duration_mid",
+    "pv01_mid",
+    "cs01_mid",
+    "krd_3m_mid",
+    "krd_6m_mid",
+    "krd_1y_mid",
+    "krd_2y_mid",
+    "krd_3y_mid",
+    "krd_5y_mid",
+    "krd_7y_mid",
+    "krd_10y_mid",
+    "krd_20y_mid",
+    "krd_30y_mid",
 ];
+/// Measures read from the router's frozen-Z curve risk, which fails as one `curve_risk` field.
+fn curve_risk_measure(measure: &str) -> bool {
+    matches!(
+        measure,
+        "effective_duration_mid"
+            | "effective_convexity_mid"
+            | "spread_duration_mid"
+            | "pv01_mid"
+            | "cs01_mid"
+    ) || (measure.starts_with("krd_") && RUNTIME_MEASURES.contains(&measure))
+}
 
 pub use convex_ports::configuration::{InstrumentPin, SnapshotAssembly};
 
@@ -662,11 +692,16 @@ impl SnapshotValuator {
                 None => {
                     let supported = RUNTIME_MEASURES.contains(&measure.as_str());
                     // The router names the measures it could not produce; keep its code and reason.
+                    let field = if curve_risk_measure(measure.as_str()) {
+                        "curve_risk_mid"
+                    } else {
+                        measure.as_str()
+                    };
                     let routed = priced.as_ref().and_then(|output| {
                         output
                             .measure_errors
                             .iter()
-                            .find(|error| error.field() == Some(measure.as_str()))
+                            .find(|error| error.field() == Some(field))
                     });
                     if let Some(error) = routed {
                         errors.push(
@@ -851,6 +886,35 @@ fn snapshot_mid_value(
 ) -> Result<Option<MeasureValue>, TraitError> {
     let model =
         |value: rust_decimal::Decimal| ExactDecimal::new(value).to_model().map_err(contract_error);
+    let years = |value: Option<rust_decimal::Decimal>| {
+        value
+            .map(|value| {
+                model(value).map(|finite| MeasureValue::ModelYears(ModelYears::new(finite)))
+            })
+            .transpose()
+    };
+    let bps = |value: Option<rust_decimal::Decimal>| {
+        value
+            .map(|value| {
+                model(value).map(|finite| MeasureValue::ModelBps(ModelBasisPoints::new(finite)))
+            })
+            .transpose()
+    };
+    let years_squared = |value: Option<rust_decimal::Decimal>| {
+        value
+            .map(|value| {
+                model(value)
+                    .map(|finite| MeasureValue::ModelYearsSquared(ModelYearsSquared::new(finite)))
+            })
+            .transpose()
+    };
+    let price = |value: Option<rust_decimal::Decimal>| {
+        value
+            .map(|value| {
+                model(value).map(|finite| MeasureValue::ModelPrice(ModelPricePer100::new(finite)))
+            })
+            .transpose()
+    };
     // Observed clean marks retain exact contract precision. Calculated outputs stay model values;
     // no hidden ledger/output rounding is performed to force an exact dirty-price decimal sum.
     match measure {
@@ -866,44 +930,42 @@ fn snapshot_mid_value(
             }
             _ => Ok(None),
         },
-        "accrued_interest" => output
-            .accrued_interest
-            .map(|value| {
-                model(value).map(|finite| MeasureValue::ModelPrice(ModelPricePer100::new(finite)))
-            })
-            .transpose(),
+        "accrued_interest" => price(output.accrued_interest),
         "ytm_mid" => output
             .ytm_mid
             .map(|value| {
                 model(value).map(|finite| MeasureValue::ModelRate(ModelDecimalRate::new(finite)))
             })
             .transpose(),
-        "modified_duration_mid" => output
-            .modified_duration
-            .map(|value| {
-                model(value).map(|finite| MeasureValue::ModelYears(ModelYears::new(finite)))
-            })
-            .transpose(),
-        "convexity_mid" => output
-            .convexity
-            .map(|value| {
-                model(value)
-                    .map(|finite| MeasureValue::ModelYearsSquared(ModelYearsSquared::new(finite)))
-            })
-            .transpose(),
+        "modified_duration_mid" => years(output.modified_duration),
+        "convexity_mid" => years_squared(output.convexity),
         // Loss per 100 face for +1 bp of the bond's own quoted yield; not factor risk.
-        "dv01_mid" => output
-            .dv01
-            .map(|value| {
-                model(value).map(|finite| MeasureValue::ModelPrice(ModelPricePer100::new(finite)))
-            })
-            .transpose(),
-        "z_spread_mid" => output
-            .z_spread_mid
-            .map(|value| {
-                model(value).map(|finite| MeasureValue::ModelBps(ModelBasisPoints::new(finite)))
-            })
-            .transpose(),
+        "dv01_mid" => price(output.dv01),
+        "z_spread_mid" => bps(output.z_spread_mid),
+        // Over the configuration's swap curve; absent without that role.
+        "i_spread_mid" => bps(output.i_spread_mid),
+        "asw_mid" => bps(output.asw_mid),
+        "macaulay_duration_mid" => years(output.macaulay_duration),
+        // Curve risk: central differences of the discount curve at the solved, frozen Z-spread.
+        "effective_duration_mid" => years(output.effective_duration),
+        "effective_convexity_mid" => years_squared(output.effective_convexity),
+        "spread_duration_mid" => years(output.spread_duration),
+        // Loss per 100 face for +1 bp in continuous zero rates, and in the Z-spread.
+        "pv01_mid" => price(output.pv01),
+        "cs01_mid" => price(output.cs01),
+        // `krd_10y_mid` reads the router's "10Y" triangular zero duration.
+        key if curve_risk_measure(key) => {
+            let label = key
+                .strip_prefix("krd_")
+                .and_then(|key| key.strip_suffix("_mid"))
+                .map(str::to_ascii_uppercase);
+            years(output.key_rate_durations.as_ref().and_then(|durations| {
+                durations
+                    .iter()
+                    .find(|(tenor, _)| Some(tenor) == label.as_ref())
+                    .map(|(_, value)| *value)
+            }))
+        }
         _ => Ok(None),
     }
 }

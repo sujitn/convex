@@ -51,6 +51,10 @@ const MEASURES: Array<{ id: string; label: string }> = [
   { id: 'convexity_mid', label: 'Convexity' },
   { id: 'dv01_mid', label: 'DV01' },
   { id: 'z_spread_mid', label: 'Z-Spread' },
+  { id: 'i_spread_mid', label: 'I-Spread' },
+  { id: 'asw_mid', label: 'ASW' },
+  { id: 'effective_duration_mid', label: 'Eff Dur' },
+  { id: 'cs01_mid', label: 'CS01' },
 ];
 
 // Format a measure by the unit it carries; an unknown unit shows the raw value.

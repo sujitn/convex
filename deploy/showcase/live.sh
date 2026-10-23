@@ -53,7 +53,8 @@ activate() {
   "mode": "live",
   "settlement_date": "$(date -u -d "+$ahead day" +%F)",
   "measures": ["clean_price_mid", "dirty_price_mid", "accrued_interest", "ytm_mid",
-    "modified_duration_mid", "convexity_mid", "dv01_mid", "z_spread_mid"],
+    "modified_duration_mid", "convexity_mid", "dv01_mid", "z_spread_mid",
+    "i_spread_mid", "asw_mid", "effective_duration_mid", "cs01_mid"],
   "numerical_settings": {"policy_id": "convex-bond-router-v1", "bump_bps": 1.0},
   "max_concurrent_calcs": 4
 }

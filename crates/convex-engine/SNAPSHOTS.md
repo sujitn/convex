@@ -124,6 +124,23 @@ trade economics, unsupported scenario/model or missing field is substituted.
 | `convexity_mid` | Finite model years squared |
 | `dv01_mid` | Finite model price per 100: the loss for +1 bp of the bond's own quoted yield, not factor risk |
 | `z_spread_mid` | Finite model basis points over the configuration's discount curve |
+| `i_spread_mid` | Finite model basis points: the yield over the configuration's swap curve |
+| `asw_mid` | Finite model basis points: par-par asset swap over the swap curve |
+| `macaulay_duration_mid` | Finite model years |
+| `effective_duration_mid` | Finite model years: parallel continuous-zero shift of the discount curve at the solved, frozen Z-spread |
+| `effective_convexity_mid` | Finite model years squared, from the same shift |
+| `spread_duration_mid` | Finite model years: Z-spread shift with the discount curve held |
+| `pv01_mid` | Finite model price per 100: the loss for +1 bp in continuous zero rates at the frozen Z-spread |
+| `cs01_mid` | Finite model price per 100: the loss for +1 bp in the Z-spread |
+| `krd_3m_mid` … `krd_30y_mid` | Finite model years: triangular key-rate zero durations at 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 20Y and 30Y |
+
+The spread measures need the configuration's swap curve role; without it they fail
+with the router's `MissingMarketData` reason. The curve-risk measures (effective
+duration and convexity, spread duration, PV01, CS01 and the key rates) share one
+router calculation: when it fails, each of them carries that calculation's code and
+reason. A zero has no spread or curve-risk convention in this contract, so those
+measures fail with `UnsupportedConvention` while its price, yield and yield-risk
+measures publish.
 
 Calculated values remain model quantities. There is no hidden cash/ledger rounding
 to fit an exact decimal coefficient. Missing marks or unavailable numerical

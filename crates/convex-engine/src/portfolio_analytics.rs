@@ -100,19 +100,47 @@ pub fn runtime_bond_quote(
         };
         match (name, &result.value) {
             ("clean_price_mid", MeasureValue::Price(p)) => Ok(Some(p.value().decimal())),
-            ("accrued_interest" | "dv01_mid", MeasureValue::ModelPrice(p)) => {
+            (
+                "accrued_interest" | "dv01_mid" | "pv01_mid" | "cs01_mid",
+                MeasureValue::ModelPrice(p),
+            ) => model(p.value().get()),
+            ("ytm_mid", MeasureValue::ModelRate(p)) => model(p.value().get()),
+            (
+                "modified_duration_mid"
+                | "macaulay_duration_mid"
+                | "effective_duration_mid"
+                | "spread_duration_mid",
+                MeasureValue::ModelYears(p),
+            ) => model(p.value().get()),
+            (key, MeasureValue::ModelYears(p)) if key.starts_with("krd_") => model(p.value().get()),
+            ("convexity_mid" | "effective_convexity_mid", MeasureValue::ModelYearsSquared(p)) => {
                 model(p.value().get())
             }
-            ("ytm_mid", MeasureValue::ModelRate(p)) => model(p.value().get()),
-            ("modified_duration_mid", MeasureValue::ModelYears(p)) => model(p.value().get()),
-            ("convexity_mid", MeasureValue::ModelYearsSquared(p)) => model(p.value().get()),
-            ("z_spread_mid", MeasureValue::ModelBps(p)) => model(p.value().get()),
+            ("z_spread_mid" | "i_spread_mid" | "asw_mid", MeasureValue::ModelBps(p)) => {
+                model(p.value().get())
+            }
             _ => Err(failure(id, "runtime measure has an unexpected unit")),
         }
     };
     let clean = read("clean_price_mid")?;
     let ytm = read("ytm_mid")?;
     let z_spread = read("z_spread_mid")?;
+    // Key-rate durations in the router's tenor order, labelled as the router labels them.
+    let mut key_rates = Vec::new();
+    for key in crate::snapshot::RUNTIME_MEASURES
+        .iter()
+        .copied()
+        .filter(|key| key.starts_with("krd_"))
+    {
+        if let Some(value) = read(key)? {
+            let label = key
+                .strip_prefix("krd_")
+                .and_then(|key| key.strip_suffix("_mid"))
+                .unwrap_or(key)
+                .to_ascii_uppercase();
+            key_rates.push((label, value));
+        }
+    }
     Ok(BondQuoteOutput {
         instrument_id: InstrumentId::new(id),
         isin: None,
@@ -131,13 +159,13 @@ pub fn runtime_bond_quote(
         z_spread_mid: z_spread,
         z_spread_ask: None,
         i_spread_bid: None,
-        i_spread_mid: None,
+        i_spread_mid: read("i_spread_mid")?,
         i_spread_ask: None,
         g_spread_bid: None,
         g_spread_mid: None,
         g_spread_ask: None,
         asw_bid: None,
-        asw_mid: None,
+        asw_mid: read("asw_mid")?,
         asw_ask: None,
         oas_bid: None,
         oas_mid: None,
@@ -149,15 +177,15 @@ pub fn runtime_bond_quote(
         simple_margin_mid: None,
         simple_margin_ask: None,
         modified_duration: read("modified_duration_mid")?,
-        macaulay_duration: None,
-        effective_duration: None,
-        spread_duration: None,
+        macaulay_duration: read("macaulay_duration_mid")?,
+        effective_duration: read("effective_duration_mid")?,
+        spread_duration: read("spread_duration_mid")?,
         convexity: read("convexity_mid")?,
-        effective_convexity: None,
+        effective_convexity: read("effective_convexity_mid")?,
         dv01: read("dv01_mid")?,
-        pv01: None,
-        key_rate_durations: None,
-        cs01: None,
+        pv01: read("pv01_mid")?,
+        key_rate_durations: (!key_rates.is_empty()).then_some(key_rates),
+        cs01: read("cs01_mid")?,
         zero_pv01_signed: None,
         z_pv01_signed: None,
         measure_errors: Vec::new(),
