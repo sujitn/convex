@@ -67,7 +67,7 @@ impl RuntimePlan {
             || self.assembly.quotes.len() != self.assembly.instruments.len()
             || self.seed_events.len() > MAX_RUNTIME_EVENTS
             || self.measures.is_empty()
-            || self.measures.len() > 4
+            || self.measures.len() > crate::snapshot::RUNTIME_MEASURES.len()
             || !self.assembly.fixings.is_empty()
             || self.numerical_settings.policy_id.as_str() != crate::snapshot::BOND_NUMERICAL_POLICY
             || self.numerical_settings.bump_bps.get() <= 0.0
@@ -98,10 +98,7 @@ impl RuntimePlan {
         let mut measures = std::collections::BTreeSet::new();
         for measure in &self.measures {
             if !measures.insert(measure)
-                || !matches!(
-                    measure.as_str(),
-                    "clean_price_mid" | "dirty_price_mid" | "accrued_interest" | "ytm_mid"
-                )
+                || !crate::snapshot::RUNTIME_MEASURES.contains(&measure.as_str())
             {
                 return Err(RuntimeError::Configuration(
                     "unsupported/duplicate runtime measure",

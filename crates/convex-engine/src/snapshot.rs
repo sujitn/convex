@@ -29,6 +29,17 @@ use crate::{
 pub const BOND_NUMERICAL_POLICY: &str = "convex-bond-router-v1";
 /// Quantitative model implemented by this application slice.
 pub const BOND_SNAPSHOT_MODEL: &str = "convex-fixed-bullet-router-v1";
+/// Measures this slice publishes, each read from the router's quote at the mid mark.
+pub const RUNTIME_MEASURES: [&str; 8] = [
+    "clean_price_mid",
+    "dirty_price_mid",
+    "accrued_interest",
+    "ytm_mid",
+    "modified_duration_mid",
+    "convexity_mid",
+    "dv01_mid",
+    "z_spread_mid",
+];
 
 pub use convex_ports::configuration::{InstrumentPin, SnapshotAssembly};
 
@@ -649,10 +660,26 @@ impl SnapshotValuator {
                     );
                 }
                 None => {
-                    let supported = matches!(
-                        measure.as_str(),
-                        "clean_price_mid" | "dirty_price_mid" | "accrued_interest" | "ytm_mid"
-                    );
+                    let supported = RUNTIME_MEASURES.contains(&measure.as_str());
+                    // The router names the measures it could not produce; keep its code and reason.
+                    let routed = priced.as_ref().and_then(|output| {
+                        output
+                            .measure_errors
+                            .iter()
+                            .find(|error| error.field() == Some(measure.as_str()))
+                    });
+                    if let Some(error) = routed {
+                        errors.push(
+                            StructuredError::new(
+                                error.code(),
+                                Some(measure.as_str().into()),
+                                error.message(),
+                                false,
+                            )
+                            .map_err(contract_error)?,
+                        );
+                        continue;
+                    }
                     errors.push(StructuredError::new(if !supported { ErrorCode::InvalidInput } else if pricing_failed { ErrorCode::SolverLimit } else if input.market_price_mid.is_none() { ErrorCode::MissingMarketData } else { ErrorCode::SolverLimit }, Some(measure.as_str().into()), if supported { "Required mark or numerical calculation is unavailable; no value substituted" } else { "Requested measure is outside this snapshot valuation slice" }, false).map_err(contract_error)?);
                 }
             }
@@ -849,6 +876,32 @@ fn snapshot_mid_value(
             .ytm_mid
             .map(|value| {
                 model(value).map(|finite| MeasureValue::ModelRate(ModelDecimalRate::new(finite)))
+            })
+            .transpose(),
+        "modified_duration_mid" => output
+            .modified_duration
+            .map(|value| {
+                model(value).map(|finite| MeasureValue::ModelYears(ModelYears::new(finite)))
+            })
+            .transpose(),
+        "convexity_mid" => output
+            .convexity
+            .map(|value| {
+                model(value)
+                    .map(|finite| MeasureValue::ModelYearsSquared(ModelYearsSquared::new(finite)))
+            })
+            .transpose(),
+        // Loss per 100 face for +1 bp of the bond's own quoted yield; not factor risk.
+        "dv01_mid" => output
+            .dv01
+            .map(|value| {
+                model(value).map(|finite| MeasureValue::ModelPrice(ModelPricePer100::new(finite)))
+            })
+            .transpose(),
+        "z_spread_mid" => output
+            .z_spread_mid
+            .map(|value| {
+                model(value).map(|finite| MeasureValue::ModelBps(ModelBasisPoints::new(finite)))
             })
             .transpose(),
         _ => Ok(None),

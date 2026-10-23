@@ -13,8 +13,9 @@ A `RuntimePlan` supplies one immutable quantitative configuration, up to 256 exa
 instrument versions, one selected quote source per instrument, supplied curve
 revisions, explicit settlement, compiled numerical policy, build identity and
 requested measures. The implemented measures are `clean_price_mid`,
-`dirty_price_mid`, `accrued_interest` and `ytm_mid` for reference-admitted fixed
-bullets. Unsupported measures, required fixing keys, products and configurations
+`dirty_price_mid`, `accrued_interest`, `ytm_mid`, `modified_duration_mid`,
+`convexity_mid`, `dv01_mid` and `z_spread_mid` for reference-admitted fixed
+bullets, at most eight per plan. Unsupported measures, required fixing keys, products and configurations
 fail explicitly. Required missing/stale/invalid curves block runtime results even
 when an observed clean mark would otherwise be available. No spread, risk, price
 or curve is synthesized to fill a missing dependency.

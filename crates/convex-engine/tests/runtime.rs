@@ -824,3 +824,28 @@ async fn result_archive_reconciles_retry_keys_and_refuses_corrupt_tails() {
         .unwrap();
     assert!(JsonlResultPublisher::new(&path).is_err());
 }
+
+#[tokio::test]
+async fn plan_admits_each_published_measure_once_and_nothing_else() {
+    let s = setup().await;
+    let mut plan = s.plan.clone();
+    plan.measures = convex_engine::snapshot::RUNTIME_MEASURES
+        .iter()
+        .map(|m| MeasureId::new(*m).unwrap())
+        .collect();
+    plan.validate().unwrap();
+    let mut repeated = plan.clone();
+    repeated.measures.push(MeasureId::new("ytm_mid").unwrap());
+    assert!(matches!(
+        repeated.validate(),
+        Err(RuntimeError::Configuration(_))
+    ));
+    let mut unknown = s.plan.clone();
+    unknown
+        .measures
+        .push(MeasureId::new("effective_duration_mid").unwrap());
+    assert!(matches!(
+        unknown.validate(),
+        Err(RuntimeError::Configuration(_))
+    ));
+}

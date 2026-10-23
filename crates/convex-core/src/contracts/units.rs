@@ -351,6 +351,20 @@ tagged_value!(
     "bp",
     "Finite model basis-point value, preserving negative spread signs."
 );
+tagged_value!(
+    ModelYears,
+    ModelYearsUnit,
+    FiniteF64,
+    "years",
+    "Finite model duration in years, such as modified duration."
+);
+tagged_value!(
+    ModelYearsSquared,
+    ModelYearsSquaredUnit,
+    FiniteF64,
+    "years_squared",
+    "Finite model convexity in years squared."
+);
 
 /// Nonnegative exact face quantity. Direction is a separate trade field.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -582,6 +596,10 @@ pub enum MeasureValue {
     ModelRate(ModelDecimalRate),
     /// Finite model basis points.
     ModelBps(ModelBasisPoints),
+    /// Finite model duration in years.
+    ModelYears(ModelYears),
+    /// Finite model convexity in years squared.
+    ModelYearsSquared(ModelYearsSquared),
     /// Structured signed factor risk with its bump, basis and snapshot.
     Risk(super::RiskSensitivity),
 }

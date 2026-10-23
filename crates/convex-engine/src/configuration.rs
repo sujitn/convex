@@ -846,6 +846,9 @@ fn numeric(value: &MeasureValue) -> Option<f64> {
         MeasureValue::Price(p) => p.value().to_model().ok().map(|v| v.get()),
         MeasureValue::ModelPrice(p) => Some(p.value().get()),
         MeasureValue::ModelRate(p) => Some(p.value().get()),
+        MeasureValue::ModelBps(p) => Some(p.value().get()),
+        MeasureValue::ModelYears(p) => Some(p.value().get()),
+        MeasureValue::ModelYearsSquared(p) => Some(p.value().get()),
         _ => None,
     }
 }
