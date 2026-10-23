@@ -80,14 +80,18 @@ export function useValuationStream(autoConnect = true): UseValuationStreamReturn
 
   const subscribedRef = useRef<Set<string>>(new Set());
   const subscribeRef = useRef<(ids: string[]) => void>(() => {});
+  const seedSeqRef = useRef(0);
 
   // Replace the display with the runtime's current results, keeping the price
   // history of an instrument whose runtime and revision order are unchanged.
+  // Only the latest of overlapping reads writes state.
   const seed = useCallback(async () => {
+    const seq = ++seedSeqRef.current;
     const [healthResult, resultsResult] = await Promise.allSettled([
       getRuntimeHealth(),
       getRuntimeResults(),
     ]);
+    if (seq !== seedSeqRef.current) return;
     setHealth(healthResult.status === 'fulfilled' ? healthResult.value : null);
     if (resultsResult.status === 'rejected') {
       const reason = resultsResult.reason;
@@ -109,6 +113,15 @@ export function useValuationStream(autoConnect = true): UseValuationStreamReturn
         const instrumentId = instrumentOf(valuation);
         if (!instrumentId) continue;
         const existing = prev.get(instrumentId);
+        // A streamed revision newer than this snapshot stays
+        if (
+          existing !== undefined &&
+          existing.valuation.runtime_id === valuation.runtime_id &&
+          existing.valuation.revision > valuation.revision
+        ) {
+          next.set(instrumentId, existing);
+          continue;
+        }
         const continues =
           existing !== undefined &&
           existing.valuation.runtime_id === valuation.runtime_id &&
