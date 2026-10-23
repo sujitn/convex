@@ -1,18 +1,11 @@
-//! Reference data source traits.
+//! Reference data types.
 //!
-//! These traits define interfaces for reference data providers:
 //! Bond terms are persisted through [`crate::reference_repository::ReferenceRepository`].
-//! - [`IssuerReferenceSource`]: Issuer information
-//! - [`RatingSource`]: Credit ratings
-//! - [`EtfHoldingsSource`]: ETF holdings and constituents
-//!
-//! Reference data is static/semi-static (updated daily, not real-time).
+//! [`EtfHoldings`] are supplied with each ETF request.
 
-use async_trait::async_trait;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use crate::error::TraitError;
 use convex_core::ids::*;
 use convex_core::{Currency, Date};
 
@@ -254,125 +247,6 @@ impl BondReferenceData {
 }
 
 // =============================================================================
-// ISSUER REFERENCE DATA
-// =============================================================================
-
-/// Issuer information.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IssuerInfo {
-    /// Issuer identifier
-    pub issuer_id: String,
-    /// Legal entity identifier (LEI)
-    pub lei: Option<String>,
-    /// Issuer name
-    pub name: String,
-    /// Short name/ticker
-    pub short_name: Option<String>,
-    /// Parent company ID
-    pub parent_id: Option<String>,
-    /// Ultimate parent ID
-    pub ultimate_parent_id: Option<String>,
-    /// Country of incorporation
-    pub country: String,
-    /// Sector
-    pub sector: String,
-    /// Industry group
-    pub industry: String,
-    /// Is sovereign
-    pub is_sovereign: bool,
-    /// Is financial
-    pub is_financial: bool,
-    /// Last updated
-    pub last_updated: i64,
-    /// Source
-    pub source: String,
-}
-
-/// Trait for issuer reference data providers.
-#[async_trait]
-pub trait IssuerReferenceSource: Send + Sync {
-    /// Get issuer by ID.
-    async fn get_issuer(&self, issuer_id: &str) -> Result<Option<IssuerInfo>, TraitError>;
-
-    /// Get issuer by LEI.
-    async fn get_by_lei(&self, lei: &str) -> Result<Option<IssuerInfo>, TraitError>;
-
-    /// Search issuers.
-    async fn search(&self, query: &str, limit: usize) -> Result<Vec<IssuerInfo>, TraitError>;
-
-    /// Get all issuers in a sector.
-    async fn get_by_sector(&self, sector: &str) -> Result<Vec<IssuerInfo>, TraitError>;
-}
-
-// =============================================================================
-// CREDIT RATINGS
-// =============================================================================
-
-/// Rating agency.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RatingAgency {
-    /// Moody's
-    Moodys,
-    /// S&P Global
-    SP,
-    /// Fitch
-    Fitch,
-}
-
-/// Credit rating.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreditRating {
-    /// Issuer ID
-    pub issuer_id: String,
-    /// Rating agency
-    pub agency: RatingAgency,
-    /// Long-term rating
-    pub long_term_rating: Option<String>,
-    /// Short-term rating
-    pub short_term_rating: Option<String>,
-    /// Outlook
-    pub outlook: Option<String>,
-    /// Watch status
-    pub watch: Option<String>,
-    /// Rating date
-    pub rating_date: Date,
-    /// Last action
-    pub last_action: Option<String>,
-    /// Is investment grade
-    pub is_investment_grade: bool,
-    /// Numeric score (1-21, 1=AAA)
-    pub numeric_score: Option<u32>,
-}
-
-/// Trait for credit rating providers.
-#[async_trait]
-pub trait RatingSource: Send + Sync {
-    /// Get rating for issuer from specific agency.
-    async fn get_rating(
-        &self,
-        issuer_id: &str,
-        agency: RatingAgency,
-    ) -> Result<Option<CreditRating>, TraitError>;
-
-    /// Get all ratings for an issuer.
-    async fn get_all_ratings(&self, issuer_id: &str) -> Result<Vec<CreditRating>, TraitError>;
-
-    /// Get composite rating (lowest of all agencies).
-    async fn get_composite_rating(
-        &self,
-        issuer_id: &str,
-    ) -> Result<Option<CreditRating>, TraitError>;
-
-    /// Get rating history.
-    async fn get_rating_history(
-        &self,
-        issuer_id: &str,
-        agency: RatingAgency,
-        limit: usize,
-    ) -> Result<Vec<CreditRating>, TraitError>;
-}
-
-// =============================================================================
 // ETF HOLDINGS
 // =============================================================================
 
@@ -416,57 +290,4 @@ pub struct EtfHoldings {
     pub last_updated: i64,
     /// Source
     pub source: String,
-}
-
-/// Trait for ETF holdings providers.
-#[async_trait]
-pub trait EtfHoldingsSource: Send + Sync {
-    /// Get current holdings for an ETF.
-    async fn get_holdings(&self, etf_id: &EtfId) -> Result<Option<EtfHoldings>, TraitError>;
-
-    /// Get historical holdings.
-    async fn get_holdings_as_of(
-        &self,
-        etf_id: &EtfId,
-        as_of_date: Date,
-    ) -> Result<Option<EtfHoldings>, TraitError>;
-
-    /// List all available ETFs.
-    async fn list_etfs(&self) -> Result<Vec<EtfId>, TraitError>;
-
-    /// Subscribe to holdings updates.
-    async fn subscribe(&self, etf_ids: &[EtfId]) -> Result<EtfHoldingsReceiver, TraitError>;
-}
-
-/// Receiver for ETF holdings updates.
-pub struct EtfHoldingsReceiver {
-    rx: tokio::sync::broadcast::Receiver<EtfHoldings>,
-}
-
-impl EtfHoldingsReceiver {
-    /// Create a new ETF holdings receiver.
-    pub fn new(rx: tokio::sync::broadcast::Receiver<EtfHoldings>) -> Self {
-        Self { rx }
-    }
-
-    /// Receive the next update.
-    pub async fn recv(&mut self) -> Option<EtfHoldings> {
-        self.rx.recv().await.ok()
-    }
-}
-
-// =============================================================================
-// COMPOSITE REFERENCE DATA PROVIDER
-// =============================================================================
-
-use std::sync::Arc;
-
-/// Combined reference data provider.
-pub struct ReferenceDataProvider {
-    /// Issuer reference source
-    pub issuers: Arc<dyn IssuerReferenceSource>,
-    /// Rating source
-    pub ratings: Arc<dyn RatingSource>,
-    /// ETF holdings source
-    pub etf_holdings: Arc<dyn EtfHoldingsSource>,
 }

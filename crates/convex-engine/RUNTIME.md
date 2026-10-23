@@ -36,7 +36,7 @@ analytics remain their owning tasks.
 | --- | --- | --- |
 | Captured | Caller supplies normalized events and both cutoffs | Complete valid historical/captured context |
 | Replay | Pull source such as `FileQuoteReplay`, with original event order/time | Complete valid historical context; EOF sets `replay_complete` |
-| Live | Configured `MarketDataProvider.quotes` subscription | All selected sources supplied new images in this process, data remains valid, output is acknowledged |
+| Live | `RuntimeInput::Live` quote source subscription, such as the server's HTTP ingress | All selected sources supplied new images in this process, data remains valid, output is acknowledged |
 | Idle demo | Explicit `with_demo_mode`, no numerical runtime | Demo quality; readiness stays false |
 
 `Live` is a provider integration point. Its broadcast transport reports lag and

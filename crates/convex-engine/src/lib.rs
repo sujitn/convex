@@ -31,8 +31,6 @@
 //!
 //! ```ignore
 //! let engine = PricingEngineBuilder::new()
-//!     .with_market_data(market_data_provider)
-//!     .with_reference_data(ref_data_provider)
 //!     .with_storage(storage_adapter)
 //!     .with_config(engine_config)
 //!     .with_runtime(runtime_services)
@@ -57,12 +55,10 @@ pub mod curve_replay;
 pub mod curve_resolution;
 pub mod error;
 pub mod etf_pricing;
-pub mod market_data_listener;
 pub mod market_ingestion;
 pub mod portfolio_analytics;
 pub mod pricing_router;
 pub mod runtime;
-pub mod scheduler;
 pub mod snapshot;
 
 pub mod cache;
@@ -79,24 +75,16 @@ pub use calc_graph::{
 pub use curve_builder::BuiltCurve;
 pub use error::EngineError;
 pub use etf_pricing::EtfPricer;
-pub use market_data_listener::{
-    CurveInputUpdate, CurveUpdate, FxRateUpdate, IndexFixingUpdate, InflationFixingUpdate,
-    IngestionStatus, MarketDataListener, MarketDataPublisher, MarketDataUpdate, VolSurfaceUpdate,
-};
 pub use portfolio_analytics::{runtime_bond_quote, Portfolio, PortfolioAnalyzer, Position};
 pub use pricing_router::{BatchPricingResult, PricingRouter};
 pub use runtime::{
     AcceptedUpdate, RuntimeError, RuntimeHealth, RuntimeInput, RuntimeMode, RuntimePhase,
     RuntimePlan, RuntimeServices,
 };
-pub use scheduler::{EodScheduler, IntervalScheduler, NodeUpdate, ThrottleManager, UpdateSource};
 
 use std::sync::Arc;
-use tracing::{debug, warn};
 
 use crate::ports::config::EngineConfig;
-use crate::ports::market_data::MarketDataProvider;
-use crate::ports::reference_data::ReferenceDataProvider;
 use crate::ports::storage::StorageAdapter;
 
 /// Curves and the configuration consumed by one priced request, for reporting.
@@ -129,12 +117,6 @@ pub struct PricingEngine {
     /// Portfolio analyzer
     portfolio_analyzer: Arc<PortfolioAnalyzer>,
 
-    /// Market data provider
-    market_data: Arc<MarketDataProvider>,
-
-    /// Auxiliary issuer, rating and ETF sources; bond terms come from storage.
-    reference_data: Arc<ReferenceDataProvider>,
-
     /// Storage adapter, including the authoritative reference repository.
     storage: Arc<StorageAdapter>,
 
@@ -145,12 +127,7 @@ pub struct PricingEngine {
 
 impl PricingEngine {
     /// Create a new pricing engine.
-    pub fn new(
-        config: EngineConfig,
-        market_data: Arc<MarketDataProvider>,
-        reference_data: Arc<ReferenceDataProvider>,
-        storage: Arc<StorageAdapter>,
-    ) -> Self {
+    pub fn new(config: EngineConfig, storage: Arc<StorageAdapter>) -> Self {
         let concurrency = config.max_concurrent_calcs;
         let calc_graph = Arc::new(CalculationGraph::new());
         let pricing_router = Arc::new(PricingRouter::new());
@@ -163,8 +140,6 @@ impl PricingEngine {
             pricing_router,
             etf_pricer,
             portfolio_analyzer,
-            market_data,
-            reference_data,
             storage,
             runtime: runtime::RuntimeController::new(None, false, concurrency),
             configurations: None,
@@ -352,11 +327,6 @@ impl PricingEngine {
         &self.config
     }
 
-    /// Get auxiliary issuer, rating and ETF sources.
-    pub fn reference_data(&self) -> &Arc<ReferenceDataProvider> {
-        &self.reference_data
-    }
-
     /// The sole authoritative source for reference reads and mutations.
     pub fn reference_repository(
         &self,
@@ -421,7 +391,7 @@ impl PricingEngine {
         Ok(())
     }
 
-    /// Commit a reference use case before invalidating dependent pricing work.
+    /// Commit a reference use case through the authoritative repository.
     pub async fn commit_reference(
         &self,
         command: &ports::reference_repository::ReferenceCommand,
@@ -430,233 +400,7 @@ impl PricingEngine {
         ports::reference_repository::ReferenceCommit,
         ports::reference_repository::ReferenceError,
     > {
-        let result = self.storage.bonds.commit(command, recorded_at).await?;
-        for record in &result.records {
-            let node = NodeId::BondPrice {
-                instrument_id: record.instrument_id.clone(),
-            };
-            if self.runtime_health().mode.is_none() && self.calc_graph.node_spec(&node).is_some() {
-                if let Err(error) = self.calc_graph.invalidate(&node) {
-                    warn!("Reference invalidation failed: {error}");
-                }
-            }
-        }
-        Ok(result)
-    }
-
-    // =========================================================================
-    // REACTIVE MARKET DATA HANDLERS
-    // =========================================================================
-
-    /// Handle a quote update for a bond.
-    ///
-    /// This method is called when a new quote arrives for a bond.
-    /// It invalidates the quote node in the calc graph, which propagates
-    /// to dependent bond price nodes.
-    pub fn on_quote_update(
-        &self,
-        instrument_id: &convex_core::ids::InstrumentId,
-        bid: Option<rust_decimal::Decimal>,
-        ask: Option<rust_decimal::Decimal>,
-    ) {
-        let node_id = NodeId::Quote {
-            instrument_id: instrument_id.clone(),
-        };
-
-        // Update quote in cache
-        let mid = match (bid, ask) {
-            (Some(b), Some(a)) => Some((b + a) / rust_decimal::Decimal::from(2)),
-            (Some(b), None) => Some(b),
-            (None, Some(a)) => Some(a),
-            (None, None) => None,
-        };
-
-        if let Err(error) = self
-            .calc_graph
-            .publish_input(&node_id, NodeValue::Quote { bid, ask, mid })
-        {
-            warn!("Quote input publication failed: {error}");
-        }
-
-        debug!(
-            "Quote update for {}: bid={:?} ask={:?}",
-            instrument_id, bid, ask
-        );
-    }
-
-    /// Handle a curve update.
-    ///
-    /// This method is called when a curve is rebuilt.
-    /// It invalidates the curve node, which propagates to all bonds
-    /// that depend on this curve.
-    pub fn on_curve_update(&self, curve_id: &convex_core::ids::CurveId, curve: &BuiltCurve) {
-        let node_id = NodeId::Curve {
-            curve_id: curve_id.clone(),
-        };
-
-        let points = match curve.to_points() {
-            Ok(points) => points,
-            Err(error) => {
-                warn!("Curve input publication failed: {error}");
-                return;
-            }
-        };
-        // Update curve in cache
-        if let Err(error) = self
-            .calc_graph
-            .publish_input(&node_id, NodeValue::Curve { points })
-        {
-            warn!("Curve input publication failed: {error}");
-        }
-
-        debug!("Curve update for {}", curve_id);
-    }
-
-    /// Handle an index fixing update (for FRNs).
-    ///
-    /// This method is called when a floating rate index fixing arrives.
-    /// It invalidates the index fixing node, which propagates to all FRNs
-    /// that reference this index.
-    pub fn on_index_fixing(
-        &self,
-        index: &convex_core::ids::FloatingRateIndex,
-        date: convex_core::Date,
-        rate: rust_decimal::Decimal,
-    ) {
-        let node_id = NodeId::IndexFixing {
-            index: index.clone(),
-            date,
-        };
-
-        if let Err(error) = self
-            .calc_graph
-            .publish_input(&node_id, NodeValue::IndexFixing { rate })
-        {
-            warn!("Input publication failed: {error}");
-        }
-
-        debug!("Index fixing for {} on {}: {}", index, date, rate);
-    }
-
-    /// Handle an inflation fixing update (for ILBs).
-    ///
-    /// This method is called when an inflation index fixing arrives.
-    /// It invalidates the inflation fixing node, which propagates to all ILBs.
-    pub fn on_inflation_fixing(
-        &self,
-        index: &convex_core::ids::InflationIndex,
-        month: convex_core::ids::YearMonth,
-        value: rust_decimal::Decimal,
-    ) {
-        let node_id = NodeId::InflationFixing {
-            index: index.clone(),
-            month,
-        };
-
-        if let Err(error) = self
-            .calc_graph
-            .publish_input(&node_id, NodeValue::InflationFixing { value })
-        {
-            warn!("Input publication failed: {error}");
-        }
-
-        debug!("Inflation fixing for {} ({}): {}", index, month, value);
-    }
-
-    /// Handle an FX rate update.
-    ///
-    /// This method is called when an FX rate is updated.
-    /// It invalidates the FX rate node, which propagates to cross-currency
-    /// portfolio calculations.
-    pub fn on_fx_rate_update(
-        &self,
-        pair: &convex_core::ids::CurrencyPair,
-        mid: rust_decimal::Decimal,
-    ) {
-        let node_id = NodeId::FxRate { pair: pair.clone() };
-
-        if let Err(error) = self
-            .calc_graph
-            .publish_input(&node_id, NodeValue::FxRate { mid })
-        {
-            warn!("Input publication failed: {error}");
-        }
-
-        debug!("FX rate update for {}: {}", pair, mid);
-    }
-
-    /// Register a bond for reactive pricing.
-    ///
-    /// This sets up the node in the calc graph with dependencies on
-    /// the relevant curves and quote.
-    pub fn register_bond(
-        &self,
-        instrument_id: convex_core::ids::InstrumentId,
-        discount_curve: convex_core::ids::CurveId,
-        benchmark_curve: Option<convex_core::ids::CurveId>,
-        config: crate::ports::config::NodeConfig,
-    ) -> Result<u64, GraphError> {
-        let bond_node = NodeId::BondPrice {
-            instrument_id: instrument_id.clone(),
-        };
-
-        // Build dependencies
-        let mut deps = vec![
-            NodeId::Curve {
-                curve_id: discount_curve,
-            },
-            NodeId::Quote {
-                instrument_id: instrument_id.clone(),
-            },
-        ];
-
-        if let Some(bench_curve) = benchmark_curve {
-            deps.push(NodeId::Curve {
-                curve_id: bench_curve,
-            });
-        }
-
-        // Include only missing roots; preserve existing curve/calculation definitions.
-        let mut nodes: Vec<_> = deps
-            .iter()
-            .filter(|id| self.calc_graph.node_spec(id).is_none())
-            .cloned()
-            .map(NodeSpec::input)
-            .collect();
-        let mut roots = std::collections::HashSet::new();
-        nodes.retain(|node| roots.insert(node.id.clone()));
-        let mut seen = std::collections::HashSet::new();
-        deps.retain(|id| seen.insert(id.clone()));
-        nodes.push(NodeSpec::calculation(bond_node, deps).with_config(config));
-        self.calc_graph.upsert_nodes(nodes)
-    }
-
-    /// Register a currently unsupported ETF aggregation with explicit scheduling policy.
-    pub fn register_etf_inav(&self, etf_id: convex_core::ids::EtfId) -> Result<u64, GraphError> {
-        self.calc_graph.upsert_nodes(vec![NodeSpec::calculation(
-            NodeId::EtfInav { etf_id },
-            vec![],
-        )
-        .with_config(crate::ports::config::NodeConfig::etf_inav())])
-    }
-    /// Register end-of-day ETF work; mathematical holdings integration remains explicit.
-    pub fn register_etf_nav(&self, etf_id: convex_core::ids::EtfId) -> Result<u64, GraphError> {
-        self.calc_graph.upsert_nodes(vec![NodeSpec::calculation(
-            NodeId::EtfNav { etf_id },
-            vec![],
-        )
-        .with_config(crate::ports::config::NodeConfig::etf_nav())])
-    }
-    /// Register portfolio work; missing aggregation is never cached as a numerical result.
-    pub fn register_portfolio(
-        &self,
-        portfolio_id: convex_core::ids::PortfolioId,
-    ) -> Result<u64, GraphError> {
-        self.calc_graph.upsert_nodes(vec![NodeSpec::calculation(
-            NodeId::Portfolio { portfolio_id },
-            vec![],
-        )
-        .with_config(crate::ports::config::NodeConfig::portfolio())])
+        self.storage.bonds.commit(command, recorded_at).await
     }
 }
 

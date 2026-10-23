@@ -248,7 +248,7 @@ fn invalid_files_and_explicit_missing_file_are_rejected() {
 }
 
 #[test]
-fn production_default_and_override_refuse_placeholder_providers() {
+fn production_default_and_override_refuse_without_a_stored_configuration() {
     for (settings, file) in [
         (vec![], ConfigFile::Absent),
         (vec![("CONVEX_PROFILE", "production")], ConfigFile::Absent),
@@ -260,7 +260,8 @@ fn production_default_and_override_refuse_placeholder_providers() {
         let mut probe = Probe::spawn(&settings, file);
         let output = probe.rejected();
         assert!(
-            output.contains("UNSUPPORTED_CONFIG") && output.contains("profile"),
+            output.contains("INVALID_CONFIG_VALUE: configuration_id")
+                && output.contains("in production"),
             "{output}"
         );
     }

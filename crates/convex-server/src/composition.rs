@@ -8,18 +8,11 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use convex_engine::ports::config::EngineConfig;
-use convex_engine::ports::market_data::{MarketDataProvider, QuoteSource};
-use convex_engine::ports::reference_data::ReferenceDataProvider;
 use convex_engine::ports::runtime::{PublishedValuation, ResultPublisher};
 use convex_engine::ports::snapshot::{MarketSnapshot, SnapshotRepository};
 use convex_engine::ports::TraitError;
 use convex_engine::{
     PricingEngine, PricingEngineBuilder, RuntimeInput, RuntimeMode, RuntimePlan, RuntimeServices,
-};
-use convex_ext_file::{
-    EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource, EmptyFxRateSource,
-    EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
-    EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
 };
 
 use crate::market::QuoteIngress;
@@ -82,41 +75,10 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
         core_build_id()?,
     ));
 
-    // Live quotes arrive only through the HTTP ingress, scoped to the plan's quote keys.
-    let ingress = plan
-        .as_ref()
-        .filter(|plan| plan.mode == RuntimeMode::Live)
-        .map(|plan| {
-            Arc::new(QuoteIngress::new(
-                plan.assembly.quotes.iter().map(|q| q.key.clone()),
-            ))
-        });
-    let quotes: Arc<dyn QuoteSource> = match &ingress {
-        Some(ingress) => ingress.clone(),
-        None => Arc::new(EmptyQuoteSource),
-    };
-    // Unused auxiliary product ports are explicit; replay reads the selected canonical event source.
-    let market_data = MarketDataProvider {
-        quotes,
-        curve_inputs: Arc::new(EmptyCurveInputSource),
-        index_fixings: Arc::new(EmptyIndexFixingSource),
-        volatility: Arc::new(EmptyVolatilitySource),
-        fx_rates: Arc::new(EmptyFxRateSource),
-        inflation_fixings: Arc::new(EmptyInflationFixingSource),
-        etf_quotes: Arc::new(EmptyEtfQuoteSource),
-    };
-    let reference_data = ReferenceDataProvider {
-        issuers: Arc::new(EmptyIssuerReferenceSource),
-        ratings: Arc::new(EmptyRatingSource),
-        etf_holdings: Arc::new(EmptyEtfHoldingsSource),
-    };
-
-    let mut builder = PricingEngineBuilder::new()
+    let builder = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
-        .with_market_data(Arc::new(market_data))
-        .with_reference_data(Arc::new(reference_data))
         .with_storage(storage.clone());
-    builder = match plan {
+    let (builder, ingress) = match plan {
         Some(plan) => {
             let durable = Durable {
                 runtime: runtime_store,
@@ -125,7 +87,7 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
             };
             with_runtime(builder, &config, plan, &storage, durable).await?
         }
-        None => builder.with_demo_mode(),
+        None => (builder.with_demo_mode(), None),
     };
     let engine = Arc::new(builder.build()?);
 
@@ -185,10 +147,10 @@ async fn active_plan(
 }
 
 /// A plan runs only in its profile's mode and under this executable's build identity.
-/// The demo profile runs a stored configuration live, on labelled demonstration data.
+/// Production and demo run a stored configuration live; demo output is labelled demo.
 fn checked(config: &ServerConfig, plan: RuntimePlan) -> Result<RuntimePlan, StartupError> {
     let mode = match config.profile {
-        ServerProfile::Live | ServerProfile::Demo => RuntimeMode::Live,
+        ServerProfile::Live | ServerProfile::Demo | ServerProfile::Production => RuntimeMode::Live,
         _ => RuntimeMode::Replay,
     };
     if plan.mode != mode || plan.build_id.as_str() != crate::SERVER_BUILD_ID {
@@ -223,14 +185,21 @@ struct Durable {
     results: Arc<convex_ext_redb::RedbResultPublisher>,
 }
 
+/// The runtime over the durable ports, and in Live the HTTP quote ingress that feeds it.
 async fn with_runtime(
     builder: PricingEngineBuilder,
     config: &ServerConfig,
     plan: RuntimePlan,
     storage: &convex_engine::ports::storage::StorageAdapter,
     durable: Durable,
-) -> Result<PricingEngineBuilder, StartupError> {
+) -> Result<(PricingEngineBuilder, Option<Arc<QuoteIngress>>), StartupError> {
     let live = plan.mode == RuntimeMode::Live;
+    // Live quotes arrive only through the HTTP ingress, scoped to the plan's quote keys.
+    let ingress = live.then(|| {
+        Arc::new(QuoteIngress::new(
+            plan.assembly.quotes.iter().map(|q| q.key.clone()),
+        ))
+    });
     let snapshots: Arc<dyn SnapshotRepository> = if live {
         Arc::new(UnstoredSnapshots)
     } else {
@@ -271,21 +240,25 @@ async fn with_runtime(
             ..EngineConfig::default()
         });
     }
-    let (publisher, input): (Arc<dyn ResultPublisher>, RuntimeInput) = if live {
-        (Arc::new(DisplayOnlyPublisher), RuntimeInput::Live)
-    } else {
-        let quotes = config
-            .quotes_file
-            .as_ref()
-            .ok_or(ConfigError::InvalidValue {
-                field: "quotes_file",
-                expected: "canonical JSONL quote events",
-            })?;
-        let replay =
-            convex_ext_file::FileQuoteReplay::open(quotes).map_err(stage("quote_replay"))?;
-        (durable.results, RuntimeInput::Replay(Box::new(replay)))
+    let (publisher, input): (Arc<dyn ResultPublisher>, RuntimeInput) = match &ingress {
+        Some(ingress) => (
+            Arc::new(DisplayOnlyPublisher),
+            RuntimeInput::Live(ingress.clone()),
+        ),
+        None => {
+            let quotes = config
+                .quotes_file
+                .as_ref()
+                .ok_or(ConfigError::InvalidValue {
+                    field: "quotes_file",
+                    expected: "canonical JSONL quote events",
+                })?;
+            let replay =
+                convex_ext_file::FileQuoteReplay::open(quotes).map_err(stage("quote_replay"))?;
+            (durable.results, RuntimeInput::Replay(Box::new(replay)))
+        }
     };
-    Ok(builder
+    let builder = builder
         .with_configuration_use_cases(cases)
         .with_runtime(RuntimeServices {
             plan,
@@ -294,7 +267,8 @@ async fn with_runtime(
             store: durable.runtime,
             publisher,
             input,
-        }))
+        });
+    Ok((builder, ingress))
 }
 
 /// Live market snapshots are not stored. The Live runtime never publishes one, and

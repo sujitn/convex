@@ -42,7 +42,7 @@ impl Actor {
             (&services.input, services.plan.mode),
             (RuntimeInput::Captured, RuntimeMode::Captured)
                 | (RuntimeInput::Replay(_), RuntimeMode::Replay)
-                | (RuntimeInput::Live, RuntimeMode::Live)
+                | (RuntimeInput::Live(_), RuntimeMode::Live)
         );
         if !input_matches
             || !(1..=64).contains(&engine.config.max_concurrent_calcs)
@@ -180,8 +180,10 @@ impl Actor {
             services.fixings.clone(),
             services.snapshots.clone(),
         );
-        let live_source =
-            (services.plan.mode == RuntimeMode::Live).then(|| engine.market_data.quotes.clone());
+        let live_source = match &services.input {
+            RuntimeInput::Live(source) => Some(source.clone()),
+            _ => None,
+        };
         let needs_images = if live_source.is_some() {
             services
                 .plan
@@ -666,7 +668,7 @@ impl Actor {
     async fn next_event(&mut self) -> Result<QuoteEvent, StreamError> {
         match &mut self.services.input {
             RuntimeInput::Replay(source) => source.next_event().await,
-            RuntimeInput::Live => match self.live.as_mut() {
+            RuntimeInput::Live(_) => match self.live.as_mut() {
                 Some(source) => source.recv().await,
                 None => Err(StreamError::Closed),
             },

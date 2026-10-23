@@ -5,7 +5,10 @@
 //! Inputs are the committed showcase seed (`deploy/showcase/seed.json`), so the
 //! fixture the Fly container imports is exercised by CI. Steps that need a later
 //! phase of `.ai/server-plan/IMPLEMENTATION_PLAN.md` are `#[ignore]`d with that phase.
-use convex_server::access::identity::{AccessMode, AccessSettings};
+#[path = "support/access_fixture.rs"]
+pub mod fixture;
+use convex_server::access::identity::{AccessMode, AccessSettings, TlsBoundary};
+use convex_server::access::AccessError;
 use convex_server::{compose, ServerConfig, ServerProfile, StartupError};
 use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
@@ -569,6 +572,49 @@ async fn file_snapshot_state_beside_the_database_is_refused() {
 /// inputs price, readiness accepts Demo, and every output stays labelled demo.
 /// Without `--demo` the same document fails validation on its Demo inputs.
 #[cfg(target_os = "linux")]
+/// Production composes the Live path above behind required access and the TLS proxy. No
+/// HTTPS identity fixture runs in process (D24), so this shows a production configuration
+/// clears every gate and stops only at the identity probe, before storage opens.
+#[tokio::test]
+async fn production_clears_every_gate_and_stops_only_at_the_identity_probe() {
+    let issuer = fixture::IssuerFixture::start().await;
+    let (directory, path) = storage();
+    let policy = directory.path().join("access.json");
+    std::fs::write(&policy, serde_json::to_vec(&fixture::policy()).unwrap()).unwrap();
+    // Production introspection is HTTPS only; the fixture speaks plain HTTP, so the TLS
+    // handshake fails before any request or credential is sent.
+    let mut introspection = issuer.settings.clone();
+    introspection.endpoint = introspection.endpoint.replacen("http://", "https://", 1);
+    introspection.allow_http_loopback = false;
+    let production = ServerConfig {
+        profile: ServerProfile::Production,
+        configuration_id: Some("SHOWCASE-USD".into()),
+        access: AccessSettings {
+            mode: AccessMode::Required,
+            policy_file: Some(policy.to_string_lossy().into_owned()),
+            introspection: Some(introspection),
+            cors_origins: vec![],
+            tls_boundary: TlsBoundary::Proxy,
+        },
+        ..config(&path)
+    };
+    production.validate_startup().unwrap();
+    let error = compose(production).await.err().unwrap();
+    assert!(
+        matches!(error, StartupError::Access(AccessError::Unavailable)),
+        "{error}"
+    );
+    assert_eq!(
+        issuer.state.calls.load(std::sync::atomic::Ordering::SeqCst),
+        0
+    );
+    assert!(
+        !path.exists(),
+        "storage opened before identity verification"
+    );
+    issuer.finish().await;
+}
+
 #[tokio::test]
 async fn demo_profile_runs_the_showcase_configuration_live_on_labelled_demo_data() {
     let seed = seed();

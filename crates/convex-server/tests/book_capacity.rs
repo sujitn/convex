@@ -24,8 +24,6 @@ use tower::ServiceExt;
 fn router(f: &fixture::Fixture, access: Arc<AccessControl>) -> Router {
     let engine = PricingEngineBuilder::new()
         .with_storage(f.storage.clone())
-        .with_market_data(runtime_setup::market_data())
-        .with_reference_data(Arc::new(convex_ext_file::create_empty_reference_data()))
         .build()
         .unwrap();
     Server::with_access_control(

@@ -17,22 +17,14 @@ use convex_core::contracts::{RequestId, UtcTimestamp, Version};
 use convex_core::ids::InstrumentId;
 use convex_core::{Currency, Date};
 use convex_engine::ports::config::EngineConfig;
-use convex_engine::ports::market_data::MarketDataProvider;
 use convex_engine::ports::output::BondQuoteOutput;
-use convex_engine::ports::reference_data::{
-    BondReferenceData, BondType, IssuerType, ReferenceDataProvider,
-};
+use convex_engine::ports::reference_data::{BondReferenceData, BondType, IssuerType};
 use convex_engine::ports::reference_master::ExternalIdentifier;
 use convex_engine::ports::reference_repository::{
     ReferenceCommand, ReferenceCommit, ReferenceError, ReferenceRecord, ReferenceRepository,
 };
 use convex_engine::ports::storage::{BondFilter, Page, Pagination};
 use convex_engine::PricingEngineBuilder;
-use convex_ext_file::{
-    EmptyCurveInputSource, EmptyEtfHoldingsSource, EmptyEtfQuoteSource, EmptyFxRateSource,
-    EmptyIndexFixingSource, EmptyInflationFixingSource, EmptyIssuerReferenceSource,
-    EmptyQuoteSource, EmptyRatingSource, EmptyVolatilitySource,
-};
 // These economic/API fixtures explicitly use local development. Access denial has its own suite.
 fn create_router(engine: Arc<convex_engine::PricingEngine>) -> axum::Router {
     convex_server::routes::create_router_with_access(
@@ -873,26 +865,8 @@ fn create_test_engine_with_storage(
         .now_or_never()
         .unwrap()
         .unwrap();
-    let market_data = MarketDataProvider {
-        quotes: Arc::new(EmptyQuoteSource),
-        curve_inputs: Arc::new(EmptyCurveInputSource),
-        index_fixings: Arc::new(EmptyIndexFixingSource),
-        volatility: Arc::new(EmptyVolatilitySource),
-        fx_rates: Arc::new(EmptyFxRateSource),
-        inflation_fixings: Arc::new(EmptyInflationFixingSource),
-        etf_quotes: Arc::new(EmptyEtfQuoteSource),
-    };
-
-    let reference_data = ReferenceDataProvider {
-        issuers: Arc::new(EmptyIssuerReferenceSource),
-        ratings: Arc::new(EmptyRatingSource),
-        etf_holdings: Arc::new(EmptyEtfHoldingsSource),
-    };
-
     let engine = PricingEngineBuilder::new()
         .with_config(EngineConfig::default())
-        .with_market_data(Arc::new(market_data))
-        .with_reference_data(Arc::new(reference_data))
         .with_storage(Arc::new(storage))
         .build()
         .expect("Failed to build engine");

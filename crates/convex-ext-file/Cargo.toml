@@ -17,15 +17,12 @@ convex-ports = { workspace = true }
 convex-core = { workspace = true }
 
 # File parsing
-csv = "1"
 serde_json = { workspace = true }
 
 # Async
 async-trait = "0.1"
-tokio = { version = "1", features = ["sync", "fs"] }
 
 # Core dependencies
-rust_decimal = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tempfile = "3"
