@@ -994,7 +994,9 @@ pub async fn calculate_portfolio_analytics(
             book_id: Some(book_id),
             version,
         } => {
-            return Err(crate::books::refuse_book_analytics(&state, &ctx, &book_id, version).await)
+            return crate::books::book_analytics(&state, &ctx, &book_id, version)
+                .await
+                .map(|output| (StatusCode::OK, Json(output)));
         }
         _ => {
             return Err(invalid_portfolio_input(

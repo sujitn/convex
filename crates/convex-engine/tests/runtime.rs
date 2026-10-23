@@ -849,3 +849,133 @@ async fn plan_admits_each_published_measure_once_and_nothing_else() {
         Err(RuntimeError::Configuration(_))
     ));
 }
+
+#[tokio::test]
+async fn runtime_results_feed_portfolio_analytics_through_the_quote_adapter() {
+    use rust_decimal::Decimal;
+    let s = setup().await;
+    let mut plan = s.plan.clone();
+    plan.measures = convex_engine::snapshot::RUNTIME_MEASURES
+        .iter()
+        .map(|m| MeasureId::new(*m).unwrap())
+        .collect();
+    let engine = make_engine(
+        &s,
+        archive(&s),
+        plan.clone(),
+        s.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    let published = engine.runtime_results()[0].clone();
+    engine.shutdown().await.unwrap();
+    assert_eq!(engine.runtime_settlement_date(), Some(plan.settlement_date));
+    let quote = runtime_bond_quote(
+        &published,
+        plan.settlement_date.date(),
+        convex_core::Currency::USD,
+    )
+    .unwrap();
+    // Each analyzer input is the runtime measure itself.
+    let measure = |name: &str| {
+        published.result.results()[&MeasureId::new(name).unwrap()]
+            .value
+            .clone()
+    };
+    let model = |value: MeasureValue| match value {
+        MeasureValue::ModelPrice(v) => v.value().get(),
+        MeasureValue::ModelRate(v) => v.value().get(),
+        MeasureValue::ModelYears(v) => v.value().get(),
+        MeasureValue::ModelYearsSquared(v) => v.value().get(),
+        MeasureValue::ModelBps(v) => v.value().get(),
+        other => panic!("unexpected {other:?}"),
+    };
+    let decimal = |value: f64| Some(Decimal::from_f64_retain(value).unwrap());
+    let MeasureValue::Price(clean) = measure("clean_price_mid") else {
+        panic!("clean mid is an exact price")
+    };
+    assert_eq!(quote.clean_price_mid, Some(clean.value().decimal()));
+    assert_eq!(
+        quote.accrued_interest,
+        decimal(model(measure("accrued_interest")))
+    );
+    assert_eq!(quote.ytm_mid, decimal(model(measure("ytm_mid"))));
+    assert_eq!(
+        quote.modified_duration,
+        decimal(model(measure("modified_duration_mid")))
+    );
+    assert_eq!(quote.convexity, decimal(model(measure("convexity_mid"))));
+    assert_eq!(quote.dv01, decimal(model(measure("dv01_mid"))));
+    assert_eq!(quote.z_spread_mid, decimal(model(measure("z_spread_mid"))));
+    assert_eq!(quote.source, "runtime-test");
+
+    // A one-position book reproduces each measure; market value is dirty price times face.
+    let face = Decimal::new(1_000_000, 0);
+    let portfolio = Portfolio {
+        portfolio_id: convex_core::ids::PortfolioId::new("ONE"),
+        name: "one position".into(),
+        currency: convex_core::Currency::USD,
+        positions: vec![Position {
+            instrument_id: quote.instrument_id.clone(),
+            notional: face,
+            sector: None,
+            rating: None,
+        }],
+    };
+    let output = PortfolioAnalyzer::new()
+        .calculate(&portfolio, std::slice::from_ref(&quote))
+        .unwrap();
+    // Weighted ratios divide by the market value in 28-digit decimal arithmetic.
+    let close = |left: Decimal, right: Decimal| {
+        assert!(
+            (left - right).abs() <= right.abs() * Decimal::new(1, 12),
+            "{left} vs {right}"
+        )
+    };
+    let dirty = quote.clean_price_mid.unwrap() + quote.accrued_interest.unwrap();
+    close(output.market_value, dirty * face / Decimal::ONE_HUNDRED);
+    close(output.duration, quote.modified_duration.unwrap());
+    close(output.convexity, quote.convexity.unwrap());
+    close(output.yield_value, quote.ytm_mid.unwrap());
+    close(output.spread, quote.z_spread_mid.unwrap());
+    close(
+        output.dv01,
+        quote.dv01.unwrap() * face / Decimal::ONE_HUNDRED,
+    );
+
+    // A result that is not complete is refused, not adapted.
+    assert!(runtime_bond_quote(
+        &published_with_status(&published, ResultStatus::Partial),
+        plan.settlement_date.date(),
+        convex_core::Currency::USD,
+    )
+    .is_err());
+}
+
+fn published_with_status(
+    published: &PublishedValuation,
+    status: ResultStatus,
+) -> PublishedValuation {
+    let envelope = &published.result;
+    let error = StructuredError::new(
+        ErrorCode::MissingMarketData,
+        Some("z_spread_mid".into()),
+        "fixture gap",
+        false,
+    )
+    .unwrap();
+    let mut results = envelope.results().clone();
+    results.retain(|m, _| m.as_str() != "z_spread_mid");
+    PublishedValuation {
+        result: ResultEnvelope::new(
+            envelope.request_id().clone(),
+            status,
+            envelope.quality(),
+            results,
+            vec![error],
+            envelope.provenance().clone(),
+        )
+        .unwrap(),
+        ..published.clone()
+    }
+}

@@ -352,13 +352,22 @@ The alias list reads one repository page (1,000 books) and refuses with 503 beyo
 master, as before; `/api/v1/books` checks every row.
 
 `POST /api/v1/portfolio/analytics` also accepts `{"book_id": "...", "version": n}` instead of
-inline positions. It requires a complete, valid runtime result for every position and
-otherwise refuses the whole request (422 `BOOK_RESULTS_UNAVAILABLE`, naming the missing
-instruments and the pinned book version); it never returns a partial portfolio. The runtime
-universe is a fixed plan today, so this normally refuses. When all positions have results it
-still refuses with 501 `RUNTIME_RESULT_ADAPTER_UNAVAILABLE`, because no adapter from
-canonical results to the analyzer inputs exists yet. Other portfolio analytics routes take
-inline positions only.
+inline positions. It requires a complete runtime result for every position, `Valid`, or `Demo`
+under the demo profile, and otherwise refuses the whole request (422
+`BOOK_RESULTS_UNAVAILABLE`, naming the missing instruments and the pinned book version); it
+never returns a partial portfolio. The runtime results reach the analyzer as quotes valued for
+the runtime plan's settlement date, in each priced instrument's currency. To cover the
+analytics, the configuration must request `clean_price_mid`, `accrued_interest`, `ytm_mid`,
+`modified_duration_mid`, `convexity_mid`, `dv01_mid` and `z_spread_mid`. It also refuses
+with 422:
+
+| Code | When |
+|---|---|
+| `BOOK_CURRENCY_REQUIRED` | The book names no reporting currency |
+| `UNSUPPORTED_QUANTITY_UNIT` | A position is held in units; no unit-to-face conversion is defined |
+| `BOOK_ANALYTICS_REFUSED` | The analyzer refuses the inputs, for example a missing measure or a foreign-currency position |
+
+Other portfolio analytics routes take inline positions only.
 
 ## Reference schema and Rust migration
 

@@ -83,7 +83,7 @@ pub use market_data_listener::{
     CurveInputUpdate, CurveUpdate, FxRateUpdate, IndexFixingUpdate, InflationFixingUpdate,
     IngestionStatus, MarketDataListener, MarketDataPublisher, MarketDataUpdate, VolSurfaceUpdate,
 };
-pub use portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
+pub use portfolio_analytics::{runtime_bond_quote, Portfolio, PortfolioAnalyzer, Position};
 pub use pricing_router::{BatchPricingResult, PricingRouter};
 pub use runtime::{
     AcceptedUpdate, RuntimeError, RuntimeHealth, RuntimeInput, RuntimeMode, RuntimePhase,
@@ -231,6 +231,11 @@ impl PricingEngine {
     /// Canonical persisted result states with original last-good timestamps.
     pub fn runtime_results(&self) -> Vec<ports::runtime::PublishedValuation> {
         self.runtime.results()
+    }
+
+    /// Settlement date of the composed runtime plan; every runtime result is valued for it.
+    pub fn runtime_settlement_date(&self) -> Option<convex_core::contracts::BusinessDate> {
+        self.runtime.settlement_date()
     }
 
     /// Transient display stream. Lag is explicit; resync through runtime_results.
