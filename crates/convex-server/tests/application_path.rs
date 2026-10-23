@@ -534,10 +534,33 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     let fresh = wait_ready(&server).await;
     assert!(fresh["revision"].as_u64() > restored["revision"].as_u64());
     server.stop().await;
-    // Offline validation opens the snapshot directory; nothing was ever stored in it.
-    let snapshots = std::fs::read_dir(directory.path().join("state.redb.snapshots"));
-    assert!(snapshots.map_or(true, |mut entries| entries.next().is_none()));
-    assert!(!directory.path().join("state.redb.results.jsonl").exists());
+    // Live stores no market snapshot and archives no result.
+    let stored = convex_ext_redb::open_redb_storage(&path).unwrap();
+    assert_eq!(stored.snapshots.market_snapshot_count().unwrap(), 0);
+    assert!(stored.results.is_empty().unwrap());
+    drop(directory);
+}
+
+/// P4: snapshots and replay results live in the redb database. File state an
+/// earlier build left beside the database is refused, never silently ignored.
+#[tokio::test]
+async fn file_snapshot_state_beside_the_database_is_refused() {
+    for suffix in ["core-snapshots", "snapshots", "results.jsonl"] {
+        let (directory, path) = storage();
+        std::fs::create_dir(directory.path().join(format!("state.redb.{suffix}"))).unwrap();
+        let error = compose(config(&path)).await.err().unwrap();
+        assert!(
+            matches!(
+                error,
+                StartupError::Composition {
+                    stage: "file_storage",
+                    ..
+                }
+            ),
+            "{error}"
+        );
+        assert!(!path.exists(), "storage opened before the refusal");
+    }
 }
 
 /// P2b-2, the showcase boot: `deploy/showcase/live.sh activate` records the book

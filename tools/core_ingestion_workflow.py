@@ -106,9 +106,9 @@ def main():
             failed = publish(failed_feed, client.root, expected_status=409)
             require(failed['acknowledged'] == 1 and failed['line'] == 2,
                     'Failed adapter did not retain its actual acknowledged prefix')
+            # Snapshots live in the locked redb database; refused assembly is the
+            # observable proof that no partial snapshot was published.
             client.call('POST', '/analytics/snapshots', plan, status=404)
-            require(not list((folder / 'state.redb.core-snapshots').iterdir()),
-                    'Incomplete ingestion published a partial snapshot')
             write_capture(client.feed, records)
             publish(client.feed, client.root)  # Replays the committed first record.
             summary, saved = core.exercise(client, capture, plan, factors)

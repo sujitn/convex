@@ -5,11 +5,8 @@ use axum::{
     http::{Request, StatusCode},
 };
 use convex_core::contracts::*;
-use convex_engine::ports::{
-    runtime::{PublishedValuation, RuntimeStore},
-    snapshot::SnapshotRepository,
-};
-use convex_engine::{RuntimeInput, RuntimeMode, RuntimePhase};
+use convex_engine::ports::{runtime::PublishedValuation, snapshot::SnapshotRepository};
+use convex_engine::{RuntimeInput, RuntimePhase};
 use convex_server::{Server, ServerConfig};
 use http_body_util::BodyExt;
 use std::time::Duration;
@@ -221,6 +218,7 @@ async fn actual_websocket_opt_in_publishes_lineage_and_sessions_close_during_joi
 #[cfg(unix)]
 #[tokio::test]
 async fn process_replay_sigterm_and_redb_reopen_preserve_exact_published_state() {
+    use convex_engine::{ports::runtime::RuntimeStore, RuntimeMode};
     use std::process::{Command, Stdio};
     use tokio::io::{AsyncBufReadExt, BufReader};
     let s = setup().await;
@@ -245,6 +243,7 @@ async fn process_replay_sigterm_and_redb_reopen_preserve_exact_published_state()
     drop(s.storage);
     drop(s.store);
     drop(s.snapshots);
+    drop(s.results);
     let mut previous = None;
     for run in 0..2 {
         let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_convex-server"));

@@ -135,9 +135,12 @@ retain the earlier Analyst/full-grant requirement; saved reads require Reader or
 Analyst with all those data/resource grants. Source publication and calculation
 are separate permissions. Current grants are rechecked before returning results.
 
-The executable composes local redb with the existing durable Unix filesystem
-snapshot adapter in `<storage_path>.core-snapshots`. Back up both together with the
-server stopped. Other hosts can supply implementations of the same existing
+The executable keeps references, curves, fixings, core and market snapshots, and
+replay results in the one redb database at `storage_path`, on Linux and Windows.
+Back up that file with the server stopped; `convex-redb backup` and `restore` run on
+Unix only. Startup refuses `<storage_path>.core-snapshots`, `<storage_path>.snapshots`
+or `<storage_path>.results.jsonl` left by an earlier build. Remove them, or keep
+running that build against the database. Other hosts can supply implementations of the same existing
 ports. Unsupported adapter methods fail explicitly. The offline
 `convex-core-inputs DATABASE CAPTURED_INPUTS.json` importer also requires a stopped
 server; interrupted imports recover by retrying the identical captured records.

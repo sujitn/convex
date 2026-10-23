@@ -3501,3 +3501,26 @@ jobs:
           name: convex-excel-addin
           path: convex-excel-addin/
           retention-days: 30
+
+  windows-server:
+    name: Server on Windows
+    runs-on: windows-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Materialize packed fixtures
+        run: python tools/fixtures.py materialize
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      # The composition, its single redb database and the application path on Windows.
+      - name: Run storage and server tests
+        run: cargo test --locked -p convex-ext-redb -p convex-server -- --test-threads=1

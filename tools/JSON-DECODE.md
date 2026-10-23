@@ -11,11 +11,12 @@ To compare decoding paths directly on a retained canonical core snapshot:
 export CARGO_INCREMENTAL=0 RUSTFLAGS=-Dwarnings RUSTDOCFLAGS=-Dwarnings
 cargo build --locked --release -p convex-engine --example core_json_decode
 target/release/examples/core_json_decode \
-  /path/to/state.redb.core-snapshots/DIGEST.core.json 31 3
+  /path/to/DIGEST.core.json 31 3
 ```
 
 Use the release directory under `CARGO_TARGET_DIR` if set. Replace the example
-path with an actual saved snapshot from the existing file adapter. The diagnostic
+path with a canonical snapshot file written by `convex_ext_file::FileSnapshotRepository`;
+the server keeps its snapshots in redb. The diagnostic
 alternates slice and string decoding on the same bytes. Every string sample
 includes whole-buffer UTF-8 validation. Exact typed values, canonical bytes and
 the content digest must agree; comparisons and destruction follow each interval.

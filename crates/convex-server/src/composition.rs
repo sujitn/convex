@@ -60,33 +60,27 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
         _ => None,
     };
 
-    let (storage, runtime_store, core_fixings) =
-        convex_ext_redb::create_redb_storage_with_core(&config.storage_path)
-            .map_err(stage("storage"))?;
+    refuse_file_storage(&config.storage_path)?;
+    let convex_ext_redb::RedbStorage {
+        storage,
+        runtime: runtime_store,
+        fixings: core_fixings,
+        snapshots,
+        results,
+    } = convex_ext_redb::open_redb_storage(&config.storage_path).map_err(stage("storage"))?;
     let storage = Arc::new(storage);
     let plan = match (plan, &config.configuration_id) {
         (None, Some(id)) => Some(active_plan(&config, &storage, id).await?),
         (plan, _) => plan,
     };
-    // The core workflow's file snapshots need Unix directory fsync.
-    let core = if cfg!(unix) {
-        Some(Arc::new(convex_engine::core_workflow::CoreWorkflow::new(
-            storage.bonds.clone(),
-            storage.curves.clone(),
-            core_fixings,
-            Arc::new(
-                convex_ext_file::FileSnapshotRepository::new(format!(
-                    "{}.core-snapshots",
-                    config.storage_path
-                ))
-                .map_err(stage("core_snapshots"))?,
-            ),
-            runtime_store.clone(),
-            core_build_id()?,
-        )))
-    } else {
-        None
-    };
+    let core = Arc::new(convex_engine::core_workflow::CoreWorkflow::new(
+        storage.bonds.clone(),
+        storage.curves.clone(),
+        core_fixings,
+        snapshots.clone(),
+        runtime_store.clone(),
+        core_build_id()?,
+    ));
 
     // Live quotes arrive only through the HTTP ingress, scoped to the plan's quote keys.
     let ingress = plan
@@ -123,15 +117,20 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
         .with_reference_data(Arc::new(reference_data))
         .with_storage(storage.clone());
     builder = match plan {
-        Some(plan) => with_runtime(builder, &config, plan, &storage, runtime_store).await?,
+        Some(plan) => {
+            let durable = Durable {
+                runtime: runtime_store,
+                snapshots,
+                results,
+            };
+            with_runtime(builder, &config, plan, &storage, durable).await?
+        }
         None => builder.with_demo_mode(),
     };
     let engine = Arc::new(builder.build()?);
 
-    let mut server = Server::with_access_control(config, engine.clone(), access);
-    if let Some(core) = core {
-        server = server.with_core_workflow(core);
-    }
+    let mut server =
+        Server::with_access_control(config, engine.clone(), access).with_core_workflow(core);
     if let Some(ingress) = ingress {
         server = server.with_quote_ingress(ingress);
     }
@@ -203,24 +202,39 @@ fn checked(config: &ServerConfig, plan: RuntimePlan) -> Result<RuntimePlan, Star
     Ok(plan)
 }
 
+/// Before redb held snapshots and replay results they were files beside the database.
+/// Startup refuses rather than ignore them: remove them, or keep the earlier build.
+fn refuse_file_storage(storage_path: &str) -> Result<(), StartupError> {
+    for suffix in [".core-snapshots", ".snapshots", ".results.jsonl"] {
+        let path = format!("{storage_path}{suffix}");
+        if std::fs::symlink_metadata(&path).is_ok() {
+            return Err(stage("file_storage")(format!(
+                "{path} predates redb snapshot and result storage; remove it or keep the earlier build"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// The runtime's durable ports, all on the one redb database.
+struct Durable {
+    runtime: Arc<convex_ext_redb::RedbRuntimeStore>,
+    snapshots: Arc<convex_ext_redb::RedbSnapshotRepository>,
+    results: Arc<convex_ext_redb::RedbResultPublisher>,
+}
+
 async fn with_runtime(
     builder: PricingEngineBuilder,
     config: &ServerConfig,
     plan: RuntimePlan,
     storage: &convex_engine::ports::storage::StorageAdapter,
-    runtime_store: Arc<convex_ext_redb::RedbRuntimeStore>,
+    durable: Durable,
 ) -> Result<PricingEngineBuilder, StartupError> {
     let live = plan.mode == RuntimeMode::Live;
     let snapshots: Arc<dyn SnapshotRepository> = if live {
         Arc::new(UnstoredSnapshots)
     } else {
-        Arc::new(
-            convex_ext_file::FileSnapshotRepository::new(format!(
-                "{}.snapshots",
-                config.storage_path
-            ))
-            .map_err(stage("runtime_snapshots"))?,
-        )
+        durable.snapshots
     };
     let fixings = Arc::new(convex_ext_file::JsonFixingRepository::empty());
     let sources = plan
@@ -267,14 +281,9 @@ async fn with_runtime(
                 field: "quotes_file",
                 expected: "canonical JSONL quote events",
             })?;
-        let publisher = convex_ext_file::JsonlResultPublisher::new(format!(
-            "{}.results.jsonl",
-            config.storage_path
-        ))
-        .map_err(stage("result_publisher"))?;
         let replay =
             convex_ext_file::FileQuoteReplay::open(quotes).map_err(stage("quote_replay"))?;
-        (Arc::new(publisher), RuntimeInput::Replay(Box::new(replay)))
+        (durable.results, RuntimeInput::Replay(Box::new(replay)))
     };
     Ok(builder
         .with_configuration_use_cases(cases)
@@ -282,7 +291,7 @@ async fn with_runtime(
             plan,
             snapshots,
             fixings,
-            store: runtime_store,
+            store: durable.runtime,
             publisher,
             input,
         }))
@@ -309,8 +318,7 @@ impl SnapshotRepository for UnstoredSnapshots {
 }
 
 /// Live results reach WebSocket subscribers and `/api/v1/runtime/results` only. They are
-/// not archived: the JSONL archive's 100,000 delivery-key bound would fill within about
-/// 400 ticks of a 256-instrument universe.
+/// not archived: every tick of every instrument would grow the result archive (D5a).
 struct DisplayOnlyPublisher;
 
 #[async_trait]

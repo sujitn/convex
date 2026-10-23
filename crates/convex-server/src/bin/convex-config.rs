@@ -10,7 +10,7 @@ use convex_engine::{
         storage::Pagination,
     },
 };
-use convex_ext_file::{FileQuoteReplay, FileSnapshotRepository, JsonFixingRepository};
+use convex_ext_file::{FileQuoteReplay, JsonFixingRepository};
 use convex_server::{
     configuration_admin::{
         effective_configuration, local_live_capabilities, local_replay_capabilities,
@@ -124,8 +124,9 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
     } else {
         vec![]
     };
-    let storage =
-        convex_ext_redb::create_redb_storage(&args[0]).map_err(|_| ConfigurationError::Storage)?;
+    let convex_ext_redb::RedbStorage {
+        storage, snapshots, ..
+    } = convex_ext_redb::open_redb_storage(&args[0]).map_err(|_| ConfigurationError::Storage)?;
     if command == "compile" && args.len() == 3 {
         let selection: PlanSelection = read(&args[2])?;
         let capabilities = composed(selection.mode, vec![selection.source.clone()], demo)?;
@@ -139,11 +140,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
         .await?;
         return Ok((json!(document), true));
     }
-    // Construction checks the existing snapshot directory; dry-run resolve never publishes content.
-    let snapshots = Arc::new(
-        FileSnapshotRepository::new(PathBuf::from(format!("{}.snapshots", name(&args[0])?)))
-            .map_err(|_| ConfigurationError::Storage)?,
-    );
+    // Dry-run resolve reads the database's snapshots and never publishes content.
     let cases = |capabilities| {
         ConfigurationUseCases::new(
             storage.configuration.clone(),

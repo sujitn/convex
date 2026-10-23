@@ -1,5 +1,9 @@
 use convex_core::contracts::{RequestId, UtcTimestamp, Version};
-use convex_ext_redb::{backup_database, create_redb_storage, restore_database};
+use convex_ext_redb::create_redb_storage;
+// Offline backup and restore run on Unix only.
+#[cfg(unix)]
+use convex_ext_redb::{backup_database, restore_database};
+#[cfg(unix)]
 use convex_ports::error::TraitError;
 use convex_ports::reference_data::BondReferenceData;
 use convex_ports::reference_repository::{ReferenceChange, ReferenceCommand, ReferenceError};
@@ -336,6 +340,7 @@ fn process_fixture_child() {
     }
 }
 
+#[cfg(unix)]
 fn child(path: &Path, action: &str) -> std::process::Output {
     Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "process_fixture_child", "--nocapture"])
@@ -344,6 +349,7 @@ fn child(path: &Path, action: &str) -> std::process::Output {
         .output()
         .unwrap()
 }
+#[cfg(unix)]
 fn verify_child(path: &Path) {
     let output = child(path, "verify");
     assert!(

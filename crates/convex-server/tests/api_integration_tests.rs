@@ -817,6 +817,8 @@ fn production_readiness_environment_only_binary_startup() {
     let child = Command::new(env!("CARGO_BIN_EXE_convex-server"))
         .current_dir(&directory)
         .env_clear()
+        // Winsock cannot initialize on Windows without SystemRoot.
+        .envs(std::env::var_os("SystemRoot").map(|root| ("SystemRoot", root)))
         .env("RUST_LOG", "info")
         .env("CONVEX_PROFILE", "demo")
         .env("CONVEX_ACCESS_MODE", "local_development")

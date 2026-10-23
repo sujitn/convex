@@ -66,10 +66,11 @@ immutable snapshot/fixing repositories, `RuntimeStore`, `ResultPublisher` and in
 ownership. Reference/configuration reads use the engine's authoritative storage.
 Add `with_configuration_use_cases` with actual composition capabilities to adopt
 managed selections. An active pointer without that composition fails startup.
-`create_redb_storage_with_runtime` returns those repositories and the checkpoint
-store over one local redb database. `FileSnapshotRepository` and
-`JsonlResultPublisher` are local Unix adapters; alternate backends implement the
-same narrow ports without importing the engine or changing pricing mathematics.
+`open_redb_storage` returns those repositories, the checkpoint store,
+`RedbSnapshotRepository` and `RedbResultPublisher` over one local redb database on
+Linux and Windows; the server composes these. `FileSnapshotRepository` and
+`JsonlResultPublisher` remain local Unix file adapters. Alternate backends implement
+the same narrow ports without importing the engine or changing pricing mathematics.
 
 `start().await` runs once. It verifies the configured plan digest, exact references
 and resource pins, configuration revision, accepted trace, immutable snapshots,
@@ -122,8 +123,9 @@ revision)`. Revisions survive process restart and differ from local graph counte
 An output adapter may receive the same delivery key again after a crash or lost
 acknowledgment. This is an at-least-once contract, not exactly-once execution.
 
-`JsonlResultPublisher` acknowledges after file sync, reconciles identical delivery
-keys and rejects changed content. Reopening validates complete bounded records.
+`RedbResultPublisher` commits each result in its own transaction, accepts identical
+redelivery of a key and rejects changed content. `JsonlResultPublisher` acknowledges
+after file sync, reconciles identical delivery keys and rejects changed content. Reopening validates complete bounded records.
 Torn/corrupt tails require explicit repair; the adapter never silently skips them.
 Stop writers and retain the damaged evidence, restore the archive or verify and
 repair its final unacknowledged record, then reopen the publisher. The runtime's
@@ -202,8 +204,8 @@ CONVEX_QUOTES_FILE=/absolute/path/quotes.jsonl \
 cargo run --locked -p convex-server
 ```
 
-`quotes_file` is canonical JSONL in this profile, not an unsequenced CSV. Snapshot
-files use `<storage_path>.snapshots`; output uses `<storage_path>.results.jsonl`.
+`quotes_file` is canonical JSONL in this profile, not an unsequenced CSV. Market
+snapshots and published results are stored in the `storage_path` redb database.
 The plan must select `mode=replay`, empty `seed_events` and this executable's build
 identity. Compile a release with `CONVEX_BUILD_ID` set to the pinned artifact ID;
 it is a compile-time variable, not a server runtime setting. The default local

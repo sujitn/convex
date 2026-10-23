@@ -952,6 +952,8 @@ def inventory_paths(root: Path) -> set[str]:
         'crates/convex-ext-redb/src/fixing_repository.rs',
         'crates/convex-ext-redb/src/curve_store.rs',
         'crates/convex-ext-redb/src/runtime_store.rs',
+        'crates/convex-ext-redb/src/snapshot_repository.rs',
+        'crates/convex-ext-redb/src/result_publisher.rs',
         'crates/convex-server/src/core_workflow.rs',
         'crates/convex-server/src/main.rs',
         'crates/convex-server/src/lib.rs',

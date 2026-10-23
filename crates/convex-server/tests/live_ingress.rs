@@ -1,7 +1,6 @@
 //! The `live` profile over the real composition and HTTP: canonical quotes posted to
 //! `/api/v1/market/quotes` price through the Live runtime, and a restart waits for
 //! fresh images instead of restoring stored ticks.
-#![cfg(unix)]
 #[path = "../../convex-engine/tests/support/runtime_setup.rs"]
 mod support;
 
@@ -128,6 +127,7 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
     drop(s.storage);
     drop(s.store);
     drop(s.snapshots);
+    drop(s.results);
     let live = config(ServerProfile::Live, &database, Some(&plan_path));
 
     let server = Running::start(live.clone()).await;
@@ -201,8 +201,11 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
     let fresh = server.wait_ready().await;
     assert!(fresh["revision"].as_u64() > restored["revision"].as_u64());
     server.stop().await;
-    assert!(!dir.path().join("inputs.redb.snapshots").exists());
-    assert!(!dir.path().join("inputs.redb.results.jsonl").exists());
+    // Live stores no market snapshot and archives no result.
+    let stored = convex_ext_redb::open_redb_storage(&database).unwrap();
+    assert_eq!(stored.snapshots.market_snapshot_count().unwrap(), 0);
+    assert!(stored.results.is_empty().unwrap());
+    drop(dir);
 }
 
 #[tokio::test]

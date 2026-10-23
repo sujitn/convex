@@ -132,6 +132,7 @@ pub fn backup_database(
     let version = schema_version(&db)?;
     check_schema(version)?;
     sync_directory(parent(destination))?;
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut builder = fs::DirBuilder::new();
     #[cfg(unix)]
     {
