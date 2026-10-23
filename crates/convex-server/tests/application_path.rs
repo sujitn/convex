@@ -566,12 +566,6 @@ async fn file_snapshot_state_beside_the_database_is_refused() {
     }
 }
 
-/// P2b-2, the showcase boot: `deploy/showcase/live.sh activate` records the book
-/// and fresh Demo curves, then compiles, validates, stages and activates under the
-/// demo profile's capabilities. The demo profile runs that configuration live: Demo
-/// inputs price, readiness accepts Demo, and every output stays labelled demo.
-/// Without `--demo` the same document fails validation on its Demo inputs.
-#[cfg(target_os = "linux")]
 /// Production composes the Live path above behind required access and the TLS proxy. No
 /// HTTPS identity fixture runs in process (D24), so this shows a production configuration
 /// clears every gate and stops only at the identity probe, before storage opens.
@@ -615,6 +609,12 @@ async fn production_clears_every_gate_and_stops_only_at_the_identity_probe() {
     issuer.finish().await;
 }
 
+/// P2b-2, the showcase boot: `deploy/showcase/live.sh activate` records the book
+/// and fresh Demo curves, then compiles, validates, stages and activates under the
+/// demo profile's capabilities. The demo profile runs that configuration live: Demo
+/// inputs price, readiness accepts Demo, and every output stays labelled demo.
+/// Without `--demo` the same document fails validation on its Demo inputs.
+#[cfg(target_os = "linux")]
 #[tokio::test]
 async fn demo_profile_runs_the_showcase_configuration_live_on_labelled_demo_data() {
     let seed = seed();
