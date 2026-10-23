@@ -397,7 +397,7 @@ The [local redb storage guide](../convex-ext-redb/README.md) documents immutable
 
 ## Market replay and file inputs
 
-[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears, bounds and snapshot-file migration. Run its standalone trace example before wiring an ingestion adapter. File snapshots require recorded timestamps and sources; missing files or malformed records fail explicitly. The owned runtime uses snapshot-consistent pricing; existing v1 synthetic-curve behavior remains the enforced G04 production gap.
+[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears and bounds. Run its standalone trace example before wiring an ingestion adapter. The owned runtime uses snapshot-consistent pricing; existing v1 synthetic-curve behavior remains the enforced G04 production gap.
 
 ## Configuration operator
 

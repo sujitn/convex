@@ -66,42 +66,22 @@ The assembler exposes Live, Delayed, Indicative, Manual, Stale, Gap, Invalid, Cl
 
 The assembler retains at most 12 fields and one accepted data envelope per key, plus a bounded supplier count index. Rejections return one decision to the caller; they do not accumulate an internal quarantine or trace queue. A caller requiring durable quarantine must persist the permitted evidence reference and decision in its chosen journal. Explicit unsubscribe/removal releases the key; reintroduction requires an image.
 
-The listener sends only admitted Live price observations into the current calculation graph, bounds cache reads by the captured monotonic freshness deadline and removes expired entries on a 100 ms maintenance sweep, evicts suspended quote/bond caches and guards timer calculations against lost/replaced quote revisions. It refuses two suppliers for one instrument because the current graph has no source-selection policy. Shared-channel lag, closure or key-capacity overload halts all automatic calculations: quote images can reconstruct local observations, but unknown auxiliary dependencies require a new engine and full reload. There is no hot-resume method that assumes reconciliation. Complete runtime consolidation, exact dependency generations, source-selection policy and snapshot-consistent publication remain separate tasks. The present server still fails the enforced Empty-success and synthetic-curve probes; this ingestion work does not complete a production release gate.
+The Live runtime takes its quote subscription through `RuntimeInput::Live`; the server
+feeds it from `POST /api/v1/market/quotes`. The earlier `MarketDataListener`, its
+scheduler and the engine's graph input handlers are removed.
 
 ## Resource and delivery limits
 
 Replay accepts regular files up to 256 MiB, at most 1,000,000 records and at most 64 KiB per record including its newline. It also checks bytes consumed if the file grows. Blank/malformed/unknown-field/numeric-decimal records produce `StreamError::Failure`; the cursor then closes rather than skipping evidence. Unsupported schema numbers decode into events and receive the assembler's Invalid decision. EOF is `StreamError::Closed`, including an empty file. Files must remain immutable during replay; no concurrent-file consistency or cryptographic authentication is claimed.
 
-Streaming ports now share `StreamReceiver<T>::recv() -> Result<T, StreamError>`; `Lagged { missed }`, `Closed` and adapter `Failure` are distinct. Quote subscriptions deliver `QuoteEvent`. The old per-type receiver wrappers and unsequenced quote update type are removed without aliases. Existing snapshot DTOs, REST v1 economic units, pure pricing and language-client calls retain their contract. Rust adapter callers migrate their subscribe signatures and handle every delivery result. Listener construction now takes graph, throttle manager, update receiver and shutdown receiver; the unused curve-builder argument is removed. Configure `with_policy` before the first event. [Pinned Tokio broadcast documentation](https://docs.rs/tokio/1.50.0/tokio/sync/broadcast/index.html) defines the underlying transient loss/closure behavior.
+Streaming ports now share `StreamReceiver<T>::recv() -> Result<T, StreamError>`; `Lagged { missed }`, `Closed` and adapter `Failure` are distinct. Quote subscriptions deliver `QuoteEvent`. The old per-type receiver wrappers and unsequenced quote update type are removed without aliases. Existing snapshot DTOs, REST v1 economic units, pure pricing and language-client calls retain their contract. Rust adapter callers migrate their subscribe signatures and handle every delivery result. [Pinned Tokio broadcast documentation](https://docs.rs/tokio/1.50.0/tokio/sync/broadcast/index.html) defines the underlying transient loss/closure behavior.
 
-## Snapshot file migration
+## Removed file snapshot sources
 
-All three snapshot sources read regular files up to 16 MiB, reject unknown record fields and replace the complete cache only after successful validation. Missing files fail explicitly. A failed reload keeps the prior data with its prior timestamps; a successful reload removes keys absent from the replacement. Quote/fixing snapshots hold at most 100,000 records. Curve snapshots have at most 4,096 inputs per curve and 100,000 inputs total; curve tenors are positive, ASCII and bounded. Required instrument types are preserved rather than inferred as swaps. Calibration validity belongs to the curve construction layer.
-
-Quote CSV requires these headers and a recorded timestamp/source. Blank optional prices mean absent:
-
-```csv
-instrument_id,bid_price,ask_price,mid_price,last_price,timestamp,source
-BOND-001,99.125,99.25,99.1875,,1791086400100,file-eod
-```
-
-Curve JSON uses exact rate strings and explicit instrument types/timestamps:
-
-```json
-[{"curve_id":"USD.TEST","inputs":[{"tenor":"2Y","rate":"0.04","instrument_type":"Swap","timestamp":1791086400100,"source":"file-eod"}]}]
-```
-
-Fixing CSV is implemented rather than returning an empty placeholder:
-
-```csv
-index,date,rate,timestamp,source
-SOFR,2026-10-02,0.04,1791086400100,file-eod
-EURIBOR-3M,2026-10-02,0.025,1791086400100,file-eod
-```
-
-Index names SOFR, ESTR, SONIA, EURIBOR-tenor and TERM-SOFR-tenor map to native index types; other bounded names retain their explicit Other identity. Fixing ranges are inclusive and date-ordered; duplicate index/date records fail. This file snapshot does not provide fixing revision history or known-at filtering.
-
-Convert previous curve numeric rates to exact strings and supply authoritative instrument types, timestamps and source names. Previous quote files also need recorded timestamps and sources. There is no fallback that invents their provenance. An intentionally empty snapshot uses a header-only CSV or `[]` curve JSON; demo/test composition can explicitly use the existing empty sources.
+The CSV quote, JSON curve-input and CSV fixing snapshot sources, and the `Empty*`
+placeholder sources, are removed: nothing composed them. Live quotes reach the
+runtime through `RuntimeInput::Live`, replay reads `FileQuoteReplay`, historical
+fixings use `JsonFixingRepository` below, and curves come from stored recipes.
 
 ## Reference master imports
 
@@ -127,5 +107,3 @@ low-latency guarantees are not certified.
 `JsonFixingRepository` loads a frozen, strict schema-1 history of up to 100,000
 revisions from a regular file of at most 16 MiB. It requires actual publication
 and recording timestamps and filters both against the information cutoff.
-The earlier CSV fixing source remains a current snapshot with no historical
-publication contract; the two formats are not silently interchangeable.

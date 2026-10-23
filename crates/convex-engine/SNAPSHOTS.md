@@ -172,8 +172,7 @@ an appended history. No prior-date fixing or forecast is substituted.
 }
 ```
 
-The earlier fixing CSV remains a current snapshot format. Its single timestamp
-cannot be interpreted as publication history. Supply verified publication and
+The earlier fixing CSV source is removed. Supply verified publication and
 recording metadata to use historical assembly.
 
 JSON model values use Serde's `float_roundtrip` parsing to preserve finite binary
