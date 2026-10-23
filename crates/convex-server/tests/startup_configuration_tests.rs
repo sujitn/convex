@@ -36,6 +36,8 @@ impl Probe {
         command
             .current_dir(&directory)
             .env_clear()
+            // Winsock cannot initialize on Windows without SystemRoot.
+            .envs(std::env::var_os("SystemRoot").map(|root| ("SystemRoot", root)))
             .env("RUST_LOG", "info")
             .env("CONVEX_HOST", "127.0.0.1")
             .env("CONVEX_PORT", "0")
