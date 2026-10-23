@@ -680,6 +680,9 @@ pub struct BondPricingConfig {
     pub bid_ask_spread: Option<BidAskSpreadConfig>,
     /// Curves for analytics calculations (spreads, duration, etc.)
     pub analytics_curves: AnalyticsCurves,
+    /// Explicit HW1F assumption for callables; without it callables are refused.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub option_model: Option<OptionModelAssumption>,
     /// Explicit priority (higher wins); if None, uses filter specificity
     pub priority: Option<i32>,
     /// Is this config active
@@ -690,6 +693,18 @@ pub struct BondPricingConfig {
     pub created_at: i64,
     /// Last updated timestamp
     pub updated_at: i64,
+}
+
+/// A labelled, constant one-factor Hull-White assumption, never a calibration result.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OptionModelAssumption {
+    /// Mean reversion per year, in [0, 10].
+    pub mean_reversion: f64,
+    /// Short-rate volatility per square-root year, in [0, 1].
+    pub volatility: f64,
+    /// Why these parameters were chosen; retained in every callable result's model.
+    pub reason: String,
 }
 
 impl BondPricingConfig {
@@ -916,6 +931,17 @@ pub fn validate_pricing_config(config: &BondPricingConfig) -> Result<(), TraitEr
         .validate()
         .map_err(TraitError::InvalidInput)?;
     validate_id(config.analytics_curves.discount_curve.as_str())?;
+    if let Some(model) = &config.option_model {
+        if !(0.0..=10.0).contains(&model.mean_reversion)
+            || !(0.0..=1.0).contains(&model.volatility)
+            || model.reason.trim().is_empty()
+            || model.reason.len() > 8192
+        {
+            return Err(TraitError::InvalidInput(
+                "option model needs mean reversion in [0,10], volatility in [0,1] and a reason",
+            ));
+        }
+    }
     for id in [
         &config.analytics_curves.government_curve,
         &config.analytics_curves.swap_curve,

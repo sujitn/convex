@@ -374,7 +374,8 @@ under the demo profile, and otherwise refuses the whole request (422
 never returns a partial portfolio. The runtime results reach the analyzer as quotes valued for
 the runtime plan's settlement date, in each priced instrument's currency. To cover the
 analytics, the configuration must request `clean_price_mid`, `accrued_interest`, `ytm_mid`,
-`modified_duration_mid`, `convexity_mid`, `dv01_mid` and `z_spread_mid`. It also refuses
+`modified_duration_mid`, `convexity_mid`, `dv01_mid` and `z_spread_mid`. A callable publishes
+OAS measures rather than yield-to-maturity ones, so a book that holds one is refused. It also refuses
 with 422:
 
 | Code | When |

@@ -181,7 +181,7 @@ impl PricingRouter {
         Self { bump_bps: 10.0 }
     }
     /// Convert BondReferenceData to a FixedRateBond for analytics.
-    fn to_fixed_rate_bond(
+    pub(crate) fn to_fixed_rate_bond(
         &self,
         ref_data: &BondReferenceData,
     ) -> Result<FixedRateBond, EngineError> {
@@ -259,7 +259,10 @@ impl PricingRouter {
     }
 
     /// Get frequency enum from reference data.
-    fn get_frequency(&self, ref_data: &BondReferenceData) -> Result<Frequency, EngineError> {
+    pub(crate) fn get_frequency(
+        &self,
+        ref_data: &BondReferenceData,
+    ) -> Result<Frequency, EngineError> {
         match ref_data.frequency {
             1 => Ok(Frequency::Annual),
             2 => Ok(Frequency::SemiAnnual),

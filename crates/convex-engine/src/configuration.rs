@@ -299,6 +299,15 @@ impl ConfigurationUseCases {
                 issue(&mut report, "assembly", "INVALID_FIXTURE_INPUTS", "Required quotes/curves or feed continuity do not satisfy the supplied information cutoff");
                 continue;
             }
+            if !crate::optional_valuation::within_callable_bound(&snapshot) {
+                issue(
+                    &mut report,
+                    "assembly.instruments",
+                    "TOO_MANY_CALLABLES",
+                    "A runtime plan values at most 8 callables",
+                );
+                continue;
+            }
             let mut valuator = self.warmed.lock().clone();
             if valuator.is_none() {
                 let initialized = Arc::new(SnapshotValuator::new(

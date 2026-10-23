@@ -120,3 +120,72 @@ fn effective_boundaries_and_unsupported_terms_are_explicit() {
         .is_err());
     assert!(ReferenceDataId::new("provider symbol with spaces").is_err());
 }
+
+#[test]
+fn call_terms_are_optional_bytes_and_belong_only_to_a_dated_priced_callable() {
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/reference_bond.json")).unwrap();
+    let bullet: BondReferenceData = serde_json::from_value(fixture.clone()).unwrap();
+    // Absent call terms are omitted, so stored records keep their exact bytes.
+    let bytes = serde_json::to_value(&bullet).unwrap();
+    assert!(bytes["contractual_terms"].get("call_terms").is_none());
+    let callable = || {
+        let mut bond = bullet.clone();
+        bond.bond_type = convex_ports::reference_data::BondType::FixedCallable;
+        bond.is_callable = true;
+        bond.call_schedule = ["2027-01-15", "2028-01-15"]
+            .iter()
+            .map(|date| convex_ports::reference_data::CallScheduleEntry {
+                call_date: convex_core::Date::parse(date).unwrap(),
+                call_price: rust_decimal::Decimal::ONE_HUNDRED,
+                is_make_whole: false,
+            })
+            .collect();
+        bond.contractual_terms.as_mut().unwrap().call_terms = Some(CallTerms {
+            style: CallStyle::Bermudan,
+            notice_days: 30,
+        });
+        bond
+    };
+    validate_bond_reference(&callable()).unwrap();
+    let text = serde_json::to_value(callable()).unwrap();
+    assert_eq!(
+        text["contractual_terms"]["call_terms"],
+        serde_json::json!({"style": "bermudan", "notice_days": 30})
+    );
+    // A callable without call terms still records; it is refused only when valued.
+    let mut legacy = callable();
+    legacy.contractual_terms.as_mut().unwrap().call_terms = None;
+    validate_bond_reference(&legacy).unwrap();
+    let invalid: Vec<Box<dyn Fn(&mut BondReferenceData)>> = vec![
+        Box::new(|b| b.bond_type = convex_ports::reference_data::BondType::FixedBullet),
+        Box::new(|b| b.is_callable = false),
+        Box::new(|b| b.call_schedule.clear()),
+        Box::new(|b| b.call_schedule.swap(0, 1)),
+        Box::new(|b| b.call_schedule[1].call_date = b.maturity_date.add_days(1)),
+        Box::new(|b| b.call_schedule[0].call_price = rust_decimal::Decimal::ZERO),
+        Box::new(|b| {
+            b.contractual_terms
+                .as_mut()
+                .unwrap()
+                .call_terms
+                .as_mut()
+                .unwrap()
+                .notice_days = 367
+        }),
+    ];
+    for change in invalid {
+        let mut bond = callable();
+        change(&mut bond);
+        assert!(matches!(
+            validate_bond_reference(&bond),
+            Err(ReferenceError::InvalidInput(_))
+        ));
+    }
+    let mut make_whole = callable();
+    make_whole.call_schedule[0].is_make_whole = true;
+    assert!(matches!(
+        validate_bond_reference(&make_whole),
+        Err(ReferenceError::Unsupported(_))
+    ));
+}
