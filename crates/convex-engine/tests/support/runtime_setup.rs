@@ -12,13 +12,19 @@ pub struct Setup {
     pub dir: tempfile::TempDir,
     pub storage: Arc<StorageAdapter>,
     pub store: Arc<convex_ext_redb::RedbRuntimeStore>,
-    pub snapshots: Arc<FileSnapshotRepository>,
+    pub snapshots: Arc<convex_ext_redb::RedbSnapshotRepository>,
+    pub results: Arc<convex_ext_redb::RedbResultPublisher>,
     pub plan: RuntimePlan,
 }
 pub async fn setup() -> Setup {
     let dir = tempfile::tempdir().unwrap();
-    let (storage, store) =
-        convex_ext_redb::create_redb_storage_with_runtime(dir.path().join("inputs.redb")).unwrap();
+    let convex_ext_redb::RedbStorage {
+        storage,
+        runtime: store,
+        snapshots,
+        results,
+        ..
+    } = convex_ext_redb::open_redb_storage(dir.path().join("inputs.redb")).unwrap();
     let bond = fixture::bond();
     storage
         .bonds
@@ -36,7 +42,6 @@ pub async fn setup() -> Setup {
         .unwrap();
     storage.configs.save(&fixture::config()).await.unwrap();
     let content = fixture::content();
-    let snapshots = Arc::new(FileSnapshotRepository::new(dir.path().join("snapshots")).unwrap());
     let plan = RuntimePlan {
         schema_version: 1,
         runtime_id: SourceId::new("runtime-test").unwrap(),
@@ -84,6 +89,7 @@ pub async fn setup() -> Setup {
         storage: Arc::new(storage),
         store,
         snapshots,
+        results,
         plan,
     }
 }
@@ -123,7 +129,7 @@ pub fn make_engine(
     )
 }
 pub fn archive(s: &Setup) -> Arc<dyn ResultPublisher> {
-    Arc::new(JsonlResultPublisher::new(s.dir.path().join("results.jsonl")).unwrap())
+    s.results.clone()
 }
 pub fn event(sequence: u64, milliseconds: i64, value: &str) -> QuoteEvent {
     let start = fixture::time("2026-10-02T15:00:00Z")

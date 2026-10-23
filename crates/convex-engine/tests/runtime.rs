@@ -72,13 +72,15 @@ async fn cvx005_ac1_actual_quote_to_snapshot_graph_and_durable_publication() {
         cached.snapshot_id.as_ref(),
         Some(&next.result.provenance().snapshot_id)
     );
-    let lines: Vec<PublishedValuation> =
-        std::fs::read_to_string(s.dir.path().join("results.jsonl"))
-            .unwrap()
-            .lines()
-            .map(|line| serde_json::from_str(line).unwrap())
-            .collect();
-    assert_eq!(lines, vec![first, next]);
+    assert_eq!(s.results.len().unwrap(), 2);
+    for published in [first, next] {
+        assert_eq!(
+            s.results
+                .get(&published.runtime_id, published.revision)
+                .unwrap(),
+            Some(published)
+        );
+    }
     let checkpoint = s.store.load(&s.plan.runtime_id).await.unwrap().unwrap();
     assert!(!checkpoint.pending);
     assert!(checkpoint.outbox.is_empty());
@@ -794,9 +796,10 @@ async fn live_plan_refuses_seed_events() {
 #[tokio::test]
 async fn result_archive_reconciles_retry_keys_and_refuses_corrupt_tails() {
     let s = setup().await;
+    let path = s.dir.path().join("results.jsonl");
     let engine = make_engine(
         &s,
-        archive(&s),
+        Arc::new(JsonlResultPublisher::new(&path).unwrap()),
         s.plan.clone(),
         s.store.clone(),
         RuntimeInput::Captured,
@@ -804,7 +807,6 @@ async fn result_archive_reconciles_retry_keys_and_refuses_corrupt_tails() {
     engine.start().await.unwrap();
     let first = engine.runtime_results()[0].clone();
     engine.shutdown().await.unwrap();
-    let path = s.dir.path().join("results.jsonl");
     let reopened = JsonlResultPublisher::new(&path).unwrap();
     reopened.publish(&first).await.unwrap();
     assert_eq!(std::fs::read_to_string(&path).unwrap().lines().count(), 1);

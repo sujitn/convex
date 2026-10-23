@@ -11,7 +11,7 @@ To compare verified serialization on an actual saved canonical snapshot:
 export CARGO_INCREMENTAL=0 RUSTFLAGS=-Dwarnings RUSTDOCFLAGS=-Dwarnings
 cargo build --locked --release -p convex-engine --example core_json_encode
 target/release/examples/core_json_encode \
-  /path/to/state.redb.core-snapshots/DIGEST.core.json 31 3
+  /path/to/DIGEST.core.json 31 3
 ```
 
 Use the release directory under `CARGO_TARGET_DIR` if set. The diagnostic

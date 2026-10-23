@@ -39,8 +39,8 @@ market timestamps. A frame's individual port commits remain independent.
 The state file's parent must exist. One Unix worker owns that receipt through an
 OS advisory lock; retain the lock file alongside it. Do not start workers for the
 same book using different state paths. This is local ownership, not distributed
-leadership. Back up the server's redb and `.core-snapshots` directory together
-with the server stopped, retaining the workflow/configuration receipt as well.
+leadership. Back up the server's redb database with the server stopped; it holds
+the core snapshots too. Retain the workflow/configuration receipt as well.
 
 The server token needs existing market publication, analyst, reference-write and
 reference-commit read grants for the selected book/data. Native calculation

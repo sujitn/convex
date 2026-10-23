@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Measure snapshot read/JSON/integrity costs for existing 36/60-trade books.
 
-Reuse the existing importer, server snapshot port, capacity workload and actual
-file adapter. The Rust diagnostic verifies every captured byte/value outside
-each timed stage. Financial update/restart checks remain core_update_latency.py.
+Reuse the existing importer, server snapshot port, capacity workload and the
+server's redb database. The Rust diagnostic verifies every captured byte/value
+outside each timed stage. Financial update/restart checks remain core_update_latency.py.
 """
 import argparse
 import hashlib
@@ -34,14 +34,13 @@ def measure(directory, lots, receipts, samples, warmup):
         with core.supplied.ServerProcess(server_binary, folder) as server:
             client = core.Client(server)
             identity = client.assemble(plan)
-            saved = client.snapshot(identity)
-        path = folder / 'state.redb.core-snapshots' / (identity.removeprefix('sha256:') + '.core.json')
-        result = json.loads(subprocess.check_output([str(diagnostic), str(path), str(samples), str(warmup)], cwd=ROOT))
+            client.snapshot(identity)
+        # The server has stopped, so the diagnostic can open its database.
+        database = folder / 'state.redb'
+        result = json.loads(subprocess.check_output([str(diagnostic), str(database), identity, str(samples), str(warmup)], cwd=ROOT))
         core.require(result['status'] == 'passed' and result['snapshot_id'] == identity, 'Wrong admitted diagnostic snapshot')
-        core.require(json.loads(path.read_bytes()) == saved, 'Diagnostic did not consume actual port-captured inputs')
         result.update(trades=6 * lots, receipts_per_bond=receipts,
-            definition_sha256=hashlib.sha256(capacity.analytics.encoded(value)).hexdigest(),
-            exact_file_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+            definition_sha256=hashlib.sha256(capacity.analytics.encoded(value)).hexdigest())
     return result
 
 

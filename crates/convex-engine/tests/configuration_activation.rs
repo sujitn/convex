@@ -100,9 +100,7 @@ async fn cvx010_ac3_dry_run_reports_missing_curves_providers_and_never_publishes
     let service = cases(&setup);
     let fixtures = fixtures(&setup);
     let mut document = fixture::document(1);
-    let before = std::fs::read_dir(setup.dir.path().join("snapshots"))
-        .unwrap()
-        .count();
+    let before = setup.snapshots.market_snapshot_count().unwrap();
     let valid = service.validate(&document, &fixtures).await.unwrap();
     assert!(valid.valid, "{valid:?}");
     assert_eq!(valid.fixtures.len(), 1);
@@ -126,12 +124,7 @@ async fn cvx010_ac3_dry_run_reports_missing_curves_providers_and_never_publishes
         .await
         .unwrap()
         .is_none());
-    assert_eq!(
-        std::fs::read_dir(setup.dir.path().join("snapshots"))
-            .unwrap()
-            .count(),
-        before
-    );
+    assert_eq!(setup.snapshots.market_snapshot_count().unwrap(), before);
     let mut wrong = fixtures.clone();
     wrong[0].expected[0].value = FiniteF64::new(0.0).unwrap();
     let mismatch = service

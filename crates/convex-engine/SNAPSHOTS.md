@@ -183,6 +183,12 @@ Changing schema or canonical encoding requires an explicit identity migration.
 
 ## Local persistence and replay
 
+The server stores snapshots with
+[RedbSnapshotRepository](../convex-ext-redb/src/snapshot_repository.rs) in its one
+redb database, on Linux and Windows. Each publication is one transaction keyed by
+content digest; identical retries succeed, changed bytes conflict, and reads
+re-verify identity and canonical bytes.
+
 [FileSnapshotRepository](../convex-ext-file/src/snapshot_repository.rs) creates or
 opens an explicit real directory on a local Unix filesystem. Its parent must
 already exist. It writes a same-directory staging file, synchronizes the file,

@@ -1,11 +1,13 @@
-//! Snapshot read diagnostics over captured inputs and the existing file port.
-//! Use tools/core_snapshot_io.py; no financial calculation or runtime telemetry.
+//! Snapshot read diagnostics over captured inputs and the server's redb snapshot port.
+//! Use tools/core_snapshot_io.py with the server stopped; no financial calculation or
+//! runtime telemetry.
+use convex_core::contracts::SnapshotId;
 use convex_engine::ports::{
     core_workflow::CoreSnapshot,
     snapshot::{content_digest, SnapshotRepository, MAX_SNAPSHOT_BYTES},
 };
 use serde_json::{json, Value};
-use std::{error::Error, hint::black_box, io::Read, path::Path, time::Instant};
+use std::{error::Error, hint::black_box, time::Instant};
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 fn require(condition: bool, message: &str) -> Result<()> {
@@ -13,17 +15,6 @@ fn require(condition: bool, message: &str) -> Result<()> {
         return Err(std::io::Error::other(message).into());
     }
     Ok(())
-}
-fn read_bytes(path: &Path) -> Result<Vec<u8>> {
-    let mut bytes = Vec::new();
-    std::fs::File::open(path)?
-        .take(MAX_SNAPSHOT_BYTES as u64 + 1)
-        .read_to_end(&mut bytes)?;
-    require(
-        bytes.len() <= MAX_SNAPSHOT_BYTES,
-        "snapshot read byte bound",
-    )?;
-    Ok(bytes)
 }
 fn measure<T>(
     samples: usize,
@@ -55,23 +46,23 @@ fn measure<T>(
 fn main() -> Result<()> {
     let args: Vec<_> = std::env::args().collect();
     require(
-        args.len() == 4,
-        "usage: core_snapshot_io SNAPSHOT SAMPLES WARMUP",
+        args.len() == 5,
+        "usage: core_snapshot_io DATABASE SNAPSHOT_ID SAMPLES WARMUP",
     )?;
-    let path = Path::new(&args[1]);
-    let samples: usize = args[2].parse()?;
-    let warmup: usize = args[3].parse()?;
+    let id = SnapshotId::new(args[2].as_str())?;
+    let samples: usize = args[3].parse()?;
+    let warmup: usize = args[4].parse()?;
     require(
         (3..=31).contains(&samples) && (1..=3).contains(&warmup),
         "sample bound",
     )?;
-    let metadata = std::fs::symlink_metadata(path)?;
-    require(
-        metadata.is_file() && metadata.len() <= MAX_SNAPSHOT_BYTES as u64,
-        "snapshot file bound",
-    )?;
-    let bytes = read_bytes(path)?;
-    let snapshot: CoreSnapshot = serde_json::from_slice(&bytes)?;
+    let repository = convex_ext_redb::open_redb_storage(&args[1])?.snapshots;
+    let runtime = tokio::runtime::Runtime::new()?;
+    let snapshot = runtime
+        .block_on(repository.get_core(&id))?
+        .ok_or("snapshot absent from the database")?;
+    let bytes = snapshot.canonical_bytes()?;
+    require(bytes.len() <= MAX_SNAPSHOT_BYTES, "snapshot byte bound")?;
     snapshot.verify()?;
     let content = serde_json::to_vec(&snapshot.content)?;
     let envelope = serde_json::to_vec(&snapshot)?;
@@ -81,12 +72,7 @@ fn main() -> Result<()> {
         snapshot.id.as_str() == format!("sha256:{expected}"),
         "snapshot identity",
     )?;
-    let directory = path.parent().ok_or("snapshot directory")?;
-    let repository = convex_ext_file::FileSnapshotRepository::new(directory)?;
-    let runtime = tokio::runtime::Runtime::new()?;
     let stages = json!({
-        "warm_file_read": measure(samples,warmup, || read_bytes(path),
-            |v| require(*v==bytes,"read bytes changed"))?,
         "json_decode": measure(samples,warmup, || Ok(serde_json::from_slice::<CoreSnapshot>(&bytes)?),
             |v| require(*v==snapshot,"decoded snapshot changed"))?,
         "content_clone": measure(samples,warmup, || Ok(snapshot.content.clone()),
