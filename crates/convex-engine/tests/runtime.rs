@@ -833,7 +833,7 @@ async fn plan_admits_each_published_measure_once_and_nothing_else() {
     let mut unknown = s.plan.clone();
     unknown
         .measures
-        .push(MeasureId::new("effective_duration_mid").unwrap());
+        .push(MeasureId::new("g_spread_mid").unwrap());
     assert!(matches!(
         unknown.validate(),
         Err(RuntimeError::Configuration(_))
@@ -844,7 +844,13 @@ async fn plan_admits_each_published_measure_once_and_nothing_else() {
 async fn runtime_results_feed_portfolio_analytics_through_the_quote_adapter() {
     use rust_decimal::Decimal;
     let s = setup().await;
+    // Version 2 gives the fixture curve the swap role too, so every runtime measure is defined.
+    let mut config = fixture::config();
+    config.analytics_curves.swap_curve = Some(config.analytics_curves.discount_curve.clone());
+    config.version = 2;
+    s.storage.configs.save(&config).await.unwrap();
     let mut plan = s.plan.clone();
+    plan.assembly.configuration.version = fixture::version(2);
     plan.measures = convex_engine::snapshot::RUNTIME_MEASURES
         .iter()
         .map(|m| MeasureId::new(*m).unwrap())
@@ -897,6 +903,30 @@ async fn runtime_results_feed_portfolio_analytics_through_the_quote_adapter() {
     assert_eq!(quote.convexity, decimal(model(measure("convexity_mid"))));
     assert_eq!(quote.dv01, decimal(model(measure("dv01_mid"))));
     assert_eq!(quote.z_spread_mid, decimal(model(measure("z_spread_mid"))));
+    for (field, name) in [
+        (quote.i_spread_mid, "i_spread_mid"),
+        (quote.asw_mid, "asw_mid"),
+        (quote.macaulay_duration, "macaulay_duration_mid"),
+        (quote.effective_duration, "effective_duration_mid"),
+        (quote.effective_convexity, "effective_convexity_mid"),
+        (quote.spread_duration, "spread_duration_mid"),
+        (quote.pv01, "pv01_mid"),
+        (quote.cs01, "cs01_mid"),
+    ] {
+        assert_eq!(field, decimal(model(measure(name))), "{name}");
+    }
+    let key_rates = quote.key_rate_durations.clone().unwrap();
+    assert_eq!(
+        key_rates
+            .iter()
+            .map(|(t, _)| t.as_str())
+            .collect::<Vec<_>>(),
+        ["3M", "6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "20Y", "30Y"]
+    );
+    assert_eq!(
+        key_rates[7].1,
+        decimal(model(measure("krd_10y_mid"))).unwrap()
+    );
     assert_eq!(quote.source, "runtime-test");
 
     // A one-position book reproduces each measure; market value is dirty price times face.

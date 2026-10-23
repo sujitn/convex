@@ -627,7 +627,11 @@ async fn selected_sources_exceeding_skew_policy_are_ineligible_even_with_fresh_c
 #[test]
 fn risk_measures_publish_the_router_quote_in_explicit_units() {
     use convex_engine::pricing_router::{PricingInput, PricingRouter};
-    let snapshot = fixture::snapshot();
+    // The fixture curve also serves the swap role, so I-spread and ASW are defined.
+    let mut content = fixture::content();
+    let curves = &mut content.configuration.analytics_curves;
+    curves.swap_curve = Some(curves.discount_curve.clone());
+    let snapshot = MarketSnapshot::new(content).unwrap();
     let mut spec = context(&snapshot).spec().clone();
     spec.measures = RUNTIME_MEASURES
         .iter()
@@ -642,8 +646,10 @@ fn risk_measures_publish_the_router_quote_in_explicit_units() {
         "{:?}",
         envelope.errors()
     );
+    assert_eq!(envelope.results().len(), RUNTIME_MEASURES.len());
     // The oracle is the router itself, on the inputs the valuator reads from the snapshot.
     let content = snapshot.content();
+    let curve = || Some(convex_engine::BuiltCurve::from_snapshot(&content.curves[0]).unwrap());
     let quote = PricingRouter { bump_bps: 10.0 }
         .price_at(
             &PricingInput {
@@ -652,10 +658,8 @@ fn risk_measures_publish_the_router_quote_in_explicit_units() {
                 market_price_bid: None,
                 market_price_mid: Some(ExactDecimal::parse("99.25").unwrap().decimal()),
                 market_price_ask: None,
-                discount_curve: Some(
-                    convex_engine::BuiltCurve::from_snapshot(&content.curves[0]).unwrap(),
-                ),
-                benchmark_curve: None,
+                discount_curve: curve(),
+                benchmark_curve: curve(),
                 government_curve: None,
                 volatility: None,
                 bid_ask_config: content.configuration.bid_ask_spread.clone(),
@@ -668,36 +672,137 @@ fn risk_measures_publish_the_router_quote_in_explicit_units() {
     let model = |value: Option<rust_decimal::Decimal>| {
         ExactDecimal::new(value.unwrap()).to_model().unwrap()
     };
-    let value = |measure: &str| {
-        envelope.results()[&MeasureId::new(measure).unwrap()]
-            .value
-            .clone()
+    let years = |value| MeasureValue::ModelYears(ModelYears::new(model(value)));
+    let years_squared =
+        |value| MeasureValue::ModelYearsSquared(ModelYearsSquared::new(model(value)));
+    let price = |value| MeasureValue::ModelPrice(ModelPricePer100::new(model(value)));
+    let bps = |value| MeasureValue::ModelBps(ModelBasisPoints::new(model(value)));
+    let krd = |label: &str| {
+        quote
+            .key_rate_durations
+            .as_ref()
+            .unwrap()
+            .iter()
+            .find(|(tenor, _)| tenor == label)
+            .map(|(_, value)| *value)
     };
-    assert_eq!(
-        value("modified_duration_mid"),
-        MeasureValue::ModelYears(ModelYears::new(model(quote.modified_duration)))
-    );
-    assert_eq!(
-        value("convexity_mid"),
-        MeasureValue::ModelYearsSquared(ModelYearsSquared::new(model(quote.convexity)))
-    );
-    assert_eq!(
-        value("dv01_mid"),
-        MeasureValue::ModelPrice(ModelPricePer100::new(model(quote.dv01)))
-    );
-    assert_eq!(
-        value("z_spread_mid"),
-        MeasureValue::ModelBps(ModelBasisPoints::new(model(quote.z_spread_mid)))
-    );
+    let expected = [
+        ("modified_duration_mid", years(quote.modified_duration)),
+        ("convexity_mid", years_squared(quote.convexity)),
+        ("dv01_mid", price(quote.dv01)),
+        ("z_spread_mid", bps(quote.z_spread_mid)),
+        ("i_spread_mid", bps(quote.i_spread_mid)),
+        ("asw_mid", bps(quote.asw_mid)),
+        ("macaulay_duration_mid", years(quote.macaulay_duration)),
+        ("effective_duration_mid", years(quote.effective_duration)),
+        (
+            "effective_convexity_mid",
+            years_squared(quote.effective_convexity),
+        ),
+        ("spread_duration_mid", years(quote.spread_duration)),
+        ("pv01_mid", price(quote.pv01)),
+        ("cs01_mid", price(quote.cs01)),
+        ("krd_3m_mid", years(krd("3M"))),
+        ("krd_6m_mid", years(krd("6M"))),
+        ("krd_1y_mid", years(krd("1Y"))),
+        ("krd_2y_mid", years(krd("2Y"))),
+        ("krd_3y_mid", years(krd("3Y"))),
+        ("krd_5y_mid", years(krd("5Y"))),
+        ("krd_7y_mid", years(krd("7Y"))),
+        ("krd_10y_mid", years(krd("10Y"))),
+        ("krd_20y_mid", years(krd("20Y"))),
+        ("krd_30y_mid", years(krd("30Y"))),
+    ];
+    for (measure, value) in &expected {
+        assert_eq!(
+            &envelope.results()[&MeasureId::new(*measure).unwrap()].value,
+            value,
+            "{measure}"
+        );
+    }
+    // A long bond's PV falls as zero rates and its Z-spread rise.
+    let positive =
+        |measure: &str| match &envelope.results()[&MeasureId::new(measure).unwrap()].value {
+            MeasureValue::ModelPrice(value) => value.value().get() > 0.0,
+            other => panic!("{measure}: {other:?}"),
+        };
+    assert!(positive("pv01_mid") && positive("cs01_mid"));
     let wire = serde_json::to_value(envelope).unwrap();
-    for (measure, unit) in [
-        ("modified_duration_mid", "years"),
-        ("convexity_mid", "years_squared"),
-        ("dv01_mid", "price_per_100"),
-        ("z_spread_mid", "bp"),
-    ] {
+    for (measure, value) in &expected {
+        let unit = match value {
+            MeasureValue::ModelYears(_) => "years",
+            MeasureValue::ModelYearsSquared(_) => "years_squared",
+            MeasureValue::ModelPrice(_) => "price_per_100",
+            MeasureValue::ModelBps(_) => "bp",
+            other => panic!("{other:?}"),
+        };
         assert_eq!(wire["results"][measure]["value"]["unit"], unit, "{wire}");
     }
     let back: ResultEnvelope = serde_json::from_value(wire).unwrap();
     assert_eq!(&back, envelope);
+}
+
+#[test]
+fn a_zero_prices_its_yield_measures_and_keeps_the_router_reason_for_curve_measures() {
+    // An unadjusted zero; its calendar/convention resources are rebuilt from its own terms.
+    let mut bond = fixture::bond();
+    bond.bond_type = convex_ports::reference_data::BondType::ZeroCoupon;
+    bond.coupon_rate = None;
+    bond.contractual_terms
+        .as_mut()
+        .unwrap()
+        .settings
+        .business_day_convention = convex_core::calendars::BusinessDayConvention::Unadjusted;
+    let resources: Vec<_> = fixture::reference_terms::resources(&bond)
+        .into_iter()
+        .map(|change| convex_ports::reference_master::MasterRecord {
+            schema_version: SchemaVersion::V2,
+            version: fixture::version(1),
+            recorded_at: fixture::time("2025-01-01T00:00:00Z"),
+            definition: change.definition,
+        })
+        .collect();
+    let mut content = fixture::content();
+    let reference = &mut content.references[0];
+    reference.record.bond = Some(bond);
+    reference.issuer = resources[0].clone();
+    reference.calendar = resources[1].clone();
+    reference.convention = resources[2].clone();
+    let curves = &mut content.configuration.analytics_curves;
+    curves.swap_curve = Some(curves.discount_curve.clone());
+    let snapshot = MarketSnapshot::new(content).unwrap();
+    let mut spec = context(&snapshot).spec().clone();
+    spec.measures = RUNTIME_MEASURES
+        .iter()
+        .map(|m| MeasureId::new(*m).unwrap())
+        .collect();
+    let ctx = ValuationContext::new(spec).unwrap();
+    let envelope = calculate(&snapshot, &ctx).envelope().clone();
+    assert_eq!(envelope.status(), ResultStatus::Partial);
+    for measure in [
+        "clean_price_mid",
+        "dirty_price_mid",
+        "accrued_interest",
+        "ytm_mid",
+        "modified_duration_mid",
+        "macaulay_duration_mid",
+        "convexity_mid",
+        "dv01_mid",
+    ] {
+        assert!(
+            envelope
+                .results()
+                .contains_key(&MeasureId::new(measure).unwrap()),
+            "{measure}: {:?}",
+            envelope.errors()
+        );
+    }
+    // Every spread and curve-risk measure carries the router's own code, never a generic one.
+    assert_eq!(
+        envelope.results().len() + envelope.errors().len(),
+        RUNTIME_MEASURES.len()
+    );
+    for error in envelope.errors() {
+        assert_eq!(error.code(), ErrorCode::UnsupportedConvention, "{error:?}");
+    }
 }
