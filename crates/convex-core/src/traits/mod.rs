@@ -7,6 +7,7 @@
 //! - [`RiskCalculator`]: Trait for risk metric calculations
 //! - [`Discountable`]: Trait for cash flows that can be discounted
 
+use libm as portable;
 use rust_decimal::Decimal;
 
 use crate::error::ConvexResult;
@@ -64,7 +65,7 @@ pub trait YieldCurve: Send + Sync {
 
         let ratio = df_start / df_end;
         let ratio_f64 = ratio.to_string().parse::<f64>().unwrap_or(1.0);
-        let rate = (ratio_f64.powf(1.0 / years) - 1.0) * years / (days / 365.0);
+        let rate = (portable::pow(ratio_f64, 1.0 / years) - 1.0) * years / (days / 365.0);
 
         Ok(Decimal::from_f64_retain(rate).unwrap_or(Decimal::ZERO))
     }

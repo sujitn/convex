@@ -1,0 +1,766 @@
+{
+  "schema_version": 1,
+  "qualification": "Deterministic supplied six-pillar spread pack against the original published ISDA 20220621 USD SOFR discount nodes. These are engineering scenarios, not live market CDS quotes or a certified market/model pack.",
+  "model_version": "1.8.3",
+  "original_discount_inputs_sha256": "3d850ab14c7bf2e8c7aea98f16129e7a2a24ee3bc2b8ebce3458ee20f40704d2",
+  "template": {
+    "trade_id": "CDS.ISDA.Grid",
+    "version": 1,
+    "side": "ProtectionBuyer",
+    "currency": "USD",
+    "notional": "10000000",
+    "reference": {
+      "entity_id": "Supplied.SingleName",
+      "seniority": "SeniorUnsecured",
+      "document": {
+        "id": "CDS.Standard.Supplied.Confirmation",
+        "version": 1
+      },
+      "restructuring_clause": {
+        "id": "Supplied.NoRestructuring",
+        "version": 1
+      },
+      "recovery_fraction": 0.4
+    },
+    "model": "Standard183",
+    "trade_date": "2022-06-21",
+    "step_in_date": "2022-06-22",
+    "protection_start_date": "2022-06-22",
+    "cash_settlement_date": "2022-06-24",
+    "settlement_lag_business_days": 3,
+    "premium_schedule": {
+      "start_date": "2022-06-21",
+      "end_date": "2027-06-20",
+      "frequency": "Quarterly",
+      "stub_type": "ShortFirst",
+      "end_of_month": false,
+      "first_regular_date": null,
+      "penultimate_date": null
+    },
+    "maturity_rule": "QuarterlyTwentieth",
+    "coupon_decimal": "0.01",
+    "premium_day_count": "Act360",
+    "pay_accrual_on_default": true,
+    "premium_calendar": {
+      "id": "CDS.NYM.official.2022",
+      "version": 1
+    },
+    "settlement_calendar": {
+      "id": "CDS.NYM.official.2022",
+      "version": 1
+    },
+    "discount_curve": {
+      "id": "USD.CDS.DISCOUNT",
+      "version": "isda183-usd-sofr-20220621"
+    },
+    "survival_curve": {
+      "id": "Supplied.SingleName.Survival",
+      "version": "supplied-1"
+    },
+    "initial_clean_upfront_fraction": null
+  },
+  "discount_recipe": {
+    "key": {
+      "id": "USD.CDS.DISCOUNT",
+      "version": "isda183-usd-sofr-20220621"
+    },
+    "role": {
+      "kind": "Discount",
+      "collateral_currency": "USD"
+    },
+    "currency": "USD",
+    "reference_date": "2022-06-21",
+    "time_basis": "Act365Fixed",
+    "representation": "DiscountFactors",
+    "interpolation": "LogLinear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+      "Nodes": [
+        {
+          "pillar": {
+            "Date": "2022-06-21"
+          },
+          "quote": {
+            "value": 1,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2022-06-23"
+          },
+          "quote": {
+            "value": 0.9999172748648583,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2022-07-25"
+          },
+          "quote": {
+            "value": 0.9985946030266626,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2022-08-23"
+          },
+          "quote": {
+            "value": 0.9968151694439624,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2022-09-23"
+          },
+          "quote": {
+            "value": 0.9948176516723848,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2022-12-23"
+          },
+          "quote": {
+            "value": 0.9868329959725987,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2023-06-23"
+          },
+          "quote": {
+            "value": 0.9687756453641939,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2024-06-24"
+          },
+          "quote": {
+            "value": 0.9343748664606002,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2025-06-23"
+          },
+          "quote": {
+            "value": 0.9056488604650873,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2026-06-23"
+          },
+          "quote": {
+            "value": 0.8812773070243136,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2027-06-23"
+          },
+          "quote": {
+            "value": 0.8567408349733228,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2028-06-23"
+          },
+          "quote": {
+            "value": 0.833056029418102,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2029-06-25"
+          },
+          "quote": {
+            "value": 0.8092314632024008,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2030-06-24"
+          },
+          "quote": {
+            "value": 0.7867856984063307,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2031-06-23"
+          },
+          "quote": {
+            "value": 0.7643759923139151,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2032-06-23"
+          },
+          "quote": {
+            "value": 0.7422413958219461,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2033-06-23"
+          },
+          "quote": {
+            "value": 0.7210791518197762,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2034-06-23"
+          },
+          "quote": {
+            "value": 0.7005202702462288,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2035-06-25"
+          },
+          "quote": {
+            "value": 0.6810744438256506,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2036-06-23"
+          },
+          "quote": {
+            "value": 0.6623208140092125,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2037-06-23"
+          },
+          "quote": {
+            "value": 0.6440341679305818,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2038-06-23"
+          },
+          "quote": {
+            "value": 0.62632918511714,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2039-06-23"
+          },
+          "quote": {
+            "value": 0.6091109255740341,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2040-06-25"
+          },
+          "quote": {
+            "value": 0.5922303043538634,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2041-06-24"
+          },
+          "quote": {
+            "value": 0.5759934365975453,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2042-06-23"
+          },
+          "quote": {
+            "value": 0.5602017265317359,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2043-06-23"
+          },
+          "quote": {
+            "value": 0.5476275035125264,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2044-06-23"
+          },
+          "quote": {
+            "value": 0.5353022252253455,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2045-06-23"
+          },
+          "quote": {
+            "value": 0.5232868935262888,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2046-06-25"
+          },
+          "quote": {
+            "value": 0.5114776286431721,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2047-06-24"
+          },
+          "quote": {
+            "value": 0.5000281599810675,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2048-06-23"
+          },
+          "quote": {
+            "value": 0.49122406950146874,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2049-06-23"
+          },
+          "quote": {
+            "value": 0.48257499430976336,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2050-06-23"
+          },
+          "quote": {
+            "value": 0.4740782050224246,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2051-06-23"
+          },
+          "quote": {
+            "value": 0.46573102031270586,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Date": "2052-06-24"
+          },
+          "quote": {
+            "value": 0.45748627346243226,
+            "unit": "DiscountFactor"
+          }
+        }
+      ]
+    }
+  },
+  "calendar_holidays": [
+    "2022-06-20",
+    "2033-06-20",
+    "2039-06-20",
+    "2044-06-20",
+    "2050-06-20",
+    "2061-06-20",
+    "2067-06-20"
+  ],
+  "pillars": [
+    "2023-06-20",
+    "2024-06-20",
+    "2025-06-20",
+    "2027-06-20",
+    "2029-06-20",
+    "2032-06-20"
+  ],
+  "running_spreads_decimal": [
+    0.004,
+    0.006,
+    0.008,
+    0.011,
+    0.014,
+    0.016
+  ],
+  "experiments": [
+    {
+      "id": "base",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "rates_hold_plus",
+      "discount_shift_decimal": 0.0001,
+      "recovery_fraction": 0.4,
+      "hold_survival": true,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "rates_hold_minus",
+      "discount_shift_decimal": -0.0001,
+      "recovery_fraction": 0.4,
+      "hold_survival": true,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "rates_recalibrate_plus",
+      "discount_shift_decimal": 0.0001,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "rates_recalibrate_minus",
+      "discount_shift_decimal": -0.0001,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "recovery_hold_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.41000000000000003,
+      "hold_survival": true,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "recovery_hold_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.39,
+      "hold_survival": true,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "recovery_recalibrate_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.41000000000000003,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "recovery_recalibrate_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.39,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quotes_parallel_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.0041,
+        0.0061,
+        0.0081,
+        0.011099999999999999,
+        0.0141,
+        0.0161
+      ]
+    },
+    {
+      "id": "quotes_parallel_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.0039000000000000003,
+        0.0059,
+        0.0079,
+        0.0109,
+        0.013900000000000001,
+        0.0159
+      ]
+    },
+    {
+      "id": "quote_0_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.0041,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_0_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.0039000000000000003,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_1_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.0061,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_1_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.0059,
+        0.008,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_2_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.0081,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_2_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.0079,
+        0.011,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_3_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011099999999999999,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_3_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.0109,
+        0.014,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_4_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.0141,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_4_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.013900000000000001,
+        0.016
+      ]
+    },
+    {
+      "id": "quote_5_plus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.0161
+      ]
+    },
+    {
+      "id": "quote_5_minus",
+      "discount_shift_decimal": 0,
+      "recovery_fraction": 0.4,
+      "hold_survival": false,
+      "running_spreads_decimal": [
+        0.004,
+        0.006,
+        0.008,
+        0.011,
+        0.014,
+        0.0159
+      ]
+    }
+  ],
+  "bounds": {
+    "hazard_absolute": 1e-09,
+    "survival_absolute": 1e-10,
+    "quote_basis_points_absolute": 1e-07,
+    "upfront_fraction_absolute": 1e-10,
+    "pv_currency_absolute": 0.001,
+    "risk_currency_absolute": 0.1,
+    "risk_relative": 1e-06
+  }
+}

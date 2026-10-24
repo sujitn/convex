@@ -3,6 +3,7 @@
 //! This module defines how interest compounds across different market conventions.
 //! Different markets and instrument types use different compounding methodologies.
 
+use convex_math::portable;
 use serde::{Deserialize, Serialize};
 
 /// Compounding method for yield calculations.
@@ -137,9 +138,9 @@ impl CompoundingMethod {
                 let f = *frequency as f64;
                 let rate_per_period = yield_rate / f;
                 let periods = time * f;
-                (1.0 + rate_per_period).powf(-periods)
+                portable::pow(1.0 + rate_per_period, -periods)
             }
-            Self::Continuous => (-yield_rate * time).exp(),
+            Self::Continuous => portable::exp(-yield_rate * time),
             Self::Simple => 1.0 / (1.0 + yield_rate * time),
             Self::Discount => 1.0 / (1.0 + yield_rate * time),
             Self::ActualPeriod { frequency } => {
@@ -147,7 +148,7 @@ impl CompoundingMethod {
                 let f = *frequency as f64;
                 let rate_per_period = yield_rate / f;
                 let periods = time * f;
-                (1.0 + rate_per_period).powf(-periods)
+                portable::pow(1.0 + rate_per_period, -periods)
             }
         }
     }
@@ -171,11 +172,11 @@ impl CompoundingMethod {
                 let f = *frequency as f64;
                 let rate_per_period = yield_rate / f;
                 let periods = time * f;
-                let df = (1.0 + rate_per_period).powf(-periods);
+                let df = portable::pow(1.0 + rate_per_period, -periods);
                 -time * df / (1.0 + rate_per_period)
             }
             Self::Continuous => {
-                let df = (-yield_rate * time).exp();
+                let df = portable::exp(-yield_rate * time);
                 -time * df
             }
             Self::Simple | Self::Discount => {
@@ -186,7 +187,7 @@ impl CompoundingMethod {
                 let f = *frequency as f64;
                 let rate_per_period = yield_rate / f;
                 let periods = time * f;
-                let df = (1.0 + rate_per_period).powf(-periods);
+                let df = portable::pow(1.0 + rate_per_period, -periods);
                 -time * df / (1.0 + rate_per_period)
             }
         }

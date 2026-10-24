@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "qualification": "Independent synthetic engineering reference; no human quantitative or release certificate.",
+  "method": "Decimal60 manual actual coupon and principal cash/profile/settlement, semiannual ACT365F yield and continuous ACT365F Z spread,240 fixed bisections with no candidate reads.",
+  "tolerances": {
+    "per100_absolute": "1e-9",
+    "inverse_rate_absolute": "1e-10"
+  },
+  "source_reads": {
+    "tests/fixtures/risk/quote-risk.json": "6d2858502ee481a257f34abc43162eaae36b99a94b68ebe3be0417971a7b24fe",
+    "tests/scripts/cash_calibration_reference.py": "bc5708838af6ca86863e0194e6aaf35d640cb48e996ba4d607738b780c5d28e1"
+  },
+  "helper": {
+    "id": "positive.gov.1",
+    "quote_version": 1,
+    "pillar": "2027-10-07",
+    "terms": {
+      "schema_version": 1,
+      "currency": "USD",
+      "issue_date": "2026-04-07",
+      "face_value": "5000",
+      "schedule": {
+        "start_date": "2026-04-07",
+        "end_date": "2027-10-07",
+        "frequency": "SemiAnnual",
+        "stub_type": "ShortLast",
+        "end_of_month": false,
+        "first_regular_date": null,
+        "penultimate_date": null
+      },
+      "dates": {
+        "accrual_adjustment": "Unadjusted",
+        "payment_adjustment": "Following",
+        "payment_delay": {
+          "CalendarDays": 0
+        },
+        "fixing_offset": null,
+        "observation_offset": null,
+        "ex_coupon": null
+      },
+      "calendars": {
+        "payment": "CASH.SYNTHETIC.v1",
+        "reset": "CASH.SYNTHETIC.v1",
+        "observation": "CASH.SYNTHETIC.v1",
+        "exercise": "CASH.SYNTHETIC.v1"
+      },
+      "settlement_lag": {
+        "BusinessDays": 2
+      },
+      "settlement_adjustment": "Following",
+      "day_count": "Act360",
+      "profiles": {
+        "coupon": [
+          {
+            "start": "2026-04-07",
+            "end": "2027-01-07",
+            "value": ".035"
+          },
+          {
+            "start": "2027-01-07",
+            "end": "2027-10-07",
+            "value": ".045"
+          }
+        ],
+        "spread": [
+          {
+            "start": "2026-04-07",
+            "end": "2027-10-07",
+            "value": "0"
+          }
+        ],
+        "gearing": [
+          {
+            "start": "2026-04-07",
+            "end": "2027-10-07",
+            "value": "0"
+          }
+        ],
+        "notional": [
+          {
+            "start": "2026-04-07",
+            "end": "2027-04-07",
+            "value": "5000"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-10-07",
+            "value": "3000"
+          }
+        ]
+      },
+      "coupon": {
+        "kind": "fixed"
+      },
+      "coupon_principal": "AccrualProfile",
+      "redemption_multiplier": "1",
+      "principal_prices": [],
+      "rounding": "Unrounded",
+      "negative_coupons": "Allow",
+      "ex_coupon_accrual": "SubtractCoupon",
+      "exercise": []
+    },
+    "trade_date": "2026-10-07",
+    "settlement": "2026-10-13",
+    "on_payment": "Exclude",
+    "credit_identity": null,
+    "quote_kind": {
+      "kind": "CashflowYield",
+      "convention": {
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "lower_yield": -0.9,
+        "upper_yield": 1.0,
+        "max_iterations": 256,
+        "price_tolerance": 1e-11
+      }
+    },
+    "quote": {
+      "value": 3.1,
+      "unit": "PercentRate"
+    },
+    "tolerance": 1e-08
+  },
+  "holidays": [
+    "2026-10-09",
+    "2026-10-12",
+    "2026-11-11",
+    "2027-01-01"
+  ],
+  "cases": [
+    {
+      "kind": "yield",
+      "rate": "-0.02",
+      "dirty": "105.026616101206153198490352150250795232507258965240189426616",
+      "clean": "104.968282767872819865157018816917461899173925631906856093283",
+      "accrued": "0.0583333333333333333333333333333333333333333333333333333333334",
+      "inverse": "-0.0200000000000000000000000000000000000000000000000000000000010"
+    },
+    {
+      "kind": "yield",
+      "rate": "0.031",
+      "dirty": "100.944150334087645038544308658526537673458349682915378739591",
+      "clean": "100.885817000754311705210975325193204340125016349582045406258",
+      "accrued": "0.0583333333333333333333333333333333333333333333333333333333334",
+      "inverse": "0.0309999999999999999999999999999999999999999999999999999999898"
+    },
+    {
+      "kind": "yield",
+      "rate": "0.1",
+      "dirty": "95.8441514353435446095378083436157212076531519709092965340338",
+      "clean": "95.7858181020102112762044750102823878743198186375759632007005",
+      "accrued": "0.0583333333333333333333333333333333333333333333333333333333334",
+      "inverse": "0.099999999999999999999999999999999999999999999999999999999990"
+    },
+    {
+      "kind": "spread",
+      "reference_continuous_zero": "0.035",
+      "rate": "-0.003",
+      "dirty": "100.847000546543861251596707069074725631091534683172577959348",
+      "clean": "100.788667213210527918263373735741392297758201349839244626015",
+      "accrued": "0.0583333333333333333333333333333333333333333333333333333333334",
+      "inverse": "-0.00300000000000000000000000000000000000000000000000000000000366"
+    },
+    {
+      "kind": "spread",
+      "reference_continuous_zero": "0.035",
+      "rate": "0",
+      "dirty": "100.611968852222603657051955484601040987122723731582790911406",
+      "clean": "100.553635518889270323718622151267707653789390398249457578073",
+      "accrued": "0.0583333333333333333333333333333333333333333333333333333333334",
+      "inverse": "-8.7500000000000493059913806346986197613858877972986148320230E-60"
+    },
+    {
+      "kind": "spread",
+      "reference_continuous_zero": "0.035",
+      "rate": "0.01234567",
+      "dirty": "99.6510866761370235081017046103278717126960880773873053994948",
+      "clean": "99.5927533428036901747683712769945383793627547440539720661615",
+      "accrued": "0.0583333333333333333333333333333333333333333333333333333333334",
+      "inverse": "0.0123456699999999999999999999999999999999999999999999999999992"
+    }
+  ]
+}

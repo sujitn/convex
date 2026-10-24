@@ -23,13 +23,11 @@ pub struct CustomDistribution {
 
 impl CustomDistribution {
     /// Returns metrics for a specific bucket.
-    #[must_use]
     pub fn get(&self, key: &str) -> Option<&BucketMetrics> {
         self.by_bucket.get(key)
     }
 
     /// Returns all buckets with their metrics, sorted by weight descending.
-    #[must_use]
     pub fn sorted_by_weight(&self) -> Vec<(&str, &BucketMetrics)> {
         let mut result: Vec<_> = self
             .by_bucket
@@ -45,7 +43,6 @@ impl CustomDistribution {
     }
 
     /// Returns all buckets with their metrics, sorted by key alphabetically.
-    #[must_use]
     pub fn sorted_by_key(&self) -> Vec<(&str, &BucketMetrics)> {
         let mut result: Vec<_> = self
             .by_bucket
@@ -57,7 +54,6 @@ impl CustomDistribution {
     }
 
     /// Returns the number of distinct buckets.
-    #[must_use]
     pub fn bucket_count(&self) -> usize {
         self.by_bucket.len()
     }
@@ -87,17 +83,18 @@ impl CustomDistribution {
 /// let dist = bucket_by_custom_field(&holdings, "strategy", &config);
 /// let core = dist.get("Core");
 /// ```
-#[must_use]
 pub fn bucket_by_custom_field(
     holdings: &[Holding],
     field_name: &str,
     config: &AnalyticsConfig,
-) -> CustomDistribution {
-    bucket_by_classifier(
-        holdings,
-        |h| h.classification.custom.get(field_name).cloned(),
-        config,
-    )
+) -> crate::PortfolioResult<CustomDistribution> {
+    Ok({
+        bucket_by_classifier(
+            holdings,
+            |h| h.classification.custom.get(field_name).cloned(),
+            config,
+        )?
+    })
 }
 
 /// Buckets holdings by country.
@@ -108,8 +105,10 @@ pub fn bucket_by_custom_field(
 ///
 /// * `holdings` - Slice of holdings to bucket
 /// * `config` - Analytics configuration (controls weighting and parallelism)
-#[must_use]
-pub fn bucket_by_country(holdings: &[Holding], config: &AnalyticsConfig) -> CustomDistribution {
+pub fn bucket_by_country(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<CustomDistribution> {
     bucket_by_classifier(holdings, |h| h.classification.country.clone(), config)
 }
 
@@ -121,8 +120,10 @@ pub fn bucket_by_country(holdings: &[Holding], config: &AnalyticsConfig) -> Cust
 ///
 /// * `holdings` - Slice of holdings to bucket
 /// * `config` - Analytics configuration (controls weighting and parallelism)
-#[must_use]
-pub fn bucket_by_region(holdings: &[Holding], config: &AnalyticsConfig) -> CustomDistribution {
+pub fn bucket_by_region(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<CustomDistribution> {
     bucket_by_classifier(holdings, |h| h.classification.region.clone(), config)
 }
 
@@ -134,8 +135,10 @@ pub fn bucket_by_region(holdings: &[Holding], config: &AnalyticsConfig) -> Custo
 ///
 /// * `holdings` - Slice of holdings to bucket
 /// * `config` - Analytics configuration (controls weighting and parallelism)
-#[must_use]
-pub fn bucket_by_issuer(holdings: &[Holding], config: &AnalyticsConfig) -> CustomDistribution {
+pub fn bucket_by_issuer(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<CustomDistribution> {
     bucket_by_classifier(holdings, |h| h.classification.issuer.clone(), config)
 }
 
@@ -147,8 +150,10 @@ pub fn bucket_by_issuer(holdings: &[Holding], config: &AnalyticsConfig) -> Custo
 ///
 /// * `holdings` - Slice of holdings to bucket
 /// * `config` - Analytics configuration (controls weighting and parallelism)
-#[must_use]
-pub fn bucket_by_currency(holdings: &[Holding], config: &AnalyticsConfig) -> CustomDistribution {
+pub fn bucket_by_currency(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<CustomDistribution> {
     bucket_by_classifier(holdings, |h| Some(h.currency.to_string()), config)
 }
 
@@ -170,59 +175,59 @@ pub fn bucket_by_currency(holdings: &[Holding], config: &AnalyticsConfig) -> Cus
 ///     h.classification.issuer.as_ref().and_then(|s| s.chars().next().map(|c| c.to_string()))
 /// }, &config);
 /// ```
-#[must_use]
 pub fn bucket_by_classifier<F>(
     holdings: &[Holding],
     classifier: F,
     config: &AnalyticsConfig,
-) -> CustomDistribution
+) -> crate::PortfolioResult<CustomDistribution>
 where
     F: Fn(&Holding) -> Option<String> + Sync,
 {
-    if holdings.is_empty() {
-        return CustomDistribution::default();
-    }
+    Ok({
+        if holdings.is_empty() {
+            return Ok(CustomDistribution::default());
+        }
 
-    // Calculate total market value for weight percentages
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
+        // Calculate total market value for weight percentages
+        let total_mv: Decimal = crate::analytics::metrics::clean_total(holdings.iter())?;
 
-    if total_mv.is_zero() {
-        return CustomDistribution {
-            total_market_value: Decimal::ZERO,
-            ..Default::default()
-        };
-    }
+        if total_mv.is_zero() {
+            return Err(crate::PortfolioError::invalid_portfolio(
+                "nonempty bucket weights are undefined at zero net market value",
+            ));
+        }
 
-    // Group holdings by classifier result (using indices to avoid lifetime issues)
-    let mut grouped: HashMap<Option<String>, Vec<usize>> = HashMap::new();
-    for (i, h) in holdings.iter().enumerate() {
-        let key = classifier(h);
-        grouped.entry(key).or_default().push(i);
-    }
+        // Group holdings by classifier result (using indices to avoid lifetime issues)
+        let mut grouped: HashMap<Option<String>, Vec<usize>> = HashMap::new();
+        for (i, h) in holdings.iter().enumerate() {
+            let key = classifier(h);
+            grouped.entry(key).or_default().push(i);
+        }
 
-    // Aggregate metrics for each group
-    let mut by_bucket = HashMap::new();
-    let mut unclassified = BucketMetrics::default();
+        // Aggregate metrics for each group
+        let mut by_bucket = HashMap::new();
+        let mut unclassified = BucketMetrics::default();
 
-    for (key_opt, indices) in grouped {
-        let group: Vec<&Holding> = indices.iter().map(|&i| &holdings[i]).collect();
-        let metrics = aggregate_bucket_metrics(&group, total_mv, config);
+        for (key_opt, indices) in grouped {
+            let group: Vec<&Holding> = indices.iter().map(|&i| &holdings[i]).collect();
+            let metrics = aggregate_bucket_metrics(&group, total_mv, config)?;
 
-        match key_opt {
-            Some(key) => {
-                by_bucket.insert(key, metrics);
-            }
-            None => {
-                unclassified = metrics;
+            match key_opt {
+                Some(key) => {
+                    by_bucket.insert(key, metrics);
+                }
+                None => {
+                    unclassified = metrics;
+                }
             }
         }
-    }
 
-    CustomDistribution {
-        by_bucket,
-        total_market_value: total_mv,
-        unclassified,
-    }
+        CustomDistribution {
+            by_bucket,
+            total_market_value: total_mv,
+            unclassified,
+        }
+    })
 }
 
 #[cfg(test)]
@@ -278,7 +283,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_country(&holdings, &config);
+        let dist = bucket_by_country(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 2);
         let us = dist.get("US").unwrap();
@@ -299,7 +304,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_region(&holdings, &config);
+        let dist = bucket_by_region(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 2);
         let emea = dist.get("EMEA").unwrap();
@@ -336,7 +341,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_issuer(&holdings, &config);
+        let dist = bucket_by_issuer(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 2);
 
@@ -358,7 +363,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_currency(&holdings, &config);
+        let dist = bucket_by_currency(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 2);
         let usd = dist.get("USD").unwrap();
@@ -387,7 +392,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_custom_field(&holdings, "strategy", &config);
+        let dist = bucket_by_custom_field(&holdings, "strategy", &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 2);
         let core = dist.get("Core").unwrap();
@@ -428,7 +433,8 @@ mod tests {
                     .and_then(|s| s.chars().next().map(|c| c.to_string()))
             },
             &config,
-        );
+        )
+        .unwrap();
 
         assert_eq!(dist.by_bucket.len(), 2); // A (Apple, Amazon) and M (Microsoft)
         let a = dist.get("A").unwrap();
@@ -445,7 +451,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_country(&holdings, &config);
+        let dist = bucket_by_country(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 1);
         assert_eq!(dist.unclassified.count, 1);
@@ -461,7 +467,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_country(&holdings, &config);
+        let dist = bucket_by_country(&holdings, &config).unwrap();
         let sorted = dist.sorted_by_weight();
 
         assert_eq!(sorted.len(), 3);

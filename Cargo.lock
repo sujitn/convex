@@ -572,7 +572,16 @@ dependencies = [
  "convex-analytics",
  "convex-bonds",
  "convex-core",
+ "convex-credit",
  "convex-curves",
+ "convex-math",
+ "convex-portfolio",
+ "convex-rates",
+ "rust_decimal",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -583,8 +592,10 @@ dependencies = [
  "chrono",
  "convex-bonds",
  "convex-core",
+ "convex-credit",
  "convex-curves",
  "convex-math",
+ "convex-rates",
  "criterion 0.8.1",
  "log",
  "nalgebra",
@@ -613,6 +624,7 @@ dependencies = [
  "proptest",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -626,6 +638,8 @@ dependencies = [
  "approx",
  "chrono",
  "convex-curves",
+ "convex-math",
+ "libm",
  "log",
  "proptest",
  "rust_decimal",
@@ -635,6 +649,21 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "convex-credit"
+version = "0.13.0"
+dependencies = [
+ "convex-core",
+ "convex-curves",
+ "convex-math",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -651,6 +680,7 @@ dependencies = [
  "rayon",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -660,13 +690,18 @@ dependencies = [
 name = "convex-engine"
 version = "0.13.0"
 dependencies = [
+ "async-trait",
  "chrono",
+ "convex",
  "convex-analytics",
  "convex-bonds",
  "convex-core",
  "convex-curves",
  "convex-ext-file",
+ "convex-ext-redb",
+ "convex-math",
  "convex-ports",
+ "convex-rates",
  "criterion 0.5.1",
  "cron",
  "dashmap",
@@ -675,6 +710,8 @@ dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
  "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -687,9 +724,6 @@ dependencies = [
  "async-trait",
  "convex-core",
  "convex-ports",
- "csv",
- "dashmap",
- "rust_decimal",
  "serde",
  "serde_json",
  "tempfile",
@@ -707,6 +741,7 @@ dependencies = [
  "redb",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -717,6 +752,7 @@ name = "convex-ffi"
 version = "0.13.0"
 dependencies = [
  "cbindgen",
+ "convex",
  "convex-analytics",
  "convex-bonds",
  "convex-core",
@@ -724,6 +760,7 @@ dependencies = [
  "convex-math",
  "libc",
  "once_cell",
+ "proptest",
  "rust_decimal",
  "serde",
  "serde_json",
@@ -736,11 +773,14 @@ version = "0.13.0"
 dependencies = [
  "approx",
  "criterion 0.8.1",
+ "libm",
  "log",
  "nalgebra",
+ "num-bigint",
  "proptest",
  "rust_decimal",
  "rust_decimal_macros",
+ "serde_json",
  "thiserror 2.0.18",
 ]
 
@@ -778,11 +818,13 @@ dependencies = [
  "convex-bonds",
  "convex-core",
  "convex-curves",
+ "convex-math",
  "criterion 0.8.1",
  "proptest",
  "rayon",
  "rust_decimal",
  "rust_decimal_macros",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -796,16 +838,34 @@ dependencies = [
  "convex-core",
  "rust_decimal",
  "serde",
+ "serde_json",
+ "sha2",
  "thiserror 2.0.18",
  "tokio",
+]
+
+[[package]]
+name = "convex-rates"
+version = "0.13.0"
+dependencies = [
+ "convex-core",
+ "convex-curves",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "convex-server"
 version = "0.13.0"
 dependencies = [
+ "async-trait",
  "axum 0.7.9",
  "chrono",
+ "convex",
  "convex-analytics",
  "convex-bonds",
  "convex-core",
@@ -813,7 +873,9 @@ dependencies = [
  "convex-engine",
  "convex-ext-file",
  "convex-ext-redb",
+ "convex-math",
  "convex-portfolio",
+ "convex-ports",
  "dashmap",
  "futures",
  "futures-util",
@@ -823,6 +885,8 @@ dependencies = [
  "rust_decimal_macros",
  "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite 0.29.0",
@@ -839,6 +903,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
+ "convex",
  "convex-analytics",
  "convex-bonds",
  "convex-core",
@@ -849,6 +914,7 @@ dependencies = [
  "rust_decimal",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",
@@ -2557,9 +2623,9 @@ dependencies = [
 
 [[package]]
 name = "redb"
-version = "4.1.0"
+version = "4.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e925444704b5f17d32bf42f5b6e2df050bceebc3dcd6e71cc73dafe8092e839"
+checksum = "39178e0a867f9e3eaa6292a4ab1dd3613f2519c5b564341e1e7b29b270736cc4"
 dependencies = [
  "libc",
 ]
@@ -2659,6 +2725,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
@@ -3124,6 +3191,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha2"
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "digest",
+ "sha2-asm",
+]
+
+[[package]]
+name = "sha2-asm"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b845214d6175804686b2bd482bcffe96651bb2d1200742b712003504a2dac1ab"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "sharded-slab"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3154,6 +3242,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c99284beb21666094ba2b75bbceda012e610f5479dfcc2d6e2426f53197ffd95"
 dependencies = [
  "approx",
+ "libm",
  "num-complex",
  "num-traits",
  "paste",

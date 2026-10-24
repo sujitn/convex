@@ -1,0 +1,748 @@
+{
+  "certified": false,
+  "source_reads": {
+    "tests/fixtures/library/cash-basis-hedge-api.json": "a629277411e4147d5b80148e8781cbc4660c150f75f5e7ace7969cd9d77fd4bc",
+    "tests/fixtures/library/graph-hedge-api.json": "231ccd2d5d7a9e35ca3ddf27236ca23cdff86d482590b1c68af0eb0dbd3c7348",
+    "tests/scripts/graph_hedge_reference.py": "94065640c593edd1f027424050809ea36fd0e78bedde0ea6e3d7806397599781",
+    "tests/scripts/graph_hedge_cash_reference.py": "de4e5217c8bc94cf9fa0f13a3d62c4f8a0532adcd1b41f252d4a5e7356613198",
+    "tests/scripts/cash_basis_hedge_reference.py": "bec94cae18a4f38235ebe66c846182ff7debbbf56d6a1ff2bb732843ed9bbb6c",
+    "tests/scripts/constrained_hedge_reference.py": "d829c6f4673b1e23328dc57bbb2828a5c58a40fa03f889727366248090aa91e4",
+    "tests/scripts/cash_basis_hedge_book_reference.py": "764a85e32a853de12e043069457149c4227f5e3c64aff9f577e4a85e32058496",
+    "tests/scripts/recovery_hedge_reference.py": "8c32709cb01618947d5042f270851338b99be5c9f2de16ea11042475dc56a796"
+  },
+  "qualification": "Independent full Decimal60 cash/CDS/IRS/futures five-factor columns and mixed books. Actual CDS premium calendar, both sides, pending initial cash, recovery endpoint/domain and supplied/calibrated dependent recipes. No native captures, original oracle changes, independent human approval or production/order certificate.",
+  "tolerances": {
+    "risk_absolute": "1e-5",
+    "rate_risk_absolute": "1e-6",
+    "hazard_risk_absolute": "1e-5",
+    "quantity_absolute": "1e-4",
+    "cost_absolute": "1e-8"
+  },
+  "cases": [
+    {
+      "id": "recovery_hedge.mixed.USD",
+      "snapshot_id": "recovery-hedge.synthetic.snapshot.1",
+      "entity": "DESK.A",
+      "settlement": "2026-10-07",
+      "reporting_currency": "USD",
+      "factors": [
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "D.OIS"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "D.OIS",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 100.0,
+          "weight": 1.0,
+          "target": -0.5257604035221782,
+          "lower": -1000.0,
+          "upper": 1000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "hazard",
+              "target": {
+                "kind": "curve",
+                "curve_id": "H.ACME"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "hazard_rate",
+              "basis": "model_parameter",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "hazard",
+              "curve": {
+                "id": "H.ACME",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_annual_rate"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 1.0,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": {
+            "document": {
+              "id": "CDS.Standard.Supplied.Confirmation",
+              "version": 1
+            },
+            "entity_id": "ACME",
+            "recovery_fraction": 0.4,
+            "restructuring_clause": {
+              "id": "Supplied.NoRestructuring",
+              "version": 1
+            },
+            "seniority": "SeniorUnsecured"
+          },
+          "scale": 1000000.0,
+          "weight": 1.0,
+          "target": 408773.382175849,
+          "lower": -1000000.0,
+          "upper": 1000000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "credit_spread",
+              "target": {
+                "kind": "curve",
+                "curve_id": "B.ACME"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "residual_basis",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "basis",
+              "curve": {
+                "id": "B.ACME",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": {
+            "document": {
+              "id": "CDS.Standard.Supplied.Confirmation",
+              "version": 1
+            },
+            "entity_id": "ACME",
+            "recovery_fraction": 0.4,
+            "restructuring_clause": {
+              "id": "Supplied.NoRestructuring",
+              "version": 1
+            },
+            "seniority": "SeniorUnsecured"
+          },
+          "scale": 100.0,
+          "weight": 1.0,
+          "target": -0.39253828669785074,
+          "lower": -1000.0,
+          "upper": 1000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "P.3M"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "P.3M",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 100.0,
+          "weight": 1.0,
+          "target": -52.61143577472488,
+          "lower": -1000.0,
+          "upper": 1000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "recovery",
+              "target": {
+                "kind": "entity",
+                "entity_id": "ACME"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "recovery_rate",
+              "basis": "model_parameter",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "recovery",
+              "curve": {
+                "id": "H.ACME",
+                "version": "1"
+              }
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_fraction"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 1.0,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": {
+            "document": {
+              "id": "CDS.Standard.Supplied.Confirmation",
+              "version": 1
+            },
+            "entity_id": "ACME",
+            "recovery_fraction": 0.4,
+            "restructuring_clause": {
+              "id": "Supplied.NoRestructuring",
+              "version": 1
+            },
+            "seniority": "SeniorUnsecured"
+          },
+          "scale": 1000000.0,
+          "weight": 1.0,
+          "target": -13674.336863616894,
+          "lower": -1000000.0,
+          "upper": 1000000.0
+        }
+      ],
+      "holdings": [
+        {
+          "column": "recovery_hedge.book.cash",
+          "current": "10000",
+          "pending": "-2000"
+        },
+        {
+          "column": "recovery_hedge.book.cds",
+          "current": "200000",
+          "pending": "50000"
+        },
+        {
+          "column": "recovery_hedge.book.irs",
+          "current": "100000",
+          "pending": "50000"
+        }
+      ],
+      "candidates": [
+        {
+          "column": "recovery_hedge.book.cash",
+          "lot": null,
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "10000"
+        },
+        {
+          "column": "recovery_hedge.book.cds",
+          "lot": null,
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "1000000"
+        },
+        {
+          "column": "recovery_hedge.book.irs",
+          "lot": null,
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "1000000"
+        },
+        {
+          "column": "recovery_hedge.book.term_future",
+          "lot": "1",
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "5"
+        }
+      ],
+      "fx": null,
+      "settings": {
+        "policy_version": 9,
+        "rank_relative_tolerance": 1e-10,
+        "max_condition": 10000.0,
+        "solver_tolerance": 1e-10,
+        "factor_tolerance": 1e-09,
+        "cost_tolerance": 1e-09,
+        "cost_scale": 1.0,
+        "cost_weight": 0.0,
+        "max_work": 100000,
+        "svd_iterations": 1000
+      },
+      "max_cost": 10.0,
+      "expected": {
+        "current": [
+          "-0.657141041256400864841716452894976765473544883067380699166",
+          "244429.6959673444246618520884550655688743145690775592065025",
+          "-0.78507657339570147517729756495331514590548242409937644312",
+          "6.070644519027736261290796689180933231898665794690475792035",
+          "-8178.5327999467101609785977709479010170784576898460342305"
+        ],
+        "pending": [
+          "0.230617446460002680848012744719585266595020586809701012341",
+          "63245.66114260029137144524361292358911865228781421834967893",
+          "0.157015314679140295035459512990663029181096484819875288624",
+          "3.0353222595138681306453983445904666159493328973452378960175",
+          "-2114.973186653781838103329217050065778991404205864925853155"
+        ],
+        "before": [
+          "-0.426523594796398183993703708175391498878524296257679686825",
+          "307675.35710994471603329733206798915799296685689177755618143",
+          "-0.628061258716561180141838051962652116724385939279501154496",
+          "9.1059667785416043919361950337713998478479986920357136880525",
+          "-10293.505986600491999081926987997966796069861895710960083655"
+        ],
+        "quantities": [
+          "-3000",
+          "80000",
+          "-200000",
+          "2"
+        ],
+        "final_holdings": [
+          "5000",
+          "330000",
+          "-50000",
+          "2"
+        ],
+        "after": [
+          "-0.5257604035221781768719652204271109759840008780051275377700",
+          "408773.382175848996218454956448704358498362799814756757976460",
+          "-0.392538286697850737588648782476657572952741212049688221560",
+          "-52.6114357747248790062654812512877389689237628939108589040175",
+          "-13674.336863616893860142423523086379130246251301388022902235"
+        ],
+        "total_cost": "7.84"
+      }
+    },
+    {
+      "id": "recovery_hedge.mixed.EUR",
+      "snapshot_id": "recovery-hedge.synthetic.snapshot.1",
+      "entity": "DESK.A",
+      "settlement": "2026-10-07",
+      "reporting_currency": "EUR",
+      "factors": [
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "D.OIS"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "D.OIS",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 100.0,
+          "weight": 1.0,
+          "target": -0.4731843631699604,
+          "lower": -1000.0,
+          "upper": 1000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "hazard",
+              "target": {
+                "kind": "curve",
+                "curve_id": "H.ACME"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "hazard_rate",
+              "basis": "model_parameter",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "hazard",
+              "curve": {
+                "id": "H.ACME",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_annual_rate"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 1.0,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": {
+            "document": {
+              "id": "CDS.Standard.Supplied.Confirmation",
+              "version": 1
+            },
+            "entity_id": "ACME",
+            "recovery_fraction": 0.4,
+            "restructuring_clause": {
+              "id": "Supplied.NoRestructuring",
+              "version": 1
+            },
+            "seniority": "SeniorUnsecured"
+          },
+          "scale": 1000000.0,
+          "weight": 1.0,
+          "target": 367896.0439582641,
+          "lower": -1000000.0,
+          "upper": 1000000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "credit_spread",
+              "target": {
+                "kind": "curve",
+                "curve_id": "B.ACME"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "residual_basis",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "basis",
+              "curve": {
+                "id": "B.ACME",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": {
+            "document": {
+              "id": "CDS.Standard.Supplied.Confirmation",
+              "version": 1
+            },
+            "entity_id": "ACME",
+            "recovery_fraction": 0.4,
+            "restructuring_clause": {
+              "id": "Supplied.NoRestructuring",
+              "version": 1
+            },
+            "seniority": "SeniorUnsecured"
+          },
+          "scale": 100.0,
+          "weight": 1.0,
+          "target": -0.3532844580280657,
+          "lower": -1000.0,
+          "upper": 1000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "P.3M"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "P.3M",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 100.0,
+          "weight": 1.0,
+          "target": -47.350292197252394,
+          "lower": -1000.0,
+          "upper": 1000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "recovery",
+              "target": {
+                "kind": "entity",
+                "entity_id": "ACME"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "recovery_rate",
+              "basis": "model_parameter",
+              "convention_version": 1,
+              "model_version": "cash-basis-hedge.synthetic.original-owner.1"
+            },
+            "coordinate": {
+              "kind": "recovery",
+              "curve": {
+                "id": "H.ACME",
+                "version": "1"
+              }
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_fraction"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 1.0,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": {
+            "document": {
+              "id": "CDS.Standard.Supplied.Confirmation",
+              "version": 1
+            },
+            "entity_id": "ACME",
+            "recovery_fraction": 0.4,
+            "restructuring_clause": {
+              "id": "Supplied.NoRestructuring",
+              "version": 1
+            },
+            "seniority": "SeniorUnsecured"
+          },
+          "scale": 1000000.0,
+          "weight": 1.0,
+          "target": -12306.903177255204,
+          "lower": -1000000.0,
+          "upper": 1000000.0
+        }
+      ],
+      "holdings": [
+        {
+          "column": "recovery_hedge.book.cash",
+          "current": "10000",
+          "pending": "-2000"
+        },
+        {
+          "column": "recovery_hedge.book.cds",
+          "current": "200000",
+          "pending": "50000"
+        },
+        {
+          "column": "recovery_hedge.book.irs",
+          "current": "100000",
+          "pending": "50000"
+        }
+      ],
+      "candidates": [
+        {
+          "column": "recovery_hedge.book.cash",
+          "lot": null,
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "10000"
+        },
+        {
+          "column": "recovery_hedge.book.cds",
+          "lot": null,
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "1000000"
+        },
+        {
+          "column": "recovery_hedge.book.irs",
+          "lot": null,
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "1000000"
+        },
+        {
+          "column": "recovery_hedge.book.term_future",
+          "lot": "1",
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "5"
+        }
+      ],
+      "fx": {
+        "from_": "USD",
+        "to": "EUR",
+        "rate": "0.9",
+        "observation": {
+          "id": "EXPLICIT.SAME.SNAPSHOT.FX",
+          "version": 1
+        },
+        "snapshot_id": "recovery-hedge.synthetic.snapshot.1"
+      },
+      "settings": {
+        "policy_version": 9,
+        "rank_relative_tolerance": 1e-10,
+        "max_condition": 10000.0,
+        "solver_tolerance": 1e-10,
+        "factor_tolerance": 1e-09,
+        "cost_tolerance": 1e-09,
+        "cost_scale": 1.0,
+        "cost_weight": 0.0,
+        "max_work": 100000,
+        "svd_iterations": 1000
+      },
+      "max_cost": 10.0,
+      "expected": {
+        "current": [
+          "-0.5914269371307607783575448076054790889261903947606426292494",
+          "219986.72637060998219566687960955901198688311216980328585225",
+          "-0.706568916056131327659567808457983631314934181689438798808",
+          "5.4635800671249626351617170202628399087087992152214282128315",
+          "-7360.67951995203914488073799385311091537061192086143080745"
+        ],
+        "pending": [
+          "0.2075557018140024127632114702476267399355185281287309111069",
+          "56921.095028340262234300719251631230206787059032796514711037",
+          "0.1413137832112262655319135616915967262629868363378877597616",
+          "2.73179003356248131758085851013141995435439960761071410641575",
+          "-1903.4758679884036542929962953450592010922637852784332678395"
+        ],
+        "before": [
+          "-0.3838712353167583655943333373578523489906718666319117181425",
+          "276907.821398950244429967598861190242193670171202599800563287",
+          "-0.5652551328449050621276542467663869050519473453515510390464",
+          "8.19537010068744395274257553039425986306319882283214231924725",
+          "-9264.1553879404427991737342891981701164628757061398640752895"
+        ],
+        "quantities": [
+          "-3000",
+          "80000",
+          "-200000",
+          "2"
+        ],
+        "final_holdings": [
+          "5000",
+          "330000",
+          "-50000",
+          "2"
+        ],
+        "after": [
+          "-0.47318436316996035918476869838439987838560079020461478399300",
+          "367896.043958264096596609460803833922648526519833281082178814",
+          "-0.3532844580280656638297839042289918156574670908447193994040",
+          "-47.3502921972523911056389331261589650720313866045197730136158",
+          "-12306.9031772552044741281811707777412172216261712492206120115"
+        ],
+        "total_cost": "7.056"
+      }
+    }
+  ]
+}

@@ -12,6 +12,7 @@
 
 [package]
 name = "convex-portfolio"
+publish = false  # internal; not published to crates.io
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -26,6 +27,7 @@ description = "Portfolio and ETF analytics for fixed income securities"
 [dependencies]
 # Internal crates
 convex-core = { workspace = true }
+convex-math = { workspace = true }
 convex-bonds = { workspace = true }
 convex-analytics = { workspace = true }
 convex-curves = { workspace = true }
@@ -41,6 +43,8 @@ chrono = { workspace = true }
 # Optional parallel processing
 rayon = { workspace = true, optional = true }
 
+schemars = { version = "1.2", optional = true }
+
 [dev-dependencies]
 approx = { workspace = true }
 proptest = { workspace = true }
@@ -48,6 +52,7 @@ criterion = { workspace = true }
 
 [features]
 default = []
+schemars = ["dep:schemars", "convex-core/schemars", "convex-analytics/schemars"]
 # Enable parallel processing with rayon for large portfolios
 # Uses config-driven thresholds (default: >100 holdings)
 parallel = ["dep:rayon"]

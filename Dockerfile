@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1
 
 # Convex Pricing Server - Multi-stage Dockerfile for Fly.io deployment
-# Build: docker build -t convex-server .
-# Run:   docker run -p 8080:8080 convex-server
+# Build: docker build -t convex-showcase .
+# The image runs the read-only showcase: Caddy on :8080 in front of a loopback
+# server. See deploy/showcase/README.md.
 
 # ==============================================================================
 # Stage 1: Build environment
@@ -19,51 +20,55 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy manifests first (for better layer caching)
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates/ crates/
+COPY tools/library/api-capabilities.json tools/library/api-capabilities.json
 
 # Build the server in release mode
-RUN cargo build --release -p convex-server
+RUN cargo build --locked --release -p convex-server --bin convex-server --bin convex-core-inputs --bin convex-config
 
 # ==============================================================================
 # Stage 2: Runtime environment
 # ==============================================================================
 FROM debian:bookworm-slim AS runtime
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
+# Install runtime dependencies (the server uses rustls; no OpenSSL needed)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libssl3 \
+    curl \
+    tini \
     && rm -rf /var/lib/apt/lists/*
+
+# Caddy: public edge on :8080, read-only allowlist in front of convex-server
+COPY --from=caddy:2.8.4 /usr/bin/caddy /usr/bin/caddy
 
 # Create non-root user
 RUN useradd -m -u 1000 convex
 
 # Create data directory
-RUN mkdir -p /app/data && chown -R convex:convex /app
+RUN mkdir -p /app/data/caddy && chown -R convex:convex /app
 
 WORKDIR /app
 
-# Copy binary from builder
+# Server, offline seed importer and configuration operator, and showcase deploy files
 COPY --from=builder /app/target/release/convex-server /app/convex-server
+COPY --from=builder /app/target/release/convex-core-inputs /app/convex-core-inputs
+COPY --from=builder /app/target/release/convex-config /app/convex-config
+COPY deploy/showcase/ /app/showcase/
+RUN chmod 0755 /app/showcase/entrypoint.sh /app/showcase/live.sh
 
-# Switch to non-root user
 USER convex
 
-# Fly.io uses PORT env var, map it to CONVEX_PORT
-# Default to 8080 if PORT not set
-ENV CONVEX_HOST=0.0.0.0
-ENV CONVEX_PORT=8080
-ENV CONVEX_STORAGE_PATH=/app/data/convex.redb
-ENV RUST_LOG=info,convex=debug
+# Server config comes from /app/showcase/server.toml (the server rejects
+# unknown CONVEX_* env vars, so none are set here).
+ENV XDG_DATA_HOME=/app/data/caddy \
+    XDG_CONFIG_HOME=/app/data/caddy \
+    RUST_LOG=info
 
-# Expose port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${CONVEX_PORT}/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8080/health || exit 1
 
-# Run the server
-# Note: Fly.io sets PORT env var, we use a shell to remap it
-CMD ["sh", "-c", "CONVEX_PORT=${PORT:-8080} /app/convex-server"]
+# -g: SIGTERM reaches the whole group, so convex-server drains alongside Caddy.
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/app/showcase/entrypoint.sh"]

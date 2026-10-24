@@ -1,0 +1,19 @@
+{
+  "factor": {
+    "family":"interest_rate",
+    "target":{"kind":"curve","curve_id":"USD-SOFR-OIS"},
+    "currency":"USD",
+    "tenor":"5Y",
+    "quote_type":"ois_par_rate",
+    "basis":"market_quote_recalibrated",
+    "convention_version":2,
+    "model_version":"example-model-v1"
+  },
+  "measure":"pv01_signed",
+  "value":-425.0,
+  "unit":"currency_per_bp",
+  "currency":"USD",
+  "bump":{"value":"1","unit":"bp"},
+  "method":"central",
+  "snapshot_id":"snapshot-example-001"
+}

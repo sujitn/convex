@@ -3,6 +3,19 @@
 //! This module provides comprehensive yield calculations for fixed income securities,
 //! consolidating all yield-related logic from the Convex library.
 //!
+//! The approximate date-free floating-point bill helper is removed. Treasury
+//! quotation uses [`treasury_bill::quote_treasury_bill`] with original dates.
+//!
+//! ```compile_fail
+//! use convex_analytics::yields::bond_equivalent_yield_simple;
+//! ```
+//!
+//! The unchecked floating-point discount helper is also removed:
+//!
+//! ```compile_fail
+//! let _ = convex_analytics::yields::discount_yield_simple(99.0, 100.0, 90);
+//! ```
+//!
 //! # Yield Types
 //!
 //! - **Yield-to-Maturity (YTM)**: Internal rate of return assuming all cash flows
@@ -21,7 +34,7 @@
 //!   assumptions that differ from street convention.
 //!
 //! - **Money Market Yields**: Discount yield, bond equivalent yield (BEY),
-//!   CD equivalent yield, and money market equivalent yield (MMY).
+//!   CD equivalent yield, and explicit constant-rate model returns.
 //!
 //! # Usage
 //!
@@ -61,18 +74,19 @@ mod short_date;
 mod simple;
 pub(crate) mod solver;
 mod street;
+/// Explicit checked Treasury bill convention, independent from legacy helpers.
+pub mod treasury_bill;
 
 // Re-export all public types and functions
 pub use current::{current_yield, current_yield_from_amount, current_yield_from_bond};
 pub use engine::{
-    bond_equivalent_yield_simple, current_yield_simple, discount_yield_simple, simple_yield_f64,
-    StandardYieldEngine, YieldEngine, YieldEngineResult,
+    current_yield_simple, simple_yield_f64, StandardYieldEngine, YieldEngine, YieldEngineResult,
 };
 pub use money_market::{
-    bond_equivalent_yield, cd_equivalent_yield, discount_yield, money_market_yield,
-    money_market_yield_with_horizon,
+    bond_equivalent_yield, cd_equivalent_yield, constant_rate_return,
+    constant_rate_return_with_horizon, discount_yield,
 };
-pub use short_date::{RollForwardMethod, ShortDateCalculator};
+pub use short_date::ShortDateCalculator;
 pub use simple::simple_yield;
 pub use solver::{current_yield_decimal, current_yield_from_fixed_bond, YieldResult, YieldSolver};
 pub use street::street_convention_yield;

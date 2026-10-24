@@ -6,6 +6,12 @@ pub mod schedule;
 pub mod settlement;
 
 pub use accrued::AccruedInterestCalculator;
+pub use convex_core::cashflows::{
+    principal_cashflows, settlement_date, BoundarySide, CashRounding, CashflowError,
+    CouponCalculation, CouponPeriod, CouponPrincipal, CouponProfiles, CouponSchedule, DateOffset,
+    DateRules, DatedProfile, DatedValue, ExCouponAccrual, ExCouponBoundary, ExCouponRule,
+    ExDateAnchor, NegativeCouponPolicy, PaymentDateEntitlement, ProfileKind, ScheduleSpec,
+};
 pub use irregular::{IrregularPeriodHandler, IrregularStubType, ReferenceMethod};
 pub use schedule::{Schedule, ScheduleConfig, StubType};
 pub use settlement::{

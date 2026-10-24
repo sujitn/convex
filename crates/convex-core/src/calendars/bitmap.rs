@@ -140,6 +140,19 @@ impl HolidayBitmap {
         }
     }
 
+    /// Check that this date has actual storage in the holiday bitmap.
+    pub fn validate_date(&self, date: Date) -> crate::ConvexResult<()> {
+        if !(MIN_YEAR..=MAX_YEAR).contains(&date.year()) {
+            return Err(crate::ConvexError::CalendarError {
+                reason: format!(
+                    "{} holiday data does not cover {}; stored years {}..={}",
+                    self.name, date, MIN_YEAR, MAX_YEAR
+                ),
+            });
+        }
+        Ok(())
+    }
+
     /// Check if a date is a holiday (excluding weekends).
     #[inline]
     pub fn is_holiday(&self, date: NaiveDate) -> bool {

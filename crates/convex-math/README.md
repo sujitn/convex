@@ -86,3 +86,12 @@ convex-math = { git = "https://github.com/sujitn/convex.git" }
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+
+## Bounded external input
+
+Solvers validate finite input and bounded settings before evaluation; successful
+roots satisfy the requested residual tolerance. Interpolation and linear
+algebra reject nonfinite values, invalid dimensions and excessive sizes. Use
+checked extrapolation/parametric queries and `golden_section_checked` for external
+input. See [assurance policy](../../docs/ASSURANCE.md) for exact limits,
+compatibility preconditions and CI commands. Default tolerances are unchanged.

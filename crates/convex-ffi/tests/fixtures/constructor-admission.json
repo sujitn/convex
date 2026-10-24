@@ -1,0 +1,246 @@
+{
+  "reference": "The two original predeclared input sets, unchanged",
+  "original_reference_sha256": "90c5e3507cce08b32b248c992cbcce621e8c2673aa3b82210a5243c5f0d5a1c5",
+  "additional_reference_sha256": "44031b705a75ba7befe480bcd4c26aa09bc9390fec8517af44795ef46df5d421",
+  "units": "Original decimal coupons and binary64 curve rates; admission/field ownership only",
+  "case_count": 39,
+  "cases": [
+    {
+      "id": "zero",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-0\",\"coupon_rate\":0,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": false,
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "negative-zero",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-1\",\"coupon_rate\":-0.0,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": false,
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "zero-extreme-exponent",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-2\",\"coupon_rate\":0e-1000,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": false,
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "ordinary",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-3\",\"coupon_rate\":0.05,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "zero-string",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-4\",\"coupon_rate\":\"0\",\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": false,
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "ordinary-string",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-5\",\"coupon_rate\":\"0.05\",\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "underflow-positive",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-6\",\"coupon_rate\":1e-1000,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "underflow-negative",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-7\",\"coupon_rate\":-1e-1000,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "extreme-positive",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-8\",\"coupon_rate\":1e-9999,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "extreme-negative",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-9\",\"coupon_rate\":-1e-9999,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "nonzero-Decimal-erasure",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-10\",\"coupon_rate\":1e-100,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "negative-nonzero-Decimal-erasure",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-11\",\"coupon_rate\":-1e-100,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "nonzero-string",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-12\",\"coupon_rate\":\"1e-1000\",\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "negative-nonzero-string",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-13\",\"coupon_rate\":\"-1e-1000\",\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "magnitude",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-14\",\"coupon_rate\":1e1000,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "coupon_exact_nonzero": true,
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-zero",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-0\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0,0],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "curve-negative-zero",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-1\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[-0.0,-0.0],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "curve-zero-extreme-exponent",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-2\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0e-1000,0e-1000],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "curve-ordinary",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-3\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0.05,0.05],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "curve-representable-tiny",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-4\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[1e-100,1e-100],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "curve-negative-representable-tiny",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-5\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[-1e-100,-1e-100],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "curve-underflow-positive",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-6\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[1e-1000,1e-1000],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-underflow-negative",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-7\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[-1e-1000,-1e-1000],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-extreme-positive",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-8\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[1e-9999,1e-9999],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-extreme-negative",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-9\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[-1e-9999,-1e-9999],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-magnitude",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-10\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[1e1000,1e1000],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-duplicate-values",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-duplicate\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0.05,0.05],\"values\":[0.06,0.06],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "bond-healthy",
+      "constructor": "bond",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"raw-guard-3\",\"coupon_rate\":0.05,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100}",
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "bond-unknown-call_schedule",
+      "constructor": "bond",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"unknown-bond-call_schedule\",\"coupon_rate\":0.05,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100,\"call_schedule\":[]}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "bond-unknown-put_schedule",
+      "constructor": "bond",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"unknown-bond-put_schedule\",\"coupon_rate\":0.05,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100,\"put_schedule\":[]}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "bond-unknown-cap",
+      "constructor": "bond",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"unknown-bond-cap\",\"coupon_rate\":0.05,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100,\"cap\":0.1}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "bond-unknown-floor",
+      "constructor": "bond",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"unknown-bond-floor\",\"coupon_rate\":0.05,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100,\"floor\":-0.1}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "bond-unknown-reset_calendar",
+      "constructor": "bond",
+      "request_json": "{\"type\":\"fixed_rate\",\"name\":\"unknown-bond-reset_calendar\",\"coupon_rate\":0.05,\"frequency\":\"SemiAnnual\",\"maturity\":\"2035-01-15\",\"issue\":\"2025-01-15\",\"day_count\":\"Thirty360US\",\"currency\":\"USD\",\"face_value\":100,\"reset_calendar\":\"USD\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-healthy",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"raw-curve-3\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0.05,0.05],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\"}",
+      "expected_constructor_acceptance": true
+    },
+    {
+      "id": "curve-unknown-coupon_rate",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"unknown-curve-coupon_rate\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0.05,0.05],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\",\"coupon_rate\":0.05}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-unknown-currency",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"unknown-curve-currency\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0.05,0.05],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\",\"currency\":\"EUR\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-unknown-projection_curve",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"unknown-curve-projection_curve\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0.05,0.05],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\",\"projection_curve\":777}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-unknown-overnight_index",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"unknown-curve-overnight_index\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0.05,0.05],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\",\"overnight_index\":\"SOFR\"}",
+      "expected_constructor_acceptance": false
+    },
+    {
+      "id": "curve-unknown-reference_data_source",
+      "constructor": "curve",
+      "request_json": "{\"type\":\"discrete\",\"name\":\"unknown-curve-reference_data_source\",\"ref_date\":\"2025-01-15\",\"tenors\":[1.0,2.0],\"values\":[0.05,0.05],\"value_kind\":\"zero_rate\",\"interpolation\":\"linear\",\"day_count\":\"Act365Fixed\",\"compounding\":\"Continuous\",\"reference_data_source\":\"supplied-fixture\"}",
+      "expected_constructor_acceptance": false
+    }
+  ],
+  "original_requests_and_expectations_unchanged": true,
+  "candidate_native_results_consulted": false,
+  "certified": false
+}

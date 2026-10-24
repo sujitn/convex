@@ -18,12 +18,22 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
 
+pub mod bounds;
+/// Bounded exact Decimal accumulation and final rounding.
+pub mod decimal;
 pub mod error;
 pub mod extrapolation;
 pub mod interpolation;
 pub mod linear_algebra;
 pub mod optimization;
+pub mod portable;
 pub mod solvers;
 pub mod stats;
 

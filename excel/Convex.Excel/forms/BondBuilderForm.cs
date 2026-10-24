@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using System.Windows.Forms;
 using Convex.Excel.Helpers;
 using static Convex.Excel.Helpers.BondSpecs;
+using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
@@ -88,13 +89,6 @@ namespace Convex.Excel.Forms
             }
         }
 
-        private static Button NewButton(string text, EventHandler onClick)
-        {
-            var b = new Button { Text = text, AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
-            b.Click += onClick;
-            return b;
-        }
-
         // ============================================================
         // Per-shape tabs
         // ============================================================
@@ -174,6 +168,7 @@ namespace Convex.Excel.Forms
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Anchor = AnchorStyles.Left | AnchorStyles.Right,
             };
+            private readonly TextBox _mwSpread = new();
             private readonly DataGridView _schedule = new()
             {
                 Anchor = AnchorStyles.Left | AnchorStyles.Right,
@@ -186,12 +181,15 @@ namespace Convex.Excel.Forms
             public CallableTab() : base()
             {
                 Text = "Callable";
-                _style.Items.AddRange(new object[] { "american", "european", "bermudan" });
+                _style.Items.AddRange(new object[] { "american", "european", "bermudan", "make_whole" });
                 _style.SelectedIndex = 0;
+                _style.SelectedIndexChanged += (_, _) =>
+                    _mwSpread.Enabled = (string?)_style.SelectedItem == "make_whole";
+                _mwSpread.Enabled = false;
                 _schedule.Columns.Add("date", "Call date (yyyy-mm-dd)");
                 _schedule.Columns.Add("price", "Call price (% par)");
 
-                var g = NewGrid(8);
+                var g = NewGrid(9);
                 AddRow(g, 0, "ID:", _id);
                 AddRow(g, 1, "Coupon:", _coupon);
                 AddRow(g, 2, "Maturity:", _maturity);
@@ -199,7 +197,8 @@ namespace Convex.Excel.Forms
                 AddRow(g, 4, "Frequency:", _frequency);
                 AddRow(g, 5, "Day count:", _dayCount);
                 AddRow(g, 6, "Style:", _style);
-                AddRow(g, 7, "Schedule:", _schedule);
+                AddRow(g, 7, "MW spread (bps):", _mwSpread);
+                AddRow(g, 8, "Schedule:", _schedule);
                 Controls.Add(g);
             }
 
@@ -218,14 +217,19 @@ namespace Convex.Excel.Forms
                 }
                 if (schedule.Count == 0)
                     throw new ConvexException("call_schedule must have at least one entry");
+                var style = (string)_style.SelectedItem!;
+                double? mwSpread = null;
+                if (style == "make_whole" && _mwSpread.Text.Trim().Length > 0)
+                    mwSpread = Parse(_mwSpread, "make_whole_spread_bps");
                 return Callable(
                     _id.Text,
                     Parse(_coupon, "coupon_rate"),
                     (string)_frequency.SelectedItem!,
                     _maturity.Value, _issue.Value,
                     schedule,
-                    (string)_style.SelectedItem!,
-                    (string)_dayCount.SelectedItem!);
+                    style,
+                    (string)_dayCount.SelectedItem!,
+                    mwSpread);
             }
         }
 

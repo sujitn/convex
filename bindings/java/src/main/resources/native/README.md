@@ -15,8 +15,8 @@ native/
 Build one with, e.g.:
 
 ```sh
-cargo build -p convex-ffi --release
-cp target/release/libconvex_ffi.so \
+cargo build --locked --profile excel -p convex-ffi
+cp target/excel/libconvex_ffi.so \
    bindings/java/src/main/resources/native/linux-x86_64/
 ```
 

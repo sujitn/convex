@@ -1,5 +1,13 @@
 //! Overnight-rate fixing history. ARRC compounding reads this for past
 //! business days; the projection curve covers anything past `as_of`.
+//!
+//! `OvernightFixings` is a date-only compatibility container, not a publication
+//! certificate. New production callers use the checked shared APIs below.
+
+pub use convex_core::fixings::{
+    FixingContext, FixingObservation, FixingRequirement, FixingResolution, FixingSeries,
+    FixingStatus, ProjectionReason, RateOrigin, ResolvedRate, UnpublishedFixingPolicy,
+};
 
 use std::collections::BTreeMap;
 use std::path::Path;

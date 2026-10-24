@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Instrument identifier (ISIN, CUSIP, or internal ID).
+/// Internal instrument identity. External symbols resolve through the reference repository.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct InstrumentId(pub String);
 

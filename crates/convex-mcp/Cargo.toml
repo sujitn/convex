@@ -1,5 +1,6 @@
 [package]
 name = "convex-mcp"
+publish = false  # internal; not published to crates.io
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

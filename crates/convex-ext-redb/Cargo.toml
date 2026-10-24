@@ -1,5 +1,6 @@
 [package]
 name = "convex-ext-redb"
+publish = false  # internal; not published to crates.io
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -16,10 +17,12 @@ convex-ports = { workspace = true }
 convex-core = { workspace = true }
 
 # Storage backend
-redb = "4"
+redb = "4.4"
 
 # Serialization
 serde_json = { workspace = true }
+sha2 = "0.10.9"
+tempfile = "3"
 
 # Async
 async-trait = "0.1"
@@ -31,4 +34,3 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
-tempfile = "3"

@@ -42,6 +42,34 @@ pub use ufr_convergence::UfrConvergence;
 ///
 /// Extrapolators extend curves beyond their last observed point.
 pub trait Extrapolator: Send + Sync {
+    /// Validates parameters that may have been supplied through compatibility fields.
+    fn validate(&self) -> crate::MathResult<()> {
+        Ok(())
+    }
+
+    /// Checked query for external numerical input, including output overflow.
+    fn try_extrapolate(
+        &self,
+        t: f64,
+        last_t: f64,
+        last_value: f64,
+        last_derivative: f64,
+    ) -> crate::MathResult<f64> {
+        self.validate()?;
+        for value in [t, last_t, last_value, last_derivative] {
+            crate::bounds::finite(value, "extrapolation input")?;
+        }
+        if t < 0.0 || last_t < 0.0 {
+            return Err(crate::MathError::invalid_input(
+                "extrapolation times must be nonnegative",
+            ));
+        }
+        crate::bounds::finite(
+            self.extrapolate(t, last_t, last_value, last_derivative),
+            "extrapolation output",
+        )
+    }
+
     /// Extrapolates to time `t` given the last known point.
     ///
     /// # Arguments

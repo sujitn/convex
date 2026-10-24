@@ -121,12 +121,8 @@ async fn end_to_end_happy_path() {
             .expect("price_bond");
     }
 
-    // 6. compute_spread for each kind.
-    for kind in [
-        SpreadKind::ZSpread,
-        SpreadKind::ISpread,
-        SpreadKind::GSpread,
-    ] {
+    // 6. Only admitted curve spread kinds; G needs actual government securities.
+    for kind in [SpreadKind::ZSpread, SpreadKind::ISpread] {
         server
             .compute_spread(Parameters(ComputeSpreadParams {
                 bond: BondRef::Id("UST.10Y".into()),

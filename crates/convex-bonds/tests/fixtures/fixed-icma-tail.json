@@ -1,0 +1,46 @@
+{
+  "recorded_at": "2026-10-15T21:26:32.538260+00:00",
+  "status": "independent_next_fixed_instrument_declaration_before_native_execution",
+  "issue_date": "2026-01-31",
+  "settlement": "2026-07-31",
+  "maturity": "2027-01-31",
+  "coupon_rate": "0.05",
+  "face": "100",
+  "redemption": "100",
+  "frequency": "SemiAnnual",
+  "day_count": "ActActIcma",
+  "calendar": "explicit weekend-only",
+  "business_day_convention": "Following",
+  "end_of_month": true,
+  "original_nominal_mesh": [
+    {
+      "start": "2026-01-31",
+      "end": "2026-07-31"
+    },
+    {
+      "start": "2026-07-31",
+      "end": "2027-01-31"
+    },
+    {
+      "start": "2027-01-31",
+      "end": "2027-07-31"
+    }
+  ],
+  "actual_remaining_payment_date": "2027-02-01",
+  "actual_remaining_coupon": "2.5",
+  "actual_remaining_redemption": "100",
+  "independent_discount_years_exact": "91/181",
+  "independent_discount_years": "0.50276243093922651933701657458563535911602209944751381215469613259668508287292817679558011049723756906077348066",
+  "price_input_binary64_yield": "0.05",
+  "independent_dirty_price": "99.986358603125173243129428601036388007132066184584064123793065506200433966229702131933752699087589753382915309",
+  "time_absolute_bound": "1e-14",
+  "price_absolute_bound": "1e-10",
+  "independent_method": "The last full nominal half-year contributes1/2. The actual Monday payment is one day into the NEXT181day nominal half-year, contributing1/(2*181). The exact per100 cash102.5 is discounted with the supplied periodic semiannual yield using Decimal520 and the exact binary64 input.",
+  "weekday_checks": {
+    "2026-07-31": "Friday",
+    "2027-01-31": "Sunday",
+    "2027-02-01": "Monday"
+  },
+  "native_requirement_waiver": false,
+  "certified": false
+}

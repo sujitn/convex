@@ -1,10 +1,10 @@
 //! Storage traits for persistence.
 //!
 //! These traits define interfaces for storage backends:
-//! - [`BondStore`]: Bond reference data storage
+//! Bond transactions use [`crate::reference_repository::ReferenceRepository`].
 //! - [`CurveStore`]: Curve config and snapshot storage
 //! - [`ConfigStore`]: Pricing configuration storage
-//! - [`OverrideStore`]: Price override storage with audit
+//! - [`crate::configuration::ConfigurationRepository`]: Audited staged settings and scoped overrides
 //! - [`AuditStore`]: Audit log storage
 //!
 //! Storage implementations are EXTENSIONS (e.g., redb, PostgreSQL, Redis).
@@ -34,6 +34,14 @@ impl Pagination {
     pub fn new(offset: usize, limit: usize) -> Self {
         Self { offset, limit }
     }
+
+    /// Validate the local query bound. A zero limit requests only the filtered total.
+    pub fn validate(&self) -> Result<(), TraitError> {
+        if self.limit > 1000 {
+            return Err(TraitError::InvalidInput("page limit exceeds 1000"));
+        }
+        Ok(())
+    }
 }
 
 /// Paginated result.
@@ -52,7 +60,7 @@ pub struct Page<T> {
 impl<T> Page<T> {
     /// Check if there are more pages.
     pub fn has_more(&self) -> bool {
-        (self.offset + self.items.len()) < self.total as usize
+        (self.offset as u64).saturating_add(self.items.len() as u64) < self.total
     }
 }
 
@@ -77,7 +85,8 @@ pub enum QuoteSide {
 /// Note: Curves don't have bid/ask internally - use curve ID convention
 /// (e.g., "USD_GOVT_BID", "USD_GOVT_MID") to reference specific side.
 /// Only `SpecificBond` has `side` since bond quotes have bid/ask.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum BenchmarkReference {
     /// Interpolated yield from government curve at bond's maturity.
     GovernmentCurve {
@@ -117,8 +126,8 @@ pub enum BenchmarkReference {
 /// Specification for how to derive a bond's price.
 ///
 /// This is the core configuration that determines the pricing methodology.
-/// The actual market data is fetched via `MarketDataProvider` based on this spec.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub enum PricingSpec {
     /// Use direct market quote.
     MarketQuote {
@@ -186,7 +195,8 @@ pub enum PricingSpec {
 ///
 /// When pricing from a model (BenchmarkSpread, ZSpread, etc.),
 /// this config determines how to generate bid/ask from the mid price.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BidAskSpreadConfig {
     /// Half-spread in basis points.
     /// bid = mid * (1 - half_spread/10000), ask = mid * (1 + half_spread/10000)
@@ -235,7 +245,8 @@ impl BidAskSpreadConfig {
 }
 
 /// Curves available for analytics calculations (spread calculations, etc.).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AnalyticsCurves {
     /// Discount curve for Z-spread calculation.
     pub discount_curve: CurveId,
@@ -293,7 +304,8 @@ impl AnalyticsCurves {
 // =============================================================================
 
 /// Bond filter for storage queries and config matching.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BondFilter {
     // === Per-bond identifiers (highest priority) ===
     /// Match specific ISIN.
@@ -324,6 +336,12 @@ pub struct BondFilter {
 
     /// Issuer type filter.
     pub issuer_type: Option<crate::reference_data::IssuerType>,
+
+    /// Floating-rate classification filter.
+    pub is_floating: Option<bool>,
+
+    /// Inflation-linked classification filter.
+    pub is_inflation_linked: Option<bool>,
 
     /// Is callable filter.
     pub is_callable: Option<bool>,
@@ -432,6 +450,36 @@ impl BondFilter {
             }
         }
 
+        if self
+            .issuer_id
+            .as_ref()
+            .is_some_and(|id| id != &bond.issuer_id)
+            || self.is_floating.is_some_and(|value| {
+                value != (bond.bond_type == crate::reference_data::BondType::FloatingRate)
+            })
+            || self.is_inflation_linked.is_some_and(|value| {
+                value != (bond.bond_type == crate::reference_data::BondType::InflationLinked)
+            })
+        {
+            return false;
+        }
+        if let Some(query) = &self.text_search {
+            let query = query.to_lowercase();
+            if ![
+                Some(bond.description.as_str()),
+                Some(bond.issuer_name.as_str()),
+                Some(bond.instrument_id.as_str()),
+                bond.isin.as_deref(),
+                bond.cusip.as_deref(),
+            ]
+            .into_iter()
+            .flatten()
+            .any(|value| value.to_lowercase().contains(&query))
+            {
+                return false;
+            }
+        }
+
         // Sector match
         if let Some(ref sector) = self.sector {
             if &bond.sector != sector {
@@ -459,6 +507,32 @@ impl BondFilter {
         }
 
         true
+    }
+
+    /// Validate bounded query fields without silently dropping a supplied constraint.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if [
+            &self.isin,
+            &self.cusip,
+            &self.issuer_id,
+            &self.sector,
+            &self.country,
+            &self.text_search,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|value| value.len() > 1024 || value.chars().any(char::is_control))
+        {
+            return Err("invalid or oversized reference filter");
+        }
+        if self
+            .maturity_from
+            .zip(self.maturity_to)
+            .is_some_and(|(a, b)| a > b)
+        {
+            return Err("inverted maturity range");
+        }
+        Ok(())
     }
 
     /// Calculate specificity score (higher = more specific).
@@ -500,6 +574,12 @@ impl BondFilter {
         if self.is_callable.is_some() {
             score += 10;
         }
+        if self.is_floating.is_some() {
+            score += 10;
+        }
+        if self.is_inflation_linked.is_some() {
+            score += 10;
+        }
 
         // Currency
         if self.currency.is_some() {
@@ -513,126 +593,68 @@ impl BondFilter {
         if self.maturity_to.is_some() {
             score += 5;
         }
+        if self.text_search.is_some() {
+            score += 5;
+        }
 
         score
     }
-}
-
-/// Bond reference data storage.
-#[async_trait]
-pub trait BondStore: Send + Sync {
-    /// Get bond by ID.
-    async fn get(&self, id: &InstrumentId) -> Result<Option<BondReferenceData>, TraitError>;
-
-    /// Get multiple bonds by ID.
-    async fn get_many(&self, ids: &[InstrumentId]) -> Result<Vec<BondReferenceData>, TraitError>;
-
-    /// Save a bond.
-    async fn save(&self, bond: &BondReferenceData) -> Result<(), TraitError>;
-
-    /// Save multiple bonds.
-    async fn save_batch(&self, bonds: &[BondReferenceData]) -> Result<(), TraitError>;
-
-    /// Delete a bond.
-    async fn delete(&self, id: &InstrumentId) -> Result<bool, TraitError>;
-
-    /// List bonds with filter and pagination.
-    async fn list(
-        &self,
-        filter: &BondFilter,
-        pagination: &Pagination,
-    ) -> Result<Page<BondReferenceData>, TraitError>;
-
-    /// Count bonds matching filter.
-    async fn count(&self, filter: &BondFilter) -> Result<u64, TraitError>;
-
-    /// Search bonds by text query.
-    async fn search(&self, query: &str, limit: usize)
-        -> Result<Vec<BondReferenceData>, TraitError>;
 }
 
 // =============================================================================
 // CURVE STORE
 // =============================================================================
 
-/// Curve configuration (what instruments to use for building).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurveConfig {
-    /// Curve identifier
+/// Bound on `CurveStore::recipe_heads` results, the curve listing page size.
+pub const MAX_CURVE_LISTING: usize = 256;
+
+/// Latest stored revision of one curve, for bounded management listings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CurveRecipeHead {
+    /// Curve identity.
     pub curve_id: CurveId,
-    /// Curve name
-    pub name: String,
-    /// Currency
-    pub currency: convex_core::Currency,
-    /// Interpolation method
-    pub interpolation: String,
-    /// Day count convention
-    pub day_count: String,
-    /// Instrument tenors (e.g., ["1M", "3M", "1Y", "5Y", "10Y"])
-    pub tenors: Vec<String>,
-    /// Build schedule
-    pub build_schedule: String,
-    /// Last updated
-    pub last_updated: i64,
+    /// Highest stored record revision.
+    pub version: convex_core::contracts::Version,
+    /// Recording time of that revision.
+    pub recorded_at: convex_core::contracts::UtcTimestamp,
 }
 
-/// Curve snapshot (built curve at a point in time).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurveSnapshot {
-    /// Curve identifier
-    pub curve_id: CurveId,
-    /// As-of timestamp
-    pub as_of: i64,
-    /// Curve points (tenor days -> zero rate)
-    pub points: Vec<(u32, f64)>,
-    /// Inputs hash (for change detection)
-    pub inputs_hash: String,
-    /// Build duration (ms)
-    pub build_duration_ms: u64,
-}
-
-/// Curve storage (configs and snapshots).
+/// The single durable curve owner: immutable, versioned native curve recipes.
 #[async_trait]
 pub trait CurveStore: Send + Sync {
-    // Config methods
-
-    /// Get curve config by ID.
-    async fn get_config(&self, id: &CurveId) -> Result<Option<CurveConfig>, TraitError>;
-
-    /// Save curve config.
-    async fn save_config(&self, config: &CurveConfig) -> Result<(), TraitError>;
-
-    /// List all curve configs.
-    async fn list_configs(&self) -> Result<Vec<CurveConfig>, TraitError>;
-
-    /// Delete curve config.
-    async fn delete_config(&self, id: &CurveId) -> Result<bool, TraitError>;
-
-    // Snapshot methods
-
-    /// Save curve snapshot.
-    async fn save_snapshot(&self, snapshot: &CurveSnapshot) -> Result<(), TraitError>;
-
-    /// Get curve snapshot at a specific time.
-    async fn get_snapshot(
+    /// Save one immutable complete native curve recipe. Same revision/different content conflicts.
+    async fn save_recipe(
         &self,
-        id: &CurveId,
-        as_of: i64,
-    ) -> Result<Option<CurveSnapshot>, TraitError>;
-
-    /// Get latest curve snapshot.
-    async fn get_latest_snapshot(&self, id: &CurveId) -> Result<Option<CurveSnapshot>, TraitError>;
-
-    /// List snapshots in time range.
-    async fn list_snapshots(
+        _recipe: &crate::snapshot::SnapshotCurveRecipe,
+    ) -> Result<(), TraitError> {
+        Err(TraitError::Unsupported("complete curve recipe persistence"))
+    }
+    /// Retrieve this exact recipe revision, without a latest-version substitute.
+    async fn get_recipe(
         &self,
-        id: &CurveId,
-        from: i64,
-        to: i64,
-    ) -> Result<Vec<CurveSnapshot>, TraitError>;
-
-    /// Delete snapshots before a timestamp.
-    async fn delete_snapshots_before(&self, id: &CurveId, before: i64) -> Result<u64, TraitError>;
+        _id: &CurveId,
+        _version: convex_core::contracts::Version,
+    ) -> Result<Option<crate::snapshot::SnapshotCurveRecipe>, TraitError> {
+        Err(TraitError::Unsupported("complete curve recipe persistence"))
+    }
+    /// Highest revision recorded at or before `known_at`. The caller supplies the
+    /// cutoff and reports the returned version; there is no implicit latest.
+    async fn recipe_at(
+        &self,
+        _id: &CurveId,
+        _known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<Option<crate::snapshot::SnapshotCurveRecipe>, TraitError> {
+        Err(TraitError::Unsupported("complete curve recipe persistence"))
+    }
+    /// Up to `limit` (at most [`MAX_CURVE_LISTING`]) curve heads in identity order,
+    /// starting after `after` when given.
+    async fn recipe_heads(
+        &self,
+        _after: Option<&CurveId>,
+        _limit: usize,
+    ) -> Result<Vec<CurveRecipeHead>, TraitError> {
+        Err(TraitError::Unsupported("complete curve recipe persistence"))
+    }
 }
 
 // =============================================================================
@@ -643,7 +665,8 @@ pub trait CurveStore: Send + Sync {
 ///
 /// Defines how to price bonds matching a specific filter.
 /// Multiple configs can exist; the most specific filter wins (based on `specificity()`).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BondPricingConfig {
     /// Config identifier
     pub config_id: String,
@@ -657,16 +680,31 @@ pub struct BondPricingConfig {
     pub bid_ask_spread: Option<BidAskSpreadConfig>,
     /// Curves for analytics calculations (spreads, duration, etc.)
     pub analytics_curves: AnalyticsCurves,
+    /// Explicit HW1F assumption for callables; without it callables are refused.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub option_model: Option<OptionModelAssumption>,
     /// Explicit priority (higher wins); if None, uses filter specificity
     pub priority: Option<i32>,
     /// Is this config active
     pub active: bool,
-    /// Version number (for optimistic locking)
+    /// Positive immutable version. Save accepts current + 1, or an identical retained retry.
     pub version: u64,
     /// Created timestamp
     pub created_at: i64,
     /// Last updated timestamp
     pub updated_at: i64,
+}
+
+/// A labelled, constant one-factor Hull-White assumption, never a calibration result.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OptionModelAssumption {
+    /// Mean reversion per year, in [0, 10].
+    pub mean_reversion: f64,
+    /// Short-rate volatility per square-root year, in [0, 1].
+    pub volatility: f64,
+    /// Why these parameters were chosen; retained in every callable result's model.
+    pub reason: String,
 }
 
 impl BondPricingConfig {
@@ -677,8 +715,38 @@ impl BondPricingConfig {
     }
 }
 
+/// The active configuration that applies to `bond` with the highest effective
+/// priority. `Ok(None)` when none applies; a tie between distinct configurations
+/// is refused rather than broken by an arbitrary order.
+pub fn select_pricing_config<'a>(
+    configs: &'a [BondPricingConfig],
+    bond: &BondReferenceData,
+) -> Result<Option<&'a BondPricingConfig>, TraitError> {
+    let mut best: Option<&BondPricingConfig> = None;
+    let mut tied = false;
+    for config in configs
+        .iter()
+        .filter(|c| c.active && c.applies_to.matches(bond))
+    {
+        match best.map(|b| config.effective_priority().cmp(&b.effective_priority())) {
+            None | Some(std::cmp::Ordering::Greater) => {
+                best = Some(config);
+                tied = false;
+            }
+            Some(std::cmp::Ordering::Equal) => tied = true,
+            Some(std::cmp::Ordering::Less) => {}
+        }
+    }
+    if tied {
+        return Err(TraitError::Conflict(
+            "ambiguous applicable pricing configuration",
+        ));
+    }
+    Ok(best)
+}
+
 /// Config version info.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConfigVersion {
     /// Version number
     pub version: u64,
@@ -696,13 +764,18 @@ pub trait ConfigStore: Send + Sync {
     /// Get config by ID.
     async fn get(&self, id: &str) -> Result<Option<BondPricingConfig>, TraitError>;
 
-    /// Save config.
+    /// Atomically save immutable content and make it current.
+    ///
+    /// New IDs start at version 1; updates use current version + 1. Identical retries
+    /// of a retained version succeed without moving the current pointer backwards.
+    /// A reused version with different content or a skipped version returns Conflict.
     async fn save(&self, config: &BondPricingConfig) -> Result<(), TraitError>;
 
     /// List all configs.
     async fn list(&self) -> Result<Vec<BondPricingConfig>, TraitError>;
 
-    /// Delete config.
+    /// Delete config if the adapter supports a versioned deletion contract.
+    /// The local redb adapter returns Unsupported; disable via a new inactive version.
     async fn delete(&self, id: &str) -> Result<bool, TraitError>;
 
     /// Get specific version of config.
@@ -717,81 +790,11 @@ pub trait ConfigStore: Send + Sync {
 }
 
 // =============================================================================
-// OVERRIDE STORE
-// =============================================================================
-
-/// Price override entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PriceOverride {
-    /// Instrument ID
-    pub instrument_id: InstrumentId,
-    /// Override price
-    pub price: Option<f64>,
-    /// Override yield
-    pub yield_value: Option<f64>,
-    /// Override spread
-    pub spread: Option<f64>,
-    /// Reason
-    pub reason: String,
-    /// Created by
-    pub created_by: String,
-    /// Created at
-    pub created_at: i64,
-    /// Expires at
-    pub expires_at: Option<i64>,
-    /// Is approved
-    pub is_approved: bool,
-    /// Approved by
-    pub approved_by: Option<String>,
-    /// Approved at
-    pub approved_at: Option<i64>,
-}
-
-/// Override audit entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OverrideAudit {
-    /// Instrument ID
-    pub instrument_id: InstrumentId,
-    /// Action (create, update, delete, approve, reject)
-    pub action: String,
-    /// User who performed action
-    pub user: String,
-    /// Timestamp
-    pub timestamp: i64,
-    /// Previous value (JSON)
-    pub previous_value: Option<String>,
-    /// New value (JSON)
-    pub new_value: Option<String>,
-}
-
-/// Override storage with audit.
-#[async_trait]
-pub trait OverrideStore: Send + Sync {
-    /// Get override for instrument.
-    async fn get(&self, id: &InstrumentId) -> Result<Option<PriceOverride>, TraitError>;
-
-    /// Get all active overrides.
-    async fn get_active(&self) -> Result<Vec<PriceOverride>, TraitError>;
-
-    /// Save override.
-    async fn save(&self, override_: &PriceOverride) -> Result<(), TraitError>;
-
-    /// Delete override.
-    async fn delete(&self, id: &InstrumentId) -> Result<bool, TraitError>;
-
-    /// Get overrides pending approval.
-    async fn get_pending_approval(&self) -> Result<Vec<PriceOverride>, TraitError>;
-
-    /// Get override history for instrument.
-    async fn get_history(&self, id: &InstrumentId) -> Result<Vec<OverrideAudit>, TraitError>;
-}
-
-// =============================================================================
 // AUDIT STORE
 // =============================================================================
 
 /// Audit entry.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AuditEntry {
     /// Entry ID
     pub id: u64,
@@ -828,13 +831,56 @@ pub struct AuditFilter {
     pub to: Option<i64>,
 }
 
+impl AuditFilter {
+    /// Reject oversized constraints and inverted inclusive time ranges.
+    pub fn validate(&self) -> Result<(), TraitError> {
+        if [
+            &self.event_type,
+            &self.entity_type,
+            &self.entity_id,
+            &self.user,
+        ]
+        .into_iter()
+        .flatten()
+        .any(|v| v.len() > 1024 || v.chars().any(char::is_control))
+        {
+            return Err(TraitError::InvalidInput("invalid audit filter"));
+        }
+        if self.from.zip(self.to).is_some_and(|(from, to)| from > to) {
+            return Err(TraitError::InvalidInput("inverted audit time range"));
+        }
+        Ok(())
+    }
+
+    /// Apply all supplied constraints with exact text matches and inclusive timestamps.
+    pub fn matches(&self, entry: &AuditEntry) -> bool {
+        self.event_type
+            .as_ref()
+            .is_none_or(|v| v == &entry.event_type)
+            && self
+                .entity_type
+                .as_ref()
+                .is_none_or(|v| v == &entry.entity_type)
+            && self
+                .entity_id
+                .as_ref()
+                .is_none_or(|v| v == &entry.entity_id)
+            && self
+                .user
+                .as_ref()
+                .is_none_or(|v| entry.user.as_ref() == Some(v))
+            && self.from.is_none_or(|v| entry.timestamp >= v)
+            && self.to.is_none_or(|v| entry.timestamp <= v)
+    }
+}
+
 /// Audit log storage (append-only).
 #[async_trait]
 pub trait AuditStore: Send + Sync {
-    /// Append audit entry.
+    /// Append an immutable entry; identical ID/content retries succeed, different content conflicts.
     async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError>;
 
-    /// Query audit log.
+    /// Query matches and their total in one read snapshot, ordered by entry ID.
     async fn query(
         &self,
         filter: &AuditFilter,
@@ -851,13 +897,125 @@ use std::sync::Arc;
 /// Combined storage adapter.
 pub struct StorageAdapter {
     /// Bond store
-    pub bonds: Arc<dyn BondStore>,
+    pub bonds: Arc<dyn crate::reference_repository::ReferenceRepository>,
     /// Curve store
     pub curves: Arc<dyn CurveStore>,
     /// Config store
     pub configs: Arc<dyn ConfigStore>,
-    /// Override store
-    pub overrides: Arc<dyn OverrideStore>,
+    /// Staged application settings, atomic active pointer and append-only activation audit.
+    pub configuration: Arc<dyn crate::configuration::ConfigurationRepository>,
     /// Audit store
     pub audit: Arc<dyn AuditStore>,
+}
+
+/// Validate persisted/replayed quantitative configuration without fetching current state.
+pub fn validate_pricing_config(config: &BondPricingConfig) -> Result<(), TraitError> {
+    let validate_id = |value: &str| {
+        if value.is_empty() || value.len() > 128 || value.chars().any(char::is_control) {
+            Err(TraitError::InvalidInput("invalid storage identity"))
+        } else {
+            Ok(())
+        }
+    };
+    validate_id(&config.config_id)?;
+    if config.version == 0
+        || config.updated_at < config.created_at
+        || config.description.len() > 4096
+    {
+        return Err(TraitError::InvalidInput(
+            "invalid configuration version, time or description",
+        ));
+    }
+    config
+        .applies_to
+        .validate()
+        .map_err(TraitError::InvalidInput)?;
+    validate_id(config.analytics_curves.discount_curve.as_str())?;
+    if let Some(model) = &config.option_model {
+        if !(0.0..=10.0).contains(&model.mean_reversion)
+            || !(0.0..=1.0).contains(&model.volatility)
+            || model.reason.trim().is_empty()
+            || model.reason.len() > 8192
+        {
+            return Err(TraitError::InvalidInput(
+                "option model needs mean reversion in [0,10], volatility in [0,1] and a reason",
+            ));
+        }
+    }
+    for id in [
+        &config.analytics_curves.government_curve,
+        &config.analytics_curves.swap_curve,
+        &config.analytics_curves.frn_reference_curve,
+    ]
+    .into_iter()
+    .flatten()
+    {
+        validate_id(id.as_str())?;
+    }
+    let valid = match &config.pricing_spec {
+        PricingSpec::Auto | PricingSpec::MarketQuote { .. } => true,
+        PricingSpec::BenchmarkSpread {
+            benchmark,
+            spread_bps,
+        } => {
+            let valid_benchmark = match benchmark {
+                BenchmarkReference::ExplicitYield { yield_pct } => yield_pct.is_finite(),
+                BenchmarkReference::GovernmentCurve { curve }
+                | BenchmarkReference::SwapCurve { curve }
+                | BenchmarkReference::OnTheRun { curve, .. } => validate_id(curve.as_str()).is_ok(),
+                BenchmarkReference::SpecificBond { security_id, .. } => {
+                    validate_id(security_id.as_str()).is_ok()
+                }
+            };
+            valid_benchmark && spread_bps.is_finite()
+        }
+        PricingSpec::DiscountMargin {
+            reference_curve,
+            quoted_margin_bps,
+            discount_margin_bps,
+        } => {
+            validate_id(reference_curve.as_str()).is_ok()
+                && quoted_margin_bps.is_finite()
+                && discount_margin_bps.is_finite()
+        }
+        PricingSpec::ZSpread {
+            discount_curve,
+            z_spread_bps,
+        } => validate_id(discount_curve.as_str()).is_ok() && z_spread_bps.is_finite(),
+        PricingSpec::OptionAdjusted {
+            discount_curve,
+            vol_surface,
+            oas_bps,
+            mean_reversion,
+            tree_steps,
+        } => {
+            validate_id(discount_curve.as_str()).is_ok()
+                && validate_id(vol_surface.as_str()).is_ok()
+                && oas_bps.is_finite()
+                && mean_reversion.is_none_or(|v| v.is_finite() && v >= 0.0)
+                && tree_steps.is_none_or(|v| (1..=10000).contains(&v))
+        }
+        PricingSpec::RealYield {
+            real_yield_pct,
+            inflation_curve,
+            index_ratio,
+        } => {
+            real_yield_pct.is_finite()
+                && validate_id(inflation_curve.as_str()).is_ok()
+                && index_ratio.is_sign_positive()
+                && !index_ratio.is_zero()
+        }
+    };
+    let valid_spread = config.bid_ask_spread.as_ref().is_none_or(|s| {
+        [Some(s.half_spread_bps), s.bid_spread_bps, s.ask_spread_bps]
+            .into_iter()
+            .flatten()
+            .all(|v| v.is_finite() && v >= 0.0)
+    });
+    if !valid || !valid_spread {
+        return Err(TraitError::InvalidInput(
+            "invalid configuration model inputs",
+        ));
+    }
+    Ok(())
 }

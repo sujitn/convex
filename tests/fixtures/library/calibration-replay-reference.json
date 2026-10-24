@@ -1,0 +1,25 @@
+{
+  "certified": false,
+  "source": "Independent Decimal(60) exact dated simple-deposit formula, declared before native replay fixture execution. Original native calibration and monetary tests remain unchanged.",
+  "reference_date": "2026-10-02",
+  "time_basis": "Act360",
+  "absolute_tolerance": 1e-12,
+  "cases": [
+    {
+      "date": "2027-10-04",
+      "days": 367,
+      "simple_rate": "0.02",
+      "act360_fraction": "1.01944444444444444444444444444444444444444444444444444444444",
+      "discount_factor": "0.980018511460772036805139652637883160015244732400500898350301",
+      "continuous_zero": "0.0197988407904195380624990472159289377724532478337174016641713"
+    },
+    {
+      "date": "2028-10-02",
+      "days": 731,
+      "simple_rate": "0.03",
+      "act360_fraction": "2.03055555555555555555555555555555555555555555555555555555556",
+      "discount_factor": "0.942581101248919959154818945880135103291179011860812190715573",
+      "continuous_zero": "0.0291217416483486803849632210076194024755028009808715236125917"
+    }
+  ]
+}

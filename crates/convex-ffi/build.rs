@@ -12,28 +12,25 @@
 use std::env;
 use std::path::PathBuf;
 
-fn main() {
-    let crate_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let crate_dir = env::var("CARGO_MANIFEST_DIR")?;
+    let out_dir = env::var("OUT_DIR")?;
     let config = cbindgen::Config::from_root_or_default(&crate_dir);
 
     // cbindgen parses the whole crate, so re-run on any source change.
     println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=cbindgen.toml");
 
-    match cbindgen::Builder::new()
+    let bindings = cbindgen::Builder::new()
         .with_crate(&crate_dir)
         .with_config(config)
-        .generate()
-    {
-        Ok(bindings) => {
-            let header = PathBuf::from(&out_dir).join("convex.h");
-            bindings.write_to_file(&header);
-        }
-        // A header-generation failure must not break the cdylib build that the
-        // Java binding actually depends on; surface it as a warning instead.
-        Err(e) => {
-            println!("cargo:warning=cbindgen header generation skipped: {e}");
-        }
+        .generate()?;
+    let header = PathBuf::from(&out_dir).join("convex.h");
+    let mut contents = Vec::new();
+    bindings.write(&mut contents);
+    if contents.is_empty() {
+        return Err("C ABI header generation produced no output".into());
     }
+    std::fs::write(header, contents)?;
+    Ok(())
 }
