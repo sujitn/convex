@@ -14,13 +14,14 @@ use std::fmt;
 ///
 /// Supports CUSIP (US), ISIN (international), and FIGI (Bloomberg).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum SecurityId {
     /// CUSIP identifier (9 characters, primarily US)
-    Cusip(Cusip),
+    Cusip(#[cfg_attr(feature = "schemars", schemars(with = "String"))] Cusip),
     /// ISIN identifier (12 characters, international)
-    Isin(Isin),
+    Isin(#[cfg_attr(feature = "schemars", schemars(with = "String"))] Isin),
     /// FIGI/Bloomberg Global Identifier (12 characters)
-    Figi(Figi),
+    Figi(#[cfg_attr(feature = "schemars", schemars(with = "String"))] Figi),
 }
 
 impl SecurityId {
@@ -249,7 +250,10 @@ impl BenchmarkSpec {
             Self::OnTheRunTenor(t) => format!("{t} On-the-Run"),
             Self::NearestOnTheRun => "Nearest On-the-Run".to_string(),
             Self::SpecificSecurity(id) => format!("Security {id}"),
-            Self::ExplicitYield(y) => format!("Explicit {:.2}%", y.as_percentage()),
+            Self::ExplicitYield(y) => match y.as_percentage() {
+                Ok(percentage) => format!("Explicit {percentage:.2}%"),
+                Err(_) => format!("Explicit {y}"),
+            },
         }
     }
 

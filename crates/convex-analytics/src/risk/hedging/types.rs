@@ -49,6 +49,7 @@ pub enum SwapSide {
 /// rather than a synthetic 6% bond.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct BondFuture {
     pub contract_code: String,
     pub underlying_tenor_years: f64,
@@ -66,7 +67,11 @@ pub struct BondFuture {
     /// computed from the basket is used.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub futures_price: Option<f64>,
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub contract_size_face: Decimal,
     pub currency: Currency,
 }
@@ -76,11 +81,16 @@ pub struct BondFuture {
 /// signed (positive = long).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct CashBondLeg {
     pub tenor_years: f64,
     pub coupon_rate_decimal: f64,
     pub currency: Currency,
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub face_amount: Decimal,
 }
 
@@ -88,6 +98,7 @@ pub struct CashBondLeg {
 /// strictly positive.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct InterestRateSwap {
     pub tenor_years: f64,
     pub fixed_rate_decimal: f64,
@@ -96,7 +107,11 @@ pub struct InterestRateSwap {
     /// `"SOFR"` / `"SONIA"` / `"ESTR"`.
     pub floating_index: String,
     pub side: SwapSide,
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub notional: Decimal,
     pub currency: Currency,
 }
@@ -108,6 +123,7 @@ pub struct InterestRateSwap {
 /// the instrument's `notional` / `face_amount`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct HedgeTrade {
     pub instrument: HedgeInstrument,
     pub quantity: f64,
@@ -123,6 +139,7 @@ pub struct HedgeTrade {
 /// when picking a recommendation.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Constraints {
     /// Max |residual DV01| in position currency.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -145,6 +162,7 @@ pub struct Constraints {
 /// One per-bucket residual constraint.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct KeyRateBucketLimit {
     /// Tenor (years) the constraint applies to. Matched against
     /// `ResidualRisk::residual_buckets[*].tenor_years` exactly.
@@ -157,6 +175,7 @@ pub struct KeyRateBucketLimit {
 /// Residual risk after applying trades.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ResidualRisk {
     /// `position.dv01 + Σ trade.dv01`.
     pub residual_dv01: f64,
@@ -169,6 +188,7 @@ pub struct ResidualRisk {
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct TradeoffNotes {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub strengths: Vec<String>,
@@ -180,13 +200,22 @@ pub struct TradeoffNotes {
 /// LLM round-trip that drops them still parses.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct HedgeProposal {
+    /// Existing approximate advisor outputs are always indicative. Deserialization
+    /// cannot promote them to executable by supplying an unrecognized status.
+    #[serde(default)]
+    pub execution_status: HedgeExecutionStatus,
     pub strategy: String,
     pub trades: Vec<HedgeTrade>,
     pub residual: ResidualRisk,
     /// Cost as bps of position market value.
     pub cost_bps: f64,
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub cost_total: Decimal,
     #[serde(default)]
     pub tradeoffs: TradeoffNotes,
@@ -194,8 +223,20 @@ pub struct HedgeProposal {
     pub provenance: Provenance,
 }
 
+/// Execution classification for the existing approximate advisor only.
+/// Checked reference inputs do not qualify these synthetic schedule/cost/risk models.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum HedgeExecutionStatus {
+    /// No order or executable recommendation may be derived from this advisor output.
+    #[default]
+    IndicativeOnly,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ComparisonRow {
     pub strategy: String,
     /// Σ trade DV01.
@@ -203,7 +244,11 @@ pub struct ComparisonRow {
     pub residual_dv01: f64,
     pub residual_krd_l1_norm: f64,
     pub cost_bps: f64,
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub cost_total: Decimal,
     /// Source of `cost_bps` / `cost_total` (mirrors `Provenance::cost_model`),
     /// e.g. `"heuristic_v1"`. Surfaced inline so the costs aren't mistaken
@@ -213,9 +258,17 @@ pub struct ComparisonRow {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct ComparisonReport {
+    /// A recommendation selected from this advisor remains indicative only.
+    #[serde(default)]
+    pub execution_status: HedgeExecutionStatus,
     pub currency: Currency,
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "convex_core::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "convex_core::contracts::numeric_decimal::schema")
+    )]
     pub position_market_value: Decimal,
     pub position_dv01: f64,
     /// One row per proposal, input order.
@@ -237,6 +290,7 @@ pub enum RecommendationReason {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Recommendation {
     pub strategy: String,
     /// Index into [`ComparisonReport::rows`].
@@ -366,6 +420,7 @@ mod tests {
         let pos = position(500.0);
         let trade = future_trade(-500.0);
         let p = HedgeProposal {
+            execution_status: Default::default(),
             strategy: "DurationFutures".into(),
             trades: vec![trade.clone()],
             residual: residual_from(&pos, &[trade]),

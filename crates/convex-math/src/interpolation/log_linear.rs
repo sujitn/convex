@@ -3,8 +3,10 @@
 //! Interpolates the logarithm of values, which is useful for discount factors
 //! as it ensures positive values and can produce more stable forward rates.
 
+use crate::bounds::finite;
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
+use crate::portable;
 
 /// Log-linear interpolation between data points.
 ///
@@ -55,26 +57,7 @@ impl LogLinearInterpolator {
     /// - Lengths differ
     /// - Any y value is non-positive
     pub fn new(xs: Vec<f64>, ys: Vec<f64>) -> MathResult<Self> {
-        if xs.len() < 2 {
-            return Err(MathError::insufficient_data(2, xs.len()));
-        }
-        if xs.len() != ys.len() {
-            return Err(MathError::invalid_input(format!(
-                "xs and ys must have same length: {} vs {}",
-                xs.len(),
-                ys.len()
-            )));
-        }
-
-        // Check that xs are sorted
-        for i in 1..xs.len() {
-            if xs[i] <= xs[i - 1] {
-                return Err(MathError::invalid_input(
-                    "x values must be strictly increasing",
-                ));
-            }
-        }
-
+        super::validate_points(&xs, &ys, 2)?;
         // Check that all y values are positive and compute log
         let mut log_ys = Vec::with_capacity(ys.len());
         for (i, &y) in ys.iter().enumerate() {
@@ -83,7 +66,7 @@ impl LogLinearInterpolator {
                     "y[{i}] = {y} is not positive; log-linear requires positive values"
                 )));
             }
-            log_ys.push(y.ln());
+            log_ys.push(portable::log(y));
         }
 
         Ok(Self {
@@ -103,10 +86,7 @@ impl LogLinearInterpolator {
 
     /// Finds the index i such that xs[i] <= x < xs[i+1].
     fn find_segment(&self, x: f64) -> usize {
-        match self
-            .xs
-            .binary_search_by(|probe| probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        match self.xs.binary_search_by(|probe| probe.total_cmp(&x)) {
             Ok(i) => i.min(self.xs.len() - 2),
             Err(i) => (i.saturating_sub(1)).min(self.xs.len() - 2),
         }
@@ -121,6 +101,7 @@ impl LogLinearInterpolator {
 
 impl Interpolator for LogLinearInterpolator {
     fn interpolate(&self, x: f64) -> MathResult<f64> {
+        finite(x, "query coordinate")?;
         // Check bounds
         if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
             return Err(MathError::ExtrapolationNotAllowed {
@@ -141,10 +122,11 @@ impl Interpolator for LogLinearInterpolator {
         let t = (x - x0) / (x1 - x0);
         let log_y = log_y0 + t * (log_y1 - log_y0);
 
-        Ok(log_y.exp())
+        positive_exp(log_y)
     }
 
     fn derivative(&self, x: f64) -> MathResult<f64> {
+        finite(x, "query coordinate")?;
         // Check bounds
         if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
             return Err(MathError::ExtrapolationNotAllowed {
@@ -165,10 +147,10 @@ impl Interpolator for LogLinearInterpolator {
         // dy/dx = y(x) * d(log_y)/dx = y(x) * (log_y1 - log_y0) / (x1 - x0)
         let t = (x - x0) / (x1 - x0);
         let log_y = log_y0 + t * (log_y1 - log_y0);
-        let y = log_y.exp();
+        let y = positive_exp(log_y)?;
         let d_log_y = (log_y1 - log_y0) / (x1 - x0);
 
-        Ok(y * d_log_y)
+        finite(y * d_log_y, "log-linear derivative")
     }
 
     fn allows_extrapolation(&self) -> bool {
@@ -182,6 +164,16 @@ impl Interpolator for LogLinearInterpolator {
     fn max_x(&self) -> f64 {
         self.xs[self.xs.len() - 1]
     }
+}
+
+fn positive_exp(log_value: f64) -> MathResult<f64> {
+    let value = finite(portable::exp(log_value), "log-linear interpolation")?;
+    if value <= 0.0 {
+        return Err(MathError::invalid_input(
+            "log-linear value underflowed to zero",
+        ));
+    }
+    Ok(value)
 }
 
 #[cfg(test)]

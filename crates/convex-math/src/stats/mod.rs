@@ -2,4 +2,4 @@
 
 mod normal;
 
-pub use normal::standard_normal_cdf;
+pub use normal::{standard_normal_cdf, standard_normal_inverse};

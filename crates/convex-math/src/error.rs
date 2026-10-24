@@ -8,6 +8,12 @@ pub type MathResult<T> = Result<T, MathError>;
 /// Errors that can occur during mathematical operations.
 #[derive(Error, Debug, Clone)]
 pub enum MathError {
+    /// A callback or intermediate calculation produced NaN or infinity.
+    #[error("Nonfinite numerical value: {operation}")]
+    NonFinite {
+        /// Operation whose finite invariant failed.
+        operation: String,
+    },
     /// Root-finding algorithm failed to converge.
     #[error("Convergence failed after {iterations} iterations (residual: {residual:.2e})")]
     ConvergenceFailed {

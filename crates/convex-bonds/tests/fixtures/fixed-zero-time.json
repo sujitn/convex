@@ -1,0 +1,57 @@
+{
+  "recorded_at": "2026-10-15T21:33:02.318123+00:00",
+  "status": "independent_next_fixed_instrument_declaration_before_native_execution",
+  "issue_date": "2024-01-31",
+  "settlement": "2025-01-30",
+  "maturity": "2025-01-31",
+  "coupon_rate": "0.05",
+  "face": "100",
+  "redemption": "100",
+  "frequency": "Annual",
+  "day_count": "Thirty360US",
+  "calendar": "explicit weekend-only",
+  "business_day_convention": "Unadjusted",
+  "end_of_month": true,
+  "actual_remaining_payment_date": "2025-01-31",
+  "exact_remaining_coupon": "5",
+  "exact_remaining_redemption": "100",
+  "exact_accrued_per100": "5",
+  "exact_discount_years": "0",
+  "price_checks": [
+    {
+      "annual_yield": "-0.05",
+      "exact_dirty_per100": "105",
+      "exact_clean_per100": "100"
+    },
+    {
+      "annual_yield": "0",
+      "exact_dirty_per100": "105",
+      "exact_clean_per100": "100"
+    },
+    {
+      "annual_yield": "0.05",
+      "exact_dirty_per100": "105",
+      "exact_clean_per100": "100"
+    }
+  ],
+  "inverse_checks": [
+    {
+      "clean_per100": "100",
+      "expected_native_classification": "YieldNonUnique"
+    },
+    {
+      "clean_per100": "99.875",
+      "expected_native_classification": "YieldNoRoot"
+    },
+    {
+      "clean_per100": "100.125",
+      "expected_native_classification": "YieldNoRoot"
+    }
+  ],
+  "exact_macaulay_duration": "0",
+  "exact_modified_duration": "0",
+  "exact_convexity": "0",
+  "exact_dv01_loss": "0",
+  "independent_method": "The original annual30/360coupon has360days and cash5. At Jan30the same original30/360accrual reaches360days, but the Jan31payment remains strictly future. Remaining discount time is exactly0. The cash105is retained with DF1. Exact matching dirty105(clean100after accrued5) cannot identify a yield; other positive targets have no root.",
+  "certified": false
+}

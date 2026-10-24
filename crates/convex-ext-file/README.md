@@ -1,0 +1,109 @@
+# File market data and quote replay
+
+`FileQuoteReplay` delivers normalized bond quote events in recorded JSONL order. `MarketDataAssembler` in `convex-engine` validates and reconstructs them without reading a clock or starting a server. This is an offline ingestion contract; live provider certification remains subsequent work. `FileSnapshotRepository` and `JsonFixingRepository` now support immutable application snapshots and publication-aware fixing history through separate narrow ports.
+
+## Run a deterministic trace
+
+From the repository root:
+
+```sh
+cargo run --locked -p convex-engine --example quote_replay -- crates/convex-ext-file/tests/fixtures/sequenced-quotes.jsonl
+```
+
+Each output line contains the source/instrument key, session, sequence, admission outcome and resulting data state. The [expected trace](tests/fixtures/sequenced-quotes.expected.json) declares all 28 outcomes independently of the implementation. Repeating the command produces identical output. Optional arguments after the file are maximum retained keys and field freshness age in milliseconds:
+
+```sh
+cargo run --locked -p convex-engine --example quote_replay -- crates/convex-ext-file/tests/fixtures/sequenced-quotes.jsonl 1 5000
+```
+
+That second run refuses the second supplier with `capacity_exceeded` and marks retained data `gap`. The cursor reads one event per call with no background producer or timing sleeps. A production arrival-rate or latency benchmark must supply its own open-loop schedule; this example does not measure latency or certify trading.
+
+## Quote event schema and recovery
+
+Schema 1 is defined in [quote_event.rs](../convex-ports/src/quote_event.rs). Sequences start at 1 and are scoped to `(source, instrument, session)`. An adapter translating a partition-wide sequence must reconstruct per-key sequencing or introduce a separately declared partition contract. Reusing a partition sequence across sparsely updated instruments would report false gaps.
+
+An envelope records the internal instrument ID, source, session, sequence, original source time and receipt time as UTC Unix milliseconds, delivery quality, entitlement state/tags, and an optional permitted hash/reference to raw evidence. These transient events do not provide a durable event journal, checkpoint, authenticated licensing decision or exactly-once delivery.
+
+An `image` contains `set` instructions for every supplied field; omitted fields are absent. A `delta` changes only supplied fields. An omitted field or `unchanged` retains its value, source time, receipt time and supplying sequence. `clear` removes just that field. The value wire is always an exact decimal **string**, paired with a unit. Schema 1 admits bond clean prices per 100, yield decimals, spreads in basis points and face-amount sizes. It never computes a mid, yield or spread from a different field. Futures ticks/lots and other product quotations need an explicit contract extension.
+
+```json
+{
+  "schema_version": 1,
+  "key": {"instrument_id": "BOND-001", "source": "provider-a"},
+  "session": "session-a",
+  "sequence": 2,
+  "source_time_ms": 1791086400100,
+  "receive_time_ms": 1791086400102,
+  "quality": "live",
+  "entitled": true,
+  "entitlement_tags": ["internal-analytics"],
+  "evidence_reference": "fixture:permitted-observation",
+  "event": {
+    "kind": "delta",
+    "fields": [
+      {"field": "bid_price", "update": {"action": "set", "value": {"value": "99.125", "unit": "price_per100"}}},
+      {"field": "ask_price", "update": {"action": "clear"}}
+    ]
+  }
+}
+```
+
+| Input | Outcome and retained state |
+|---|---|
+| First delta, skipped sequence, explicit gap or transport lag | Require an image; retained fields stay available with Gap status |
+| Complete image at or above the recovery watermark | Validate units, time and assembled prices, then replace the complete image |
+| Older sequence | Ignore with OutOfOrder; never roll values backwards |
+| Latest identical data retry, with a different receipt time permitted | Duplicate; never refresh original field ages |
+| Changed latest sequence payload, crossed prices, invalid unit/time/schema | Invalid; retain last good fields, return the rejected decision, require an image |
+| New session without Reset | Gap; explicit Reset then image is required |
+| Reset with sequence 0 | AwaitingImage; prior display value stays unavailable for fresh use |
+| Heartbeat | Liveness only; does not refresh observations or repair a gap |
+| Revoked entitlement | Unauthorized; restoration requires an entitled image |
+| Closed or Error | Closed or Invalid; no fresh data until an image |
+| New key at capacity | CapacityExceeded; no new key retained, existing keys marked Gap |
+
+The assembler exposes Live, Delayed, Indicative, Manual, Stale, Gap, Invalid, Closed, Unauthorized, AwaitingImage and Incomplete. Freshness uses every retained field's original source/receipt time. The default policy is 10,000 retained keys, maximum age 5,000 ms inclusive and allowed source-clock lead 100 ms. Bounds are configurable through `IngestionPolicy`; trading SLOs require product-specific approval. An empty or size-only quote is Incomplete. There is no buffered delta catch-up: recovery is by validated image. Session history and older-payload deduplication are not retained.
+
+The assembler retains at most 12 fields and one accepted data envelope per key, plus a bounded supplier count index. Rejections return one decision to the caller; they do not accumulate an internal quarantine or trace queue. A caller requiring durable quarantine must persist the permitted evidence reference and decision in its chosen journal. Explicit unsubscribe/removal releases the key; reintroduction requires an image.
+
+The Live runtime takes its quote subscription through `RuntimeInput::Live`; the server
+feeds it from `POST /api/v1/market/quotes`. The earlier `MarketDataListener`, its
+scheduler and the engine's graph input handlers are removed.
+
+## Resource and delivery limits
+
+Replay accepts regular files up to 256 MiB, at most 1,000,000 records and at most 64 KiB per record including its newline. It also checks bytes consumed if the file grows. Blank/malformed/unknown-field/numeric-decimal records produce `StreamError::Failure`; the cursor then closes rather than skipping evidence. Unsupported schema numbers decode into events and receive the assembler's Invalid decision. EOF is `StreamError::Closed`, including an empty file. Files must remain immutable during replay; no concurrent-file consistency or cryptographic authentication is claimed.
+
+Streaming ports now share `StreamReceiver<T>::recv() -> Result<T, StreamError>`; `Lagged { missed }`, `Closed` and adapter `Failure` are distinct. Quote subscriptions deliver `QuoteEvent`. The old per-type receiver wrappers and unsequenced quote update type are removed without aliases. Existing snapshot DTOs, REST v1 economic units, pure pricing and language-client calls retain their contract. Rust adapter callers migrate their subscribe signatures and handle every delivery result. [Pinned Tokio broadcast documentation](https://docs.rs/tokio/1.50.0/tokio/sync/broadcast/index.html) defines the underlying transient loss/closure behavior.
+
+## Removed file snapshot sources
+
+The CSV quote, JSON curve-input and CSV fixing snapshot sources, and the `Empty*`
+placeholder sources, are removed: nothing composed them. Live quotes reach the
+runtime through `RuntimeInput::Live`, replay reads `FileQuoteReplay`, historical
+fixings use `JsonFixingRepository` below, and curves come from stored recipes.
+
+## Reference master imports
+
+The [reference master contract](../convex-ports/REFERENCE_MASTER.md) describes the strict
+8 MiB command importer, row/field conflict diagnostics, historical mappings and
+exact resource pins. `import_reference_file` uses the configured authoritative port
+for one atomic bond/entity/calendar/convention/mapping transaction.
+The runnable offline example validates, imports, resolves by effective/information
+time and reads exact prior terms versions. Import files must remain immutable.
+
+## Immutable application snapshots
+
+The [snapshot guide](../convex-engine/SNAPSHOTS.md) describes exact reference/configuration
+capture, source/field selection, curve reconstruction, publication/recording cutoffs,
+canonical content identity, data-quality conditions and the offline `snapshot_replay`
+example. `FileSnapshotRepository` publishes at most 16 MiB of verified content by
+atomic no-clobber hard link with file/directory sync on a local Unix filesystem.
+Identical retries preserve the original bytes; corruption is rejected. Unknown
+publication outcomes require exact-ID reconciliation. Trusted directories, explicit
+paths and immutable input files are required; shared-filesystem, host-loss and
+low-latency guarantees are not certified.
+
+`JsonFixingRepository` loads a frozen, strict schema-1 history of up to 100,000
+revisions from a regular file of at most 16 MiB. It requires actual publication
+and recording timestamps and filters both against the information cutoff.

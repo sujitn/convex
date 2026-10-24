@@ -35,12 +35,9 @@
 //! let year_fraction = dc.year_fraction(start, end);
 //! ```
 //!
-//! # Bloomberg Compatibility
-//!
-//! All implementations are designed to match Bloomberg YAS exactly:
-//! - 30/360 US includes February end-of-month rules
-//! - ACT/ACT ICMA uses period-based calculation
-//! - All conventions handle leap years correctly
+//! Convention labels do not establish market or vendor qualification. ICMA,
+//! ACT/365L and maturity-dependent conventions need original contextual inputs;
+//! use checked coupon/contract owners for those calculations.
 
 mod act360;
 mod act365;
@@ -48,9 +45,9 @@ mod actact;
 mod thirty360;
 
 pub use act360::Act360;
-pub use act365::{Act365, Act365Fixed, Act365Leap};
+pub use act365::{Act365Fixed, Act365Leap};
 pub use actact::{ActActAfb, ActActIcma, ActActIsda};
-pub use thirty360::{Thirty360, Thirty360E, Thirty360EIsda, Thirty360German, Thirty360US};
+pub use thirty360::{Thirty360E, Thirty360EIsda, Thirty360German, Thirty360US};
 
 use crate::types::Date;
 use rust_decimal::Decimal;

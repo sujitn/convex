@@ -1,0 +1,64 @@
+{
+  "fixture_id": "CVX-056-analytic-contracts-v1",
+  "provenance": "Analytic exponential discount identity P(t)=exp(-0.04*t); synthetic values. Independent of candidate build; no external engine/model approval.",
+  "absolute_tolerance": 1e-11,
+  "relative_tolerance": 1e-11,
+  "tolerance_justification": "Finite f64 interpolation/exp/log/pow rounding across supported compounding and fractional time; much smaller than any native market tick. Exact units/dates/identities are checked without tolerance.",
+  "recipe": {
+    "key": {
+      "id": "USD.fixture",
+      "version": "supplied-v1"
+    },
+    "role": {
+      "kind": "Discount",
+      "collateral_currency": "USD"
+    },
+    "currency": "USD",
+    "reference_date": "2024-01-01",
+    "time_basis": "Act365Fixed",
+    "representation": "DiscountFactors",
+    "interpolation": "LogLinear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+      "Nodes": [
+        {
+          "pillar": {
+            "Tenor": 0.0
+          },
+          "quote": {
+            "value": 1.0,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Tenor": 1.0
+          },
+          "quote": {
+            "value": 0.9607894391523232,
+            "unit": "DiscountFactor"
+          }
+        },
+        {
+          "pillar": {
+            "Tenor": 2.0
+          },
+          "quote": {
+            "value": 0.9231163463866358,
+            "unit": "DiscountFactor"
+          }
+        }
+      ]
+    }
+  },
+  "expected": {
+    "discount_1_5": 0.9417645335842487,
+    "forward_continuous": 0.04
+  },
+  "research_sources": [
+    "https://github.com/lballabio/QuantLib/blob/master/ql/termstructures/yield/ratehelpers.hpp",
+    "https://github.com/lballabio/QuantLib/blob/master/ql/termstructures/yield/piecewiseyieldcurve.hpp"
+  ]
+}

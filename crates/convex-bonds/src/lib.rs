@@ -40,9 +40,12 @@
 #![allow(clippy::used_underscore_items)]
 #![allow(clippy::borrowed_box)]
 #![allow(dead_code)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
 
 pub mod arrc;
 pub mod cashflows;
+pub mod contracts;
 pub mod conventions;
 pub mod error;
 pub mod fixings;

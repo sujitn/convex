@@ -77,10 +77,6 @@ pub fn get_convention_options() -> JsValue {
                 label: "Government Bond".to_string(),
             },
             ConventionOption {
-                value: "TreasuryBill".to_string(),
-                label: "Treasury Bill".to_string(),
-            },
-            ConventionOption {
                 value: "CorporateIG".to_string(),
                 label: "Corporate IG".to_string(),
             },
@@ -95,14 +91,6 @@ pub fn get_convention_options() -> JsValue {
             ConventionOption {
                 value: "Agency".to_string(),
                 label: "Agency".to_string(),
-            },
-            ConventionOption {
-                value: "InflationLinked".to_string(),
-                label: "Inflation Linked".to_string(),
-            },
-            ConventionOption {
-                value: "CorporateFRN".to_string(),
-                label: "Corporate FRN".to_string(),
             },
             ConventionOption {
                 value: "Supranational".to_string(),
@@ -184,26 +172,30 @@ pub fn get_convention_options() -> JsValue {
 /// Get default conventions for a given market and instrument type.
 #[wasm_bindgen]
 pub fn get_default_conventions(market: String, instrument_type: String) -> JsValue {
-    let market_enum = parse_market(&market);
-    let inst_enum = parse_instrument_type(&instrument_type);
+    match checked_defaults(&market, &instrument_type) {
+        Ok(defaults) => serde_wasm_bindgen::to_value(&defaults).unwrap_or(JsValue::NULL),
+        Err(error) => serde_wasm_bindgen::to_value(&crate::dto::AnalysisResult {
+            error: Some(error),
+            ..Default::default()
+        })
+        .unwrap_or(JsValue::NULL),
+    }
+}
 
+fn checked_defaults(market: &str, instrument_type: &str) -> Result<DefaultConventions, String> {
+    let market_enum = parse_market(market)?;
+    let inst_enum = parse_instrument_type(instrument_type)?;
     let registry = ConventionRegistry::global();
     let key = ConventionKey::new(market_enum, inst_enum);
-
-    let rules = if let Some(specific_rules) = registry.rules(&key) {
-        specific_rules.clone()
-    } else {
-        registry.default_rules_for_market(market_enum)
-    };
-
-    let defaults = DefaultConventions {
-        day_count: format!("{}", rules.accrual_day_count),
+    let rules = registry
+        .rules(&key)
+        .ok_or("No registered convention rules for this market/instrument pair")?;
+    Ok(DefaultConventions {
+        day_count: rules.accrual_day_count.to_string(),
         yield_convention: format_yield_convention(rules.convention),
         compounding: format_compounding(rules.compounding),
         settlement_days: rules.settlement_rules.days,
         ex_dividend_days: rules.ex_dividend_rules.as_ref().map(|r| r.days),
         use_business_days: rules.settlement_rules.use_business_days,
-    };
-
-    serde_wasm_bindgen::to_value(&defaults).unwrap_or(JsValue::NULL)
+    })
 }

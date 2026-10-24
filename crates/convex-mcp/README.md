@@ -20,6 +20,9 @@ convex-mcp-server
 
 # HTTP
 convex-mcp-server --http --port 8080
+
+# Explicit browser origin; repeat --allow-origin for multiple clients.
+convex-mcp-server --http --port 8080 --allow-origin https://pricing.example
 ```
 
 ## Claude Desktop / Claude Code
@@ -45,7 +48,7 @@ See [docs/integration-guide.md](docs/integration-guide.md) for additional client
 | `bootstrap_curve` | Bootstrap a curve from deposits / swaps / OIS. |
 | `price_bond` | Price a bond against a trader `Mark` (price / yield / spread). |
 | `calculate_yield` | Yield to maturity from clean price. |
-| `compute_spread` | Z-spread, I-spread, or G-spread against a curve. |
+| `compute_spread` | Z-spread or I-spread against a curve. Government spread uses full supplied securities through `library`. |
 | `get_zero_rate` | Zero rate at a tenor. |
 | `list_all_bonds` | List stored bonds. |
 | `list_all_curves` | List stored curves. |
@@ -59,7 +62,15 @@ Options:
       --http           Use HTTP transport instead of stdio
   -p, --port <PORT>    HTTP port [default: 8080]
       --host <HOST>    HTTP host [default: 127.0.0.1]
+      --allow-origin <ORIGIN>  Exact HTTP browser origin; repeat for more
   -v, --verbose        Enable verbose logging
   -h, --help           Print help
   -V, --version        Print version
 ```
+
+## Full supplied-input library API
+
+See [the shared API, exact terms and capability limits](../../docs/LIBRARY-API.md).
+Generic JSON text calls preserve native diagnostics and decimal strings.
+Full mandatory operations and host certification remain open.
+See [removed convenience routes and migration](../../docs/ROUTE-MIGRATION.md).

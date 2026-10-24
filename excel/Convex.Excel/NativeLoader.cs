@@ -1,34 +1,51 @@
 using System;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using ExcelDna.Integration;
 
 namespace Convex.Excel
 {
     /// <summary>
-    /// Handles loading of the native convex_ffi.dll library.
-    /// This ensures the DLL is loaded from the correct directory.
+    /// Binds convex_ffi.dll by absolute path before any P/Invoke fires —
+    /// ExcelDna 1.7 cannot pack native libraries, so the DLL ships next to
+    /// the .xll. Load status: =CX.DIAG() / ribbon Diagnostics.
     /// </summary>
     public class NativeLoader : IExcelAddIn
     {
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern IntPtr LoadLibrary(string lpFileName);
+        private static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags);
 
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern bool SetDllDirectory(string lpPathName);
+        private const uint LoadWithAlteredSearchPath = 0x00000008;
 
-        private static bool _initialized = false;
-        private static string? _loadError = null;
+        private static bool _initialized;
+        private static string? _loadError;
+        private static string? _loadedPath;
 
         public void AutoOpen()
         {
             Initialize();
+
+            try { ExcelDna.IntelliSense.IntelliSenseServer.Install(); }
+            catch { /* best-effort — never block the add-in */ }
+
+            // Handles are process-lifetime, so a reopened workbook's cached
+            // #CX# strings are stale until builder cells re-register. The
+            // queued rebuild runs after the launching workbook has opened;
+            // workbooks opened later in the session use the ribbon Rebuild.
+            if (CxSettings.Current.AutoRebuildOnOpen)
+            {
+                ExcelAsyncUtil.QueueAsMacro(() =>
+                {
+                    try { ((dynamic)ExcelDnaUtil.Application).CalculateFullRebuild(); }
+                    catch { /* best effort — a blank session has nothing to rebuild */ }
+                });
+            }
         }
 
         public void AutoClose()
         {
-            // Cleanup if needed
+            try { ExcelDna.IntelliSense.IntelliSenseServer.Uninstall(); }
+            catch { }
         }
 
         internal static void Initialize()
@@ -38,27 +55,27 @@ namespace Convex.Excel
 
             try
             {
-                // Get the directory where the XLL is located
-                string xllPath = ExcelDnaUtil.XllPath;
-                string xllDirectory = Path.GetDirectoryName(xllPath);
-
-                // Set the DLL search directory
-                SetDllDirectory(xllDirectory);
-
-                // Try to load the native library
+                string xllDirectory = Path.GetDirectoryName(ExcelDnaUtil.XllPath) ?? "";
                 string dllPath = Path.Combine(xllDirectory, "convex_ffi.dll");
 
                 if (!File.Exists(dllPath))
                 {
-                    _loadError = "convex_ffi.dll not found at: " + dllPath;
+                    _loadError = "convex_ffi.dll not found at: " + dllPath +
+                                 " — it must sit in the same folder as the .xll";
                     return;
                 }
 
-                IntPtr handle = LoadLibrary(dllPath);
+                // NOT SetDllDirectory — that mutates the process-wide search
+                // path and can break other add-ins' native loads.
+                IntPtr handle = LoadLibraryEx(dllPath, IntPtr.Zero, LoadWithAlteredSearchPath);
                 if (handle == IntPtr.Zero)
                 {
                     int error = Marshal.GetLastWin32Error();
-                    _loadError = "Failed to load convex_ffi.dll. Error code: " + error;
+                    _loadError = $"Failed to load {dllPath}. Win32 error code: {error}";
+                }
+                else
+                {
+                    _loadedPath = dllPath;
                 }
             }
             catch (Exception ex)
@@ -69,7 +86,9 @@ namespace Convex.Excel
 
         internal static string GetLoadError()
         {
-            return _loadError ?? "No error";
+            if (_loadError != null) return _loadError;
+            if (_loadedPath != null) return "OK — " + _loadedPath;
+            return "not initialized";
         }
     }
 }

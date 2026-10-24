@@ -17,6 +17,4 @@ pub use sinking_fund::{
 };
 pub use zero_coupon::{convert_yield, Compounding, ZeroCouponBond, ZeroCouponBondBuilder};
 
-// Canonical `Bond` trait lives in `crate::traits`; the legacy local trait
-// that used to shadow it was only referenced by the removed `FixedBond`.
 pub use crate::traits::Bond;

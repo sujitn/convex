@@ -1,5 +1,6 @@
 //! Newton-Raphson root-finding algorithm.
 
+use crate::bounds::finite;
 use crate::error::{MathError, MathResult};
 use crate::solvers::{SolverConfig, SolverResult};
 
@@ -44,10 +45,12 @@ where
     F: Fn(f64) -> f64,
     DF: Fn(f64) -> f64,
 {
+    config.validate()?;
+    finite(initial_guess, "initial guess")?;
     let mut x = initial_guess;
 
     for iteration in 0..config.max_iterations {
-        let fx = f(x);
+        let fx = finite(f(x), "function evaluation")?;
 
         // Check for convergence
         if fx.abs() < config.tolerance {
@@ -58,7 +61,7 @@ where
             });
         }
 
-        let dfx = df(x);
+        let dfx = finite(df(x), "derivative evaluation")?;
 
         // Check for zero derivative
         if dfx.abs() < 1e-15 {
@@ -66,12 +69,15 @@ where
         }
 
         // Newton step
-        let step = fx / dfx;
-        x -= step;
+        let step = finite(fx / dfx, "Newton step")?;
+        x = finite(x - step, "Newton iterate")?;
 
         // Check for step convergence
         if step.abs() < config.tolerance {
-            let final_fx = f(x);
+            let final_fx = finite(f(x), "function evaluation")?;
+            if final_fx.abs() >= config.tolerance {
+                return Err(MathError::convergence_failed(iteration + 1, final_fx.abs()));
+            }
             return Ok(SolverResult {
                 root: x,
                 iterations: iteration + 1,
@@ -82,7 +88,7 @@ where
 
     Err(MathError::convergence_failed(
         config.max_iterations,
-        f(x).abs(),
+        finite(f(x), "function evaluation")?.abs(),
     ))
 }
 

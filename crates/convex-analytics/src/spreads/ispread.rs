@@ -78,7 +78,10 @@ impl<'a> ISpreadCalculator<'a> {
             });
         }
 
-        let years_to_maturity = self.swap_curve.date_to_tenor(maturity);
+        let years_to_maturity = self
+            .swap_curve
+            .date_to_tenor(maturity)
+            .map_err(|error| AnalyticsError::CurveError(error.to_string()))?;
         let frequency = bond.coupon_frequency().max(1);
         let swap_rate = self
             .swap_curve
@@ -111,7 +114,12 @@ impl<'a> ISpreadCalculator<'a> {
     /// Useful for debugging or displaying the benchmark rate.
     pub fn swap_rate_at_maturity(&self, maturity: Date) -> AnalyticsResult<f64> {
         self.swap_curve
-            .par_swap_rate(self.swap_curve.date_to_tenor(maturity), 2)
+            .par_swap_rate(
+                self.swap_curve
+                    .date_to_tenor(maturity)
+                    .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+                2,
+            )
             .map_err(|e| AnalyticsError::CurveError(e.to_string()))
     }
 
@@ -129,7 +137,7 @@ impl<'a> ISpreadCalculator<'a> {
     /// Implied bond yield.
     pub fn implied_yield(&self, i_spread: Spread, maturity: Date) -> AnalyticsResult<Yield> {
         let swap_rate = self.swap_rate_at_maturity(maturity)?;
-        let spread_decimal = i_spread.as_decimal().to_f64().unwrap_or(0.0) / 10_000.0;
+        let spread_decimal = i_spread.as_decimal_f64()? / 10_000.0;
 
         let implied = swap_rate + spread_decimal;
         Ok(Yield::new(
@@ -217,10 +225,6 @@ mod tests {
         }
 
         fn issue_date(&self) -> Date {
-            date(2020, 1, 15)
-        }
-
-        fn first_settlement_date(&self) -> Date {
             date(2020, 1, 15)
         }
 

@@ -25,6 +25,7 @@ pub fn compare_hedges(
     let rows: Vec<ComparisonRow> = proposals.iter().map(row_for).collect();
     let recommendation = recommend(&rows, proposals, constraints)?;
     Ok(ComparisonReport {
+        execution_status: Default::default(),
         currency: position.currency,
         position_market_value: position.market_value,
         position_dv01: position.dv01,
@@ -219,6 +220,7 @@ mod tests {
             residual_krd_l1_norm: residual_krd,
         };
         HedgeProposal {
+            execution_status: Default::default(),
             strategy: strategy.into(),
             trades: vec![trade],
             residual,
