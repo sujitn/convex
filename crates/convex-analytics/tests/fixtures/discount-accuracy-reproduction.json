@@ -1,0 +1,195 @@
+{
+  "recorded_at": "2026-10-15T17:08:24.900832+00:00",
+  "kind": "Independent source-audit probes, outside declared7606request transport qualification; no scope waiver",
+  "method": "Decimal110 exp(-f*t*ln(1+y/f)); explicit Fraction AFB backward-anniversary/February references are separately checked with actual pinned QuantLib.",
+  "cases": [
+    {
+      "id": "high-frequency-0.05",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4294967295
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "independent_price": "95.122942450099085329044892081944103918368460310147756008400365855005992401729996568951726719668769529043761723",
+      "independent_discount_years": "1",
+      "original_absolute_price_bound": "1e-10",
+      "original_absolute_time_bound": "1e-14"
+    },
+    {
+      "id": "high-frequency-1E-9",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4294967295
+            },
+            "annual_yield": 1e-09
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "independent_price": "99.999999900000000049999999994974865511262454694933792070586326350709630436803911538115541717690083544956726296",
+      "independent_discount_years": "1",
+      "original_absolute_price_bound": "1e-10",
+      "original_absolute_time_bound": "1e-14"
+    },
+    {
+      "id": "AFB-backward-February-anniversary",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "dated_price",
+            "cash": [
+              {
+                "date": "2025-02-28",
+                "amount": "100"
+              }
+            ],
+            "settlement": "2024-02-28",
+            "basis": {
+              "kind": "calendar",
+              "day_count": "ActActAfb"
+            },
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "independent_price": "95.225365452476698127220098673616695846099817983486516423476232756675874667200965955429300563706091948670914093",
+      "independent_discount_years": "1.0027397260273972602739726027397260273972602739726027397260273972602739726027397260273972602739726027397260274",
+      "original_absolute_price_bound": "1e-10",
+      "original_absolute_time_bound": "1e-14"
+    },
+    {
+      "id": "AFB-February29-start",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "dated_price",
+            "cash": [
+              {
+                "date": "2024-08-31",
+                "amount": "100"
+              }
+            ],
+            "settlement": "2024-02-29",
+            "basis": {
+              "kind": "calendar",
+              "day_count": "ActActAfb"
+            },
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "independent_price": "97.576998783578834442756020787316062015282708685815830698060915944308747150839732892134439292746998262500021340",
+      "independent_discount_years": "0.50273224043715846994535519125683060109289617486338797814207650273224043715846994535519125683060109289617486339",
+      "original_absolute_price_bound": "1e-10",
+      "original_absolute_time_bound": "1e-14"
+    },
+    {
+      "id": "AFB-February29-end",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "dated_price",
+            "cash": [
+              {
+                "date": "2024-02-29",
+                "amount": "100"
+              }
+            ],
+            "settlement": "2024-02-28",
+            "basis": {
+              "kind": "calendar",
+              "day_count": "ActActAfb"
+            },
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "independent_price": "99.986633725100533033581103607297530638404808882660842244650044394509668400561014253200765591891396546104459798",
+      "independent_discount_years": "0.0027397260273972602739726027397260273972602739726027397260273972602739726027397260273972602739726027397260273973",
+      "original_absolute_price_bound": "1e-10",
+      "original_absolute_time_bound": "1e-14"
+    }
+  ],
+  "certified": false
+}

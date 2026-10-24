@@ -1,6 +1,15 @@
 //! ARRC compound-in-arrears for SOFR FRNs (and SONIA / €STR analogues).
 //! Spread-additive convention; matches QL `OvernightIndexedCoupon`.
 //! See ARRC FRN conventions doc and Brigo–Mercurio §1.4.
+//!
+//! For publication-aware production use, construct an OvernightSchedule and
+//! call its checked compound method. The original function below remains a
+//! date-only compatibility calculation; it cannot distinguish missing history
+//! from an unpublished rate and does not satisfy the complete fixing contract.
+
+pub use convex_core::cashflows::{
+    CompoundedCoupon, OvernightConvention, OvernightObservation, OvernightSchedule,
+};
 
 use rust_decimal::Decimal;
 

@@ -4,56 +4,21 @@
 // =============================================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import type { PublishedValuation } from '../lib/api';
 
-// WebSocket message types from server
+// WebSocket message from server. Demo servers label every message with
+// `profile: "demo"` and `data_quality: "demo"`.
 export interface WebSocketMessage {
   type: string;
-  payload?: unknown;
   session_id?: string;
-  instrument_id?: string;
-  etf_id?: string;
-  portfolio_id?: string;
-  timestamp?: string;
+  code?: string;
+  message?: string;
+  profile?: string;
+  data_quality?: string;
 }
 
-// Bond quote update message
-export interface BondQuoteMessage {
-  type: 'bond_quote';
-  instrument_id: string;
-  clean_price_mid?: number;
-  dirty_price_mid?: number;
-  ytm_mid?: number;
-  modified_duration?: number;
-  convexity?: number;
-  z_spread_mid?: number;
-  i_spread_mid?: number;
-  dv01?: number;
-  timestamp: string;
-}
-
-// ETF quote update message
-export interface EtfQuoteMessage {
-  type: 'etf_quote';
-  etf_id: string;
-  inav: number;
-  nav: number;
-  premium_discount_pct: number;
-  holdings_count: number;
-  weighted_duration: number;
-  weighted_yield: number;
-  timestamp: string;
-}
-
-// Portfolio update message
-export interface PortfolioMessage {
-  type: 'portfolio_analytics';
-  portfolio_id: string;
-  total_market_value: number;
-  modified_duration: number;
-  weighted_yield: number;
-  dv01: number;
-  timestamp: string;
-}
+// One runtime result; the PublishedValuation fields sit beside `type`.
+export type ValuationMessage = WebSocketMessage & PublishedValuation & { type: 'valuation' };
 
 // Connection state
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
@@ -77,14 +42,8 @@ interface UseWebSocketReturn {
   lastError: string | null;
   connect: () => void;
   disconnect: () => void;
-  subscribeBonds: (instrumentIds?: string[]) => void;
-  unsubscribeBonds: (instrumentIds?: string[]) => void;
-  subscribeAllBonds: () => void;
-  unsubscribeAllBonds: () => void;
-  subscribeEtfs: (etfIds: string[]) => void;
-  unsubscribeEtfs: (etfIds: string[]) => void;
-  subscribePortfolios: (portfolioIds: string[]) => void;
-  unsubscribePortfolios: (portfolioIds: string[]) => void;
+  subscribeValuations: (instrumentIds: string[]) => void;
+  unsubscribeValuations: (instrumentIds: string[]) => void;
   sendMessage: (msg: object) => void;
 }
 
@@ -159,6 +118,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (wsRef.current !== ws) {
+          ws.close();
+          return;
+        }
         console.log('WebSocket connected to', WS_URL);
         setConnectionState('connected');
         reconnectCountRef.current = 0;
@@ -167,7 +130,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         pingIntervalRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             lastPingRef.current = Date.now();
-            ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+            ws.send(JSON.stringify({ type: 'ping', timestamp: lastPingRef.current }));
           }
         }, 10000);
       };
@@ -176,33 +139,29 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         try {
           const data = JSON.parse(event.data) as WebSocketMessage;
 
-          // Debug: log raw message type
-          console.log('[WebSocket] Raw message received:', data.type);
-
-          // Handle pong for latency
-          if (data.type === 'pong' || data.type === 'heartbeat') {
-            const latencyMs = Date.now() - lastPingRef.current;
-            setLatency(latencyMs);
+          // A pong answers our ping; a heartbeat is unsolicited and carries no latency
+          if (data.type === 'pong') {
+            setLatency(Date.now() - lastPingRef.current);
+            return;
+          }
+          if (data.type === 'heartbeat') {
             return;
           }
 
           // Handle connection confirmation
           if (data.type === 'connected') {
             const sid = data.session_id || 'unknown';
-            console.log('[WebSocket] Connected with session:', sid);
             setSessionId(sid);
             onConnect?.(sid);
             return;
           }
 
           // Handle subscription confirmation
-          if (data.type === 'subscribed') {
-            console.log('[WebSocket] Subscribed:', data);
+          if (data.type === 'subscribed' || data.type === 'unsubscribed') {
             return;
           }
 
-          // Pass other messages to callback
-          console.log('[WebSocket] Passing to handler:', data.type);
+          // Pass valuations and errors to callback
           onMessage?.(data);
         } catch (e) {
           console.error('Failed to parse WebSocket message:', e);
@@ -210,6 +169,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       };
 
       ws.onclose = () => {
+        // A socket already replaced or deliberately closed must not touch the current state
+        if (wsRef.current !== ws) return;
         console.log('WebSocket disconnected');
         setConnectionState('disconnected');
         setSessionId(null);
@@ -263,61 +224,19 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     }
   }, []);
 
-  // Subscribe to bonds
-  const subscribeBonds = useCallback((instrumentIds?: string[]) => {
+  // Subscribe to runtime valuations
+  const subscribeValuations = useCallback((instrumentIds: string[]) => {
     sendMessage({
-      type: 'subscribe_bonds',
+      type: 'subscribe_valuations',
       instrument_ids: instrumentIds,
     });
   }, [sendMessage]);
 
-  // Unsubscribe from bonds
-  const unsubscribeBonds = useCallback((instrumentIds?: string[]) => {
+  // Unsubscribe from runtime valuations
+  const unsubscribeValuations = useCallback((instrumentIds: string[]) => {
     sendMessage({
-      type: 'unsubscribe_bonds',
+      type: 'unsubscribe_valuations',
       instrument_ids: instrumentIds,
-    });
-  }, [sendMessage]);
-
-  // Subscribe to all bonds
-  const subscribeAllBonds = useCallback(() => {
-    sendMessage({ type: 'subscribe_all_bonds' });
-  }, [sendMessage]);
-
-  // Unsubscribe from all bonds
-  const unsubscribeAllBonds = useCallback(() => {
-    sendMessage({ type: 'unsubscribe_all_bonds' });
-  }, [sendMessage]);
-
-  // Subscribe to ETFs
-  const subscribeEtfs = useCallback((etfIds: string[]) => {
-    sendMessage({
-      type: 'subscribe_etfs',
-      etf_ids: etfIds,
-    });
-  }, [sendMessage]);
-
-  // Unsubscribe from ETFs
-  const unsubscribeEtfs = useCallback((etfIds: string[]) => {
-    sendMessage({
-      type: 'unsubscribe_etfs',
-      etf_ids: etfIds,
-    });
-  }, [sendMessage]);
-
-  // Subscribe to portfolios
-  const subscribePortfolios = useCallback((portfolioIds: string[]) => {
-    sendMessage({
-      type: 'subscribe_portfolios',
-      portfolio_ids: portfolioIds,
-    });
-  }, [sendMessage]);
-
-  // Unsubscribe from portfolios
-  const unsubscribePortfolios = useCallback((portfolioIds: string[]) => {
-    sendMessage({
-      type: 'unsubscribe_portfolios',
-      portfolio_ids: portfolioIds,
     });
   }, [sendMessage]);
 
@@ -339,14 +258,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     lastError,
     connect,
     disconnect,
-    subscribeBonds,
-    unsubscribeBonds,
-    subscribeAllBonds,
-    unsubscribeAllBonds,
-    subscribeEtfs,
-    unsubscribeEtfs,
-    subscribePortfolios,
-    unsubscribePortfolios,
+    subscribeValuations,
+    unsubscribeValuations,
     sendMessage,
   };
 }

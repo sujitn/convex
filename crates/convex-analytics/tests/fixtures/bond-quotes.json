@@ -1,0 +1,626 @@
+{
+  "schema_version": 1,
+  "fixture_id": "CVX-017-supplied-bond-quotes-v1",
+  "reference": "Declared dated cashflows and Decimal(50) analytic present value, not a market convention certificate",
+  "units": {
+    "price": "per_100_face",
+    "yield": "annualized_decimal",
+    "duration": "years",
+    "convexity": "years_squared",
+    "dv01": "positive_yield_loss_per_100_per_1bp"
+  },
+  "tolerances": {
+    "price": 1e-09,
+    "accrued": 1e-10,
+    "yield": 1e-10,
+    "risk": 1e-09,
+    "relative": 1e-11
+  },
+  "certified": false,
+  "cases": [
+    {
+      "id": "coupon-date-negative-yield",
+      "type": "fixed_rate",
+      "name": "coupon-date-negative-yield",
+      "issue": "2024-01-15",
+      "maturity": "2025-01-15",
+      "settlement": "2024-07-15",
+      "day_count": "Thirty360US",
+      "coupon_rate": "0.05",
+      "yield": "-0.01",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2024-01-15",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.5",
+          "102.5"
+        ]
+      ],
+      "accrued_fraction": "0",
+      "expected": {
+        "clean_price": "103.01507537688442211055276381909547738693467336683",
+        "dirty_price": "103.01507537688442211055276381909547738693467336683",
+        "accrued": "0.00",
+        "ytm_decimal": "-0.01",
+        "macaulay_duration": "0.50000000000000000000000000000000000000000000000001",
+        "modified_duration": "0.50251256281407035175879396984924623115577889447237",
+        "convexity": "0.50503775157193000176763213050175500618671245675614",
+        "dv01": "0.0051766369536122825181182293376429888134138026817503"
+      }
+    },
+    {
+      "id": "leap-eom-icma-non100-face",
+      "type": "fixed_rate",
+      "name": "leap-eom-icma-non100-face",
+      "issue": "2023-08-31",
+      "maturity": "2024-08-31",
+      "settlement": "2024-02-29",
+      "day_count": "ActActIcma",
+      "coupon_rate": "0.05",
+      "yield": "0.035",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "EUR",
+      "face_value": "5000",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2023-08-31",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": true,
+        "settlement_days": 0,
+        "redemption_value": "5000",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.5",
+          "102.5"
+        ]
+      ],
+      "accrued_fraction": "0",
+      "expected": {
+        "clean_price": "100.73710073710073710073710073710073710073710073710",
+        "dirty_price": "100.73710073710073710073710073710073710073710073710",
+        "accrued": "0.00",
+        "ytm_decimal": "0.035",
+        "macaulay_duration": "0.5",
+        "modified_duration": "0.49140049140049140049140049140049140049140049140049",
+        "convexity": "0.48294888589728884569179409474249769090063930358771",
+        "dv01": "0.0049502260804472106683408894711106013317315528617739"
+      }
+    },
+    {
+      "id": "leap-act365f",
+      "type": "fixed_rate",
+      "name": "leap-act365f",
+      "issue": "2024-01-01",
+      "maturity": "2025-01-01",
+      "settlement": "2024-02-29",
+      "day_count": "Act365Fixed",
+      "coupon_rate": "0.05",
+      "yield": "0.04",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2024-01-01",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.33698630136986301369863013698630136986301369863014",
+          "2.4931506849315068493150684931506849315068493150685"
+        ],
+        [
+          "0.84109589041095890410958904109589041095890410958904",
+          "102.5205479452054794520547945"
+        ]
+      ],
+      "accrued_fraction": "0.16164383561643835616438356164383561643835616438356",
+      "expected": {
+        "clean_price": "100.81353610187836276876550135908897067521263234432",
+        "dirty_price": "101.62175527996055454958741916730814875740441316624",
+        "accrued": "0.80821917808219178082191780821917808219178082191780",
+        "ytm_decimal": "0.04",
+        "macaulay_duration": "0.82889221875724940133211702712792602822318680591077",
+        "modified_duration": "0.81263943015416607973736963443914316492469294697134",
+        "convexity": "1.0645054575117771171004888190028602585379614614528",
+        "dv01": "0.0082581845301973263099202489558716453002836487082306"
+      }
+    },
+    {
+      "id": "ex-record-date-entitled",
+      "type": "fixed_rate",
+      "name": "ex-record-date-entitled",
+      "issue": "2024-01-15",
+      "maturity": "2025-01-15",
+      "settlement": "2025-01-08",
+      "day_count": "Thirty360US",
+      "coupon_rate": "0.05",
+      "yield": "0.03",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "GBP",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2024-01-15",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": {
+          "offset": {
+            "CalendarDays": -7
+          },
+          "anchor": "ContractualEnd",
+          "boundary": "AfterDate"
+        }
+      },
+      "discount_cashflows": [
+        [
+          "0.019444444444444444444444444444444444444444444444444",
+          "102.5"
+        ]
+      ],
+      "accrued_fraction": "0.48055555555555555555555555555555555555555555555556",
+      "expected": {
+        "clean_price": "100.03789173641238183661376126634576079710580869058",
+        "dirty_price": "102.44066951419015961439153904412353857488358646836",
+        "accrued": "2.4027777777777777777777777777777777777777777777778",
+        "ytm_decimal": "0.03",
+        "macaulay_duration": "0.019444444444444444444444444444444444444444444444444",
+        "modified_duration": "0.019157088122605363984674329501915708812260536398467",
+        "convexity": "0.0098039832482955748908979190390209018825744945443709",
+        "dv01": "0.00019624649332220337090879605180866578271050495492023"
+      }
+    },
+    {
+      "id": "ex-after-record-principal-retained",
+      "type": "fixed_rate",
+      "name": "ex-after-record-principal-retained",
+      "issue": "2024-01-15",
+      "maturity": "2025-01-15",
+      "settlement": "2025-01-09",
+      "day_count": "Thirty360US",
+      "coupon_rate": "0.05",
+      "yield": "0.03",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "GBP",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2024-01-15",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": {
+          "offset": {
+            "CalendarDays": -7
+          },
+          "anchor": "ContractualEnd",
+          "boundary": "AfterDate"
+        }
+      },
+      "discount_cashflows": [
+        [
+          "0.016666666666666666666666666666666666666666666666667",
+          "100"
+        ]
+      ],
+      "accrued_fraction": "-0.016666666666666666666666666666666666666666666666667",
+      "expected": {
+        "clean_price": "100.03371693802726206663639423778637582450016840817",
+        "dirty_price": "99.950383604693928733303060904453042491166835074836",
+        "accrued": "-0.083333333333333333333333333333333333333333333333335",
+        "ytm_decimal": "0.03",
+        "macaulay_duration": "0.016666666666666666666666666666666666666666666666667",
+        "modified_duration": "0.016420361247947454844006568144499178981937602627258",
+        "convexity": "0.0083584761689059293951429164610751157379321129958130",
+        "dv01": "0.00016412214056599988297750913120599842773590613312781"
+      }
+    },
+    {
+      "id": "short-first-icma",
+      "type": "fixed_rate",
+      "name": "short-first-icma",
+      "issue": "2024-04-15",
+      "maturity": "2025-01-31",
+      "settlement": "2024-05-15",
+      "day_count": "ActActIcma",
+      "coupon_rate": "0.04",
+      "yield": "0.025",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2024-04-15",
+        "first_coupon_date": "2024-07-31",
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": true,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.21153846153846153846153846153846153846153846153846",
+          "1.1758241758241758241758241758241758241758241758242"
+        ],
+        [
+          "0.7115384615384615384615384615",
+          "102"
+        ]
+      ],
+      "accrued_fraction": "0.082417582417582417582417582417582417582417582417582",
+      "expected": {
+        "clean_price": "101.05265869484854186053623536501287727309322364615",
+        "dirty_price": "101.38232902451887153086590569468320694342289397582",
+        "accrued": "0.32967032967032967032967032967032967032967032967033",
+        "ytm_decimal": "0.025",
+        "macaulay_duration": "0.70576989890692672940914817201404893511266440497131",
+        "modified_duration": "0.69705669027844615250286239211264092356806360984821",
+        "convexity": "0.83289459987927733442510014469891937487059078722159",
+        "dv01": "0.0070669230722551572880497174977760373061201843866939"
+      }
+    },
+    {
+      "id": "long-first-icma",
+      "type": "fixed_rate",
+      "name": "long-first-icma",
+      "issue": "2023-11-15",
+      "maturity": "2025-04-30",
+      "settlement": "2024-02-29",
+      "day_count": "ActActIcma",
+      "coupon_rate": "0.04",
+      "yield": "-0.005",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2023-11-15",
+        "first_coupon_date": "2024-10-31",
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": true,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.6675824175824175824175824176",
+          "3.835164835164835164835164835"
+        ],
+        [
+          "1.167582417582417582417582418",
+          "102"
+        ]
+      ],
+      "accrued_fraction": "0.29120879120879120879120879120879120879120879120879",
+      "expected": {
+        "clean_price": "105.28112709151547928382861608296856881626592285081",
+        "dirty_price": "106.44596225635064411899345124780373365143075801565",
+        "accrued": "1.1648351648351648351648351648351648351648351648352",
+        "ytm_decimal": "-0.005",
+        "macaulay_duration": "1.1495075011288192266325733410036981095982794282667",
+        "modified_duration": "1.1523884723095932096567151288257625158879994268338",
+        "convexity": "1.9143919963696977443476901580944369899515789584067",
+        "dv01": "0.012266709982812053818244379981964076606467025159613"
+      }
+    },
+    {
+      "id": "short-last-30e",
+      "type": "fixed_rate",
+      "name": "short-last-30e",
+      "issue": "2023-01-31",
+      "maturity": "2024-11-30",
+      "settlement": "2024-08-31",
+      "day_count": "Thirty360E",
+      "coupon_rate": "0.04",
+      "yield": "0.04",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2023-01-31",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": "2024-07-31",
+        "calendar": "WEEKEND",
+        "end_of_month": true,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.25",
+          "101.3333333333333333333333333"
+        ]
+      ],
+      "accrued_fraction": "0.083333333333333333333333333333333333333333333333333",
+      "expected": {
+        "clean_price": "100.00161768830299666086501038494144190154828398254",
+        "dirty_price": "100.33495102163632999419834371827477523488161731587",
+        "accrued": "0.33333333333333333333333333333333333333333333333333",
+        "ytm_decimal": "0.04",
+        "macaulay_duration": "0.24999999999999999999999999999999999999999999999999",
+        "modified_duration": "0.24509803921568627450980392156862745098039215686274",
+        "convexity": "0.18021914648212226066897347174163783160322952710496",
+        "dv01": "0.0024591899760204982841715280323106562557569023851928"
+      }
+    },
+    {
+      "id": "weekend-payment-adjustment-30us",
+      "type": "fixed_rate",
+      "name": "weekend-payment-adjustment-30us",
+      "issue": "2024-06-15",
+      "maturity": "2025-06-15",
+      "settlement": "2025-01-15",
+      "day_count": "Thirty360US",
+      "coupon_rate": "0.05",
+      "yield": "0.02",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Following",
+      "terms": {
+        "dated_date": "2024-06-15",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.41944444444444444444444444444444444444444444444444",
+          "102.5"
+        ]
+      ],
+      "accrued_fraction": "0.083333333333333333333333333333333333333333333333333",
+      "expected": {
+        "clean_price": "101.23130406489317961708071436679003371227490795587",
+        "dirty_price": "101.64797073155984628374738103345670037894157462254",
+        "accrued": "0.41666666666666666666666666666666666666666666666666",
+        "ytm_decimal": "0.02",
+        "macaulay_duration": "0.41944444444444444444444444444444444444444444444442",
+        "modified_duration": "0.41529152915291529152915291529152915291529152915289",
+        "convexity": "0.37805692010345148926333777492160657209835394980641",
+        "dv01": "0.0042213541200400266195945694543597254557811269989006"
+      }
+    },
+    {
+      "id": "one-day-negative-yield",
+      "type": "fixed_rate",
+      "name": "one-day-negative-yield",
+      "issue": "2024-01-15",
+      "maturity": "2024-07-15",
+      "settlement": "2024-07-14",
+      "day_count": "Act360",
+      "coupon_rate": "0.04",
+      "yield": "-0.025",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2024-01-15",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.0027777777777777777777777777777777777777777777777778",
+          "102.0222222222222222222222222"
+        ]
+      ],
+      "accrued_fraction": "0.50277777777777777777777777777777777777777777777778",
+      "expected": {
+        "clean_price": "100.01824088975020713710282533544064246349828159194",
+        "dirty_price": "102.02935200086131824821393644655175357460939270305",
+        "accrued": "2.0111111111111111111111111111111111111111111111111",
+        "ytm_decimal": "-0.025",
+        "macaulay_duration": "0.0027777777777777777777777777777777777777777777777778",
+        "modified_duration": "0.0028129395218002812939521800281293952180028129395218",
+        "convexity": "0.0014321858043483851313793096627044178184486895697706",
+        "dv01": "0.000028700239662689540998091121363305697208047649142911"
+      }
+    },
+    {
+      "id": "annual-redemption-premium",
+      "type": "fixed_rate",
+      "name": "annual-redemption-premium",
+      "issue": "2024-01-15",
+      "maturity": "2025-01-15",
+      "settlement": "2024-07-15",
+      "day_count": "Thirty360E",
+      "coupon_rate": "0.05",
+      "yield": "0.06",
+      "quote_frequency": "Annual",
+      "frequency": "Annual",
+      "quote_frequency_count": 1,
+      "currency": "EUR",
+      "face_value": "1000",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2024-01-15",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "1020",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.5",
+          "107"
+        ]
+      ],
+      "accrued_fraction": "0.5",
+      "expected": {
+        "clean_price": "101.42758727222726733870929553482432525667658040695",
+        "dirty_price": "103.92758727222726733870929553482432525667658040695",
+        "accrued": "2.500",
+        "ytm_decimal": "0.06",
+        "macaulay_duration": "0.49999999999999999999999999999999999999999999999998",
+        "modified_duration": "0.47169811320754716981132075471698113207547169811319",
+        "convexity": "0.66749733001067995728017087931648273406906372374510",
+        "dv01": "0.0049022446826522295914485516761709587385224802078748"
+      }
+    },
+    {
+      "id": "monthly-leap-anchor",
+      "type": "fixed_rate",
+      "name": "monthly-leap-anchor",
+      "issue": "2024-01-30",
+      "maturity": "2024-04-30",
+      "settlement": "2024-02-29",
+      "day_count": "Act360",
+      "coupon_rate": "0.03",
+      "yield": "0.035",
+      "quote_frequency": "Monthly",
+      "frequency": "Monthly",
+      "quote_frequency_count": 12,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Unadjusted",
+      "terms": {
+        "dated_date": "2024-01-30",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "WEEKEND",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.083333333333333333333333333333333333333333333333333",
+          "0.25"
+        ],
+        [
+          "0.16944444444444444444444444444444444444444444444444",
+          "100.2583333333333333333333333"
+        ]
+      ],
+      "accrued_fraction": "0",
+      "expected": {
+        "clean_price": "99.915638619692119017861248265627012603838363936786",
+        "dirty_price": "99.915638619692119017861248265627012603838363936786",
+        "accrued": "0.00",
+        "ytm_decimal": "0.035",
+        "macaulay_duration": "0.16922961149811613219465991929099601155254502543329",
+        "modified_duration": "0.16873746057144940476409796688757392094977484879098",
+        "convexity": "0.042511238517732002507491957212809223519131696777887",
+        "dv01": "0.0016859511132061486360939382070605493911906843121661"
+      }
+    },
+    {
+      "id": "sifma-holiday-payment",
+      "type": "fixed_rate",
+      "name": "sifma-holiday-payment",
+      "issue": "2024-01-04",
+      "maturity": "2025-01-04",
+      "settlement": "2024-07-03",
+      "day_count": "Act365Fixed",
+      "coupon_rate": "0.05",
+      "yield": "0.035",
+      "quote_frequency": "SemiAnnual",
+      "frequency": "SemiAnnual",
+      "quote_frequency_count": 2,
+      "currency": "USD",
+      "face_value": "100",
+      "business_day_convention": "Following",
+      "terms": {
+        "dated_date": "2024-01-04",
+        "first_coupon_date": null,
+        "penultimate_coupon_date": null,
+        "calendar": "SIFMA",
+        "end_of_month": false,
+        "settlement_days": 0,
+        "redemption_value": "100",
+        "ex_coupon": null
+      },
+      "discount_cashflows": [
+        [
+          "0.0054794520547945205479452054794520547945205479452055",
+          "2.4931506849315068493150684931506849315068493150685"
+        ],
+        [
+          "0.51232876712328767123287671232876712328767123287671",
+          "102.52054794520547945205479452054794520547945205479"
+        ]
+      ],
+      "accrued_fraction": "0.49589041095890410958904109589041095890410958904110",
+      "expected": {
+        "clean_price": "100.72742775151020330656375248898615804165581134374",
+        "dirty_price": "103.20687980630472385450895796843821283617635928895",
+        "accrued": "2.4794520547945205479452054794520547945205479452055",
+        "ytm_decimal": "0.035",
+        "macaulay_duration": "0.50008722378668600326923039325911868876850723328541",
+        "modified_duration": "0.49148621502377002778302741352247536979705870593161",
+        "convexity": "0.48892354871835643198237259766837916781701422560617",
+        "dv01": "0.0050724758720413872264268252644206790392743564293686"
+      }
+    }
+  ]
+}

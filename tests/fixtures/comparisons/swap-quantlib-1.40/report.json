@@ -1,0 +1,22 @@
+{
+  "status": "matched_numerics",
+  "cases": 10,
+  "compared_values": 973,
+  "maxima": {
+    "currency_abs": "2.375200289316311E-9",
+    "rate_abs": "5.37490454401090E-14",
+    "discount_ratio_abs": "1E-16",
+    "year_fraction_abs": "1.55555555556E-17"
+  },
+  "tolerances": {
+    "currency_abs": "0.0000001",
+    "rate_abs": "0.000000000001",
+    "discount_ratio_abs": "0.0000000000001",
+    "year_fraction_abs": "0.0000000000001",
+    "relative": "0"
+  },
+  "errors": [],
+  "certified": false,
+  "qualification": "executed_engineering_comparison",
+  "accepted_task": false
+}

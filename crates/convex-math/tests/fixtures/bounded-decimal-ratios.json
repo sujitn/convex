@@ -1,0 +1,1130 @@
+{
+  "status": "independent_exact_Fraction_rounding_declared_before_native_execution",
+  "qualified": false,
+  "policy": "Direct nearest/even binary64; positive denominator; nonfinite and erased-nonzero outputs reject. Original Decimal finishing remains unchanged.",
+  "cases": [
+    {
+      "id": "zero",
+      "numerator": {
+        "initial": "0",
+        "operations": []
+      },
+      "denominator": {
+        "initial": "3",
+        "operations": []
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "0000000000000000"
+      }
+    },
+    {
+      "id": "one-third",
+      "numerator": {
+        "initial": "1",
+        "operations": []
+      },
+      "denominator": {
+        "initial": "3",
+        "operations": []
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "3fd5555555555555"
+      }
+    },
+    {
+      "id": "negative-third",
+      "numerator": {
+        "initial": "-1",
+        "operations": []
+      },
+      "denominator": {
+        "initial": "3",
+        "operations": []
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "bfd5555555555555"
+      }
+    },
+    {
+      "id": "halfway-even-lower",
+      "numerator": {
+        "initial": "9007199254740993",
+        "operations": []
+      },
+      "denominator": {
+        "initial": "9007199254740992",
+        "operations": []
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "3ff0000000000000"
+      }
+    },
+    {
+      "id": "halfway-even-upper",
+      "numerator": {
+        "initial": "9007199254740995",
+        "operations": []
+      },
+      "denominator": {
+        "initial": "9007199254740992",
+        "operations": []
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "3ff0000000000002"
+      }
+    },
+    {
+      "id": "beyond-Decimal-range",
+      "numerator": {
+        "initial": "79228162514264337593543950335",
+        "operations": []
+      },
+      "denominator": {
+        "initial": "0.0000000000000000000000000001",
+        "operations": []
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "4bc027e72f1f1281"
+      }
+    },
+    {
+      "id": "minimum-subnormal",
+      "numerator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          }
+        ]
+      },
+      "denominator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "1048576"
+          }
+        ]
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "0000000000000001"
+      }
+    },
+    {
+      "id": "half-minimum-subnormal",
+      "numerator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          }
+        ]
+      },
+      "denominator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2097152"
+          }
+        ]
+      },
+      "expected": {
+        "status": "error"
+      }
+    },
+    {
+      "id": "subnormal-tie-odd",
+      "numerator": {
+        "initial": "3",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          }
+        ]
+      },
+      "denominator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2097152"
+          }
+        ]
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "0000000000000002"
+      }
+    },
+    {
+      "id": "subnormal-tie-even",
+      "numerator": {
+        "initial": "5",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          }
+        ]
+      },
+      "denominator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2097152"
+          }
+        ]
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "0000000000000002"
+      }
+    },
+    {
+      "id": "minimum-normal-nearby",
+      "numerator": {
+        "initial": "22250738585072014",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          }
+        ]
+      },
+      "denominator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          }
+        ]
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "0010000000000000"
+      }
+    },
+    {
+      "id": "below-normal-nearby",
+      "numerator": {
+        "initial": "22250738585072011",
+        "operations": [
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          },
+          {
+            "multiply": "0.0000000000000000000000000001"
+          }
+        ]
+      },
+      "denominator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          },
+          {
+            "multiply": "100000000000000000000000000"
+          }
+        ]
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "000fffffffffffff"
+      }
+    },
+    {
+      "id": "maximum-binary64",
+      "numerator": {
+        "initial": "9007199254740991",
+        "operations": [
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "1024"
+          }
+        ]
+      },
+      "denominator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "0.00000000000000000001"
+          },
+          {
+            "multiply": "0.00000000000000000001"
+          }
+        ]
+      },
+      "expected": {
+        "status": "finite",
+        "bits": "7fefffffffffffff"
+      }
+    },
+    {
+      "id": "overflow-midpoint",
+      "numerator": {
+        "initial": "18014398509481983",
+        "operations": [
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "divide_power_of_ten": 8
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "2147483648"
+          },
+          {
+            "multiply": "512"
+          }
+        ]
+      },
+      "denominator": {
+        "initial": "1",
+        "operations": [
+          {
+            "multiply": "0.00000000000000000001"
+          },
+          {
+            "multiply": "0.00000000000000000001"
+          }
+        ]
+      },
+      "expected": {
+        "status": "error"
+      }
+    },
+    {
+      "id": "zero-denominator",
+      "numerator": {
+        "initial": "1",
+        "operations": []
+      },
+      "denominator": {
+        "initial": "0",
+        "operations": []
+      },
+      "expected": {
+        "status": "error"
+      }
+    },
+    {
+      "id": "negative-denominator",
+      "numerator": {
+        "initial": "1",
+        "operations": []
+      },
+      "denominator": {
+        "initial": "-3",
+        "operations": []
+      },
+      "expected": {
+        "status": "error"
+      }
+    }
+  ],
+  "absolute_ULP_bound": 0
+}

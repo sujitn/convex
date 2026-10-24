@@ -93,23 +93,20 @@ public final class ConvexAnalytics {
 
     // ---- spreads ------------------------------------------------------------
 
-    /** Optional per-family spread parameters (OAS volatility, G-spread govt curve, …). */
+    /** Optional spread parameters: OAS volatility and floating-rate projections. */
     public static final class SpreadParams {
         private Double volatility;
-        private YieldCurve govtCurve;
         private YieldCurve forwardCurve;
         private Double currentIndex;
 
         public static SpreadParams create() { return new SpreadParams(); }
         public SpreadParams volatility(double v) { this.volatility = v; return this; }
-        public SpreadParams govtCurve(YieldCurve c) { this.govtCurve = c; return this; }
         public SpreadParams forwardCurve(YieldCurve c) { this.forwardCurve = c; return this; }
         public SpreadParams currentIndex(double v) { this.currentIndex = v; return this; }
 
         ObjectNode toJson() {
             ObjectNode p = Json.object();
             if (volatility != null) p.put("volatility", volatility);
-            if (govtCurve != null) p.put("govt_curve", govtCurve.handle());
             if (forwardCurve != null) p.put("forward_curve", forwardCurve.handle());
             if (currentIndex != null) p.put("current_index", currentIndex);
             return p;

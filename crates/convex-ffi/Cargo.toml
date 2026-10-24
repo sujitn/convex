@@ -1,5 +1,6 @@
 [package]
 name = "convex-ffi"
+publish = false  # internal; not published to crates.io
 description = "C FFI bindings for the Convex fixed income analytics library"
 version.workspace = true
 edition.workspace = true
@@ -20,6 +21,7 @@ convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
 convex-analytics = { workspace = true }
+convex = { workspace = true, features = ["schemars"] }
 
 # High-precision decimal arithmetic
 rust_decimal = { workspace = true }
@@ -39,10 +41,10 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+proptest = { workspace = true }
 
 [build-dependencies]
 cbindgen = { workspace = true }
 
 [features]
 default = []
-

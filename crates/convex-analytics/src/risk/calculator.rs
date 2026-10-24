@@ -1,17 +1,22 @@
 //! `BondRiskCalculator`: duration, convexity, DV01 for a single bond.
 
+use convex_bonds::pricing::risk_math;
 use rust_decimal::prelude::*;
+use std::collections::HashMap;
 
-use convex_bonds::traits::Bond;
-use convex_core::types::{Compounding, Date};
+use convex_bonds::{
+    pricing::{dated_cash::DatedCashYieldRisk, discount_time::PreparedDatedCash},
+    traits::Bond,
+};
+use convex_core::types::{Compounding, Date, Frequency};
 
 use crate::error::{AnalyticsError, AnalyticsResult};
-use crate::risk::convexity::{analytical_convexity, effective_convexity, Convexity};
+use crate::risk::convexity::{effective_convexity, Convexity};
 use crate::risk::duration::{
-    effective_duration, key_rate_duration_at_tenor, macaulay_duration, modified_duration,
-    modified_from_macaulay, Duration, KeyRateDurations, STANDARD_KEY_RATE_TENORS,
+    effective_duration, key_rate_duration_at_tenor, Duration, KeyRateDurations,
+    STANDARD_KEY_RATE_TENORS,
 };
-use crate::risk::dv01::{dv01_from_duration, DV01};
+use crate::risk::dv01::DV01;
 
 /// Complete risk metrics for a bond.
 #[derive(Debug, Clone)]
@@ -33,86 +38,89 @@ impl BondRiskMetrics {
     ///
     /// Uses duration + convexity approximation:
     /// ΔP/P ≈ -D_mod × Δy + (1/2) × C × (Δy)²
-    pub fn estimate_price_change(&self, yield_change: f64, dirty_price: f64) -> f64 {
-        let duration_effect = -self.modified_duration.as_f64() * dirty_price * yield_change;
-        let convexity_effect = 0.5 * self.convexity.as_f64() * dirty_price * yield_change.powi(2);
-        duration_effect + convexity_effect
+    pub fn estimate_price_change(
+        &self,
+        yield_change: f64,
+        dirty_price: f64,
+    ) -> AnalyticsResult<f64> {
+        risk_math::price_change(
+            self.modified_duration.as_f64(),
+            self.convexity.as_f64(),
+            dirty_price,
+            yield_change,
+        )
+        .map_err(Into::into)
     }
 
     /// Get the convexity adjustment factor.
     ///
     /// The convexity adjustment = (1/2) × C × (Δy)²
-    pub fn convexity_adjustment(&self, yield_change: f64) -> f64 {
-        0.5 * self.convexity.as_f64() * yield_change.powi(2)
+    pub fn convexity_adjustment(&self, yield_change: f64) -> AnalyticsResult<f64> {
+        risk_math::convexity_adjustment(self.convexity.as_f64(), yield_change).map_err(Into::into)
     }
 }
 
 /// Calculator for bond risk metrics.
 pub struct BondRiskCalculator {
-    times: Vec<f64>,
-    cash_flows: Vec<f64>,
+    risk: DatedCashYieldRisk,
     ytm: f64,
-    compounding: Compounding,
     dirty_price: f64,
     face_value: f64,
 }
 
 impl BondRiskCalculator {
-    /// Creates a new risk calculator for a bond.
-    ///
-    /// # Arguments
-    ///
-    /// * `bond` - The bond to analyze
-    /// * `settlement` - Settlement date
-    /// * `dirty_price` - Dirty price as percentage of par (e.g., 105.5)
-    /// * `ytm` - Yield to maturity as decimal (e.g., 0.05 for 5%)
-    /// * `compounding` - Compounding convention attached to `ytm`
-    ///
-    /// # Errors
-    ///
-    /// Returns error if no future cash flows exist.
+    /// Prepare original normalized bond cash and its complete native time context.
+    /// `quote_frequency` is the actual periodic quotation basis, independent of coupons.
     pub fn from_bond(
         bond: &dyn Bond,
         settlement: Date,
         dirty_price: f64,
         ytm: f64,
-        compounding: Compounding,
+        quote_frequency: Frequency,
     ) -> AnalyticsResult<Self> {
-        let cash_flows = bond.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return Err(AnalyticsError::InvalidInput(
-                "no future cash flows".to_string(),
-            ));
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| AnalyticsError::InvalidInput("bond has no maturity".into()))?;
+        if settlement < bond.issue_date() || settlement >= maturity {
+            return Err(AnalyticsError::InvalidSettlement {
+                settlement: settlement.to_string(),
+                maturity: maturity.to_string(),
+            });
         }
-
-        let (times, amounts): (Vec<f64>, Vec<f64>) = cash_flows
-            .iter()
-            .filter(|cf| cf.date > settlement)
-            .map(|cf| {
-                let years = settlement.days_between(&cf.date) as f64 / 365.0;
-                let amount = cf.amount.to_f64().unwrap_or(0.0);
-                (years, amount)
-            })
-            .unzip();
-
-        if times.is_empty() {
-            return Err(AnalyticsError::InvalidInput(
-                "no future cash flows after settlement".to_string(),
-            ));
-        }
-
-        let face_value = bond.face_value().to_f64().unwrap_or(100.0);
-        Ok(Self {
-            times,
-            cash_flows: amounts,
+        let cash = bond.yield_cash_flows(settlement, quote_frequency)?;
+        let face = bond
+            .face_value()
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("invalid face".into()))?;
+        Self::from_prepared_cash(
+            &cash,
             ytm,
-            compounding,
+            Compounding::from(quote_frequency),
             dirty_price,
-            face_value,
-        })
+            face,
+        )
     }
 
-    /// Build directly from `(times, cash_flows)`, bypassing a `Bond`.
+    /// Reuse full supplied dated context for periodic, continuous or Simple risk.
+    /// Amounts use per100quote units; `face_value` scales the reported position DV01.
+    pub fn from_prepared_cash(
+        cash: &PreparedDatedCash,
+        ytm: f64,
+        compounding: Compounding,
+        dirty_price: f64,
+        face_value: f64,
+    ) -> AnalyticsResult<Self> {
+        Self::from_risk(
+            cash.yield_risk(ytm, compounding)?,
+            ytm,
+            dirty_price,
+            face_value,
+        )
+    }
+
+    /// Explicit positive numerical times and original per100cash, without inferred dates.
+    /// Complete cash owns derivatives; dirty price is the caller's DV01 price basis.
+    /// Finite signed face preserves long/short and zero position scaling.
     pub fn from_cash_flows(
         times: Vec<f64>,
         cash_flows: Vec<f64>,
@@ -121,86 +129,107 @@ impl BondRiskCalculator {
         dirty_price: f64,
         face_value: f64,
     ) -> AnalyticsResult<Self> {
-        if times.len() != cash_flows.len() {
+        Self::from_risk(
+            super::cash::evaluate(&times, &cash_flows, ytm, compounding)?,
+            ytm,
+            dirty_price,
+            face_value,
+        )
+    }
+
+    fn from_risk(
+        risk: DatedCashYieldRisk,
+        ytm: f64,
+        dirty_price: f64,
+        face_value: f64,
+    ) -> AnalyticsResult<Self> {
+        if !ytm.is_finite()
+            || !dirty_price.is_finite()
+            || dirty_price <= 0.0
+            || !face_value.is_finite()
+        {
             return Err(AnalyticsError::InvalidInput(
-                "times and cash_flows must have same length".to_string(),
-            ));
-        }
-        if times.is_empty() {
-            return Err(AnalyticsError::InvalidInput(
-                "no cash flows provided".to_string(),
+                "finite yield/face and positive finite DV01 price required".into(),
             ));
         }
         Ok(Self {
-            times,
-            cash_flows,
+            risk,
             ytm,
-            compounding,
             dirty_price,
             face_value,
         })
     }
 
-    /// Macaulay duration: PV-weighted average time to cash flows.
+    /// Same complete-cash PV-weighted time in years.
     pub fn macaulay_duration(&self) -> AnalyticsResult<Duration> {
-        macaulay_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
+        Ok(Duration::new(super::cash::decimal(
+            self.risk.macaulay_duration,
+        )?))
     }
 
-    /// Modified duration. Continuous compounding equals Macaulay (no divisor).
+    /// Minus the complete first derivative divided by actual cash PV.
     pub fn modified_duration(&self) -> AnalyticsResult<Duration> {
-        modified_duration(&self.times, &self.cash_flows, self.ytm, self.compounding)
+        Ok(Duration::new(super::cash::decimal(
+            self.risk.modified_duration,
+        )?))
     }
 
-    /// Analytical convexity in years².
+    /// Complete second derivative divided by actual cash PV.
     pub fn convexity(&self) -> AnalyticsResult<Convexity> {
-        analytical_convexity(&self.times, &self.cash_flows, self.ytm, self.compounding)
+        Ok(Convexity::new(super::cash::decimal(self.risk.convexity)?))
     }
 
-    /// DV01 per 100 face: `D_mod · dirty_price/100 · 0.0001 · 100`.
+    fn per100_dv01(&self) -> AnalyticsResult<f64> {
+        risk_math::dv01(self.risk.modified_duration, self.dirty_price, 100.0).map_err(Into::into)
+    }
+
+    /// First-order loss at the supplied dirty price for +1bp annual yield.
     pub fn dv01_per_100(&self) -> AnalyticsResult<DV01> {
-        Ok(dv01_from_duration(
-            self.modified_duration()?,
-            self.dirty_price,
-            100.0,
-        ))
+        Ok(DV01::new(super::cash::decimal(self.per100_dv01()?)?))
     }
 
-    /// DV01 for the full position (scaled by `face_value`).
+    /// Same supplied-price DV01 scaled by the actual signed face exposure.
     pub fn dv01(&self) -> AnalyticsResult<DV01> {
-        Ok(dv01_from_duration(
-            self.modified_duration()?,
+        Ok(DV01::new(super::cash::decimal(risk_math::dv01(
+            self.risk.modified_duration,
             self.dirty_price,
             self.face_value,
-        ))
+        )?)?))
     }
 
-    /// Compute Macaulay, modified, convexity, and both DV01 flavours in one pass.
+    /// One checked cash evaluation owns all measures, including Simple derivatives.
     pub fn all_metrics(&self) -> AnalyticsResult<BondRiskMetrics> {
-        let macaulay = self.macaulay_duration()?;
-        let modified = modified_from_macaulay(macaulay, self.ytm, self.compounding);
         Ok(BondRiskMetrics {
-            macaulay_duration: macaulay,
-            modified_duration: modified,
+            macaulay_duration: self.macaulay_duration()?,
+            modified_duration: self.modified_duration()?,
             convexity: self.convexity()?,
-            dv01_per_100: dv01_from_duration(modified, self.dirty_price, 100.0),
-            dv01: dv01_from_duration(modified, self.dirty_price, self.face_value),
+            dv01_per_100: self.dv01_per_100()?,
+            dv01: self.dv01()?,
         })
     }
 
-    /// Returns the yield to maturity.
+    /// Actual supplied annual decimal yield.
     pub fn ytm(&self) -> f64 {
         self.ytm
     }
-
-    /// Returns the dirty price.
+    /// Actual supplied per100DV01 price basis.
     pub fn dirty_price(&self) -> f64 {
         self.dirty_price
     }
-
-    /// Returns the face value.
+    /// Actual signed face exposure used for position scaling.
     pub fn face_value(&self) -> f64 {
         self.face_value
     }
+}
+
+fn checked_bump(bps: f64, minimum: f64) -> AnalyticsResult<f64> {
+    let bump = bps / 10_000.0;
+    if !bps.is_finite() || !bump.is_finite() || bump == 0.0 || bump.abs() < minimum {
+        return Err(AnalyticsError::InvalidInput(
+            "finite representable nonzero bump required".into(),
+        ));
+    }
+    Ok(bump)
 }
 
 /// Effective duration calculator using curve shifts.
@@ -215,7 +244,7 @@ pub struct EffectiveDurationCalculator {
 impl Default for EffectiveDurationCalculator {
     /// Default calculator with 10bp bump.
     fn default() -> Self {
-        Self::new(10.0)
+        Self { bump_size: 0.001 }
     }
 }
 
@@ -225,10 +254,9 @@ impl EffectiveDurationCalculator {
     /// # Arguments
     ///
     /// * `bump_bps` - Bump size in basis points (default: 10)
-    pub fn new(bump_bps: f64) -> Self {
-        Self {
-            bump_size: bump_bps / 10_000.0,
-        }
+    pub fn new(bump_bps: f64) -> AnalyticsResult<Self> {
+        let bump_size = checked_bump(bump_bps, 1e-12)?;
+        Ok(Self { bump_size })
     }
 
     /// Calculates effective duration from pre-computed prices.
@@ -288,17 +316,18 @@ impl KeyRateDurationCalculator {
     }
 
     /// Creates a calculator with custom tenors.
-    pub fn with_tenors(tenors: Vec<f64>) -> Self {
-        Self {
+    pub fn with_tenors(tenors: Vec<f64>) -> AnalyticsResult<Self> {
+        KeyRateDurations::validate_tenors(&tenors)?;
+        Ok(Self {
             tenors,
             bump_size: 0.0001,
-        }
+        })
     }
 
     /// Sets the bump size in basis points.
-    pub fn with_bump_bps(mut self, bps: f64) -> Self {
-        self.bump_size = bps / 10_000.0;
-        self
+    pub fn with_bump_bps(mut self, bps: f64) -> AnalyticsResult<Self> {
+        self.bump_size = checked_bump(bps, 0.0)?;
+        Ok(self)
     }
 
     /// Calculates key rate durations from price sensitivities.
@@ -318,20 +347,36 @@ impl KeyRateDurationCalculator {
             ));
         }
 
-        let durations: Result<Vec<_>, _> = tenor_prices
+        KeyRateDurations::validate_tenors(&self.tenors)?;
+        if tenor_prices.len() != self.tenors.len() {
+            return Err(AnalyticsError::InvalidInput(
+                "exact declared key rate prices required".into(),
+            ));
+        }
+        let mut supplied = HashMap::with_capacity(tenor_prices.len());
+        for &(tenor, up, down) in tenor_prices {
+            if !tenor.is_finite()
+                || tenor <= 0.0
+                || supplied.insert(tenor.to_bits(), (up, down)).is_some()
+            {
+                return Err(AnalyticsError::InvalidInput(
+                    "finite positive unique supplied key rate tenors required".into(),
+                ));
+            }
+        }
+        let durations = self
+            .tenors
             .iter()
-            .map(|(tenor, price_up, price_down)| {
-                key_rate_duration_at_tenor(
-                    *price_up,
-                    *price_down,
-                    base_price,
-                    self.bump_size,
-                    *tenor,
-                )
+            .map(|tenor| {
+                let (up, down) = supplied.remove(&tenor.to_bits()).ok_or_else(|| {
+                    AnalyticsError::InvalidInput(
+                        "supplied key rate tenor does not match declaration".into(),
+                    )
+                })?;
+                key_rate_duration_at_tenor(up, down, base_price, self.bump_size, *tenor)
             })
-            .collect();
-
-        Ok(KeyRateDurations::new(durations?))
+            .collect::<AnalyticsResult<Vec<_>>>()?;
+        Ok(KeyRateDurations::new(durations))
     }
 
     /// Returns the tenors being analyzed.
@@ -417,7 +462,7 @@ mod tests {
 
     #[test]
     fn test_effective_duration_calculator() {
-        let calc = EffectiveDurationCalculator::new(10.0); // 10 bps
+        let calc = EffectiveDurationCalculator::new(10.0).unwrap(); // 10 bps
 
         // Simulate bond with mod dur ≈ 5
         let price_base = 100.0;
@@ -431,7 +476,10 @@ mod tests {
 
     #[test]
     fn test_key_rate_duration_calculator() {
-        let calc = KeyRateDurationCalculator::with_tenors(vec![2.0, 5.0, 10.0]).with_bump_bps(1.0);
+        let calc = KeyRateDurationCalculator::with_tenors(vec![2.0, 5.0, 10.0])
+            .unwrap()
+            .with_bump_bps(1.0)
+            .unwrap();
 
         let base_price = 100.0;
         let tenor_prices = vec![
@@ -443,7 +491,7 @@ mod tests {
         let krds = calc.calculate(base_price, &tenor_prices).unwrap();
 
         // Check total is reasonable
-        let total = krds.total_duration().as_f64();
+        let total = krds.total_duration().unwrap().as_f64();
         assert!(
             total > 7.0 && total < 9.0,
             "Total KRD {} not in expected range",
@@ -480,7 +528,7 @@ mod tests {
         let metrics = calc.all_metrics().unwrap();
 
         // Estimate price change for +100 bps
-        let change = metrics.estimate_price_change(0.01, 100.0);
+        let change = metrics.estimate_price_change(0.01, 100.0).unwrap();
 
         // Should be negative (price drops when yield rises)
         assert!(change < 0.0);

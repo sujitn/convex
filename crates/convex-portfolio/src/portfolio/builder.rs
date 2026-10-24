@@ -250,7 +250,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(portfolio.cash.len(), 2);
-        assert_eq!(portfolio.total_cash(), dec!(1_550_000));
+        assert_eq!(portfolio.total_cash().unwrap(), dec!(1_550_000));
     }
 
     #[test]
@@ -299,10 +299,10 @@ mod tests {
         assert_eq!(portfolio.liabilities, Some(dec!(50_000)));
 
         // NAV = 1,000,000 (MV) + 0 (accrued) + 100,000 (cash) - 50,000 (liabilities)
-        assert_eq!(portfolio.nav(), dec!(1_050_000));
+        assert_eq!(portfolio.nav().unwrap(), dec!(1_050_000));
 
         // NAV per share = 1,050,000 / 10,000,000 = 0.105
-        assert_eq!(portfolio.nav_per_share(), Some(dec!(0.105)));
+        assert_eq!(portfolio.nav_per_share().unwrap(), Some(dec!(0.105)));
     }
 
     #[test]
@@ -333,6 +333,9 @@ mod tests {
         // USD: 1,000,000
         // EUR: 1,000,000 × 1.10 = 1,100,000
         // Total: 2,100,000
-        assert_eq!(portfolio.securities_market_value(), dec!(2_100_000));
+        assert_eq!(
+            portfolio.securities_market_value().unwrap(),
+            dec!(2_100_000)
+        );
     }
 }

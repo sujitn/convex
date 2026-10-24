@@ -156,81 +156,82 @@ pub struct AttributionInput {
 /// println!("Treasury: {:.2}%", attribution.portfolio.treasury_return * 100.0);
 /// println!("Spread: {:.2}%", attribution.portfolio.spread_return * 100.0);
 /// ```
-#[must_use]
 pub fn calculate_attribution(
     holdings: &[Holding],
     inputs: &[AttributionInput],
     _config: &AnalyticsConfig,
-) -> PortfolioAttribution {
-    if holdings.is_empty() || inputs.is_empty() {
-        return PortfolioAttribution {
-            by_holding: vec![],
-            by_sector: HashMap::new(),
-            portfolio: AggregatedAttribution::default(),
-        };
-    }
-
-    // Create lookup for inputs
-    let input_map: HashMap<&str, &AttributionInput> =
-        inputs.iter().map(|i| (i.id.as_str(), i)).collect();
-
-    // Calculate total market value for weighting
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
-    let total_mv_f: f64 = total_mv.try_into().unwrap_or(1.0);
-
-    // Calculate individual attributions
-    let mut by_holding: Vec<HoldingAttribution> = Vec::with_capacity(holdings.len());
-
-    for h in holdings {
-        if let Some(input) = input_map.get(h.id.as_str()) {
-            let mv: f64 = h.market_value().try_into().unwrap_or(0.0);
-            let weight = mv / total_mv_f;
-
-            // Income return = (current_yield × holding_period)
-            // Or approximate from coupon rate if current_yield not available
-            let income_return = h.analytics.current_yield.unwrap_or(0.0) * input.holding_period;
-
-            // Treasury return = -(duration × Δyield) + 0.5 × convexity × Δyield²
-            let duration = h.analytics.best_duration().unwrap_or(0.0);
-            let convexity = h.analytics.convexity.unwrap_or(0.0);
-            let yield_change = input.yield_change;
-
-            let treasury_base = -duration * yield_change;
-            let convexity_adjustment = 0.5 * convexity * yield_change.powi(2);
-            let treasury_return = treasury_base + convexity_adjustment;
-
-            // Spread return = -(spread duration × Δspread in decimal)
-            let spread_duration = h.analytics.spread_duration.unwrap_or(duration);
-            let spread_change_decimal = input.spread_change / 10000.0; // Convert bps to decimal
-            let spread_return = -spread_duration * spread_change_decimal;
-
-            // Residual
-            let residual = input.total_return - income_return - treasury_return - spread_return;
-
-            by_holding.push(HoldingAttribution {
-                id: h.id.clone(),
-                total_return: input.total_return * 100.0, // Convert to percentage
-                income_return: income_return * 100.0,
-                treasury_return: treasury_return * 100.0,
-                spread_return: spread_return * 100.0,
-                residual: residual * 100.0,
-                convexity_adjustment: convexity_adjustment * 100.0,
-                weight,
+) -> crate::PortfolioResult<PortfolioAttribution> {
+    Ok({
+        if holdings.is_empty() || inputs.is_empty() {
+            return Ok(PortfolioAttribution {
+                by_holding: vec![],
+                by_sector: HashMap::new(),
+                portfolio: AggregatedAttribution::default(),
             });
         }
-    }
 
-    // Aggregate by sector
-    let by_sector = aggregate_attribution_by_sector(holdings, &by_holding);
+        // Create lookup for inputs
+        let input_map: HashMap<&str, &AttributionInput> =
+            inputs.iter().map(|i| (i.id.as_str(), i)).collect();
 
-    // Aggregate portfolio level
-    let portfolio = aggregate_portfolio_attribution(&by_holding);
+        // Calculate total market value for weighting
+        let total_mv: Decimal = crate::analytics::metrics::clean_total(holdings.iter())?;
+        let total_mv_f: f64 = total_mv.try_into().unwrap_or(1.0);
 
-    PortfolioAttribution {
-        by_holding,
-        by_sector,
-        portfolio,
-    }
+        // Calculate individual attributions
+        let mut by_holding: Vec<HoldingAttribution> = Vec::with_capacity(holdings.len());
+
+        for h in holdings {
+            if let Some(input) = input_map.get(h.id.as_str()) {
+                let mv: f64 = crate::analytics::metrics::presentation(h.market_value()?)?;
+                let weight = mv / total_mv_f;
+
+                // Income return = (current_yield × holding_period)
+                // Or approximate from coupon rate if current_yield not available
+                let income_return = h.analytics.current_yield.unwrap_or(0.0) * input.holding_period;
+
+                // Treasury return = -(duration × Δyield) + 0.5 × convexity × Δyield²
+                let duration = h.analytics.best_duration().unwrap_or(0.0);
+                let convexity = h.analytics.convexity.unwrap_or(0.0);
+                let yield_change = input.yield_change;
+
+                let treasury_base = -duration * yield_change;
+                let convexity_adjustment = 0.5 * convexity * yield_change.powi(2);
+                let treasury_return = treasury_base + convexity_adjustment;
+
+                // Spread return = -(spread duration × Δspread in decimal)
+                let spread_duration = h.analytics.spread_duration.unwrap_or(duration);
+                let spread_change_decimal = input.spread_change / 10000.0; // Convert bps to decimal
+                let spread_return = -spread_duration * spread_change_decimal;
+
+                // Residual
+                let residual = input.total_return - income_return - treasury_return - spread_return;
+
+                by_holding.push(HoldingAttribution {
+                    id: h.id.clone(),
+                    total_return: input.total_return * 100.0, // Convert to percentage
+                    income_return: income_return * 100.0,
+                    treasury_return: treasury_return * 100.0,
+                    spread_return: spread_return * 100.0,
+                    residual: residual * 100.0,
+                    convexity_adjustment: convexity_adjustment * 100.0,
+                    weight,
+                });
+            }
+        }
+
+        // Aggregate by sector
+        let by_sector = aggregate_attribution_by_sector(holdings, &by_holding);
+
+        // Aggregate portfolio level
+        let portfolio = aggregate_portfolio_attribution(&by_holding);
+
+        PortfolioAttribution {
+            by_holding,
+            by_sector,
+            portfolio,
+        }
+    })
 }
 
 /// Estimates income return based on coupon and price.
@@ -246,7 +247,6 @@ pub fn calculate_attribution(
 /// # Returns
 ///
 /// Estimated income returns by holding.
-#[must_use]
 pub fn estimate_income_returns(
     holdings: &[Holding],
     holding_period: f64,
@@ -276,7 +276,6 @@ pub fn estimate_income_returns(
 /// # Returns
 ///
 /// Estimated rate returns by holding.
-#[must_use]
 pub fn estimate_rate_returns(
     holdings: &[Holding],
     yield_change: f64,
@@ -308,7 +307,6 @@ pub fn estimate_rate_returns(
 /// # Returns
 ///
 /// Estimated spread returns by holding.
-#[must_use]
 pub fn estimate_spread_returns(
     holdings: &[Holding],
     spread_change: f64,
@@ -421,7 +419,7 @@ mod tests {
         let inputs: Vec<AttributionInput> = vec![];
         let config = AnalyticsConfig::default();
 
-        let attr = calculate_attribution(&holdings, &inputs, &config);
+        let attr = calculate_attribution(&holdings, &inputs, &config).unwrap();
 
         assert!(attr.by_holding.is_empty());
         assert_eq!(attr.portfolio.total_return, 0.0);
@@ -443,7 +441,7 @@ mod tests {
         }];
 
         let config = AnalyticsConfig::default();
-        let attr = calculate_attribution(&holdings, &inputs, &config);
+        let attr = calculate_attribution(&holdings, &inputs, &config).unwrap();
 
         assert_eq!(attr.by_holding.len(), 1);
         let h1 = &attr.by_holding[0];
@@ -489,7 +487,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let attr = calculate_attribution(&holdings, &inputs, &config);
+        let attr = calculate_attribution(&holdings, &inputs, &config).unwrap();
 
         assert_eq!(attr.by_sector.len(), 2);
         assert!(attr.by_sector.contains_key(&Sector::Government));
@@ -575,7 +573,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let attr = calculate_attribution(&holdings, &inputs, &config);
+        let attr = calculate_attribution(&holdings, &inputs, &config).unwrap();
 
         // Portfolio total should be weighted average
         // H1 weight = 1/3, H2 weight = 2/3

@@ -43,7 +43,6 @@ pub struct SecYield {
 
 impl SecYield {
     /// Returns the yield difference if fee waiver is in effect.
-    #[must_use]
     pub fn fee_waiver_impact(&self) -> Option<f64> {
         self.unsubsidized_yield
             .map(|unsub| self.sec_30_day_yield - unsub)
@@ -113,7 +112,6 @@ pub struct SecYieldInput {
 /// let result = calculate_sec_yield(&input);
 /// println!("SEC 30-Day Yield: {:.2}%", result.sec_30_day_yield * 100.0);
 /// ```
-#[must_use]
 pub fn calculate_sec_yield(input: &SecYieldInput) -> SecYield {
     let shares = input.avg_shares_outstanding.to_f64().unwrap_or(1.0);
     let price = input.max_offering_price.to_f64().unwrap_or(1.0);
@@ -186,7 +184,6 @@ pub struct DistributionYield {
 
 impl DistributionYield {
     /// Returns the distribution rate as a percentage.
-    #[must_use]
     pub fn distribution_rate_pct(&self) -> f64 {
         self.ttm_yield * 100.0
     }
@@ -218,7 +215,6 @@ impl DistributionYield {
 /// let yield_info = calculate_distribution_yield(&distributions, 25.00, "Monthly");
 /// println!("TTM Distribution Yield: {:.2}%", yield_info.distribution_rate_pct());
 /// ```
-#[must_use]
 pub fn calculate_distribution_yield(
     distributions: &[(convex_core::types::Date, Decimal)],
     nav_per_share: f64,
@@ -278,27 +274,11 @@ pub fn calculate_distribution_yield(
 /// # Returns
 ///
 /// Estimated yield based on portfolio composition.
-#[must_use]
 pub fn estimate_yield_from_holdings(
     holdings: &[Holding],
-    _config: &AnalyticsConfig,
-) -> Option<f64> {
-    let mut sum_weighted = 0.0;
-    let mut sum_weights = Decimal::ZERO;
-
-    for h in holdings {
-        if let Some(ytm) = h.analytics.ytm {
-            let weight = h.market_value();
-            sum_weighted += ytm * weight.to_f64().unwrap_or(0.0);
-            sum_weights += weight;
-        }
-    }
-
-    if sum_weights > Decimal::ZERO {
-        Some(sum_weighted / sum_weights.to_f64().unwrap_or(1.0))
-    } else {
-        None
-    }
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<Option<f64>> {
+    crate::weighted_ytm(holdings, config)
 }
 
 /// Fund expense metrics.
@@ -328,7 +308,6 @@ pub struct ExpenseMetrics {
 
 impl ExpenseMetrics {
     /// Returns the fee waiver as a percentage of gross expenses.
-    #[must_use]
     pub fn waiver_pct(&self) -> f64 {
         if self.gross_expense_ratio > 0.0 {
             (self.fee_waiver / self.gross_expense_ratio) * 100.0
@@ -386,122 +365,129 @@ pub enum ComplianceSeverity {
 /// # Returns
 ///
 /// Vector of compliance check results.
-#[must_use]
 pub fn run_compliance_checks(
     holdings: &[Holding],
     _config: &AnalyticsConfig,
-) -> Vec<ComplianceCheck> {
-    let mut checks = Vec::new();
+) -> crate::PortfolioResult<Vec<ComplianceCheck>> {
+    Ok({
+        let mut checks = Vec::new();
 
-    // Calculate total market value
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
-    let total_mv_f64 = total_mv.to_f64().unwrap_or(1.0);
+        // Calculate total market value
+        let total_mv: Decimal = crate::analytics::metrics::clean_total(holdings.iter())?;
+        let total_mv_f64 = total_mv.to_f64().unwrap_or(1.0);
 
-    if total_mv_f64 <= 0.0 {
-        return checks;
-    }
+        if total_mv_f64 <= 0.0 {
+            return Ok(checks);
+        }
 
-    // Single issuer concentration
-    let mut issuer_weights: std::collections::HashMap<String, f64> =
-        std::collections::HashMap::new();
-    for h in holdings {
-        let issuer = h
-            .classification
-            .issuer
-            .clone()
-            .unwrap_or_else(|| "Unknown".to_string());
-        let weight = h.market_value().to_f64().unwrap_or(0.0) / total_mv_f64 * 100.0;
-        *issuer_weights.entry(issuer).or_insert(0.0) += weight;
-    }
+        // Single issuer concentration
+        let mut issuer_weights: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        for h in holdings {
+            let issuer = h
+                .classification
+                .issuer
+                .clone()
+                .unwrap_or_else(|| "Unknown".to_string());
+            let weight =
+                crate::analytics::metrics::presentation(h.market_value()?)? / total_mv_f64 * 100.0;
+            *issuer_weights.entry(issuer).or_insert(0.0) += weight;
+        }
 
-    // Find max single issuer
-    let max_issuer = issuer_weights
-        .iter()
-        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Find max single issuer
+        let max_issuer = issuer_weights
+            .iter()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
 
-    if let Some((issuer, weight)) = max_issuer {
-        let limit = 5.0; // 5% single issuer limit
-        checks.push(ComplianceCheck {
-            name: "Single Issuer Limit".to_string(),
-            passed: *weight <= limit,
-            value: *weight,
-            limit,
-            description: format!("Largest issuer: {} at {:.2}%", issuer, weight),
-            severity: if *weight > limit {
-                ComplianceSeverity::Critical
-            } else if *weight > limit * 0.9 {
-                ComplianceSeverity::Warning
-            } else {
-                ComplianceSeverity::Info
-            },
-        });
-    }
+        if let Some((issuer, weight)) = max_issuer {
+            let limit = 5.0; // 5% single issuer limit
+            checks.push(ComplianceCheck {
+                name: "Single Issuer Limit".to_string(),
+                passed: *weight <= limit,
+                value: *weight,
+                limit,
+                description: format!("Largest issuer: {} at {:.2}%", issuer, weight),
+                severity: if *weight > limit {
+                    ComplianceSeverity::Critical
+                } else if *weight > limit * 0.9 {
+                    ComplianceSeverity::Warning
+                } else {
+                    ComplianceSeverity::Info
+                },
+            });
+        }
 
-    // Sector concentration
-    let mut sector_weights: std::collections::HashMap<String, f64> =
-        std::collections::HashMap::new();
-    for h in holdings {
-        let sector = h
-            .classification
-            .sector
-            .composite
-            .map(|s| format!("{:?}", s))
-            .unwrap_or_else(|| "Unclassified".to_string());
-        let weight = h.market_value().to_f64().unwrap_or(0.0) / total_mv_f64 * 100.0;
-        *sector_weights.entry(sector).or_insert(0.0) += weight;
-    }
+        // Sector concentration
+        let mut sector_weights: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        for h in holdings {
+            let sector = h
+                .classification
+                .sector
+                .composite
+                .map(|s| format!("{:?}", s))
+                .unwrap_or_else(|| "Unclassified".to_string());
+            let weight =
+                crate::analytics::metrics::presentation(h.market_value()?)? / total_mv_f64 * 100.0;
+            *sector_weights.entry(sector).or_insert(0.0) += weight;
+        }
 
-    let max_sector = sector_weights
-        .iter()
-        .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
+        let max_sector = sector_weights
+            .iter()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
 
-    if let Some((sector, weight)) = max_sector {
-        let limit = 25.0; // 25% sector limit
-        checks.push(ComplianceCheck {
-            name: "Sector Concentration".to_string(),
-            passed: *weight <= limit,
-            value: *weight,
-            limit,
-            description: format!("Largest sector: {} at {:.2}%", sector, weight),
-            severity: if *weight > limit {
-                ComplianceSeverity::Critical
-            } else if *weight > limit * 0.9 {
-                ComplianceSeverity::Warning
-            } else {
-                ComplianceSeverity::Info
-            },
-        });
-    }
+        if let Some((sector, weight)) = max_sector {
+            let limit = 25.0; // 25% sector limit
+            checks.push(ComplianceCheck {
+                name: "Sector Concentration".to_string(),
+                passed: *weight <= limit,
+                value: *weight,
+                limit,
+                description: format!("Largest sector: {} at {:.2}%", sector, weight),
+                severity: if *weight > limit {
+                    ComplianceSeverity::Critical
+                } else if *weight > limit * 0.9 {
+                    ComplianceSeverity::Warning
+                } else {
+                    ComplianceSeverity::Info
+                },
+            });
+        }
 
-    // Illiquid holdings (based on liquidity score if available)
-    let illiquid_weight: f64 = holdings
-        .iter()
-        .filter(|h| {
+        // Illiquid holdings (based on liquidity score if available)
+        let illiquid = crate::analytics::metrics::clean_exact(holdings.iter().filter(|h| {
             h.analytics
                 .liquidity_score
-                .map(|s| s < 30.0)
-                .unwrap_or(false)
-        })
-        .map(|h| h.market_value().to_f64().unwrap_or(0.0) / total_mv_f64 * 100.0)
-        .sum();
+                .is_some_and(|score| score < 30.0)
+        }))?;
+        let illiquid = illiquid.multiply(Decimal::ONE_HUNDRED)?;
+        let total = crate::analytics::metrics::clean_exact(holdings.iter())?;
+        let weight =
+            crate::analytics::metrics::signed_ratio(&illiquid, &total)?.ok_or_else(|| {
+                crate::PortfolioError::invalid_portfolio(
+                    "illiquid weight undefined at zero total value",
+                )
+            })?;
+        let illiquid_weight = crate::analytics::metrics::presentation(weight)?;
 
-    let illiquid_limit = 15.0;
-    checks.push(ComplianceCheck {
-        name: "Illiquid Holdings".to_string(),
-        passed: illiquid_weight <= illiquid_limit,
-        value: illiquid_weight,
-        limit: illiquid_limit,
-        description: format!("Illiquid holdings: {:.2}%", illiquid_weight),
-        severity: if illiquid_weight > illiquid_limit {
-            ComplianceSeverity::Critical
-        } else if illiquid_weight > illiquid_limit * 0.9 {
-            ComplianceSeverity::Warning
-        } else {
-            ComplianceSeverity::Info
-        },
-    });
+        let illiquid_limit = 15.0;
+        checks.push(ComplianceCheck {
+            name: "Illiquid Holdings".to_string(),
+            passed: illiquid_weight <= illiquid_limit,
+            value: illiquid_weight,
+            limit: illiquid_limit,
+            description: format!("Illiquid holdings: {:.2}%", illiquid_weight),
+            severity: if illiquid_weight > illiquid_limit {
+                ComplianceSeverity::Critical
+            } else if illiquid_weight > illiquid_limit * 0.9 {
+                ComplianceSeverity::Warning
+            } else {
+                ComplianceSeverity::Info
+            },
+        });
 
-    checks
+        checks
+    })
 }
 
 #[cfg(test)]
@@ -603,7 +589,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let yield_est = estimate_yield_from_holdings(&holdings, &config);
+        let yield_est = estimate_yield_from_holdings(&holdings, &config).unwrap();
 
         // Equal weighted: (5% + 3%) / 2 = 4%
         assert!(yield_est.is_some());
@@ -634,7 +620,7 @@ mod tests {
             .collect();
 
         let config = AnalyticsConfig::default();
-        let checks = run_compliance_checks(&holdings, &config);
+        let checks = run_compliance_checks(&holdings, &config).unwrap();
 
         // All checks should pass (4% per issuer, 100% corporate sector - still under 25%)
         // Actually corporate is at 100%, which exceeds 25%
@@ -685,7 +671,7 @@ mod tests {
         }
 
         let config = AnalyticsConfig::default();
-        let checks = run_compliance_checks(&holdings, &config);
+        let checks = run_compliance_checks(&holdings, &config).unwrap();
 
         // Single issuer check should pass (10% each, all equal)
         let issuer_check = checks.iter().find(|c| c.name == "Single Issuer Limit");

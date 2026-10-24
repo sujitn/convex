@@ -1,0 +1,1094 @@
+{
+  "certified": false,
+  "source_reads": {
+    "tests/fixtures/library/optional-graph-hedge-book.json": "1843f6347b801bb22fad748e134f7fd7449a72cf4d33d90feb91e064db2a8c72"
+  },
+  "tolerances": {
+    "price_per100": 0.006,
+    "rate_risk_per100": 0.0001,
+    "mean_reversion_per100": 1.0,
+    "volatility_per100": 2.0,
+    "native_risk_first": 0.5,
+    "native_risk_second": 200.0,
+    "cash": 1e-10,
+    "hedge_quantity": 1e-05,
+    "hedge_cost": 1e-08
+  },
+  "cases": [
+    {
+      "id": "optional_graph.book.USD",
+      "problem": {
+        "snapshot_id": "optional-graph-hedge.synthetic.snapshot.1",
+        "entity": "OPTIONAL.DESK",
+        "settlement": "2025-10-01",
+        "reporting_currency": "USD",
+        "expected_holdings": [
+          "optional_graph.book.optional",
+          "optional_graph.book.future"
+        ],
+        "factors": [
+          {
+            "key": {
+              "factor": {
+                "family": "interest_rate",
+                "target": {
+                  "kind": "curve",
+                  "curve_id": "D.OPTIONAL"
+                },
+                "currency": "USD",
+                "tenor": "parallel",
+                "quote_type": "zero_rate",
+                "basis": "zero_node",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "zero",
+                "curve": {
+                  "id": "D.OPTIONAL",
+                  "version": "synthetic-1"
+                },
+                "node": null
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_bp"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 0.25,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 1.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "interest_rate",
+                "target": {
+                  "kind": "curve",
+                  "curve_id": "P.OPTIONAL"
+                },
+                "currency": "USD",
+                "tenor": "parallel",
+                "quote_type": "zero_rate",
+                "basis": "zero_node",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "zero",
+                "curve": {
+                  "id": "P.OPTIONAL",
+                  "version": "1"
+                },
+                "node": null
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_bp"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 0.25,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 1.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "interest_rate",
+                "target": {
+                  "kind": "curve_pair",
+                  "discount_curve_id": "D.OPTIONAL",
+                  "discount_curve_version": "synthetic-1",
+                  "projection_curve_id": "P.OPTIONAL",
+                  "projection_curve_version": "1"
+                },
+                "currency": "USD",
+                "tenor": "parallel",
+                "quote_type": "joint_zero_rate",
+                "basis": "zero_node",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "raw",
+                "input_id": "joint_zero",
+                "version": 1
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_bp"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 0.25,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 1.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "credit_spread",
+                "target": {
+                  "kind": "instrument",
+                  "instrument_id": "OPTIONAL_GRAPH.FRN.CALL"
+                },
+                "currency": "USD",
+                "tenor": "spot",
+                "quote_type": "oas_spread",
+                "basis": "raw_quote",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "raw",
+                "input_id": "OPTIONAL_GRAPH.FRN.CALL",
+                "version": 3
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_bp"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 0.25,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 1.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "model",
+                "target": {
+                  "kind": "model",
+                  "model_id": "M.OPTIONAL",
+                  "model_version": "original-1"
+                },
+                "currency": "USD",
+                "tenor": "spot",
+                "quote_type": "hw1f_mean_reversion",
+                "basis": "model_parameter",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "raw",
+                "input_id": "mean_reversion",
+                "version": 1
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_model_parameter"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 5.0,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 100.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "model",
+                "target": {
+                  "kind": "model",
+                  "model_id": "M.OPTIONAL",
+                  "model_version": "original-1"
+                },
+                "currency": "USD",
+                "tenor": "spot",
+                "quote_type": "hw1f_volatility",
+                "basis": "model_parameter",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "raw",
+                "input_id": "volatility",
+                "version": 1
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_model_parameter"
+            },
+            "risk_settings": {
+              "bump": 0.01,
+              "stability": {
+                "absolute": 5.0,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 100.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          }
+        ],
+        "holdings": [
+          {
+            "column": "optional_graph.book.optional",
+            "current_quantity": "300",
+            "pending_quantity": "50"
+          },
+          {
+            "column": "optional_graph.book.future",
+            "current_quantity": "2",
+            "pending_quantity": "1"
+          }
+        ],
+        "candidates": [
+          {
+            "column": "optional_graph.book.optional",
+            "trade_lower": "-400",
+            "trade_upper": "400",
+            "holding_lower": "0",
+            "holding_upper": "1000",
+            "buy_available": "400",
+            "sell_available": "400",
+            "lot": "50",
+            "costs": {
+              "currency": "USD",
+              "buy_per_reference": "1.5",
+              "sell_per_reference": "1.25"
+            },
+            "eligibility": {
+              "eligible": true,
+              "reason": "Explicit supplied synthetic proposal universe"
+            }
+          },
+          {
+            "column": "optional_graph.book.future",
+            "trade_lower": "-4",
+            "trade_upper": "4",
+            "holding_lower": "0",
+            "holding_upper": "10",
+            "buy_available": "4",
+            "sell_available": "4",
+            "lot": "1",
+            "costs": {
+              "currency": "USD",
+              "buy_per_reference": "2.5",
+              "sell_per_reference": "2"
+            },
+            "eligibility": {
+              "eligible": true,
+              "reason": "Explicit synthetic reference; proposal only"
+            }
+          }
+        ],
+        "max_cost": 20.0,
+        "settings": {
+          "rank_relative_tolerance": 1e-10,
+          "max_condition": 10000.0,
+          "solver_tolerance": 1e-10,
+          "factor_tolerance": 1e-08,
+          "cost_tolerance": 1e-08,
+          "cost_scale": 10.0,
+          "cost_weight": 0.0,
+          "max_work": 100000,
+          "svd_iterations": 1000
+        },
+        "position_state": {
+          "id": "EXPLICIT.SYNTHETIC.POSITIONS",
+          "version": 1
+        }
+      },
+      "expected": {
+        "current": [
+          "-0.0183339686229602",
+          "-50.55085516374069",
+          "-50.56850313220718",
+          "-0.0183339686229602",
+          "0.0",
+          "0.0"
+        ],
+        "pending": [
+          "-0.0030556614371600333",
+          "-25.278762634649816",
+          "-25.281703962727562",
+          "-0.0030556614371600333",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "-0.021389630060120235",
+          "-75.8296177983905",
+          "-75.85020709493475",
+          "-0.021389630060120235",
+          "0.0",
+          "0.0"
+        ],
+        "after": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "quantities": [
+          "-350",
+          "-3"
+        ],
+        "holdings": [
+          "0",
+          "0"
+        ],
+        "cost": "10.375"
+      },
+      "fx": null
+    },
+    {
+      "id": "optional_graph.book.EUR",
+      "problem": {
+        "snapshot_id": "optional-graph-hedge.synthetic.snapshot.1",
+        "entity": "OPTIONAL.DESK",
+        "settlement": "2025-10-01",
+        "reporting_currency": "EUR",
+        "expected_holdings": [
+          "optional_graph.book.optional",
+          "optional_graph.book.future"
+        ],
+        "factors": [
+          {
+            "key": {
+              "factor": {
+                "family": "interest_rate",
+                "target": {
+                  "kind": "curve",
+                  "curve_id": "D.OPTIONAL"
+                },
+                "currency": "USD",
+                "tenor": "parallel",
+                "quote_type": "zero_rate",
+                "basis": "zero_node",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "zero",
+                "curve": {
+                  "id": "D.OPTIONAL",
+                  "version": "synthetic-1"
+                },
+                "node": null
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_bp"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 0.25,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 1.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "interest_rate",
+                "target": {
+                  "kind": "curve",
+                  "curve_id": "P.OPTIONAL"
+                },
+                "currency": "USD",
+                "tenor": "parallel",
+                "quote_type": "zero_rate",
+                "basis": "zero_node",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "zero",
+                "curve": {
+                  "id": "P.OPTIONAL",
+                  "version": "1"
+                },
+                "node": null
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_bp"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 0.25,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 1.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "interest_rate",
+                "target": {
+                  "kind": "curve_pair",
+                  "discount_curve_id": "D.OPTIONAL",
+                  "discount_curve_version": "synthetic-1",
+                  "projection_curve_id": "P.OPTIONAL",
+                  "projection_curve_version": "1"
+                },
+                "currency": "USD",
+                "tenor": "parallel",
+                "quote_type": "joint_zero_rate",
+                "basis": "zero_node",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "raw",
+                "input_id": "joint_zero",
+                "version": 1
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_bp"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 0.25,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 1.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "credit_spread",
+                "target": {
+                  "kind": "instrument",
+                  "instrument_id": "OPTIONAL_GRAPH.FRN.CALL"
+                },
+                "currency": "USD",
+                "tenor": "spot",
+                "quote_type": "oas_spread",
+                "basis": "raw_quote",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "raw",
+                "input_id": "OPTIONAL_GRAPH.FRN.CALL",
+                "version": 3
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_bp"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 0.25,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 1.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "model",
+                "target": {
+                  "kind": "model",
+                  "model_id": "M.OPTIONAL",
+                  "model_version": "original-1"
+                },
+                "currency": "USD",
+                "tenor": "spot",
+                "quote_type": "hw1f_mean_reversion",
+                "basis": "model_parameter",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "raw",
+                "input_id": "mean_reversion",
+                "version": 1
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_model_parameter"
+            },
+            "risk_settings": {
+              "bump": 0.02,
+              "stability": {
+                "absolute": 5.0,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 100.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          },
+          {
+            "key": {
+              "factor": {
+                "family": "model",
+                "target": {
+                  "kind": "model",
+                  "model_id": "M.OPTIONAL",
+                  "model_version": "original-1"
+                },
+                "currency": "USD",
+                "tenor": "spot",
+                "quote_type": "hw1f_volatility",
+                "basis": "model_parameter",
+                "convention_version": 1,
+                "model_version": "optional-graph.original-native-semantics.1"
+              },
+              "coordinate": {
+                "kind": "raw",
+                "input_id": "volatility",
+                "version": 1
+              },
+              "native_unit": "DecimalRate",
+              "response": "frozen_curves",
+              "unit": "currency_per_model_parameter"
+            },
+            "risk_settings": {
+              "bump": 0.01,
+              "stability": {
+                "absolute": 5.0,
+                "relative": 0.02
+              },
+              "policy_version": 1
+            },
+            "credit": null,
+            "scale": 100.0,
+            "weight": 1.0,
+            "target": 0.0,
+            "lower": -10000.0,
+            "upper": 10000.0
+          }
+        ],
+        "holdings": [
+          {
+            "column": "optional_graph.book.optional",
+            "current_quantity": "300",
+            "pending_quantity": "50"
+          },
+          {
+            "column": "optional_graph.book.future",
+            "current_quantity": "2",
+            "pending_quantity": "1"
+          }
+        ],
+        "candidates": [
+          {
+            "column": "optional_graph.book.optional",
+            "trade_lower": "-400",
+            "trade_upper": "400",
+            "holding_lower": "0",
+            "holding_upper": "1000",
+            "buy_available": "400",
+            "sell_available": "400",
+            "lot": "50",
+            "costs": {
+              "currency": "USD",
+              "buy_per_reference": "1.5",
+              "sell_per_reference": "1.25"
+            },
+            "eligibility": {
+              "eligible": true,
+              "reason": "Explicit supplied synthetic proposal universe"
+            }
+          },
+          {
+            "column": "optional_graph.book.future",
+            "trade_lower": "-4",
+            "trade_upper": "4",
+            "holding_lower": "0",
+            "holding_upper": "10",
+            "buy_available": "4",
+            "sell_available": "4",
+            "lot": "1",
+            "costs": {
+              "currency": "USD",
+              "buy_per_reference": "2.5",
+              "sell_per_reference": "2"
+            },
+            "eligibility": {
+              "eligible": true,
+              "reason": "Explicit synthetic reference; proposal only"
+            }
+          }
+        ],
+        "max_cost": 20.0,
+        "settings": {
+          "rank_relative_tolerance": 1e-10,
+          "max_condition": 10000.0,
+          "solver_tolerance": 1e-10,
+          "factor_tolerance": 1e-08,
+          "cost_tolerance": 1e-08,
+          "cost_scale": 10.0,
+          "cost_weight": 0.0,
+          "max_work": 100000,
+          "svd_iterations": 1000
+        },
+        "position_state": {
+          "id": "EXPLICIT.SYNTHETIC.POSITIONS",
+          "version": 1
+        }
+      },
+      "expected": {
+        "current": [
+          "-0.01650057176066418",
+          "-45.495769647366621",
+          "-45.511652818986462",
+          "-0.01650057176066418",
+          "0.00",
+          "0.00"
+        ],
+        "pending": [
+          "-0.00275009529344402997",
+          "-22.7508863711848344",
+          "-22.7535335664548058",
+          "-0.00275009529344402997",
+          "0.00",
+          "0.00"
+        ],
+        "before": [
+          "-0.0192506670541082115",
+          "-68.24665601855145",
+          "-68.265186385441275",
+          "-0.0192506670541082115",
+          "0.00",
+          "0.00"
+        ],
+        "after": [
+          "0.00",
+          "0.00",
+          "0.00",
+          "0.00",
+          "0.00",
+          "0.00"
+        ],
+        "quantities": [
+          "-350",
+          "-3"
+        ],
+        "holdings": [
+          "0",
+          "0"
+        ],
+        "cost": "9.3375"
+      },
+      "fx": {
+        "to": "EUR",
+        "rate": "0.9",
+        "observation": {
+          "id": "EXPLICIT.SYNTHETIC.FX",
+          "version": 1
+        },
+        "snapshot_id": "optional-graph-hedge.synthetic.snapshot.1",
+        "from": "USD"
+      }
+    }
+  ],
+  "raw_original_problem": {
+    "id": "optional_graph.book",
+    "snapshot_id": "optional-graph-hedge.synthetic.snapshot.1",
+    "entity": "OPTIONAL.DESK",
+    "settlement": "2025-10-01",
+    "reporting_currency": "USD",
+    "expected_holdings": [
+      "optional_graph.book.optional",
+      "optional_graph.book.future"
+    ],
+    "factors": [
+      {
+        "key": {
+          "factor": {
+            "family": "interest_rate",
+            "target": {
+              "kind": "curve",
+              "curve_id": "D.OPTIONAL"
+            },
+            "currency": "USD",
+            "tenor": "parallel",
+            "quote_type": "zero_rate",
+            "basis": "zero_node",
+            "convention_version": 1,
+            "model_version": "optional-graph.original-native-semantics.1"
+          },
+          "coordinate": {
+            "kind": "zero",
+            "curve": {
+              "id": "D.OPTIONAL",
+              "version": "synthetic-1"
+            },
+            "node": null
+          },
+          "native_unit": "DecimalRate",
+          "response": "frozen_curves",
+          "unit": "currency_per_bp"
+        },
+        "risk_settings": {
+          "bump": 0.02,
+          "stability": {
+            "absolute": 0.25,
+            "relative": 0.02
+          },
+          "policy_version": 1
+        },
+        "credit": null,
+        "scale": 1.0,
+        "weight": 1.0,
+        "target": 0.0,
+        "lower": -10000.0,
+        "upper": 10000.0
+      },
+      {
+        "key": {
+          "factor": {
+            "family": "interest_rate",
+            "target": {
+              "kind": "curve",
+              "curve_id": "P.OPTIONAL"
+            },
+            "currency": "USD",
+            "tenor": "parallel",
+            "quote_type": "zero_rate",
+            "basis": "zero_node",
+            "convention_version": 1,
+            "model_version": "optional-graph.original-native-semantics.1"
+          },
+          "coordinate": {
+            "kind": "zero",
+            "curve": {
+              "id": "P.OPTIONAL",
+              "version": "1"
+            },
+            "node": null
+          },
+          "native_unit": "DecimalRate",
+          "response": "frozen_curves",
+          "unit": "currency_per_bp"
+        },
+        "risk_settings": {
+          "bump": 0.02,
+          "stability": {
+            "absolute": 0.25,
+            "relative": 0.02
+          },
+          "policy_version": 1
+        },
+        "credit": null,
+        "scale": 1.0,
+        "weight": 1.0,
+        "target": 0.0,
+        "lower": -10000.0,
+        "upper": 10000.0
+      },
+      {
+        "key": {
+          "factor": {
+            "family": "interest_rate",
+            "target": {
+              "kind": "curve_pair",
+              "discount_curve_id": "D.OPTIONAL",
+              "discount_curve_version": "synthetic-1",
+              "projection_curve_id": "P.OPTIONAL",
+              "projection_curve_version": "1"
+            },
+            "currency": "USD",
+            "tenor": "parallel",
+            "quote_type": "joint_zero_rate",
+            "basis": "zero_node",
+            "convention_version": 1,
+            "model_version": "optional-graph.original-native-semantics.1"
+          },
+          "coordinate": {
+            "kind": "raw",
+            "input_id": "joint_zero",
+            "version": 1
+          },
+          "native_unit": "DecimalRate",
+          "response": "frozen_curves",
+          "unit": "currency_per_bp"
+        },
+        "risk_settings": {
+          "bump": 0.02,
+          "stability": {
+            "absolute": 0.25,
+            "relative": 0.02
+          },
+          "policy_version": 1
+        },
+        "credit": null,
+        "scale": 1.0,
+        "weight": 1.0,
+        "target": 0.0,
+        "lower": -10000.0,
+        "upper": 10000.0
+      },
+      {
+        "key": {
+          "factor": {
+            "family": "credit_spread",
+            "target": {
+              "kind": "instrument",
+              "instrument_id": "OPTIONAL_GRAPH.FRN.CALL"
+            },
+            "currency": "USD",
+            "tenor": "spot",
+            "quote_type": "oas_spread",
+            "basis": "raw_quote",
+            "convention_version": 1,
+            "model_version": "optional-graph.original-native-semantics.1"
+          },
+          "coordinate": {
+            "kind": "raw",
+            "input_id": "OPTIONAL_GRAPH.FRN.CALL",
+            "version": 3
+          },
+          "native_unit": "DecimalRate",
+          "response": "frozen_curves",
+          "unit": "currency_per_bp"
+        },
+        "risk_settings": {
+          "bump": 0.02,
+          "stability": {
+            "absolute": 0.25,
+            "relative": 0.02
+          },
+          "policy_version": 1
+        },
+        "credit": null,
+        "scale": 1.0,
+        "weight": 1.0,
+        "target": 0.0,
+        "lower": -10000.0,
+        "upper": 10000.0
+      },
+      {
+        "key": {
+          "factor": {
+            "family": "model",
+            "target": {
+              "kind": "model",
+              "model_id": "M.OPTIONAL",
+              "model_version": "original-1"
+            },
+            "currency": "USD",
+            "tenor": "spot",
+            "quote_type": "hw1f_mean_reversion",
+            "basis": "model_parameter",
+            "convention_version": 1,
+            "model_version": "optional-graph.original-native-semantics.1"
+          },
+          "coordinate": {
+            "kind": "raw",
+            "input_id": "mean_reversion",
+            "version": 1
+          },
+          "native_unit": "DecimalRate",
+          "response": "frozen_curves",
+          "unit": "currency_per_model_parameter"
+        },
+        "risk_settings": {
+          "bump": 0.02,
+          "stability": {
+            "absolute": 5.0,
+            "relative": 0.02
+          },
+          "policy_version": 1
+        },
+        "credit": null,
+        "scale": 100.0,
+        "weight": 1.0,
+        "target": 0.0,
+        "lower": -10000.0,
+        "upper": 10000.0
+      },
+      {
+        "key": {
+          "factor": {
+            "family": "model",
+            "target": {
+              "kind": "model",
+              "model_id": "M.OPTIONAL",
+              "model_version": "original-1"
+            },
+            "currency": "USD",
+            "tenor": "spot",
+            "quote_type": "hw1f_volatility",
+            "basis": "model_parameter",
+            "convention_version": 1,
+            "model_version": "optional-graph.original-native-semantics.1"
+          },
+          "coordinate": {
+            "kind": "raw",
+            "input_id": "volatility",
+            "version": 1
+          },
+          "native_unit": "DecimalRate",
+          "response": "frozen_curves",
+          "unit": "currency_per_model_parameter"
+        },
+        "risk_settings": {
+          "bump": 0.01,
+          "stability": {
+            "absolute": 5.0,
+            "relative": 0.02
+          },
+          "policy_version": 1
+        },
+        "credit": null,
+        "scale": 100.0,
+        "weight": 1.0,
+        "target": 0.0,
+        "lower": -10000.0,
+        "upper": 10000.0
+      }
+    ],
+    "holdings": [
+      {
+        "column": "optional_graph.book.optional",
+        "current_quantity": "300",
+        "pending_quantity": "50"
+      },
+      {
+        "column": "optional_graph.book.future",
+        "current_quantity": "2",
+        "pending_quantity": "1"
+      }
+    ],
+    "candidates": [
+      {
+        "column": "optional_graph.book.optional",
+        "trade_lower": "-400",
+        "trade_upper": "400",
+        "holding_lower": "0",
+        "holding_upper": "1000",
+        "buy_available": "400",
+        "sell_available": "400",
+        "lot": "50",
+        "costs": {
+          "currency": "USD",
+          "buy_per_reference": "1.5",
+          "sell_per_reference": "1.25"
+        },
+        "eligibility": {
+          "eligible": true,
+          "reason": "Explicit supplied synthetic proposal universe"
+        }
+      },
+      {
+        "column": "optional_graph.book.future",
+        "trade_lower": "-4",
+        "trade_upper": "4",
+        "holding_lower": "0",
+        "holding_upper": "10",
+        "buy_available": "4",
+        "sell_available": "4",
+        "lot": "1",
+        "costs": {
+          "currency": "USD",
+          "buy_per_reference": "2.5",
+          "sell_per_reference": "2"
+        },
+        "eligibility": {
+          "eligible": true,
+          "reason": "Explicit synthetic reference; proposal only"
+        }
+      }
+    ],
+    "max_cost": 20.0,
+    "settings": {
+      "rank_relative_tolerance": 1e-10,
+      "max_condition": 10000.0,
+      "solver_tolerance": 1e-10,
+      "factor_tolerance": 1e-08,
+      "cost_tolerance": 1e-08,
+      "cost_scale": 10.0,
+      "cost_weight": 0.0,
+      "max_work": 100000,
+      "svd_iterations": 1000
+    }
+  }
+}

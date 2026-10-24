@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "qualification": "Actual original ISDA base-curve upfront values supplied as native mixed-unit calibration inputs; Q/h comparison remains against the executed original curve, not expected native output.",
+  "source_output_sha256": "b95e98b84b85531eda23070a2849a6da3a04ae57929f5e45b931aa0192a2ee2d",
+  "helpers": [
+    {
+      "pillar_index": 0,
+      "coupon_decimal": "0.01",
+      "quote_kind": "RunningSpread",
+      "quote": {
+        "value": 40.0,
+        "unit": "BasisPoints"
+      },
+      "tolerance": 1e-07
+    },
+    {
+      "pillar_index": 1,
+      "coupon_decimal": "0.05",
+      "quote_kind": "CleanUpfront",
+      "quote": {
+        "value": -0.08537833695150787,
+        "unit": "UpfrontFraction"
+      },
+      "tolerance": 1e-10
+    },
+    {
+      "pillar_index": 2,
+      "coupon_decimal": "0.01",
+      "quote_kind": "DirtyUpfront",
+      "quote": {
+        "value": -0.005711360506785109,
+        "unit": "UpfrontFraction"
+      },
+      "tolerance": 1e-10
+    },
+    {
+      "pillar_index": 3,
+      "coupon_decimal": "0.05",
+      "quote_kind": "RunningSpread",
+      "quote": {
+        "value": 110.0,
+        "unit": "BasisPoints"
+      },
+      "tolerance": 1e-07
+    },
+    {
+      "pillar_index": 4,
+      "coupon_decimal": "0.01",
+      "quote_kind": "CleanUpfront",
+      "quote": {
+        "value": 0.023924364747082788,
+        "unit": "UpfrontFraction"
+      },
+      "tolerance": 1e-10
+    },
+    {
+      "pillar_index": 5,
+      "coupon_decimal": "0.05",
+      "quote_kind": "DirtyUpfront",
+      "quote": {
+        "value": -0.267156744769964,
+        "unit": "UpfrontFraction"
+      },
+      "tolerance": 1e-10
+    }
+  ]
+}

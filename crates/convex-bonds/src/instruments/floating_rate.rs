@@ -143,6 +143,123 @@ impl FloatingRateNote {
         self.current_rate
     }
 
+    /// Lossless plain floating terms with explicitly selected index mechanics.
+    /// The caller maps the native index to a provider-neutral IndexId and supplies
+    /// actual independent term resets or overnight conventions. Caps/floors need
+    /// an option model; a flat current-rate override is never fixing history.
+    pub fn contract_terms(
+        &self,
+        coupon: crate::contracts::BondCoupon,
+    ) -> Result<crate::contracts::BondTerms, crate::contracts::BondContractError> {
+        use crate::contracts::{BondCalendarIds, BondCoupon, BondProfiles, BondTerms};
+        use convex_core::calendars::BusinessDayConvention;
+        use convex_core::cashflows::{
+            CashRounding, CouponPrincipal, DateOffset, DateRules, ExCouponAccrual,
+            NegativeCouponPolicy, ScheduleSpec, StubType,
+        };
+        if self.cap.is_some() || self.floor.is_some() {
+            return Err(crate::contracts::unsupported(
+                "floating cap/floor",
+                "requires explicit option model/volatility; cannot clip a forecast",
+            ));
+        }
+        if matches!(coupon, BondCoupon::Fixed) {
+            return Err(crate::contracts::invalid(
+                "coupon",
+                "floating note needs explicit term/overnight mechanics",
+            ));
+        }
+        match &coupon {
+            BondCoupon::Term(rate)
+                if rate.fixing_offset != DateOffset::BusinessDays(self.reset_lag)
+                    || self.observation_shift
+                    || self.lookback_days != 0
+                    || self.lockout_days != 0 =>
+            {
+                return Err(crate::contracts::invalid(
+                    "coupon",
+                    "term fixing offset/overnight fields conflict with supplied native terms",
+                ));
+            }
+            BondCoupon::Overnight(rate)
+                if rate.convention.lookback_business_days != self.lookback_days
+                    || rate.convention.observation_shift != self.observation_shift
+                    || rate.convention.lockout_business_days != self.lockout_days =>
+            {
+                return Err(crate::contracts::invalid(
+                    "coupon",
+                    "supplied overnight mechanics conflict with native observation terms",
+                ));
+            }
+            _ => (),
+        }
+        self.validate_terms()?;
+        Ok(BondTerms {
+            schema_version: 1,
+            currency: self.currency,
+            issue_date: self.issue_date,
+            face_value: self.face_value,
+            schedule: ScheduleSpec {
+                start_date: self.issue_date,
+                end_date: self.maturity,
+                frequency: self.frequency,
+                stub_type: StubType::ShortFirst,
+                end_of_month: false,
+                first_regular_date: None,
+                penultimate_date: None,
+            },
+            dates: DateRules {
+                payment_delay: DateOffset::BusinessDays(self.payment_delay as i32),
+                payment_adjustment: BusinessDayConvention::Following,
+                ..DateRules::default()
+            },
+            calendars: BondCalendarIds::single(self.calendar.clone()),
+            settlement_lag: DateOffset::BusinessDays(self.settlement_days as i32),
+            settlement_adjustment: BusinessDayConvention::Following,
+            day_count: self.day_count,
+            profiles: BondProfiles::constant(
+                self.issue_date,
+                self.maturity,
+                Decimal::ZERO,
+                self.spread_bps.checked_div(Decimal::from(10000)).ok_or(
+                    convex_core::cashflows::CashflowError::Arithmetic("spread conversion"),
+                )?,
+                Decimal::ONE,
+                self.face_value,
+            ),
+            coupon,
+            coupon_principal: CouponPrincipal::AccrualProfile,
+            redemption_multiplier: Decimal::ONE,
+            principal_prices: vec![],
+            rounding: CashRounding::Unrounded,
+            negative_coupons: NegativeCouponPolicy::Allow,
+            ex_coupon_accrual: ExCouponAccrual::SubtractCoupon,
+            exercise: vec![],
+        })
+    }
+
+    fn validate_terms(&self) -> BondResult<()> {
+        if self.face_value <= Decimal::ZERO
+            || self.face_value > Decimal::from(1_000_000_000_000_000_000_i64)
+            || self.spread_bps.abs() > Decimal::from(100000)
+            || !(-366..=366).contains(&self.reset_lag)
+            || self.payment_delay > 366
+            || self.lookback_days > 366
+            || self.lockout_days > 366
+            || self.settlement_days > 366
+            || self.frequency.is_zero()
+            || self.cap.is_some_and(|v| v.abs() > Decimal::TEN)
+            || self.floor.is_some_and(|v| v.abs() > Decimal::TEN)
+            || matches!((self.cap, self.floor), (Some(cap), Some(floor)) if cap < floor)
+        {
+            return Err(BondError::invalid_spec(
+                "invalid floating economic/offset bounds",
+            ));
+        }
+        self.schedule()?;
+        Ok(())
+    }
+
     /// Coupon rate after applying cap/floor (if any).
     #[must_use]
     pub fn effective_rate(&self, index_rate: Decimal) -> Decimal {
@@ -224,6 +341,17 @@ impl FloatingRateNote {
 }
 
 impl Bond for FloatingRateNote {
+    fn try_cash_flows(&self, _from: Date) -> BondResult<Vec<BondCashFlow>> {
+        Err(BondError::missing_field(
+            "eligible fixing history and explicit projection policy",
+        ))
+    }
+
+    fn try_accrued_interest(&self, _settlement: Date) -> BondResult<Decimal> {
+        Err(BondError::missing_field(
+            "eligible fixing history and explicit projection policy",
+        ))
+    }
     fn identifiers(&self) -> &BondIdentifiers {
         &self.identifiers
     }
@@ -247,11 +375,6 @@ impl Bond for FloatingRateNote {
 
     fn issue_date(&self) -> Date {
         self.issue_date
-    }
-
-    fn first_settlement_date(&self) -> Date {
-        let calendar = self.calendar.to_calendar();
-        calendar.add_business_days(self.issue_date, self.settlement_days as i32)
     }
 
     fn dated_date(&self) -> Date {
@@ -370,9 +493,13 @@ impl FloatingCouponBond for FloatingRateNote {
         self.next_coupon_date(after)
     }
 
-    fn fixing_date(&self, reset_date: Date) -> Date {
-        let calendar = self.calendar.to_calendar();
-        calendar.add_business_days(reset_date, self.reset_lag)
+    fn fixing_date(&self, reset_date: Date) -> BondResult<Date> {
+        let calendar = self.calendar.try_to_calendar()?;
+        Ok(convex_core::calendars::checked::add_business_days(
+            reset_date,
+            self.reset_lag,
+            calendar.as_ref(),
+        )?)
     }
 }
 
@@ -435,8 +562,8 @@ impl FloatingRateNoteBuilder {
     }
 
     #[must_use]
-    pub fn spread_bps(mut self, bps: i32) -> Self {
-        self.spread_bps = Some(Decimal::from(bps));
+    pub fn spread_bps(mut self, bps: impl Into<Decimal>) -> Self {
+        self.spread_bps = Some(bps.into());
         self
     }
 
@@ -651,7 +778,7 @@ impl FloatingRateNoteBuilder {
             });
         }
 
-        Ok(FloatingRateNote {
+        let bond = FloatingRateNote {
             identifiers,
             index,
             spread_bps: self.spread_bps.unwrap_or(Decimal::ZERO),
@@ -672,7 +799,9 @@ impl FloatingRateNoteBuilder {
             face_value: self.face_value.unwrap_or(Decimal::ONE_HUNDRED),
             current_rate: None,
             schedule: OnceCell::new(),
-        })
+        };
+        bond.validate_terms()?;
+        Ok(bond)
     }
 }
 
@@ -689,22 +818,6 @@ fn day_count_to_string(dc: &DayCountConvention) -> &'static str {
         DayCountConvention::Thirty360E => "Thirty360E",
         DayCountConvention::Thirty360EIsda => "Thirty360EIsda",
         DayCountConvention::Thirty360German => "Thirty360German",
-    }
-}
-
-fn string_to_day_count(s: &str) -> DayCountConvention {
-    match s {
-        "Act360" => DayCountConvention::Act360,
-        "Act365Fixed" => DayCountConvention::Act365Fixed,
-        "Act365Leap" => DayCountConvention::Act365Leap,
-        "ActActIsda" => DayCountConvention::ActActIsda,
-        "ActActIcma" => DayCountConvention::ActActIcma,
-        "ActActAfb" => DayCountConvention::ActActAfb,
-        "Thirty360US" => DayCountConvention::Thirty360US,
-        "Thirty360E" => DayCountConvention::Thirty360E,
-        "Thirty360EIsda" => DayCountConvention::Thirty360EIsda,
-        "Thirty360German" => DayCountConvention::Thirty360German,
-        _ => DayCountConvention::Act360, // Default
     }
 }
 
@@ -768,14 +881,14 @@ impl<'de> Deserialize<'de> for FloatingRateNote {
         }
 
         let data = FloatingRateNoteData::deserialize(deserializer)?;
-        Ok(FloatingRateNote {
+        let bond = FloatingRateNote {
             identifiers: data.identifiers,
             index: data.index,
             spread_bps: data.spread_bps,
             maturity: data.maturity,
             issue_date: data.issue_date,
             frequency: data.frequency,
-            day_count: string_to_day_count(&data.day_count),
+            day_count: data.day_count.parse().map_err(serde::de::Error::custom)?,
             reset_lag: data.reset_lag,
             payment_delay: data.payment_delay,
             observation_shift: data.observation_shift,
@@ -789,7 +902,9 @@ impl<'de> Deserialize<'de> for FloatingRateNote {
             face_value: data.face_value,
             current_rate: None,
             schedule: OnceCell::new(),
-        })
+        };
+        bond.validate_terms().map_err(serde::de::Error::custom)?;
+        Ok(bond)
     }
 }
 

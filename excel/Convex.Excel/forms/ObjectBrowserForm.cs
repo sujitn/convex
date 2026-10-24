@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Convex.Excel.Helpers;
+using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
@@ -152,13 +153,6 @@ namespace Convex.Excel.Forms
             }
             Refresh1();
             SheetHelpers.Status($"Released {released} of {rows.Count}");
-        }
-
-        private static Button NewButton(string text, EventHandler onClick)
-        {
-            var b = new Button { Text = text, AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
-            b.Click += onClick;
-            return b;
         }
     }
 }

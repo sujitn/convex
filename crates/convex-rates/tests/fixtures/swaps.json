@@ -1,0 +1,6213 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "reference": {
+    "kind": "independent_analytic_supplied_contract",
+    "date": "2026-10-06",
+    "schedule_dates": "Hand-pinned calendar month anchors; independent datetime business-day transformations",
+    "amounts": "Python Decimal precision 60; coupon cash absolute tolerance 1e-18 for 1e6 notional, compound factor 1e-24, dates exact",
+    "references": [
+      "https://www.newyorkfed.org/markets/reference-rates/additional-information-about-reference-rates",
+      "https://raw.githubusercontent.com/lballabio/QuantLib/v1.40/ql/time/schedule.cpp"
+    ],
+    "limits": "No QuantLib or ORE runtime invoked. No admitted USD/EUR/GBP contract pack or certificate."
+  },
+  "cases": [
+    {
+      "id": "regular-eom",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "regular-eom",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-31",
+        "maturity_date": "2024-07-31",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-07-31",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-07-31",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-31",
+              "end": "2024-07-31",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-07-31",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-07-31",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-07-31",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-07-31",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-07-31",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-31",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31"
+      ],
+      "floating_contractual": [
+        "2024-01-31",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31"
+      ],
+      "reset_contractual": [
+        "2024-01-31",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "payment": "2024-03-05",
+            "amount": "3222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "payment": "2024-04-02",
+            "amount": "3444.44444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "amount": "3333.33333333333333333333"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "payment": "2024-06-04",
+            "amount": "3444.44444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "payment": "2024-07-02",
+            "amount": "3333.33333333333333333333"
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "3444.44444444444444444444"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "payment": "2024-03-05",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-31",
+                  "2024-02-29"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-02-29"
+                ]
+              }
+            ],
+            "amount": "4360.06944444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "payment": "2024-04-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-02-29",
+                  "2024-03-31"
+                ],
+                "observation": "2024-02-27",
+                "rate": [
+                  "2024-02-29",
+                  "2024-03-31"
+                ]
+              }
+            ],
+            "amount": "4660.76388888888888888889"
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-03-31",
+                  "2024-04-30"
+                ],
+                "observation": "2024-03-28",
+                "rate": [
+                  "2024-03-31",
+                  "2024-04-30"
+                ]
+              }
+            ],
+            "amount": "4510.41666666666666666667"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "payment": "2024-06-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-05-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-05-31"
+                ]
+              }
+            ],
+            "amount": "4660.76388888888888888889"
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "payment": "2024-07-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-05-31",
+                  "2024-06-30"
+                ],
+                "observation": "2024-05-29",
+                "rate": [
+                  "2024-05-31",
+                  "2024-06-30"
+                ]
+              }
+            ],
+            "amount": "4510.41666666666666666667"
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-06-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-06-27",
+                "rate": [
+                  "2024-06-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "4660.76388888888888888889"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "observation": "2024-01-26",
+            "rate": [
+              "2024-01-31",
+              "2024-02-29"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "observation": "2024-02-27",
+            "rate": [
+              "2024-02-29",
+              "2024-03-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "observation": "2024-03-28",
+            "rate": [
+              "2024-03-31",
+              "2024-04-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-05-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "observation": "2024-05-29",
+            "rate": [
+              "2024-05-31",
+              "2024-06-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-06-27",
+            "rate": [
+              "2024-06-30",
+              "2024-07-31"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "shortfirst",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "shortfirst",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-10",
+        "maturity_date": "2024-10-31",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-10",
+              "end_date": "2024-10-31",
+              "frequency": "Quarterly",
+              "stub_type": "ShortFirst",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-10",
+                "end": "2024-10-31",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-10",
+              "end": "2024-10-31",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-10",
+              "end_date": "2024-10-31",
+              "frequency": "Quarterly",
+              "stub_type": "ShortFirst",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-10",
+                "end": "2024-10-31",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-10",
+              "end_date": "2024-10-31",
+              "frequency": "Quarterly",
+              "stub_type": "ShortFirst",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-10",
+                "end": "2024-10-31",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-10",
+                "end": "2024-10-31",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-10",
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31"
+      ],
+      "floating_contractual": [
+        "2024-01-10",
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31"
+      ],
+      "reset_contractual": [
+        "2024-01-10",
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-10",
+              "2024-01-31"
+            ],
+            "accrual": [
+              "2024-01-10",
+              "2024-01-31"
+            ],
+            "payment": "2024-02-02",
+            "amount": "2333.33333333333333333333"
+          },
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "amount": "10000.00000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "10222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "amount": "10222.22222222222222222222"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-10",
+              "2024-01-31"
+            ],
+            "accrual": [
+              "2024-01-10",
+              "2024-01-31"
+            ],
+            "payment": "2024-02-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-10",
+                  "2024-01-31"
+                ],
+                "observation": "2024-01-08",
+                "rate": [
+                  "2024-01-10",
+                  "2024-01-31"
+                ]
+              }
+            ],
+            "amount": "3157.29166666666666666667"
+          },
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ]
+              }
+            ],
+            "amount": "13531.25000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ],
+                "observation": "2024-07-29",
+                "rate": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-10",
+              "2024-01-31"
+            ],
+            "accrual": [
+              "2024-01-10",
+              "2024-01-31"
+            ],
+            "observation": "2024-01-08",
+            "rate": [
+              "2024-01-10",
+              "2024-01-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "observation": "2024-01-26",
+            "rate": [
+              "2024-01-31",
+              "2024-04-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-07-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "observation": "2024-07-29",
+            "rate": [
+              "2024-07-31",
+              "2024-10-31"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "longfirst",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "longfirst",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-10",
+        "maturity_date": "2024-10-31",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-10",
+              "end_date": "2024-10-31",
+              "frequency": "Quarterly",
+              "stub_type": "LongFirst",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-10",
+                "end": "2024-10-31",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-10",
+              "end": "2024-10-31",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-10",
+              "end_date": "2024-10-31",
+              "frequency": "Quarterly",
+              "stub_type": "LongFirst",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-10",
+                "end": "2024-10-31",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-10",
+              "end_date": "2024-10-31",
+              "frequency": "Quarterly",
+              "stub_type": "LongFirst",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-10",
+                "end": "2024-10-31",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-10",
+                "end": "2024-10-31",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-10",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31"
+      ],
+      "floating_contractual": [
+        "2024-01-10",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31"
+      ],
+      "reset_contractual": [
+        "2024-01-10",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-10",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-10",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "amount": "12333.33333333333333333333"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "10222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "amount": "10222.22222222222222222222"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-10",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-10",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-10",
+                  "2024-04-30"
+                ],
+                "observation": "2024-01-08",
+                "rate": [
+                  "2024-01-10",
+                  "2024-04-30"
+                ]
+              }
+            ],
+            "amount": "16688.54166666666666666667"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ],
+                "observation": "2024-07-29",
+                "rate": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-10",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-10",
+              "2024-04-30"
+            ],
+            "observation": "2024-01-08",
+            "rate": [
+              "2024-01-10",
+              "2024-04-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-07-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "observation": "2024-07-29",
+            "rate": [
+              "2024-07-31",
+              "2024-10-31"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "shortlast",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "shortlast",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-31",
+        "maturity_date": "2024-11-12",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-31",
+              "end": "2024-11-12",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2024-11-12"
+      ],
+      "floating_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2024-11-12"
+      ],
+      "reset_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2024-11-12"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "amount": "10000.00000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "10222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "amount": "10222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "payment": "2024-11-14",
+            "amount": "1333.33333333333333333333"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ]
+              }
+            ],
+            "amount": "13531.25000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ],
+                "observation": "2024-07-29",
+                "rate": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "payment": "2024-11-14",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-10-31",
+                  "2024-11-12"
+                ],
+                "observation": "2024-10-29",
+                "rate": [
+                  "2024-10-31",
+                  "2024-11-12"
+                ]
+              }
+            ],
+            "amount": "1804.16666666666666666667"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "observation": "2024-01-26",
+            "rate": [
+              "2024-01-31",
+              "2024-04-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-07-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "observation": "2024-07-29",
+            "rate": [
+              "2024-07-31",
+              "2024-10-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "observation": "2024-10-29",
+            "rate": [
+              "2024-10-31",
+              "2024-11-12"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "longlast",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "longlast",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-31",
+        "maturity_date": "2024-11-12",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "LongLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-31",
+              "end": "2024-11-12",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "LongLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "LongLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-11-12"
+      ],
+      "floating_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-11-12"
+      ],
+      "reset_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-11-12"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "amount": "10000.00000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "10222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-11-12"
+            ],
+            "payment": "2024-11-14",
+            "amount": "11555.55555555555555555556"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ]
+              }
+            ],
+            "amount": "13531.25000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-11-12"
+            ],
+            "payment": "2024-11-14",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-07-31",
+                  "2024-11-12"
+                ],
+                "observation": "2024-07-29",
+                "rate": [
+                  "2024-07-31",
+                  "2024-11-12"
+                ]
+              }
+            ],
+            "amount": "15636.11111111111111111111"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "observation": "2024-01-26",
+            "rate": [
+              "2024-01-31",
+              "2024-04-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-07-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-11-12"
+            ],
+            "observation": "2024-07-29",
+            "rate": [
+              "2024-07-31",
+              "2024-11-12"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "explicit-both-stubs",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "explicit-both-stubs",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-15",
+        "maturity_date": "2024-09-15",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-15",
+              "end_date": "2024-09-15",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": "2024-02-29",
+              "penultimate_date": "2024-08-31"
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-15",
+                "end": "2024-09-15",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-15",
+              "end": "2024-09-15",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-15",
+              "end_date": "2024-09-15",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": "2024-02-29",
+              "penultimate_date": "2024-08-31"
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-15",
+                "end": "2024-09-15",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-15",
+              "end_date": "2024-09-15",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": "2024-02-29",
+              "penultimate_date": "2024-08-31"
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-15",
+                "end": "2024-09-15",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-15",
+                "end": "2024-09-15",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-15",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31",
+        "2024-08-31",
+        "2024-09-15"
+      ],
+      "floating_contractual": [
+        "2024-01-15",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31",
+        "2024-08-31",
+        "2024-09-15"
+      ],
+      "reset_contractual": [
+        "2024-01-15",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31",
+        "2024-08-31",
+        "2024-09-15"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-15",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-15",
+              "2024-02-29"
+            ],
+            "payment": "2024-03-05",
+            "amount": "5000.00000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "payment": "2024-04-02",
+            "amount": "3444.44444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "amount": "3333.33333333333333333333"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "payment": "2024-06-04",
+            "amount": "3444.44444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "payment": "2024-07-02",
+            "amount": "3333.33333333333333333333"
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "3444.44444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-08-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-08-31"
+            ],
+            "payment": "2024-09-03",
+            "amount": "3444.44444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-08-31",
+              "2024-09-15"
+            ],
+            "accrual": [
+              "2024-08-31",
+              "2024-09-15"
+            ],
+            "payment": "2024-09-17",
+            "amount": "1666.66666666666666666667"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-15",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-15",
+              "2024-02-29"
+            ],
+            "payment": "2024-03-05",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-15",
+                  "2024-02-29"
+                ],
+                "observation": "2024-01-11",
+                "rate": [
+                  "2024-01-15",
+                  "2024-02-29"
+                ]
+              }
+            ],
+            "amount": "6765.62500000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "payment": "2024-04-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-02-29",
+                  "2024-03-31"
+                ],
+                "observation": "2024-02-27",
+                "rate": [
+                  "2024-02-29",
+                  "2024-03-31"
+                ]
+              }
+            ],
+            "amount": "4660.76388888888888888889"
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-03-31",
+                  "2024-04-30"
+                ],
+                "observation": "2024-03-28",
+                "rate": [
+                  "2024-03-31",
+                  "2024-04-30"
+                ]
+              }
+            ],
+            "amount": "4510.41666666666666666667"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "payment": "2024-06-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-05-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-05-31"
+                ]
+              }
+            ],
+            "amount": "4660.76388888888888888889"
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "payment": "2024-07-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-05-31",
+                  "2024-06-30"
+                ],
+                "observation": "2024-05-29",
+                "rate": [
+                  "2024-05-31",
+                  "2024-06-30"
+                ]
+              }
+            ],
+            "amount": "4510.41666666666666666667"
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-06-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-06-27",
+                "rate": [
+                  "2024-06-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "4660.76388888888888888889"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-08-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-08-31"
+            ],
+            "payment": "2024-09-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-07-31",
+                  "2024-08-31"
+                ],
+                "observation": "2024-07-29",
+                "rate": [
+                  "2024-07-31",
+                  "2024-08-31"
+                ]
+              }
+            ],
+            "amount": "4660.76388888888888888889"
+          },
+          {
+            "contractual": [
+              "2024-08-31",
+              "2024-09-15"
+            ],
+            "accrual": [
+              "2024-08-31",
+              "2024-09-15"
+            ],
+            "payment": "2024-09-17",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-08-31",
+                  "2024-09-15"
+                ],
+                "observation": "2024-08-29",
+                "rate": [
+                  "2024-08-31",
+                  "2024-09-15"
+                ]
+              }
+            ],
+            "amount": "2255.20833333333333333333"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-15",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-15",
+              "2024-02-29"
+            ],
+            "observation": "2024-01-11",
+            "rate": [
+              "2024-01-15",
+              "2024-02-29"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "observation": "2024-02-27",
+            "rate": [
+              "2024-02-29",
+              "2024-03-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "observation": "2024-03-28",
+            "rate": [
+              "2024-03-31",
+              "2024-04-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-05-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "observation": "2024-05-29",
+            "rate": [
+              "2024-05-31",
+              "2024-06-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-06-27",
+            "rate": [
+              "2024-06-30",
+              "2024-07-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-08-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-08-31"
+            ],
+            "observation": "2024-07-29",
+            "rate": [
+              "2024-07-31",
+              "2024-08-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-08-31",
+              "2024-09-15"
+            ],
+            "accrual": [
+              "2024-08-31",
+              "2024-09-15"
+            ],
+            "observation": "2024-08-29",
+            "rate": [
+              "2024-08-31",
+              "2024-09-15"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "independent-leg-frequency",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "independent-leg-frequency",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-31",
+        "maturity_date": "2025-02-07",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2025-02-07",
+              "frequency": "SemiAnnual",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2025-02-07",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-31",
+              "end": "2025-02-07",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2025-02-07",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2025-02-07",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2025-02-07",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-31",
+                "end": "2025-02-07",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-31",
+                "end": "2025-02-07",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-31",
+        "2024-07-31",
+        "2025-01-31",
+        "2025-02-07"
+      ],
+      "floating_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2025-01-31",
+        "2025-02-07"
+      ],
+      "reset_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2025-01-31",
+        "2025-02-07"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "20222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2025-01-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2025-01-31"
+            ],
+            "payment": "2025-02-04",
+            "amount": "20444.44444444444444444444"
+          },
+          {
+            "contractual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "accrual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "payment": "2025-02-11",
+            "amount": "777.77777777777777777778"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ]
+              }
+            ],
+            "amount": "13531.25000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ],
+                "observation": "2024-07-29",
+                "rate": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2025-01-31"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2025-01-31"
+            ],
+            "payment": "2025-02-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-10-31",
+                  "2025-01-31"
+                ],
+                "observation": "2024-10-29",
+                "rate": [
+                  "2024-10-31",
+                  "2025-01-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "accrual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "payment": "2025-02-11",
+            "resets": [
+              {
+                "accrual": [
+                  "2025-01-31",
+                  "2025-02-07"
+                ],
+                "observation": "2025-01-29",
+                "rate": [
+                  "2025-01-31",
+                  "2025-02-07"
+                ]
+              }
+            ],
+            "amount": "1052.43055555555555555556"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "observation": "2024-01-26",
+            "rate": [
+              "2024-01-31",
+              "2024-04-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-07-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "observation": "2024-07-29",
+            "rate": [
+              "2024-07-31",
+              "2024-10-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2025-01-31"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2025-01-31"
+            ],
+            "observation": "2024-10-29",
+            "rate": [
+              "2024-10-31",
+              "2025-01-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "accrual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "observation": "2025-01-29",
+            "rate": [
+              "2025-01-31",
+              "2025-02-07"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "independent-calendars",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "independent-calendars",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-31",
+        "maturity_date": "2024-07-31",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-07-31",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "ModifiedFollowing",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-07-31",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-31",
+              "end": "2024-07-31",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-07-31",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "ModifiedFollowing",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-07-31",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-07-31",
+              "frequency": "Monthly",
+              "stub_type": "None",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "ModifiedFollowing",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-07-31",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-07-31",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-31",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31"
+      ],
+      "floating_contractual": [
+        "2024-01-31",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31"
+      ],
+      "reset_contractual": [
+        "2024-01-31",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-02-28"
+            ],
+            "payment": "2024-03-05",
+            "amount": "3111.11111111111111111111"
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-28",
+              "2024-03-29"
+            ],
+            "payment": "2024-04-02",
+            "amount": "3333.33333333333333333333"
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-29",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "amount": "3555.55555555555555555556"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "payment": "2024-06-04",
+            "amount": "3444.44444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-28"
+            ],
+            "payment": "2024-07-02",
+            "amount": "3111.11111111111111111111"
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-28",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "3666.66666666666666666667"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-02-28"
+            ],
+            "payment": "2024-03-05",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-31",
+                  "2024-02-28"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-02-29"
+                ]
+              }
+            ],
+            "amount": "4209.72222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-28",
+              "2024-03-29"
+            ],
+            "payment": "2024-04-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-02-28",
+                  "2024-02-29"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-02-29"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-02-29",
+                  "2024-03-29"
+                ],
+                "observation": "2024-02-27",
+                "rate": [
+                  "2024-02-29",
+                  "2024-03-29"
+                ]
+              }
+            ],
+            "amount": "4510.41666666666666666667"
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-29",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-03-29",
+                  "2024-04-29"
+                ],
+                "observation": "2024-03-27",
+                "rate": [
+                  "2024-03-29",
+                  "2024-04-29"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-04-29",
+                  "2024-04-30"
+                ],
+                "observation": "2024-04-25",
+                "rate": [
+                  "2024-04-29",
+                  "2024-05-31"
+                ]
+              }
+            ],
+            "amount": "4811.11111111111111111111"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "payment": "2024-06-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-05-31"
+                ],
+                "observation": "2024-04-25",
+                "rate": [
+                  "2024-04-29",
+                  "2024-05-31"
+                ]
+              }
+            ],
+            "amount": "4660.76388888888888888889"
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-28"
+            ],
+            "payment": "2024-07-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-05-31",
+                  "2024-06-28"
+                ],
+                "observation": "2024-05-29",
+                "rate": [
+                  "2024-05-31",
+                  "2024-06-28"
+                ]
+              }
+            ],
+            "amount": "4209.72222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-28",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-06-28",
+                  "2024-07-31"
+                ],
+                "observation": "2024-06-26",
+                "rate": [
+                  "2024-06-28",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "4961.45833333333333333333"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "observation": "2024-01-26",
+            "rate": [
+              "2024-01-31",
+              "2024-02-29"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-29",
+              "2024-03-29"
+            ],
+            "observation": "2024-02-27",
+            "rate": [
+              "2024-02-29",
+              "2024-03-29"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-29",
+              "2024-04-29"
+            ],
+            "observation": "2024-03-27",
+            "rate": [
+              "2024-03-29",
+              "2024-04-29"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-29",
+              "2024-05-31"
+            ],
+            "observation": "2024-04-25",
+            "rate": [
+              "2024-04-29",
+              "2024-05-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-28"
+            ],
+            "observation": "2024-05-29",
+            "rate": [
+              "2024-05-31",
+              "2024-06-28"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-28",
+              "2024-07-31"
+            ],
+            "observation": "2024-06-26",
+            "rate": [
+              "2024-06-28",
+              "2024-07-31"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "full-index-tenor-stub",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "full-index-tenor-stub",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-31",
+        "maturity_date": "2024-11-12",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-31",
+              "end": "2024-11-12",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2024-11-12",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "IndexTenor",
+            "index_end_of_month": true,
+            "index_end_adjustment": "ModifiedFollowing",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-11-12",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2024-11-12"
+      ],
+      "floating_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2024-11-12"
+      ],
+      "reset_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2024-11-12"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "amount": "10000.00000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "10222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "amount": "10222.22222222222222222222"
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "payment": "2024-11-14",
+            "amount": "1333.33333333333333333333"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-31",
+                  "2024-04-30"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-04-29"
+                ]
+              }
+            ],
+            "amount": "13531.25000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ],
+                "observation": "2024-07-29",
+                "rate": [
+                  "2024-07-31",
+                  "2024-10-31"
+                ]
+              }
+            ],
+            "amount": "13831.94444444444444444444"
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "payment": "2024-11-14",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-10-31",
+                  "2024-11-12"
+                ],
+                "observation": "2024-10-29",
+                "rate": [
+                  "2024-10-31",
+                  "2025-01-31"
+                ]
+              }
+            ],
+            "amount": "1804.16666666666666666667"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "observation": "2024-01-26",
+            "rate": [
+              "2024-01-31",
+              "2024-04-29"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-07-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "observation": "2024-07-29",
+            "rate": [
+              "2024-07-31",
+              "2024-10-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2024-11-12"
+            ],
+            "observation": "2024-10-29",
+            "rate": [
+              "2024-10-31",
+              "2025-01-31"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "amortized-stepped-multiple-resets",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "amortized-stepped-multiple-resets",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-31",
+        "maturity_date": "2025-02-07",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2025-02-07",
+              "frequency": "SemiAnnual",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-06-15",
+                "value": "1000000"
+              },
+              {
+                "start": "2024-06-15",
+                "end": "2025-02-07",
+                "value": "750000"
+              }
+            ],
+            "rounding": {
+              "NearestEven": 2
+            },
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-31",
+              "end": "2024-08-15",
+              "value": "0.04"
+            },
+            {
+              "start": "2024-08-15",
+              "end": "2025-02-07",
+              "value": "0.045"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2025-02-07",
+              "frequency": "Quarterly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-31",
+                "end": "2024-06-15",
+                "value": "1000000"
+              },
+              {
+                "start": "2024-06-15",
+                "end": "2025-02-07",
+                "value": "750000"
+              }
+            ],
+            "rounding": {
+              "NearestEven": 2
+            },
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.TERM",
+            "tenor_months": 1,
+            "schedule": {
+              "start_date": "2024-01-31",
+              "end_date": "2025-02-07",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "ResetInterval",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-31",
+                "end": "2025-02-07",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-31",
+                "end": "2025-02-07",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-01-31",
+        "2024-07-31",
+        "2025-01-31",
+        "2025-02-07"
+      ],
+      "floating_contractual": [
+        "2024-01-31",
+        "2024-04-30",
+        "2024-07-31",
+        "2024-10-31",
+        "2025-01-31",
+        "2025-02-07"
+      ],
+      "reset_contractual": [
+        "2024-01-31",
+        "2024-02-29",
+        "2024-03-31",
+        "2024-04-30",
+        "2024-05-31",
+        "2024-06-30",
+        "2024-07-31",
+        "2024-08-31",
+        "2024-09-30",
+        "2024-10-31",
+        "2024-11-30",
+        "2024-12-31",
+        "2025-01-31",
+        "2025-02-07"
+      ],
+      "rates": {},
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "amount": "18944.44000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2025-01-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2025-01-31"
+            ],
+            "payment": "2025-02-04",
+            "amount": "17093.75000000000000000000"
+          },
+          {
+            "contractual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "accrual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "payment": "2025-02-11",
+            "amount": "656.25000000000000000000"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-04-30"
+            ],
+            "payment": "2024-05-03",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-01-31",
+                  "2024-02-29"
+                ],
+                "observation": "2024-01-26",
+                "rate": [
+                  "2024-01-31",
+                  "2024-02-29"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-02-29",
+                  "2024-03-31"
+                ],
+                "observation": "2024-02-27",
+                "rate": [
+                  "2024-02-29",
+                  "2024-03-31"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-03-31",
+                  "2024-04-30"
+                ],
+                "observation": "2024-03-28",
+                "rate": [
+                  "2024-03-31",
+                  "2024-04-30"
+                ]
+              }
+            ],
+            "amount": "13531.25000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-07-31"
+            ],
+            "payment": "2024-08-02",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-04-30",
+                  "2024-05-31"
+                ],
+                "observation": "2024-04-26",
+                "rate": [
+                  "2024-04-30",
+                  "2024-05-31"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-05-31",
+                  "2024-06-30"
+                ],
+                "observation": "2024-05-29",
+                "rate": [
+                  "2024-05-31",
+                  "2024-06-30"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-06-30",
+                  "2024-07-31"
+                ],
+                "observation": "2024-06-27",
+                "rate": [
+                  "2024-06-30",
+                  "2024-07-31"
+                ]
+              }
+            ],
+            "amount": "12102.95000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-10-31"
+            ],
+            "payment": "2024-11-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-07-31",
+                  "2024-08-31"
+                ],
+                "observation": "2024-07-29",
+                "rate": [
+                  "2024-07-31",
+                  "2024-08-31"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-08-31",
+                  "2024-09-30"
+                ],
+                "observation": "2024-08-29",
+                "rate": [
+                  "2024-08-31",
+                  "2024-09-30"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-09-30",
+                  "2024-10-31"
+                ],
+                "observation": "2024-09-26",
+                "rate": [
+                  "2024-09-30",
+                  "2024-10-31"
+                ]
+              }
+            ],
+            "amount": "10373.96000000000000000000"
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2025-01-31"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2025-01-31"
+            ],
+            "payment": "2025-02-04",
+            "resets": [
+              {
+                "accrual": [
+                  "2024-10-31",
+                  "2024-11-30"
+                ],
+                "observation": "2024-10-29",
+                "rate": [
+                  "2024-10-31",
+                  "2024-11-30"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-11-30",
+                  "2024-12-31"
+                ],
+                "observation": "2024-11-28",
+                "rate": [
+                  "2024-11-30",
+                  "2024-12-31"
+                ]
+              },
+              {
+                "accrual": [
+                  "2024-12-31",
+                  "2025-01-31"
+                ],
+                "observation": "2024-12-27",
+                "rate": [
+                  "2024-12-31",
+                  "2025-01-31"
+                ]
+              }
+            ],
+            "amount": "10373.96000000000000000000"
+          },
+          {
+            "contractual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "accrual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "payment": "2025-02-11",
+            "resets": [
+              {
+                "accrual": [
+                  "2025-01-31",
+                  "2025-02-07"
+                ],
+                "observation": "2025-01-29",
+                "rate": [
+                  "2025-01-31",
+                  "2025-02-07"
+                ]
+              }
+            ],
+            "amount": "789.32000000000000000000"
+          }
+        ],
+        "reset_grid": [
+          {
+            "contractual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "accrual": [
+              "2024-01-31",
+              "2024-02-29"
+            ],
+            "observation": "2024-01-26",
+            "rate": [
+              "2024-01-31",
+              "2024-02-29"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "accrual": [
+              "2024-02-29",
+              "2024-03-31"
+            ],
+            "observation": "2024-02-27",
+            "rate": [
+              "2024-02-29",
+              "2024-03-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "accrual": [
+              "2024-03-31",
+              "2024-04-30"
+            ],
+            "observation": "2024-03-28",
+            "rate": [
+              "2024-03-31",
+              "2024-04-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "accrual": [
+              "2024-04-30",
+              "2024-05-31"
+            ],
+            "observation": "2024-04-26",
+            "rate": [
+              "2024-04-30",
+              "2024-05-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "accrual": [
+              "2024-05-31",
+              "2024-06-30"
+            ],
+            "observation": "2024-05-29",
+            "rate": [
+              "2024-05-31",
+              "2024-06-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "accrual": [
+              "2024-06-30",
+              "2024-07-31"
+            ],
+            "observation": "2024-06-27",
+            "rate": [
+              "2024-06-30",
+              "2024-07-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-07-31",
+              "2024-08-31"
+            ],
+            "accrual": [
+              "2024-07-31",
+              "2024-08-31"
+            ],
+            "observation": "2024-07-29",
+            "rate": [
+              "2024-07-31",
+              "2024-08-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-08-31",
+              "2024-09-30"
+            ],
+            "accrual": [
+              "2024-08-31",
+              "2024-09-30"
+            ],
+            "observation": "2024-08-29",
+            "rate": [
+              "2024-08-31",
+              "2024-09-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-09-30",
+              "2024-10-31"
+            ],
+            "accrual": [
+              "2024-09-30",
+              "2024-10-31"
+            ],
+            "observation": "2024-09-26",
+            "rate": [
+              "2024-09-30",
+              "2024-10-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-10-31",
+              "2024-11-30"
+            ],
+            "accrual": [
+              "2024-10-31",
+              "2024-11-30"
+            ],
+            "observation": "2024-10-29",
+            "rate": [
+              "2024-10-31",
+              "2024-11-30"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-11-30",
+              "2024-12-31"
+            ],
+            "accrual": [
+              "2024-11-30",
+              "2024-12-31"
+            ],
+            "observation": "2024-11-28",
+            "rate": [
+              "2024-11-30",
+              "2024-12-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2024-12-31",
+              "2025-01-31"
+            ],
+            "accrual": [
+              "2024-12-31",
+              "2025-01-31"
+            ],
+            "observation": "2024-12-27",
+            "rate": [
+              "2024-12-31",
+              "2025-01-31"
+            ]
+          },
+          {
+            "contractual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "accrual": [
+              "2025-01-31",
+              "2025-02-07"
+            ],
+            "observation": "2025-01-29",
+            "rate": [
+              "2025-01-31",
+              "2025-02-07"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "ois-holiday",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-holiday",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-04",
+        "maturity_date": "2024-04-11",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-04",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-04",
+              "end": "2024-04-11",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-04",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 0,
+            "observation_shift": false,
+            "lockout_business_days": 0
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-04-04",
+        "2024-04-11"
+      ],
+      "floating_contractual": [
+        "2024-04-04",
+        "2024-04-11"
+      ],
+      "rates": {
+        "2024-04-02": "0.01",
+        "2024-04-03": "0.02",
+        "2024-04-04": "0.03",
+        "2024-04-05": "-0.004",
+        "2024-04-09": "0.035",
+        "2024-04-10": "0.045"
+      },
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "amount": "777.77777777777777777778"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "observations": [
+              {
+                "observation": "2024-04-04",
+                "rate_end": "2024-04-05",
+                "weight": [
+                  "2024-04-04",
+                  "2024-04-05"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-05",
+                "rate_end": "2024-04-09",
+                "weight": [
+                  "2024-04-05",
+                  "2024-04-09"
+                ],
+                "days": 4
+              },
+              {
+                "observation": "2024-04-09",
+                "rate_end": "2024-04-10",
+                "weight": [
+                  "2024-04-09",
+                  "2024-04-10"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-10",
+                "rate_end": "2024-04-11",
+                "weight": [
+                  "2024-04-10",
+                  "2024-04-11"
+                ],
+                "days": 1
+              }
+            ],
+            "factor": "1.00026112820181001157407407",
+            "amount": "345.85469670695891203704"
+          }
+        ],
+        "reset_grid": []
+      }
+    },
+    {
+      "id": "ois-lookback",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-lookback",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-04",
+        "maturity_date": "2024-04-11",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-04",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-04",
+              "end": "2024-04-11",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-04",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 2,
+            "observation_shift": false,
+            "lockout_business_days": 0
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-04-04",
+        "2024-04-11"
+      ],
+      "floating_contractual": [
+        "2024-04-04",
+        "2024-04-11"
+      ],
+      "rates": {
+        "2024-04-02": "0.01",
+        "2024-04-03": "0.02",
+        "2024-04-04": "0.03",
+        "2024-04-05": "-0.004",
+        "2024-04-09": "0.035",
+        "2024-04-10": "0.045"
+      },
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "amount": "777.77777777777777777778"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "observations": [
+              {
+                "observation": "2024-04-02",
+                "rate_end": "2024-04-03",
+                "weight": [
+                  "2024-04-04",
+                  "2024-04-05"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-03",
+                "rate_end": "2024-04-04",
+                "weight": [
+                  "2024-04-05",
+                  "2024-04-09"
+                ],
+                "days": 4
+              },
+              {
+                "observation": "2024-04-04",
+                "rate_end": "2024-04-05",
+                "weight": [
+                  "2024-04-09",
+                  "2024-04-10"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-05",
+                "rate_end": "2024-04-09",
+                "weight": [
+                  "2024-04-10",
+                  "2024-04-11"
+                ],
+                "days": 1
+              }
+            ],
+            "factor": "1.00032224552490568701417467",
+            "amount": "422.25135057655321216278"
+          }
+        ],
+        "reset_grid": []
+      }
+    },
+    {
+      "id": "ois-shift",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-shift",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-04",
+        "maturity_date": "2024-04-11",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-04",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-04",
+              "end": "2024-04-11",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-04",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 2,
+            "observation_shift": true,
+            "lockout_business_days": 0
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-04-04",
+        "2024-04-11"
+      ],
+      "floating_contractual": [
+        "2024-04-04",
+        "2024-04-11"
+      ],
+      "rates": {
+        "2024-04-02": "0.01",
+        "2024-04-03": "0.02",
+        "2024-04-04": "0.03",
+        "2024-04-05": "-0.004",
+        "2024-04-09": "0.035",
+        "2024-04-10": "0.045"
+      },
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "amount": "777.77777777777777777778"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "observations": [
+              {
+                "observation": "2024-04-02",
+                "rate_end": "2024-04-03",
+                "weight": [
+                  "2024-04-02",
+                  "2024-04-03"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-03",
+                "rate_end": "2024-04-04",
+                "weight": [
+                  "2024-04-03",
+                  "2024-04-04"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-04",
+                "rate_end": "2024-04-05",
+                "weight": [
+                  "2024-04-04",
+                  "2024-04-05"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-05",
+                "rate_end": "2024-04-09",
+                "weight": [
+                  "2024-04-05",
+                  "2024-04-09"
+                ],
+                "days": 4
+              }
+            ],
+            "factor": "1.00012222330222050182898948",
+            "amount": "172.22357222007173068130"
+          }
+        ],
+        "reset_grid": []
+      }
+    },
+    {
+      "id": "ois-lockout",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-lockout",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-04",
+        "maturity_date": "2024-04-11",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-04",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-04",
+              "end": "2024-04-11",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-04",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-04",
+                "end": "2024-04-11",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 2,
+            "observation_shift": false,
+            "lockout_business_days": 2
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-04-04",
+        "2024-04-11"
+      ],
+      "floating_contractual": [
+        "2024-04-04",
+        "2024-04-11"
+      ],
+      "rates": {
+        "2024-04-02": "0.01",
+        "2024-04-03": "0.02",
+        "2024-04-04": "0.03",
+        "2024-04-05": "-0.004",
+        "2024-04-09": "0.035",
+        "2024-04-10": "0.045"
+      },
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "amount": "777.77777777777777777778"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-04",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "observations": [
+              {
+                "observation": "2024-04-02",
+                "rate_end": "2024-04-03",
+                "weight": [
+                  "2024-04-04",
+                  "2024-04-05"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-03",
+                "rate_end": "2024-04-04",
+                "weight": [
+                  "2024-04-05",
+                  "2024-04-09"
+                ],
+                "days": 4
+              },
+              {
+                "observation": "2024-04-03",
+                "rate_end": "2024-04-04",
+                "weight": [
+                  "2024-04-09",
+                  "2024-04-10"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-03",
+                "rate_end": "2024-04-04",
+                "weight": [
+                  "2024-04-10",
+                  "2024-04-11"
+                ],
+                "days": 1
+              }
+            ],
+            "factor": "1.00036114814960564319463496",
+            "amount": "470.87963145149843773815"
+          }
+        ],
+        "reset_grid": []
+      }
+    },
+    {
+      "id": "ois-partial-weekend",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-partial-weekend",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-07",
+        "maturity_date": "2024-04-11",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-07",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-07",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-07",
+              "end": "2024-04-11",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-07",
+              "end_date": "2024-04-11",
+              "frequency": "Monthly",
+              "stub_type": "ShortLast",
+              "end_of_month": true,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-07",
+                "end": "2024-04-11",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-07",
+                "end": "2024-04-11",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-07",
+                "end": "2024-04-11",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 0,
+            "observation_shift": false,
+            "lockout_business_days": 0
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.OIS",
+            "version": "v1"
+          }
+        }
+      },
+      "calendar_holidays": {
+        "ACCRUAL": [
+          "2024-02-29"
+        ],
+        "PAYMENT": [
+          "2024-03-01",
+          "2024-05-01"
+        ],
+        "RESET": [
+          "2024-04-30"
+        ],
+        "FIXING": [
+          "2024-01-29"
+        ],
+        "OBSERVATION": [
+          "2024-04-08"
+        ]
+      },
+      "fixed_contractual": [
+        "2024-04-07",
+        "2024-04-11"
+      ],
+      "floating_contractual": [
+        "2024-04-07",
+        "2024-04-11"
+      ],
+      "rates": {
+        "2024-04-02": "0.01",
+        "2024-04-03": "0.02",
+        "2024-04-04": "0.03",
+        "2024-04-05": "-0.004",
+        "2024-04-09": "0.035",
+        "2024-04-10": "0.045"
+      },
+      "constant_rate": "0.0425",
+      "expected": {
+        "fixed": [
+          {
+            "contractual": [
+              "2024-04-07",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-07",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "amount": "444.44444444444444444444"
+          }
+        ],
+        "floating": [
+          {
+            "contractual": [
+              "2024-04-07",
+              "2024-04-11"
+            ],
+            "accrual": [
+              "2024-04-07",
+              "2024-04-11"
+            ],
+            "payment": "2024-04-15",
+            "observations": [
+              {
+                "observation": "2024-04-05",
+                "rate_end": "2024-04-09",
+                "weight": [
+                  "2024-04-07",
+                  "2024-04-09"
+                ],
+                "days": 2
+              },
+              {
+                "observation": "2024-04-09",
+                "rate_end": "2024-04-10",
+                "weight": [
+                  "2024-04-09",
+                  "2024-04-10"
+                ],
+                "days": 1
+              },
+              {
+                "observation": "2024-04-10",
+                "rate_end": "2024-04-11",
+                "weight": [
+                  "2024-04-10",
+                  "2024-04-11"
+                ],
+                "days": 1
+              }
+            ],
+            "factor": "1.00020000721423611111111111",
+            "amount": "261.12012890625000000000"
+          }
+        ],
+        "reset_grid": []
+      }
+    }
+  ]
+}

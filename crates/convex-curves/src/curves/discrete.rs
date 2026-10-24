@@ -8,7 +8,7 @@ use std::sync::Arc;
 use convex_core::types::Date;
 use convex_math::interpolation::{
     CubicSpline, FlatForward, Interpolator, LinearInterpolator, LogLinearInterpolator,
-    MonotoneConvex,
+    MonotoneConvex, PiecewiseConstant,
 };
 
 use crate::error::{CurveError, CurveResult};
@@ -139,6 +139,24 @@ impl DiscreteCurve {
             }
         }
 
+        // UFR-convergence reads the tail value/derivative as a continuously
+        // compounded zero rate (f_LLP = z + t·z'); reject value types where that
+        // identity does not hold rather than producing silently wrong rates.
+        if matches!(extrapolation, ExtrapolationMethod::UfrConvergence { .. })
+            && !matches!(
+                value_type,
+                ValueType::ZeroRate {
+                    compounding: convex_core::types::Compounding::Continuous,
+                    ..
+                }
+            )
+        {
+            return Err(CurveError::builder_error(
+                "UfrConvergence extrapolation requires continuously-compounded zero rates"
+                    .to_string(),
+            ));
+        }
+
         let max_tenor = *tenors.last().unwrap();
 
         // Create interpolator
@@ -191,8 +209,7 @@ impl DiscreteCurve {
                 }
             }
             InterpolationMethod::PiecewiseConstant => {
-                // Use linear for now, will implement piecewise constant later
-                LinearInterpolator::new(tenors_vec, values_vec)
+                PiecewiseConstant::new(tenors_vec, values_vec)
                     .map(|i| Arc::new(i) as Arc<dyn Interpolator>)
                     .map_err(|e| CurveError::interpolation_error(e.to_string()))
             }
@@ -200,6 +217,11 @@ impl DiscreteCurve {
                 // Parametric models need fitting, not supported in discrete curve
                 Err(CurveError::interpolation_error(
                     "Parametric models require calibration, not direct construction",
+                ))
+            }
+            InterpolationMethod::Segmented | InterpolationMethod::Delegated => {
+                Err(CurveError::interpolation_error(
+                    "Use the complete segmented or delegated source contract",
                 ))
             }
         }
@@ -247,6 +269,57 @@ impl DiscreteCurve {
         self.extrapolation
     }
 
+    /// Fallible raw-value query honoring this curve's extrapolation policy.
+    /// Interpolation failure is propagated instead of replaced by a tail value.
+    /// Semantic rate/probability validation belongs to the checked contract facade.
+    pub fn checked_value_at(&self, t: f64) -> CurveResult<f64> {
+        if !t.is_finite() {
+            return Err(CurveError::invalid_value("query tenor must be finite"));
+        }
+        let (min, max) = self.tenor_bounds();
+        let value = if t < min || t > max {
+            if self.extrapolation == ExtrapolationMethod::None {
+                return Err(CurveError::tenor_out_of_range(t, min, max));
+            }
+            match self.extrapolation {
+                ExtrapolationMethod::FlatForward => {
+                    return Err(CurveError::builder_error(
+                        "checked query does not support approximate FlatForward extrapolation",
+                    ));
+                }
+                ExtrapolationMethod::UfrConvergence { ufr, alpha } => {
+                    if t < min {
+                        return Err(CurveError::tenor_out_of_range(t, min, max));
+                    }
+                    let last =
+                        self.values.last().copied().ok_or_else(|| {
+                            CurveError::builder_error("missing UFR boundary value")
+                        })?;
+                    let derivative = self
+                        .interpolator
+                        .derivative(max)
+                        .map_err(|error| CurveError::interpolation_error(error.to_string()))?;
+                    let extension =
+                        convex_math::extrapolation::UfrConvergence::try_new(ufr, alpha, max)
+                            .map_err(|error| CurveError::invalid_value(error.to_string()))?;
+                    convex_math::extrapolation::Extrapolator::try_extrapolate(
+                        &extension, t, max, last, derivative,
+                    )
+                    .map_err(|error| CurveError::invalid_value(error.to_string()))?
+                }
+                _ => self.extrapolate(t),
+            }
+        } else {
+            self.interpolator
+                .interpolate(t)
+                .map_err(|error| CurveError::interpolation_error(error.to_string()))?
+        };
+        if !value.is_finite() {
+            return Err(CurveError::invalid_value("nonfinite raw curve value"));
+        }
+        Ok(value)
+    }
+
     /// Handles extrapolation for out-of-range tenors.
     fn extrapolate(&self, t: f64) -> f64 {
         let min_t = self.tenors[0];
@@ -278,13 +351,15 @@ impl DiscreteCurve {
                 }
             }
             ExtrapolationMethod::FlatForward => {
-                // For flat forward extrapolation, we use the last instantaneous forward rate
-                // This is complex and depends on value type; fall back to flat for now
-                if t < min_t {
-                    self.values[0]
-                } else {
-                    *self.values.last().unwrap()
-                }
+                // This older raw-value route has no exact tail contract.
+                // Use the checked FlatForward source for an integrated tail.
+                f64::NAN
+            }
+            ExtrapolationMethod::UfrConvergence { .. } => {
+                // Propagate the checked parameter/derivative/domain contract.
+                // Compatibility reports NaN, never a fabricated short-end zero
+                // or a derivative-to-zero fallback.
+                self.checked_value_at(t).unwrap_or(f64::NAN)
             }
         }
     }
@@ -310,6 +385,10 @@ impl TermStructure for DiscreteCurve {
             .unwrap_or_else(|_| self.extrapolate(t))
     }
 
+    fn try_value_at(&self, t: f64) -> CurveResult<f64> {
+        self.checked_value_at(t)
+    }
+
     fn tenor_bounds(&self) -> (f64, f64) {
         (self.tenors[0], self.max_tenor)
     }
@@ -331,10 +410,6 @@ impl TermStructure for DiscreteCurve {
         self.tenor_to_date(self.max_tenor)
     }
 }
-
-// Thread safety: DiscreteCurve uses Arc<dyn Interpolator> which is Send + Sync
-unsafe impl Send for DiscreteCurve {}
-unsafe impl Sync for DiscreteCurve {}
 
 #[cfg(test)]
 mod tests {
@@ -426,6 +501,37 @@ mod tests {
         // Slope = (0.06 - 0.05) / (3 - 2) = 0.01
         // At t=4: 0.06 + 0.01 * (4 - 3) = 0.07
         assert_relative_eq!(curve.value_at(4.0), 0.07, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_ufr_convergence_requires_continuous_zero() {
+        let today = Date::from_ymd(2024, 1, 1).unwrap();
+        let ufr = ExtrapolationMethod::UfrConvergence {
+            ufr: 0.042,
+            alpha: 0.1,
+        };
+
+        // Rejected on a non-zero-rate (here discount-factor) value type.
+        assert!(DiscreteCurve::with_extrapolation(
+            today,
+            vec![1.0, 2.0],
+            vec![0.99, 0.97],
+            ValueType::DiscountFactor,
+            InterpolationMethod::Linear,
+            ufr,
+        )
+        .is_err());
+
+        // Accepted on a continuously-compounded zero-rate curve.
+        assert!(DiscreteCurve::with_extrapolation(
+            today,
+            vec![1.0, 2.0],
+            vec![0.04, 0.05],
+            ValueType::continuous_zero(DayCountConvention::Act365Fixed),
+            InterpolationMethod::Linear,
+            ufr,
+        )
+        .is_ok());
     }
 
     #[test]

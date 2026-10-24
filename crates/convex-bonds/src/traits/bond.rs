@@ -178,9 +178,6 @@ pub trait Bond {
     /// Returns the issue date.
     fn issue_date(&self) -> Date;
 
-    /// Returns the first settlement date.
-    fn first_settlement_date(&self) -> Date;
-
     /// Returns the dated date (when interest starts accruing).
     ///
     /// This is typically the issue date but can differ.
@@ -199,6 +196,54 @@ pub trait Bond {
     /// Returns a vector of cash flows sorted by payment date.
     fn cash_flows(&self, from: Date) -> Vec<BondCashFlow>;
 
+    /// Fallible cash-flow route. Custom implementations must terminate; checked
+    /// fixed bonds override this to propagate shared schedule/economic failures.
+    fn try_cash_flows(&self, from: Date) -> crate::BondResult<Vec<BondCashFlow>> {
+        let flows = self.cash_flows(from);
+        if flows.len() > 4096 {
+            return Err(crate::BondError::invalid_spec(
+                "cash-flow capacity exceeded",
+            ));
+        }
+        Ok(flows)
+    }
+
+    /// Validated future yield cash per100quote face, with immutable discount times.
+    /// Fixed bonds retain their original schedule references. A strictly future
+    /// zero-time payment stays in cash; raw numerical times cannot construct this value.
+    fn yield_cash_flows(
+        &self,
+        settlement: Date,
+        frequency: Frequency,
+    ) -> crate::BondResult<crate::pricing::discount_time::PreparedDatedCash> {
+        use rust_decimal::prelude::ToPrimitive;
+        let face = self
+            .face_value()
+            .to_f64()
+            .ok_or_else(|| crate::BondError::invalid_spec("invalid face"))?;
+        if face <= 0.0 || frequency.is_zero() {
+            return Err(crate::BondError::invalid_spec(
+                "invalid face/yield frequency",
+            ));
+        }
+        let flows = self.try_cash_flows(settlement)?;
+        if flows.len() > convex_core::cashflows::MAX_SCHEDULE_PERIODS {
+            return Err(crate::BondError::invalid_spec("cashflow bound"));
+        }
+        use std::str::FromStr;
+        let dc = convex_core::daycounts::DayCountConvention::from_str(self.day_count_convention())
+            .map_err(|e| crate::BondError::invalid_spec(e.to_string()))?;
+        let mut result =
+            crate::pricing::discount_time::prepare_bond_cash(&flows, settlement, dc, None)?;
+        for (time, amount) in &mut result {
+            *amount *= 100.0 / face;
+            if !time.is_finite() || *time < 0.0 || !amount.is_finite() {
+                return Err(crate::BondError::invalid_spec("invalid yield cashflow"));
+            }
+        }
+        Ok(crate::pricing::discount_time::PreparedDatedCash::from_validated_dates(result))
+    }
+
     /// Returns the next coupon date after the given date.
     fn next_coupon_date(&self, after: Date) -> Option<Date>;
 
@@ -211,6 +256,12 @@ pub trait Bond {
     ///
     /// Returns the accrued interest per unit of face value.
     fn accrued_interest(&self, settlement: Date) -> Decimal;
+
+    /// Fallible accrued route; compatibility implementations retain their
+    /// infallible preconditions, while checked fixed bonds propagate failures.
+    fn try_accrued_interest(&self, settlement: Date) -> crate::BondResult<Decimal> {
+        Ok(self.accrued_interest(settlement))
+    }
 
     /// Returns the day count convention for accrual calculations.
     fn day_count_convention(&self) -> &str;
@@ -235,14 +286,6 @@ pub trait Bond {
             Some(maturity) => as_of >= maturity,
             None => false, // Perpetual bonds never mature
         }
-    }
-
-    /// Returns the years to maturity from the given date.
-    fn years_to_maturity(&self, from: Date) -> Option<f64> {
-        self.maturity().map(|mat| {
-            let days = mat.days_between(&from);
-            days as f64 / 365.0
-        })
     }
 
     /// Returns true if this bond type requires a pricing model.

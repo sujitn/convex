@@ -1,0 +1,392 @@
+//! Overnight compounding from explicit observation weights and eligible fixings.
+
+use super::{validate_span, CashflowError, MAX_DATE_OFFSET, MAX_SCHEDULE_PERIODS};
+use crate::{
+    calendars::{checked, Calendar},
+    contracts::{IndexId, UtcTimestamp},
+    daycounts::DayCountConvention,
+    fixings::{FixingContext, FixingRequirement, FixingSeries, RateOrigin},
+    Date,
+};
+use rust_decimal::Decimal;
+use std::collections::BTreeMap;
+
+/// Explicit contracted overnight observation mechanics. No universal SOFR,
+/// SONIA or EUR rule is inferred from an index name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
+pub struct OvernightConvention {
+    /// Look back this many business days on the supplied observation calendar.
+    pub lookback_business_days: u32,
+    /// Weight by shifted observation days when true, accrual days when false.
+    pub observation_shift: bool,
+    /// Freeze the final N observation business days at the last preceding rate.
+    pub lockout_business_days: u32,
+}
+
+/// One explicit term of the compound product.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct OvernightObservation {
+    /// Index observation date after lookback/lockout.
+    pub observation_date: Date,
+    /// End of the full overnight rate period, used by the projection curve.
+    pub rate_end: Date,
+    /// Start of the weighted interval (may be inside a weekend).
+    pub weight_start: Date,
+    /// End of the weighted interval; the last interval may be clipped.
+    pub weight_end: Date,
+}
+
+/// Immutable validated weights, separated from history and projection.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OvernightSchedule {
+    start: Date,
+    end: Date,
+    day_count: DayCountConvention,
+    observations: Vec<OvernightObservation>,
+}
+
+/// One rate actually consumed in a compounded result, with its day weighting.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct ResolvedOvernightObservation {
+    /// Validated observation and weight dates.
+    pub dates: OvernightObservation,
+    /// Day-count weight in the product.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    pub year_fraction: Decimal,
+    /// Annualized decimal rate.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    pub rate: Decimal,
+    /// Exact fixing revision or explicit forecast reason.
+    pub origin: RateOrigin,
+}
+
+/// Checked contractual compound product. This result does not record a payment.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct CompoundedCoupon {
+    /// Product of (1 + rate * weight), including the initial unit investment.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    pub period_factor: Decimal,
+    /// Unshifted interest-period year fraction, for spread/gearing composition.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    pub period_year_fraction: Decimal,
+    /// (period_factor - 1) / period_year_fraction, in decimal annualized units.
+    #[serde(serialize_with = "rust_decimal::serde::str::serialize")]
+    pub annualized_rate: Decimal,
+    /// Every known/projected observation, including reused lockout rates.
+    pub observations: Vec<ResolvedOvernightObservation>,
+}
+
+impl CompoundedCoupon {
+    /// Compound the already resolved observation prefix through an explicit
+    /// weight-window cutoff. The caller supplies the economic cutoff; shifting
+    /// it again is not automatic. A clipped final holiday
+    /// interval uses its actual partial days; no rate is resolved or forecast.
+    pub fn factor_through(
+        &self,
+        cutoff: Date,
+        day_count: DayCountConvention,
+    ) -> Result<Decimal, CashflowError> {
+        super::validate_date(cutoff)?;
+        if self.observations.is_empty() || self.observations.len() > MAX_SCHEDULE_PERIODS {
+            return Err(CashflowError::BoundExceeded("compound prefix observations"));
+        }
+        if !matches!(
+            day_count,
+            DayCountConvention::Act360 | DayCountConvention::Act365Fixed
+        ) {
+            return Err(CashflowError::terms(
+                "compound prefix",
+                "requires an overnight day count",
+            ));
+        }
+        let mut factor = Decimal::ONE;
+        let mut previous_end = None;
+        for observation in &self.observations {
+            let dates = &observation.dates;
+            validate_span(dates.weight_start, dates.weight_end)?;
+            validate_span(dates.observation_date, dates.rate_end)?;
+            crate::fixings::validate_rate(observation.rate)?;
+            if previous_end.is_some_and(|end| end != dates.weight_start)
+                || observation.year_fraction
+                    != day_count
+                        .to_day_count()
+                        .year_fraction(dates.weight_start, dates.weight_end)
+            {
+                return Err(CashflowError::terms(
+                    "compound prefix",
+                    "contiguous exact day-count weights required",
+                ));
+            }
+            previous_end = Some(dates.weight_end);
+            if dates.weight_start >= cutoff {
+                continue;
+            }
+            let end = observation.dates.weight_end.min(cutoff);
+            validate_span(observation.dates.weight_start, end)?;
+            let fraction = day_count
+                .to_day_count()
+                .year_fraction(observation.dates.weight_start, end);
+            factor = compound_step(factor, observation.rate, fraction)?;
+        }
+        Ok(factor)
+    }
+}
+
+fn compound_step(
+    factor: Decimal,
+    rate: Decimal,
+    fraction: Decimal,
+) -> Result<Decimal, CashflowError> {
+    let term = rate
+        .checked_mul(fraction)
+        .and_then(|x| x.checked_add(Decimal::ONE))
+        .ok_or(CashflowError::Arithmetic("overnight factor"))?;
+    if term <= Decimal::ZERO {
+        return Err(CashflowError::terms(
+            "overnight_factor",
+            "nonpositive compound factor",
+        ));
+    }
+    factor
+        .checked_mul(term)
+        .ok_or(CashflowError::Arithmetic("overnight product"))
+}
+
+impl OvernightSchedule {
+    /// Restrict original observation weights to an explicit accrual prefix.
+    /// The separate weight cutoff preserves shifted/lockout observations rather
+    /// than regenerating a shorter schedule with different fixing dates.
+    pub fn prefix(&self, accrual_end: Date, weight_end: Date) -> Result<Self, CashflowError> {
+        let first = self
+            .observations
+            .first()
+            .ok_or_else(|| CashflowError::terms("prefix", "empty schedule"))?
+            .weight_start;
+        let last = self
+            .observations
+            .last()
+            .ok_or_else(|| CashflowError::terms("prefix", "empty schedule"))?
+            .weight_end;
+        if accrual_end <= self.start
+            || accrual_end > self.end
+            || weight_end <= first
+            || weight_end > last
+        {
+            return Err(CashflowError::terms(
+                "prefix",
+                "accrual and weight cutoff must be inside original coverage",
+            ));
+        }
+        let observations = self
+            .observations
+            .iter()
+            .filter(|o| o.weight_start < weight_end)
+            .map(|o| {
+                let mut o = o.clone();
+                o.weight_end = o.weight_end.min(weight_end);
+                o
+            })
+            .collect();
+        Ok(Self {
+            start: self.start,
+            end: accrual_end,
+            day_count: self.day_count,
+            observations,
+        })
+    }
+
+    /// Generate actual business-day weights, including a partial initial weekend.
+    /// Observation shift requires business-day endpoints; nonbusiness shifted
+    /// endpoints need a separately reviewed contract rather than implicit rounding.
+    pub fn generate(
+        start: Date,
+        end: Date,
+        day_count: DayCountConvention,
+        calendar: &dyn Calendar,
+        convention: OvernightConvention,
+    ) -> Result<Self, CashflowError> {
+        validate_span(start, end)?;
+        if !matches!(
+            day_count,
+            DayCountConvention::Act360 | DayCountConvention::Act365Fixed
+        ) {
+            return Err(CashflowError::terms(
+                "overnight_day_count",
+                "supports ACT/360 or ACT/365 Fixed",
+            ));
+        }
+        if convention.lookback_business_days > MAX_DATE_OFFSET as u32
+            || convention.lockout_business_days > MAX_DATE_OFFSET as u32
+        {
+            return Err(CashflowError::BoundExceeded("overnight convention"));
+        }
+        let lookback = convention.lookback_business_days as i32;
+        let (weight_start, weight_end) = if convention.observation_shift {
+            if !calendar
+                .try_is_business_day(start)
+                .map_err(crate::cashflows::CashflowError::from)?
+                || !calendar
+                    .try_is_business_day(end)
+                    .map_err(crate::cashflows::CashflowError::from)?
+            {
+                return Err(CashflowError::terms(
+                    "observation_shift",
+                    "requires business-day endpoints",
+                ));
+            }
+            (
+                super::DateOffset::BusinessDays(-lookback).apply(start, calendar)?,
+                super::DateOffset::BusinessDays(-lookback).apply(end, calendar)?,
+            )
+        } else {
+            (start, end)
+        };
+        validate_span(weight_start, weight_end)?;
+        let mut current = weight_start;
+        let mut rate_date = checked::business_day_on_or_before(weight_start, calendar)?;
+        super::validate_date(rate_date)?;
+        let mut observations = Vec::new();
+        for _ in 0..MAX_SCHEDULE_PERIODS {
+            let next = super::DateOffset::BusinessDays(1).apply(rate_date, calendar)?;
+            let interval_end = next.min(weight_end);
+            let observation_date = if convention.observation_shift {
+                rate_date
+            } else {
+                super::DateOffset::BusinessDays(-lookback).apply(rate_date, calendar)?
+            };
+            let rate_end = super::DateOffset::BusinessDays(1).apply(observation_date, calendar)?;
+            observations.push(OvernightObservation {
+                observation_date,
+                rate_end,
+                weight_start: current,
+                weight_end: interval_end,
+            });
+            current = interval_end;
+            if current == weight_end {
+                break;
+            }
+            rate_date = next;
+        }
+        if current != weight_end {
+            return Err(CashflowError::BoundExceeded("overnight observations"));
+        }
+        let lockout = convention.lockout_business_days as usize;
+        if lockout > 0 {
+            if lockout >= observations.len() {
+                return Err(CashflowError::terms(
+                    "lockout",
+                    "requires an observation preceding the freeze",
+                ));
+            }
+            let freeze_position = observations.len() - lockout - 1;
+            let frozen_date = observations[freeze_position].observation_date;
+            let frozen_end = observations[freeze_position].rate_end;
+            for observation in &mut observations[(freeze_position + 1)..] {
+                observation.observation_date = frozen_date;
+                observation.rate_end = frozen_end;
+            }
+        }
+        Ok(Self {
+            start,
+            end,
+            day_count,
+            observations,
+        })
+    }
+
+    /// Explicit weights and dates for requirements discovery or audit.
+    pub fn observations(&self) -> &[OvernightObservation] {
+        &self.observations
+    }
+
+    /// Unique required observations, in chronological order. Publication instants
+    /// come from a supplied administrator schedule, including holiday/DST rules.
+    pub fn requirements<P>(
+        &self,
+        index_id: &IndexId,
+        mut publication: P,
+    ) -> Result<Vec<FixingRequirement>, CashflowError>
+    where
+        P: FnMut(Date) -> Result<UtcTimestamp, CashflowError>,
+    {
+        let mut dates = BTreeMap::new();
+        for observation in &self.observations {
+            dates.insert(observation.observation_date, ());
+        }
+        dates
+            .keys()
+            .map(|&date| {
+                Ok(FixingRequirement {
+                    index_id: index_id.clone(),
+                    observation_date: date,
+                    expected_publication: publication(date)?,
+                })
+            })
+            .collect()
+    }
+
+    /// Resolve all required history before projecting any rate. A projected rate
+    /// callback receives the full observation rate interval, not an accrual date.
+    /// Errors propagate; missing published history is never forecast or zeroed.
+    pub fn compound<P, F>(
+        &self,
+        index_id: &IndexId,
+        history: &FixingSeries,
+        context: FixingContext,
+        publication: P,
+        mut forecast: F,
+    ) -> Result<CompoundedCoupon, CashflowError>
+    where
+        P: FnMut(Date) -> Result<UtcTimestamp, CashflowError>,
+        F: FnMut(Date, Date) -> Result<Decimal, CashflowError>,
+    {
+        let requirements = self.requirements(index_id, publication)?;
+        let intervals: BTreeMap<_, _> = self
+            .observations
+            .iter()
+            .map(|o| (o.observation_date, o.rate_end))
+            .collect();
+        let rates = history
+            .resolve(&requirements, context)?
+            .project(|requirement| {
+                let end = intervals
+                    .get(&requirement.observation_date)
+                    .ok_or_else(|| CashflowError::terms("observation", "missing rate interval"))?;
+                forecast(requirement.observation_date, *end)
+            })?;
+        let rates: BTreeMap<_, _> = rates
+            .into_iter()
+            .map(|rate| (rate.requirement.observation_date, rate))
+            .collect();
+        let day_count = self.day_count.to_day_count();
+        let mut factor = Decimal::ONE;
+        let mut resolved = Vec::with_capacity(self.observations.len());
+        for observation in &self.observations {
+            let rate = rates
+                .get(&observation.observation_date)
+                .ok_or_else(|| CashflowError::terms("observation", "unresolved rate"))?;
+            let fraction =
+                day_count.year_fraction(observation.weight_start, observation.weight_end);
+            factor = compound_step(factor, rate.rate, fraction)?;
+            resolved.push(ResolvedOvernightObservation {
+                dates: observation.clone(),
+                year_fraction: fraction,
+                rate: rate.rate,
+                origin: rate.origin.clone(),
+            });
+        }
+        let period_year_fraction = day_count.year_fraction(self.start, self.end);
+        let annualized_rate = factor
+            .checked_sub(Decimal::ONE)
+            .and_then(|x| x.checked_div(period_year_fraction))
+            .ok_or(CashflowError::Arithmetic("overnight annualization"))?;
+        Ok(CompoundedCoupon {
+            period_factor: factor,
+            period_year_fraction,
+            annualized_rate,
+            observations: resolved,
+        })
+    }
+}

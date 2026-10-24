@@ -1,0 +1,6228 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "yield-pricing-000-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "116.20498614958448820595567788786073356315299219314986486358405192874114909800542378709906663410933299224037659",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-000-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.1",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-001-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "105.0",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-001-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 105.0,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-002-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "99.999999999999999732516165988585129112340213790989897983634778180891278220181740808926561964481071464743454229",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-002-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 100.0,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-003-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "83.209876543209876543209876543209876543209876543209876543209876543209876543209876543209876543209876543209876543",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-003-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 83.20987654320987,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-004-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1229.7199735586085396089536951141587218333725639661161418212301872289337857515921948673567505752895794216103914",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-004-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 1229.7199735586084,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.1",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-005-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1001.7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-005-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 1001.75,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-006-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "907.60095741249202340820608751985490242318098412891436265240736710136828314577053363186699429487685958753114936",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-006-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 907.600957412492,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-007-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "625.62807043466238648734317733267691196397862289024520208384008492211118181082049324614107530485430639218761630",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-007-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 625.6280704346624,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-008-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "113.71191135734072089374560573785720285612865774659223447379510545948893661477234749681829583468382290462091289",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-009-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "102.5",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-010-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "97.501487209994050892701047668280019866824879353927326266551417560854605501599270558045856260122529023683408792",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-011-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "80.740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740741",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-012-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "116.05396463536351327363919318929238362533860173000981775834414721155977371576998509241433751200355858715146132",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-012-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 116.05396463536351,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.1",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-013-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "105.0",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-013-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 105.0,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-014-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "99.969890854172144455487729325608943622067823866323316374629619153555313500145803581793442474936145747405917775",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-014-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 99.96989085417215,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-015-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "82.642688665126135941858933681349600699225344524131655511787454652123418062523197758647525771961542606051172759",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-015-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 82.64268866512613,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-016-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1226.4911779577260705453114100808815921638254575124655697784110544933532191092004622755083944260767143133782760",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-016-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 1226.491177957726,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.1",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-017-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1001.750",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-017-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 1001.75,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-018-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "907.04816597622258286941169648442180695508776656045222686883850624105958525476688961291981679219248764797955371",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-018-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 907.0481659762225,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-019-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "617.02179125640271814605945958091406062695407301505109773211221379106435590296781364247553113852600770210754235",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-019-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "target_dirty_price": 617.0217912564027,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-020-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "113.56070891801433514538743775011480661550891636148336354666222481957270326120952305638858456448470932378986665",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-021-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "102.5",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-022-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "97.471396253387104405795246748246076919435899112654095834945875809377266284035610498566814505172359964886647705",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-023-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 4
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "80.175285257599885058847475485207313130829372253684702050981190359310832006321763388848313597777804384526047341",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-024-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": -0.4
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "174.06081945517285378613987923958889847885380288504835599213814551407617376803906321649019448904970179937248594",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-024-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 174.06081945517286,
+            "initial_guess": -0.399,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.4",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-025-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "105.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-025-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 105.0,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-026-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "100.05879780141895173473537177620198216675317604677468502908625260908099295939935046824481946160056816296798123",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-026-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.05879780141895,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-027-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "84.236067977499789696409173668731276235440618359611525724270897245410520925637804899414414408378782274969508176",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-027-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 84.23606797749979,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-028-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": -0.4
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "2781.1640983953767072799291304618500450392144671717055596092635788262159173817036428718584331613655915645564018",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-028-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 2781.1640983953766,
+            "initial_guess": -0.399,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.4",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-029-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1001.7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-029-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 1001.75,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-030-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "908.68094927611727650441208235424485543169699695232396488730337198369757534366469611472678243235001444276359261",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-030-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 908.6809492761173,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-031-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "641.35163413709650770758153330002574515428297106422077261829042969879367624685825998026306730312140445347467441",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-031-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 641.3516341370965,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-032-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": -0.4
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "171.77251387816049234559776574485502726300499061548348900254848740113317528730316978006138076507722557485852395",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-033-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "102.50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-034-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "97.560249817628666790499826387698286475099738004137367532066288325792354866514042978510708718715200546741019463",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-035-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "81.763932022500210303590826331268723764559381640388474275729102754589479074362195100585585591621217725030491824",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-036-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": -0.4
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "174.06081945517285378613987923958889847885380288504835599213814551407617376803906321649019448904970179937248594",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-036-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 174.06081945517286,
+            "initial_guess": -0.399,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.4",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-037-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "105.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-037-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 105.0,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-038-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "100.05879780141895173473537177620198216675317604677468502908625260908099295939935046824481946160056816296798123",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-038-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 100.05879780141895,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-039-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "84.236067977499789696409173668731276235440618359611525724270897245410520925637804899414414408378782274969508176",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-039-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 84.23606797749979,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-040-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": -0.4
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "2781.1640983953767072799291304618500450392144671717055596092635788262159173817036428718584331613655915645564018",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-040-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 2781.1640983953766,
+            "initial_guess": -0.399,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.4",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-041-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1001.7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-041-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 1001.75,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-042-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "908.68094927611727650441208235424485543169699695232396488730337198369757534366469611472678243235001444276359261",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-042-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 908.6809492761173,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-043-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "641.35163413709650770758153330002574515428297106422077261829042969879367624685825998026306730312140445347467441",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-043-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "target_dirty_price": 641.3516341370965,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-044-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": -0.4
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "171.77251387816049234559776574485502726300499061548348900254848740113317528730316978006138076507722557485852395",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-045-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "102.50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-046-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "97.560249817628666790499826387698286475099738004137367532066288325792354866514042978510708718715200546741019463",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-047-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "81.763932022500210303590826331268723764559381640388474275729102754589479074362195100585585591621217725030491824",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-048-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": -3.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "2069.9717573025811055016794282449242739887749281227245574407723837510965441905940918809135935043904479492163215",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-048-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 2069.971757302581,
+            "initial_guess": -2.999,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-3.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-049-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "105.0",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-049-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 105.0,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-050-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "99.939290791394017329435093085156907141382649078029649979381895440555311340724125988471345460853695987845029047",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-050-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 99.93929079139401,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-051-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "82.033322521280487502292182723350493188474171831156127964160803340515448473513994400028286931174525208536053333",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-051-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 82.03332252128048,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-052-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": -3.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "403691.61019148398540145304169640297298638032629606602855098728419777236361443869008818531272266956817042031601",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-052-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 403691.610191484,
+            "initial_guess": -2.999,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-3.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-053-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1001.750",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-053-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 1001.75,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-054-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "906.48653514216796735677549330533080931686407412741621472488475812283607879797034769011042719700016807731266734",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-054-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 906.486535142168,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-055-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "607.84239913290676987944338589856090832054789628231033005454558114046079710792604181182383526329557069573483450",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-055-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "target_dirty_price": 607.8423991329067,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-056-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": -3.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "2097.7771542588599507409904750807821896362159483772615975178564689114139755134904573440195672481107252476572588",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-057-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "102.5",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-058-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "97.440814792504139009195816213650513450731258501714654380238033512317162321729716389915151478352528751606709653",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-059-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "79.567839966036022658580647674651041125606078432268227940912550160145516027591248861111508732643092566819746599",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-060-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "116.52046783625731065166491901209848398814321924478912092519546455746991321403858210047137313866266818249863251",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-060-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 116.52046783625731,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.1",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-061-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "105.0",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-061-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 105.0,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-062-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "100.05807200929152122529613423904826051198118556383071678784706917990604964511460424592785724380876901983463067",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-062-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 100.05807200929152,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-063-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "84.222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-063-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 84.22222222222223,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-064-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1251.9974662162162335797670703287332466494838950437275284576163347566544992428392079920590280097329902917584122",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-064-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 1251.9974662162163,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "-0.1",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-065-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "1001.750",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-065-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 1001.75,
+            "initial_guess": 0.001,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.0",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-066-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "910.74342825848849485961346974602255818241402555863418885947108804706438072771987485619308252282566717702595550",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-066-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 910.7434282584885,
+            "initial_guess": 0.051000000000000004,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.05",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-067-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "668.03070175438596491228070175438596491228070175438596491228070175438596491228070175438596491228070175438596492",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-067-inverse",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.25,
+                0.0
+              ],
+              [
+                0.75,
+                1.125
+              ],
+              [
+                2.0,
+                1000.625
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "target_dirty_price": 668.030701754386,
+            "initial_guess": 0.251,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "0.25",
+      "absolute_bound": "1e-9",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-068-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "114.03508771929824632593556006024709353538693911656415531739704034745498766046485113490700005886041017269034579",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-069-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "102.5",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-070-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.05
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "97.560975609756097299939063924852008129871728487081335773305471754967298180798789200827670936506999689874370025",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-071-price",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                -2.5
+              ],
+              [
+                1.0,
+                105.0
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": 0.25
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "81.777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777778",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-reject-120",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-121",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-122",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                -1,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-123",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1,
+                0
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-124",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1,
+                -100
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-125",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1,
+                1e+308
+              ],
+              [
+                2,
+                1e+308
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-126",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -2
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-127",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 1e+308
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-128",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 0
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-129",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": -2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-130",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                2,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 1e+308
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": "122.14027581601698339210719946396741703075809415205036412734250985992062330836378162422887440133724739690278376",
+      "absolute_bound": "1e-10",
+      "expected_error": null
+    },
+    {
+      "id": "yield-pricing-reject-131",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "annual",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-132",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "market_default"
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-133",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic"
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-134",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1,
+                100,
+                "ignored"
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-135",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-136",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                2,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "annual"
+            },
+            "annual_yield": -1.5
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-137",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                2,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "simple"
+            },
+            "annual_yield": -0.6
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-138",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": 1000
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-139",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                1,
+                100
+              ]
+            ],
+            "compounding": {
+              "kind": "continuous"
+            },
+            "annual_yield": -1000
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-140",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                2,
+                5e-324
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": 0.5
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-141",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                1,
+                230
+              ],
+              [
+                2,
+                -132
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-142",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 0,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-143",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": -100,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-144",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "tolerance": 0,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-145",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "tolerance": -1,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-146",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 0
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-147",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 10001
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-148",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 111.12345,
+            "initial_guess": 0.75,
+            "tolerance": 1e-10,
+            "max_iterations": 1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-149",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -3,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-150",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": 1e+308,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-151",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10,
+            "max_iterations": 100,
+            "unknown_basis": "ignored"
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-152",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-153",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "annual_yield": -0.1
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-154",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "price",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            }
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-155",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "tolerance": 1e-10,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-156",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "max_iterations": 100
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "yield-pricing-reject-157",
+      "request": {
+        "schema_version": 1,
+        "operation": {
+          "kind": "cash_yield",
+          "action": {
+            "kind": "solve",
+            "cash": [
+              [
+                0.5,
+                2.5
+              ],
+              [
+                1.0,
+                102.5
+              ]
+            ],
+            "compounding": {
+              "kind": "periodic",
+              "frequency": 2
+            },
+            "target_dirty_price": 116.20498614958449,
+            "initial_guess": -0.099,
+            "tolerance": 1e-10
+          }
+        },
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        }
+      },
+      "expected": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    }
+  ],
+  "certified": false
+}

@@ -14,17 +14,21 @@ categories = ["mathematics", "science"]
 # High-precision decimal arithmetic
 rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
+# Existing locked bounded integer arithmetic, shared by portfolio consumers.
+num-bigint = "=0.4.6"
 
 # Error handling
 thiserror = { workspace = true }
 
 # Linear algebra
 nalgebra = { workspace = true }
+libm = { workspace = true }
 
 # Logging
 log = { workspace = true }
 
 [dev-dependencies]
+serde_json = { workspace = true }
 approx = { workspace = true }
 proptest = { workspace = true }
 criterion = { workspace = true }

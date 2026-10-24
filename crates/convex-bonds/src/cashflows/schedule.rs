@@ -25,45 +25,18 @@
 //! }
 //! ```
 
-use serde::{Deserialize, Serialize};
-
 use convex_core::calendars::{
-    BusinessDayConvention, Calendar, SIFMACalendar, Target2Calendar, WeekendCalendar,
+    BusinessDayConvention, Calendar, JapanCalendar, JointCalendar, SIFMACalendar, Target2Calendar,
+    UKCalendar, WeekendCalendar,
 };
+use convex_core::cashflows::{CouponPeriod, CouponSchedule, DateRules, ExCouponRule, ScheduleSpec};
 use convex_core::types::{Date, Frequency};
 
 use crate::error::{BondError, BondResult};
 use crate::types::CalendarId;
 
-/// Stub period type for irregular first or last coupon periods.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub enum StubType {
-    /// No stub (schedule divides evenly)
-    #[default]
-    None,
-    /// Short first period (front stub)
-    ShortFirst,
-    /// Long first period (front stub)
-    LongFirst,
-    /// Short last period (back stub)
-    ShortLast,
-    /// Long last period (back stub)
-    LongLast,
-}
-
-impl StubType {
-    /// Returns true if this is a front stub (affects first period).
-    #[must_use]
-    pub fn is_front_stub(&self) -> bool {
-        matches!(self, StubType::ShortFirst | StubType::LongFirst)
-    }
-
-    /// Returns true if this is a back stub (affects last period).
-    #[must_use]
-    pub fn is_back_stub(&self) -> bool {
-        matches!(self, StubType::ShortLast | StubType::LongLast)
-    }
-}
+// Keep the established bond/analytics path while sharing the actual type.
+pub use convex_core::cashflows::StubType;
 
 /// Configuration for schedule generation.
 #[derive(Debug, Clone)]
@@ -86,6 +59,8 @@ pub struct ScheduleConfig {
     pub penultimate_date: Option<Date>,
     /// Stub type
     pub stub_type: StubType,
+    /// Explicit coupon entitlement; principal remains independent.
+    pub ex_coupon: Option<ExCouponRule>,
 }
 
 impl ScheduleConfig {
@@ -102,6 +77,7 @@ impl ScheduleConfig {
             first_regular_date: None,
             penultimate_date: None,
             stub_type: StubType::None,
+            ex_coupon: None,
         }
     }
 
@@ -140,6 +116,13 @@ impl ScheduleConfig {
         self
     }
 
+    /// Sets exact ex-coupon date and boundary terms.
+    #[must_use]
+    pub fn with_ex_coupon(mut self, rule: ExCouponRule) -> Self {
+        self.ex_coupon = Some(rule);
+        self
+    }
+
     /// Sets the stub type.
     #[must_use]
     pub fn with_stub_type(mut self, stub_type: StubType) -> Self {
@@ -153,8 +136,10 @@ impl ScheduleConfig {
 /// Contains unadjusted and adjusted dates for a bond's coupon schedule.
 #[derive(Debug, Clone)]
 pub struct Schedule {
-    /// Unadjusted schedule dates
-    unadjusted_dates: Vec<Date>,
+    /// Exact original schedule terms used by the anchored native generator.
+    spec: ScheduleSpec,
+    /// Shared validated contractual dates, references and coupon periods.
+    coupon_schedule: CouponSchedule,
     /// Adjusted schedule dates (for payment)
     adjusted_dates: Vec<Date>,
     /// Calendar used for adjustments
@@ -170,146 +155,91 @@ impl Schedule {
     ///
     /// Returns an error if the schedule configuration is invalid.
     pub fn generate(config: ScheduleConfig) -> BondResult<Self> {
-        if config.end_date <= config.start_date {
-            return Err(BondError::InvalidSchedule {
-                message: "End date must be after start date".to_string(),
-            });
-        }
+        let calendar = config.calendar.try_to_calendar()?;
+        Self::generate_with_calendar(config, calendar.as_ref())
+    }
 
-        if config.frequency.is_zero() {
-            // Zero coupon: just start and end dates
-            return Ok(Self {
-                unadjusted_dates: vec![config.start_date, config.end_date],
-                adjusted_dates: vec![config.start_date, config.end_date],
-                calendar: config.calendar,
-                convention: config.business_day_convention,
-            });
-        }
-
-        let months_per_period = config.frequency.months_per_period() as i32;
-        let mut unadjusted = Vec::new();
-
-        // Determine generation direction based on stub type
-        if config.stub_type.is_front_stub() || config.first_regular_date.is_some() {
-            // Generate forward from first regular date or start
-            Self::generate_forward(&config, months_per_period, &mut unadjusted)?;
+    /// Generate using an immutable supplied calendar, including custom holidays.
+    /// Existing `None` retains the historical automatic short-front-stub default;
+    /// the shared ScheduleSpec uses `None` to require an exact regular grid.
+    pub fn generate_with_calendar(
+        config: ScheduleConfig,
+        calendar: &dyn Calendar,
+    ) -> BondResult<Self> {
+        let stub_type = if config.stub_type == StubType::None && !config.frequency.is_zero() {
+            if config.first_regular_date.is_some() {
+                StubType::ShortLast
+            } else {
+                StubType::ShortFirst
+            }
         } else {
-            // Generate backward from maturity (default)
-            Self::generate_backward(&config, months_per_period, &mut unadjusted)?;
-        }
-
-        // Ensure start and end dates are included
-        if unadjusted.first() != Some(&config.start_date) {
-            unadjusted.insert(0, config.start_date);
-        }
-        if unadjusted.last() != Some(&config.end_date) {
-            unadjusted.push(config.end_date);
-        }
-
-        // Remove duplicates and sort
-        unadjusted.sort();
-        unadjusted.dedup();
-
-        // Adjust for business days
-        let adjusted = Self::adjust_dates(&unadjusted, &config)?;
-
+            config.stub_type
+        };
+        let spec = ScheduleSpec {
+            start_date: config.start_date,
+            end_date: config.end_date,
+            frequency: config.frequency,
+            stub_type,
+            end_of_month: config.end_of_month,
+            first_regular_date: config.first_regular_date,
+            penultimate_date: config.penultimate_date,
+        };
+        let rules = DateRules {
+            payment_adjustment: if config.frequency.is_zero() {
+                BusinessDayConvention::Unadjusted
+            } else {
+                config.business_day_convention
+            },
+            ex_coupon: config.ex_coupon,
+            ..DateRules::default()
+        };
+        let coupon_schedule =
+            CouponSchedule::generate(&spec, &rules, calendar).map_err(|error| {
+                BondError::InvalidSchedule {
+                    message: error.to_string(),
+                }
+            })?;
+        let first = if config.frequency.is_zero() {
+            config.start_date
+        } else {
+            calendar
+                .adjust(config.start_date, config.business_day_convention)
+                .map_err(|error| BondError::InvalidSchedule {
+                    message: error.to_string(),
+                })?
+        };
+        let mut adjusted_dates = Vec::with_capacity(coupon_schedule.contractual_dates().len());
+        adjusted_dates.push(first);
+        adjusted_dates.extend(
+            coupon_schedule
+                .periods()
+                .iter()
+                .map(CouponPeriod::payment_date),
+        );
         Ok(Self {
-            unadjusted_dates: unadjusted,
-            adjusted_dates: adjusted,
+            spec,
+            coupon_schedule,
+            adjusted_dates,
             calendar: config.calendar,
             convention: config.business_day_convention,
         })
     }
 
-    /// Generates dates backward from maturity.
-    fn generate_backward(
-        config: &ScheduleConfig,
-        months_per_period: i32,
-        dates: &mut Vec<Date>,
-    ) -> BondResult<()> {
-        let mut current = config.end_date;
-        dates.push(current);
-
-        while current > config.start_date {
-            current = current.add_months(-months_per_period)?;
-
-            // Handle end-of-month rule
-            if config.end_of_month && config.end_date.is_end_of_month() {
-                current = current.end_of_month();
-            }
-
-            // Handle penultimate date
-            if let Some(penult) = config.penultimate_date {
-                if current <= penult && current > config.start_date {
-                    dates.push(penult);
-                    current = penult;
-                    continue;
-                }
-            }
-
-            if current > config.start_date {
-                dates.push(current);
-            }
-        }
-
-        dates.push(config.start_date);
-        dates.reverse();
-        Ok(())
+    /// Original validated anchor, roll and stub terms; no payment dates substitute.
+    pub(crate) fn spec(&self) -> &ScheduleSpec {
+        &self.spec
     }
 
-    /// Generates dates forward from start date or first regular date.
-    fn generate_forward(
-        config: &ScheduleConfig,
-        months_per_period: i32,
-        dates: &mut Vec<Date>,
-    ) -> BondResult<()> {
-        dates.push(config.start_date);
-
-        // If there's a first regular date, add it
-        let start_point = config.first_regular_date.unwrap_or(config.start_date);
-        if start_point != config.start_date {
-            dates.push(start_point);
-        }
-
-        let mut current = start_point;
-
-        while current < config.end_date {
-            current = current.add_months(months_per_period)?;
-
-            // Handle end-of-month rule
-            if config.end_of_month && start_point.is_end_of_month() {
-                current = current.end_of_month();
-            }
-
-            if current < config.end_date {
-                dates.push(current);
-            }
-        }
-
-        dates.push(config.end_date);
-        Ok(())
-    }
-
-    /// Adjusts dates for business days using the configured calendar.
-    fn adjust_dates(dates: &[Date], config: &ScheduleConfig) -> BondResult<Vec<Date>> {
-        let calendar = config.calendar.to_calendar();
-
-        dates
-            .iter()
-            .map(|&date| {
-                calendar
-                    .adjust(date, config.business_day_convention)
-                    .map_err(|e| BondError::InvalidSchedule {
-                        message: format!("Failed to adjust date {date}: {e}"),
-                    })
-            })
-            .collect()
+    /// Shared period details, including unadjusted accrual and ICMA references.
+    #[must_use]
+    pub fn coupon_periods(&self) -> &[CouponPeriod] {
+        self.coupon_schedule.periods()
     }
 
     /// Returns the unadjusted schedule dates.
     #[must_use]
     pub fn unadjusted_dates(&self) -> &[Date] {
-        &self.unadjusted_dates
+        self.coupon_schedule.contractual_dates()
     }
 
     /// Returns the adjusted schedule dates (for payment).
@@ -327,7 +257,10 @@ impl Schedule {
     ///
     /// Useful for accrual calculations which typically use unadjusted dates.
     pub fn unadjusted_periods(&self) -> impl Iterator<Item = (Date, Date)> + '_ {
-        self.unadjusted_dates.windows(2).map(|w| (w[0], w[1]))
+        self.coupon_schedule
+            .contractual_dates()
+            .windows(2)
+            .map(|w| (w[0], w[1]))
     }
 
     /// Returns the number of periods in the schedule.
@@ -356,13 +289,44 @@ impl Schedule {
 }
 
 impl CalendarId {
-    /// Converts the calendar ID to a boxed Calendar trait object.
-    #[must_use]
-    pub fn to_calendar(&self) -> Box<dyn Calendar> {
-        match self.as_str() {
-            "US_GOVERNMENT" | "US-GOV" | "USGov" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
-            "TARGET2" | "EUR" => Box::new(Target2Calendar::new()),
-            _ => Box::new(WeekendCalendar),
+    /// Resolve supported identifiers and joint holiday calendars. Unknown names
+    /// fail instead of silently using a weekend-only production schedule.
+    pub fn try_to_calendar(&self) -> BondResult<Box<dyn Calendar>> {
+        // Preserve the existing single empty weekend spelling, but reject empty
+        // components in a joint calendar rather than silently changing its terms.
+        if self.as_str().is_empty() {
+            return Ok(Box::new(WeekendCalendar));
+        }
+        if self.as_str().len() > 256 {
+            return Err(BondError::InvalidSchedule {
+                message: "Calendar identifier exceeds 256 bytes".into(),
+            });
+        }
+        let components: Vec<_> = self.components().collect();
+        if components.is_empty() || components.len() > 16 {
+            return Err(BondError::InvalidSchedule {
+                message: "Calendar requires 1..16 components".into(),
+            });
+        }
+        let mut calendars: Vec<Box<dyn Calendar>> = Vec::with_capacity(components.len());
+        for component in components {
+            let calendar: Box<dyn Calendar> = match component {
+                // Preserve the established bond calendar aliases.
+                "US_GOVERNMENT" | "US-GOV" | "USGov" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
+                "TARGET2" | "EUR" => Box::new(Target2Calendar::new()),
+                "UK" | "GBP" => Box::new(UKCalendar::new()),
+                "Japan" | "JPY" => Box::new(JapanCalendar::new()),
+                "WEEKEND" => Box::new(WeekendCalendar),
+                _ => return Err(BondError::InvalidSchedule { message: format!("Unsupported calendar {component}; supply a calendar with generate_with_calendar") }),
+            };
+            calendars.push(calendar);
+        }
+        if calendars.len() == 1 {
+            calendars.pop().ok_or_else(|| BondError::InvalidSchedule {
+                message: "Empty calendar".into(),
+            })
+        } else {
+            Ok(Box::new(JointCalendar::new(calendars)))
         }
     }
 }
