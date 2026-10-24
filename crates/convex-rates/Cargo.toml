@@ -1,0 +1,28 @@
+[package]
+name = "convex-rates"
+description = "Pure checked IRS and OIS contracts and cashflows for Convex"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords = ["finance", "fixed-income", "swaps", "rates"]
+categories = ["finance", "mathematics"]
+
+[dependencies]
+convex-core = { workspace = true }
+convex-curves = { workspace = true }
+rust_decimal = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+schemars = { version = "1.2", optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+rust_decimal_macros = { workspace = true }
+
+[features]
+default = []
+schemars = ["dep:schemars", "convex-core/schemars", "convex-curves/schemars"]

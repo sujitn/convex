@@ -8,7 +8,6 @@
 
 use crate::types::{AnalyticsConfig, Holding};
 use crate::Portfolio;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -51,19 +50,16 @@ pub struct EtfNavMetrics {
 
 impl EtfNavMetrics {
     /// Returns true if ETF is trading at a premium.
-    #[must_use]
     pub fn is_premium(&self) -> bool {
         self.premium_discount_pct.map(|p| p > 0.0).unwrap_or(false)
     }
 
     /// Returns true if ETF is trading at a discount.
-    #[must_use]
     pub fn is_discount(&self) -> bool {
         self.premium_discount_pct.map(|p| p < 0.0).unwrap_or(false)
     }
 
     /// Returns the absolute premium/discount in percentage points.
-    #[must_use]
     pub fn abs_premium_discount(&self) -> Option<f64> {
         self.premium_discount_pct.map(|p| p.abs())
     }
@@ -91,38 +87,56 @@ impl EtfNavMetrics {
 ///     println!("Trading at {:.2}% premium", nav_metrics.premium_discount_pct.unwrap());
 /// }
 /// ```
-#[must_use]
-pub fn calculate_etf_nav(portfolio: &Portfolio, market_price: Option<f64>) -> EtfNavMetrics {
-    let shares = portfolio.shares_outstanding.unwrap_or(Decimal::ONE);
-    let total_nav = portfolio.nav();
-    let nav_per_share = total_nav.to_f64().unwrap_or(0.0) / shares.to_f64().unwrap_or(1.0);
-
-    // Calculate premium/discount if market price is provided
+pub fn calculate_etf_nav(
+    portfolio: &Portfolio,
+    market_price: Option<f64>,
+) -> crate::PortfolioResult<EtfNavMetrics> {
+    use crate::analytics::metrics;
+    use convex_math::decimal::BoundedDecimal;
+    let total_nav = portfolio.nav()?;
+    let shares = portfolio
+        .shares_outstanding
+        .ok_or_else(|| crate::PortfolioError::missing_field("shares_outstanding"))?;
+    let nav = portfolio.nav_per_share()?.ok_or_else(|| {
+        crate::PortfolioError::invalid_portfolio("positive shares required for NAV per share")
+    })?;
+    let nav_per_share = metrics::presentation(nav)?;
     let (premium_discount_pct, premium_discount_dollars) = if let Some(price) = market_price {
-        if nav_per_share > 0.0 {
-            let diff = price - nav_per_share;
-            let pct = (diff / nav_per_share) * 100.0;
-            (Some(pct), Some(diff))
+        let price = metrics::scalar(price, &portfolio.id, "ETF market price")?;
+        if price < Decimal::ZERO {
+            return Err(crate::PortfolioError::invalid_portfolio(
+                "ETF market price cannot be negative",
+            ));
+        }
+        if nav > Decimal::ZERO {
+            let mut difference = BoundedDecimal::decimal(price);
+            difference.add(&BoundedDecimal::decimal(-nav))?;
+            let pct = difference
+                .multiply(Decimal::ONE_HUNDRED)?
+                .ratio(&BoundedDecimal::decimal(nav))?;
+            (
+                Some(metrics::presentation(pct)?),
+                Some(metrics::presentation(difference.finish()?)?),
+            )
         } else {
             (None, None)
         }
     } else {
         (None, None)
     };
-
-    EtfNavMetrics {
+    Ok(EtfNavMetrics {
         total_nav,
         shares_outstanding: shares,
         nav_per_share,
-        securities_value: portfolio.securities_market_value(),
-        cash_value: portfolio.total_cash(),
-        accrued_interest: portfolio.total_accrued_interest(),
-        liabilities: portfolio.liabilities.unwrap_or(Decimal::ZERO),
-        inav: None, // Would require real-time pricing data
+        securities_value: portfolio.securities_market_value()?,
+        cash_value: portfolio.total_cash()?,
+        accrued_interest: portfolio.total_accrued_interest()?,
+        liabilities: portfolio.total_liabilities(),
+        inav: None,
         market_price,
         premium_discount_pct,
         premium_discount_dollars,
-    }
+    })
 }
 
 /// Calculates indicative NAV (iNAV) with updated prices.
@@ -151,25 +165,32 @@ pub fn calculate_etf_nav(portfolio: &Portfolio, market_price: Option<f64>) -> Et
 /// let inav = calculate_inav(&updated_holdings, cash, shares, None, &config);
 /// println!("iNAV: ${:.4}", inav);
 /// ```
-#[must_use]
 pub fn calculate_inav(
     holdings: &[Holding],
     cash: Decimal,
     shares_outstanding: Decimal,
     liabilities: Option<Decimal>,
     _config: &AnalyticsConfig,
-) -> f64 {
-    // Sum market values
-    let securities_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
-
-    // Total accrued
-    let accrued: Decimal = holdings.iter().map(|h| h.accrued_amount()).sum();
-
-    // Total NAV
-    let total_nav = securities_mv + accrued + cash - liabilities.unwrap_or(Decimal::ZERO);
-
-    // Per share
-    total_nav.to_f64().unwrap_or(0.0) / shares_outstanding.to_f64().unwrap_or(1.0)
+) -> crate::PortfolioResult<f64> {
+    use convex_math::decimal::BoundedDecimal;
+    if shares_outstanding <= Decimal::ZERO || liabilities.is_some_and(|v| v < Decimal::ZERO) {
+        return Err(crate::PortfolioError::invalid_portfolio(
+            "positive shares and nonnegative liabilities required",
+        ));
+    }
+    crate::analytics::metrics::amount_rows(holdings.iter())?;
+    let mut nav = crate::analytics::metrics::sum(
+        holdings
+            .iter()
+            .map(|h| h.exact_amount(h.exact_dirty_price()?, true)),
+    )?;
+    nav.add(&BoundedDecimal::decimal(cash))?;
+    nav.add(&BoundedDecimal::decimal(
+        -liabilities.unwrap_or(Decimal::ZERO),
+    ))?;
+    crate::analytics::metrics::presentation(
+        nav.ratio(&BoundedDecimal::decimal(shares_outstanding))?,
+    )
 }
 
 /// Calculates premium/discount given NAV and market price.
@@ -181,7 +202,6 @@ pub fn calculate_inav(
 /// ```
 ///
 /// Returns percentage (positive = premium, negative = discount).
-#[must_use]
 pub fn premium_discount(nav_per_share: f64, market_price: f64) -> Option<f64> {
     if nav_per_share > 0.0 {
         Some((market_price - nav_per_share) / nav_per_share * 100.0)
@@ -239,7 +259,6 @@ pub struct PremiumDiscountStats {
 
 impl PremiumDiscountStats {
     /// Percentage of days at premium.
-    #[must_use]
     pub fn pct_at_premium(&self) -> f64 {
         if self.count > 0 {
             self.days_at_premium as f64 / self.count as f64 * 100.0
@@ -249,7 +268,6 @@ impl PremiumDiscountStats {
     }
 
     /// Percentage of days at discount.
-    #[must_use]
     pub fn pct_at_discount(&self) -> f64 {
         if self.count > 0 {
             self.days_at_discount as f64 / self.count as f64 * 100.0
@@ -268,7 +286,6 @@ impl PremiumDiscountStats {
 /// # Returns
 ///
 /// Statistics including average, median, and distribution of premium/discount.
-#[must_use]
 pub fn calculate_premium_discount_stats(history: &[PremiumDiscountPoint]) -> PremiumDiscountStats {
     if history.is_empty() {
         return PremiumDiscountStats {
@@ -360,7 +377,7 @@ mod tests {
     #[test]
     fn test_calculate_etf_nav_basic() {
         let portfolio = create_test_portfolio();
-        let metrics = calculate_etf_nav(&portfolio, None);
+        let metrics = calculate_etf_nav(&portfolio, None).unwrap();
 
         // NAV = 1,000,000 + 50,000 = 1,050,000
         assert!((metrics.total_nav - dec!(1_050_000)).abs() < dec!(0.01));
@@ -374,13 +391,13 @@ mod tests {
         let portfolio = create_test_portfolio();
 
         // Trading at premium
-        let metrics_premium = calculate_etf_nav(&portfolio, Some(10.75));
+        let metrics_premium = calculate_etf_nav(&portfolio, Some(10.75)).unwrap();
         assert!(metrics_premium.is_premium());
         // (10.75 - 10.50) / 10.50 * 100 ≈ 2.38%
         assert!((metrics_premium.premium_discount_pct.unwrap() - 2.38).abs() < 0.1);
 
         // Trading at discount
-        let metrics_discount = calculate_etf_nav(&portfolio, Some(10.25));
+        let metrics_discount = calculate_etf_nav(&portfolio, Some(10.25)).unwrap();
         assert!(metrics_discount.is_discount());
         // (10.25 - 10.50) / 10.50 * 100 ≈ -2.38%
         assert!((metrics_discount.premium_discount_pct.unwrap() - (-2.38)).abs() < 0.1);
@@ -421,7 +438,7 @@ mod tests {
         let shares = dec!(100_000);
         let config = AnalyticsConfig::default();
 
-        let inav = calculate_inav(&holdings, cash, shares, None, &config);
+        let inav = calculate_inav(&holdings, cash, shares, None, &config).unwrap();
 
         // iNAV = (1,000,000 + 50,000) / 100,000 = 10.50
         assert!((inav - 10.50).abs() < 0.001);

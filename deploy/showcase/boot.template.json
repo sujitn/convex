@@ -1,0 +1,157 @@
+{
+ "schema_version": 1,
+ "references": [
+  {
+   "recorded_at": "@NOW@",
+   "command": {
+    "idempotency_key": "showcase-book-boot",
+    "changes": [],
+    "master_changes": [
+     {
+      "expected_version": null,
+      "definition": {
+       "kind": "book",
+       "definition": {
+        "book_id": "SHOWCASE-BOOK",
+        "owning_system": "showcase-bms",
+        "name": "Showcase book",
+        "currency": "USD",
+        "description": null,
+        "effective": {
+         "from": "@NOW@",
+         "until": null
+        },
+        "positions": [
+         {
+          "instrument_id": "INSTRUMENT-001",
+          "quantity": "1000000",
+          "unit": "face",
+          "reference_version": null,
+          "source_identifier": null,
+          "sector": null,
+          "rating": null
+         }
+        ],
+        "provenance": {
+         "source": "showcase-bms",
+         "evidence_reference": "showcase:boot"
+        }
+       }
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "curves": [
+  {
+   "schema_version": 1,
+   "curve_id": "D.OIS",
+   "version": 2,
+   "source_time": "@NOW@",
+   "recorded_at": "@NOW@",
+   "source": "core.synthetic.curves",
+   "model_id": "native.supplied.recipes",
+   "input_versions": [],
+   "quality": "Demo",
+   "max_age_ms": 86400000,
+   "recipe": {
+    "key": {
+     "id": "D.OIS",
+     "version": "2"
+    },
+    "role": {
+     "kind": "Discount",
+     "collateral_currency": "USD"
+    },
+    "currency": "USD",
+    "reference_date": "2026-10-07",
+    "time_basis": "Act365Fixed",
+    "representation": "DiscountFactors",
+    "interpolation": "LogLinear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+     "Nodes": [
+      {
+       "pillar": {
+        "Tenor": 0
+       },
+       "quote": {
+        "value": 1.0,
+        "unit": "DiscountFactor"
+       }
+      },
+      {
+       "pillar": {
+        "Tenor": 50
+       },
+       "quote": {
+        "value": 0.2018965179946554,
+        "unit": "DiscountFactor"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "schema_version": 1,
+   "curve_id": "P.SOFR",
+   "version": 2,
+   "source_time": "@NOW@",
+   "recorded_at": "@NOW@",
+   "source": "core.synthetic.curves",
+   "model_id": "native.supplied.recipes",
+   "input_versions": [],
+   "quality": "Demo",
+   "max_age_ms": 86400000,
+   "recipe": {
+    "key": {
+     "id": "P.SOFR",
+     "version": "2"
+    },
+    "role": {
+     "kind": "Projection",
+     "index_id": "USD.SOFR"
+    },
+    "currency": "USD",
+    "reference_date": "2026-10-07",
+    "time_basis": "Act365Fixed",
+    "representation": {
+     "ZeroRates": {
+      "compounding": "Continuous"
+     }
+    },
+    "interpolation": "Linear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+     "Nodes": [
+      {
+       "pillar": {
+        "Tenor": 0
+       },
+       "quote": {
+        "value": 0.037,
+        "unit": "DecimalRate"
+       }
+      },
+      {
+       "pillar": {
+        "Tenor": 50
+       },
+       "quote": {
+        "value": 0.037,
+        "unit": "DecimalRate"
+       }
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "fixings": []
+}

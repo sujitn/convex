@@ -20,7 +20,7 @@
 //! assert!(cal.is_business_day(Date::from_ymd(2025, 1, 2).unwrap()));
 //! ```
 
-use super::bitmap::{HolidayBitmap, WeekendType, MAX_YEAR, MIN_YEAR};
+use super::bitmap::{WeekendType, MAX_YEAR, MIN_YEAR};
 use super::Calendar;
 use crate::error::{ConvexError, ConvexResult};
 use crate::types::Date;
@@ -36,8 +36,10 @@ use std::path::Path;
 ///
 /// # Performance
 ///
-/// - `is_business_day()`: O(1), same as static calendars
-/// - Memory: ~12KB base + name string
+/// Supplied holidays are an exact set of dates with O(1) expected lookups.
+/// Storage follows the supplied set; dates are never clipped to a static
+/// calendar's bitmap window. Calendar/source completeness remains the caller's
+/// explicit input responsibility.
 ///
 /// # Example
 ///
@@ -54,16 +56,18 @@ use std::path::Path;
 pub struct DynamicCalendar {
     /// Name of the calendar
     name: String,
-    /// Underlying bitmap for O(1) lookups
-    bitmap: HolidayBitmap,
+    /// Exact caller-supplied holidays, including dates beyond static bitmaps.
+    holidays: HashSet<NaiveDate>,
+    /// Explicit caller-supplied weekend rule.
+    weekend: WeekendType,
 }
 
 impl std::fmt::Debug for DynamicCalendar {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DynamicCalendar")
             .field("name", &self.name)
-            .field("weekend", &self.bitmap.weekend_type())
-            .field("holiday_count", &self.bitmap.count_holidays())
+            .field("weekend", &self.weekend)
+            .field("holiday_count", &self.holidays.len())
             .finish()
     }
 }
@@ -78,9 +82,8 @@ impl DynamicCalendar {
     pub fn new(name: impl Into<String>, weekend: WeekendType) -> Self {
         Self {
             name: name.into(),
-            // Use a leaked static string for the bitmap name
-            // This is safe because the name is also stored in self.name
-            bitmap: HolidayBitmap::new("Dynamic", weekend),
+            holidays: HashSet::new(),
+            weekend,
         }
     }
 
@@ -117,7 +120,7 @@ impl DynamicCalendar {
     ) -> Self {
         let mut cal = Self::new(name, weekend);
         for date in holidays {
-            cal.bitmap.add_holiday(date);
+            cal.holidays.insert(date);
         }
         cal
     }
@@ -173,7 +176,7 @@ impl DynamicCalendar {
                     reason: format!("Invalid date '{}': {}", date_str, e),
                 }
             })?;
-            cal.bitmap.add_holiday(holiday_date);
+            cal.holidays.insert(holiday_date);
         }
 
         Ok(cal)
@@ -225,7 +228,7 @@ impl DynamicCalendar {
 
         for year in start..=end {
             for date in loader(year) {
-                cal.bitmap.add_holiday(date);
+                cal.holidays.insert(date);
             }
         }
         cal
@@ -238,41 +241,41 @@ impl DynamicCalendar {
 
     /// Get the weekend type.
     pub fn weekend_type(&self) -> WeekendType {
-        self.bitmap.weekend_type()
+        self.weekend
     }
 
     /// Add a holiday date.
     pub fn add_holiday(&mut self, date: Date) {
-        self.bitmap.add_holiday(date.as_naive_date());
+        self.holidays.insert(date.as_naive_date());
     }
 
     /// Add a holiday from NaiveDate.
     pub fn add_holiday_naive(&mut self, date: NaiveDate) {
-        self.bitmap.add_holiday(date);
+        self.holidays.insert(date);
     }
 
     /// Add multiple holidays.
     pub fn add_holidays(&mut self, dates: impl IntoIterator<Item = Date>) {
         for date in dates {
-            self.bitmap.add_holiday(date.as_naive_date());
+            self.holidays.insert(date.as_naive_date());
         }
     }
 
     /// Add multiple holidays from NaiveDates.
     pub fn add_holidays_naive(&mut self, dates: impl IntoIterator<Item = NaiveDate>) {
         for date in dates {
-            self.bitmap.add_holiday(date);
+            self.holidays.insert(date);
         }
     }
 
     /// Remove a holiday date.
     pub fn remove_holiday(&mut self, date: Date) {
-        self.bitmap.remove_holiday(date.as_naive_date());
+        self.holidays.remove(&date.as_naive_date());
     }
 
     /// Remove a holiday from NaiveDate.
     pub fn remove_holiday_naive(&mut self, date: NaiveDate) {
-        self.bitmap.remove_holiday(date);
+        self.holidays.remove(&date);
     }
 
     /// Add holidays for a specific year using a generator function.
@@ -286,7 +289,7 @@ impl DynamicCalendar {
         F: FnOnce(i32) -> Vec<NaiveDate>,
     {
         for date in generator(year) {
-            self.bitmap.add_holiday(date);
+            self.holidays.insert(date);
         }
     }
 
@@ -294,17 +297,7 @@ impl DynamicCalendar {
     ///
     /// Adds all holidays from the other calendar to this one.
     pub fn merge(&mut self, other: &DynamicCalendar) {
-        // We need to iterate through all possible dates and check if they're holidays
-        // This is inefficient but necessary since we can't directly access the other bitmap
-        for year in MIN_YEAR..=MAX_YEAR {
-            for ordinal in 1..=366 {
-                if let Some(date) = NaiveDate::from_yo_opt(year, ordinal) {
-                    if other.bitmap.is_holiday(date) {
-                        self.bitmap.add_holiday(date);
-                    }
-                }
-            }
-        }
+        self.holidays.extend(other.holidays.iter().copied());
     }
 
     /// Merge holidays from a static calendar that implements Calendar trait.
@@ -315,9 +308,9 @@ impl DynamicCalendar {
                     if let Ok(date) = Date::from_ymd(naive.year(), naive.month(), naive.day()) {
                         // Check if it's a holiday (not weekend, but not business day)
                         let weekday = naive.weekday();
-                        let is_weekend = self.bitmap.weekend_type().is_weekend(weekday);
+                        let is_weekend = self.weekend.is_weekend(weekday);
                         if !is_weekend && !other.is_business_day(date) {
-                            self.bitmap.add_holiday(naive);
+                            self.holidays.insert(naive);
                         }
                     }
                 }
@@ -327,37 +320,31 @@ impl DynamicCalendar {
 
     /// Count total holidays in this calendar.
     pub fn holiday_count(&self) -> usize {
-        self.bitmap.count_holidays()
+        self.holidays.len()
     }
 
     /// Check if a date is a holiday (excluding weekends).
     pub fn is_holiday_date(&self, date: Date) -> bool {
-        self.bitmap.is_holiday(date.as_naive_date())
+        self.holidays.contains(&date.as_naive_date())
     }
 
     /// Check if a NaiveDate is a holiday (excluding weekends).
     pub fn is_holiday_naive(&self, date: NaiveDate) -> bool {
-        self.bitmap.is_holiday(date)
+        self.holidays.contains(&date)
     }
 
     /// Export calendar data to a serializable struct.
     pub fn to_calendar_data(&self) -> CalendarData {
-        let mut holidays = Vec::new();
-
-        // Collect all holidays
-        for year in MIN_YEAR..=MAX_YEAR {
-            for ordinal in 1..=366 {
-                if let Some(date) = NaiveDate::from_yo_opt(year, ordinal) {
-                    if self.bitmap.is_holiday(date) {
-                        holidays.push(date.format("%Y-%m-%d").to_string());
-                    }
-                }
-            }
-        }
+        let mut dates: Vec<_> = self.holidays.iter().copied().collect();
+        dates.sort_unstable();
+        let holidays = dates
+            .into_iter()
+            .map(|date| date.format("%Y-%m-%d").to_string())
+            .collect();
 
         CalendarData {
             name: self.name.clone(),
-            weekend: Some(self.bitmap.weekend_type()),
+            weekend: Some(self.weekend),
             holidays,
         }
     }
@@ -387,7 +374,8 @@ impl Calendar for DynamicCalendar {
     }
 
     fn is_business_day(&self, date: Date) -> bool {
-        self.bitmap.is_business_day(date.as_naive_date())
+        !self.weekend.is_weekend(date.as_naive_date().weekday())
+            && !self.holidays.contains(&date.as_naive_date())
     }
 }
 

@@ -1,0 +1,1736 @@
+{
+  "recorded_at": "2026-10-15T11:17:17.289985+00:00",
+  "method": "Independent Python datetime/calendar and exact Fractions, Decimal110 reporting; comparisons rounded to28significant digits before candidate execution",
+  "bounds": "4e-28 times max(1,abs(original face*annual rate)) in input cash units; original financial assertions and bounds unchanged",
+  "source_notes": [
+    {
+      "url": "https://strata.opengamma.io/day_counts/",
+      "status": "opened primary documentation",
+      "scope": "Annual actual/360,actual/365F,ISDA year splits; full coupon frequency/end for ACT/365L; actual ICMA reference days; thirty-day definitions"
+    },
+    {
+      "url": "https://github.com/lballabio/QuantLib/blob/master/ql/cashflows/fixedratecoupon.cpp",
+      "status": "opened upstream primary source",
+      "scope": "Simple annual-rate coupon accrued and explicitly remaining-interest ex-coupon semantics; no source code copied"
+    },
+    {
+      "url": "https://www.isda.org/book/actualactual-day-count-fraction/",
+      "status": "indexed official page; actual open returned403",
+      "scope": "Not a captured or approved reference pack"
+    }
+  ],
+  "cases": [
+    {
+      "id": "accrued-000",
+      "kind": "standard",
+      "day_count": "Act360",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.25",
+      "comparison_amount": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-001",
+      "kind": "standard",
+      "day_count": "Act360",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "-0.015",
+      "original_face": "1000.625",
+      "frequency": 2,
+      "expected_amount": "-3.75234375",
+      "comparison_amount": "-3.75234375",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-002",
+      "kind": "standard",
+      "day_count": "Act360",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0",
+      "original_face": "5000",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-003",
+      "kind": "standard",
+      "day_count": "Act360",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.075",
+      "original_face": "1000000",
+      "frequency": 2,
+      "expected_amount": "18750",
+      "comparison_amount": "18750",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-004",
+      "kind": "standard",
+      "day_count": "Act360",
+      "settlement": "2025-01-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1
+    },
+    {
+      "id": "accrued-005",
+      "kind": "standard",
+      "day_count": "Act360",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "2.5138888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888888889",
+      "comparison_amount": "2.513888888888888888888888889",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 181,
+      "fraction_denominator": 360
+    },
+    {
+      "id": "accrued-006",
+      "kind": "standard",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.2328767123287671232876712328767123287671232876712328767123287671232876712328767123287671232876712328767123288",
+      "comparison_amount": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-007",
+      "kind": "standard",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "-0.015",
+      "original_face": "1000.625",
+      "frequency": 2,
+      "expected_amount": "-3.7009417808219178082191780821917808219178082191780821917808219178082191780821917808219178082191780821917808219",
+      "comparison_amount": "-3.700941780821917808219178082",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-008",
+      "kind": "standard",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0",
+      "original_face": "5000",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-009",
+      "kind": "standard",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.075",
+      "original_face": "1000000",
+      "frequency": 2,
+      "expected_amount": "18493.150684931506849315068493150684931506849315068493150684931506849315068493150684931506849315068493150684932",
+      "comparison_amount": "18493.15068493150684931506849",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-010",
+      "kind": "standard",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-01-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1
+    },
+    {
+      "id": "accrued-011",
+      "kind": "standard",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "2.4794520547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794520547945",
+      "comparison_amount": "2.479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 181,
+      "fraction_denominator": 365
+    },
+    {
+      "id": "accrued-012",
+      "kind": "standard",
+      "day_count": "ActActIsda",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.2328767123287671232876712328767123287671232876712328767123287671232876712328767123287671232876712328767123288",
+      "comparison_amount": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-013",
+      "kind": "standard",
+      "day_count": "ActActIsda",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "-0.015",
+      "original_face": "1000.625",
+      "frequency": 2,
+      "expected_amount": "-3.7009417808219178082191780821917808219178082191780821917808219178082191780821917808219178082191780821917808219",
+      "comparison_amount": "-3.700941780821917808219178082",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-014",
+      "kind": "standard",
+      "day_count": "ActActIsda",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0",
+      "original_face": "5000",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-015",
+      "kind": "standard",
+      "day_count": "ActActIsda",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.075",
+      "original_face": "1000000",
+      "frequency": 2,
+      "expected_amount": "18493.150684931506849315068493150684931506849315068493150684931506849315068493150684931506849315068493150684932",
+      "comparison_amount": "18493.15068493150684931506849",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-016",
+      "kind": "standard",
+      "day_count": "ActActIsda",
+      "settlement": "2025-01-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1
+    },
+    {
+      "id": "accrued-017",
+      "kind": "standard",
+      "day_count": "ActActIsda",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "2.4794520547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794520547945",
+      "comparison_amount": "2.479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 181,
+      "fraction_denominator": 365
+    },
+    {
+      "id": "accrued-018",
+      "kind": "standard",
+      "day_count": "ActActIcma",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.2430939226519337016574585635359116022099447513812154696132596685082872928176795580110497237569060773480662983",
+      "comparison_amount": "1.243093922651933701657458564",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 45,
+      "fraction_denominator": 181
+    },
+    {
+      "id": "accrued-019",
+      "kind": "standard",
+      "day_count": "ActActIcma",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "-0.015",
+      "original_face": "1000.625",
+      "frequency": 2,
+      "expected_amount": "-3.7316125690607734806629834254143646408839779005524861878453038674033149171270718232044198895027624309392265193",
+      "comparison_amount": "-3.731612569060773480662983425",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "fraction_numerator": 45,
+      "fraction_denominator": 181
+    },
+    {
+      "id": "accrued-020",
+      "kind": "standard",
+      "day_count": "ActActIcma",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0",
+      "original_face": "5000",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "fraction_numerator": 45,
+      "fraction_denominator": 181
+    },
+    {
+      "id": "accrued-021",
+      "kind": "standard",
+      "day_count": "ActActIcma",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.075",
+      "original_face": "1000000",
+      "frequency": 2,
+      "expected_amount": "18646.408839779005524861878453038674033149171270718232044198895027624309392265193370165745856353591160220994475",
+      "comparison_amount": "18646.40883977900552486187845",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "fraction_numerator": 45,
+      "fraction_denominator": 181
+    },
+    {
+      "id": "accrued-022",
+      "kind": "standard",
+      "day_count": "ActActIcma",
+      "settlement": "2025-01-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1
+    },
+    {
+      "id": "accrued-023",
+      "kind": "standard",
+      "day_count": "ActActIcma",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "2.5",
+      "comparison_amount": "2.5",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 2
+    },
+    {
+      "id": "accrued-024",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.2328767123287671232876712328767123287671232876712328767123287671232876712328767123287671232876712328767123288",
+      "comparison_amount": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-025",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "-0.015",
+      "original_face": "1000.625",
+      "frequency": 2,
+      "expected_amount": "-3.7009417808219178082191780821917808219178082191780821917808219178082191780821917808219178082191780821917808219",
+      "comparison_amount": "-3.700941780821917808219178082",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-026",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0",
+      "original_face": "5000",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-027",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.075",
+      "original_face": "1000000",
+      "frequency": 2,
+      "expected_amount": "18493.150684931506849315068493150684931506849315068493150684931506849315068493150684931506849315068493150684932",
+      "comparison_amount": "18493.15068493150684931506849",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-028",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2025-01-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1
+    },
+    {
+      "id": "accrued-029",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "2.4794520547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794520547945",
+      "comparison_amount": "2.479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 181,
+      "fraction_denominator": 365
+    },
+    {
+      "id": "accrued-030",
+      "kind": "standard",
+      "day_count": "Thirty360US",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.25",
+      "comparison_amount": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-031",
+      "kind": "standard",
+      "day_count": "Thirty360US",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "-0.015",
+      "original_face": "1000.625",
+      "frequency": 2,
+      "expected_amount": "-3.75234375",
+      "comparison_amount": "-3.75234375",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-032",
+      "kind": "standard",
+      "day_count": "Thirty360US",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0",
+      "original_face": "5000",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-033",
+      "kind": "standard",
+      "day_count": "Thirty360US",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.075",
+      "original_face": "1000000",
+      "frequency": 2,
+      "expected_amount": "18750",
+      "comparison_amount": "18750",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-034",
+      "kind": "standard",
+      "day_count": "Thirty360US",
+      "settlement": "2025-01-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1
+    },
+    {
+      "id": "accrued-035",
+      "kind": "standard",
+      "day_count": "Thirty360US",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "2.5",
+      "comparison_amount": "2.5",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 2
+    },
+    {
+      "id": "accrued-036",
+      "kind": "standard",
+      "day_count": "Thirty360E",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.25",
+      "comparison_amount": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-037",
+      "kind": "standard",
+      "day_count": "Thirty360E",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "-0.015",
+      "original_face": "1000.625",
+      "frequency": 2,
+      "expected_amount": "-3.75234375",
+      "comparison_amount": "-3.75234375",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-038",
+      "kind": "standard",
+      "day_count": "Thirty360E",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0",
+      "original_face": "5000",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-039",
+      "kind": "standard",
+      "day_count": "Thirty360E",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.075",
+      "original_face": "1000000",
+      "frequency": 2,
+      "expected_amount": "18750",
+      "comparison_amount": "18750",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-040",
+      "kind": "standard",
+      "day_count": "Thirty360E",
+      "settlement": "2025-01-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1
+    },
+    {
+      "id": "accrued-041",
+      "kind": "standard",
+      "day_count": "Thirty360E",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "2.5",
+      "comparison_amount": "2.5",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 2
+    },
+    {
+      "id": "accrued-042",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2024-06-01",
+      "period_start": "2024-03-01",
+      "period_end": "2024-09-01",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.2568306010928961748633879781420765027322404371584699453551912568306010928961748633879781420765027322404371585",
+      "comparison_amount": "1.256830601092896174863387978",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 46,
+      "fraction_denominator": 183
+    },
+    {
+      "id": "accrued-043",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2024-06-01",
+      "period_start": "2024-01-01",
+      "period_end": "2025-01-01",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 1,
+      "expected_amount": "2.0765027322404371584699453551912568306010928961748633879781420765027322404371584699453551912568306010928961749",
+      "comparison_amount": "2.076502732240437158469945355",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 76,
+      "fraction_denominator": 183
+    },
+    {
+      "id": "accrued-044",
+      "kind": "standard",
+      "day_count": "Act365Leap",
+      "settlement": "2023-12-15",
+      "period_start": "2023-10-01",
+      "period_end": "2024-04-01",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.0245901639344262295081967213114754098360655737704918032786885245901639344262295081967213114754098360655737705",
+      "comparison_amount": "1.024590163934426229508196721",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 25,
+      "fraction_denominator": 122
+    },
+    {
+      "id": "accrued-045",
+      "kind": "standard",
+      "day_count": "ActActIsda",
+      "settlement": "2024-03-15",
+      "period_start": "2023-12-15",
+      "period_end": "2024-06-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.2438056740774010030690919979040347331387079871247847892806347780522494198667564937495321506100756044614117823",
+      "comparison_amount": "1.243805674077401003069091998",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 16616,
+      "fraction_denominator": 66795
+    },
+    {
+      "id": "accrued-046",
+      "kind": "standard",
+      "day_count": "Thirty360US",
+      "settlement": "2025-03-31",
+      "period_start": "2025-02-28",
+      "period_end": "2025-08-31",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0.41666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667",
+      "comparison_amount": "0.4166666666666666666666666667",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 12
+    },
+    {
+      "id": "accrued-047",
+      "kind": "standard",
+      "day_count": "Thirty360E",
+      "settlement": "2025-03-31",
+      "period_start": "2025-02-28",
+      "period_end": "2025-08-31",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0.44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444",
+      "comparison_amount": "0.4444444444444444444444444444",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 4,
+      "fraction_denominator": 45
+    },
+    {
+      "id": "accrued-048",
+      "kind": "ex_dividend",
+      "day_count": "Act360",
+      "settlement": "2025-07-02",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.8666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667",
+      "comparison_amount": "1.866666666666666666666666667",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 7,
+      "fraction_denominator": 15,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-049",
+      "kind": "ex_dividend",
+      "day_count": "Act360",
+      "settlement": "2025-07-03",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.13333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333",
+      "comparison_amount": "-0.1333333333333333333333333333",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 30,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-050",
+      "kind": "ex_dividend",
+      "day_count": "Act360",
+      "settlement": "2025-07-10",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.055555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "comparison_amount": "-0.05555555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 72,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-051",
+      "kind": "ex_dividend",
+      "day_count": "Act360",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-052",
+      "kind": "ex_dividend",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-07-02",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.8410958904109589041095890410958904109589041095890410958904109589041095890410958904109589041095890410958904110",
+      "comparison_amount": "1.841095890410958904109589041",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 168,
+      "fraction_denominator": 365,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-053",
+      "kind": "ex_dividend",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-07-03",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.13150684931506849315068493150684931506849315068493150684931506849315068493150684931506849315068493150684931507",
+      "comparison_amount": "-0.1315068493150684931506849315",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -12,
+      "fraction_denominator": 365,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-054",
+      "kind": "ex_dividend",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-07-10",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.054794520547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794520547945",
+      "comparison_amount": "-0.05479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 73,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-055",
+      "kind": "ex_dividend",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-056",
+      "kind": "ex_dividend",
+      "day_count": "ActActIsda",
+      "settlement": "2025-07-02",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.8410958904109589041095890410958904109589041095890410958904109589041095890410958904109589041095890410958904110",
+      "comparison_amount": "1.841095890410958904109589041",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 168,
+      "fraction_denominator": 365,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-057",
+      "kind": "ex_dividend",
+      "day_count": "ActActIsda",
+      "settlement": "2025-07-03",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.13150684931506849315068493150684931506849315068493150684931506849315068493150684931506849315068493150684931507",
+      "comparison_amount": "-0.1315068493150684931506849315",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -12,
+      "fraction_denominator": 365,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-058",
+      "kind": "ex_dividend",
+      "day_count": "ActActIsda",
+      "settlement": "2025-07-10",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.054794520547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794520547945",
+      "comparison_amount": "-0.05479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 73,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-059",
+      "kind": "ex_dividend",
+      "day_count": "ActActIsda",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-060",
+      "kind": "ex_dividend",
+      "day_count": "ActActIcma",
+      "settlement": "2025-07-02",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.8563535911602209944751381215469613259668508287292817679558011049723756906077348066298342541436464088397790055",
+      "comparison_amount": "1.856353591160220994475138122",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 84,
+      "fraction_denominator": 181,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-061",
+      "kind": "ex_dividend",
+      "day_count": "ActActIcma",
+      "settlement": "2025-07-03",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.13259668508287292817679558011049723756906077348066298342541436464088397790055248618784530386740331491712707182",
+      "comparison_amount": "-0.1325966850828729281767955801",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -6,
+      "fraction_denominator": 181,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-062",
+      "kind": "ex_dividend",
+      "day_count": "ActActIcma",
+      "settlement": "2025-07-10",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.055248618784530386740331491712707182320441988950276243093922651933701657458563535911602209944751381215469613260",
+      "comparison_amount": "-0.05524861878453038674033149171",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -5,
+      "fraction_denominator": 362,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-063",
+      "kind": "ex_dividend",
+      "day_count": "ActActIcma",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-064",
+      "kind": "ex_dividend",
+      "day_count": "Act365Leap",
+      "settlement": "2025-07-02",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.8410958904109589041095890410958904109589041095890410958904109589041095890410958904109589041095890410958904110",
+      "comparison_amount": "1.841095890410958904109589041",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 168,
+      "fraction_denominator": 365,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-065",
+      "kind": "ex_dividend",
+      "day_count": "Act365Leap",
+      "settlement": "2025-07-03",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.13150684931506849315068493150684931506849315068493150684931506849315068493150684931506849315068493150684931507",
+      "comparison_amount": "-0.1315068493150684931506849315",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -12,
+      "fraction_denominator": 365,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-066",
+      "kind": "ex_dividend",
+      "day_count": "Act365Leap",
+      "settlement": "2025-07-10",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.054794520547945205479452054794520547945205479452054794520547945205479452054794520547945205479452054794520547945",
+      "comparison_amount": "-0.05479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 73,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-067",
+      "kind": "ex_dividend",
+      "day_count": "Act365Leap",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-068",
+      "kind": "ex_dividend",
+      "day_count": "Thirty360US",
+      "settlement": "2025-07-02",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.8555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "comparison_amount": "1.855555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 167,
+      "fraction_denominator": 360,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-069",
+      "kind": "ex_dividend",
+      "day_count": "Thirty360US",
+      "settlement": "2025-07-03",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.13333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333",
+      "comparison_amount": "-0.1333333333333333333333333333",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 30,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-070",
+      "kind": "ex_dividend",
+      "day_count": "Thirty360US",
+      "settlement": "2025-07-10",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.055555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "comparison_amount": "-0.05555555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 72,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-071",
+      "kind": "ex_dividend",
+      "day_count": "Thirty360US",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-072",
+      "kind": "ex_dividend",
+      "day_count": "Thirty360E",
+      "settlement": "2025-07-02",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.8555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "comparison_amount": "1.855555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 167,
+      "fraction_denominator": 360,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-073",
+      "kind": "ex_dividend",
+      "day_count": "Thirty360E",
+      "settlement": "2025-07-03",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.13333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333",
+      "comparison_amount": "-0.1333333333333333333333333333",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 30,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-074",
+      "kind": "ex_dividend",
+      "day_count": "Thirty360E",
+      "settlement": "2025-07-10",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "-0.055555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "comparison_amount": "-0.05555555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": -1,
+      "fraction_denominator": 72,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-075",
+      "kind": "ex_dividend",
+      "day_count": "Thirty360E",
+      "settlement": "2025-07-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.04",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1,
+      "ex_dividend_days": 7,
+      "expected_ex_date": "2025-07-03",
+      "calendar": {
+        "holidays": [
+          "2025-07-08"
+        ],
+        "weekend_days": [
+          5,
+          6
+        ]
+      }
+    },
+    {
+      "id": "accrued-076",
+      "kind": "irregular_period",
+      "day_count": "Act360",
+      "settlement": "2025-05-15",
+      "period_start": "2025-03-01",
+      "period_end": "2025-06-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.0416666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667",
+      "comparison_amount": "1.041666666666666666666666667",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 5,
+      "fraction_denominator": 24,
+      "reference_start": "2024-12-15",
+      "reference_end": "2025-06-15"
+    },
+    {
+      "id": "accrued-077",
+      "kind": "irregular_period",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-05-15",
+      "period_start": "2025-03-01",
+      "period_end": "2025-06-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.0273972602739726027397260273972602739726027397260273972602739726027397260273972602739726027397260273972602740",
+      "comparison_amount": "1.027397260273972602739726027",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 15,
+      "fraction_denominator": 73,
+      "reference_start": "2024-12-15",
+      "reference_end": "2025-06-15"
+    },
+    {
+      "id": "accrued-078",
+      "kind": "irregular_period",
+      "day_count": "ActActIsda",
+      "settlement": "2025-05-15",
+      "period_start": "2025-03-01",
+      "period_end": "2025-06-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.0273972602739726027397260273972602739726027397260273972602739726027397260273972602739726027397260273972602740",
+      "comparison_amount": "1.027397260273972602739726027",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 15,
+      "fraction_denominator": 73,
+      "reference_start": "2024-12-15",
+      "reference_end": "2025-06-15"
+    },
+    {
+      "id": "accrued-079",
+      "kind": "irregular_period",
+      "day_count": "ActActIcma",
+      "settlement": "2025-05-15",
+      "period_start": "2025-03-01",
+      "period_end": "2025-06-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.0302197802197802197802197802197802197802197802197802197802197802197802197802197802197802197802197802197802198",
+      "comparison_amount": "1.030219780219780219780219780",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 75,
+      "fraction_denominator": 364,
+      "reference_start": "2024-12-15",
+      "reference_end": "2025-06-15"
+    },
+    {
+      "id": "accrued-080",
+      "kind": "irregular_period",
+      "day_count": "Act365Leap",
+      "settlement": "2025-05-15",
+      "period_start": "2025-03-01",
+      "period_end": "2025-06-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.0273972602739726027397260273972602739726027397260273972602739726027397260273972602739726027397260273972602740",
+      "comparison_amount": "1.027397260273972602739726027",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 15,
+      "fraction_denominator": 73,
+      "reference_start": "2024-12-15",
+      "reference_end": "2025-06-15"
+    },
+    {
+      "id": "accrued-081",
+      "kind": "year_fraction",
+      "day_count": "Act360",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.25",
+      "comparison_amount": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-082",
+      "kind": "year_fraction",
+      "day_count": "Act365Fixed",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.2328767123287671232876712328767123287671232876712328767123287671232876712328767123287671232876712328767123288",
+      "comparison_amount": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-083",
+      "kind": "year_fraction",
+      "day_count": "ActActIsda",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.2328767123287671232876712328767123287671232876712328767123287671232876712328767123287671232876712328767123288",
+      "comparison_amount": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 18,
+      "fraction_denominator": 73
+    },
+    {
+      "id": "accrued-084",
+      "kind": "year_fraction",
+      "day_count": "Thirty360US",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.25",
+      "comparison_amount": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-085",
+      "kind": "year_fraction",
+      "day_count": "Thirty360E",
+      "settlement": "2025-04-15",
+      "period_start": "2025-01-15",
+      "period_end": "2025-07-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 2,
+      "expected_amount": "1.25",
+      "comparison_amount": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 1,
+      "fraction_denominator": 4
+    },
+    {
+      "id": "accrued-086",
+      "kind": "standard",
+      "day_count": "Thirty360US",
+      "settlement": "2025-04-15",
+      "period_start": "2020-01-15",
+      "period_end": "2030-01-15",
+      "annual_rate": "0.05",
+      "original_face": "100",
+      "frequency": 0,
+      "expected_amount": "0",
+      "comparison_amount": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "fraction_numerator": 0,
+      "fraction_denominator": 1
+    }
+  ],
+  "accepted_task": false,
+  "certified": false
+}

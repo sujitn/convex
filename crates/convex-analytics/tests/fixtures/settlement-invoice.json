@@ -1,0 +1,455 @@
+{
+  "reference": "Independent Python Decimal90 complete scalar products/sums; exact equality on the deliberately exactly representable outputs. These are supplied-value arithmetic controls, not a market convention or posting certificate.",
+  "precision": 90,
+  "recorded_at": "2026-10-16T01:17:40.832564+00:00",
+  "settlement_date": "2020-04-29",
+  "accrued_days": 134,
+  "amount_bound": "0",
+  "cases": [
+    {
+      "id": "invoice-0",
+      "face_value": "0",
+      "clean_price": "100",
+      "accrued_interest": "2.5",
+      "dirty_price": "102.5",
+      "principal_amount": "0",
+      "accrued_amount": "0.0",
+      "settlement_amount": "0.0"
+    },
+    {
+      "id": "invoice-1",
+      "face_value": "0",
+      "clean_price": "110.503",
+      "accrued_interest": "2.698611",
+      "dirty_price": "113.201611",
+      "principal_amount": "0.000",
+      "accrued_amount": "0.000000",
+      "settlement_amount": "0.000000"
+    },
+    {
+      "id": "invoice-2",
+      "face_value": "0",
+      "clean_price": "-20",
+      "accrued_interest": "-0.25",
+      "dirty_price": "-20.25",
+      "principal_amount": "-0",
+      "accrued_amount": "-0.00",
+      "settlement_amount": "-0.00"
+    },
+    {
+      "id": "invoice-3",
+      "face_value": "0",
+      "clean_price": "0",
+      "accrued_interest": "0",
+      "dirty_price": "0",
+      "principal_amount": "0",
+      "accrued_amount": "0",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-4",
+      "face_value": "0",
+      "clean_price": "99.25",
+      "accrued_interest": "-1.125",
+      "dirty_price": "98.125",
+      "principal_amount": "0.00",
+      "accrued_amount": "-0.000",
+      "settlement_amount": "0.000"
+    },
+    {
+      "id": "invoice-5",
+      "face_value": "0",
+      "clean_price": "-100",
+      "accrued_interest": "100",
+      "dirty_price": "0",
+      "principal_amount": "-0",
+      "accrued_amount": "0",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-6",
+      "face_value": "100",
+      "clean_price": "100",
+      "accrued_interest": "2.5",
+      "dirty_price": "102.5",
+      "principal_amount": "100",
+      "accrued_amount": "2.5",
+      "settlement_amount": "102.5"
+    },
+    {
+      "id": "invoice-7",
+      "face_value": "100",
+      "clean_price": "110.503",
+      "accrued_interest": "2.698611",
+      "dirty_price": "113.201611",
+      "principal_amount": "110.503",
+      "accrued_amount": "2.698611",
+      "settlement_amount": "113.201611"
+    },
+    {
+      "id": "invoice-8",
+      "face_value": "100",
+      "clean_price": "-20",
+      "accrued_interest": "-0.25",
+      "dirty_price": "-20.25",
+      "principal_amount": "-20",
+      "accrued_amount": "-0.25",
+      "settlement_amount": "-20.25"
+    },
+    {
+      "id": "invoice-9",
+      "face_value": "100",
+      "clean_price": "0",
+      "accrued_interest": "0",
+      "dirty_price": "0",
+      "principal_amount": "0",
+      "accrued_amount": "0",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-10",
+      "face_value": "100",
+      "clean_price": "99.25",
+      "accrued_interest": "-1.125",
+      "dirty_price": "98.125",
+      "principal_amount": "99.25",
+      "accrued_amount": "-1.125",
+      "settlement_amount": "98.125"
+    },
+    {
+      "id": "invoice-11",
+      "face_value": "100",
+      "clean_price": "-100",
+      "accrued_interest": "100",
+      "dirty_price": "0",
+      "principal_amount": "-100",
+      "accrued_amount": "100",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-12",
+      "face_value": "1000000",
+      "clean_price": "100",
+      "accrued_interest": "2.5",
+      "dirty_price": "102.5",
+      "principal_amount": "1000000",
+      "accrued_amount": "25000.0",
+      "settlement_amount": "1025000.0"
+    },
+    {
+      "id": "invoice-13",
+      "face_value": "1000000",
+      "clean_price": "110.503",
+      "accrued_interest": "2.698611",
+      "dirty_price": "113.201611",
+      "principal_amount": "1105030.000",
+      "accrued_amount": "26986.110000",
+      "settlement_amount": "1132016.110000"
+    },
+    {
+      "id": "invoice-14",
+      "face_value": "1000000",
+      "clean_price": "-20",
+      "accrued_interest": "-0.25",
+      "dirty_price": "-20.25",
+      "principal_amount": "-200000",
+      "accrued_amount": "-2500.00",
+      "settlement_amount": "-202500.00"
+    },
+    {
+      "id": "invoice-15",
+      "face_value": "1000000",
+      "clean_price": "0",
+      "accrued_interest": "0",
+      "dirty_price": "0",
+      "principal_amount": "0",
+      "accrued_amount": "0",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-16",
+      "face_value": "1000000",
+      "clean_price": "99.25",
+      "accrued_interest": "-1.125",
+      "dirty_price": "98.125",
+      "principal_amount": "992500.00",
+      "accrued_amount": "-11250.000",
+      "settlement_amount": "981250.000"
+    },
+    {
+      "id": "invoice-17",
+      "face_value": "1000000",
+      "clean_price": "-100",
+      "accrued_interest": "100",
+      "dirty_price": "0",
+      "principal_amount": "-1000000",
+      "accrued_amount": "1000000",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-18",
+      "face_value": "-1000000",
+      "clean_price": "100",
+      "accrued_interest": "2.5",
+      "dirty_price": "102.5",
+      "principal_amount": "-1000000",
+      "accrued_amount": "-25000.0",
+      "settlement_amount": "-1025000.0"
+    },
+    {
+      "id": "invoice-19",
+      "face_value": "-1000000",
+      "clean_price": "110.503",
+      "accrued_interest": "2.698611",
+      "dirty_price": "113.201611",
+      "principal_amount": "-1105030.000",
+      "accrued_amount": "-26986.110000",
+      "settlement_amount": "-1132016.110000"
+    },
+    {
+      "id": "invoice-20",
+      "face_value": "-1000000",
+      "clean_price": "-20",
+      "accrued_interest": "-0.25",
+      "dirty_price": "-20.25",
+      "principal_amount": "200000",
+      "accrued_amount": "2500.00",
+      "settlement_amount": "202500.00"
+    },
+    {
+      "id": "invoice-21",
+      "face_value": "-1000000",
+      "clean_price": "0",
+      "accrued_interest": "0",
+      "dirty_price": "0",
+      "principal_amount": "-0",
+      "accrued_amount": "-0",
+      "settlement_amount": "-0"
+    },
+    {
+      "id": "invoice-22",
+      "face_value": "-1000000",
+      "clean_price": "99.25",
+      "accrued_interest": "-1.125",
+      "dirty_price": "98.125",
+      "principal_amount": "-992500.00",
+      "accrued_amount": "11250.000",
+      "settlement_amount": "-981250.000"
+    },
+    {
+      "id": "invoice-23",
+      "face_value": "-1000000",
+      "clean_price": "-100",
+      "accrued_interest": "100",
+      "dirty_price": "0",
+      "principal_amount": "1000000",
+      "accrued_amount": "-1000000",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-24",
+      "face_value": "0.00000001",
+      "clean_price": "100",
+      "accrued_interest": "2.5",
+      "dirty_price": "102.5",
+      "principal_amount": "1E-8",
+      "accrued_amount": "2.5E-10",
+      "settlement_amount": "1.025E-8"
+    },
+    {
+      "id": "invoice-25",
+      "face_value": "0.00000001",
+      "clean_price": "110.503",
+      "accrued_interest": "2.698611",
+      "dirty_price": "113.201611",
+      "principal_amount": "1.10503E-8",
+      "accrued_amount": "2.698611E-10",
+      "settlement_amount": "1.13201611E-8"
+    },
+    {
+      "id": "invoice-26",
+      "face_value": "0.00000001",
+      "clean_price": "-20",
+      "accrued_interest": "-0.25",
+      "dirty_price": "-20.25",
+      "principal_amount": "-2E-9",
+      "accrued_amount": "-2.5E-11",
+      "settlement_amount": "-2.025E-9"
+    },
+    {
+      "id": "invoice-27",
+      "face_value": "0.00000001",
+      "clean_price": "0",
+      "accrued_interest": "0",
+      "dirty_price": "0",
+      "principal_amount": "0E-8",
+      "accrued_amount": "0E-8",
+      "settlement_amount": "0E-8"
+    },
+    {
+      "id": "invoice-28",
+      "face_value": "0.00000001",
+      "clean_price": "99.25",
+      "accrued_interest": "-1.125",
+      "dirty_price": "98.125",
+      "principal_amount": "9.925E-9",
+      "accrued_amount": "-1.125E-10",
+      "settlement_amount": "9.8125E-9"
+    },
+    {
+      "id": "invoice-29",
+      "face_value": "0.00000001",
+      "clean_price": "-100",
+      "accrued_interest": "100",
+      "dirty_price": "0",
+      "principal_amount": "-1E-8",
+      "accrued_amount": "1E-8",
+      "settlement_amount": "0E-8"
+    },
+    {
+      "id": "invoice-30",
+      "face_value": "1000000000000",
+      "clean_price": "100",
+      "accrued_interest": "2.5",
+      "dirty_price": "102.5",
+      "principal_amount": "1000000000000",
+      "accrued_amount": "25000000000.0",
+      "settlement_amount": "1025000000000.0"
+    },
+    {
+      "id": "invoice-31",
+      "face_value": "1000000000000",
+      "clean_price": "110.503",
+      "accrued_interest": "2.698611",
+      "dirty_price": "113.201611",
+      "principal_amount": "1105030000000.000",
+      "accrued_amount": "26986110000.000000",
+      "settlement_amount": "1132016110000.000000"
+    },
+    {
+      "id": "invoice-32",
+      "face_value": "1000000000000",
+      "clean_price": "-20",
+      "accrued_interest": "-0.25",
+      "dirty_price": "-20.25",
+      "principal_amount": "-200000000000",
+      "accrued_amount": "-2500000000.00",
+      "settlement_amount": "-202500000000.00"
+    },
+    {
+      "id": "invoice-33",
+      "face_value": "1000000000000",
+      "clean_price": "0",
+      "accrued_interest": "0",
+      "dirty_price": "0",
+      "principal_amount": "0",
+      "accrued_amount": "0",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-34",
+      "face_value": "1000000000000",
+      "clean_price": "99.25",
+      "accrued_interest": "-1.125",
+      "dirty_price": "98.125",
+      "principal_amount": "992500000000.00",
+      "accrued_amount": "-11250000000.000",
+      "settlement_amount": "981250000000.000"
+    },
+    {
+      "id": "invoice-35",
+      "face_value": "1000000000000",
+      "clean_price": "-100",
+      "accrued_interest": "100",
+      "dirty_price": "0",
+      "principal_amount": "-1000000000000",
+      "accrued_amount": "1000000000000",
+      "settlement_amount": "0"
+    },
+    {
+      "id": "invoice-36",
+      "face_value": "79228162514264337593543950335",
+      "clean_price": "100",
+      "accrued_interest": "0",
+      "dirty_price": "100",
+      "principal_amount": "79228162514264337593543950335",
+      "accrued_amount": "0",
+      "settlement_amount": "79228162514264337593543950335"
+    },
+    {
+      "id": "invoice-37",
+      "face_value": "-79228162514264337593543950335",
+      "clean_price": "100",
+      "accrued_interest": "0",
+      "dirty_price": "100",
+      "principal_amount": "-79228162514264337593543950335",
+      "accrued_amount": "-0",
+      "settlement_amount": "-79228162514264337593543950335"
+    },
+    {
+      "id": "invoice-38",
+      "face_value": "79228162514264337593543950335",
+      "clean_price": "1",
+      "accrued_interest": "0",
+      "dirty_price": "1",
+      "principal_amount": "792281625142643375935439503.35",
+      "accrued_amount": "0",
+      "settlement_amount": "792281625142643375935439503.35"
+    },
+    {
+      "id": "invoice-39",
+      "face_value": "79228162514264337593543950335",
+      "clean_price": "0",
+      "accrued_interest": "100",
+      "dirty_price": "100",
+      "principal_amount": "0",
+      "accrued_amount": "79228162514264337593543950335",
+      "settlement_amount": "79228162514264337593543950335"
+    }
+  ],
+  "accrual_cases": [
+    {
+      "face_value": "1000000",
+      "coupon_rate": "0.075",
+      "accrued_fraction": "0.3722222",
+      "amount": "27916.6650000000"
+    },
+    {
+      "face_value": "-1000000",
+      "coupon_rate": "0.075",
+      "accrued_fraction": "0.3722222",
+      "amount": "-27916.6650000000"
+    },
+    {
+      "face_value": "1000000",
+      "coupon_rate": "-0.01",
+      "accrued_fraction": "1.5",
+      "amount": "-15000.000"
+    },
+    {
+      "face_value": "0",
+      "coupon_rate": "0.05",
+      "accrued_fraction": "0.5",
+      "amount": "0.000"
+    },
+    {
+      "face_value": "79228162514264337593543950335",
+      "coupon_rate": "100",
+      "accrued_fraction": "0.01",
+      "amount": "79228162514264337593543950335.00"
+    },
+    {
+      "face_value": "79228162514264337593543950335",
+      "coupon_rate": "79228162514264337593543950335",
+      "accrued_fraction": "0",
+      "amount": "0"
+    },
+    {
+      "face_value": "0.0000000000000000000000000001",
+      "coupon_rate": "0.0000000000000000000000000001",
+      "accrued_fraction": "10000000000000000000000000000",
+      "amount": "1.0000000000000000000000000000E-28"
+    }
+  ],
+  "certified": false
+}

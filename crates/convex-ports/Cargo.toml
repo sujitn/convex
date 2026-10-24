@@ -1,0 +1,31 @@
+[package]
+name = "convex-ports"
+publish = false  # internal; not published to crates.io
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Hexagonal port traits (market data, reference data, storage, output) for the Convex pricing engine"
+keywords = ["finance", "bonds", "traits", "pricing", "quantitative"]
+categories = ["finance"]
+
+[dependencies]
+convex-core = { workspace = true }
+
+# Trait definitions only - NO runtime deps (no reqwest, sqlx, redis, ...)
+async-trait = "0.1"
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha2 = "0.10.9"
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+tokio = { version = "1", features = ["sync"] } # broadcast::Receiver in the *Receiver types
+
+[target.'cfg(all(target_arch = "aarch64", any(target_os = "macos", target_os = "linux")))'.dependencies]
+# Runtime-detected SHA-256 instructions with the existing software fallback.
+sha2 = { version = "0.10.9", features = ["asm-aarch64"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

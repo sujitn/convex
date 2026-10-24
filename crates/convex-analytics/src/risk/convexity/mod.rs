@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 /// Convexity value
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[repr(transparent)]
-pub struct Convexity(Decimal);
+pub struct Convexity(#[serde(deserialize_with = "super::cash::deserialize_decimal")] Decimal);
 
 impl Convexity {
     /// Create a new Convexity value
@@ -42,8 +42,7 @@ impl Convexity {
 
     /// Get the convexity as f64
     pub fn as_f64(&self) -> f64 {
-        use rust_decimal::prelude::ToPrimitive;
-        self.0.to_f64().unwrap_or(0.0)
+        self.0.as_f64()
     }
 }
 
@@ -59,9 +58,11 @@ impl From<Decimal> for Convexity {
     }
 }
 
-impl From<f64> for Convexity {
-    fn from(f: f64) -> Self {
-        Self(Decimal::from_f64_retain(f).unwrap_or(Decimal::ZERO))
+impl TryFrom<f64> for Convexity {
+    type Error = crate::error::AnalyticsError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        crate::risk::cash::decimal(value).map(Self)
     }
 }
 
@@ -77,10 +78,9 @@ pub fn price_change_with_convexity(
     convexity: f64,
     price: f64,
     yield_change: f64,
-) -> f64 {
-    let duration_effect = -mod_duration * price * yield_change;
-    let convexity_effect = 0.5 * convexity * price * yield_change.powi(2);
-    duration_effect + convexity_effect
+) -> crate::error::AnalyticsResult<f64> {
+    convex_bonds::pricing::risk_math::price_change(mod_duration, convexity, price, yield_change)
+        .map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -95,7 +95,7 @@ mod tests {
         let price = 100.0;
         let yield_change = 0.01; // 100 bps
 
-        let change = price_change_with_convexity(mod_dur, conv, price, yield_change);
+        let change = price_change_with_convexity(mod_dur, conv, price, yield_change).unwrap();
 
         // Duration effect: -5 × 100 × 0.01 = -5.0
         // Convexity effect: 0.5 × 50 × 100 × 0.0001 = 0.25

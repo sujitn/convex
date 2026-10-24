@@ -1,10 +1,9 @@
 // Convex API Client
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
-const DATA_PROVIDER_BASE = import.meta.env.VITE_DATA_PROVIDER_URL || 'https://convex-demo-data.sujitnair.workers.dev';
-const QUOTE_PROVIDER_BASE = import.meta.env.VITE_QUOTE_PROVIDER_URL || 'https://convex-quote-provider.sujitnair.workers.dev';
+const DATA_PROVIDER_BASE = import.meta.env.VITE_DATA_PROVIDER_URL || API_BASE;
 
-class ConvexApiError extends Error {
+export class ConvexApiError extends Error {
   constructor(
     message: string,
     public status: number,
@@ -425,55 +424,6 @@ export interface PortfolioInput {
   positions: PositionInput[];
 }
 
-// Portfolio analytics request
-export interface PortfolioAnalyticsRequest {
-  portfolio: PortfolioInput;
-  bond_prices: BondQuoteResponse[];
-}
-
-// Portfolio analytics output
-export interface PortfolioAnalyticsOutput {
-  portfolio_id: string;
-  name: string;
-  currency: string;
-  as_of_date: string;
-  // Summary metrics
-  total_market_value: number;
-  total_par_value: number;
-  holdings_count: number;
-  // Duration metrics
-  modified_duration: number;
-  effective_duration?: number;
-  macaulay_duration?: number;
-  spread_duration?: number;
-  // Yield and spread
-  weighted_yield: number;
-  weighted_spread?: number;
-  weighted_oas?: number;
-  // Risk metrics
-  dv01: number;
-  convexity: number;
-  cs01?: number;
-  // Credit quality
-  weighted_rating?: string;
-  investment_grade_pct?: number;
-  // Sector breakdown
-  sector_weights?: Record<string, number>;
-  rating_weights?: Record<string, number>;
-  // Timestamp
-  timestamp: number;
-}
-
-// Calculate portfolio analytics
-export async function calculatePortfolioAnalytics(
-  request: PortfolioAnalyticsRequest
-): Promise<PortfolioAnalyticsOutput> {
-  return fetchJson<PortfolioAnalyticsOutput>('/api/v1/portfolio/analytics', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
-}
-
 // =============================================================================
 // KEY RATE DURATION
 // =============================================================================
@@ -481,8 +431,8 @@ export async function calculatePortfolioAnalytics(
 // Position with key rate duration data
 export interface KeyRatePosition {
   instrument_id: string;
-  notional: number;
-  market_price?: number;
+  notional: string; // Exact plain decimal, without exponent or rounding.
+  market_price: string; // Full dirty price per100, matching the supplied duration basis.
   key_rate_durations?: Array<[number, number]>; // [tenor, duration] pairs
 }
 
@@ -491,27 +441,35 @@ export interface KeyRateDurationRequest {
   portfolio_id: string;
   name: string;
   positions: KeyRatePosition[];
-  tenors?: number[]; // Custom tenor points
+  tenors?: number[]; // Exact custom tenor points
+  weighting?: 'MarketValue' | 'ParValue' | 'EqualWeight';
 }
 
-// Key rate point output
+// Exact requested factor; null preserves unavailable risk and undefined ratios.
 export interface KeyRatePointOutput {
   tenor: number;
-  duration: number;
-  contribution_pct: number;
+  duration: number | null;
+  contribution_pct: number | null;
+  known_partial_dv01: number | null;
+  partial_dv01: number | null;
+  covered_holdings: number;
+  total_holdings: number;
+  complete: boolean;
 }
 
-// Key rate duration response
 export interface KeyRateDurationResponse {
   portfolio_id: string;
+  name: string;
   profile: KeyRatePointOutput[];
-  total_duration: number;
-  short_duration: number;
-  intermediate_duration: number;
-  long_duration: number;
+  total_duration: number | null;
+  short_duration: number | null;
+  intermediate_duration: number | null;
+  long_duration: number | null;
   coverage: number;
   total_holdings: number;
   coverage_pct: number;
+  coverage_complete: boolean;
+  duration_available: boolean;
   timestamp: number;
 }
 
@@ -526,109 +484,81 @@ export async function calculateKeyRateDuration(
 }
 
 // =============================================================================
-// STRESS TESTING
+// RUNTIME RESULTS
+// Canonical results published by the pricing runtime. GET /api/v1/runtime/results
+// and the WebSocket `valuation` message carry the same record.
 // =============================================================================
 
-// Stress scenario
-export interface StressScenario {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
+// Runtime lifecycle and data condition (GET /api/v1/runtime)
+export interface RuntimeHealth {
+  phase: 'new' | 'starting' | 'ready' | 'degraded' | 'draining' | 'stopped' | 'failed' | 'demo';
+  ready: boolean;
+  mode: string | null;
+  quality: string;
+  generation: number;
+  revision: number;
+  failure: string | null;
 }
 
-// List available stress scenarios
-export async function listStressScenarios(): Promise<{ scenarios: StressScenario[] }> {
-  return fetchJson<{ scenarios: StressScenario[] }>('/api/v1/stress/scenarios');
+// A measure value; the unit names its representation. Exact decimals arrive as
+// strings and model values as numbers.
+export interface MeasureValue {
+  value: number | string;
+  unit: string;
 }
 
-// Standard stress test request
-export interface StandardStressRequest {
-  portfolio: PortfolioInput;
-  bond_prices: BondQuoteResponse[];
+export interface MeasureResult {
+  value: MeasureValue;
+  quality: string;
+  method: string;
+  source_observation_id: string | null;
 }
 
-// Stress result output
-export interface StressResultOutput {
-  scenario_name: string;
-  initial_value: string;
-  stressed_value: string;
-  pnl: string;
-  pnl_pct: string;
-  duration_impact?: string;
-  spread_impact?: string;
+export interface StructuredError {
+  code: string;
+  field: string | null;
+  message: string;
+  retryable: boolean;
 }
 
-// Standard stress test response
-export interface StandardStressResponse {
-  portfolio_id: string;
-  results: StressResultOutput[];
-  timestamp: number;
-}
+export type ValuationSubject =
+  | { kind: 'instrument_version'; instrument_id: string; version: number }
+  | { kind: 'trade_version'; trade_id: string; version: number };
 
-// Run standard stress tests
-export async function runStandardStressTest(
-  request: StandardStressRequest
-): Promise<StandardStressResponse> {
-  return fetchJson<StandardStressResponse>('/api/v1/stress/standard', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
-}
-
-// WebSocket connection
-export function createWebSocket(
-  onMessage: (msg: unknown) => void,
-  onOpen?: () => void,
-  onClose?: () => void,
-  onError?: (error: Event) => void
-) {
-  const wsUrl = import.meta.env.VITE_WS_URL ||
-    `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
-
-  const ws = new WebSocket(wsUrl);
-
-  ws.onopen = () => {
-    console.log('WebSocket connected');
-    onOpen?.();
+export interface ResultEnvelope {
+  status: 'Complete' | 'Partial' | 'Failed';
+  quality: string;
+  snapshot_id: string;
+  configuration_version: number;
+  results: Record<string, MeasureResult>;
+  errors: StructuredError[];
+  provenance: {
+    subject: ValuationSubject;
+    valuation_time: string;
+    known_at: string;
+    calculated_at: string;
+    model_version: string;
   };
+}
 
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      onMessage(data);
-    } catch (e) {
-      console.error('Failed to parse WebSocket message:', e);
-    }
-  };
+// One published result; (runtime_id, revision) is its delivery key.
+export interface PublishedValuation {
+  runtime_id: string;
+  revision: number;
+  generation: number;
+  context_key: string;
+  live_valid_until?: string;
+  result: ResultEnvelope;
+  last_good: ResultEnvelope | null;
+  retained_quality: string | null;
+}
 
-  ws.onclose = () => {
-    console.log('WebSocket disconnected');
-    onClose?.();
-  };
+export async function getRuntimeHealth() {
+  return fetchJson<RuntimeHealth>('/api/v1/runtime');
+}
 
-  ws.onerror = (error) => {
-    console.error('WebSocket error:', error);
-    onError?.(error);
-  };
-
-  return {
-    subscribe: (channel: string, instrumentIds?: string[]) => {
-      ws.send(JSON.stringify({
-        type: 'subscribe',
-        channel,
-        instrument_ids: instrumentIds,
-      }));
-    },
-    unsubscribe: (channel: string) => {
-      ws.send(JSON.stringify({
-        type: 'unsubscribe',
-        channel,
-      }));
-    },
-    close: () => ws.close(),
-    ws,
-  };
+export async function getRuntimeResults() {
+  return fetchJson<PublishedValuation[]>('/api/v1/runtime/results');
 }
 
 // =============================================================================
@@ -863,170 +793,6 @@ export async function fetchArbitrage(ticker: string, marketPrice?: number): Prom
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch arbitrage: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-// =============================================================================
-// QUOTE PROVIDER API
-// Controls the synthetic quote generator for streaming demos
-// =============================================================================
-
-// Quote provider status
-export interface QuoteProviderStatus {
-  running: boolean;
-  tickCount: number;
-  instrumentCount: number;
-  config?: {
-    interval_ms: number;
-    volatility: 'low' | 'medium' | 'high';
-    mode: 'static' | 'random_walk' | 'mean_revert' | 'stress';
-  };
-  lastTick?: string;
-  instruments?: string[];
-}
-
-// Quote state from provider
-export interface QuoteState {
-  instrument_id: string;
-  bid: number;
-  mid: number;
-  ask: number;
-  yield: number;
-  last_update: string;
-}
-
-// Start simulation config
-export interface SimulationConfig {
-  interval_ms?: number;
-  volatility?: 'low' | 'medium' | 'high';
-  mode?: 'static' | 'random_walk' | 'mean_revert' | 'stress';
-  force?: boolean; // Force restart if already running
-}
-
-// Start response
-export interface StartSimulationResponse {
-  status: string;
-  config: {
-    instruments: unknown[];
-    interval_ms: number;
-    volatility: string;
-    mode: string;
-  };
-  instruments: number;
-  initial_quotes: QuoteState[];
-}
-
-// Tick response
-export interface TickResponse {
-  tick: number;
-  timestamp: string;
-  results: Array<{
-    instrument_id: string;
-    quote: QuoteState;
-    response?: unknown;
-  }>;
-}
-
-// Stress response
-export interface StressResponse {
-  scenario_applied: string;
-  timestamp: string;
-  new_quotes: QuoteState[];
-}
-
-/**
- * Get quote provider status
- */
-export async function getQuoteProviderStatus(): Promise<QuoteProviderStatus> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/status`);
-  if (!response.ok) {
-    throw new Error(`Failed to get quote provider status: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Start the quote simulation
- */
-export async function startQuoteSimulation(config?: SimulationConfig): Promise<StartSimulationResponse> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(config || {}),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `Failed to start simulation: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Stop the quote simulation
- */
-export async function stopQuoteSimulation(): Promise<{ status: string; total_ticks: number }> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/stop`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to stop simulation: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Get current quotes from the quote provider
- */
-export async function getQuoteProviderQuotes(): Promise<{ count: number; timestamp: string; quotes: QuoteState[] }> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/quotes`);
-  if (!response.ok) {
-    throw new Error(`Failed to get quotes: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Trigger a single tick (for manual control)
- */
-export async function triggerQuoteTick(): Promise<TickResponse> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/tick`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `Failed to trigger tick: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Apply a stress scenario
- */
-export async function applyStressScenario(
-  scenario: 'rates_up_100bp' | 'rates_down_100bp' | 'spreads_wide_50bp' | 'spreads_tight_50bp' | 'flight_to_quality' | 'risk_on'
-): Promise<StressResponse> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/stress`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scenario }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || `Failed to apply stress: ${response.statusText}`);
-  }
-  return response.json();
-}
-
-/**
- * Refresh curves in the quote provider
- */
-export async function refreshQuoteProviderCurves(): Promise<{ status: string; curves_loaded: number }> {
-  const response = await fetch(`${QUOTE_PROVIDER_BASE}/refresh-curves`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to refresh curves: ${response.statusText}`);
   }
   return response.json();
 }

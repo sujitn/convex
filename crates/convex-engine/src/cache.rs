@@ -1,72 +1,80 @@
-//! In-memory caches for the pricing engine.
+//! Bounded memoization of complete snapshot/context results. Reads never refresh lineage.
+#![forbid(unsafe_code)]
 
-#![allow(dead_code)]
+use crate::{context::ValuationContext, snapshot::SnapshotValuationResult};
+use convex_ports::TraitError;
+use parking_lot::Mutex;
+use std::{collections::HashMap, sync::Arc};
 
-use std::time::{Duration, Instant};
-
-use dashmap::DashMap;
-
-use convex_traits::ids::InstrumentId;
-use convex_traits::market_data::RawQuote;
-
-/// Quote cache with staleness tracking.
-pub struct QuoteCache {
-    quotes: DashMap<InstrumentId, CachedQuote>,
-    stale_threshold: Duration,
+/// Application result cache. Every entry retains the complete context and captured generation.
+pub struct ValuationCache {
+    capacity: usize,
+    results: Mutex<HashMap<String, Arc<SnapshotValuationResult>>>,
 }
-
-struct CachedQuote {
-    quote: RawQuote,
-    received_at: Instant,
-}
-
-impl QuoteCache {
-    /// Create a new quote cache.
-    pub fn new(stale_threshold: Duration) -> Self {
-        Self {
-            quotes: DashMap::new(),
-            stale_threshold,
+impl ValuationCache {
+    /// Explicit 1..=100,000 entry bound. Capacity refusal is visible; there is no arbitrary eviction.
+    pub fn new(capacity: usize) -> Result<Self, TraitError> {
+        if !(1..=100_000).contains(&capacity) {
+            return Err(TraitError::InvalidInput("invalid result cache capacity"));
         }
+        Ok(Self {
+            capacity,
+            results: Mutex::new(HashMap::new()),
+        })
     }
-
-    /// Update a quote.
-    pub fn update(&self, quote: RawQuote) {
-        self.quotes.insert(
-            quote.instrument_id.clone(),
-            CachedQuote {
-                quote,
-                received_at: Instant::now(),
-            },
-        );
+    /// Only a complete exact context addresses the cache. Bind it to a snapshot before access.
+    pub fn get(
+        &self,
+        context: &ValuationContext,
+    ) -> Result<Option<Arc<SnapshotValuationResult>>, TraitError> {
+        let key = context.cache_key()?;
+        Ok(self
+            .results
+            .lock()
+            .get(&key)
+            .filter(|entry| entry.context() == context)
+            .cloned())
     }
-
-    /// Get a quote.
-    pub fn get(&self, instrument_id: &InstrumentId) -> Option<RawQuote> {
-        self.quotes.get(instrument_id).map(|c| c.quote.clone())
+    /// Retain the first result/timestamp for an identical context. Fail conflicting retries.
+    pub fn insert(
+        &self,
+        result: SnapshotValuationResult,
+    ) -> Result<Arc<SnapshotValuationResult>, TraitError> {
+        result.validate()?;
+        let key = result.context().cache_key()?;
+        let mut results = self.results.lock();
+        if let Some(prior) = results.get(&key) {
+            if prior.context() != result.context()
+                || prior.envelope().results() != result.envelope().results()
+                || prior.envelope().status() != result.envelope().status()
+                || prior.envelope().errors() != result.envelope().errors()
+                || prior.envelope().quality() != result.envelope().quality()
+                || prior.envelope().provenance().input_versions
+                    != result.envelope().provenance().input_versions
+            {
+                return Err(TraitError::Conflict(
+                    "different valuation for identical context",
+                ));
+            }
+            return Ok(prior.clone());
+        }
+        if results.len() == self.capacity {
+            return Err(TraitError::CapacityExceeded);
+        }
+        let result = Arc::new(result);
+        results.insert(key, result.clone());
+        Ok(result)
     }
-
-    /// Check if a quote is stale.
-    pub fn is_stale(&self, instrument_id: &InstrumentId) -> bool {
-        self.quotes
-            .get(instrument_id)
-            .map(|c| c.received_at.elapsed() > self.stale_threshold)
-            .unwrap_or(true)
-    }
-
-    /// Remove stale quotes.
-    pub fn cleanup_stale(&self) {
-        self.quotes
-            .retain(|_, v| v.received_at.elapsed() <= self.stale_threshold);
-    }
-
-    /// Clear all quotes.
+    /// Explicit administrative release; handed-out snapshots/results stay immutable.
     pub fn clear(&self) {
-        self.quotes.clear();
+        self.results.lock().clear();
     }
-}
-
-impl Default for QuoteCache {
-    fn default() -> Self {
-        Self::new(Duration::from_secs(300)) // 5 minutes
+    /// Number of retained contexts.
+    pub fn len(&self) -> usize {
+        self.results.lock().len()
+    }
+    /// Whether any contexts are retained.
+    pub fn is_empty(&self) -> bool {
+        self.results.lock().is_empty()
     }
 }

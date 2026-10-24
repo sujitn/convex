@@ -8,13 +8,15 @@ members = [
     "crates/convex-math",
     "crates/convex-curves",
     "crates/convex-bonds",
+    "crates/convex-rates",
+    "crates/convex-credit",
     "crates/convex-analytics",
     "crates/convex-portfolio",
     "crates/convex-ffi",
     "crates/convex-wasm",
     "crates/convex-mcp",
     # Pricing engine crates
-    "crates/convex-traits",
+    "crates/convex-ports",
     "crates/convex-engine",
     "crates/convex-ext-redb",
     "crates/convex-ext-file",
@@ -38,18 +40,29 @@ keywords = ["finance", "bonds", "fixed-income", "pricing", "quantitative"]
 categories = ["finance", "mathematics", "science"]
 
 [workspace.dependencies]
-# Internal crates — path-only; this workspace is not published to crates.io.
+# Internal crates.
+#
+# The seven library crates (core, math, curves, bonds, rates, credit, analytics) are configured
+# for crates.io publication with both `path` and `version`: cargo uses the path for
+# local builds and rewrites it to the version on `cargo publish`. Keep `version`
+# in sync with `workspace.package.version` above.
+#
+# Everything else is `publish = false` (set in each crate's Cargo.toml) and stays
+# path-only — the facade `convex` name is taken on crates.io by an unrelated
+# project, and the engine/server/bindings crates are applications, not libraries.
 convex = { path = "crates/convex" }
-convex-core = { path = "crates/convex-core" }
-convex-math = { path = "crates/convex-math" }
-convex-curves = { path = "crates/convex-curves" }
-convex-bonds = { path = "crates/convex-bonds" }
-convex-analytics = { path = "crates/convex-analytics" }
+convex-core = { path = "crates/convex-core", version = "0.13.0" }
+convex-math = { path = "crates/convex-math", version = "0.13.0" }
+convex-curves = { path = "crates/convex-curves", version = "0.13.0" }
+convex-bonds = { path = "crates/convex-bonds", version = "0.13.0" }
+convex-rates = { path = "crates/convex-rates", version = "0.13.0" }
+convex-credit = { path = "crates/convex-credit", version = "0.13.0" }
+convex-analytics = { path = "crates/convex-analytics", version = "0.13.0" }
 convex-portfolio = { path = "crates/convex-portfolio" }
 convex-ffi = { path = "crates/convex-ffi" }
 convex-wasm = { path = "crates/convex-wasm" }
 # Pricing engine crates
-convex-traits = { path = "crates/convex-traits" }
+convex-ports = { path = "crates/convex-ports" }
 convex-engine = { path = "crates/convex-engine" }
 convex-ext-redb = { path = "crates/convex-ext-redb" }
 convex-ext-file = { path = "crates/convex-ext-file" }
@@ -57,15 +70,16 @@ convex-server = { path = "crates/convex-server" }
 
 # Core dependencies - shared across all crates
 chrono = { version = "0.4", features = ["serde"] }
-rust_decimal = { version = "1.42", features = ["serde", "serde-float", "maths"] }
+rust_decimal = { version = "1.42", features = ["serde", "serde-float", "maths", "serde-with-str"] }
 rust_decimal_macros = "1.40"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
 thiserror = "2.0"
 anyhow = "1.0"
 
 # Mathematical dependencies
-nalgebra = "0.34"
+nalgebra = { version = "0.34", features = ["libm-force"] }
+libm = { version = "=0.2.15", default-features = false, features = ["force-soft-floats"] }
 approx = "0.5"
 
 # Performance dependencies
@@ -91,7 +105,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Storage backends
-redb = "4"
+redb = "4.4"
 
 # File formats
 csv = "1"
@@ -132,6 +146,14 @@ inherits = "release"
 lto = "thin"
 codegen-units = 4
 
+# Host-embedded cdylib profile (Excel add-in, JVM bindings): panics must
+# unwind so convex-ffi's catch_unwind guards can turn them into error
+# envelopes instead of aborting the host process (Excel/JVM). Build with:
+#   cargo build --profile excel -p convex-ffi
+[profile.excel]
+inherits = "release"
+panic = "unwind"
+
 # Distribution profile for binaries
 [profile.dist]
 inherits = "release"
@@ -147,4 +169,3 @@ strip = true
 # Cargo-deny configuration for dependency checking
 [workspace.metadata.cargo-deny]
 # See https://github.com/EmbarkStudios/cargo-deny for configuration
-

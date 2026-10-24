@@ -1,0 +1,4148 @@
+{
+  "recorded_at": "2026-10-15T21:42:13.209935+00:00",
+  "declaration_timing": "After the original five failures and candidate source edits; before the first candidate financial execution. All60 earlier zero instrument cases and original fixed references remain exact.",
+  "independent_method": "Exact calendar/Fraction times and Decimal520 exponential/logarithmic closed forms over original absolute redemption, independent of face. Inverse targets are separately rounded to24fractional digits before solving analytically.",
+  "cases": [
+    {
+      "id": "zero-complete-context-000",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "102.30970228355171753044103708067961775713728316773349101320345344888480819965302371255513237755267719427216188",
+      "inverse_absolute_price": "102.309702283551717530441037",
+      "expected_annual_yield": "-0.049999999999999999999999999261109211043536872033849516981428173176452051637584633760955195031082616080045396067",
+      "expected_continuous_rate": "-0.051293294387550533426196143476907460590313805936056798214758547758024461249298690767515470367577384057732965929",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-001",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0e+519",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-002",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "92.437339424956120917612510575010615303701101737688024873274460189838023513966871685028664718789104276725597460",
+      "inverse_absolute_price": "92.437339424956120917612511",
+      "expected_annual_yield": "0.049999999999999999999999995238655767719617245591413218925913446594965890905460714085387984083457751317468705157",
+      "expected_continuous_rate": "0.048790164169432003065374399688551104055228184026452132069110287209237595938895646256211561513051713631255046293",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-003",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "102.24150360066919822410105120045767911725329518923673370916148383322174525348121120406311042837847987981838130",
+      "inverse_absolute_price": "102.241503600669198224101051",
+      "expected_annual_yield": "-0.049999999999999999999999998114572999845603295220354440083421906928303326336677042453350375636992959415231973516",
+      "expected_continuous_rate": "-0.050635615968579750807446036291974786389048863604812233262324924464353503318260621451535011861789157824318023347",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-004",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0e+519",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-005",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "92.381586418346706161359413624208202515454914738558462339583407868904314068975660668563273641005635384290735915",
+      "inverse_absolute_price": "92.381586418346706161359414",
+      "expected_annual_yield": "0.049999999999999999999999995887599699382307650659624239762518199786446349564880566374775845342439434844840992738",
+      "expected_continuous_rate": "0.049385225180743002028615346861282634987454156450889211506398853092842195979814366675572704439799874187276132101",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-006",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "102.20828681203771289588772428835865643447242212351369410170313358358258744662401756637752057862946587491200226",
+      "inverse_absolute_price": "102.208286812037712895887724",
+      "expected_annual_yield": "-0.049999999999999999999999997252146182173012653178582922906536318522694052506861030458242816017466739873962653311",
+      "expected_continuous_rate": "-0.050315128827440472386969107527295181069926368569066248249061885651534337179660103427613446668057310850972309256",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-007",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0e+519",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-008",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "92.353036707097342451999327888462268352806495097855249749400801325159719607937451691158881836114744249901940433",
+      "inverse_absolute_price": "92.353036707097342451999328",
+      "expected_annual_yield": "0.049999999999999999999999998793922276890130406408744765605277568696885226075878698351095482495637998550672674548",
+      "expected_continuous_rate": "0.049690079994228613245172513333647752373026944902374314100249396938433952532163779887318760982983933209483447302",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-009",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "102.18645766799332913754929473223571995690126367663055076865189607732992912866464372216267389796249440182309883",
+      "inverse_absolute_price": "102.186457667993329137549295",
+      "expected_annual_yield": "-0.050000000000000000000000002573686191476671390199671435450615750337889292471228786862349242719084849557627334896",
+      "expected_continuous_rate": "-0.050104456925767640421233543218580993394742202776596895825269414108310485133043048214549539093278612849969292131",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-010",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0e+519",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-011",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "92.333745851257942314544106997673782594917500336421401148011718913103490797749377714423415424290151882926167831",
+      "inverse_absolute_price": "92.333745851257942314544107",
+      "expected_annual_yield": "0.049999999999999999999999999975048004502074472569448058635064870701239355063468366420565782540607120467268380524",
+      "expected_continuous_rate": "0.049896121783964301617739152727904962259110983005306368306907233872635272855230749179802594072098474056829058653",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-012",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "102.17563590667849856341162230984269438162591842756713233417549655237093286505154826461191113121211699156982228",
+      "inverse_absolute_price": "102.175635906678498563411622",
+      "expected_annual_yield": "-0.049999999999999999999999997009088603179714157317515539175475246794452476486743738680877560303863210703316129530",
+      "expected_continuous_rate": "-0.049999999999999999999999997009088603179714157317515539175475246794452476486743738680877560303863210703316129530",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-013",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0e+519",
+      "expected_continuous_rate": "0e+519",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-014",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act360",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act360"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "73/72",
+      "expected_absolute_price": "92.324021683758506990771127107452373531477501325416681192378259137789237056788169738833386509015027904865274337",
+      "inverse_absolute_price": "92.324021683758506990771127",
+      "expected_annual_yield": "0.050000000000000000000000001147918182898789379759684128759232555145982940726175299435234522311125844467668861249",
+      "expected_continuous_rate": "0.050000000000000000000000001147918182898789379759684128759232555145982940726175299435234522311125844467668861249",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-015",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-016",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-017",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-018",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-019",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-020",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-021",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-022",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-023",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-024",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-025",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-026",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-027",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-028",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-029",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Fixed",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Act365Fixed"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-030",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-031",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-032",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-033",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-034",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-035",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-036",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-037",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-038",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-039",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-040",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-041",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-042",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-043",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-044",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIsda",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActIsda"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-045",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-046",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-047",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-048",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-049",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-050",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-051",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-052",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-053",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-054",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-055",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-056",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-057",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-058",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-059",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActAfb",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "ActActAfb"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-060",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-061",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-062",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-063",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-064",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-065",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-066",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-067",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-068",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-069",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-070",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-071",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-072",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-073",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-074",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360US",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360US"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-075",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-076",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-077",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-078",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-079",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-080",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-081",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-082",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-083",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-084",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-085",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-086",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-087",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-088",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-089",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360E",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360E"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-090",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-091",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-092",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-093",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-094",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-095",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-096",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-097",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-098",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-099",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-100",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-101",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-102",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-103",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-104",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360German",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "calendar",
+        "day_count": "Thirty360German"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-105",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-106",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-107",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-108",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-109",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-110",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-111",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-112",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-113",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-114",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-115",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-116",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-117",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-118",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-119",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Thirty360EIsda",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "thirty360_e_isda",
+        "termination_date": "2026-01-31"
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-120",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-121",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-122",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-123",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-124",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-125",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-126",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-127",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-128",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-129",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-130",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-131",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-132",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-133",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-134",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "ActActIcma",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "icma",
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2026-01-31",
+          "frequency": "SemiAnnual",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reference_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-07-31"
+          },
+          {
+            "start": "2024-07-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2025-07-31"
+          },
+          {
+            "start": "2025-07-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-135",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.23684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789",
+      "inverse_absolute_price": "102.236842105263157894736842",
+      "expected_annual_yield": "-0.049999999999999999999999999021879021879021879021879020871947512874153800794727434617191776447005200303451670134",
+      "expected_continuous_rate": "-0.051293294387550533426196143225086208838192760660298381484978932944322383621665335540701656910379440281058415540",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-136",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-137",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Annual",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "inverse_absolute_price": "92.500000000000000000000000",
+      "expected_annual_yield": "0.050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "expected_continuous_rate": "0.048790164169432003065374404223164658607973664415582410040076573114107924323631038819413721315586629897062458209",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-138",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.16962524654832347140039447731755424063116370808678500986193293885601577909270216962524654832347140039447732",
+      "inverse_absolute_price": "102.169625246548323471400394",
+      "expected_annual_yield": "-0.049999999999999999999999995444980694980694980694980679020540466003786467106930365258011168598741831102707997229",
+      "expected_continuous_rate": "-0.050635615968579750807446033553931396784014694860839149514298172743572257666951764901305414157628214292287527599",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-139",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-140",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "SemiAnnual",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.444973230220107079119571683521713265913146936347412254610350981558596073765615704937537180249851279000594884",
+      "inverse_absolute_price": "92.444973230220107079119572",
+      "expected_annual_yield": "0.049999999999999999999999996490990990990990990990991000000608716824933041149257339770468057538912177334383401150",
+      "expected_continuous_rate": "0.049385225180743002028615347449957065825194000676612881125640525209890232338646044578185770748992642825631860807",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-141",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.13688644190496035168707351340296314146304342730378404091123712939133554048321491295486651234435173575120421",
+      "inverse_absolute_price": "102.136886441904960351687074",
+      "expected_annual_yield": "-0.050000000000000000000000004704613491141811454311454297445837972644654790388421233751501975266023085913923742559",
+      "expected_continuous_rate": "-0.050315128827440472386969115074097519266178319083366376234086152845981753647105267442482620893046521339026066060",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-142",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-143",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Quarterly",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.416795230465986015520206521653530822940032993453787107268867238459347461099301849262804477023929418456750748",
+      "inverse_absolute_price": "92.416795230465986015520207",
+      "expected_annual_yield": "0.049999999999999999999999994759331365754705598455598472551917162629943707820222203952339864199306836349559439134",
+      "expected_continuous_rate": "0.049690079994228613245172509348866605572607381491859453592131299218845068041744012334398187035268802991896916765",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-144",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.11537133620099360294989722645611409214089137971905961251504252627576012045661080587443151018700356543273688",
+      "inverse_absolute_price": "102.115371336200993602949897",
+      "expected_annual_yield": "-0.049999999999999999999999997791590590141215209846557763859946483127565843352685116339725083578293043010243494628",
+      "expected_continuous_rate": "-0.050104456925767640421233538416476623852861519576817476581329680127255617289791251009372532233692382297064248178",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-145",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-146",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Monthly",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.397755470135569743265369584306904340890086812688096948428869998735724568672011194449284654783957832902889673",
+      "inverse_absolute_price": "92.397755470135569743265370",
+      "expected_annual_yield": "0.049999999999999999999999995482302052680547204840121539122588972478685042816848695773333234993302619401193525385",
+      "expected_continuous_rate": "0.049896121783964301617739148253801109822735280702242613592230504960999686188180074941724469600309348653246801339",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-147",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "-0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "102.10470523552133485562140042909954200947951837934794810814002478902493233981076324287281194694209157526146110",
+      "inverse_absolute_price": "102.104705235521334855621400",
+      "expected_annual_yield": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "expected_continuous_rate": "-0.049999999999999999999999995797455748785614859339556946936421637239526736038371468182086728803353064721765091086",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-148",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "97.125",
+      "inverse_absolute_price": "97.125000000000000000000000",
+      "expected_annual_yield": "0",
+      "expected_continuous_rate": "0",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    },
+    {
+      "id": "zero-complete-context-149",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-31",
+      "maturity": "2026-01-31",
+      "face": "1000.625",
+      "redemption": "97.125",
+      "currency": "USD",
+      "day_count": "Act365Leap",
+      "compounding": "Continuous",
+      "basis": {
+        "kind": "act365_l",
+        "frequency": "Annual",
+        "coupon_periods": [
+          {
+            "start": "2024-01-31",
+            "end": "2025-01-31"
+          },
+          {
+            "start": "2025-01-31",
+            "end": "2026-01-31"
+          }
+        ]
+      },
+      "annual_decimal_yield": "0.05",
+      "discount_years_exact": "1",
+      "expected_absolute_price": "92.388157854631848133004684183598716103819618517183740691250489104228543945739293850551123487871865677962515491",
+      "inverse_absolute_price": "92.388157854631848133004684",
+      "expected_annual_yield": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "expected_continuous_rate": "0.050000000000000000000000001987253781947931336499331633203795929391349880716903982020068172129429515137436372207",
+      "price_absolute_bound": "1e-10",
+      "yield_absolute_bound": "1e-11",
+      "residual_absolute_bound": "1e-10"
+    }
+  ],
+  "certified": false
+}

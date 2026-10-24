@@ -33,9 +33,9 @@ directly to the cdylib's `char*`-in / `char*`-out C functions by symbol name.
 ```sh
 # 1. Build + stage the native library for your platform classifier
 #    (linux-x86_64, linux-aarch64, darwin-x86_64, darwin-aarch64, windows-x86_64)
-cargo build -p convex-ffi --release
+cargo build --locked --profile excel -p convex-ffi
 mkdir -p bindings/java/src/main/resources/native/linux-x86_64
-cp target/release/libconvex_ffi.so \
+cp target/excel/libconvex_ffi.so \
    bindings/java/src/main/resources/native/linux-x86_64/
 
 # 2. Build + test the jar
@@ -129,3 +129,9 @@ Required repository secrets:
 | `MAVEN_GPG_PASSPHRASE` | passphrase for that key |
 
 To cut a release: `git tag java-v0.13.0 && git push origin java-v0.13.0`.
+
+## Full supplied-input library API
+
+See [the shared API, exact terms and capability limits](../../docs/LIBRARY-API.md).
+Generic JSON text calls preserve native diagnostics and decimal strings.
+Full mandatory operations and host certification remain open.

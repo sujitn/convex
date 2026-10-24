@@ -17,7 +17,6 @@ pub struct CashPosition {
     pub currency: Currency,
 
     /// FX rate to convert to portfolio base currency.
-    /// A rate of 1.0 means the cash is in the base currency.
     /// Rate is expressed as: 1 unit of cash currency = fx_rate units of base currency.
     pub fx_rate: Decimal,
 }
@@ -61,16 +60,27 @@ impl CashPosition {
         self
     }
 
-    /// Returns the value in the portfolio's base currency.
-    #[must_use]
-    pub fn value_in_base(&self) -> Decimal {
-        self.amount * self.fx_rate
+    /// Checked value at the supplied positive reporting FX; rounds only final output.
+    pub fn value_in_base(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_value()?.finish().map_err(Into::into)
     }
-
-    /// Returns true if this is in the base currency (fx_rate == 1).
+    pub(crate) fn exact_value(
+        &self,
+    ) -> crate::PortfolioResult<convex_math::decimal::BoundedDecimal> {
+        if self.fx_rate <= Decimal::ZERO {
+            return Err(crate::PortfolioError::InvalidFxRate {
+                currency: self.currency.to_string(),
+                rate: self.fx_rate.to_string(),
+            });
+        }
+        convex_math::decimal::BoundedDecimal::decimal(self.amount)
+            .multiply(self.fx_rate)
+            .map_err(Into::into)
+    }
+    /// Compare actual currency identity with the explicit reporting currency.
     #[must_use]
-    pub fn is_base_currency(&self) -> bool {
-        self.fx_rate == Decimal::ONE
+    pub fn is_base_currency(&self, reporting_currency: Currency) -> bool {
+        self.currency == reporting_currency
     }
 }
 
@@ -110,24 +120,24 @@ mod tests {
     fn test_value_in_base() {
         // USD cash in USD portfolio (no conversion)
         let usd_cash = CashPosition::new(dec!(1_000_000), Currency::USD);
-        assert_eq!(usd_cash.value_in_base(), dec!(1_000_000));
+        assert_eq!(usd_cash.value_in_base().unwrap(), dec!(1_000_000));
 
         // EUR cash in USD portfolio (1 EUR = 1.10 USD)
         let eur_cash = CashPosition::with_fx_rate(dec!(1_000_000), Currency::EUR, dec!(1.10));
-        assert_eq!(eur_cash.value_in_base(), dec!(1_100_000));
+        assert_eq!(eur_cash.value_in_base().unwrap(), dec!(1_100_000));
 
         // GBP cash in USD portfolio (1 GBP = 1.25 USD)
         let gbp_cash = CashPosition::with_fx_rate(dec!(500_000), Currency::GBP, dec!(1.25));
-        assert_eq!(gbp_cash.value_in_base(), dec!(625_000));
+        assert_eq!(gbp_cash.value_in_base().unwrap(), dec!(625_000));
     }
 
     #[test]
     fn test_is_base_currency() {
         let usd_cash = CashPosition::new(dec!(1_000_000), Currency::USD);
-        assert!(usd_cash.is_base_currency());
+        assert!(usd_cash.is_base_currency(Currency::USD));
 
         let eur_cash = CashPosition::with_fx_rate(dec!(1_000_000), Currency::EUR, dec!(1.10));
-        assert!(!eur_cash.is_base_currency());
+        assert!(!eur_cash.is_base_currency(Currency::USD));
     }
 
     #[test]

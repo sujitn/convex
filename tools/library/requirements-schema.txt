@@ -1,0 +1,2 @@
+# Test tooling only; no production runtime dependency.
+jsonschema==4.23.0

@@ -12,7 +12,8 @@ use crate::term_structure::TermStructure;
 use crate::value_type::ValueType;
 
 /// Fallback behavior when accessing tenors outside the underlying curve's range.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum DelegationFallback {
     /// Trust that the underlying curve handles all tenors.
     /// Does not check bounds.

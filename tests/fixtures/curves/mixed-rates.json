@@ -1,0 +1,4034 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "qualification": "Independent Decimal(60) manual synthetic dated engineering controls; no external engine/market or quantitative certificate.",
+  "reference_method": "Explicit piecewise-linear ACT365F continuous zeros; simple ACT360 deposit/FRA; full known/forecast weighted overnight product; independent term reset and stepped profile sums; spread outside compounding; actual synthetic calendar and delayed cash.",
+  "tolerances": {
+    "zero_absolute": 1e-09,
+    "zero_relative": 1e-10,
+    "currency_absolute": 0.0001,
+    "currency_relative": 1e-11,
+    "rate_absolute": 1e-12,
+    "price_points_absolute": 1e-10
+  },
+  "reference_date": "2026-10-07",
+  "as_of": "2026-10-07T12:00:00Z",
+  "holidays": [
+    "2026-10-12",
+    "2026-11-11",
+    "2026-11-26",
+    "2027-01-01"
+  ],
+  "calendar_stamp": {
+    "id": "CME-calendar-reference",
+    "version": 1,
+    "source": "engineering-CVX057",
+    "source_at": "2026-09-01T00:00:00Z",
+    "available_at": "2026-09-01T00:00:00Z",
+    "valid_until": "2028-01-01T00:00:00Z",
+    "quality": "synthetic",
+    "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+  },
+  "source_reads": {
+    "tests/fixtures/futures/cme-2026-09-24.json": "c26189bc5efc0c262966ffea95355a896c07bac400e1144bc1a8d7bbd6935fa6",
+    "tests/fixtures/futures/valuation.json": "fa28e2f7eb7900e9a8f3f1802da56efe8688d94d2a2360b835a48adbdaed986d"
+  },
+  "cases": [
+    {
+      "id": "nonflat-positive",
+      "recipes": [
+        {
+          "curve": {
+            "key": {
+              "id": "D.OIS",
+              "version": "1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2026-10-07",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "None",
+            "dependencies": [],
+            "calibration": "Piecewise",
+            "source": {
+              "Helpers": [
+                "discount-deposit",
+                "partly-fixed-SR3",
+                "seasoned-OIS"
+              ]
+            }
+          },
+          "pillars": [
+            "2026-10-30",
+            "2026-12-16",
+            "2027-10-11"
+          ],
+          "helpers": [
+            {
+              "id": "discount-deposit",
+              "pillar": "2026-10-30",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Deposit",
+                  "start_date": "2026-10-07",
+                  "maturity_date": "2026-10-30",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "D.OIS",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": 0.029617026451495214,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            },
+            {
+              "id": "partly-fixed-SR3",
+              "pillar": "2026-12-16",
+              "terms": {
+                "kind": "rate_future",
+                "contract": {
+                  "instrument_id": "CME-SR3U6",
+                  "stamp": {
+                    "id": "CME-SR3U6",
+                    "version": 1,
+                    "source": "engineering-CVX057",
+                    "source_at": "2026-09-01T00:00:00Z",
+                    "available_at": "2026-09-01T00:00:00Z",
+                    "valid_until": "2028-01-01T00:00:00Z",
+                    "quality": "synthetic",
+                    "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                  },
+                  "exchange": "CME",
+                  "product_code": "SR3",
+                  "contract_code": "SR3U6",
+                  "contract_month": {
+                    "year": 2026,
+                    "month": 9
+                  },
+                  "currency": "USD",
+                  "listed_from": "2026-07-01",
+                  "last_trade": "2026-12-15",
+                  "expiry": "2026-12-16",
+                  "currency_per_price_point": "2500",
+                  "ticks": [
+                    {
+                      "from": "2026-07-01",
+                      "until": "2026-08-15",
+                      "increment": "0.005"
+                    },
+                    {
+                      "from": "2026-08-15",
+                      "until": null,
+                      "increment": "0.0025"
+                    }
+                  ],
+                  "daily_settlement": {
+                    "calendar": {
+                      "id": "CME-calendar-reference",
+                      "version": 1
+                    },
+                    "time_zone": "America/Chicago",
+                    "cash_decimal_places": 2
+                  },
+                  "settlement": {
+                    "kind": "rate",
+                    "final_settlement": "2026-12-16",
+                    "accrual": {
+                      "kind": "overnight",
+                      "index": "USD.SOFR",
+                      "start": "2026-09-16",
+                      "end": "2026-12-16",
+                      "calendar": {
+                        "id": "CME-calendar-reference",
+                        "version": 1
+                      },
+                      "averaging": "compounded",
+                      "day_count": "Act360"
+                    },
+                    "convexity": {
+                      "kind": "supplied",
+                      "decimal_rate": "0.00015",
+                      "model": {
+                        "id": "convexity-control",
+                        "version": 1
+                      },
+                      "evidence": "Explicit supplied whole-quote additive forward-minus-future rate adjustment"
+                    }
+                  }
+                },
+                "clearing": {
+                  "contract": {
+                    "id": "CME-SR3U6",
+                    "version": 1
+                  },
+                  "stamp": {
+                    "id": "clearing-control",
+                    "version": 1,
+                    "source": "engineering-CVX057",
+                    "source_at": "2026-09-01T00:00:00Z",
+                    "available_at": "2026-09-01T00:00:00Z",
+                    "valid_until": "2028-01-01T00:00:00Z",
+                    "quality": "synthetic",
+                    "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                  },
+                  "money_method": "rounded_contract_values",
+                  "final_rate_increment": "0.000001",
+                  "final_rate_rounding": "nearest_up",
+                  "fixing_selection": "first_published"
+                },
+                "projection_curve": {
+                  "id": "P.SOFR",
+                  "version": "1"
+                },
+                "projection_stamp": {
+                  "id": "P.SOFR",
+                  "version": 1,
+                  "source": "engineering-CVX057",
+                  "source_at": "2026-09-01T00:00:00Z",
+                  "available_at": "2026-09-01T00:00:00Z",
+                  "valid_until": "2028-01-01T00:00:00Z",
+                  "quality": "synthetic",
+                  "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                },
+                "fixing_stamp": {
+                  "id": "fixings-control",
+                  "version": 1,
+                  "source": "engineering-CVX057",
+                  "source_at": "2026-09-01T00:00:00Z",
+                  "available_at": "2026-09-01T00:00:00Z",
+                  "valid_until": "2028-01-01T00:00:00Z",
+                  "quality": "synthetic",
+                  "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                },
+                "convexity_model": {
+                  "id": "convexity-control",
+                  "version": 1,
+                  "source": "engineering-CVX057",
+                  "source_at": "2026-09-01T00:00:00Z",
+                  "available_at": "2026-09-01T00:00:00Z",
+                  "valid_until": "2028-01-01T00:00:00Z",
+                  "quality": "synthetic",
+                  "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                }
+              },
+              "quote": {
+                "value": 96.69427607516135,
+                "unit": "FuturePrice100MinusRate"
+              },
+              "tolerance": 1e-10
+            },
+            {
+              "id": "seasoned-OIS",
+              "pillar": "2027-10-11",
+              "terms": {
+                "kind": "swap",
+                "schema_version": 1,
+                "trade_id": "seasoned-OIS",
+                "version": 1,
+                "currency": "USD",
+                "side": "PayFixed",
+                "effective_date": "2026-09-16",
+                "maturity_date": "2027-10-07",
+                "fixed": {
+                  "leg": {
+                    "schedule": {
+                      "start_date": "2026-09-16",
+                      "end_date": "2027-10-07",
+                      "frequency": "Annual",
+                      "stub_type": "ShortFirst",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "dates": {
+                      "accrual_adjustment": "Unadjusted",
+                      "payment_adjustment": "Following",
+                      "payment_delay": {
+                        "BusinessDays": 2
+                      },
+                      "fixing_offset": null,
+                      "observation_offset": null,
+                      "ex_coupon": null
+                    },
+                    "calendars": {
+                      "accrual": {
+                        "id": "ACCRUAL",
+                        "version": 1
+                      },
+                      "payment": {
+                        "id": "PAYMENT",
+                        "version": 1
+                      }
+                    },
+                    "day_count": "Act360",
+                    "notionals": [
+                      {
+                        "start": "2026-09-16",
+                        "end": "2027-04-07",
+                        "value": "1000000"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "600000"
+                      }
+                    ],
+                    "rounding": "Unrounded",
+                    "negative_coupons": "Allow"
+                  },
+                  "rates": [
+                    {
+                      "start": "2026-09-16",
+                      "end": "2027-10-07",
+                      "value": "0.035152500835236154947377"
+                    }
+                  ]
+                },
+                "floating": {
+                  "kind": "overnight",
+                  "leg": {
+                    "schedule": {
+                      "start_date": "2026-09-16",
+                      "end_date": "2027-10-07",
+                      "frequency": "Quarterly",
+                      "stub_type": "ShortFirst",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "dates": {
+                      "accrual_adjustment": "Unadjusted",
+                      "payment_adjustment": "Following",
+                      "payment_delay": {
+                        "BusinessDays": 2
+                      },
+                      "fixing_offset": null,
+                      "observation_offset": null,
+                      "ex_coupon": null
+                    },
+                    "calendars": {
+                      "accrual": {
+                        "id": "ACCRUAL",
+                        "version": 1
+                      },
+                      "payment": {
+                        "id": "PAYMENT",
+                        "version": 1
+                      }
+                    },
+                    "day_count": "Act360",
+                    "notionals": [
+                      {
+                        "start": "2026-09-16",
+                        "end": "2027-04-07",
+                        "value": "1000000"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "600000"
+                      }
+                    ],
+                    "rounding": "Unrounded",
+                    "negative_coupons": "Allow"
+                  },
+                  "index_id": "USD.SOFR",
+                  "observation_calendar": {
+                    "id": "CME-calendar-reference",
+                    "version": 1
+                  },
+                  "convention": {
+                    "lookback_business_days": 0,
+                    "observation_shift": false,
+                    "lockout_business_days": 0
+                  },
+                  "profiles": {
+                    "spreads": [
+                      {
+                        "start": "2026-09-16",
+                        "end": "2027-10-07",
+                        "value": "0.0002"
+                      }
+                    ],
+                    "gearings": [
+                      {
+                        "start": "2026-09-16",
+                        "end": "2027-10-07",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  "projection_curve": {
+                    "id": "P.SOFR",
+                    "version": "1"
+                  },
+                  "fixing_policy": {
+                    "unpublished": "Forecast",
+                    "final_only": true
+                  }
+                },
+                "collateral": {
+                  "agreement": {
+                    "id": "CSA.USD",
+                    "version": 1
+                  },
+                  "currency": "USD",
+                  "discount_curve": {
+                    "id": "D.OIS",
+                    "version": "1"
+                  }
+                }
+              },
+              "quote": {
+                "value": 0.035152500835236154,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            }
+          ],
+          "overnight_projection": {
+            "key": {
+              "id": "P.SOFR",
+              "version": "1"
+            },
+            "index_id": "USD.SOFR"
+          },
+          "bootstrap": {
+            "lower_zero": -0.08,
+            "upper_zero": 0.15,
+            "max_iterations": 100
+          },
+          "overlap_policy": "Reject"
+        },
+        {
+          "curve": {
+            "key": {
+              "id": "P.3M",
+              "version": "1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "USD.TERM3M"
+            },
+            "currency": "USD",
+            "reference_date": "2026-10-07",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "None",
+            "dependencies": [
+              {
+                "id": "D.OIS",
+                "version": "1"
+              }
+            ],
+            "calibration": "Piecewise",
+            "source": {
+              "Helpers": [
+                "3M-deposit",
+                "3M-FRA",
+                "amortizing-IRS"
+              ]
+            }
+          },
+          "pillars": [
+            "2026-10-30",
+            "2026-12-16",
+            "2027-10-11"
+          ],
+          "helpers": [
+            {
+              "id": "3M-deposit",
+              "pillar": "2026-10-30",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Deposit",
+                  "start_date": "2026-10-07",
+                  "maturity_date": "2026-10-30",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "P.3M",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": 3.6535725781932684,
+                "unit": "PercentRate"
+              },
+              "tolerance": 1e-10
+            },
+            {
+              "id": "3M-FRA",
+              "pillar": "2026-12-16",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Fra",
+                  "index_id": "USD.TERM3M",
+                  "fixing_date": "2026-10-28",
+                  "start_date": "2026-10-30",
+                  "end_date": "2026-12-16",
+                  "settlement_date": "2026-10-30",
+                  "settlement": "AtStart",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "P.3M",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": 395.327385390627,
+                "unit": "BasisPoints"
+              },
+              "tolerance": 1e-08
+            },
+            {
+              "id": "amortizing-IRS",
+              "pillar": "2027-10-11",
+              "terms": {
+                "kind": "swap",
+                "schema_version": 1,
+                "trade_id": "stepped-amortizing-IRS",
+                "version": 1,
+                "currency": "USD",
+                "side": "PayFixed",
+                "effective_date": "2026-10-07",
+                "maturity_date": "2027-10-07",
+                "fixed": {
+                  "leg": {
+                    "schedule": {
+                      "start_date": "2026-10-07",
+                      "end_date": "2027-10-07",
+                      "frequency": "Annual",
+                      "stub_type": "None",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "dates": {
+                      "accrual_adjustment": "Unadjusted",
+                      "payment_adjustment": "Following",
+                      "payment_delay": {
+                        "BusinessDays": 2
+                      },
+                      "fixing_offset": null,
+                      "observation_offset": null,
+                      "ex_coupon": null
+                    },
+                    "calendars": {
+                      "accrual": {
+                        "id": "ACCRUAL",
+                        "version": 1
+                      },
+                      "payment": {
+                        "id": "PAYMENT",
+                        "version": 1
+                      }
+                    },
+                    "day_count": "Act360",
+                    "notionals": [
+                      {
+                        "start": "2026-10-07",
+                        "end": "2027-04-07",
+                        "value": "1000000"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "700000"
+                      }
+                    ],
+                    "rounding": "Unrounded",
+                    "negative_coupons": "Allow"
+                  },
+                  "rates": [
+                    {
+                      "start": "2026-10-07",
+                      "end": "2027-10-07",
+                      "value": "0.044406610990887592185089"
+                    }
+                  ]
+                },
+                "floating": {
+                  "kind": "term",
+                  "leg": {
+                    "schedule": {
+                      "start_date": "2026-10-07",
+                      "end_date": "2027-10-07",
+                      "frequency": "Quarterly",
+                      "stub_type": "None",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "dates": {
+                      "accrual_adjustment": "Unadjusted",
+                      "payment_adjustment": "Following",
+                      "payment_delay": {
+                        "BusinessDays": 2
+                      },
+                      "fixing_offset": null,
+                      "observation_offset": null,
+                      "ex_coupon": null
+                    },
+                    "calendars": {
+                      "accrual": {
+                        "id": "ACCRUAL",
+                        "version": 1
+                      },
+                      "payment": {
+                        "id": "PAYMENT",
+                        "version": 1
+                      }
+                    },
+                    "day_count": "Act360",
+                    "notionals": [
+                      {
+                        "start": "2026-10-07",
+                        "end": "2027-04-07",
+                        "value": "1000000"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "700000"
+                      }
+                    ],
+                    "rounding": "Unrounded",
+                    "negative_coupons": "Allow"
+                  },
+                  "resets": {
+                    "index_id": "USD.TERM3M",
+                    "tenor_months": 3,
+                    "schedule": {
+                      "start_date": "2026-10-07",
+                      "end_date": "2027-10-07",
+                      "frequency": "Quarterly",
+                      "stub_type": "None",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "reset_calendar": {
+                      "id": "RESET",
+                      "version": 1
+                    },
+                    "reset_adjustment": "Unadjusted",
+                    "fixing_calendar": {
+                      "id": "FIXING",
+                      "version": 1
+                    },
+                    "fixing_offset": {
+                      "BusinessDays": -2
+                    },
+                    "fixing_adjustment": "Preceding",
+                    "rate_period": "IndexTenor",
+                    "index_end_of_month": false,
+                    "index_end_adjustment": "Following",
+                    "projection_day_count": "Act360"
+                  },
+                  "profiles": {
+                    "spreads": [
+                      {
+                        "start": "2026-10-07",
+                        "end": "2027-04-07",
+                        "value": "0.001"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "0.0015"
+                      }
+                    ],
+                    "gearings": [
+                      {
+                        "start": "2026-10-07",
+                        "end": "2027-07-07",
+                        "value": "1"
+                      },
+                      {
+                        "start": "2027-07-07",
+                        "end": "2027-10-07",
+                        "value": "1.1"
+                      }
+                    ]
+                  },
+                  "projection_curve": {
+                    "id": "P.3M",
+                    "version": "1"
+                  },
+                  "fixing_policy": {
+                    "unpublished": "Forecast",
+                    "final_only": true
+                  }
+                },
+                "collateral": {
+                  "agreement": {
+                    "id": "CSA.USD",
+                    "version": 1
+                  },
+                  "currency": "USD",
+                  "discount_curve": {
+                    "id": "D.OIS",
+                    "version": "1"
+                  }
+                }
+              },
+              "quote": {
+                "value": 0.04440661099088759,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            }
+          ],
+          "overnight_projection": null,
+          "bootstrap": {
+            "lower_zero": -0.08,
+            "upper_zero": 0.15,
+            "max_iterations": 100
+          },
+          "overlap_policy": "Reject"
+        },
+        {
+          "curve": {
+            "key": {
+              "id": "P.6M",
+              "version": "1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "USD.TERM6M"
+            },
+            "currency": "USD",
+            "reference_date": "2026-10-07",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "None",
+            "dependencies": [
+              {
+                "id": "D.OIS",
+                "version": "1"
+              },
+              {
+                "id": "P.3M",
+                "version": "1"
+              }
+            ],
+            "calibration": "Piecewise",
+            "source": {
+              "Helpers": [
+                "6M-deposit",
+                "6M-FRA",
+                "tenor-basis"
+              ]
+            }
+          },
+          "pillars": [
+            "2026-10-30",
+            "2026-12-16",
+            "2027-10-11"
+          ],
+          "helpers": [
+            {
+              "id": "6M-deposit",
+              "pillar": "2026-10-30",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Deposit",
+                  "start_date": "2026-10-07",
+                  "maturity_date": "2026-10-30",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "P.6M",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": 0.04049063867267887,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            },
+            {
+              "id": "6M-FRA",
+              "pillar": "2026-12-16",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Fra",
+                  "index_id": "USD.TERM6M",
+                  "fixing_date": "2026-10-28",
+                  "start_date": "2026-10-30",
+                  "end_date": "2026-12-16",
+                  "settlement_date": "2026-10-30",
+                  "settlement": "AtStart",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "P.6M",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": 0.04497677102335073,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            },
+            {
+              "id": "tenor-basis",
+              "pillar": "2027-10-11",
+              "terms": {
+                "kind": "basis_swap",
+                "terms": {
+                  "schema_version": 1,
+                  "trade_id": "3M-6M-basis",
+                  "version": 1,
+                  "currency": "USD",
+                  "effective_date": "2026-10-07",
+                  "maturity_date": "2027-10-07",
+                  "pay": {
+                    "kind": "term",
+                    "leg": {
+                      "schedule": {
+                        "start_date": "2026-10-07",
+                        "end_date": "2027-10-07",
+                        "frequency": "Quarterly",
+                        "stub_type": "None",
+                        "end_of_month": false,
+                        "first_regular_date": null,
+                        "penultimate_date": null
+                      },
+                      "dates": {
+                        "accrual_adjustment": "Unadjusted",
+                        "payment_adjustment": "Following",
+                        "payment_delay": {
+                          "BusinessDays": 2
+                        },
+                        "fixing_offset": null,
+                        "observation_offset": null,
+                        "ex_coupon": null
+                      },
+                      "calendars": {
+                        "accrual": {
+                          "id": "ACCRUAL",
+                          "version": 1
+                        },
+                        "payment": {
+                          "id": "PAYMENT",
+                          "version": 1
+                        }
+                      },
+                      "day_count": "Act360",
+                      "notionals": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-10-07",
+                          "value": "1000000"
+                        }
+                      ],
+                      "rounding": "Unrounded",
+                      "negative_coupons": "Allow"
+                    },
+                    "resets": {
+                      "index_id": "USD.TERM3M",
+                      "tenor_months": 3,
+                      "schedule": {
+                        "start_date": "2026-10-07",
+                        "end_date": "2027-10-07",
+                        "frequency": "Quarterly",
+                        "stub_type": "None",
+                        "end_of_month": false,
+                        "first_regular_date": null,
+                        "penultimate_date": null
+                      },
+                      "reset_calendar": {
+                        "id": "RESET",
+                        "version": 1
+                      },
+                      "reset_adjustment": "Unadjusted",
+                      "fixing_calendar": {
+                        "id": "FIXING",
+                        "version": 1
+                      },
+                      "fixing_offset": {
+                        "BusinessDays": -2
+                      },
+                      "fixing_adjustment": "Preceding",
+                      "rate_period": "IndexTenor",
+                      "index_end_of_month": false,
+                      "index_end_adjustment": "Following",
+                      "projection_day_count": "Act360"
+                    },
+                    "profiles": {
+                      "spreads": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-01-07",
+                          "value": "0.001"
+                        },
+                        {
+                          "start": "2027-01-07",
+                          "end": "2027-10-07",
+                          "value": "0.0007"
+                        }
+                      ],
+                      "gearings": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-10-07",
+                          "value": "1"
+                        }
+                      ]
+                    },
+                    "projection_curve": {
+                      "id": "P.3M",
+                      "version": "1"
+                    },
+                    "fixing_policy": {
+                      "unpublished": "Forecast",
+                      "final_only": true
+                    }
+                  },
+                  "receive": {
+                    "kind": "term",
+                    "leg": {
+                      "schedule": {
+                        "start_date": "2026-10-07",
+                        "end_date": "2027-10-07",
+                        "frequency": "SemiAnnual",
+                        "stub_type": "None",
+                        "end_of_month": false,
+                        "first_regular_date": null,
+                        "penultimate_date": null
+                      },
+                      "dates": {
+                        "accrual_adjustment": "Unadjusted",
+                        "payment_adjustment": "Following",
+                        "payment_delay": {
+                          "BusinessDays": 2
+                        },
+                        "fixing_offset": null,
+                        "observation_offset": null,
+                        "ex_coupon": null
+                      },
+                      "calendars": {
+                        "accrual": {
+                          "id": "ACCRUAL",
+                          "version": 1
+                        },
+                        "payment": {
+                          "id": "PAYMENT",
+                          "version": 1
+                        }
+                      },
+                      "day_count": "Act360",
+                      "notionals": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-04-07",
+                          "value": "1000000"
+                        },
+                        {
+                          "start": "2027-04-07",
+                          "end": "2027-10-07",
+                          "value": "600000"
+                        }
+                      ],
+                      "rounding": "Unrounded",
+                      "negative_coupons": "Allow"
+                    },
+                    "resets": {
+                      "index_id": "USD.TERM6M",
+                      "tenor_months": 6,
+                      "schedule": {
+                        "start_date": "2026-10-07",
+                        "end_date": "2027-10-07",
+                        "frequency": "SemiAnnual",
+                        "stub_type": "None",
+                        "end_of_month": false,
+                        "first_regular_date": null,
+                        "penultimate_date": null
+                      },
+                      "reset_calendar": {
+                        "id": "RESET",
+                        "version": 1
+                      },
+                      "reset_adjustment": "Unadjusted",
+                      "fixing_calendar": {
+                        "id": "FIXING",
+                        "version": 1
+                      },
+                      "fixing_offset": {
+                        "BusinessDays": -2
+                      },
+                      "fixing_adjustment": "Preceding",
+                      "rate_period": "IndexTenor",
+                      "index_end_of_month": false,
+                      "index_end_adjustment": "Following",
+                      "projection_day_count": "Act360"
+                    },
+                    "profiles": {
+                      "spreads": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-10-07",
+                          "value": "0.014787027507253173384744"
+                        }
+                      ],
+                      "gearings": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-10-07",
+                          "value": "0.9"
+                        }
+                      ]
+                    },
+                    "projection_curve": {
+                      "id": "P.6M",
+                      "version": "1"
+                    },
+                    "fixing_policy": {
+                      "unpublished": "Forecast",
+                      "final_only": true
+                    }
+                  },
+                  "collateral": {
+                    "agreement": {
+                      "id": "CSA.USD",
+                      "version": 1
+                    },
+                    "currency": "USD",
+                    "discount_curve": {
+                      "id": "D.OIS",
+                      "version": "1"
+                    }
+                  }
+                },
+                "quoted_leg": "Receive"
+              },
+              "quote": {
+                "value": 147.87027507253174,
+                "unit": "BasisPoints"
+              },
+              "tolerance": 1e-08
+            }
+          ],
+          "overnight_projection": null,
+          "bootstrap": {
+            "lower_zero": -0.08,
+            "upper_zero": 0.15,
+            "max_iterations": 100
+          },
+          "overlap_policy": "Reject"
+        }
+      ],
+      "history": [
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-16",
+          "rate": "0.038000000000000000000000",
+          "published_at": "2026-09-17T08:00:00Z",
+          "known_at": "2026-09-17T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-17",
+          "rate": "0.038010000000000000000000",
+          "published_at": "2026-09-18T08:00:00Z",
+          "known_at": "2026-09-18T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-18",
+          "rate": "0.038020000000000000000000",
+          "published_at": "2026-09-21T08:00:00Z",
+          "known_at": "2026-09-21T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-21",
+          "rate": "0.038050000000000000000000",
+          "published_at": "2026-09-22T08:00:00Z",
+          "known_at": "2026-09-22T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-22",
+          "rate": "0.038060000000000000000000",
+          "published_at": "2026-09-23T08:00:00Z",
+          "known_at": "2026-09-23T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-23",
+          "rate": "0.038070000000000000000000",
+          "published_at": "2026-09-24T08:00:00Z",
+          "known_at": "2026-09-24T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-24",
+          "rate": "0.038080000000000000000000",
+          "published_at": "2026-09-25T08:00:00Z",
+          "known_at": "2026-09-25T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-25",
+          "rate": "0.038090000000000000000000",
+          "published_at": "2026-09-28T08:00:00Z",
+          "known_at": "2026-09-28T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-28",
+          "rate": "0.038120000000000000000000",
+          "published_at": "2026-09-29T08:00:00Z",
+          "known_at": "2026-09-29T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-29",
+          "rate": "0.038130000000000000000000",
+          "published_at": "2026-09-30T08:00:00Z",
+          "known_at": "2026-09-30T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-30",
+          "rate": "0.038140000000000000000000",
+          "published_at": "2026-10-01T08:00:00Z",
+          "known_at": "2026-10-01T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-10-01",
+          "rate": "0.038150000000000000000000",
+          "published_at": "2026-10-02T08:00:00Z",
+          "known_at": "2026-10-02T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-10-02",
+          "rate": "0.038160000000000000000000",
+          "published_at": "2026-10-05T08:00:00Z",
+          "known_at": "2026-10-05T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-10-05",
+          "rate": "0.038190000000000000000000",
+          "published_at": "2026-10-06T08:00:00Z",
+          "known_at": "2026-10-06T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-10-06",
+          "rate": "0.038200000000000000000000",
+          "published_at": "2026-10-07T08:00:00Z",
+          "known_at": "2026-10-07T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.TERM3M",
+          "observation_date": "2026-10-05",
+          "rate": "0.0371",
+          "published_at": "2026-10-06T08:00:00Z",
+          "known_at": "2026-10-06T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.TERM6M",
+          "observation_date": "2026-10-05",
+          "rate": "0.0391",
+          "published_at": "2026-10-06T08:00:00Z",
+          "known_at": "2026-10-06T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        }
+      ],
+      "term_future_terms": {
+        "kind": "rate_future",
+        "contract": {
+          "instrument_id": "SYNTH.TERM3M.2026",
+          "stamp": {
+            "id": "SYNTH.TERM3M.2026",
+            "version": 1,
+            "source": "engineering-CVX057",
+            "source_at": "2026-09-01T00:00:00Z",
+            "available_at": "2026-09-01T00:00:00Z",
+            "valid_until": "2028-01-01T00:00:00Z",
+            "quality": "synthetic",
+            "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+          },
+          "exchange": "CME",
+          "product_code": "SR3",
+          "contract_code": "SR3U6",
+          "contract_month": {
+            "year": 2026,
+            "month": 9
+          },
+          "currency": "USD",
+          "listed_from": "2026-07-01",
+          "last_trade": "2026-10-28",
+          "expiry": "2026-10-28",
+          "currency_per_price_point": "2500",
+          "ticks": [
+            {
+              "from": "2026-07-01",
+              "until": "2026-08-15",
+              "increment": "0.005"
+            },
+            {
+              "from": "2026-08-15",
+              "until": null,
+              "increment": "0.0025"
+            }
+          ],
+          "daily_settlement": {
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "time_zone": "America/Chicago",
+            "cash_decimal_places": 2
+          },
+          "settlement": {
+            "kind": "rate",
+            "final_settlement": "2026-10-29",
+            "accrual": {
+              "kind": "term",
+              "index": "USD.TERM3M",
+              "fixing": "2026-10-28",
+              "start": "2026-10-30",
+              "end": "2026-12-16",
+              "calendar": {
+                "id": "CME-calendar-reference",
+                "version": 1
+              },
+              "day_count": "Act360"
+            },
+            "convexity": {
+              "kind": "supplied",
+              "decimal_rate": "0.00015",
+              "model": {
+                "id": "convexity-control",
+                "version": 1
+              },
+              "evidence": "Explicit supplied whole-quote additive forward-minus-future rate adjustment"
+            }
+          }
+        },
+        "clearing": {
+          "contract": {
+            "id": "SYNTH.TERM3M.2026",
+            "version": 1
+          },
+          "stamp": {
+            "id": "clearing-control",
+            "version": 1,
+            "source": "engineering-CVX057",
+            "source_at": "2026-09-01T00:00:00Z",
+            "available_at": "2026-09-01T00:00:00Z",
+            "valid_until": "2028-01-01T00:00:00Z",
+            "quality": "synthetic",
+            "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+          },
+          "money_method": "rounded_contract_values",
+          "final_rate_increment": "0.000001",
+          "final_rate_rounding": "nearest_up",
+          "fixing_selection": "first_published"
+        },
+        "projection_curve": {
+          "id": "P.3M",
+          "version": "1"
+        },
+        "projection_stamp": {
+          "id": "P.3M",
+          "version": 1,
+          "source": "engineering-CVX057",
+          "source_at": "2026-09-01T00:00:00Z",
+          "available_at": "2026-09-01T00:00:00Z",
+          "valid_until": "2028-01-01T00:00:00Z",
+          "quality": "synthetic",
+          "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+        },
+        "fixing_stamp": {
+          "id": "fixings-control",
+          "version": 1,
+          "source": "engineering-CVX057",
+          "source_at": "2026-09-01T00:00:00Z",
+          "available_at": "2026-09-01T00:00:00Z",
+          "valid_until": "2028-01-01T00:00:00Z",
+          "quality": "synthetic",
+          "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+        },
+        "convexity_model": {
+          "id": "convexity-control",
+          "version": 1,
+          "source": "engineering-CVX057",
+          "source_at": "2026-09-01T00:00:00Z",
+          "available_at": "2026-09-01T00:00:00Z",
+          "valid_until": "2028-01-01T00:00:00Z",
+          "quality": "synthetic",
+          "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+        }
+      },
+      "expected_zeros": {
+        "D.OIS": [
+          "0.030",
+          "0.032",
+          "0.035"
+        ],
+        "P.3M": [
+          "0.037",
+          "0.039",
+          "0.043"
+        ],
+        "P.6M": [
+          "0.041",
+          "0.044",
+          "0.048"
+        ]
+      },
+      "expected": {
+        "future_observations": [
+          {
+            "observation": "2026-09-16",
+            "rate_end": "2026-09-17",
+            "weight_start": "2026-09-16",
+            "weight_end": "2026-09-17",
+            "known": true,
+            "rate": "0.038000000000000000000000"
+          },
+          {
+            "observation": "2026-09-17",
+            "rate_end": "2026-09-18",
+            "weight_start": "2026-09-17",
+            "weight_end": "2026-09-18",
+            "known": true,
+            "rate": "0.038010000000000000000000"
+          },
+          {
+            "observation": "2026-09-18",
+            "rate_end": "2026-09-21",
+            "weight_start": "2026-09-18",
+            "weight_end": "2026-09-21",
+            "known": true,
+            "rate": "0.038020000000000000000000"
+          },
+          {
+            "observation": "2026-09-21",
+            "rate_end": "2026-09-22",
+            "weight_start": "2026-09-21",
+            "weight_end": "2026-09-22",
+            "known": true,
+            "rate": "0.038050000000000000000000"
+          },
+          {
+            "observation": "2026-09-22",
+            "rate_end": "2026-09-23",
+            "weight_start": "2026-09-22",
+            "weight_end": "2026-09-23",
+            "known": true,
+            "rate": "0.038060000000000000000000"
+          },
+          {
+            "observation": "2026-09-23",
+            "rate_end": "2026-09-24",
+            "weight_start": "2026-09-23",
+            "weight_end": "2026-09-24",
+            "known": true,
+            "rate": "0.038070000000000000000000"
+          },
+          {
+            "observation": "2026-09-24",
+            "rate_end": "2026-09-25",
+            "weight_start": "2026-09-24",
+            "weight_end": "2026-09-25",
+            "known": true,
+            "rate": "0.038080000000000000000000"
+          },
+          {
+            "observation": "2026-09-25",
+            "rate_end": "2026-09-28",
+            "weight_start": "2026-09-25",
+            "weight_end": "2026-09-28",
+            "known": true,
+            "rate": "0.038090000000000000000000"
+          },
+          {
+            "observation": "2026-09-28",
+            "rate_end": "2026-09-29",
+            "weight_start": "2026-09-28",
+            "weight_end": "2026-09-29",
+            "known": true,
+            "rate": "0.038120000000000000000000"
+          },
+          {
+            "observation": "2026-09-29",
+            "rate_end": "2026-09-30",
+            "weight_start": "2026-09-29",
+            "weight_end": "2026-09-30",
+            "known": true,
+            "rate": "0.038130000000000000000000"
+          },
+          {
+            "observation": "2026-09-30",
+            "rate_end": "2026-10-01",
+            "weight_start": "2026-09-30",
+            "weight_end": "2026-10-01",
+            "known": true,
+            "rate": "0.038140000000000000000000"
+          },
+          {
+            "observation": "2026-10-01",
+            "rate_end": "2026-10-02",
+            "weight_start": "2026-10-01",
+            "weight_end": "2026-10-02",
+            "known": true,
+            "rate": "0.038150000000000000000000"
+          },
+          {
+            "observation": "2026-10-02",
+            "rate_end": "2026-10-05",
+            "weight_start": "2026-10-02",
+            "weight_end": "2026-10-05",
+            "known": true,
+            "rate": "0.038160000000000000000000"
+          },
+          {
+            "observation": "2026-10-05",
+            "rate_end": "2026-10-06",
+            "weight_start": "2026-10-05",
+            "weight_end": "2026-10-06",
+            "known": true,
+            "rate": "0.038190000000000000000000"
+          },
+          {
+            "observation": "2026-10-06",
+            "rate_end": "2026-10-07",
+            "weight_start": "2026-10-06",
+            "weight_end": "2026-10-07",
+            "known": true,
+            "rate": "0.038200000000000000000000"
+          },
+          {
+            "observation": "2026-10-07",
+            "rate_end": "2026-10-08",
+            "weight_start": "2026-10-07",
+            "weight_end": "2026-10-08",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-08",
+            "rate_end": "2026-10-09",
+            "weight_start": "2026-10-08",
+            "weight_end": "2026-10-09",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-09",
+            "rate_end": "2026-10-13",
+            "weight_start": "2026-10-09",
+            "weight_end": "2026-10-13",
+            "known": false,
+            "rate": "0.0295939055809310246297389916011915234848148405225937429799000"
+          },
+          {
+            "observation": "2026-10-13",
+            "rate_end": "2026-10-14",
+            "weight_start": "2026-10-13",
+            "weight_end": "2026-10-14",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-14",
+            "rate_end": "2026-10-15",
+            "weight_start": "2026-10-14",
+            "weight_end": "2026-10-15",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-15",
+            "rate_end": "2026-10-16",
+            "weight_start": "2026-10-15",
+            "weight_end": "2026-10-16",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-16",
+            "rate_end": "2026-10-19",
+            "weight_start": "2026-10-16",
+            "weight_end": "2026-10-19",
+            "known": false,
+            "rate": "0.0295926893597122760485607870730608089308949299680903462868000"
+          },
+          {
+            "observation": "2026-10-19",
+            "rate_end": "2026-10-20",
+            "weight_start": "2026-10-19",
+            "weight_end": "2026-10-20",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-20",
+            "rate_end": "2026-10-21",
+            "weight_start": "2026-10-20",
+            "weight_end": "2026-10-21",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-21",
+            "rate_end": "2026-10-22",
+            "weight_start": "2026-10-21",
+            "weight_end": "2026-10-22",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-22",
+            "rate_end": "2026-10-23",
+            "weight_start": "2026-10-22",
+            "weight_end": "2026-10-23",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-23",
+            "rate_end": "2026-10-26",
+            "weight_start": "2026-10-23",
+            "weight_end": "2026-10-26",
+            "known": false,
+            "rate": "0.0295926893597122760485607870730608089308949299680903462868000"
+          },
+          {
+            "observation": "2026-10-26",
+            "rate_end": "2026-10-27",
+            "weight_start": "2026-10-26",
+            "weight_end": "2026-10-27",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-27",
+            "rate_end": "2026-10-28",
+            "weight_start": "2026-10-27",
+            "weight_end": "2026-10-28",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-28",
+            "rate_end": "2026-10-29",
+            "weight_start": "2026-10-28",
+            "weight_end": "2026-10-29",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-29",
+            "rate_end": "2026-10-30",
+            "weight_start": "2026-10-29",
+            "weight_end": "2026-10-30",
+            "known": false,
+            "rate": "0.0295902571171960770499682012503444041353231640670009854492000"
+          },
+          {
+            "observation": "2026-10-30",
+            "rate_end": "2026-11-02",
+            "weight_start": "2026-10-30",
+            "weight_end": "2026-11-02",
+            "known": false,
+            "rate": "0.0306841904728861559374859619271672952496165738158830843464000"
+          },
+          {
+            "observation": "2026-11-02",
+            "rate_end": "2026-11-03",
+            "weight_start": "2026-11-02",
+            "weight_end": "2026-11-03",
+            "known": false,
+            "rate": "0.0308494709435918685390012480568437064789740840075196211172000"
+          },
+          {
+            "observation": "2026-11-03",
+            "rate_end": "2026-11-04",
+            "weight_start": "2026-11-03",
+            "weight_end": "2026-11-04",
+            "known": false,
+            "rate": "0.0309334186886096043523675174282590024397262277705030307632000"
+          },
+          {
+            "observation": "2026-11-04",
+            "rate_end": "2026-11-05",
+            "weight_start": "2026-11-04",
+            "weight_end": "2026-11-05",
+            "known": false,
+            "rate": "0.0310173664532012847427568638134274904481612679870958498652000"
+          },
+          {
+            "observation": "2026-11-05",
+            "rate_end": "2026-11-06",
+            "weight_start": "2026-11-05",
+            "weight_end": "2026-11-06",
+            "known": false,
+            "rate": "0.0311013142373669142741907058153681464805452310274693352704000"
+          },
+          {
+            "observation": "2026-11-06",
+            "rate_end": "2026-11-09",
+            "weight_start": "2026-11-06",
+            "weight_end": "2026-11-09",
+            "known": false,
+            "rate": "0.0312719259527386613985634869019762066569130269957766691760000"
+          },
+          {
+            "observation": "2026-11-09",
+            "rate_end": "2026-11-10",
+            "weight_start": "2026-11-09",
+            "weight_end": "2026-11-10",
+            "known": false,
+            "rate": "0.0314371055697690150908366485194621583327086125325438877668000"
+          },
+          {
+            "observation": "2026-11-10",
+            "rate_end": "2026-11-12",
+            "weight_start": "2026-11-10",
+            "weight_end": "2026-11-12",
+            "known": false,
+            "rate": "0.0315644110455772318310992058924085818391568841699838452508000"
+          },
+          {
+            "observation": "2026-11-12",
+            "rate_end": "2026-11-13",
+            "weight_start": "2026-11-12",
+            "weight_end": "2026-11-13",
+            "known": false,
+            "rate": "0.0316889492745972803214961185928134494735127652112445131232000"
+          },
+          {
+            "observation": "2026-11-13",
+            "rate_end": "2026-11-16",
+            "weight_start": "2026-11-13",
+            "weight_end": "2026-11-16",
+            "known": false,
+            "rate": "0.0318596643104635759621184168168904840487338567169379815680000"
+          },
+          {
+            "observation": "2026-11-16",
+            "rate_end": "2026-11-17",
+            "weight_start": "2026-11-16",
+            "weight_end": "2026-11-17",
+            "known": false,
+            "rate": "0.0320247411550707877400906483462241361524808995290111375328000"
+          },
+          {
+            "observation": "2026-11-17",
+            "rate_end": "2026-11-18",
+            "weight_start": "2026-11-17",
+            "weight_end": "2026-11-18",
+            "known": false,
+            "rate": "0.0321086891741241629581164522486946856885506973084163451140000"
+          },
+          {
+            "observation": "2026-11-18",
+            "rate_end": "2026-11-19",
+            "weight_start": "2026-11-18",
+            "weight_end": "2026-11-19",
+            "known": false,
+            "rate": "0.0321926372127515466495620345013553025318636515744833180240000"
+          },
+          {
+            "observation": "2026-11-19",
+            "rate_end": "2026-11-20",
+            "weight_start": "2026-11-19",
+            "weight_end": "2026-11-20",
+            "known": false,
+            "rate": "0.0322765852709529433784637123150129288589465322106647592036000"
+          },
+          {
+            "observation": "2026-11-20",
+            "rate_end": "2026-11-23",
+            "weight_start": "2026-11-20",
+            "weight_end": "2026-11-23",
+            "known": false,
+            "rate": "0.0324474055460749912559101507390082994052882102177972129416000"
+          },
+          {
+            "observation": "2026-11-23",
+            "rate_end": "2026-11-24",
+            "weight_start": "2026-11-23",
+            "weight_end": "2026-11-24",
+            "known": false,
+            "rate": "0.0326123776994987519493949699855684319764593133961265042516000"
+          },
+          {
+            "observation": "2026-11-24",
+            "rate_end": "2026-11-25",
+            "weight_start": "2026-11-24",
+            "weight_end": "2026-11-25",
+            "known": false,
+            "rate": "0.0326963258555702823261591303596051862526094070808534547688000"
+          },
+          {
+            "observation": "2026-11-25",
+            "rate_end": "2026-11-27",
+            "weight_start": "2026-11-25",
+            "weight_end": "2026-11-27",
+            "known": false,
+            "rate": "0.0328237443763401128631758156449896004735248233265069281202000"
+          },
+          {
+            "observation": "2026-11-27",
+            "rate_end": "2026-11-30",
+            "weight_start": "2026-11-27",
+            "weight_end": "2026-11-30",
+            "known": false,
+            "rate": "0.0330351496595869989766983576158412073698021362689739028792000"
+          },
+          {
+            "observation": "2026-11-30",
+            "rate_end": "2026-12-01",
+            "weight_start": "2026-11-30",
+            "weight_end": "2026-12-01",
+            "known": false,
+            "rate": "0.0332000152030544731839364503983105209455330693405547470516000"
+          },
+          {
+            "observation": "2026-12-01",
+            "rate_end": "2026-12-02",
+            "weight_start": "2026-12-01",
+            "weight_end": "2026-12-02",
+            "known": false,
+            "rate": "0.0332839634961443823575313821151511992443852728000129160364000"
+          },
+          {
+            "observation": "2026-12-02",
+            "rate_end": "2026-12-03",
+            "weight_start": "2026-12-02",
+            "weight_end": "2026-12-03",
+            "known": false,
+            "rate": "0.0333679118088083639011513743437738633836122920173287179460000"
+          },
+          {
+            "observation": "2026-12-03",
+            "rate_end": "2026-12-04",
+            "weight_start": "2026-12-03",
+            "weight_end": "2026-12-04",
+            "known": false,
+            "rate": "0.0334518601410464223788476429514078372392147160355485531796000"
+          },
+          {
+            "observation": "2026-12-04",
+            "rate_end": "2026-12-07",
+            "weight_start": "2026-12-04",
+            "weight_end": "2026-12-07",
+            "known": false,
+            "rate": "0.0336228966510136908902433141381448174742186684984248309704000"
+          },
+          {
+            "observation": "2026-12-07",
+            "rate_end": "2026-12-08",
+            "weight_start": "2026-12-07",
+            "weight_end": "2026-12-08",
+            "known": false,
+            "rate": "0.0337876536657395169114570452280456351694899258711746980320000"
+          },
+          {
+            "observation": "2026-12-08",
+            "rate_end": "2026-12-09",
+            "weight_start": "2026-12-08",
+            "weight_end": "2026-12-09",
+            "known": false,
+            "rate": "0.0338716020958480285203401804540522433524689119862007127972000"
+          },
+          {
+            "observation": "2026-12-09",
+            "rate_end": "2026-12-10",
+            "weight_start": "2026-12-09",
+            "weight_end": "2026-12-10",
+            "known": false,
+            "rate": "0.0339555505455306444476292352948457413385140833971316468552000"
+          },
+          {
+            "observation": "2026-12-10",
+            "rate_end": "2026-12-11",
+            "weight_start": "2026-12-10",
+            "weight_end": "2026-12-11",
+            "known": false,
+            "rate": "0.0340394990147873692573828749641045992781188825630373987040000"
+          },
+          {
+            "observation": "2026-12-11",
+            "rate_end": "2026-12-14",
+            "weight_start": "2026-12-11",
+            "weight_end": "2026-12-14",
+            "known": false,
+            "rate": "0.0342106465203691588313062426044038264499771175623196207956000"
+          },
+          {
+            "observation": "2026-12-14",
+            "rate_end": "2026-12-15",
+            "weight_start": "2026-12-14",
+            "weight_end": "2026-12-15",
+            "known": false,
+            "rate": "0.0343752930875554486022538329715586444355934161609697990948000"
+          },
+          {
+            "observation": "2026-12-15",
+            "rate_end": "2026-12-16",
+            "weight_start": "2026-12-15",
+            "weight_end": "2026-12-16",
+            "known": false,
+            "rate": "0.0344592416546827862852476217639908707054038913925324391112000"
+          }
+        ],
+        "future_price": "96.6942760751613506366134409512451598582684614498404298748018",
+        "arithmetic_future_price": "96.7078366797394692046443419440982673010113017459432146144369",
+        "term_future_price": "96.0617261460937301283061664810570654077923441587048334472485",
+        "ois_par": "0.0351525008352361549473766031168805047235146292207412874986729",
+        "ois_floating_pv": "29552.7226540692342533063848958686437760187326970763247073013",
+        "ois_fixed_annuity": "840700.432455325726099805950432839060453211300435816826716465",
+        "ois_coupons": [
+          {
+            "start": "2026-09-16",
+            "end": "2026-10-07",
+            "payment": "2026-10-09",
+            "amount": "2236.16891066035545698331059235070205936638832758035002421667",
+            "pv": "2235.80135146155667913905788135238603216388274471194625101349"
+          },
+          {
+            "start": "2026-10-07",
+            "end": "2027-01-07",
+            "payment": "2027-01-11",
+            "amount": "8205.57000296579495413843360724386561440394324691740681349111",
+            "pv": "8136.23987685319222433725808454545012342917673263031331240716"
+          },
+          {
+            "start": "2027-01-07",
+            "end": "2027-04-07",
+            "payment": "2027-04-09",
+            "amount": "8480.44470696535772511764123817444367387727853002925587515000",
+            "pv": "8339.92961164152571323722919322526266868555369195446512566667"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-07-07",
+            "payment": "2027-07-09",
+            "amount": "5419.08152083890537136282760323824726757385720242968054708934",
+            "pv": "5281.80061305426313808084446892788773484302142627746637394866"
+          },
+          {
+            "start": "2027-07-07",
+            "end": "2027-10-07",
+            "payment": "2027-10-11",
+            "amount": "5759.16799642665961830414559060525897440237080597914395624067",
+            "pv": "5558.95120105869649851199526781765721689709810150213364426528"
+          }
+        ],
+        "irs_par": "0.0444066109908875921850886717123708161647256399204760570800943",
+        "irs_floating_pv": "36921.5572417635942018106600352286879351596893642549090029459",
+        "irs_coupons": [
+          {
+            "start": "2026-10-07",
+            "end": "2027-01-07",
+            "fixing": "2026-10-05",
+            "rate": "0.0371",
+            "payment": "2027-01-11",
+            "amount": "9736.66666666666666666666666666666666666666666666666666666668",
+            "pv": "9654.40006877372450848560725712441072287602022316264814886862"
+          },
+          {
+            "start": "2027-01-07",
+            "end": "2027-04-07",
+            "fixing": "2027-01-05",
+            "rate": "0.04136993574811753326778040210980066907437434198861262728448",
+            "payment": "2027-04-09",
+            "amount": "10592.4839370293833169451005274501672685935854971531568211200",
+            "pv": "10416.9738144404874291504169867743055976821234626903240759094"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-07-07",
+            "fixing": "2027-04-05",
+            "rate": "0.0437862442074870993093911794397141806620464384985577233079780",
+            "payment": "2027-07-09",
+            "amount": "8013.14932226924507224505036197164807825655036766146381866167",
+            "pv": "7810.15322247912452740947564337992769709404835228036007961845"
+          },
+          {
+            "start": "2027-07-07",
+            "end": "2027-10-07",
+            "fixing": "2027-07-05",
+            "rate": "0.0462312957902491864743439354520743060481110701981495668273999",
+            "payment": "2027-10-11",
+            "amount": "9365.62498272570102734034552062484400124496725788032031681392",
+            "pv": "9040.03013607025773676516014795004391750749732612157669854954"
+          }
+        ],
+        "basis_receive_spread": "0.0147870275072531733847438014162859115776743622244634220080027",
+        "basis_pay_pv": "-42534.4778773904047494915115818941147459602073241909217702048",
+        "basis_annuity_receive": "791575.561156304518108025093731972062900353983664689198393103",
+        "basis_pay_coupons": [
+          {
+            "start": "2026-10-07",
+            "end": "2027-01-07",
+            "fixing": "2026-10-05",
+            "rate": "0.0371",
+            "payment": "2027-01-11",
+            "amount": "9736.66666666666666666666666666666666666666666666666666666668",
+            "pv": "9654.40006877372450848560725712441072287602022316264814886862"
+          },
+          {
+            "start": "2027-01-07",
+            "end": "2027-04-07",
+            "fixing": "2027-01-05",
+            "rate": "0.04136993574811753326778040210980066907437434198861262728448",
+            "payment": "2027-04-09",
+            "amount": "10517.4839370293833169451005274501672685935854971531568211200",
+            "pv": "10343.2165124962428737190710391138189647977810459419356779759"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-07-07",
+            "fixing": "2027-04-05",
+            "rate": "0.0437862442074870993093911794397141806620464384985577233079780",
+            "payment": "2027-07-09",
+            "amount": "11245.1339524481278809849925805944178895728497315798689472944",
+            "pv": "10960.2623941931783220071484915030847630394258489295663219318"
+          },
+          {
+            "start": "2027-07-07",
+            "end": "2027-10-07",
+            "fixing": "2027-07-05",
+            "rate": "0.0462312957902491864743439354520743060481110701981495668273999",
+            "payment": "2027-10-11",
+            "amount": "11993.5533686192365434434501710856559900728290506382226336689",
+            "pv": "11576.5989019272590452796847941528002952469802061567716214285"
+          }
+        ],
+        "basis_receive_index_coupons": [
+          {
+            "start": "2026-10-07",
+            "end": "2027-04-07",
+            "fixing": "2026-10-05",
+            "rate": "0.0391",
+            "payment": "2027-04-09",
+            "amount": "17790.5000000000000000000000000000000000000000000000000000000",
+            "pv": "17495.7237365211035120181344247184992310519168688293839124757"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-10-07",
+            "fixing": "2027-04-05",
+            "rate": "0.0503240244093806141027585702397094087698590849196754326834492",
+            "payment": "2027-10-11",
+            "amount": "13813.9447003749785712072275308002327073263188104509062716068",
+            "pv": "13333.7045439816597376432149074454188294735670125186954253905"
+          }
+        ]
+      }
+    },
+    {
+      "id": "nonflat-negative",
+      "recipes": [
+        {
+          "curve": {
+            "key": {
+              "id": "D.OIS",
+              "version": "1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2026-10-07",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "None",
+            "dependencies": [],
+            "calibration": "Piecewise",
+            "source": {
+              "Helpers": [
+                "discount-deposit",
+                "partly-fixed-SR3",
+                "seasoned-OIS"
+              ]
+            }
+          },
+          "pillars": [
+            "2026-10-30",
+            "2026-12-16",
+            "2027-10-11"
+          ],
+          "helpers": [
+            {
+              "id": "discount-deposit",
+              "pillar": "2026-10-30",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Deposit",
+                  "start_date": "2026-10-07",
+                  "maturity_date": "2026-10-30",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "D.OIS",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": -0.005916689651201712,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            },
+            {
+              "id": "partly-fixed-SR3",
+              "pillar": "2026-12-16",
+              "terms": {
+                "kind": "rate_future",
+                "contract": {
+                  "instrument_id": "CME-SR3U6",
+                  "stamp": {
+                    "id": "CME-SR3U6",
+                    "version": 1,
+                    "source": "engineering-CVX057",
+                    "source_at": "2026-09-01T00:00:00Z",
+                    "available_at": "2026-09-01T00:00:00Z",
+                    "valid_until": "2028-01-01T00:00:00Z",
+                    "quality": "synthetic",
+                    "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                  },
+                  "exchange": "CME",
+                  "product_code": "SR3",
+                  "contract_code": "SR3U6",
+                  "contract_month": {
+                    "year": 2026,
+                    "month": 9
+                  },
+                  "currency": "USD",
+                  "listed_from": "2026-07-01",
+                  "last_trade": "2026-12-15",
+                  "expiry": "2026-12-16",
+                  "currency_per_price_point": "2500",
+                  "ticks": [
+                    {
+                      "from": "2026-07-01",
+                      "until": "2026-08-15",
+                      "increment": "0.005"
+                    },
+                    {
+                      "from": "2026-08-15",
+                      "until": null,
+                      "increment": "0.0025"
+                    }
+                  ],
+                  "daily_settlement": {
+                    "calendar": {
+                      "id": "CME-calendar-reference",
+                      "version": 1
+                    },
+                    "time_zone": "America/Chicago",
+                    "cash_decimal_places": 2
+                  },
+                  "settlement": {
+                    "kind": "rate",
+                    "final_settlement": "2026-12-16",
+                    "accrual": {
+                      "kind": "overnight",
+                      "index": "USD.SOFR",
+                      "start": "2026-09-16",
+                      "end": "2026-12-16",
+                      "calendar": {
+                        "id": "CME-calendar-reference",
+                        "version": 1
+                      },
+                      "averaging": "compounded",
+                      "day_count": "Act360"
+                    },
+                    "convexity": {
+                      "kind": "supplied",
+                      "decimal_rate": "0.00015",
+                      "model": {
+                        "id": "convexity-control",
+                        "version": 1
+                      },
+                      "evidence": "Explicit supplied whole-quote additive forward-minus-future rate adjustment"
+                    }
+                  }
+                },
+                "clearing": {
+                  "contract": {
+                    "id": "CME-SR3U6",
+                    "version": 1
+                  },
+                  "stamp": {
+                    "id": "clearing-control",
+                    "version": 1,
+                    "source": "engineering-CVX057",
+                    "source_at": "2026-09-01T00:00:00Z",
+                    "available_at": "2026-09-01T00:00:00Z",
+                    "valid_until": "2028-01-01T00:00:00Z",
+                    "quality": "synthetic",
+                    "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                  },
+                  "money_method": "rounded_contract_values",
+                  "final_rate_increment": "0.000001",
+                  "final_rate_rounding": "nearest_up",
+                  "fixing_selection": "first_published"
+                },
+                "projection_curve": {
+                  "id": "P.SOFR",
+                  "version": "1"
+                },
+                "projection_stamp": {
+                  "id": "P.SOFR",
+                  "version": 1,
+                  "source": "engineering-CVX057",
+                  "source_at": "2026-09-01T00:00:00Z",
+                  "available_at": "2026-09-01T00:00:00Z",
+                  "valid_until": "2028-01-01T00:00:00Z",
+                  "quality": "synthetic",
+                  "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                },
+                "fixing_stamp": {
+                  "id": "fixings-control",
+                  "version": 1,
+                  "source": "engineering-CVX057",
+                  "source_at": "2026-09-01T00:00:00Z",
+                  "available_at": "2026-09-01T00:00:00Z",
+                  "valid_until": "2028-01-01T00:00:00Z",
+                  "quality": "synthetic",
+                  "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                },
+                "convexity_model": {
+                  "id": "convexity-control",
+                  "version": 1,
+                  "source": "engineering-CVX057",
+                  "source_at": "2026-09-01T00:00:00Z",
+                  "available_at": "2026-09-01T00:00:00Z",
+                  "valid_until": "2028-01-01T00:00:00Z",
+                  "quality": "synthetic",
+                  "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+                }
+              },
+              "quote": {
+                "value": 100.40619784734616,
+                "unit": "FuturePrice100MinusRate"
+              },
+              "tolerance": 1e-10
+            },
+            {
+              "id": "seasoned-OIS",
+              "pillar": "2027-10-11",
+              "terms": {
+                "kind": "swap",
+                "schema_version": 1,
+                "trade_id": "seasoned-OIS",
+                "version": 1,
+                "currency": "USD",
+                "side": "PayFixed",
+                "effective_date": "2026-09-16",
+                "maturity_date": "2027-10-07",
+                "fixed": {
+                  "leg": {
+                    "schedule": {
+                      "start_date": "2026-09-16",
+                      "end_date": "2027-10-07",
+                      "frequency": "Annual",
+                      "stub_type": "ShortFirst",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "dates": {
+                      "accrual_adjustment": "Unadjusted",
+                      "payment_adjustment": "Following",
+                      "payment_delay": {
+                        "BusinessDays": 2
+                      },
+                      "fixing_offset": null,
+                      "observation_offset": null,
+                      "ex_coupon": null
+                    },
+                    "calendars": {
+                      "accrual": {
+                        "id": "ACCRUAL",
+                        "version": 1
+                      },
+                      "payment": {
+                        "id": "PAYMENT",
+                        "version": 1
+                      }
+                    },
+                    "day_count": "Act360",
+                    "notionals": [
+                      {
+                        "start": "2026-09-16",
+                        "end": "2027-04-07",
+                        "value": "1000000"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "600000"
+                      }
+                    ],
+                    "rounding": "Unrounded",
+                    "negative_coupons": "Allow"
+                  },
+                  "rates": [
+                    {
+                      "start": "2026-09-16",
+                      "end": "2027-10-07",
+                      "value": "-0.002963997417512467571254"
+                    }
+                  ]
+                },
+                "floating": {
+                  "kind": "overnight",
+                  "leg": {
+                    "schedule": {
+                      "start_date": "2026-09-16",
+                      "end_date": "2027-10-07",
+                      "frequency": "Quarterly",
+                      "stub_type": "ShortFirst",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "dates": {
+                      "accrual_adjustment": "Unadjusted",
+                      "payment_adjustment": "Following",
+                      "payment_delay": {
+                        "BusinessDays": 2
+                      },
+                      "fixing_offset": null,
+                      "observation_offset": null,
+                      "ex_coupon": null
+                    },
+                    "calendars": {
+                      "accrual": {
+                        "id": "ACCRUAL",
+                        "version": 1
+                      },
+                      "payment": {
+                        "id": "PAYMENT",
+                        "version": 1
+                      }
+                    },
+                    "day_count": "Act360",
+                    "notionals": [
+                      {
+                        "start": "2026-09-16",
+                        "end": "2027-04-07",
+                        "value": "1000000"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "600000"
+                      }
+                    ],
+                    "rounding": "Unrounded",
+                    "negative_coupons": "Allow"
+                  },
+                  "index_id": "USD.SOFR",
+                  "observation_calendar": {
+                    "id": "CME-calendar-reference",
+                    "version": 1
+                  },
+                  "convention": {
+                    "lookback_business_days": 0,
+                    "observation_shift": false,
+                    "lockout_business_days": 0
+                  },
+                  "profiles": {
+                    "spreads": [
+                      {
+                        "start": "2026-09-16",
+                        "end": "2027-10-07",
+                        "value": "0.0002"
+                      }
+                    ],
+                    "gearings": [
+                      {
+                        "start": "2026-09-16",
+                        "end": "2027-10-07",
+                        "value": "1"
+                      }
+                    ]
+                  },
+                  "projection_curve": {
+                    "id": "P.SOFR",
+                    "version": "1"
+                  },
+                  "fixing_policy": {
+                    "unpublished": "Forecast",
+                    "final_only": true
+                  }
+                },
+                "collateral": {
+                  "agreement": {
+                    "id": "CSA.USD",
+                    "version": 1
+                  },
+                  "currency": "USD",
+                  "discount_curve": {
+                    "id": "D.OIS",
+                    "version": "1"
+                  }
+                }
+              },
+              "quote": {
+                "value": -0.0029639974175124676,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            }
+          ],
+          "overnight_projection": {
+            "key": {
+              "id": "P.SOFR",
+              "version": "1"
+            },
+            "index_id": "USD.SOFR"
+          },
+          "bootstrap": {
+            "lower_zero": -0.08,
+            "upper_zero": 0.15,
+            "max_iterations": 100
+          },
+          "overlap_policy": "Reject"
+        },
+        {
+          "curve": {
+            "key": {
+              "id": "P.3M",
+              "version": "1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "USD.TERM3M"
+            },
+            "currency": "USD",
+            "reference_date": "2026-10-07",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "None",
+            "dependencies": [
+              {
+                "id": "D.OIS",
+                "version": "1"
+              }
+            ],
+            "calibration": "Piecewise",
+            "source": {
+              "Helpers": [
+                "3M-deposit",
+                "3M-FRA",
+                "amortizing-IRS"
+              ]
+            }
+          },
+          "pillars": [
+            "2026-10-30",
+            "2026-12-16",
+            "2027-10-11"
+          ],
+          "helpers": [
+            {
+              "id": "3M-deposit",
+              "pillar": "2026-10-30",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Deposit",
+                  "start_date": "2026-10-07",
+                  "maturity_date": "2026-10-30",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "P.3M",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": -0.29586244499739495,
+                "unit": "PercentRate"
+              },
+              "tolerance": 1e-10
+            },
+            {
+              "id": "3M-FRA",
+              "pillar": "2026-12-16",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Fra",
+                  "index_id": "USD.TERM3M",
+                  "fixing_date": "2026-10-28",
+                  "start_date": "2026-10-30",
+                  "end_date": "2026-12-16",
+                  "settlement_date": "2026-10-30",
+                  "settlement": "AtStart",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "P.3M",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": -14.897997195325177,
+                "unit": "BasisPoints"
+              },
+              "tolerance": 1e-08
+            },
+            {
+              "id": "amortizing-IRS",
+              "pillar": "2027-10-11",
+              "terms": {
+                "kind": "swap",
+                "schema_version": 1,
+                "trade_id": "stepped-amortizing-IRS",
+                "version": 1,
+                "currency": "USD",
+                "side": "PayFixed",
+                "effective_date": "2026-10-07",
+                "maturity_date": "2027-10-07",
+                "fixed": {
+                  "leg": {
+                    "schedule": {
+                      "start_date": "2026-10-07",
+                      "end_date": "2027-10-07",
+                      "frequency": "Annual",
+                      "stub_type": "None",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "dates": {
+                      "accrual_adjustment": "Unadjusted",
+                      "payment_adjustment": "Following",
+                      "payment_delay": {
+                        "BusinessDays": 2
+                      },
+                      "fixing_offset": null,
+                      "observation_offset": null,
+                      "ex_coupon": null
+                    },
+                    "calendars": {
+                      "accrual": {
+                        "id": "ACCRUAL",
+                        "version": 1
+                      },
+                      "payment": {
+                        "id": "PAYMENT",
+                        "version": 1
+                      }
+                    },
+                    "day_count": "Act360",
+                    "notionals": [
+                      {
+                        "start": "2026-10-07",
+                        "end": "2027-04-07",
+                        "value": "1000000"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "700000"
+                      }
+                    ],
+                    "rounding": "Unrounded",
+                    "negative_coupons": "Allow"
+                  },
+                  "rates": [
+                    {
+                      "start": "2026-10-07",
+                      "end": "2027-10-07",
+                      "value": "-0.000436569555293033713344"
+                    }
+                  ]
+                },
+                "floating": {
+                  "kind": "term",
+                  "leg": {
+                    "schedule": {
+                      "start_date": "2026-10-07",
+                      "end_date": "2027-10-07",
+                      "frequency": "Quarterly",
+                      "stub_type": "None",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "dates": {
+                      "accrual_adjustment": "Unadjusted",
+                      "payment_adjustment": "Following",
+                      "payment_delay": {
+                        "BusinessDays": 2
+                      },
+                      "fixing_offset": null,
+                      "observation_offset": null,
+                      "ex_coupon": null
+                    },
+                    "calendars": {
+                      "accrual": {
+                        "id": "ACCRUAL",
+                        "version": 1
+                      },
+                      "payment": {
+                        "id": "PAYMENT",
+                        "version": 1
+                      }
+                    },
+                    "day_count": "Act360",
+                    "notionals": [
+                      {
+                        "start": "2026-10-07",
+                        "end": "2027-04-07",
+                        "value": "1000000"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "700000"
+                      }
+                    ],
+                    "rounding": "Unrounded",
+                    "negative_coupons": "Allow"
+                  },
+                  "resets": {
+                    "index_id": "USD.TERM3M",
+                    "tenor_months": 3,
+                    "schedule": {
+                      "start_date": "2026-10-07",
+                      "end_date": "2027-10-07",
+                      "frequency": "Quarterly",
+                      "stub_type": "None",
+                      "end_of_month": false,
+                      "first_regular_date": null,
+                      "penultimate_date": null
+                    },
+                    "reset_calendar": {
+                      "id": "RESET",
+                      "version": 1
+                    },
+                    "reset_adjustment": "Unadjusted",
+                    "fixing_calendar": {
+                      "id": "FIXING",
+                      "version": 1
+                    },
+                    "fixing_offset": {
+                      "BusinessDays": -2
+                    },
+                    "fixing_adjustment": "Preceding",
+                    "rate_period": "IndexTenor",
+                    "index_end_of_month": false,
+                    "index_end_adjustment": "Following",
+                    "projection_day_count": "Act360"
+                  },
+                  "profiles": {
+                    "spreads": [
+                      {
+                        "start": "2026-10-07",
+                        "end": "2027-04-07",
+                        "value": "0.001"
+                      },
+                      {
+                        "start": "2027-04-07",
+                        "end": "2027-10-07",
+                        "value": "0.0015"
+                      }
+                    ],
+                    "gearings": [
+                      {
+                        "start": "2026-10-07",
+                        "end": "2027-07-07",
+                        "value": "1"
+                      },
+                      {
+                        "start": "2027-07-07",
+                        "end": "2027-10-07",
+                        "value": "1.1"
+                      }
+                    ]
+                  },
+                  "projection_curve": {
+                    "id": "P.3M",
+                    "version": "1"
+                  },
+                  "fixing_policy": {
+                    "unpublished": "Forecast",
+                    "final_only": true
+                  }
+                },
+                "collateral": {
+                  "agreement": {
+                    "id": "CSA.USD",
+                    "version": 1
+                  },
+                  "currency": "USD",
+                  "discount_curve": {
+                    "id": "D.OIS",
+                    "version": "1"
+                  }
+                }
+              },
+              "quote": {
+                "value": -0.0004365695552930337,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            }
+          ],
+          "overnight_projection": null,
+          "bootstrap": {
+            "lower_zero": -0.08,
+            "upper_zero": 0.15,
+            "max_iterations": 100
+          },
+          "overlap_policy": "Reject"
+        },
+        {
+          "curve": {
+            "key": {
+              "id": "P.6M",
+              "version": "1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "USD.TERM6M"
+            },
+            "currency": "USD",
+            "reference_date": "2026-10-07",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "None",
+            "dependencies": [
+              {
+                "id": "D.OIS",
+                "version": "1"
+              },
+              {
+                "id": "P.3M",
+                "version": "1"
+              }
+            ],
+            "calibration": "Piecewise",
+            "source": {
+              "Helpers": [
+                "6M-deposit",
+                "6M-FRA",
+                "tenor-basis"
+              ]
+            }
+          },
+          "pillars": [
+            "2026-10-30",
+            "2026-12-16",
+            "2027-10-11"
+          ],
+          "helpers": [
+            {
+              "id": "6M-deposit",
+              "pillar": "2026-10-30",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Deposit",
+                  "start_date": "2026-10-07",
+                  "maturity_date": "2026-10-30",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "P.6M",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": -0.001972478443953082,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            },
+            {
+              "id": "6M-FRA",
+              "pillar": "2026-12-16",
+              "terms": {
+                "kind": "money_market",
+                "terms": {
+                  "kind": "Fra",
+                  "index_id": "USD.TERM6M",
+                  "fixing_date": "2026-10-28",
+                  "start_date": "2026-10-30",
+                  "end_date": "2026-12-16",
+                  "settlement_date": "2026-10-30",
+                  "settlement": "AtStart",
+                  "day_count": "Act360"
+                },
+                "curve": {
+                  "id": "P.6M",
+                  "version": "1"
+                },
+                "calendar": {
+                  "id": "FIXING",
+                  "version": 1
+                }
+              },
+              "quote": {
+                "value": -0.0005036266949245839,
+                "unit": "DecimalRate"
+              },
+              "tolerance": 1e-12
+            },
+            {
+              "id": "tenor-basis",
+              "pillar": "2027-10-11",
+              "terms": {
+                "kind": "basis_swap",
+                "terms": {
+                  "schema_version": 1,
+                  "trade_id": "3M-6M-basis",
+                  "version": 1,
+                  "currency": "USD",
+                  "effective_date": "2026-10-07",
+                  "maturity_date": "2027-10-07",
+                  "pay": {
+                    "kind": "term",
+                    "leg": {
+                      "schedule": {
+                        "start_date": "2026-10-07",
+                        "end_date": "2027-10-07",
+                        "frequency": "Quarterly",
+                        "stub_type": "None",
+                        "end_of_month": false,
+                        "first_regular_date": null,
+                        "penultimate_date": null
+                      },
+                      "dates": {
+                        "accrual_adjustment": "Unadjusted",
+                        "payment_adjustment": "Following",
+                        "payment_delay": {
+                          "BusinessDays": 2
+                        },
+                        "fixing_offset": null,
+                        "observation_offset": null,
+                        "ex_coupon": null
+                      },
+                      "calendars": {
+                        "accrual": {
+                          "id": "ACCRUAL",
+                          "version": 1
+                        },
+                        "payment": {
+                          "id": "PAYMENT",
+                          "version": 1
+                        }
+                      },
+                      "day_count": "Act360",
+                      "notionals": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-10-07",
+                          "value": "1000000"
+                        }
+                      ],
+                      "rounding": "Unrounded",
+                      "negative_coupons": "Allow"
+                    },
+                    "resets": {
+                      "index_id": "USD.TERM3M",
+                      "tenor_months": 3,
+                      "schedule": {
+                        "start_date": "2026-10-07",
+                        "end_date": "2027-10-07",
+                        "frequency": "Quarterly",
+                        "stub_type": "None",
+                        "end_of_month": false,
+                        "first_regular_date": null,
+                        "penultimate_date": null
+                      },
+                      "reset_calendar": {
+                        "id": "RESET",
+                        "version": 1
+                      },
+                      "reset_adjustment": "Unadjusted",
+                      "fixing_calendar": {
+                        "id": "FIXING",
+                        "version": 1
+                      },
+                      "fixing_offset": {
+                        "BusinessDays": -2
+                      },
+                      "fixing_adjustment": "Preceding",
+                      "rate_period": "IndexTenor",
+                      "index_end_of_month": false,
+                      "index_end_adjustment": "Following",
+                      "projection_day_count": "Act360"
+                    },
+                    "profiles": {
+                      "spreads": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-01-07",
+                          "value": "0.001"
+                        },
+                        {
+                          "start": "2027-01-07",
+                          "end": "2027-10-07",
+                          "value": "0.0007"
+                        }
+                      ],
+                      "gearings": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-10-07",
+                          "value": "1"
+                        }
+                      ]
+                    },
+                    "projection_curve": {
+                      "id": "P.3M",
+                      "version": "1"
+                    },
+                    "fixing_policy": {
+                      "unpublished": "Forecast",
+                      "final_only": true
+                    }
+                  },
+                  "receive": {
+                    "kind": "term",
+                    "leg": {
+                      "schedule": {
+                        "start_date": "2026-10-07",
+                        "end_date": "2027-10-07",
+                        "frequency": "SemiAnnual",
+                        "stub_type": "None",
+                        "end_of_month": false,
+                        "first_regular_date": null,
+                        "penultimate_date": null
+                      },
+                      "dates": {
+                        "accrual_adjustment": "Unadjusted",
+                        "payment_adjustment": "Following",
+                        "payment_delay": {
+                          "BusinessDays": 2
+                        },
+                        "fixing_offset": null,
+                        "observation_offset": null,
+                        "ex_coupon": null
+                      },
+                      "calendars": {
+                        "accrual": {
+                          "id": "ACCRUAL",
+                          "version": 1
+                        },
+                        "payment": {
+                          "id": "PAYMENT",
+                          "version": 1
+                        }
+                      },
+                      "day_count": "Act360",
+                      "notionals": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-04-07",
+                          "value": "1000000"
+                        },
+                        {
+                          "start": "2027-04-07",
+                          "end": "2027-10-07",
+                          "value": "600000"
+                        }
+                      ],
+                      "rounding": "Unrounded",
+                      "negative_coupons": "Allow"
+                    },
+                    "resets": {
+                      "index_id": "USD.TERM6M",
+                      "tenor_months": 6,
+                      "schedule": {
+                        "start_date": "2026-10-07",
+                        "end_date": "2027-10-07",
+                        "frequency": "SemiAnnual",
+                        "stub_type": "None",
+                        "end_of_month": false,
+                        "first_regular_date": null,
+                        "penultimate_date": null
+                      },
+                      "reset_calendar": {
+                        "id": "RESET",
+                        "version": 1
+                      },
+                      "reset_adjustment": "Unadjusted",
+                      "fixing_calendar": {
+                        "id": "FIXING",
+                        "version": 1
+                      },
+                      "fixing_offset": {
+                        "BusinessDays": -2
+                      },
+                      "fixing_adjustment": "Preceding",
+                      "rate_period": "IndexTenor",
+                      "index_end_of_month": false,
+                      "index_end_adjustment": "Following",
+                      "projection_day_count": "Act360"
+                    },
+                    "profiles": {
+                      "spreads": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-10-07",
+                          "value": "0.000878745423178327071117"
+                        }
+                      ],
+                      "gearings": [
+                        {
+                          "start": "2026-10-07",
+                          "end": "2027-10-07",
+                          "value": "0.9"
+                        }
+                      ]
+                    },
+                    "projection_curve": {
+                      "id": "P.6M",
+                      "version": "1"
+                    },
+                    "fixing_policy": {
+                      "unpublished": "Forecast",
+                      "final_only": true
+                    }
+                  },
+                  "collateral": {
+                    "agreement": {
+                      "id": "CSA.USD",
+                      "version": 1
+                    },
+                    "currency": "USD",
+                    "discount_curve": {
+                      "id": "D.OIS",
+                      "version": "1"
+                    }
+                  }
+                },
+                "quoted_leg": "Receive"
+              },
+              "quote": {
+                "value": 8.78745423178327,
+                "unit": "BasisPoints"
+              },
+              "tolerance": 1e-08
+            }
+          ],
+          "overnight_projection": null,
+          "bootstrap": {
+            "lower_zero": -0.08,
+            "upper_zero": 0.15,
+            "max_iterations": 100
+          },
+          "overlap_policy": "Reject"
+        }
+      ],
+      "history": [
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-16",
+          "rate": "-0.003800000000000000000000",
+          "published_at": "2026-09-17T08:00:00Z",
+          "known_at": "2026-09-17T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-17",
+          "rate": "-0.003801000000000000000000",
+          "published_at": "2026-09-18T08:00:00Z",
+          "known_at": "2026-09-18T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-18",
+          "rate": "-0.003802000000000000000000",
+          "published_at": "2026-09-21T08:00:00Z",
+          "known_at": "2026-09-21T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-21",
+          "rate": "-0.003805000000000000000000",
+          "published_at": "2026-09-22T08:00:00Z",
+          "known_at": "2026-09-22T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-22",
+          "rate": "-0.003806000000000000000000",
+          "published_at": "2026-09-23T08:00:00Z",
+          "known_at": "2026-09-23T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-23",
+          "rate": "-0.003807000000000000000000",
+          "published_at": "2026-09-24T08:00:00Z",
+          "known_at": "2026-09-24T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-24",
+          "rate": "-0.003808000000000000000000",
+          "published_at": "2026-09-25T08:00:00Z",
+          "known_at": "2026-09-25T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-25",
+          "rate": "-0.003809000000000000000000",
+          "published_at": "2026-09-28T08:00:00Z",
+          "known_at": "2026-09-28T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-28",
+          "rate": "-0.003812000000000000000000",
+          "published_at": "2026-09-29T08:00:00Z",
+          "known_at": "2026-09-29T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-29",
+          "rate": "-0.003813000000000000000000",
+          "published_at": "2026-09-30T08:00:00Z",
+          "known_at": "2026-09-30T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-09-30",
+          "rate": "-0.003814000000000000000000",
+          "published_at": "2026-10-01T08:00:00Z",
+          "known_at": "2026-10-01T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-10-01",
+          "rate": "-0.003815000000000000000000",
+          "published_at": "2026-10-02T08:00:00Z",
+          "known_at": "2026-10-02T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-10-02",
+          "rate": "-0.003816000000000000000000",
+          "published_at": "2026-10-05T08:00:00Z",
+          "known_at": "2026-10-05T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-10-05",
+          "rate": "-0.003819000000000000000000",
+          "published_at": "2026-10-06T08:00:00Z",
+          "known_at": "2026-10-06T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.SOFR",
+          "observation_date": "2026-10-06",
+          "rate": "-0.003820000000000000000000",
+          "published_at": "2026-10-07T08:00:00Z",
+          "known_at": "2026-10-07T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.TERM3M",
+          "observation_date": "2026-10-05",
+          "rate": "-0.00371",
+          "published_at": "2026-10-06T08:00:00Z",
+          "known_at": "2026-10-06T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        },
+        {
+          "index_id": "USD.TERM6M",
+          "observation_date": "2026-10-05",
+          "rate": "-0.00391",
+          "published_at": "2026-10-06T08:00:00Z",
+          "known_at": "2026-10-06T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "engineering-CVX057"
+        }
+      ],
+      "term_future_terms": {
+        "kind": "rate_future",
+        "contract": {
+          "instrument_id": "SYNTH.TERM3M.2026",
+          "stamp": {
+            "id": "SYNTH.TERM3M.2026",
+            "version": 1,
+            "source": "engineering-CVX057",
+            "source_at": "2026-09-01T00:00:00Z",
+            "available_at": "2026-09-01T00:00:00Z",
+            "valid_until": "2028-01-01T00:00:00Z",
+            "quality": "synthetic",
+            "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+          },
+          "exchange": "CME",
+          "product_code": "SR3",
+          "contract_code": "SR3U6",
+          "contract_month": {
+            "year": 2026,
+            "month": 9
+          },
+          "currency": "USD",
+          "listed_from": "2026-07-01",
+          "last_trade": "2026-10-28",
+          "expiry": "2026-10-28",
+          "currency_per_price_point": "2500",
+          "ticks": [
+            {
+              "from": "2026-07-01",
+              "until": "2026-08-15",
+              "increment": "0.005"
+            },
+            {
+              "from": "2026-08-15",
+              "until": null,
+              "increment": "0.0025"
+            }
+          ],
+          "daily_settlement": {
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "time_zone": "America/Chicago",
+            "cash_decimal_places": 2
+          },
+          "settlement": {
+            "kind": "rate",
+            "final_settlement": "2026-10-29",
+            "accrual": {
+              "kind": "term",
+              "index": "USD.TERM3M",
+              "fixing": "2026-10-28",
+              "start": "2026-10-30",
+              "end": "2026-12-16",
+              "calendar": {
+                "id": "CME-calendar-reference",
+                "version": 1
+              },
+              "day_count": "Act360"
+            },
+            "convexity": {
+              "kind": "supplied",
+              "decimal_rate": "0.00015",
+              "model": {
+                "id": "convexity-control",
+                "version": 1
+              },
+              "evidence": "Explicit supplied whole-quote additive forward-minus-future rate adjustment"
+            }
+          }
+        },
+        "clearing": {
+          "contract": {
+            "id": "SYNTH.TERM3M.2026",
+            "version": 1
+          },
+          "stamp": {
+            "id": "clearing-control",
+            "version": 1,
+            "source": "engineering-CVX057",
+            "source_at": "2026-09-01T00:00:00Z",
+            "available_at": "2026-09-01T00:00:00Z",
+            "valid_until": "2028-01-01T00:00:00Z",
+            "quality": "synthetic",
+            "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+          },
+          "money_method": "rounded_contract_values",
+          "final_rate_increment": "0.000001",
+          "final_rate_rounding": "nearest_up",
+          "fixing_selection": "first_published"
+        },
+        "projection_curve": {
+          "id": "P.3M",
+          "version": "1"
+        },
+        "projection_stamp": {
+          "id": "P.3M",
+          "version": 1,
+          "source": "engineering-CVX057",
+          "source_at": "2026-09-01T00:00:00Z",
+          "available_at": "2026-09-01T00:00:00Z",
+          "valid_until": "2028-01-01T00:00:00Z",
+          "quality": "synthetic",
+          "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+        },
+        "fixing_stamp": {
+          "id": "fixings-control",
+          "version": 1,
+          "source": "engineering-CVX057",
+          "source_at": "2026-09-01T00:00:00Z",
+          "available_at": "2026-09-01T00:00:00Z",
+          "valid_until": "2028-01-01T00:00:00Z",
+          "quality": "synthetic",
+          "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+        },
+        "convexity_model": {
+          "id": "convexity-control",
+          "version": 1,
+          "source": "engineering-CVX057",
+          "source_at": "2026-09-01T00:00:00Z",
+          "available_at": "2026-09-01T00:00:00Z",
+          "valid_until": "2028-01-01T00:00:00Z",
+          "quality": "synthetic",
+          "evidence": "Explicit synthetic CVX-057 input, not live market or actual convention certification"
+        }
+      },
+      "expected_zeros": {
+        "D.OIS": [
+          "-0.006",
+          "-0.004",
+          "-0.003"
+        ],
+        "P.3M": [
+          "-0.003",
+          "-0.002",
+          "-0.001"
+        ],
+        "P.6M": [
+          "-0.002",
+          "-0.001",
+          "0.0005"
+        ]
+      },
+      "expected": {
+        "future_observations": [
+          {
+            "observation": "2026-09-16",
+            "rate_end": "2026-09-17",
+            "weight_start": "2026-09-16",
+            "weight_end": "2026-09-17",
+            "known": true,
+            "rate": "-0.003800000000000000000000"
+          },
+          {
+            "observation": "2026-09-17",
+            "rate_end": "2026-09-18",
+            "weight_start": "2026-09-17",
+            "weight_end": "2026-09-18",
+            "known": true,
+            "rate": "-0.003801000000000000000000"
+          },
+          {
+            "observation": "2026-09-18",
+            "rate_end": "2026-09-21",
+            "weight_start": "2026-09-18",
+            "weight_end": "2026-09-21",
+            "known": true,
+            "rate": "-0.003802000000000000000000"
+          },
+          {
+            "observation": "2026-09-21",
+            "rate_end": "2026-09-22",
+            "weight_start": "2026-09-21",
+            "weight_end": "2026-09-22",
+            "known": true,
+            "rate": "-0.003805000000000000000000"
+          },
+          {
+            "observation": "2026-09-22",
+            "rate_end": "2026-09-23",
+            "weight_start": "2026-09-22",
+            "weight_end": "2026-09-23",
+            "known": true,
+            "rate": "-0.003806000000000000000000"
+          },
+          {
+            "observation": "2026-09-23",
+            "rate_end": "2026-09-24",
+            "weight_start": "2026-09-23",
+            "weight_end": "2026-09-24",
+            "known": true,
+            "rate": "-0.003807000000000000000000"
+          },
+          {
+            "observation": "2026-09-24",
+            "rate_end": "2026-09-25",
+            "weight_start": "2026-09-24",
+            "weight_end": "2026-09-25",
+            "known": true,
+            "rate": "-0.003808000000000000000000"
+          },
+          {
+            "observation": "2026-09-25",
+            "rate_end": "2026-09-28",
+            "weight_start": "2026-09-25",
+            "weight_end": "2026-09-28",
+            "known": true,
+            "rate": "-0.003809000000000000000000"
+          },
+          {
+            "observation": "2026-09-28",
+            "rate_end": "2026-09-29",
+            "weight_start": "2026-09-28",
+            "weight_end": "2026-09-29",
+            "known": true,
+            "rate": "-0.003812000000000000000000"
+          },
+          {
+            "observation": "2026-09-29",
+            "rate_end": "2026-09-30",
+            "weight_start": "2026-09-29",
+            "weight_end": "2026-09-30",
+            "known": true,
+            "rate": "-0.003813000000000000000000"
+          },
+          {
+            "observation": "2026-09-30",
+            "rate_end": "2026-10-01",
+            "weight_start": "2026-09-30",
+            "weight_end": "2026-10-01",
+            "known": true,
+            "rate": "-0.003814000000000000000000"
+          },
+          {
+            "observation": "2026-10-01",
+            "rate_end": "2026-10-02",
+            "weight_start": "2026-10-01",
+            "weight_end": "2026-10-02",
+            "known": true,
+            "rate": "-0.003815000000000000000000"
+          },
+          {
+            "observation": "2026-10-02",
+            "rate_end": "2026-10-05",
+            "weight_start": "2026-10-02",
+            "weight_end": "2026-10-05",
+            "known": true,
+            "rate": "-0.003816000000000000000000"
+          },
+          {
+            "observation": "2026-10-05",
+            "rate_end": "2026-10-06",
+            "weight_start": "2026-10-05",
+            "weight_end": "2026-10-06",
+            "known": true,
+            "rate": "-0.003819000000000000000000"
+          },
+          {
+            "observation": "2026-10-06",
+            "rate_end": "2026-10-07",
+            "weight_start": "2026-10-06",
+            "weight_end": "2026-10-07",
+            "known": true,
+            "rate": "-0.003820000000000000000000"
+          },
+          {
+            "observation": "2026-10-07",
+            "rate_end": "2026-10-08",
+            "weight_start": "2026-10-07",
+            "weight_end": "2026-10-08",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733380000"
+          },
+          {
+            "observation": "2026-10-08",
+            "rate_end": "2026-10-09",
+            "weight_start": "2026-10-08",
+            "weight_end": "2026-10-09",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733236000"
+          },
+          {
+            "observation": "2026-10-09",
+            "rate_end": "2026-10-13",
+            "weight_start": "2026-10-09",
+            "weight_end": "2026-10-13",
+            "known": false,
+            "rate": "-0.00591761366536386001408249908781844509628369701680368643792001"
+          },
+          {
+            "observation": "2026-10-13",
+            "rate_end": "2026-10-14",
+            "weight_start": "2026-10-13",
+            "weight_end": "2026-10-14",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733308000"
+          },
+          {
+            "observation": "2026-10-14",
+            "rate_end": "2026-10-15",
+            "weight_start": "2026-10-14",
+            "weight_end": "2026-10-15",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733452000"
+          },
+          {
+            "observation": "2026-10-15",
+            "rate_end": "2026-10-16",
+            "weight_start": "2026-10-15",
+            "weight_end": "2026-10-16",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733200000"
+          },
+          {
+            "observation": "2026-10-16",
+            "rate_end": "2026-10-19",
+            "weight_start": "2026-10-16",
+            "weight_end": "2026-10-19",
+            "known": false,
+            "rate": "-0.00591766230301788481196011294252119314149895351790952129776000"
+          },
+          {
+            "observation": "2026-10-19",
+            "rate_end": "2026-10-20",
+            "weight_start": "2026-10-19",
+            "weight_end": "2026-10-20",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733488000"
+          },
+          {
+            "observation": "2026-10-20",
+            "rate_end": "2026-10-21",
+            "weight_start": "2026-10-20",
+            "weight_end": "2026-10-21",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733092000"
+          },
+          {
+            "observation": "2026-10-21",
+            "rate_end": "2026-10-22",
+            "weight_start": "2026-10-21",
+            "weight_end": "2026-10-22",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733380000"
+          },
+          {
+            "observation": "2026-10-22",
+            "rate_end": "2026-10-23",
+            "weight_start": "2026-10-22",
+            "weight_end": "2026-10-23",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733416000"
+          },
+          {
+            "observation": "2026-10-23",
+            "rate_end": "2026-10-26",
+            "weight_start": "2026-10-23",
+            "weight_end": "2026-10-26",
+            "known": false,
+            "rate": "-0.00591766230301788481196011294252119314149895351790952129740000"
+          },
+          {
+            "observation": "2026-10-26",
+            "rate_end": "2026-10-27",
+            "weight_start": "2026-10-26",
+            "weight_end": "2026-10-27",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733416000"
+          },
+          {
+            "observation": "2026-10-27",
+            "rate_end": "2026-10-28",
+            "weight_start": "2026-10-27",
+            "weight_end": "2026-10-28",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733380000"
+          },
+          {
+            "observation": "2026-10-28",
+            "rate_end": "2026-10-29",
+            "weight_start": "2026-10-28",
+            "weight_end": "2026-10-29",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733488000"
+          },
+          {
+            "observation": "2026-10-29",
+            "rate_end": "2026-10-30",
+            "weight_start": "2026-10-29",
+            "weight_end": "2026-10-30",
+            "known": false,
+            "rate": "-0.00591775957992498932930748279253860907179640443311166733128000"
+          },
+          {
+            "observation": "2026-10-30",
+            "rate_end": "2026-11-02",
+            "weight_start": "2026-10-30",
+            "weight_end": "2026-11-02",
+            "known": false,
+            "rate": "-0.00482648410678057553122893544475677712309208504942572250852000"
+          },
+          {
+            "observation": "2026-11-02",
+            "rate_end": "2026-11-03",
+            "weight_start": "2026-11-02",
+            "weight_end": "2026-11-03",
+            "known": false,
+            "rate": "-0.00465866994383683609858620951642591621700651567088149543440000"
+          },
+          {
+            "observation": "2026-11-03",
+            "rate_end": "2026-11-04",
+            "weight_start": "2026-11-03",
+            "weight_end": "2026-11-04",
+            "known": false,
+            "rate": "-0.00457473047818838670041946714083921825539559797294929741900000"
+          },
+          {
+            "observation": "2026-11-04",
+            "rate_end": "2026-11-05",
+            "weight_start": "2026-11-04",
+            "weight_end": "2026-11-05",
+            "known": false,
+            "rate": "-0.00449079099296792321086104570608174096622764440493875996452000"
+          },
+          {
+            "observation": "2026-11-05",
+            "rate_end": "2026-11-06",
+            "weight_start": "2026-11-05",
+            "weight_end": "2026-11-06",
+            "known": false,
+            "rate": "-0.00440685148817544106633965446840862681641496226596668269656000"
+          },
+          {
+            "observation": "2026-11-06",
+            "rate_end": "2026-11-09",
+            "weight_start": "2026-11-06",
+            "weight_end": "2026-11-09",
+            "known": false,
+            "rate": "-0.00423892250649482191213177504843927239491161469079429238428000"
+          },
+          {
+            "observation": "2026-11-09",
+            "rate_end": "2026-11-10",
+            "weight_start": "2026-11-09",
+            "weight_end": "2026-11-10",
+            "known": false,
+            "rate": "-0.00407109327328523466716133381887556771428196484427623911840000"
+          },
+          {
+            "observation": "2026-11-10",
+            "rate_end": "2026-11-12",
+            "weight_start": "2026-11-10",
+            "weight_end": "2026-11-12",
+            "known": false,
+            "rate": "-0.00394516224463938420862811397490600833460027155426823169046000"
+          },
+          {
+            "observation": "2026-11-12",
+            "rate_end": "2026-11-13",
+            "weight_start": "2026-11-12",
+            "weight_end": "2026-11-13",
+            "known": false,
+            "rate": "-0.00381927440661116037551488204850665064870689372555040974440000"
+          },
+          {
+            "observation": "2026-11-13",
+            "rate_end": "2026-11-16",
+            "weight_start": "2026-11-13",
+            "weight_end": "2026-11-16",
+            "known": false,
+            "rate": "-0.00365135802918806807230005884618665866740761143571916654700000"
+          },
+          {
+            "observation": "2026-11-16",
+            "rate_end": "2026-11-17",
+            "weight_start": "2026-11-16",
+            "weight_end": "2026-11-17",
+            "known": false,
+            "rate": "-0.00348351564370360106659404687193161993857283193244738591016000"
+          },
+          {
+            "observation": "2026-11-17",
+            "rate_end": "2026-11-18",
+            "weight_start": "2026-11-17",
+            "weight_end": "2026-11-18",
+            "known": false,
+            "rate": "-0.00339957590404653910356901472721566595496801427434536814080000"
+          },
+          {
+            "observation": "2026-11-18",
+            "rate_end": "2026-11-19",
+            "weight_start": "2026-11-18",
+            "weight_end": "2026-11-19",
+            "known": false,
+            "rate": "-0.00331563614481739915905740176768935959966787558039701152524000"
+          },
+          {
+            "observation": "2026-11-19",
+            "rate_end": "2026-11-20",
+            "weight_start": "2026-11-19",
+            "weight_end": "2026-11-20",
+            "known": false,
+            "rate": "-0.00323169636601617666947302011119914044142956178390861943532000"
+          },
+          {
+            "observation": "2026-11-20",
+            "rate_end": "2026-11-23",
+            "weight_start": "2026-11-20",
+            "weight_end": "2026-11-23",
+            "known": false,
+            "rate": "-0.00306379067484622655293510841250379990271078562254112614652000"
+          },
+          {
+            "observation": "2026-11-23",
+            "rate_end": "2026-11-24",
+            "weight_start": "2026-11-23",
+            "weight_end": "2026-11-24",
+            "known": false,
+            "rate": "-0.00289593705509036998864680595616696387621910574316223117432000"
+          },
+          {
+            "observation": "2026-11-24",
+            "rate_end": "2026-11-25",
+            "weight_start": "2026-11-24",
+            "weight_end": "2026-11-25",
+            "known": false,
+            "rate": "-0.00281199717842866631986851966271926512845587766062247755444000"
+          },
+          {
+            "observation": "2026-11-25",
+            "rate_end": "2026-11-27",
+            "weight_start": "2026-11-25",
+            "weight_end": "2026-11-27",
+            "known": false,
+            "rate": "-0.00268607730581461596615009692697711797774820570043566741234000"
+          },
+          {
+            "observation": "2026-11-27",
+            "rate_end": "2026-11-30",
+            "weight_start": "2026-11-27",
+            "weight_end": "2026-11-30",
+            "known": false,
+            "rate": "-0.00247622044345520982625838893946527913458508176549241855196000"
+          },
+          {
+            "observation": "2026-11-30",
+            "rate_end": "2026-12-01",
+            "weight_start": "2026-11-30",
+            "weight_end": "2026-12-01",
+            "known": false,
+            "rate": "-0.00230835750744397612252720583864463314695004831047519800240000"
+          },
+          {
+            "observation": "2026-12-01",
+            "rate_end": "2026-12-02",
+            "weight_start": "2026-12-01",
+            "weight_end": "2026-12-02",
+            "known": false,
+            "rate": "-0.00222441749377740713195961848628445049775376707342835087932000"
+          },
+          {
+            "observation": "2026-12-02",
+            "rate_end": "2026-12-03",
+            "weight_start": "2026-12-02",
+            "weight_end": "2026-12-03",
+            "known": false,
+            "rate": "-0.00214047746053869626960198830966016315680560252562281950784000"
+          },
+          {
+            "observation": "2026-12-03",
+            "rate_end": "2026-12-04",
+            "weight_start": "2026-12-03",
+            "weight_end": "2026-12-04",
+            "known": false,
+            "rate": "-0.00205653740772783897185323023957988887800971600853886014136000"
+          },
+          {
+            "observation": "2026-12-04",
+            "rate_end": "2026-12-07",
+            "weight_start": "2026-12-04",
+            "weight_end": "2026-12-07",
+            "known": false,
+            "rate": "-0.00188864733500093029551117147384030937951636853316317683476000"
+          },
+          {
+            "observation": "2026-12-07",
+            "rate_end": "2026-12-08",
+            "weight_start": "2026-12-07",
+            "weight_end": "2026-12-08",
+            "known": false,
+            "rate": "-0.00172077700076285415488797460292603728019667849430241156240000"
+          },
+          {
+            "observation": "2026-12-08",
+            "rate_end": "2026-12-09",
+            "weight_start": "2026-12-08",
+            "weight_end": "2026-12-09",
+            "known": false,
+            "rate": "-0.00163683685009119622613005798627879727141307524125673215212000"
+          },
+          {
+            "observation": "2026-12-09",
+            "rate_end": "2026-12-10",
+            "weight_start": "2026-12-09",
+            "weight_end": "2026-12-10",
+            "known": false,
+            "rate": "-0.00155289667984736448035215723270544078558989827775067809524000"
+          },
+          {
+            "observation": "2026-12-10",
+            "rate_end": "2026-12-11",
+            "weight_start": "2026-12-10",
+            "weight_end": "2026-12-11",
+            "known": false,
+            "rate": "-0.00146895649003135435394573866125876796778514387096587023488000"
+          },
+          {
+            "observation": "2026-12-11",
+            "rate_end": "2026-12-14",
+            "weight_start": "2026-12-11",
+            "weight_end": "2026-12-14",
+            "known": false,
+            "rate": "-0.00130107134946930029495419515256377389959395847679691325884000"
+          },
+          {
+            "observation": "2026-12-14",
+            "rate_end": "2026-12-15",
+            "weight_start": "2026-12-14",
+            "weight_end": "2026-12-15",
+            "known": false,
+            "rate": "-0.00113319553504543876982696947907238882033141195717166041120000"
+          },
+          {
+            "observation": "2026-12-15",
+            "rate_end": "2026-12-16",
+            "weight_start": "2026-12-15",
+            "weight_end": "2026-12-16",
+            "known": false,
+            "rate": "-0.00104925524736846828611271350185504622436835579976404632432000"
+          }
+        ],
+        "future_price": "100.406197847346169246577779824549949696254414309948319887175",
+        "arithmetic_future_price": "100.406386529673630040887793767253584693279320638961596045275",
+        "term_future_price": "100.163979971953251760204509769869280631451982489634062208159",
+        "ois_par": "-0.00296399741751246757125412825301959351954851352635603606410668",
+        "ois_floating_pv": "-2582.68760737380201844506775157076722292778200512496493537775",
+        "ois_fixed_annuity": "871352.853451984616871606015782779249943716598946082872922657",
+        "ois_coupons": [
+          {
+            "start": "2026-09-16",
+            "end": "2026-10-07",
+            "payment": "2026-10-09",
+            "amount": "-210.535826085536726360894798557529412663807872176161597792333",
+            "pv": "-210.542747925108880624767451929608325754953867362973078015602"
+          },
+          {
+            "start": "2026-10-07",
+            "end": "2027-01-07",
+            "payment": "2027-01-11",
+            "amount": "-938.072664103361937496763508931054518619307456540828030723889",
+            "pv": "-939.038610498895398332412269386504586633036418022408883962636"
+          },
+          {
+            "start": "2027-01-07",
+            "end": "2027-04-07",
+            "payment": "2027-04-09",
+            "amount": "-767.734836118797030358335747898995197209219943463144696688000",
+            "pv": "-769.136643899810020835938168935503513048967608834134873857322"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-07-07",
+            "payment": "2027-07-09",
+            "amount": "-375.271021911258911276511010285978473388637246430337842200066",
+            "pv": "-376.209295916826204307609924825899896927313429706119322090313"
+          },
+          {
+            "start": "2027-07-07",
+            "end": "2027-10-07",
+            "payment": "2027-10-11",
+            "amount": "-286.888889714657203917990646222753711717296524775483572648333",
+            "pv": "-287.760309133161514344339936493250900563510681199328777451881"
+          }
+        ],
+        "irs_par": "-0.000436569555293033713343890489701458756335035363610597506725121",
+        "irs_floating_pv": "-377.198427435652912226379200875909452806617049761560697165427",
+        "irs_coupons": [
+          {
+            "start": "2026-10-07",
+            "end": "2027-01-07",
+            "fixing": "2026-10-05",
+            "rate": "-0.00371",
+            "payment": "2027-01-11",
+            "amount": "-692.555555555555555555555555555555555555555555555555555555557",
+            "pv": "-693.268689588978206768342118953914164246663502867977960992946"
+          },
+          {
+            "start": "2027-01-07",
+            "end": "2027-04-07",
+            "fixing": "2027-01-05",
+            "rate": "-0.001299463593373614389484499492121408171604662328460546408932",
+            "payment": "2027-04-09",
+            "amount": "-74.8658983434035973711248730303520429011655821151366022330000",
+            "pv": "-75.0025960597152112860094949134517151975650982235943448632133"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-07-07",
+            "fixing": "2027-04-05",
+            "rate": "-0.000702553635404733123195490197714234628121058987216466160773186",
+            "payment": "2027-07-09",
+            "amount": "141.103703957551389034575762237786817190801506984197515440967",
+            "pv": "141.456499483404543501592222807723541762452711301690497092099"
+          },
+          {
+            "start": "2027-07-07",
+            "end": "2027-10-07",
+            "fixing": "2027-07-05",
+            "rate": "-0.0000989587523374368076150035931460707816971648374656362408208694",
+            "payment": "2027-10-11",
+            "amount": "248.860449956711045968203181837589849512702341427595357500693",
+            "pv": "249.616358729635962326380190183732884875158840028321111598633"
+          }
+        ],
+        "basis_receive_spread": "0.000878745423178327071116698771210492776458718834994897535061992",
+        "basis_pay_pv": "689.989359188774520256905593682784727767649403280605620255263",
+        "basis_annuity_receive": "812405.081497683231574396133916218084026529346753306383837635",
+        "basis_pay_coupons": [
+          {
+            "start": "2026-10-07",
+            "end": "2027-01-07",
+            "fixing": "2026-10-05",
+            "rate": "-0.00371",
+            "payment": "2027-01-11",
+            "amount": "-692.555555555555555555555555555555555555555555555555555555557",
+            "pv": "-693.268689588978206768342118953914164246663502867977960992946"
+          },
+          {
+            "start": "2027-01-07",
+            "end": "2027-04-07",
+            "fixing": "2027-01-05",
+            "rate": "-0.001299463593373614389484499492121408171604662328460546408932",
+            "payment": "2027-04-09",
+            "amount": "-149.865898343403597371124873030352042901165582115136602233000",
+            "pv": "-150.139538632371515649485039990045294626848379979561811541556"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-07-07",
+            "fixing": "2027-04-05",
+            "rate": "-0.000702553635404733123195490197714234628121058987216466160773186",
+            "payment": "2027-07-09",
+            "amount": "-0.645502282863095029971133311098197663934355101940057306555351",
+            "pv": "-0.647116204474894859130440925794127410591989417106811614514227"
+          },
+          {
+            "start": "2027-07-07",
+            "end": "2027-10-07",
+            "fixing": "2027-07-05",
+            "rate": "-0.0000989587523374368076150035931460707816971648374656362408208694",
+            "payment": "2027-10-11",
+            "amount": "153.599429958210593609499081751559689121835652647670738456889",
+            "pv": "154.065985237050097020052006186968858516454468984040963893753"
+          }
+        ],
+        "basis_receive_index_coupons": [
+          {
+            "start": "2026-10-07",
+            "end": "2027-04-07",
+            "fixing": "2026-10-05",
+            "rate": "-0.00391",
+            "payment": "2027-04-09",
+            "amount": "-1779.05000000000000000000000000000000000000000000000000000000",
+            "pv": "-1782.29836911845597703788224624685076644888563210605228792140"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-10-07",
+            "fixing": "2027-04-05",
+            "rate": "0.00137437459087739282925868167508903086491913784615597928541639",
+            "payment": "2027-10-11",
+            "amount": "377.265825195844331631508119811938972420303338769816313846799",
+            "pv": "378.411762796776513187322147187877677032431707062644309181471"
+          }
+        ]
+      }
+    }
+  ]
+}
