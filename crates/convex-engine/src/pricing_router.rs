@@ -196,17 +196,7 @@ impl PricingRouter {
             .contractual_terms
             .as_ref()
             .ok_or_else(|| EngineError::PricingError("Missing contractual terms".into()))?;
-        let calendar = match terms.calendar_code {
-            crate::ports::reference_master::BondCalendar::WeekendsOnly => {
-                convex_bonds::types::CalendarId::weekend_only()
-            }
-            crate::ports::reference_master::BondCalendar::Sifma => {
-                convex_bonds::types::CalendarId::sifma()
-            }
-            crate::ports::reference_master::BondCalendar::Target2 => {
-                convex_bonds::types::CalendarId::target2()
-            }
-        };
+        let calendar = calendar_id(terms.calendar_code);
 
         let mut builder = FixedRateBondBuilder::new()
             .identifiers(
@@ -639,6 +629,23 @@ impl Default for PricingRouter {
 
 fn pricing_error(error: impl std::fmt::Display) -> EngineError {
     EngineError::PricingError(error.to_string())
+}
+
+/// The native calendar of a pinned calendar dispatch.
+pub(crate) fn calendar_id(
+    code: crate::ports::reference_master::BondCalendar,
+) -> convex_bonds::types::CalendarId {
+    match code {
+        crate::ports::reference_master::BondCalendar::WeekendsOnly => {
+            convex_bonds::types::CalendarId::weekend_only()
+        }
+        crate::ports::reference_master::BondCalendar::Sifma => {
+            convex_bonds::types::CalendarId::sifma()
+        }
+        crate::ports::reference_master::BondCalendar::Target2 => {
+            convex_bonds::types::CalendarId::target2()
+        }
+    }
 }
 
 #[cfg(test)]

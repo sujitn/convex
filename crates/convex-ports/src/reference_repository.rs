@@ -270,11 +270,13 @@ pub trait ReferenceRepository: Send + Sync {
         };
         let bond = record.bond.as_ref().ok_or(ReferenceError::NotFound)?;
         let (issuer, calendar, convention) = self.resources_for_valuation(bond, lookup).await?;
+        let floating = self.floating_resources_for_valuation(bond).await?;
         let resolved = ResolvedBondReference {
             record,
             issuer,
             calendar,
             convention,
+            floating,
         };
         validate_resolved_bond(&resolved, lookup)?;
         Ok(Some(resolved))
@@ -314,6 +316,40 @@ pub trait ReferenceRepository: Send + Sync {
             .ok_or(ReferenceError::InvalidInput("missing pinned convention"))?;
         validate_service_resources(bond, &issuer, &calendar, &convention, lookup)?;
         Ok((issuer, calendar, convention))
+    }
+
+    /// Resolve a floating rate note's exact pinned rate index and index calendar; None for
+    /// every other bond. The caller checks them with the rest of the resolved reference.
+    async fn floating_resources_for_valuation(
+        &self,
+        bond: &BondReferenceData,
+    ) -> Result<Option<ResolvedFloating>, ReferenceError> {
+        if !crate::reference_master::is_valued_floating(bond) {
+            return Ok(None);
+        }
+        let pin = bond
+            .contractual_terms
+            .as_ref()
+            .and_then(|t| t.floating_mechanics.as_ref())
+            .map(|m| m.index.clone())
+            .ok_or(ReferenceError::InvalidInput("missing floating mechanics"))?;
+        let index = self
+            .get_master_version(&MasterKey::RateIndex(pin.id), pin.version)
+            .await?
+            .ok_or(ReferenceError::InvalidInput("missing pinned rate index"))?;
+        let MasterDefinition::RateIndex(definition) = &index.definition else {
+            return Err(ReferenceError::InvalidInput("wrong rate index resource"));
+        };
+        let calendar = self
+            .get_master_version(
+                &MasterKey::Calendar(definition.calendar.id.clone()),
+                definition.calendar.version,
+            )
+            .await?
+            .ok_or(ReferenceError::InvalidInput(
+                "missing pinned index calendar",
+            ))?;
+        Ok(Some(ResolvedFloating { index, calendar }))
     }
 }
 

@@ -55,6 +55,7 @@ pub mod curve_replay;
 pub mod curve_resolution;
 pub mod error;
 pub mod etf_pricing;
+pub mod floating_valuation;
 pub mod market_ingestion;
 pub mod optional_valuation;
 pub mod portfolio_analytics;

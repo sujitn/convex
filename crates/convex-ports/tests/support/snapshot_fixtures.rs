@@ -150,6 +150,7 @@ pub fn content() -> SnapshotContent {
             issuer: resources[0].clone(),
             calendar: resources[1].clone(),
             convention: resources[2].clone(),
+            floating: None,
         }],
         quotes: vec![SnapshotQuote {
             requirement: quote_requirement(),

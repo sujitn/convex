@@ -117,7 +117,7 @@ pub fn runtime_bond_quote(
                 model(p.value().get())
             }
             (
-                "z_spread_mid" | "i_spread_mid" | "asw_mid" | "oas_mid",
+                "z_spread_mid" | "i_spread_mid" | "asw_mid" | "oas_mid" | "discount_margin_mid",
                 MeasureValue::ModelBps(p),
             ) => model(p.value().get()),
             _ => Err(failure(id, "runtime measure has an unexpected unit")),
@@ -172,7 +172,7 @@ pub fn runtime_bond_quote(
         oas_mid: read("oas_mid")?,
         oas_ask: None,
         discount_margin_bid: None,
-        discount_margin_mid: None,
+        discount_margin_mid: read("discount_margin_mid")?,
         discount_margin_ask: None,
         simple_margin_bid: None,
         simple_margin_mid: None,

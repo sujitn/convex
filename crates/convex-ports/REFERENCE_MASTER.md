@@ -67,7 +67,35 @@ only a date and price, so the exercise style is never inferred from them. With
 `(dated_date, maturity_date]`, with positive prices; make-whole entries are refused
 as unsupported. `call_terms` is optional and omitted when absent, so stored records
 without it keep their exact bytes; a callable without it still records but is never
-valued. Puts, sinking funds and floating or inflation terms remain unsupported.
+valued.
+
+A floating rate note (`FloatingRate` with `floating_terms`) is valued only when its
+contractual terms carry `floating_mechanics`:
+- `index` pins an exact `rate_index` master resource;
+- `overrides` holds the note's own conventions, each optional.
+
+A note with a cap or floor still records but is never valued, because those need an
+option model. A nonzero `payment_lag` (at most 30 business days) is admitted only for
+floating rate notes.
+
+A `rate_index` resource declares:
+- `index_id`, the identity of its fixings and of projection curve roles;
+- currency and kind (`overnight` or `term`);
+- the `fixing_source` whose published revisions are read;
+- the index calendar pin and code;
+- the administrator's publication rule: `publication_lag_business_days` (at most
+  10) on that calendar, at `publication_utc_seconds` after midnight UTC;
+- optional `conventions`: lookback, observation shift and lockout for overnight
+  indices, or fixing offset and projection day count for term indices.
+
+Each mechanic is taken from the note's `overrides`, then the index's `conventions`,
+then the note's own fields: frequency, day count, payment lag and calendar. A value
+none of them supplies is refused when the note is valued, and the reason names the
+field. Conventions of the other index kind, and a note whose index enum names the
+other kind, are invalid. So is a note and index pair that pins two revisions of one
+calendar, because the result lineage records one revision per calendar.
+`floating_mechanics` is optional and omitted when absent.
+Puts, sinking funds and inflation terms remain unsupported.
 
 Calendar dispatch is restricted to the actually implemented `weekends_only`,
 `sifma` and `target2` paths with rule version `convex-calendar-v1`. Definitions pin

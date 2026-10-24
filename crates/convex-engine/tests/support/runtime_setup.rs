@@ -4,7 +4,6 @@ pub mod configuration_fixture;
 pub use configuration_fixture::snapshot as fixture;
 use convex_core::contracts::*;
 use convex_engine::{context::*, snapshot::*, *};
-use convex_ext_file::*;
 use convex_ports::{market_data::*, reference_repository::*, runtime::*, storage::StorageAdapter};
 use std::sync::Arc;
 
@@ -14,6 +13,7 @@ pub struct Setup {
     pub store: Arc<convex_ext_redb::RedbRuntimeStore>,
     pub snapshots: Arc<convex_ext_redb::RedbSnapshotRepository>,
     pub results: Arc<convex_ext_redb::RedbResultPublisher>,
+    pub fixings: Arc<convex_ext_redb::RedbFixingRepository>,
     pub plan: RuntimePlan,
 }
 pub async fn setup() -> Setup {
@@ -23,7 +23,7 @@ pub async fn setup() -> Setup {
         runtime: store,
         snapshots,
         results,
-        ..
+        fixings,
     } = convex_ext_redb::open_redb_storage(dir.path().join("inputs.redb")).unwrap();
     let bond = fixture::bond();
     storage
@@ -90,6 +90,7 @@ pub async fn setup() -> Setup {
         store,
         snapshots,
         results,
+        fixings,
         plan,
     }
 }
@@ -106,7 +107,7 @@ pub fn make_engine(
             .with_runtime(RuntimeServices {
                 plan,
                 snapshots: s.snapshots.clone(),
-                fixings: Arc::new(JsonFixingRepository::empty()),
+                fixings: s.fixings.clone(),
                 store,
                 publisher,
                 input,

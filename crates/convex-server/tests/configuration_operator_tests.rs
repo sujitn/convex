@@ -82,6 +82,7 @@ async fn separate_process_cli_stage_activate_rollback_inspection_and_export_are_
     drop(setup.store);
     drop(setup.snapshots);
     drop(setup.results);
+    drop(setup.fixings);
     let validate = output_json(run(&[
         text(&db),
         "validate",
@@ -206,6 +207,7 @@ async fn cli_invalid_schema_credentials_fixture_and_process_values_are_redacted(
     drop(setup.store);
     drop(setup.snapshots);
     drop(setup.results);
+    drop(setup.fixings);
     let output = run(&[
         text(&db),
         "validate",

@@ -179,6 +179,50 @@ model has no validated continuous-exercise discretization. A plan values at most
 callables: each reprices on every generation, about 0.8 s in a release build for a
 ten-year Bermudan (OAS solve 0.46 s, risk 0.21 s).
 
+### Floating rate notes
+
+A floating rate note is valued under model `convex-floating-dm-v1` through
+`convex::library::execute`. It is the frozen-projection discount-margin inverse at the
+observed clean mid, discounted on the configuration's collateral discount curve.
+
+| Measure | Canonical quantity |
+|---|---|
+| `clean_price_mid` | Exact observed price per 100 |
+| `dirty_price_mid`, `accrued_interest` | Finite model price per 100, from known and forecast fixings |
+| `discount_margin_mid` | Finite model basis points over the frozen projection |
+
+The inputs are exactly the pinned ones:
+- **Terms:** the bullet schedule of the stored bond, with an overnight or term coupon
+  from its `floating_mechanics` and rate index (see `REFERENCE_MASTER.md`), a constant
+  spread over gearing 1, and the contractual payment lag.
+- **Calendars:** holiday tables of the bond calendar (payments) and the index
+  calendar (resets and observations), over the bond's life plus 92 days on each side.
+- **Curves:** `frn_reference_curve` must be a stored recipe with
+  `Projection { index_id }` equal to the index's `index_id`. The discount curve must
+  be a stored collateral recipe.
+- **Publications:** the index's rule, expanded into the library's explicit expected
+  publication for every unpaid observation.
+- **Fixings:** derived at each snapshot from the built contract. Every observation up
+  to `as_of` whose expected publication is at or before `known_at` is captured from
+  the durable fixing store under the index's `fixing_source`. Missing ones stay
+  explicit, at most 1,024 in a snapshot. Later observations are forecast from the
+  projection curve. Preliminary revisions are not used.
+
+An explicitly missing due fixing marks the snapshot incomplete, so that generation
+fails for every instrument (the existing snapshot rule). The inverse uses the
+qualified floating corpus controls: -50%..50%, price 1e-9, parameter 1e-13, 128
+iterations.
+
+The following fail every measure with the library's or the adapter's reason:
+- caps and floors;
+- observation-shifted accrual, which needs an explicit accrual cutoff the terms do
+  not carry;
+- overnight accrual other than ACT/360 or ACT/365F;
+- term resets at another frequency;
+- a missing mechanic.
+
+Risk measures are a follow-up.
+
 Calculated values remain model quantities. There is no hidden cash/ledger rounding
 to fit an exact decimal coefficient. Missing marks or unavailable numerical
 calculations produce explicit measure errors; a measure the router could not

@@ -193,11 +193,7 @@ pub(super) fn value(
     context.validate_snapshot(snapshot)?;
     if calculated < context.spec().valuation_time
         || calculated < context.spec().known_at
-        || !matches!(
-            context.spec().model_id.as_str(),
-            crate::snapshot::BOND_SNAPSHOT_MODEL
-                | crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
-        )
+        || !crate::optional_valuation::PRODUCT_MODELS.contains(&context.spec().model_id.as_str())
         || context.spec().numerical_settings.policy_id.as_str()
             != crate::snapshot::BOND_NUMERICAL_POLICY
         || context.spec().scenario != ValuationScenario::Base

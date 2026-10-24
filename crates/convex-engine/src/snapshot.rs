@@ -201,11 +201,17 @@ impl SnapshotAssembler {
                 .resources_for_valuation(bond, lookup)
                 .await
                 .map_err(reference_error)?;
+            let floating = self
+                .references
+                .floating_resources_for_valuation(bond)
+                .await
+                .map_err(reference_error)?;
             references.push(ResolvedBondReference {
                 record,
                 issuer,
                 calendar,
                 convention,
+                floating,
             });
         }
         Ok(references)
@@ -230,12 +236,11 @@ impl SnapshotAssembler {
         references: Vec<ResolvedBondReference>,
         quotes: Vec<SnapshotQuote>,
     ) -> Result<MarketSnapshot, TraitError> {
-        let mut fixings = Vec::with_capacity(request.fixings.len());
-        for key in &request.fixings {
-            fixings.push(SnapshotFixing {
-                key: key.clone(),
-                fixing: self.fixings.get_at(key, request.known_at).await?,
-            });
+        let keys = required_fixings(request, &references)?;
+        let mut fixings = Vec::with_capacity(keys.len());
+        for key in keys {
+            let fixing = self.fixings.get_at(&key, request.known_at).await?;
+            fixings.push(SnapshotFixing { key, fixing });
         }
         let snapshot = MarketSnapshot::new(SnapshotContent {
             schema_version: if request.calibration.is_some() {
@@ -508,10 +513,7 @@ impl SnapshotValuator {
             ));
         }
         if spec.build_id != self.build_id
-            || !matches!(
-                spec.model_id.as_str(),
-                BOND_SNAPSHOT_MODEL | crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
-            )
+            || !crate::optional_valuation::PRODUCT_MODELS.contains(&spec.model_id.as_str())
             || spec.numerical_settings.policy_id.as_str() != BOND_NUMERICAL_POLICY
             || spec.scenario != ValuationScenario::Base
         {
@@ -605,6 +607,14 @@ impl SnapshotValuator {
             == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
         {
             callable_measures(
+                snapshot,
+                spec,
+                reference,
+                &recipe_curves,
+                mark(QuoteField::MidPrice),
+            )?
+        } else if spec.model_id.as_str() == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
+            floating_measures(
                 snapshot,
                 spec,
                 reference,
@@ -786,6 +796,186 @@ impl SnapshotValuator {
 }
 
 type Measures = (BTreeMap<MeasureId, MeasureResult>, Vec<StructuredError>);
+
+/// The plan's explicit fixings plus each floating rate note's observations that are due by
+/// the cutoff, derived from its built contract (D33). A note the adapter cannot build adds
+/// none; its valuation reports why.
+fn required_fixings(
+    request: &SnapshotAssembly,
+    references: &[ResolvedBondReference],
+) -> Result<Vec<convex_ports::fixing::FixingKey>, TraitError> {
+    let as_of = convex_core::Date::from(request.as_of.datetime().date_naive());
+    let mut keys = request.fixings.iter().cloned().collect::<BTreeSet<_>>();
+    for reference in references.iter().filter(|r| r.floating.is_some()) {
+        let due = crate::floating_valuation::FloatingNote::new(reference)
+            .and_then(|note| note.due_fixings(as_of, request.known_at));
+        if let Ok(due) = due {
+            keys.extend(due);
+        }
+        if keys.len() > convex_ports::snapshot::MAX_SNAPSHOT_FIXINGS {
+            return Err(TraitError::CapacityExceeded);
+        }
+    }
+    Ok(keys.into_iter().collect())
+}
+
+/// Floating rate note measures at the observed clean mid, from `convex::library` (D26, D34).
+fn floating_measures(
+    snapshot: &MarketSnapshot,
+    spec: &ValuationContextSpec,
+    reference: &ResolvedBondReference,
+    recipe_curves: &convex_curves::contracts::CurveBuildOutput,
+    clean_mid: Option<rust_decimal::Decimal>,
+) -> Result<Measures, TraitError> {
+    use crate::optional_valuation::{failure, Failure};
+    let configuration = &snapshot.content().configuration;
+    let bond = reference
+        .record
+        .bond
+        .as_ref()
+        .ok_or(TraitError::InvalidInput("tombstone reference"))?;
+    let clean = clean_mid.ok_or_else(|| {
+        failure(
+            ErrorCode::MissingMarketData,
+            "Required mid mark is unavailable",
+        )
+    });
+    let quoted = clean.clone().and_then(|clean| {
+        let note = crate::floating_valuation::FloatingNote::new(reference)?;
+        // The library builds curves from recipes: the discount role must be a collateral
+        // recipe and `frn_reference_curve` a projection recipe of the note's own index.
+        let recipe = |id: &str, discount: bool| -> Result<convex_curves::contracts::CurveKey, Failure> {
+            let unsupported = || {
+                failure(
+                    ErrorCode::UnsupportedConvention,
+                    "floating rate notes need their discount and projection curves as stored curve recipes",
+                )
+            };
+            if !snapshot
+                .content()
+                .curve_recipes
+                .iter()
+                .any(|r| r.curve_id.as_str() == id)
+            {
+                return Err(unsupported());
+            }
+            let key = recipe_curves
+                .curves
+                .keys()
+                .find(|key| key.id == id)
+                .ok_or_else(unsupported)?;
+            let built = recipe_curves
+                .curves
+                .get(key)
+                .map_err(|_| failure(ErrorCode::InvalidInput, "missing exact complete curve"))?;
+            let role = crate::curve_resolution::pricing_role_matches(
+                built.recipe(),
+                discount,
+                bond.currency,
+            ) && (discount
+                || matches!(
+                    &built.recipe().role,
+                    convex_curves::contracts::CurveRole::Projection { index_id }
+                        if index_id.as_str() == note.index_id().as_str()
+                ));
+            if !role {
+                return Err(failure(
+                    ErrorCode::InvalidInput,
+                    "snapshot pricing curve role/currency/index mismatch",
+                ));
+            }
+            Ok(key.clone())
+        };
+        let discount = recipe(configuration.analytics_curves.discount_curve.as_str(), true)?;
+        let projection = recipe(
+            configuration
+                .analytics_curves
+                .frn_reference_curve
+                .as_ref()
+                .ok_or_else(|| {
+                    failure(
+                        ErrorCode::UnsupportedConvention,
+                        "floating rate notes need the configuration's frn_reference_curve",
+                    )
+                })?
+                .as_str(),
+            false,
+        )?;
+        let recipes = snapshot
+            .content()
+            .curve_recipes
+            .iter()
+            .map(|r| serde_json::from_value(r.recipe.clone()))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| failure(ErrorCode::InvalidInput, "undecodable curve recipe"))?;
+        crate::floating_valuation::value_floating(
+            &note,
+            &recipes,
+            &discount,
+            &projection,
+            spec.settlement_date.date(),
+            convex_core::Date::from(snapshot.content().as_of.datetime().date_naive()),
+            snapshot.content().known_at,
+            &snapshot.content().fixings,
+            clean,
+        )
+    });
+    let finite = |value: f64| {
+        FiniteF64::new(value)
+            .map_err(|_| failure(ErrorCode::InvalidInput, "nonfinite floating measure"))
+    };
+    let mut results = BTreeMap::new();
+    let mut errors = Vec::new();
+    for measure in &spec.measures {
+        let value = quoted.as_ref().map_err(Clone::clone).and_then(|quote| {
+            let clean = clean.clone()?;
+            Ok(match measure.as_str() {
+                "clean_price_mid" => {
+                    MeasureValue::Price(PricePer100::new(ExactDecimal::new(clean)))
+                }
+                "dirty_price_mid" => {
+                    MeasureValue::ModelPrice(ModelPricePer100::new(finite(quote.dirty)?))
+                }
+                "accrued_interest" => {
+                    MeasureValue::ModelPrice(ModelPricePer100::new(finite(quote.accrued)?))
+                }
+                // Over the frozen projection, discounted on the collateral curve.
+                "discount_margin_mid" => MeasureValue::ModelBps(ModelBasisPoints::new(finite(
+                    quote.discount_margin_bps,
+                )?)),
+                _ => {
+                    return Err(failure(
+                        ErrorCode::InvalidInput,
+                        "Requested measure is outside this snapshot valuation slice",
+                    ))
+                }
+            })
+        });
+        match value {
+            Ok(value) => {
+                results.insert(
+                    measure.clone(),
+                    MeasureResult {
+                        value,
+                        quality: snapshot.quality().quality,
+                        method: spec.model_id.clone(),
+                        source_observation_id: None,
+                    },
+                );
+            }
+            Err(error) => errors.push(
+                StructuredError::new(
+                    error.code,
+                    Some(measure.as_str().into()),
+                    error.message,
+                    false,
+                )
+                .map_err(contract_error)?,
+            ),
+        }
+    }
+    Ok((results, errors))
+}
 
 /// Callable measures at the observed clean mid, from `convex::library` (D26). A plan measure
 /// the optional model does not publish never reaches this context (D29).
@@ -974,6 +1164,26 @@ pub(crate) fn consumed_versions(
             _ => return Err(TraitError::InvalidInput("wrong reference resource")),
         };
         push(kind, id, record.version)?;
+    }
+    if let Some(floating) = &reference.floating {
+        use convex_ports::reference_master::MasterDefinition as M;
+        let (M::RateIndex(index), M::Calendar(calendar)) =
+            (&floating.index.definition, &floating.calendar.definition)
+        else {
+            return Err(TraitError::InvalidInput(
+                "wrong floating reference resource",
+            ));
+        };
+        push(
+            "rate_index",
+            index.rate_index_id.as_str(),
+            floating.index.version,
+        )?;
+        push(
+            "calendar",
+            calendar.calendar_id.as_str(),
+            floating.calendar.version,
+        )?;
     }
     if let Some(capture) = &snapshot.content().configuration_capture {
         push(
