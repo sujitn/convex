@@ -299,6 +299,15 @@ impl ConfigurationUseCases {
                 issue(&mut report, "assembly", "INVALID_FIXTURE_INPUTS", "Required quotes/curves or feed continuity do not satisfy the supplied information cutoff");
                 continue;
             }
+            if !crate::optional_valuation::within_callable_bound(&snapshot) {
+                issue(
+                    &mut report,
+                    "assembly.instruments",
+                    "TOO_MANY_CALLABLES",
+                    "A runtime plan values at most 8 callables",
+                );
+                continue;
+            }
             let mut valuator = self.warmed.lock().clone();
             if valuator.is_none() {
                 let initialized = Arc::new(SnapshotValuator::new(
@@ -312,9 +321,21 @@ impl ConfigurationUseCases {
             let mut actual = Vec::new();
             let mut matched = std::collections::BTreeSet::new();
             for pin in &document.assembly.instruments {
-                let context = plan
-                    .context(&snapshot, &pin.instrument_id)
-                    .map_err(|_| ConfigurationError::ValidationFailed)?;
+                let context = match plan.context(&snapshot, &pin.instrument_id) {
+                    Ok(context) => context,
+                    Err(crate::runtime::RuntimeError::Configuration(reason))
+                        if reason == crate::runtime::NO_APPLICABLE_MEASURE =>
+                    {
+                        issue(
+                            &mut report,
+                            "runtime.measures",
+                            "NO_APPLICABLE_MEASURE",
+                            "No requested measure is published by this instrument's product model",
+                        );
+                        continue;
+                    }
+                    Err(_) => return Err(ConfigurationError::ValidationFailed),
+                };
                 let result = match valuator.value(
                     &snapshot,
                     &context,

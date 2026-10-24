@@ -59,6 +59,16 @@ fallback is used. The existing builder consumes dated/first coupon dates,
 redemption, currency, calendar, business-day adjustment, EOM, settlement lag and
 calendar-day ex-coupon settings, and preflights its schedule before lazy generation.
 
+A fixed callable (`FixedCallable`, `is_callable`) is valued only when its
+contractual terms carry `call_terms`: `style` (`american`, `european` or
+`bermudan`) and `notice_days` (at most 366). The entries of `call_schedule` carry
+only a date and price, so the exercise style is never inferred from them. With
+`call_terms` present the schedule must be non-empty, strictly increasing, inside
+`(dated_date, maturity_date]`, with positive prices; make-whole entries are refused
+as unsupported. `call_terms` is optional and omitted when absent, so stored records
+without it keep their exact bytes; a callable without it still records but is never
+valued. Puts, sinking funds and floating or inflation terms remain unsupported.
+
 Calendar dispatch is restricted to the actually implemented `weekends_only`,
 `sifma` and `target2` paths with rule version `convex-calendar-v1`. Definitions pin
 that rule version and a declared inclusive date coverage. Custom/joint calendars,

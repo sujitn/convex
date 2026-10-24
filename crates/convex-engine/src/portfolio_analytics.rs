@@ -116,9 +116,10 @@ pub fn runtime_bond_quote(
             ("convexity_mid" | "effective_convexity_mid", MeasureValue::ModelYearsSquared(p)) => {
                 model(p.value().get())
             }
-            ("z_spread_mid" | "i_spread_mid" | "asw_mid", MeasureValue::ModelBps(p)) => {
-                model(p.value().get())
-            }
+            (
+                "z_spread_mid" | "i_spread_mid" | "asw_mid" | "oas_mid",
+                MeasureValue::ModelBps(p),
+            ) => model(p.value().get()),
             _ => Err(failure(id, "runtime measure has an unexpected unit")),
         }
     };
@@ -168,7 +169,7 @@ pub fn runtime_bond_quote(
         asw_mid: read("asw_mid")?,
         asw_ask: None,
         oas_bid: None,
-        oas_mid: None,
+        oas_mid: read("oas_mid")?,
         oas_ask: None,
         discount_margin_bid: None,
         discount_margin_mid: None,

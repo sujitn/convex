@@ -508,7 +508,10 @@ impl SnapshotValuator {
             ));
         }
         if spec.build_id != self.build_id
-            || spec.model_id.as_str() != BOND_SNAPSHOT_MODEL
+            || !matches!(
+                spec.model_id.as_str(),
+                BOND_SNAPSHOT_MODEL | crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
+            )
             || spec.numerical_settings.policy_id.as_str() != BOND_NUMERICAL_POLICY
             || spec.scenario != ValuationScenario::Base
         {
@@ -556,6 +559,11 @@ impl SnapshotValuator {
                 "configuration does not apply to pinned instrument",
             ));
         }
+        if crate::optional_valuation::product_model(bond) != spec.model_id.as_str() {
+            return Err(TraitError::Unsupported(
+                "context model does not value the pinned product",
+            ));
+        }
         if !matches!(
             configuration.pricing_spec,
             PricingSpec::Auto
@@ -593,132 +601,145 @@ impl SnapshotValuator {
                 .and_then(|q| q.fields.get(&field))
                 .map(|value| value.value.value)
         };
-        let curve = |id: &convex_core::ids::CurveId| {
-            if let Some(key) = recipe_curves
-                .curves
-                .keys()
-                .find(|key| key.id == id.as_str())
-            {
-                let selected = recipe_curves
-                    .curves
-                    .get(key)
-                    .map_err(|_| TraitError::InvalidInput("missing exact complete curve"))?;
-                if !crate::curve_resolution::pricing_role_matches(
-                    selected.recipe(),
-                    id == &configuration.analytics_curves.discount_curve,
-                    bond.currency,
-                ) {
-                    return Err(TraitError::InvalidInput(
-                        "snapshot pricing curve role/currency mismatch",
-                    ));
-                }
-                if let Some(record) = snapshot
-                    .content()
-                    .curve_recipes
-                    .iter()
-                    .find(|r| r.curve_id.as_str() == id.as_str())
-                {
-                    return BuiltCurve::from_recipe(record, selected.clone()).map(Some);
-                }
-                let capture = snapshot
-                    .content()
-                    .calibration
-                    .as_ref()
-                    .ok_or(TraitError::InvalidInput("missing complete calibration"))?;
-                let pin = capture
-                    .curves
-                    .iter()
-                    .find(|p| p.curve_id.as_str() == id.as_str())
-                    .ok_or(TraitError::InvalidInput("missing calibration curve pin"))?;
-                return BuiltCurve::from_calibration(capture, pin, selected.clone()).map(Some);
-            }
-            snapshot
-                .content()
-                .curves
-                .iter()
-                .find(|c| c.curve_id.as_str() == id.as_str())
-                .map(BuiltCurve::from_snapshot)
-                .transpose()
-        };
-        let input = PricingInput {
-            bond: bond.clone(),
-            settlement_date: spec.settlement_date.date(),
-            market_price_bid: mark(QuoteField::BidPrice),
-            market_price_mid: mark(QuoteField::MidPrice),
-            market_price_ask: mark(QuoteField::AskPrice),
-            discount_curve: curve(&configuration.analytics_curves.discount_curve)?,
-            benchmark_curve: configuration
-                .analytics_curves
-                .swap_curve
-                .as_ref()
-                .map(curve)
-                .transpose()?
-                .flatten(),
-            government_curve: None,
-            volatility: None,
-            bid_ask_config: configuration.bid_ask_spread.clone(),
-        };
-        let router = PricingRouter {
-            bump_bps: spec.numerical_settings.bump_bps.get(),
-        };
-        let (priced, pricing_failed) = if input.market_price_mid.is_none() {
-            (None, false)
+        let (results, errors) = if spec.model_id.as_str()
+            == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
+        {
+            callable_measures(
+                snapshot,
+                spec,
+                reference,
+                &recipe_curves,
+                mark(QuoteField::MidPrice),
+            )?
         } else {
-            match router.price_at(&input, calculated_at.datetime().timestamp_millis()) {
-                Ok(value) => (Some(value), false),
-                Err(_) => (None, true),
-            }
-        };
-        let mut results = BTreeMap::new();
-        let mut errors = Vec::new();
-        for measure in &spec.measures {
-            let value = priced
-                .as_ref()
-                .map(|output| snapshot_mid_value(output, measure.as_str()))
-                .transpose()?
-                .flatten();
-            match value {
-                Some(value) => {
-                    results.insert(
-                        measure.clone(),
-                        MeasureResult {
-                            value,
-                            quality: snapshot.quality().quality,
-                            method: spec.model_id.clone(),
-                            source_observation_id: None,
-                        },
-                    );
-                }
-                None => {
-                    let supported = RUNTIME_MEASURES.contains(&measure.as_str());
-                    // The router names the measures it could not produce; keep its code and reason.
-                    let field = if curve_risk_measure(measure.as_str()) {
-                        "curve_risk_mid"
-                    } else {
-                        measure.as_str()
-                    };
-                    let routed = priced.as_ref().and_then(|output| {
-                        output
-                            .measure_errors
-                            .iter()
-                            .find(|error| error.field() == Some(field))
-                    });
-                    if let Some(error) = routed {
-                        errors.push(
-                            StructuredError::new(
-                                error.code(),
-                                Some(measure.as_str().into()),
-                                error.message(),
-                                false,
-                            )
-                            .map_err(contract_error)?,
-                        );
-                        continue;
+            let curve = |id: &convex_core::ids::CurveId| {
+                if let Some(key) = recipe_curves
+                    .curves
+                    .keys()
+                    .find(|key| key.id == id.as_str())
+                {
+                    let selected = recipe_curves
+                        .curves
+                        .get(key)
+                        .map_err(|_| TraitError::InvalidInput("missing exact complete curve"))?;
+                    if !crate::curve_resolution::pricing_role_matches(
+                        selected.recipe(),
+                        id == &configuration.analytics_curves.discount_curve,
+                        bond.currency,
+                    ) {
+                        return Err(TraitError::InvalidInput(
+                            "snapshot pricing curve role/currency mismatch",
+                        ));
                     }
-                    errors.push(StructuredError::new(if !supported { ErrorCode::InvalidInput } else if pricing_failed { ErrorCode::SolverLimit } else if input.market_price_mid.is_none() { ErrorCode::MissingMarketData } else { ErrorCode::SolverLimit }, Some(measure.as_str().into()), if supported { "Required mark or numerical calculation is unavailable; no value substituted" } else { "Requested measure is outside this snapshot valuation slice" }, false).map_err(contract_error)?);
+                    if let Some(record) = snapshot
+                        .content()
+                        .curve_recipes
+                        .iter()
+                        .find(|r| r.curve_id.as_str() == id.as_str())
+                    {
+                        return BuiltCurve::from_recipe(record, selected.clone()).map(Some);
+                    }
+                    let capture = snapshot
+                        .content()
+                        .calibration
+                        .as_ref()
+                        .ok_or(TraitError::InvalidInput("missing complete calibration"))?;
+                    let pin = capture
+                        .curves
+                        .iter()
+                        .find(|p| p.curve_id.as_str() == id.as_str())
+                        .ok_or(TraitError::InvalidInput("missing calibration curve pin"))?;
+                    return BuiltCurve::from_calibration(capture, pin, selected.clone()).map(Some);
+                }
+                snapshot
+                    .content()
+                    .curves
+                    .iter()
+                    .find(|c| c.curve_id.as_str() == id.as_str())
+                    .map(BuiltCurve::from_snapshot)
+                    .transpose()
+            };
+            let input = PricingInput {
+                bond: bond.clone(),
+                settlement_date: spec.settlement_date.date(),
+                market_price_bid: mark(QuoteField::BidPrice),
+                market_price_mid: mark(QuoteField::MidPrice),
+                market_price_ask: mark(QuoteField::AskPrice),
+                discount_curve: curve(&configuration.analytics_curves.discount_curve)?,
+                benchmark_curve: configuration
+                    .analytics_curves
+                    .swap_curve
+                    .as_ref()
+                    .map(curve)
+                    .transpose()?
+                    .flatten(),
+                government_curve: None,
+                volatility: None,
+                bid_ask_config: configuration.bid_ask_spread.clone(),
+            };
+            let router = PricingRouter {
+                bump_bps: spec.numerical_settings.bump_bps.get(),
+            };
+            let (priced, pricing_failed) = if input.market_price_mid.is_none() {
+                (None, false)
+            } else {
+                match router.price_at(&input, calculated_at.datetime().timestamp_millis()) {
+                    Ok(value) => (Some(value), false),
+                    Err(_) => (None, true),
+                }
+            };
+            let mut results = BTreeMap::new();
+            let mut errors = Vec::new();
+            for measure in &spec.measures {
+                let value = priced
+                    .as_ref()
+                    .map(|output| snapshot_mid_value(output, measure.as_str()))
+                    .transpose()?
+                    .flatten();
+                match value {
+                    Some(value) => {
+                        results.insert(
+                            measure.clone(),
+                            MeasureResult {
+                                value,
+                                quality: snapshot.quality().quality,
+                                method: spec.model_id.clone(),
+                                source_observation_id: None,
+                            },
+                        );
+                    }
+                    None => {
+                        let supported = RUNTIME_MEASURES.contains(&measure.as_str());
+                        // The router names the measures it could not produce; keep its code and reason.
+                        let field = if curve_risk_measure(measure.as_str()) {
+                            "curve_risk_mid"
+                        } else {
+                            measure.as_str()
+                        };
+                        let routed = priced.as_ref().and_then(|output| {
+                            output
+                                .measure_errors
+                                .iter()
+                                .find(|error| error.field() == Some(field))
+                        });
+                        if let Some(error) = routed {
+                            errors.push(
+                                StructuredError::new(
+                                    error.code(),
+                                    Some(measure.as_str().into()),
+                                    error.message(),
+                                    false,
+                                )
+                                .map_err(contract_error)?,
+                            );
+                            continue;
+                        }
+                        errors.push(StructuredError::new(if !supported { ErrorCode::InvalidInput } else if pricing_failed { ErrorCode::SolverLimit } else if input.market_price_mid.is_none() { ErrorCode::MissingMarketData } else { ErrorCode::SolverLimit }, Some(measure.as_str().into()), if supported { "Required mark or numerical calculation is unavailable; no value substituted" } else { "Requested measure is outside this snapshot valuation slice" }, false).map_err(contract_error)?);
+                    }
                 }
             }
-        }
+            (results, errors)
+        };
         let status = if results.is_empty() {
             ResultStatus::Failed
         } else if errors.is_empty() {
@@ -762,6 +783,159 @@ impl SnapshotValuator {
             .map_err(contract_error)?,
         )
     }
+}
+
+type Measures = (BTreeMap<MeasureId, MeasureResult>, Vec<StructuredError>);
+
+/// Callable measures at the observed clean mid, from `convex::library` (D26). A plan measure
+/// the optional model does not publish never reaches this context (D29).
+fn callable_measures(
+    snapshot: &MarketSnapshot,
+    spec: &ValuationContextSpec,
+    reference: &ResolvedBondReference,
+    recipe_curves: &convex_curves::contracts::CurveBuildOutput,
+    clean_mid: Option<rust_decimal::Decimal>,
+) -> Result<Measures, TraitError> {
+    use crate::optional_valuation::{self as optional, Failure};
+    let failure = |code, message: &str| Failure {
+        code,
+        message: message.into(),
+    };
+    let configuration = &snapshot.content().configuration;
+    let bond = reference
+        .record
+        .bond
+        .as_ref()
+        .ok_or(TraitError::InvalidInput("tombstone reference"))?;
+    let clean = clean_mid.ok_or_else(|| {
+        failure(
+            ErrorCode::MissingMarketData,
+            "Required mid mark is unavailable",
+        )
+    });
+    let quoted = clean.clone().and_then(|clean| {
+        // The library builds curves from recipes, so the discount curve must be a stored recipe.
+        let id = configuration.analytics_curves.discount_curve.as_str();
+        let unsupported = || {
+            failure(
+                ErrorCode::UnsupportedConvention,
+                "callables need the discount curve as a stored curve recipe",
+            )
+        };
+        if !snapshot
+            .content()
+            .curve_recipes
+            .iter()
+            .any(|r| r.curve_id.as_str() == id)
+        {
+            return Err(unsupported());
+        }
+        let key = recipe_curves
+            .curves
+            .keys()
+            .find(|key| key.id == id)
+            .ok_or_else(unsupported)?;
+        let built = recipe_curves
+            .curves
+            .get(key)
+            .map_err(|_| failure(ErrorCode::InvalidInput, "missing exact complete curve"))?;
+        if !crate::curve_resolution::pricing_role_matches(built.recipe(), true, bond.currency) {
+            return Err(failure(
+                ErrorCode::InvalidInput,
+                "snapshot pricing curve role/currency mismatch",
+            ));
+        }
+        let recipes = snapshot
+            .content()
+            .curve_recipes
+            .iter()
+            .map(|r| serde_json::from_value(r.recipe.clone()))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| failure(ErrorCode::InvalidInput, "undecodable curve recipe"))?;
+        let convex_ports::reference_master::MasterDefinition::Calendar(calendar) =
+            &reference.calendar.definition
+        else {
+            return Err(failure(ErrorCode::InvalidInput, "wrong calendar resource"));
+        };
+        optional::value_callable(
+            bond,
+            calendar,
+            reference.calendar.version,
+            &recipes,
+            key,
+            configuration,
+            spec.settlement_date.date(),
+            snapshot.content().known_at,
+            clean,
+        )
+    });
+    let finite = |value: f64| {
+        FiniteF64::new(value)
+            .map_err(|_| failure(ErrorCode::InvalidInput, "nonfinite callable measure"))
+    };
+    let mut results = BTreeMap::new();
+    let mut errors = Vec::new();
+    for measure in &spec.measures {
+        let value = quoted.as_ref().map_err(Clone::clone).and_then(|quote| {
+            let clean = clean.clone()?;
+            let risk = || quote.risk.as_ref().map_err(Clone::clone);
+            let model = ExactDecimal::new(clean)
+                .to_model()
+                .map_err(|_| failure(ErrorCode::InvalidInput, "unrepresentable clean mid"))?;
+            Ok(match measure.as_str() {
+                "clean_price_mid" => {
+                    MeasureValue::Price(PricePer100::new(ExactDecimal::new(clean)))
+                }
+                "dirty_price_mid" => MeasureValue::ModelPrice(ModelPricePer100::new(finite(
+                    model.get() + quote.accrued,
+                )?)),
+                "accrued_interest" => {
+                    MeasureValue::ModelPrice(ModelPricePer100::new(finite(quote.accrued)?))
+                }
+                "oas_mid" => MeasureValue::ModelBps(ModelBasisPoints::new(finite(quote.oas_bps)?)),
+                // Parallel discount shift with the OAS frozen.
+                "effective_duration_mid" => {
+                    MeasureValue::ModelYears(ModelYears::new(finite(risk()?.duration)?))
+                }
+                "effective_convexity_mid" => MeasureValue::ModelYearsSquared(
+                    ModelYearsSquared::new(finite(risk()?.convexity)?),
+                ),
+                // Loss per 100 face for +1 bp of the discount curve.
+                "pv01_mid" => {
+                    MeasureValue::ModelPrice(ModelPricePer100::new(finite(risk()?.pv01)?))
+                }
+                _ => {
+                    return Err(failure(
+                        ErrorCode::InvalidInput,
+                        "Requested measure is outside this snapshot valuation slice",
+                    ))
+                }
+            })
+        });
+        match value {
+            Ok(value) => {
+                results.insert(
+                    measure.clone(),
+                    MeasureResult {
+                        value,
+                        quality: snapshot.quality().quality,
+                        method: spec.model_id.clone(),
+                        source_observation_id: None,
+                    },
+                );
+            }
+            Err(error) => errors.push(
+                StructuredError::new(
+                    error.code,
+                    Some(measure.as_str().into()),
+                    error.message,
+                    false,
+                )
+                .map_err(contract_error)?,
+            ),
+        }
+    }
+    Ok((results, errors))
 }
 
 pub(crate) fn consumed_versions(

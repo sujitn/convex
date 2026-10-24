@@ -170,6 +170,31 @@ pub struct BondContractTerms {
     pub settings: BondConvention,
     /// Terms evidence, separate from recording time.
     pub provenance: ReferenceProvenance,
+    /// Exercise mechanics of the bond's `call_schedule`; a callable is valued only with them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub call_terms: Option<CallTerms>,
+}
+
+/// How a scheduled call may be exercised.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallStyle {
+    /// Any day from each call date until the next one, or maturity.
+    American,
+    /// Only on each listed call date.
+    European,
+    /// Only on the listed call dates, as one discrete exercise set.
+    Bermudan,
+}
+
+/// Contractual call mechanics that the call schedule entries do not carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallTerms {
+    /// Exercise style of every scheduled call.
+    pub style: CallStyle,
+    /// Calendar days of notice before each exercise, at most 366.
+    pub notice_days: u32,
 }
 
 /// Versioned legal/issuer/reference entity attributes.
@@ -722,6 +747,44 @@ pub fn validate_valuation_terms(bond: &BondReferenceData) -> Result<(), Referenc
     if bond.bond_type == BondType::FixedBullet {
         validate_bullet_boundaries(bond, terms)?;
     }
+    if let Some(call) = &terms.call_terms {
+        validate_call_terms(bond, terms, call)?;
+    }
+    Ok(())
+}
+
+/// Explicit call mechanics belong only to a callable with a dated, priced schedule.
+fn validate_call_terms(
+    bond: &BondReferenceData,
+    terms: &BondContractTerms,
+    call: &CallTerms,
+) -> Result<(), ReferenceError> {
+    if bond.bond_type != BondType::FixedCallable || !bond.is_callable {
+        return Err(ReferenceError::InvalidInput(
+            "call terms require a fixed callable bond",
+        ));
+    }
+    if bond.call_schedule.iter().any(|entry| entry.is_make_whole) {
+        return Err(ReferenceError::Unsupported(
+            "make-whole calls need their own terms and model",
+        ));
+    }
+    if call.notice_days > 366
+        || bond.call_schedule.is_empty()
+        || bond
+            .call_schedule
+            .windows(2)
+            .any(|pair| pair[0].call_date >= pair[1].call_date)
+        || bond.call_schedule.iter().any(|entry| {
+            entry.call_date <= terms.dated_date.date()
+                || entry.call_date > bond.maturity_date
+                || entry.call_price <= rust_decimal::Decimal::ZERO
+        })
+    {
+        return Err(ReferenceError::InvalidInput(
+            "call schedule needs sorted unique dates inside the bond's life, positive prices and at most 366 notice days",
+        ));
+    }
     Ok(())
 }
 
@@ -805,9 +868,10 @@ pub fn validate_service_resources(
         .as_ref()
         .ok_or(ReferenceError::InvalidInput("missing terms"))?;
     // Expanded families require their complete contractual models in subsequent tasks.
-    if !matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon)
-        || bond.is_callable
-        || !bond.call_schedule.is_empty()
+    // A fixed callable is admitted only with its explicit call mechanics.
+    let callable = bond.bond_type == BondType::FixedCallable && terms.call_terms.is_some();
+    if !(callable || matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon))
+        || (!callable && (bond.is_callable || !bond.call_schedule.is_empty()))
         || bond.is_putable
         || bond.is_sinkable
         || bond.floating_terms.is_some()
@@ -816,7 +880,7 @@ pub fn validate_service_resources(
         || bond.has_deflation_floor
     {
         return Err(ReferenceError::Unsupported(
-            "service reference valuation currently supports nominal fixed bullets and zeros",
+            "service reference valuation supports nominal fixed bullets, zeros and callables with explicit call terms",
         ));
     }
     if !terms.effective.contains(lookup.as_of) {

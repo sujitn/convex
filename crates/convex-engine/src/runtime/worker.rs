@@ -1,8 +1,9 @@
 //! Frozen-input CPU work and checked graph commit. No repository/provider reads in workers.
-use super::{RuntimeError, RuntimePlan};
+use super::{RuntimeError, RuntimePlan, NO_APPLICABLE_MEASURE};
 use crate::{
     context::*,
-    snapshot::{SnapshotValuationResult, SnapshotValuator, BOND_SNAPSHOT_MODEL},
+    optional_valuation::{product_measures, product_model},
+    snapshot::{SnapshotValuationResult, SnapshotValuator},
     CalculationGraph, CommitOutcome, NodeId, NodeSpec, NodeValue,
 };
 use convex_core::contracts::*;
@@ -36,6 +37,17 @@ pub(super) fn context(
         .bond
         .as_ref()
         .ok_or(RuntimeError::RecoveryConflict)?;
+    // Each instrument requests only the plan measures its own model publishes.
+    let model = product_model(bond);
+    let measures: Vec<_> = plan
+        .measures
+        .iter()
+        .filter(|measure| product_measures(model).contains(&measure.as_str()))
+        .cloned()
+        .collect();
+    if measures.is_empty() {
+        return Err(RuntimeError::Configuration(NO_APPLICABLE_MEASURE));
+    }
     let context = ValuationContext::new(ValuationContextSpec {
         snapshot_id: snapshot.id().clone(),
         generation: snapshot.content().generation,
@@ -52,14 +64,14 @@ pub(super) fn context(
             version: Version::new(snapshot.content().configuration.version)
                 .map_err(|_| RuntimeError::RecoveryConflict)?,
         },
-        model_id: ModelId::new(BOND_SNAPSHOT_MODEL)
+        model_id: ModelId::new(model)
             .map_err(|_| RuntimeError::Configuration("invalid compiled model identity"))?,
         build_id: plan.build_id.clone(),
         reporting_currency: bond.currency,
         fixing_known_at: snapshot.content().known_at,
         scenario: ValuationScenario::Base,
         numerical_settings: plan.numerical_settings.clone(),
-        measures: plan.measures.clone(),
+        measures,
     })?;
     context.validate_snapshot(snapshot)?;
     Ok(context)
@@ -69,6 +81,7 @@ pub(super) fn activate(
     plan: &RuntimePlan,
     snapshot: Arc<MarketSnapshot>,
 ) -> Result<(), RuntimeError> {
+    check_callables(&snapshot)?;
     // Each context contains the complete validated manifest. No mutable compatibility roots are admitted.
     let nodes = plan
         .assembly
@@ -87,6 +100,16 @@ pub(super) fn activate(
         .activate_snapshot(nodes, snapshot)
         .map_err(|_| RuntimeError::Worker)?;
     Ok(())
+}
+/// The plan pins only identities; product types are known once references resolve.
+pub(super) fn check_callables(snapshot: &MarketSnapshot) -> Result<(), RuntimeError> {
+    if crate::optional_valuation::within_callable_bound(snapshot) {
+        Ok(())
+    } else {
+        Err(RuntimeError::Configuration(
+            "a runtime plan values at most 8 callables",
+        ))
+    }
 }
 fn failed(
     context: &ValuationContext,
@@ -170,7 +193,11 @@ pub(super) fn value(
     context.validate_snapshot(snapshot)?;
     if calculated < context.spec().valuation_time
         || calculated < context.spec().known_at
-        || context.spec().model_id.as_str() != BOND_SNAPSHOT_MODEL
+        || !matches!(
+            context.spec().model_id.as_str(),
+            crate::snapshot::BOND_SNAPSHOT_MODEL
+                | crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
+        )
         || context.spec().numerical_settings.policy_id.as_str()
             != crate::snapshot::BOND_NUMERICAL_POLICY
         || context.spec().scenario != ValuationScenario::Base

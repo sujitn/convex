@@ -67,7 +67,6 @@ impl RuntimePlan {
             || self.assembly.quotes.len() != self.assembly.instruments.len()
             || self.seed_events.len() > MAX_RUNTIME_EVENTS
             || self.measures.is_empty()
-            || self.measures.len() > crate::snapshot::RUNTIME_MEASURES.len()
             || !self.assembly.fixings.is_empty()
             || self.numerical_settings.policy_id.as_str() != crate::snapshot::BOND_NUMERICAL_POLICY
             || self.numerical_settings.bump_bps.get() <= 0.0
@@ -95,10 +94,18 @@ impl RuntimePlan {
                 ));
             }
         }
+        // Each measure is published by at least one product model; duplicates are refused.
         let mut measures = std::collections::BTreeSet::new();
         for measure in &self.measures {
             if !measures.insert(measure)
-                || !crate::snapshot::RUNTIME_MEASURES.contains(&measure.as_str())
+                || ![
+                    crate::snapshot::BOND_SNAPSHOT_MODEL,
+                    crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL,
+                ]
+                .iter()
+                .any(|model| {
+                    crate::optional_valuation::product_measures(model).contains(&measure.as_str())
+                })
             {
                 return Err(RuntimeError::Configuration(
                     "unsupported/duplicate runtime measure",
@@ -153,6 +160,9 @@ pub struct RuntimeServices {
     /// Owned input path.
     pub input: RuntimeInput,
 }
+/// Setup refusal when no plan measure is published by an instrument's own model.
+pub(crate) const NO_APPLICABLE_MEASURE: &str =
+    "no requested measure applies to this instrument's product";
 /// Lifecycle failure classes contain no provider credentials or raw records.
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum RuntimeError {

@@ -142,6 +142,43 @@ reason. A zero has no spread or curve-risk convention in this contract, so those
 measures fail with `UnsupportedConvention` while its price, yield and yield-risk
 measures publish.
 
+### Callables
+
+A fixed callable is valued under model `convex-optional-hw1f-v1` through
+`convex::library::execute`: the optional-bond OAS inverse at the observed clean mid
+plus the bond schedule's accrued, then effective risk at that OAS. Each instrument
+requests only the plan measures its own model publishes, so one plan can mix
+bullets, zeros and callables and every result keeps its own `Complete` meaning.
+
+| Measure | Canonical quantity |
+|---|---|
+| `clean_price_mid` | Exact observed price per 100 |
+| `dirty_price_mid`, `accrued_interest` | Finite model price per 100 |
+| `oas_mid` | Finite model basis points over the configuration's discount curve |
+| `effective_duration_mid` | Finite model years: ±100 bp parallel discount shift, OAS frozen |
+| `effective_convexity_mid` | Finite model years squared, from the same shift |
+| `pv01_mid` | Finite model price per 100: the loss for +1 bp, from the same central difference |
+
+The inputs are exactly the pinned ones:
+- terms: the stored bond and its `call_terms` (see `REFERENCE_MASTER.md`);
+- calendar: the library takes holiday tables, never a calendar code, so the pinned
+  calendar's non-weekend closures are listed over the bond's life plus 31 days on
+  each side. That window must lie inside the calendar's declared coverage;
+- discount curve: the configuration's discount role, which must be a stored curve
+  recipe; all of the snapshot's recipes are supplied;
+- model: the configuration's `option_model` (mean reversion, volatility and a
+  reason), a labelled one-factor Hull-White assumption, never a calibration.
+
+The numerical policy is the repository's validated optional-bond settings: grids of
+128 steps with three doublings and 0.004 price tolerance, issuer-last exercise
+priority, OAS bracket −5%..10% to a 1e-9 price residual, and duration/convexity
+refinement tolerances of 0.02/0.01 and 0.25/0.01. Missing `option_model` or
+`call_terms`, make-whole calls and American (continuous) exercise fail every measure
+with `UnsupportedConvention` and the library's or the adapter's reason; the native
+model has no validated continuous-exercise discretization. A plan values at most 8
+callables: each reprices on every generation, about 0.8 s in a release build for a
+ten-year Bermudan (OAS solve 0.46 s, risk 0.21 s).
+
 Calculated values remain model quantities. There is no hidden cash/ledger rounding
 to fit an exact decimal coefficient. Missing marks or unavailable numerical
 calculations produce explicit measure errors; a measure the router could not
