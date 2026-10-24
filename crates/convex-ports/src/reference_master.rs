@@ -8,8 +8,8 @@ use std::str::FromStr;
 
 use convex_core::calendars::BusinessDayConvention;
 use convex_core::contracts::{
-    BusinessDate, EntityId, ExactDecimal, InstrumentId, ModelId, ReferenceDataId, SchemaVersion,
-    SourceId, UtcTimestamp, Version,
+    BusinessDate, EntityId, ExactDecimal, IndexId, InstrumentId, ModelId, ReferenceDataId,
+    SchemaVersion, SourceId, UtcTimestamp, Version,
 };
 use convex_core::daycounts::DayCountConvention;
 use serde::{Deserialize, Serialize};
@@ -173,6 +173,9 @@ pub struct BondContractTerms {
     /// Exercise mechanics of the bond's `call_schedule`; a callable is valued only with them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub call_terms: Option<CallTerms>,
+    /// Coupon mechanics of a floating rate note; an FRN is valued only with them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub floating_mechanics: Option<FloatingMechanics>,
 }
 
 /// How a scheduled call may be exercised.
@@ -195,6 +198,115 @@ pub struct CallTerms {
     pub style: CallStyle,
     /// Calendar days of notice before each exercise, at most 366.
     pub notice_days: u32,
+}
+
+/// How a rate index publishes its fixings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RateIndexKind {
+    /// One fixing per index business day, compounded over each coupon period.
+    Overnight,
+    /// One fixing per reset period, for the index's own tenor.
+    Term,
+}
+
+/// Floating coupon conventions. Every field is optional: a bond's own value overrides its
+/// index's, and a value that neither declares is refused when the bond is valued.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FloatingConventions {
+    /// Overnight: index business days the observation period lags the accrual period.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lookback_business_days: Option<u32>,
+    /// Overnight: weights follow the observation period rather than the accrual period.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observation_shift: Option<bool>,
+    /// Overnight: final index business days that repeat the last fixing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lockout_business_days: Option<u32>,
+    /// Term: signed index business days from each reset start to its fixing date.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixing_offset_business_days: Option<i32>,
+    /// Term: day count of the index's forward quotation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projection_day_count: Option<DayCountConvention>,
+}
+
+impl FloatingConventions {
+    /// Bounds, and no field of the other index kind.
+    pub fn validate(&self, kind: Option<RateIndexKind>) -> Result<(), ReferenceError> {
+        if self.lookback_business_days.is_some_and(|days| days > 30)
+            || self.lockout_business_days.is_some_and(|days| days > 30)
+            || self
+                .fixing_offset_business_days
+                .is_some_and(|days| !(-30..=30).contains(&days))
+        {
+            return Err(ReferenceError::InvalidInput(
+                "floating conventions allow at most 30 business days",
+            ));
+        }
+        let overnight = self.lookback_business_days.is_some()
+            || self.observation_shift.is_some()
+            || self.lockout_business_days.is_some();
+        let term =
+            self.fixing_offset_business_days.is_some() || self.projection_day_count.is_some();
+        match kind {
+            Some(RateIndexKind::Overnight) if term => Err(ReferenceError::InvalidInput(
+                "an overnight index has no fixing offset or projection day count",
+            )),
+            Some(RateIndexKind::Term) if overnight => Err(ReferenceError::InvalidInput(
+                "a term index has no lookback, observation shift or lockout",
+            )),
+            None if overnight && term => Err(ReferenceError::InvalidInput(
+                "floating conventions mix overnight and term fields",
+            )),
+            _ => Ok(()),
+        }
+    }
+}
+
+/// A floating rate note's coupon mechanics: its exact rate-index resource and any
+/// contractual values that override the index's declared conventions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FloatingMechanics {
+    /// Exact rate-index resource version.
+    pub index: ReferencePin,
+    /// This bond's own conventions, each overriding the index's.
+    #[serde(default)]
+    pub overrides: FloatingConventions,
+}
+
+/// Versioned rate index: provider-neutral identity, the fixing source to read, the
+/// administrator's publication rule and the conventions its bonds usually follow.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RateIndexDefinition {
+    /// Internal resource identity.
+    pub rate_index_id: ReferenceDataId,
+    /// Index identity of its fixings and of projection curve roles.
+    pub index_id: IndexId,
+    /// Currency of the index.
+    pub currency: convex_core::Currency,
+    /// Overnight or term fixings.
+    pub kind: RateIndexKind,
+    /// Fixing source whose published revisions are read.
+    pub fixing_source: SourceId,
+    /// Exact calendar resource of the index's business days.
+    pub calendar: ReferencePin,
+    /// Explicit calendar dispatch, verified against the pinned resource.
+    pub calendar_code: BondCalendar,
+    /// Index business days from an observation date to its publication, at most 10.
+    pub publication_lag_business_days: u32,
+    /// UTC time of day of each publication, in seconds after midnight.
+    pub publication_utc_seconds: u32,
+    /// Conventions this index's bonds follow unless their own terms say otherwise.
+    #[serde(default)]
+    pub conventions: FloatingConventions,
+    /// Economic validity.
+    pub effective: EffectiveInterval,
+    /// Source evidence.
+    pub provenance: ReferenceProvenance,
 }
 
 /// Versioned legal/issuer/reference entity attributes.
@@ -471,6 +583,8 @@ pub enum MasterKey {
     CashUniverse(ReferenceDataId),
     /// Position snapshot owned by an external book management system.
     Book(BookId),
+    /// Rate index publication rule and declared conventions.
+    RateIndex(ReferenceDataId),
 }
 
 impl MasterKey {
@@ -487,6 +601,7 @@ impl MasterKey {
             Self::Basket(id) => format!("basket/{}", id.as_str()),
             Self::CashUniverse(id) => format!("cash_universe/{}", id.as_str()),
             Self::Book(id) => format!("book/{}", id.as_str()),
+            Self::RateIndex(id) => format!("rate_index/{}", id.as_str()),
         }
     }
 }
@@ -520,6 +635,8 @@ pub enum MasterDefinition {
     CashUniverse(Box<crate::futures_reference::CashUniverseDefinition>),
     /// Complete position snapshot; omission never means merge with an older snapshot.
     Book(Box<BookDefinition>),
+    /// Rate index publication rule and declared conventions.
+    RateIndex(Box<RateIndexDefinition>),
 }
 
 impl MasterDefinition {
@@ -536,6 +653,7 @@ impl MasterDefinition {
             Self::Basket(v) => MasterKey::Basket(v.basket.stamp.id.clone()),
             Self::CashUniverse(v) => MasterKey::CashUniverse(v.universe.stamp.id.clone()),
             Self::Book(v) => MasterKey::Book(v.book_id.clone()),
+            Self::RateIndex(v) => MasterKey::RateIndex(v.rate_index_id.clone()),
         }
     }
     /// Economic validity.
@@ -551,6 +669,7 @@ impl MasterDefinition {
             Self::Basket(v) => v.effective,
             Self::CashUniverse(v) => v.effective,
             Self::Book(v) => v.effective,
+            Self::RateIndex(v) => v.effective,
         }
     }
     /// Validate complete bounded fields, independently of backend state.
@@ -610,6 +729,15 @@ impl MasterDefinition {
             }
             Self::Book(v) => {
                 v.validate()?;
+                &v.provenance
+            }
+            Self::RateIndex(v) => {
+                if v.publication_lag_business_days > 10 || v.publication_utc_seconds >= 86_400 {
+                    return Err(ReferenceError::InvalidInput(
+                        "publication lag is at most 10 business days, at a time of day",
+                    ));
+                }
+                v.conventions.validate(Some(v.kind))?;
                 &v.provenance
             }
         };
@@ -675,6 +803,19 @@ pub struct ResolvedBondReference {
     pub calendar: MasterRecord,
     /// Pinned convention pack.
     pub convention: MasterRecord,
+    /// A floating rate note's pinned rate index and index calendar.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub floating: Option<ResolvedFloating>,
+}
+
+/// The resources a floating rate note's coupons depend on, beyond its own.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResolvedFloating {
+    /// Pinned rate index.
+    pub index: MasterRecord,
+    /// The index's pinned calendar.
+    pub calendar: MasterRecord,
 }
 
 /// Validate complete contract fields before pricing, with no model substitutions.
@@ -708,7 +849,13 @@ pub fn validate_valuation_terms(bond: &BondReferenceData) -> Result<(), Referenc
             ))
         }
     }
-    if terms.payment_lag != 0 {
+    if bond.bond_type == BondType::FloatingRate {
+        if terms.payment_lag > 30 {
+            return Err(ReferenceError::InvalidInput(
+                "payment lag is at most 30 business days",
+            ));
+        }
+    } else if terms.payment_lag != 0 {
         return Err(ReferenceError::Unsupported(
             "reference pricing payment lag is not implemented",
         ));
@@ -749,6 +896,14 @@ pub fn validate_valuation_terms(bond: &BondReferenceData) -> Result<(), Referenc
     }
     if let Some(call) = &terms.call_terms {
         validate_call_terms(bond, terms, call)?;
+    }
+    if let Some(mechanics) = &terms.floating_mechanics {
+        if bond.bond_type != BondType::FloatingRate || bond.floating_terms.is_none() {
+            return Err(ReferenceError::InvalidInput(
+                "floating mechanics require a floating rate note with floating terms",
+            ));
+        }
+        mechanics.overrides.validate(None)?;
     }
     Ok(())
 }
@@ -851,7 +1006,90 @@ pub fn validate_resolved_bond(
         &reference.calendar,
         &reference.convention,
         lookup,
-    )
+    )?;
+    match (is_valued_floating(bond), &reference.floating) {
+        (true, Some(floating)) => validate_floating_resources(bond, floating, lookup),
+        (false, None) => Ok(()),
+        _ => Err(ReferenceError::InvalidInput(
+            "floating resources belong exactly to a floating rate note",
+        )),
+    }
+}
+
+/// A floating rate note the service values: floating terms without a cap or floor, and
+/// explicit mechanics pinning its rate index.
+pub fn is_valued_floating(bond: &BondReferenceData) -> bool {
+    bond.bond_type == BondType::FloatingRate
+        && bond
+            .floating_terms
+            .as_ref()
+            .is_some_and(|f| f.cap.is_none() && f.floor.is_none())
+        && bond
+            .contractual_terms
+            .as_ref()
+            .is_some_and(|t| t.floating_mechanics.is_some())
+}
+
+/// Check a floating rate note's pinned rate index and index calendar against its terms.
+pub fn validate_floating_resources(
+    bond: &BondReferenceData,
+    floating: &ResolvedFloating,
+    lookup: ReferenceLookup,
+) -> Result<(), ReferenceError> {
+    let mechanics = bond
+        .contractual_terms
+        .as_ref()
+        .and_then(|t| t.floating_mechanics.as_ref())
+        .ok_or(ReferenceError::InvalidInput("missing floating mechanics"))?;
+    let terms = bond
+        .floating_terms
+        .as_ref()
+        .ok_or(ReferenceError::InvalidInput("missing floating terms"))?;
+    for record in [&floating.index, &floating.calendar] {
+        record.definition.validate()?;
+        if record.recorded_at > lookup.known_at
+            || !record.definition.effective().contains(lookup.as_of)
+        {
+            return Err(ReferenceError::InvalidInput(
+                "reference resource outside effective/known-at scope",
+            ));
+        }
+    }
+    let (MasterDefinition::RateIndex(index), MasterDefinition::Calendar(calendar)) =
+        (&floating.index.definition, &floating.calendar.definition)
+    else {
+        return Err(ReferenceError::InvalidInput(
+            "pinned floating resources conflict with terms",
+        ));
+    };
+    if index.rate_index_id != mechanics.index.id
+        || floating.index.version != mechanics.index.version
+        || calendar.calendar_id != index.calendar.id
+        || floating.calendar.version != index.calendar.version
+        || calendar.code != index.calendar_code
+        || index.currency != bond.currency
+    {
+        return Err(ReferenceError::InvalidInput(
+            "pinned floating resources conflict with terms",
+        ));
+    }
+    if calendar.rule_version.as_str() != SUPPORTED_BOND_CALENDAR_RULES {
+        return Err(ReferenceError::Unsupported(
+            "calendar rule version is not implemented by this build",
+        ));
+    }
+    use convex_core::ids::FloatingRateIndex as I;
+    let kind = match terms.index {
+        I::Sofr | I::Estr | I::Sonia => Some(RateIndexKind::Overnight),
+        I::Euribor(_) | I::TermSofr(_) => Some(RateIndexKind::Term),
+        I::Other(_) => None,
+    };
+    if kind.is_some_and(|kind| kind != index.kind) {
+        return Err(ReferenceError::InvalidInput(
+            "the bond's index and its rate-index resource differ in kind",
+        ));
+    }
+    mechanics.overrides.validate(Some(index.kind))
 }
 
 /// Check caller-supplied terms against exact resolved service resources.
@@ -868,19 +1106,23 @@ pub fn validate_service_resources(
         .as_ref()
         .ok_or(ReferenceError::InvalidInput("missing terms"))?;
     // Expanded families require their complete contractual models in subsequent tasks.
-    // A fixed callable is admitted only with its explicit call mechanics.
+    // A fixed callable is admitted only with its explicit call mechanics, and a floating
+    // rate note only with its rate index and no cap or floor, which need an option model.
     let callable = bond.bond_type == BondType::FixedCallable && terms.call_terms.is_some();
-    if !(callable || matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon))
+    let floating = is_valued_floating(bond);
+    if !(callable
+        || floating
+        || matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon))
         || (!callable && (bond.is_callable || !bond.call_schedule.is_empty()))
         || bond.is_putable
         || bond.is_sinkable
-        || bond.floating_terms.is_some()
+        || (!floating && bond.floating_terms.is_some())
         || bond.inflation_index.is_some()
         || bond.inflation_base_index.is_some()
         || bond.has_deflation_floor
     {
         return Err(ReferenceError::Unsupported(
-            "service reference valuation supports nominal fixed bullets, zeros and callables with explicit call terms",
+            "service reference valuation supports nominal fixed bullets, zeros, callables with explicit call terms and uncapped floating rate notes with a rate index",
         ));
     }
     if !terms.effective.contains(lookup.as_of) {

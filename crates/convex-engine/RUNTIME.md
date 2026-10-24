@@ -15,9 +15,13 @@ revisions, explicit settlement, compiled numerical policy, build identity and
 requested measures. The implemented measures are the price, yield, yield-risk,
 spread, curve-risk and key-rate measures listed in `SNAPSHOTS.md`
 (`RUNTIME_MEASURES`), each at most once per plan, for reference-admitted fixed
-bullets and zeros, and the OAS measures for at most 8 fixed callables with explicit
-call terms. Each instrument requests the plan measures its own model publishes. Unsupported measures, required fixing keys, products and configurations
-fail explicitly. Required missing/stale/invalid curves block runtime results even
+bullets and zeros, the OAS measures for at most 8 fixed callables with explicit
+call terms, and the discount-margin measures for uncapped floating rate notes with a
+rate index. Each instrument requests the plan measures its own model publishes. A
+plan pins no fixing keys: each snapshot derives a note's due fixings from its contract
+and reads them from the durable fixing store the server's
+`POST /api/v1/analytics/fixings` writes. Unsupported measures, products and
+configurations fail explicitly. Required missing/stale/invalid curves block runtime results even
 when an observed clean mark would otherwise be available. No spread, risk, price
 or curve is synthesized to fill a missing dependency.
 

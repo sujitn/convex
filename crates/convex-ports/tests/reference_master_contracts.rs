@@ -189,3 +189,204 @@ fn call_terms_are_optional_bytes_and_belong_only_to_a_dated_priced_callable() {
         Err(ReferenceError::Unsupported(_))
     ));
 }
+
+fn frn() -> BondReferenceData {
+    let mut bond: BondReferenceData =
+        serde_json::from_str(include_str!("fixtures/reference_bond.json")).unwrap();
+    bond.bond_type = convex_ports::reference_data::BondType::FloatingRate;
+    bond.coupon_rate = None;
+    bond.floating_terms = Some(convex_ports::reference_data::FloatingRateTerms {
+        index: convex_core::ids::FloatingRateIndex::Sofr,
+        spread: rust_decimal::Decimal::from(45),
+        reset_frequency: 2,
+        cap: None,
+        floor: None,
+    });
+    let terms = bond.contractual_terms.as_mut().unwrap();
+    terms.payment_lag = 2;
+    terms.floating_mechanics = Some(FloatingMechanics {
+        index: ReferencePin {
+            id: ReferenceDataId::new("usd-sofr").unwrap(),
+            version: Version::new(1).unwrap(),
+        },
+        overrides: FloatingConventions::default(),
+    });
+    bond
+}
+fn rate_index(bond: &BondReferenceData) -> RateIndexDefinition {
+    let terms = bond.contractual_terms.as_ref().unwrap();
+    RateIndexDefinition {
+        rate_index_id: ReferenceDataId::new("usd-sofr").unwrap(),
+        index_id: IndexId::new("USD-SOFR").unwrap(),
+        currency: bond.currency,
+        kind: RateIndexKind::Overnight,
+        fixing_source: SourceId::new("fixture-administrator").unwrap(),
+        calendar: terms.calendar.clone(),
+        calendar_code: terms.calendar_code,
+        publication_lag_business_days: 1,
+        publication_utc_seconds: 13 * 3600,
+        conventions: FloatingConventions {
+            lookback_business_days: Some(2),
+            observation_shift: Some(false),
+            lockout_business_days: Some(0),
+            ..FloatingConventions::default()
+        },
+        effective: terms.effective,
+        provenance: terms.provenance.clone(),
+    }
+}
+
+#[test]
+fn floating_mechanics_are_optional_bytes_and_belong_only_to_an_uncapped_frn() {
+    let bullet: BondReferenceData =
+        serde_json::from_str(include_str!("fixtures/reference_bond.json")).unwrap();
+    // Absent mechanics are omitted, so stored records keep their exact bytes.
+    let bytes = serde_json::to_value(&bullet).unwrap();
+    assert!(bytes["contractual_terms"]
+        .get("floating_mechanics")
+        .is_none());
+    let note = frn();
+    validate_bond_reference(&note).unwrap();
+    assert!(is_valued_floating(&note));
+    let text = serde_json::to_value(&note).unwrap();
+    assert_eq!(
+        text["contractual_terms"]["floating_mechanics"],
+        serde_json::json!({"index": {"id": "usd-sofr", "version": 1}, "overrides": {}})
+    );
+    // A payment lag is admitted for a floating rate note only.
+    let mut lagged = bullet.clone();
+    lagged.contractual_terms.as_mut().unwrap().payment_lag = 2;
+    assert!(matches!(
+        validate_bond_reference(&lagged),
+        Err(ReferenceError::Unsupported(_))
+    ));
+    // Mechanics on a bullet, and overrides that mix overnight and term fields, are invalid.
+    let mut wrong = bullet;
+    wrong.contractual_terms.as_mut().unwrap().floating_mechanics = note
+        .contractual_terms
+        .as_ref()
+        .unwrap()
+        .floating_mechanics
+        .clone();
+    assert!(matches!(
+        validate_bond_reference(&wrong),
+        Err(ReferenceError::InvalidInput(_))
+    ));
+    let mut mixed = frn();
+    let overrides = &mut mixed
+        .contractual_terms
+        .as_mut()
+        .unwrap()
+        .floating_mechanics
+        .as_mut()
+        .unwrap()
+        .overrides;
+    overrides.lookback_business_days = Some(2);
+    overrides.fixing_offset_business_days = Some(-2);
+    assert!(matches!(
+        validate_bond_reference(&mixed),
+        Err(ReferenceError::InvalidInput(_))
+    ));
+    // A capped note records but is not one the service values.
+    let mut capped = frn();
+    capped.floating_terms.as_mut().unwrap().cap = Some(rust_decimal::Decimal::new(8, 2));
+    validate_bond_reference(&capped).unwrap();
+    assert!(!is_valued_floating(&capped));
+}
+
+#[test]
+fn rate_index_resources_bound_their_rule_and_keep_conventions_to_their_kind() {
+    let note = frn();
+    let valid = rate_index(&note);
+    let definition = MasterDefinition::RateIndex(Box::new(valid.clone()));
+    definition.validate().unwrap();
+    assert_eq!(definition.key().storage_key(), "rate_index/usd-sofr");
+    let invalid = [
+        RateIndexDefinition {
+            publication_lag_business_days: 11,
+            ..valid.clone()
+        },
+        RateIndexDefinition {
+            publication_utc_seconds: 86_400,
+            ..valid.clone()
+        },
+        RateIndexDefinition {
+            conventions: FloatingConventions {
+                fixing_offset_business_days: Some(-2),
+                ..valid.conventions.clone()
+            },
+            ..valid.clone()
+        },
+        RateIndexDefinition {
+            conventions: FloatingConventions {
+                lookback_business_days: Some(31),
+                ..valid.conventions.clone()
+            },
+            ..valid
+        },
+    ];
+    for definition in invalid {
+        assert!(matches!(
+            MasterDefinition::RateIndex(Box::new(definition)).validate(),
+            Err(ReferenceError::InvalidInput(_))
+        ));
+    }
+}
+
+#[test]
+fn floating_resources_must_be_the_pinned_index_of_the_same_kind_and_currency() {
+    let note = frn();
+    let record = |definition: MasterDefinition| MasterRecord {
+        schema_version: SchemaVersion::V2,
+        version: Version::new(1).unwrap(),
+        recorded_at: UtcTimestamp::parse("2025-01-01T00:00:00Z").unwrap(),
+        definition,
+    };
+    let calendar = || {
+        let terms = note.contractual_terms.as_ref().unwrap();
+        record(MasterDefinition::Calendar(Box::new(CalendarDefinition {
+            calendar_id: terms.calendar.id.clone(),
+            code: terms.calendar_code,
+            rule_version: ModelId::new(SUPPORTED_BOND_CALENDAR_RULES).unwrap(),
+            coverage_from: BusinessDate::parse("1900-01-01").unwrap(),
+            coverage_until: BusinessDate::parse("2100-12-31").unwrap(),
+            effective: terms.effective,
+            provenance: terms.provenance.clone(),
+        })))
+    };
+    let resolved = |index: RateIndexDefinition| ResolvedFloating {
+        index: record(MasterDefinition::RateIndex(Box::new(index))),
+        calendar: calendar(),
+    };
+    let lookup = ReferenceLookup {
+        as_of: UtcTimestamp::parse("2026-10-02T15:00:00Z").unwrap(),
+        known_at: UtcTimestamp::parse("2026-10-02T15:00:00Z").unwrap(),
+    };
+    validate_floating_resources(&note, &resolved(rate_index(&note)), lookup).unwrap();
+    // A EURIBOR note cannot use an overnight index resource.
+    let mut euribor = frn();
+    euribor.floating_terms.as_mut().unwrap().index =
+        convex_core::ids::FloatingRateIndex::Euribor(convex_core::ids::Tenor::Months(3));
+    for (bond, index) in [
+        (
+            note.clone(),
+            RateIndexDefinition {
+                rate_index_id: ReferenceDataId::new("usd-sofr-other").unwrap(),
+                ..rate_index(&note)
+            },
+        ),
+        (
+            note.clone(),
+            RateIndexDefinition {
+                currency: convex_core::Currency::EUR,
+                ..rate_index(&note)
+            },
+        ),
+        (euribor, rate_index(&note)),
+    ] {
+        assert!(matches!(
+            validate_floating_resources(&bond, &resolved(index), lookup),
+            Err(ReferenceError::InvalidInput(_))
+        ));
+    }
+}

@@ -452,21 +452,25 @@ fn fixings(snapshot: &CoreSnapshot) -> Vec<FixingObservation> {
         .content
         .fixings
         .iter()
-        .map(|f| FixingObservation {
-            index_id: f.key.index_id.clone(),
-            observation_date: f.key.observation_date.date(),
-            rate: f.rate.value().decimal(),
-            published_at: f.published_at,
-            known_at: f.recorded_at,
-            revision: f.version,
-            status: if f.is_preliminary {
-                FixingStatus::Preliminary
-            } else {
-                FixingStatus::Final
-            },
-            source_id: f.key.source.clone(),
-        })
+        .map(fixing_observation)
         .collect()
+}
+/// One published revision as the library's fixing observation.
+pub(crate) fn fixing_observation(f: &convex_ports::fixing::PublishedFixing) -> FixingObservation {
+    FixingObservation {
+        index_id: f.key.index_id.clone(),
+        observation_date: f.key.observation_date.date(),
+        rate: f.rate.value().decimal(),
+        published_at: f.published_at,
+        known_at: f.recorded_at,
+        revision: f.version,
+        status: if f.is_preliminary {
+            FixingStatus::Preliminary
+        } else {
+            FixingStatus::Final
+        },
+        source_id: f.key.source.clone(),
+    }
 }
 /// Materialize only the actual core workflow operations; no JSON-path/template language.
 fn materialize(snapshot: &CoreSnapshot, name: &str) -> Result<LibraryRequest> {

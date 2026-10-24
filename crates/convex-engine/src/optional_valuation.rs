@@ -77,20 +77,28 @@ const RISK_BUMP: f64 = 0.01;
 /// Holiday tables cover the bond's life plus this margin on each side.
 const CALENDAR_MARGIN_DAYS: i64 = 31;
 
+/// Every model a runtime plan's instruments are valued under.
+pub const PRODUCT_MODELS: [&str; 3] = [
+    crate::snapshot::BOND_SNAPSHOT_MODEL,
+    OPTIONAL_SNAPSHOT_MODEL,
+    crate::floating_valuation::FLOATING_SNAPSHOT_MODEL,
+];
 /// The model a pinned bond is valued under.
 pub fn product_model(bond: &BondReferenceData) -> &'static str {
-    if bond.bond_type == BondType::FixedCallable {
-        OPTIONAL_SNAPSHOT_MODEL
-    } else {
-        crate::snapshot::BOND_SNAPSHOT_MODEL
+    match bond.bond_type {
+        BondType::FixedCallable => OPTIONAL_SNAPSHOT_MODEL,
+        BondType::FloatingRate => crate::floating_valuation::FLOATING_SNAPSHOT_MODEL,
+        _ => crate::snapshot::BOND_SNAPSHOT_MODEL,
     }
 }
 /// The measures the model publishes; a plan's other measures do not apply to it.
 pub fn product_measures(model: &str) -> &'static [&'static str] {
-    if model == OPTIONAL_SNAPSHOT_MODEL {
-        &OPTIONAL_MEASURES
-    } else {
-        &crate::snapshot::RUNTIME_MEASURES
+    match model {
+        OPTIONAL_SNAPSHOT_MODEL => &OPTIONAL_MEASURES,
+        crate::floating_valuation::FLOATING_SNAPSHOT_MODEL => {
+            &crate::floating_valuation::FLOATING_MEASURES
+        }
+        _ => &crate::snapshot::RUNTIME_MEASURES,
     }
 }
 
@@ -117,13 +125,13 @@ pub(crate) struct Failure {
     pub code: ErrorCode,
     pub message: String,
 }
-fn failure(code: ErrorCode, message: impl Into<String>) -> Failure {
+pub(crate) fn failure(code: ErrorCode, message: impl Into<String>) -> Failure {
     Failure {
         code,
         message: message.into().chars().take(512).collect(),
     }
 }
-fn library_failure(error: LibraryError) -> Failure {
+pub(crate) fn library_failure(error: LibraryError) -> Failure {
     let code = match error.code {
         LibraryErrorCode::MissingInput => ErrorCode::MissingMarketData,
         LibraryErrorCode::NotApplicable | LibraryErrorCode::Unsupported => {
@@ -387,7 +395,7 @@ pub(crate) fn value_callable(
 
 /// The library takes explicit holiday tables, never a calendar code: list the pinned
 /// calendar's non-weekend closures over the window. Its weekends must be Saturday and Sunday.
-fn holiday_table(
+pub(crate) fn holiday_table(
     calendar: &dyn Calendar,
     pin: convex::rates::ReferencePin,
     start: Date,

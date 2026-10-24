@@ -69,7 +69,7 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
     let core = Arc::new(convex_engine::core_workflow::CoreWorkflow::new(
         storage.bonds.clone(),
         storage.curves.clone(),
-        core_fixings,
+        core_fixings.clone(),
         snapshots.clone(),
         runtime_store.clone(),
         core_build_id()?,
@@ -82,6 +82,7 @@ pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> 
         Some(plan) => {
             let durable = Durable {
                 runtime: runtime_store,
+                fixings: core_fixings,
                 snapshots,
                 results,
             };
@@ -181,6 +182,8 @@ fn refuse_file_storage(storage_path: &str) -> Result<(), StartupError> {
 /// The runtime's durable ports, all on the one redb database.
 struct Durable {
     runtime: Arc<convex_ext_redb::RedbRuntimeStore>,
+    /// Published fixings, read by floating rate notes' snapshots.
+    fixings: Arc<convex_ext_redb::RedbFixingRepository>,
     snapshots: Arc<convex_ext_redb::RedbSnapshotRepository>,
     results: Arc<convex_ext_redb::RedbResultPublisher>,
 }
@@ -205,7 +208,7 @@ async fn with_runtime(
     } else {
         durable.snapshots
     };
-    let fixings = Arc::new(convex_ext_file::JsonFixingRepository::empty());
+    let fixings = durable.fixings;
     let sources = plan
         .assembly
         .quotes
