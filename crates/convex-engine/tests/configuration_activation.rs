@@ -444,6 +444,10 @@ async fn cvx010_ac3_rollback_revalidates_content_and_records_new_activation_and_
         3
     );
     assert_eq!(
+        engine.runtime_health().configuration_id,
+        Some(rollback.id.clone())
+    );
+    assert_eq!(
         service
             .history(&rollback.id, &Pagination::new(0, 10))
             .await

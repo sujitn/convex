@@ -90,6 +90,10 @@ pub fn create_router_with_access(
             get(crate::configuration_admin::version),
         )
         .route(
+            "/api/v1/configuration/:id/diff",
+            get(crate::configuration_admin::version_diff),
+        )
+        .route(
             "/api/v1/configuration/diff",
             post(crate::configuration_admin::diff).layer(axum::extract::DefaultBodyLimit::max(
                 crate::access::http::MAX_CONFIGURATION_REQUEST,

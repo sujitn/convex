@@ -237,12 +237,14 @@ A running server offers the same lifecycle over HTTP, behind
 | `POST /api/v1/configuration/:id/rollback` | `{to_revision, reason, activated_at, mode, fixtures}`; same headers |
 | `GET /api/v1/configuration/:id/history?offset=&limit=` | Activation audit |
 | `GET /api/v1/configuration/:id/versions/:version` | One staged version, redacted |
+| `GET /api/v1/configuration/:id/diff?from=&to=` | Changed fields between two staged versions, with their reload class; no values |
 
 The HTTP routes validate under the capabilities a start composes for the document,
 as the CLI does. The actor is the verified caller's audit fingerprint
 (`access:<digest>`, or `local-development`), never a request field. Bodies are at
 most 4 MiB, with one to eight fixtures. When the server runs a replay quotes file,
-fixtures must prefix it, exactly as in the CLI. Otherwise nothing can check them:
+fixtures must prefix it, exactly as in the CLI; only its first 4,096 events, the
+most a fixture trace can hold, are read. Otherwise nothing can check them:
 the staged and activation records carry `fixture_evidence: "operator_supplied"`.
 Replay-checked records omit the field, so earlier records keep their bytes.
 

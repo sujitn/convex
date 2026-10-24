@@ -650,6 +650,7 @@ impl Actor {
             health.ready = ready;
         }
         health.mode = Some(self.services.plan.mode);
+        health.configuration_id = Some(self.services.plan.assembly.configuration.id.clone());
         health.quality = quality;
         health.snapshot_id = self.checkpoint.snapshot_id.clone();
         health.generation = self.checkpoint.generation.get();

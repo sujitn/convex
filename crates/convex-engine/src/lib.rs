@@ -224,11 +224,13 @@ impl PricingEngine {
         } else {
             None
         };
+        // The commit stands either way; a runtime that did not accept it applies it at the
+        // next start.
         Ok(configuration::ConfigurationActivationOutcome {
+            restart_required: applied.is_none(),
             activation,
             accepted_generation: applied.as_ref().map(|r| r.generation),
             accepted_activation_revision: applied.and_then(|r| r.activation_revision),
-            restart_required: !running || !hot,
         })
     }
 

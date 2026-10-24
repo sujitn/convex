@@ -118,7 +118,7 @@ Combine roles deliberately. `reference_writer` does not automatically include `r
 | Portfolio analytics stream | Book plus whole underlying instrument/curve/source grants and market/results/books |
 | Configuration inspection | Operator, configuration ID and configuration/reference/market grants; returned dependency IDs are checked |
 | Configuration stage/activate/rollback | Operator (`ConfigurationWrite`), configuration ID and configuration/reference/market grants; every ID in the body is checked; bodies up to 4 MiB |
-| Configuration validate/diff, history and versions | Operator; validate also needs reference/market grants |
+| Configuration validate/diff, history, versions and version diff | Operator; history, versions and version diff also need the configuration ID; validate also needs reference/market grants |
 | Reference import upload | Reference writer; checked like a reference transaction, whole instrument dataset when the file has master changes; up to 8 MiB |
 | Reference master listing | Whole instrument dataset and reference data |
 | Runtime/dependencies/WS status | Operator and operations data |

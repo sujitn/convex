@@ -247,6 +247,8 @@ pub struct RuntimeHealth {
     pub replay_complete: bool,
     /// Stable failure classification without source text.
     pub failure: Option<String>,
+    /// Configuration identity of the running plan.
+    pub configuration_id: Option<SourceId>,
     /// Exact content version accepted by current work.
     pub configuration_version: Option<Version>,
     /// Active-pointer audit sequence accepted by current work, absent for older explicit plans.
@@ -267,6 +269,7 @@ impl Default for RuntimeHealth {
             pending_publications: 0,
             replay_complete: false,
             failure: None,
+            configuration_id: None,
             configuration_version: None,
             activation_revision: None,
             desired_activation_revision: None,

@@ -999,6 +999,10 @@ async fn configuration_writes_need_the_operator_role_and_the_configuration_grant
             "GET",
             "/api/v1/configuration/CONFIG-RESTORE/history?offset=0&limit=10",
         ),
+        (
+            "GET",
+            "/api/v1/configuration/CONFIG-RESTORE/diff?from=1&to=2",
+        ),
         ("POST", "/api/v1/reference/import"),
     ] {
         let payload = (method == "POST").then(|| body.clone()).flatten();
