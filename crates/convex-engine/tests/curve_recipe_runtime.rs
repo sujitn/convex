@@ -89,7 +89,6 @@ async fn actual_configuration_stage_activation_capture_and_pin_checks_keep_recip
         .activate(
             &configuration::fixture::activate(1, 0, "complete-recipe"),
             &configuration::fixtures(&setup),
-            false,
         )
         .await
         .unwrap();

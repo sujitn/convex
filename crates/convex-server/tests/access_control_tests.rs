@@ -974,3 +974,77 @@ async fn live_quote_ingress_needs_writer_market_and_each_event_scope() {
         assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
     }
 }
+
+#[tokio::test]
+async fn configuration_writes_need_the_operator_role_and_the_configuration_grant() {
+    let issuer = IssuerFixture::start().await;
+    let access = AccessControl::new(issuer.verifier.clone(), policy()).unwrap();
+    let s = support::setup().await;
+    let engine = support::make_engine(
+        &s,
+        support::archive(&s),
+        s.plan.clone(),
+        s.store.clone(),
+        convex_engine::RuntimeInput::Captured,
+    );
+    let router = convex_server::routes::create_router_with_access(engine, true, access);
+    let body = Some(json!({"reason": "Fictional access check"}));
+    // The reader-only service identity can neither inspect nor change configuration.
+    for (method, path) in [
+        ("POST", "/api/v1/configuration/CONFIG-RESTORE/stage"),
+        ("POST", "/api/v1/configuration/CONFIG-RESTORE/activate"),
+        ("POST", "/api/v1/configuration/CONFIG-RESTORE/rollback"),
+        ("POST", "/api/v1/configuration/validate"),
+        (
+            "GET",
+            "/api/v1/configuration/CONFIG-RESTORE/history?offset=0&limit=10",
+        ),
+        ("POST", "/api/v1/reference/import"),
+    ] {
+        let payload = (method == "POST").then(|| body.clone()).flatten();
+        let (status, _, _) =
+            request(router.clone(), method, path, Some(SERVICE_TOKEN), payload).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{method} {path}");
+    }
+    // The operator is refused a configuration it holds no grant for.
+    let (status, _, _) = request(
+        router.clone(),
+        "POST",
+        "/api/v1/configuration/OTHER-CONFIG/stage",
+        Some(HUMAN_TOKEN),
+        body.clone(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    // Admitted, the handler answers: the body is not a staging request.
+    let (status, _, refused) = request(
+        router.clone(),
+        "POST",
+        "/api/v1/configuration/CONFIG-RESTORE/stage",
+        Some(HUMAN_TOKEN),
+        body,
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    assert_eq!(refused["error"]["code"], "CONFIGURATION_INVALID");
+    // This composition has no configuration use cases.
+    let (status, _, unavailable) = request(
+        router.clone(),
+        "GET",
+        "/api/v1/configuration/CONFIG-RESTORE/history?offset=0&limit=10",
+        Some(HUMAN_TOKEN),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "{unavailable}");
+    // Listing every master resource of a kind needs an instrument wildcard grant.
+    let (status, _, _) = request(
+        router,
+        "GET",
+        "/api/v1/reference/masters/calendar",
+        Some(HUMAN_TOKEN),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}

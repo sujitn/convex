@@ -251,6 +251,16 @@ pub trait ReferenceRepository: Send + Sync {
     ) -> Result<Vec<MasterRecord>, ReferenceError> {
         Err(ReferenceError::Unsupported("book listing"))
     }
+    /// Current master records of one kind ordered by identity, strictly after the `after`
+    /// identity, at most `limit`. Backends without master listing refuse.
+    async fn list_masters(
+        &self,
+        _kind: MasterKind,
+        _after: Option<&str>,
+        _limit: usize,
+    ) -> Result<Vec<MasterRecord>, ReferenceError> {
+        Err(ReferenceError::Unsupported("master listing"))
+    }
     /// Resolve historical mapping assertions from one read snapshot. Ambiguity is never selected away.
     async fn resolve_at(
         &self,

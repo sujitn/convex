@@ -74,6 +74,7 @@ fn curve_risk_measure(measure: &str) -> bool {
 pub use convex_ports::configuration::{InstrumentPin, SnapshotAssembly};
 
 /// Assemble then publish one complete immutable manifest. This creates no scheduler or background task.
+#[derive(Clone)]
 pub struct SnapshotAssembler {
     references: Arc<dyn ReferenceRepository>,
     configurations: Arc<dyn ConfigStore>,

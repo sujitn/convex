@@ -81,6 +81,44 @@ pub fn create_router_with_access(
             "/api/v1/configuration/:id",
             get(crate::configuration_admin::effective),
         )
+        .route(
+            "/api/v1/configuration/:id/history",
+            get(crate::configuration_admin::history),
+        )
+        .route(
+            "/api/v1/configuration/:id/versions/:version",
+            get(crate::configuration_admin::version),
+        )
+        .route(
+            "/api/v1/configuration/diff",
+            post(crate::configuration_admin::diff).layer(axum::extract::DefaultBodyLimit::max(
+                crate::access::http::MAX_CONFIGURATION_REQUEST,
+            )),
+        )
+        .route(
+            "/api/v1/configuration/validate",
+            post(crate::configuration_admin::validate).layer(axum::extract::DefaultBodyLimit::max(
+                crate::access::http::MAX_CONFIGURATION_REQUEST,
+            )),
+        )
+        .route(
+            "/api/v1/configuration/:id/stage",
+            post(crate::configuration_admin::stage).layer(axum::extract::DefaultBodyLimit::max(
+                crate::access::http::MAX_CONFIGURATION_REQUEST,
+            )),
+        )
+        .route(
+            "/api/v1/configuration/:id/activate",
+            post(crate::configuration_admin::activate).layer(axum::extract::DefaultBodyLimit::max(
+                crate::access::http::MAX_CONFIGURATION_REQUEST,
+            )),
+        )
+        .route(
+            "/api/v1/configuration/:id/rollback",
+            post(crate::configuration_admin::rollback).layer(axum::extract::DefaultBodyLimit::max(
+                crate::access::http::MAX_CONFIGURATION_REQUEST,
+            )),
+        )
         .route("/health", get(handlers::health))
         .route("/api/v1/health", get(handlers::health))
         // Bond Reference Data CRUD
@@ -116,6 +154,16 @@ pub fn create_router_with_access(
         .route(
             "/api/v1/reference/resolve",
             post(reference::resolve_reference_at),
+        )
+        .route(
+            "/api/v1/reference/import",
+            post(reference::import_reference).layer(axum::extract::DefaultBodyLimit::max(
+                convex_ext_file::MAX_REFERENCE_IMPORT_BYTES as usize,
+            )),
+        )
+        .route(
+            "/api/v1/reference/masters/:kind",
+            get(reference::list_masters),
         )
         // Quotes (Pricing)
         .route(

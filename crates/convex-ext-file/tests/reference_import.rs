@@ -1,9 +1,10 @@
 use convex_core::contracts::UtcTimestamp;
 use convex_core::ids::InstrumentId;
 use convex_ext_file::{
-    import_reference_file, load_reference_import, MemoryReferenceRepository,
-    MAX_REFERENCE_IMPORT_BYTES,
+    import_reference_file, load_reference_import, parse_reference_import,
+    MemoryReferenceRepository, MAX_REFERENCE_IMPORT_BYTES,
 };
+use convex_ports::reference_master::MasterKind;
 use convex_ports::reference_repository::{ReferenceError, ReferenceRepository};
 
 const INITIAL: &str = include_str!("fixtures/instrument-master.json");
@@ -147,4 +148,68 @@ fn strict_decoding_and_bounded_files_never_supply_defaults() {
         ReferenceError::Unavailable
     );
     assert!(load_reference_import(dir.path()).is_err());
+}
+
+#[tokio::test]
+async fn uploaded_bytes_share_the_file_bound_and_masters_list_by_kind_in_pages() {
+    let oversized = vec![b' '; MAX_REFERENCE_IMPORT_BYTES as usize + 1];
+    assert!(matches!(
+        parse_reference_import(&oversized).unwrap_err().error,
+        ReferenceError::CapacityExceeded
+    ));
+    let error = parse_reference_import(b"{\n!").unwrap_err();
+    assert_eq!(error.diagnostics[0].line, Some(2));
+    let document = parse_reference_import(INITIAL.as_bytes()).unwrap();
+    assert_eq!(
+        document,
+        load_reference_import(write_initial().path()).unwrap()
+    );
+    let repository = MemoryReferenceRepository::default();
+    let path = write_initial();
+    import_reference_file(&repository, path.path(), time("2025-01-01T00:00:00Z"))
+        .await
+        .unwrap();
+    let calendars = repository
+        .list_masters(MasterKind::Calendar, None, 10)
+        .await
+        .unwrap();
+    assert_eq!(calendars.len(), 1);
+    // Two identifier assertions page one at a time in identity order.
+    let first = repository
+        .list_masters(MasterKind::Identifier, None, 1)
+        .await
+        .unwrap();
+    let key = first[0].definition.key().storage_key();
+    let after = key.split_once('/').unwrap().1;
+    let second = repository
+        .list_masters(MasterKind::Identifier, Some(after), 1)
+        .await
+        .unwrap();
+    assert_eq!(second.len(), 1);
+    assert!(second[0].definition.key().storage_key() > key);
+    let last = second[0].definition.key().storage_key();
+    assert!(repository
+        .list_masters(
+            MasterKind::Identifier,
+            Some(last.split_once('/').unwrap().1),
+            1
+        )
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(repository
+        .list_masters(MasterKind::RateIndex, None, 10)
+        .await
+        .unwrap()
+        .is_empty());
+    assert!(matches!(
+        repository.list_masters(MasterKind::Entity, None, 0).await,
+        Err(ReferenceError::InvalidInput(_))
+    ));
+}
+
+fn write_initial() -> tempfile::NamedTempFile {
+    let file = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(file.path(), INITIAL).unwrap();
+    file
 }

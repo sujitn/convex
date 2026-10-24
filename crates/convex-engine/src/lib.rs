@@ -168,7 +168,8 @@ impl PricingEngine {
         self.configurations.as_ref()
     }
 
-    /// Validate/warm then atomically activate; running runtimes accept only reloadable settings.
+    /// Validate/warm then atomically activate. A running runtime applies only a hot
+    /// selection; a restart-required one stays committed and applies at the next start.
     /// A committed selection remains committed if runtime application is delayed or unavailable.
     pub async fn activate_configuration(
         &self,
@@ -176,18 +177,49 @@ impl PricingEngine {
         fixtures: &[configuration::ConfigurationFixture],
     ) -> Result<configuration::ConfigurationActivationOutcome, configuration::ConfigurationError>
     {
-        let cases =
-            self.configurations
-                .as_ref()
-                .ok_or(configuration::ConfigurationError::Invalid(
-                    "configuration use cases are not composed",
-                ))?;
+        self.apply_activation(self.composed_configurations()?, command, fixtures)
+            .await
+    }
+
+    /// As [`Self::activate_configuration`], validating under the capabilities the next start
+    /// composes for the staged document.
+    pub async fn activate_configuration_with(
+        &self,
+        capabilities: configuration::ConfigurationCapabilities,
+        command: &ports::configuration::ActivationCommand,
+        fixtures: &[configuration::ConfigurationFixture],
+    ) -> Result<configuration::ConfigurationActivationOutcome, configuration::ConfigurationError>
+    {
+        let cases = self
+            .composed_configurations()?
+            .with_capabilities(capabilities);
+        self.apply_activation(&cases, command, fixtures).await
+    }
+
+    fn composed_configurations(
+        &self,
+    ) -> Result<&configuration::ConfigurationUseCases, configuration::ConfigurationError> {
+        self.configurations
+            .as_deref()
+            .ok_or(configuration::ConfigurationError::Invalid(
+                "configuration use cases are not composed",
+            ))
+    }
+
+    async fn apply_activation(
+        &self,
+        cases: &configuration::ConfigurationUseCases,
+        command: &ports::configuration::ActivationCommand,
+        fixtures: &[configuration::ConfigurationFixture],
+    ) -> Result<configuration::ConfigurationActivationOutcome, configuration::ConfigurationError>
+    {
         let running = !matches!(
             self.runtime_health().phase,
             RuntimePhase::New | RuntimePhase::Stopped
         );
-        let activation = cases.activate(command, fixtures, running).await?;
-        let applied = if running {
+        let hot = command.mode == ports::configuration::ReloadClass::Hot;
+        let activation = cases.activate(command, fixtures).await?;
+        let applied = if running && hot {
             self.runtime.refresh_configuration(&activation).await.ok()
         } else {
             None
@@ -196,7 +228,7 @@ impl PricingEngine {
             activation,
             accepted_generation: applied.as_ref().map(|r| r.generation),
             accepted_activation_revision: applied.and_then(|r| r.activation_revision),
-            restart_required: !running,
+            restart_required: !running || !hot,
         })
     }
 

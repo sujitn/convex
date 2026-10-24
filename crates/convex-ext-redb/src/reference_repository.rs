@@ -427,6 +427,40 @@ impl ReferenceRepository for RedbReferenceRepository {
             })
             .collect()
     }
+    async fn list_masters(
+        &self,
+        kind: MasterKind,
+        after: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<MasterRecord>, ReferenceError> {
+        if limit == 0 || limit > MAX_REFERENCE_PAGE {
+            return Err(ReferenceError::InvalidInput("invalid master page size"));
+        }
+        let read = self
+            .db
+            .begin_read()
+            .map_err(|_| ReferenceError::Unavailable)?;
+        let table = read
+            .open_table(MASTER_CURRENT)
+            .map_err(|_| ReferenceError::Unavailable)?;
+        // '0' follows '/', so "{prefix}0" is the first key after every "{prefix}/..." key.
+        let first = format!("{}/", kind.prefix());
+        let end = format!("{}0", kind.prefix());
+        let cursor = after.map(|id| format!("{first}{id}"));
+        let start = cursor.as_deref().map_or(
+            std::ops::Bound::Included(first.as_str()),
+            std::ops::Bound::Excluded,
+        );
+        table
+            .range::<&str>((start, std::ops::Bound::Excluded(end.as_str())))
+            .map_err(|_| ReferenceError::Unavailable)?
+            .take(limit)
+            .map(|entry| {
+                let (_, value) = entry.map_err(|_| ReferenceError::Unavailable)?;
+                decode(value.value())
+            })
+            .collect()
+    }
     async fn get_master_version(
         &self,
         key: &MasterKey,

@@ -587,7 +587,71 @@ pub enum MasterKey {
     RateIndex(ReferenceDataId),
 }
 
+/// The kind of a master resource, named as its storage-key prefix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MasterKind {
+    /// Issuer/security/default scopes.
+    IssuerScope,
+    /// Native core calculation definitions.
+    Calculation,
+    /// Entities.
+    Entity,
+    /// Calendars.
+    Calendar,
+    /// Conventions.
+    Convention,
+    /// Mapping assertions.
+    Identifier,
+    /// Exchange futures contracts.
+    Futures,
+    /// Deliverable baskets.
+    Basket,
+    /// Cash hedge universes.
+    CashUniverse,
+    /// Book position snapshots.
+    Book,
+    /// Rate indices.
+    RateIndex,
+}
+
+impl MasterKind {
+    /// Storage-key prefix shared by every resource of this kind.
+    pub fn prefix(self) -> &'static str {
+        match self {
+            Self::IssuerScope => "issuer_scope",
+            Self::Calculation => "calculation",
+            Self::Entity => "entity",
+            Self::Calendar => "calendar",
+            Self::Convention => "convention",
+            Self::Identifier => "identifier",
+            Self::Futures => "futures",
+            Self::Basket => "basket",
+            Self::CashUniverse => "cash_universe",
+            Self::Book => "book",
+            Self::RateIndex => "rate_index",
+        }
+    }
+}
+
 impl MasterKey {
+    /// The resource kind.
+    pub fn kind(&self) -> MasterKind {
+        match self {
+            Self::IssuerScope(_) => MasterKind::IssuerScope,
+            Self::Calculation(_) => MasterKind::Calculation,
+            Self::Entity(_) => MasterKind::Entity,
+            Self::Calendar(_) => MasterKind::Calendar,
+            Self::Convention(_) => MasterKind::Convention,
+            Self::Identifier(_) => MasterKind::Identifier,
+            Self::Futures(_) => MasterKind::Futures,
+            Self::Basket(_) => MasterKind::Basket,
+            Self::CashUniverse(_) => MasterKind::CashUniverse,
+            Self::Book(_) => MasterKind::Book,
+            Self::RateIndex(_) => MasterKind::RateIndex,
+        }
+    }
+
     /// Stable storage key; not a query language or vendor ID.
     pub fn storage_key(&self) -> String {
         match self {

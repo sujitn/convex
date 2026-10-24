@@ -205,7 +205,11 @@ intentional restart footprint change, not for every hot activation.
 | Runtime namespace/mode, settlement, build, measures, numerical policy, model/filter/curve roles, reference/curve/fixing pins, selected quote sources/fields | Restart with compatible explicit plan and process. |
 
 `PricingEngine::activate_configuration` separates durable commit from runtime
-acceptance. Its outcome includes the committed record and optional accepted
+acceptance. A running runtime applies only a `hot` activation. A
+`restart_required` activation still commits while the runtime runs; the runtime
+keeps its accepted selection and the outcome reports `restart_required: true`,
+so the next start applies it. A `hot` activation of a restart-required change is
+refused with `CONFIGURATION_RESTART_REQUIRED`. Its outcome includes the committed record and optional accepted
 generation/activation revision. A full queue or application failure leaves a
 committed selection for reconciliation; it does not guess a rollback. A later
 concurrent activation can supersede the command before runtime acceptance.
@@ -217,10 +221,30 @@ snapshot/context. CPU workers never read a mutable configuration pointer.
 The CLI is **offline** because redb requires exclusive ownership. Even a hot
 CLI command requires a stopped server and applies when it restarts. Embedded
 hosts can call the shared use cases and engine application method while running.
-No network mutation route is added. `GET /api/v1/configuration/:id` requires
-explicit `as_of` and `known_at` query cutoffs and returns the same redacted
-effective-policy view as the CLI. Actor/approval metadata is trusted local
-input here. Network inspection now uses [required authentication, roles and quotas](../convex-server/ACCESS.md). The offline CLI uses trusted local operator/filesystem access; shared authenticated mutation remains subsequent work.
+`GET /api/v1/configuration/:id` requires explicit `as_of` and `known_at` query
+cutoffs and returns the same redacted effective-policy view as the CLI. The CLI's
+actor/approval metadata is trusted local input.
+
+A running server offers the same lifecycle over HTTP, behind
+[required authentication, roles and quotas](../convex-server/ACCESS.md):
+
+| Route | Body and headers |
+|---|---|
+| `POST /api/v1/configuration/validate` | `{document, fixtures}`; writes nothing |
+| `POST /api/v1/configuration/diff` | `{previous, next}` |
+| `POST /api/v1/configuration/:id/stage` | `{document, fixtures, reason, staged_at}`; `Idempotency-Key` |
+| `POST /api/v1/configuration/:id/activate` | `{configuration_version, reason, activated_at, mode, fixtures}`; `Idempotency-Key`; `If-Match` with the expected active revision, `0` when none |
+| `POST /api/v1/configuration/:id/rollback` | `{to_revision, reason, activated_at, mode, fixtures}`; same headers |
+| `GET /api/v1/configuration/:id/history?offset=&limit=` | Activation audit |
+| `GET /api/v1/configuration/:id/versions/:version` | One staged version, redacted |
+
+The HTTP routes validate under the capabilities a start composes for the document,
+as the CLI does. The actor is the verified caller's audit fingerprint
+(`access:<digest>`, or `local-development`), never a request field. Bodies are at
+most 4 MiB, with one to eight fixtures. When the server runs a replay quotes file,
+fixtures must prefix it, exactly as in the CLI. Otherwise nothing can check them:
+the staged and activation records carry `fixture_evidence: "operator_supplied"`.
+Replay-checked records omit the field, so earlier records keep their bytes.
 
 ## Override expiry and lineage
 

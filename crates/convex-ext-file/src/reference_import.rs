@@ -146,7 +146,18 @@ pub fn load_reference_import(
     path: impl AsRef<Path>,
 ) -> Result<ReferenceImportDocument, ReferenceImportError> {
     let bytes = read_reference_file(path.as_ref()).map_err(failure)?;
-    let document: ReferenceImportDocument = serde_json::from_slice(&bytes).map_err(|error| {
+    parse_reference_import(&bytes)
+}
+
+/// Decode and validate an import already in memory, such as an uploaded file, with the
+/// same bound and diagnostics as [`load_reference_import`].
+pub fn parse_reference_import(
+    bytes: &[u8],
+) -> Result<ReferenceImportDocument, ReferenceImportError> {
+    if bytes.len() as u64 > MAX_REFERENCE_IMPORT_BYTES {
+        return Err(failure(ReferenceError::CapacityExceeded));
+    }
+    let document: ReferenceImportDocument = serde_json::from_slice(bytes).map_err(|error| {
         let mut failed = failure(ReferenceError::InvalidInput(
             "invalid strict reference import JSON",
         ));
@@ -204,6 +215,23 @@ pub async fn import_reference_file(
     recorded_at: UtcTimestamp,
 ) -> Result<ReferenceCommit, ReferenceImportError> {
     let document = load_reference_import(path)?;
+    preflight_reference_import(repository, &document).await?;
+    repository
+        .commit(&document.command, recorded_at)
+        .await
+        .map_err(|error| {
+            let diagnostics = vec![diagnostic("transaction", None, &error)];
+            ReferenceImportError { error, diagnostics }
+        })
+}
+
+/// Report each row whose expected version differs from current content. This is
+/// diagnostic only: the commit still performs compare-and-set, and a retained retry of
+/// the same idempotency key is left to the backend.
+pub async fn preflight_reference_import(
+    repository: &dyn ReferenceRepository,
+    document: &ReferenceImportDocument,
+) -> Result<(), ReferenceImportError> {
     // Retained retries are compared by the backend before looking at current versions.
     // Preflight is diagnostic only; the final transaction still performs compare-and-set.
     if repository
@@ -265,11 +293,5 @@ pub async fn import_reference_file(
             });
         }
     }
-    repository
-        .commit(&document.command, recorded_at)
-        .await
-        .map_err(|error| {
-            let diagnostics = vec![diagnostic("transaction", None, &error)];
-            ReferenceImportError { error, diagnostics }
-        })
+    Ok(())
 }

@@ -219,6 +219,32 @@ impl ReferenceRepository for MemoryReferenceRepository {
         Ok(books.into_iter().take(limit).cloned().collect())
     }
 
+    async fn list_masters(
+        &self,
+        kind: MasterKind,
+        after: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<MasterRecord>, ReferenceError> {
+        if limit == 0 || limit > MAX_REFERENCE_PAGE {
+            return Err(ReferenceError::InvalidInput("invalid master page size"));
+        }
+        let state = self.state.read().map_err(|_| ReferenceError::Unavailable)?;
+        let cursor = after.map(|id| format!("{}/{id}", kind.prefix()));
+        let mut records: Vec<(String, &MasterRecord)> = state
+            .master_current
+            .iter()
+            .filter(|(key, _)| key.kind() == kind)
+            .map(|(key, record)| (key.storage_key(), record))
+            .filter(|(key, _)| cursor.as_ref().is_none_or(|c| key > c))
+            .collect();
+        records.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(records
+            .into_iter()
+            .take(limit)
+            .map(|(_, record)| record.clone())
+            .collect())
+    }
+
     async fn get_master_version(
         &self,
         key: &MasterKey,

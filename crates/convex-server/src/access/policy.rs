@@ -25,7 +25,7 @@ pub enum Role {
     ReferenceWriter,
     /// Edit scoped portfolios.
     BookWriter,
-    /// Inspect configuration and operations.
+    /// Inspect configuration and operations, and stage, activate and roll back configuration.
     Operator,
 }
 /// Capabilities checked identically at HTTP, WS and future job admission.
@@ -49,6 +49,8 @@ pub enum Action {
     BookWrite,
     /// Inspect operational/configuration state.
     Operate,
+    /// Stage, activate or roll back configuration.
+    ConfigurationWrite,
     /// Read a job.
     JobRead,
     /// Submit a job.
@@ -73,7 +75,7 @@ impl Action {
             Self::Calculate | Self::JobSubmit | Self::JobCancel => roles.contains(&Role::Analyst),
             Self::ReferenceWrite | Self::CurveWrite => roles.contains(&Role::ReferenceWriter),
             Self::BookWrite => roles.contains(&Role::BookWriter),
-            Self::Operate => roles.contains(&Role::Operator),
+            Self::Operate | Self::ConfigurationWrite => roles.contains(&Role::Operator),
         }
     }
 }

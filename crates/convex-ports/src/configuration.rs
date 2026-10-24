@@ -542,6 +542,21 @@ pub fn configuration_diff(
     changes
 }
 
+/// Where the regression fixtures that validated a staging or activation came from.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FixtureEvidence {
+    /// Checked against the composition's canonical replay prefix.
+    #[default]
+    ReplayChecked,
+    /// Supplied by an operator with no replay trace to check them against.
+    OperatorSupplied,
+}
+impl FixtureEvidence {
+    fn is_replay_checked(&self) -> bool {
+        *self == Self::ReplayChecked
+    }
+}
 /// Operator metadata attached atomically to staged immutable content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -556,6 +571,9 @@ pub struct StagedConfiguration {
     pub reason: String,
     /// Recording time, independent of fixture/economic time.
     pub staged_at: UtcTimestamp,
+    /// Fixture provenance, omitted when replay-checked so earlier records keep their bytes.
+    #[serde(default, skip_serializing_if = "FixtureEvidence::is_replay_checked")]
+    pub fixture_evidence: FixtureEvidence,
 }
 impl StagedConfiguration {
     /// Validate operator metadata and immutable settings.
@@ -605,6 +623,9 @@ pub struct ActivationCommand {
     pub mode: ReloadClass,
     /// Activation or retained rollback target.
     pub action: ActivationKind,
+    /// Fixture provenance, omitted when replay-checked so earlier records keep their bytes.
+    #[serde(default, skip_serializing_if = "FixtureEvidence::is_replay_checked")]
+    pub fixture_evidence: FixtureEvidence,
 }
 impl ActivationCommand {
     /// Validate bounded metadata and CAS revision capacity.

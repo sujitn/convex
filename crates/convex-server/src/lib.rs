@@ -191,6 +191,15 @@ impl Server {
         if let Some(quotes) = &self.quotes {
             router = router.layer(Extension(quotes.clone()));
         }
+        // HTTP configuration fixtures must prefix the replay this composition runs (D35).
+        if let Some(quotes) = &self.config.quotes_file {
+            router = router.layer(Extension(configuration_admin::ConfigurationTrace(
+                quotes.into(),
+            )));
+        }
+        if let Some(dir) = &self.config.admin_ui_dir {
+            router = router.nest_service("/admin", admin_ui(dir));
+        }
         router
             .layer(Extension(profile))
             .layer(Extension(access::http::AllowedOrigins(origins.clone())))
@@ -287,6 +296,33 @@ impl Server {
         }
     }
 }
+/// The built admin app: static files outside the API access layer (they carry no data),
+/// with unknown paths falling back to its single page. The page holds a pasted bearer
+/// token in memory, so it loads scripts only from its own origin and cannot be framed.
+fn admin_ui(dir: &str) -> Router {
+    use axum::http::header;
+    use tower_http::services::{ServeDir, ServeFile};
+    use tower_http::set_header::SetResponseHeaderLayer;
+    let index = std::path::Path::new(dir).join("index.html");
+    let files = ServeDir::new(dir).fallback(ServeFile::new(index));
+    Router::new()
+        .fallback_service(files)
+        .layer(SetResponseHeaderLayer::overriding(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';                  img-src 'self' data:; connect-src 'self'; frame-ancestors 'none';                  base-uri 'none'; form-action 'none'",
+            ),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::X_CONTENT_TYPE_OPTIONS,
+            HeaderValue::from_static("nosniff"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            header::REFERRER_POLICY,
+            HeaderValue::from_static("no-referrer"),
+        ))
+}
+
 async fn termination_signal() {
     #[cfg(unix)]
     {

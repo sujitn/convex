@@ -18,6 +18,8 @@ use std::{
 };
 
 const MAX_BODY: usize = 2 * 1024 * 1024;
+/// A configuration document (at most 2 MiB) with its fixtures and operator metadata.
+pub(crate) const MAX_CONFIGURATION_REQUEST: usize = 4 * 1024 * 1024;
 pub(crate) const MAX_RESPONSE: usize = 4 * 1024 * 1024;
 // Existing book/reference ports carry a whole captured definition. Other routes
 // keep their original transport bounds; authorization still scans every value.
@@ -25,6 +27,7 @@ fn book_transport(path: &str) -> bool {
     matches!(
         path,
         "/api/v1/reference/transactions"
+            | "/api/v1/reference/import"
             | "/api/v1/reference/commits/:key"
             | "/api/v1/analytics/snapshots/:snapshot_id"
             | "/api/v1/analytics/results/:result_id"
@@ -195,9 +198,15 @@ fn requirement(
             req.data = vec![D::Reference];
             req.resources.push(Resource::new(R::Instrument, "*"));
         }
-        "/api/v1/reference/transactions" => {
+        "/api/v1/reference/transactions" | "/api/v1/reference/import" => {
             req.action = ReferenceWrite;
             req.data = vec![D::Reference];
+        }
+        // Books keep their own listing and scope.
+        "/api/v1/reference/masters/:kind" => {
+            req.action = ReferenceRead;
+            req.data = vec![D::Reference];
+            req.resources.push(Resource::new(R::Instrument, "*"));
         }
         "/api/v1/quotes/:instrument_id" => {
             exact(R::Instrument, "instrument_id")?;
@@ -286,9 +295,26 @@ fn requirement(
             req.resources
                 .extend([Resource::new(R::Curve, "*"), Resource::new(R::Source, "*")]);
         }
-        "/api/v1/configuration/schema" => {
+        "/api/v1/configuration/schema" | "/api/v1/configuration/diff" => {
             req.action = Operate;
             req.data = vec![D::Configuration];
+        }
+        // Validation runs real fixtures over reference and market inputs; it writes nothing.
+        "/api/v1/configuration/validate" => {
+            req.action = Operate;
+            req.data = vec![D::Configuration, D::Reference, D::Market];
+        }
+        "/api/v1/configuration/:id/history" | "/api/v1/configuration/:id/versions/:version" => {
+            exact(R::Configuration, "id")?;
+            req.action = Operate;
+            req.data = vec![D::Configuration];
+        }
+        "/api/v1/configuration/:id/stage"
+        | "/api/v1/configuration/:id/activate"
+        | "/api/v1/configuration/:id/rollback" => {
+            exact(R::Configuration, "id")?;
+            req.action = ConfigurationWrite;
+            req.data = vec![D::Configuration, D::Reference, D::Market];
         }
         "/api/v1/configuration/:id" => {
             exact(R::Configuration, "id")?;
@@ -661,13 +687,17 @@ async fn enforce_inner(
     if req.body_required && !access.is_local_development() {
         let body = std::mem::replace(request.body_mut(), Body::empty());
         let book = book_transport(path);
-        let bytes = tokio::time::timeout(
-            Duration::from_secs(3),
-            to_bytes(body, if book { 8 * 1024 * 1024 } else { MAX_BODY }),
-        )
-        .await
-        .map_err(|_| AccessError::InvalidRequest)?
-        .map_err(|_| AccessError::InvalidRequest)?;
+        let limit = if book {
+            8 * 1024 * 1024
+        } else if path.starts_with("/api/v1/configuration/") {
+            MAX_CONFIGURATION_REQUEST
+        } else {
+            MAX_BODY
+        };
+        let bytes = tokio::time::timeout(Duration::from_secs(3), to_bytes(body, limit))
+            .await
+            .map_err(|_| AccessError::InvalidRequest)?
+            .map_err(|_| AccessError::InvalidRequest)?;
         let value = strict_json(&bytes)?;
         let mut scopes = if book {
             resources_bounded(&value, true)?
@@ -677,15 +707,20 @@ async fn enforce_inner(
         if path == "/api/v1/curves/bootstrap" {
             scopes.retain(|s| s.kind != ResourceKind::Curve);
         }
-        if path == "/api/v1/reference/transactions"
-            && value
-                .get("master_changes")
+        // An import file wraps the same transaction in its envelope's `command`.
+        let command = match path {
+            "/api/v1/reference/transactions" => Some(&value),
+            "/api/v1/reference/import" => value.get("command"),
+            _ => None,
+        };
+        if let Some(command) = command.filter(|c| {
+            c.get("master_changes")
                 .and_then(|v| v.as_array())
                 .is_some_and(|a| !a.is_empty())
-        {
+        }) {
             req.resources
                 .push(Resource::new(ResourceKind::Instrument, "*"));
-            if value
+            if command
                 .get("master_changes")
                 .and_then(|v| v.as_array())
                 .is_some_and(|items| {

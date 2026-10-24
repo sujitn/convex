@@ -101,6 +101,8 @@ pub struct ServerConfig {
     pub fixings_file: Option<String>,
     /// Reserved file integration; rejected until the provider is wired.
     pub bonds_file: Option<String>,
+    /// Built admin app served at `/admin`; unset serves nothing there.
+    pub admin_ui_dir: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -119,6 +121,7 @@ impl Default for ServerConfig {
             curves_file: None,
             fixings_file: None,
             bonds_file: None,
+            admin_ui_dir: None,
         }
     }
 }
@@ -152,6 +155,8 @@ pub struct EffectiveConfig<'a> {
     pub fixings_file: Option<&'static str>,
     /// Redacted optional bond source.
     pub bonds_file: Option<&'static str>,
+    /// Redacted optional admin app directory.
+    pub admin_ui_dir: Option<&'static str>,
 }
 
 impl fmt::Debug for ServerConfig {
@@ -310,6 +315,7 @@ impl ServerConfig {
                 "CONVEX_CURVES_FILE" => candidate.curves_file = Some(value),
                 "CONVEX_FIXINGS_FILE" => candidate.fixings_file = Some(value),
                 "CONVEX_BONDS_FILE" => candidate.bonds_file = Some(value),
+                "CONVEX_ADMIN_UI_DIR" => candidate.admin_ui_dir = Some(value),
                 _ => return Err(ConfigError::UnknownEnvironment { name }),
             }
         }
@@ -346,6 +352,16 @@ impl ServerConfig {
             return Err(ConfigError::InvalidValue {
                 field: "storage_path",
                 expected: "a nonempty file path without NUL",
+            });
+        }
+        if self
+            .admin_ui_dir
+            .as_ref()
+            .is_some_and(|dir| dir.trim().is_empty() || dir.contains('\0'))
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "admin_ui_dir",
+                expected: "a nonempty directory path without NUL",
             });
         }
         for (field, configured) in [
@@ -413,6 +429,14 @@ impl ServerConfig {
     /// Refuse an incomplete composition before opening storage.
     pub fn validate_startup(&self) -> Result<(), ConfigError> {
         self.validate()?;
+        if let Some(dir) = &self.admin_ui_dir {
+            if !std::path::Path::new(dir).join("index.html").is_file() {
+                return Err(ConfigError::InvalidValue {
+                    field: "admin_ui_dir",
+                    expected: "a directory holding the built admin app's index.html",
+                });
+            }
+        }
         if self.profile == ServerProfile::Production {
             self.validate_production()?;
         }
@@ -505,6 +529,7 @@ impl ServerConfig {
             curves_file: self.curves_file.as_ref().map(|_| REDACTED),
             fixings_file: self.fixings_file.as_ref().map(|_| REDACTED),
             bonds_file: self.bonds_file.as_ref().map(|_| REDACTED),
+            admin_ui_dir: self.admin_ui_dir.as_ref().map(|_| REDACTED),
         }
     }
 
@@ -526,6 +551,7 @@ impl ServerConfig {
             "CONVEX_CURVES_FILE",
             "CONVEX_FIXINGS_FILE",
             "CONVEX_BONDS_FILE",
+            "CONVEX_ADMIN_UI_DIR",
         ]
     }
 }

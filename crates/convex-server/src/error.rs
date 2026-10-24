@@ -76,6 +76,22 @@ impl ApiError {
     }
 }
 
+impl ApiError {
+    /// The refusal with bounded structured evidence beside its message.
+    pub(crate) fn with_diagnostics(self, diagnostics: serde_json::Value) -> Response {
+        (
+            self.status,
+            Json(serde_json::json!({
+                "error": self.message,
+                "code": self.code,
+                "retryable": self.retryable,
+                "diagnostics": diagnostics,
+            })),
+        )
+            .into_response()
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         (

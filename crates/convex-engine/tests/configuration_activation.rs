@@ -36,7 +36,6 @@ async fn captured_selection_accepts_canonical_manifest_order_and_rejects_changed
         .activate(
             &fixture::activate(1, 0, "ordered-manifest"),
             &fixtures(&setup),
-            false,
         )
         .await
         .unwrap();
@@ -149,7 +148,7 @@ fn cvx010_ac1_in_flight_real_valuation_keeps_its_original_selection_across_activ
         let fixtures = fixtures(&setup);
         service.stage(&fixture::staged(1), &fixtures).await.unwrap();
         service
-            .activate(&fixture::activate(1, 0, "first"), &fixtures, false)
+            .activate(&fixture::activate(1, 0, "first"), &fixtures)
             .await
             .unwrap();
         let engine = engine(&setup, service.clone());
@@ -207,7 +206,7 @@ fn cvx010_ac1_in_flight_real_valuation_keeps_its_original_selection_across_activ
         second.document.assembly.quotes[0].max_age_ms = 2000;
         service.stage(&second, &fixtures).await.unwrap();
         let activation = service
-            .activate(&fixture::activate(2, 1, "second"), &fixtures, true)
+            .activate(&fixture::activate(2, 1, "second"), &fixtures)
             .await
             .unwrap();
         assert_eq!(activation.command.configuration_version.get(), 2);
@@ -284,7 +283,7 @@ async fn cvx010_ac2_override_expiry_is_exclusive_preserves_history_last_good_and
     let fixtures = fixtures(&setup);
     service.stage(&fixture::staged(1), &fixtures).await.unwrap();
     service
-        .activate(&fixture::activate(1, 0, "first"), &fixtures, false)
+        .activate(&fixture::activate(1, 0, "first"), &fixtures)
         .await
         .unwrap();
     let engine = engine(&setup, service.clone());
@@ -408,7 +407,7 @@ async fn cvx010_ac3_rollback_revalidates_content_and_records_new_activation_and_
     let fixtures = fixtures(&setup);
     service.stage(&fixture::staged(1), &fixtures).await.unwrap();
     let first = service
-        .activate(&fixture::activate(1, 0, "first"), &fixtures, false)
+        .activate(&fixture::activate(1, 0, "first"), &fixtures)
         .await
         .unwrap();
     let engine = engine(&setup, service.clone());
@@ -458,15 +457,8 @@ async fn cvx010_ac3_rollback_revalidates_content_and_records_new_activation_and_
     let mut restart = fixture::staged(3);
     restart.document.process.max_concurrent_calcs = 6;
     service.stage(&restart, &fixtures).await.unwrap();
+    // A restart-required change cannot be applied hot by the running runtime.
     let mut command = fixture::activate(3, 3, "restart");
-    command.mode = ReloadClass::RestartRequired;
-    assert_eq!(
-        engine
-            .activate_configuration(&command, &fixtures)
-            .await
-            .unwrap_err(),
-        ConfigurationError::RestartRequired
-    );
     command.mode = ReloadClass::Hot;
     assert_eq!(
         engine
@@ -474,6 +466,20 @@ async fn cvx010_ac3_rollback_revalidates_content_and_records_new_activation_and_
             .await
             .unwrap_err(),
         ConfigurationError::RestartRequired
+    );
+    // It commits as restart-required while the runtime keeps its accepted selection.
+    let mut command = fixture::activate(3, 3, "restart-later");
+    command.mode = ReloadClass::RestartRequired;
+    let outcome = engine
+        .activate_configuration(&command, &fixtures)
+        .await
+        .unwrap();
+    assert!(outcome.restart_required);
+    assert_eq!(outcome.accepted_generation, None);
+    assert_eq!(outcome.activation.revision.get(), 4);
+    assert_eq!(
+        engine.runtime_health().activation_revision.unwrap().get(),
+        3
     );
     assert_eq!(
         service
@@ -484,7 +490,7 @@ async fn cvx010_ac3_rollback_revalidates_content_and_records_new_activation_and_
             .activation
             .revision
             .get(),
-        3
+        4
     );
     engine.shutdown().await.unwrap();
 }
@@ -547,11 +553,8 @@ async fn committed_unknown_outcomes_reconcile_once_uncommitted_failure_and_false
     service.stage(&fixture::staged(1), &fixtures).await.unwrap();
     fault.unknown_activate.store(true, Ordering::SeqCst);
     let command = fixture::activate(1, 0, "first");
-    let first = service.activate(&command, &fixtures, false).await.unwrap();
-    assert_eq!(
-        service.activate(&command, &fixtures, false).await.unwrap(),
-        first
-    );
+    let first = service.activate(&command, &fixtures).await.unwrap();
+    assert_eq!(service.activate(&command, &fixtures).await.unwrap(), first);
     assert_eq!(
         service
             .history(&command.id, &Pagination::new(0, 100))
@@ -562,17 +565,14 @@ async fn committed_unknown_outcomes_reconcile_once_uncommitted_failure_and_false
     );
     fault.corrupt_receipt.store(true, Ordering::SeqCst);
     assert_eq!(
-        service
-            .activate(&command, &fixtures, false)
-            .await
-            .unwrap_err(),
+        service.activate(&command, &fixtures).await.unwrap_err(),
         ConfigurationError::Conflict
     );
     fault.corrupt_receipt.store(false, Ordering::SeqCst);
     service.stage(&fixture::staged(2), &fixtures).await.unwrap();
     fault.fail_activate.store(true, Ordering::SeqCst);
     let error = service
-        .activate(&fixture::activate(2, 1, "failed"), &fixtures, true)
+        .activate(&fixture::activate(2, 1, "failed"), &fixtures)
         .await
         .unwrap_err();
     assert_eq!(error, ConfigurationError::Storage);
@@ -643,10 +643,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
     service.stage(&first, &fixture_cases).await.unwrap();
     let mut command = fixture::activate(1, 0, "live-first");
     command.activated_at = now;
-    service
-        .activate(&command, &fixture_cases, false)
-        .await
-        .unwrap();
+    service.activate(&command, &fixture_cases).await.unwrap();
     let expiry =
         UtcTimestamp::from_datetime(now.datetime() + chrono::Duration::seconds(2)).unwrap();
     let mut second = first.clone();
@@ -668,10 +665,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
     service.stage(&second, &fixture_cases).await.unwrap();
     let mut command = fixture::activate(2, 1, "live-override");
     command.activated_at = now;
-    service
-        .activate(&command, &fixture_cases, false)
-        .await
-        .unwrap();
+    service.activate(&command, &fixture_cases).await.unwrap();
     let source = Arc::new(subscription_source::SubscriptionSource::new());
     let engine = PricingEngineBuilder::new()
         .with_storage(setup.storage.clone())
