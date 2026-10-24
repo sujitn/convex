@@ -349,24 +349,11 @@ def build_spreads(wb: Workbook) -> None:
     ws.cell(row=13, column=2, value='=CX.SPREAD(B4,B5,B6,B7,"ASW_PROC")')
     ws.cell(row=13, column=4, value="Proceeds asset swap spread.")
 
-    section(ws, 15, "G-spread requires a separate government curve", span=7)
-    header(ws, 17, ["Tenor", "Govt zero (decimal)"])
-    govt_pillars = [(2, 0.042), (5, 0.044), (10, 0.045), (30, 0.046)]
-    for i, (t, r) in enumerate(govt_pillars, start=18):
-        ws.cell(row=i, column=1, value=t)
-        ws.cell(row=i, column=2, value=r)
-    govt_end = 17 + len(govt_pillars)
-
-    ws.cell(row=govt_end + 2, column=1, value="Govt curve handle:")
-    ws.cell(row=govt_end + 2, column=2, value=(
-        f'=CX.CURVE("USD.TSY.DEMO",TODAY(),A18:A{govt_end},B18:B{govt_end},'
-        f'"zero_rate","linear","Act365Fixed","Continuous")'
-    ))
-
-    note(ws, govt_end + 4,
-         "G-spread today is wired only via the Spread Ticket ribbon form, which threads "
-         "params.govt_curve through. The cell-side helper UDF will land in the next pass; "
-         "open the ribbon Spread Ticket to compute G-spread interactively.")
+    section(ws, 15, "Government spreads use actual securities", span=7)
+    note(ws, 17,
+         "CX.SPREAD and the Spread Ticket cannot supply government benchmark securities. "
+         "Use CX.LIBRARY.RANGE with a full government_spread request and actual cash "
+         "security quotes/calendars. Government zero rates are not bond yields.")
 
 
 # ---------------------------------------------------------------------------

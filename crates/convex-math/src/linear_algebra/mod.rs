@@ -3,6 +3,7 @@
 //! This module provides matrix operations and decompositions
 //! needed for financial calculations.
 
+use crate::bounds::{finite, finite_slice, MAX_MATRIX_DIMENSION};
 use crate::error::{MathError, MathResult};
 use nalgebra::{DMatrix, DVector};
 
@@ -31,33 +32,42 @@ use nalgebra::{DMatrix, DVector};
 pub fn solve_tridiagonal(a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> MathResult<Vec<f64>> {
     let n = b.len();
 
-    if a.len() != n - 1 || c.len() != n - 1 || d.len() != n {
+    finite_slice(a, "lower diagonal")?;
+    finite_slice(b, "main diagonal")?;
+    finite_slice(c, "upper diagonal")?;
+    finite_slice(d, "right-hand side")?;
+    if a.len() != n.saturating_sub(1) || c.len() != n.saturating_sub(1) || d.len() != n {
         return Err(MathError::invalid_input(
             "Tridiagonal system has inconsistent dimensions",
         ));
     }
-
     if n == 0 {
         return Ok(vec![]);
+    }
+    if b[0].abs() < 1e-15 {
+        return Err(MathError::SingularMatrix);
+    }
+    if n == 1 {
+        return Ok(vec![finite(d[0] / b[0], "solution")?]);
     }
 
     // Forward elimination
     let mut c_prime = vec![0.0; n];
     let mut d_prime = vec![0.0; n];
 
-    c_prime[0] = c[0] / b[0];
-    d_prime[0] = d[0] / b[0];
+    c_prime[0] = finite(c[0] / b[0], "elimination")?;
+    d_prime[0] = finite(d[0] / b[0], "elimination")?;
 
     for i in 1..n {
-        let denom = b[i] - a[i - 1] * c_prime[i - 1];
+        let denom = finite(b[i] - a[i - 1] * c_prime[i - 1], "pivot")?;
         if denom.abs() < 1e-15 {
             return Err(MathError::SingularMatrix);
         }
 
         if i < n - 1 {
-            c_prime[i] = c[i] / denom;
+            c_prime[i] = finite(c[i] / denom, "elimination")?;
         }
-        d_prime[i] = (d[i] - a[i - 1] * d_prime[i - 1]) / denom;
+        d_prime[i] = finite((d[i] - a[i - 1] * d_prime[i - 1]) / denom, "elimination")?;
     }
 
     // Back substitution
@@ -65,7 +75,7 @@ pub fn solve_tridiagonal(a: &[f64], b: &[f64], c: &[f64], d: &[f64]) -> MathResu
     x[n - 1] = d_prime[n - 1];
 
     for i in (0..n - 1).rev() {
-        x[i] = d_prime[i] - c_prime[i] * x[i + 1];
+        x[i] = finite(d_prime[i] - c_prime[i] * x[i + 1], "solution")?;
     }
 
     Ok(x)
@@ -83,6 +93,7 @@ pub fn lu_decomposition(matrix: &DMatrix<f64>) -> MathResult<(DMatrix<f64>, DMat
         ));
     }
 
+    validate_matrix(matrix)?;
     let mut l = DMatrix::identity(n, n);
     let mut u = matrix.clone();
 
@@ -92,11 +103,11 @@ pub fn lu_decomposition(matrix: &DMatrix<f64>) -> MathResult<(DMatrix<f64>, DMat
         }
 
         for i in k + 1..n {
-            let factor = u[(i, k)] / u[(k, k)];
+            let factor = finite(u[(i, k)] / u[(k, k)], "LU factor")?;
             l[(i, k)] = factor;
 
             for j in k..n {
-                u[(i, j)] -= factor * u[(k, j)];
+                u[(i, j)] = finite(u[(i, j)] - factor * u[(k, j)], "LU elimination")?;
             }
         }
     }
@@ -120,6 +131,7 @@ pub fn solve_linear_system(a: &DMatrix<f64>, b: &DVector<f64>) -> MathResult<DVe
         });
     }
 
+    finite_slice(b.as_slice(), "right-hand side")?;
     let (l, u) = lu_decomposition(a)?;
 
     // Solve Ly = b (forward substitution)
@@ -127,9 +139,9 @@ pub fn solve_linear_system(a: &DMatrix<f64>, b: &DVector<f64>) -> MathResult<DVe
     for i in 0..n {
         let mut sum = b[i];
         for j in 0..i {
-            sum -= l[(i, j)] * y[j];
+            sum = finite(sum - l[(i, j)] * y[j], "forward substitution")?;
         }
-        y[i] = sum / l[(i, i)];
+        y[i] = finite(sum / l[(i, i)], "solution")?;
     }
 
     // Solve Ux = y (back substitution)
@@ -137,15 +149,22 @@ pub fn solve_linear_system(a: &DMatrix<f64>, b: &DVector<f64>) -> MathResult<DVe
     for i in (0..n).rev() {
         let mut sum = y[i];
         for j in i + 1..n {
-            sum -= u[(i, j)] * x[j];
+            sum = finite(sum - u[(i, j)] * x[j], "back substitution")?;
         }
         if u[(i, i)].abs() < 1e-15 {
             return Err(MathError::SingularMatrix);
         }
-        x[i] = sum / u[(i, i)];
+        x[i] = finite(sum / u[(i, i)], "solution")?;
     }
 
     Ok(x)
+}
+
+fn validate_matrix(matrix: &DMatrix<f64>) -> MathResult<()> {
+    if matrix.nrows() > MAX_MATRIX_DIMENSION || matrix.ncols() > MAX_MATRIX_DIMENSION {
+        return Err(MathError::invalid_input("matrix dimension exceeds 256"));
+    }
+    finite_slice(matrix.as_slice(), "matrix")
 }
 
 #[cfg(test)]

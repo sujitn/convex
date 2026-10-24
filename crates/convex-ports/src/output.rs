@@ -1,0 +1,344 @@
+//! Calculator output values: bond quotes, ETF iNAV and portfolio analytics.
+//!
+//! REST handlers return these values in their responses. They are not published:
+//! the runtime `ResultPublisher` and its results channel are the only output path.
+
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+
+use convex_core::ids::*;
+use convex_core::{Currency, Date};
+
+// =============================================================================
+// BOND QUOTE OUTPUT
+// =============================================================================
+
+/// Complete bond quote output with all analytics.
+///
+/// Note: Dirty price is not included - calculate as clean_price_mid + accrued_interest.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BondQuoteOutput {
+    /// Instrument identifier
+    pub instrument_id: InstrumentId,
+    /// ISIN
+    pub isin: Option<String>,
+    /// Currency
+    pub currency: Currency,
+    /// Settlement date
+    pub settlement_date: Date,
+
+    // Prices (bid/mid/ask)
+    /// Clean price (bid)
+    pub clean_price_bid: Option<Decimal>,
+    /// Clean price (mid)
+    pub clean_price_mid: Option<Decimal>,
+    /// Clean price (ask)
+    pub clean_price_ask: Option<Decimal>,
+    /// Accrued interest
+    pub accrued_interest: Option<Decimal>,
+
+    // Yields (bid/mid/ask)
+    /// Yield to maturity (bid)
+    pub ytm_bid: Option<Decimal>,
+    /// Yield to maturity (mid)
+    pub ytm_mid: Option<Decimal>,
+    /// Yield to maturity (ask)
+    pub ytm_ask: Option<Decimal>,
+    /// Yield to worst (for callable, mid)
+    pub ytw: Option<Decimal>,
+    /// Yield to call (mid)
+    pub ytc: Option<Decimal>,
+
+    // Spreads (bid/mid/ask)
+    /// Z-spread (bid)
+    pub z_spread_bid: Option<Decimal>,
+    /// Z-spread (mid)
+    pub z_spread_mid: Option<Decimal>,
+    /// Z-spread (ask)
+    pub z_spread_ask: Option<Decimal>,
+    /// I-spread (bid)
+    pub i_spread_bid: Option<Decimal>,
+    /// I-spread (mid)
+    pub i_spread_mid: Option<Decimal>,
+    /// I-spread (ask)
+    pub i_spread_ask: Option<Decimal>,
+    /// G-spread (bid)
+    pub g_spread_bid: Option<Decimal>,
+    /// G-spread (mid)
+    pub g_spread_mid: Option<Decimal>,
+    /// G-spread (ask)
+    pub g_spread_ask: Option<Decimal>,
+    /// Asset swap spread (bid)
+    pub asw_bid: Option<Decimal>,
+    /// Asset swap spread (mid)
+    pub asw_mid: Option<Decimal>,
+    /// Asset swap spread (ask)
+    pub asw_ask: Option<Decimal>,
+    /// OAS for callable (bid)
+    pub oas_bid: Option<Decimal>,
+    /// OAS for callable (mid)
+    pub oas_mid: Option<Decimal>,
+    /// OAS for callable (ask)
+    pub oas_ask: Option<Decimal>,
+    /// Discount margin for FRN (bid)
+    pub discount_margin_bid: Option<Decimal>,
+    /// Discount margin for FRN (mid)
+    pub discount_margin_mid: Option<Decimal>,
+    /// Discount margin for FRN (ask)
+    pub discount_margin_ask: Option<Decimal>,
+    /// Simple margin for FRN (bid)
+    pub simple_margin_bid: Option<Decimal>,
+    /// Simple margin for FRN (mid)
+    pub simple_margin_mid: Option<Decimal>,
+    /// Simple margin for FRN (ask)
+    pub simple_margin_ask: Option<Decimal>,
+
+    // Duration (calculated from mid price)
+    /// Modified duration
+    pub modified_duration: Option<Decimal>,
+    /// Macaulay duration
+    pub macaulay_duration: Option<Decimal>,
+    /// Effective duration (for callable)
+    pub effective_duration: Option<Decimal>,
+    /// Spread duration
+    pub spread_duration: Option<Decimal>,
+
+    // Convexity
+    /// Convexity
+    pub convexity: Option<Decimal>,
+    /// Effective convexity
+    pub effective_convexity: Option<Decimal>,
+
+    // Risk
+    /// Quoted-yield DV01 loss in price per 100 face; no position scaling.
+    pub dv01: Option<Decimal>,
+    /// Diagnostic continuous-zero PV01 loss per 100 at frozen Z-spread.
+    pub pv01: Option<Decimal>,
+    /// Key rate durations (tenor label, duration value)
+    pub key_rate_durations: Option<Vec<(String, Decimal)>>,
+    /// Z-spread loss per 100 for +1bp; this is not CDS quote CS01.
+    pub cs01: Option<Decimal>,
+
+    /// Signed diagnostic continuous-zero change per 100 for +1bp, frozen Z-spread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zero_pv01_signed: Option<Decimal>,
+    /// Signed continuous ACT/365F Z-spread change per 100 for +1bp.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub z_pv01_signed: Option<Decimal>,
+    /// Explicit measure failures; absence never represents zero risk.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub measure_errors: Vec<convex_core::contracts::StructuredError>,
+
+    // Metadata
+    /// Calculation timestamp
+    pub timestamp: i64,
+    /// Pricing spec that was used
+    pub pricing_spec: String,
+    /// Quote source
+    pub source: String,
+    /// Is stale
+    pub is_stale: bool,
+    /// Quality indicator (0-100)
+    pub quality: u8,
+}
+
+impl BondQuoteOutput {
+    /// Expose mid pricing in explicit canonical units without inventing risk lineage.
+    /// Missing accrued remains missing; dirty price is unavailable in that case.
+    /// Duration-based DV01/PV01 are excluded because their factor and notional bases differ.
+    pub fn canonical_mid_values(
+        &self,
+    ) -> Result<BondMidValues, convex_core::contracts::ContractError> {
+        use convex_core::contracts::{ContractError, DecimalRate, ExactDecimal, PricePer100};
+        let dirty = match (self.clean_price_mid, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => {
+                let dirty = clean.checked_add(accrued).ok_or(ContractError {
+                    field: "dirty_price",
+                    reason: "exact decimal overflow",
+                })?;
+                if dirty.checked_sub(clean) != Some(accrued)
+                    || dirty.checked_sub(accrued) != Some(clean)
+                {
+                    return Err(ContractError {
+                        field: "dirty_price",
+                        reason: "exact decimal addition would round",
+                    });
+                }
+                Some(dirty)
+            }
+            _ => None,
+        };
+        Ok(BondMidValues {
+            clean: self
+                .clean_price_mid
+                .map(|value| PricePer100::new(ExactDecimal::new(value))),
+            dirty: dirty.map(|value| PricePer100::new(ExactDecimal::new(value))),
+            accrued: self
+                .accrued_interest
+                .map(|value| PricePer100::new(ExactDecimal::new(value))),
+            ytm: self
+                .ytm_mid
+                .map(|value| DecimalRate::new(ExactDecimal::new(value))),
+        })
+    }
+
+    /// Calculate dirty price from clean price and accrued.
+    pub fn dirty_price_mid(&self) -> Option<Decimal> {
+        match (self.clean_price_mid, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
+            _ => None,
+        }
+    }
+
+    /// Calculate dirty price bid.
+    pub fn dirty_price_bid(&self) -> Option<Decimal> {
+        match (self.clean_price_bid, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
+            _ => None,
+        }
+    }
+
+    /// Calculate dirty price ask.
+    pub fn dirty_price_ask(&self) -> Option<Decimal> {
+        match (self.clean_price_ask, self.accrued_interest) {
+            (Some(clean), Some(accrued)) => clean.checked_add(accrued),
+            _ => None,
+        }
+    }
+
+    /// Get price for specified side.
+    pub fn clean_price_for_side(&self, side: crate::storage::QuoteSide) -> Option<Decimal> {
+        use crate::storage::QuoteSide;
+        match side {
+            QuoteSide::Bid => self.clean_price_bid,
+            QuoteSide::Mid => self.clean_price_mid,
+            QuoteSide::Ask => self.clean_price_ask,
+        }
+    }
+
+    /// Get yield for specified side.
+    pub fn ytm_for_side(&self, side: crate::storage::QuoteSide) -> Option<Decimal> {
+        use crate::storage::QuoteSide;
+        match side {
+            QuoteSide::Bid => self.ytm_bid,
+            QuoteSide::Mid => self.ytm_mid,
+            QuoteSide::Ask => self.ytm_ask,
+        }
+    }
+}
+
+/// Explicit mid pricing values at the publishing boundary.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BondMidValues {
+    /// Existing clean per-100 price, if calculated.
+    pub clean: Option<convex_core::contracts::PricePer100>,
+    /// Exact clean plus accrued, only when both inputs are present.
+    pub dirty: Option<convex_core::contracts::PricePer100>,
+    /// Existing accrued per 100, if calculated.
+    pub accrued: Option<convex_core::contracts::PricePer100>,
+    /// Existing decimal yield, if calculated.
+    pub ytm: Option<convex_core::contracts::DecimalRate>,
+}
+
+// =============================================================================
+// ETF OUTPUT
+// =============================================================================
+
+/// ETF quote output.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EtfQuoteOutput {
+    /// ETF identifier
+    pub etf_id: EtfId,
+    /// ETF name
+    pub name: String,
+    /// Currency
+    pub currency: Currency,
+
+    /// Net Asset Value
+    pub nav: Option<Decimal>,
+    /// Indicative NAV
+    pub inav: Option<Decimal>,
+    /// Last traded price
+    pub price: Option<Decimal>,
+    /// Premium/discount to NAV (as decimal, e.g., 0.01 = 1%)
+    pub premium_discount: Option<Decimal>,
+
+    /// Number of holdings
+    pub num_holdings: u32,
+    /// Holdings coverage (% of holdings priced)
+    pub coverage: Decimal,
+
+    /// Duration (portfolio weighted)
+    pub duration: Option<Decimal>,
+    /// Yield (portfolio weighted)
+    pub yield_value: Option<Decimal>,
+    /// Spread (portfolio weighted)
+    pub spread: Option<Decimal>,
+
+    /// Calculation timestamp
+    pub timestamp: i64,
+    /// Is stale
+    pub is_stale: bool,
+}
+
+// =============================================================================
+// PORTFOLIO ANALYTICS OUTPUT
+// =============================================================================
+
+/// Portfolio analytics output.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PortfolioAnalyticsOutput {
+    /// Portfolio identifier
+    pub portfolio_id: PortfolioId,
+    /// Portfolio name
+    pub name: String,
+    /// Reporting currency
+    pub currency: Currency,
+
+    /// Total market value
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    pub market_value: Decimal,
+    /// Number of positions
+    pub num_positions: u32,
+
+    /// Portfolio duration
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    pub duration: Decimal,
+    /// Portfolio convexity
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    pub convexity: Decimal,
+    /// Portfolio yield
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    pub yield_value: Decimal,
+    /// Portfolio spread
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    pub spread: Decimal,
+
+    /// Total DV01
+    #[serde(with = "convex_core::contracts::decimal_serde")]
+    pub dv01: Decimal,
+    /// Complete exact-label key rate durations; missing coverage remains null.
+    pub key_rate_durations: Vec<(String, Option<convex_core::contracts::ExactDecimal>)>,
+
+    /// Supplied position count for each exact factor; incomplete factors have no duration.
+    pub key_rate_coverage: Vec<(String, u32)>,
+
+    /// Sector breakdown
+    pub sector_breakdown: Vec<(String, convex_core::contracts::ExactDecimal)>,
+
+    /// Positions carrying an actual sector classification.
+    pub sector_coverage: u32,
+    /// Rating breakdown
+    pub rating_breakdown: Vec<(String, convex_core::contracts::ExactDecimal)>,
+
+    /// Positions carrying an actual rating classification.
+    pub rating_coverage: u32,
+
+    /// Common actual settlement date of all consumed quotes.
+    pub settlement_date: convex_core::Date,
+
+    /// Latest actual consumed quote timestamp; no calculation clock is invented.
+    /// Calculation timestamp
+    pub timestamp: i64,
+}

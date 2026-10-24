@@ -1,67 +1,121 @@
-//! Server configuration.
+//! Strict process configuration. All settings require a restart.
+
+use std::ffi::OsString;
+use std::fmt;
+use std::io::Read;
+use std::net::{IpAddr, SocketAddr};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
-/// Server configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Explicit server mode; production is the safe default.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ServerProfile {
+    /// The Live runtime of a stored activated configuration, behind required access and an
+    /// external TLS proxy. The default; startup names the first of these that is missing.
+    #[default]
+    Production,
+    /// Explicitly permits the existing demonstration providers.
+    Demo,
+    /// Explicit local historical replay; never live/execution readiness.
+    Replay,
+    /// Explicit local live runtime fed by `POST /api/v1/market/quotes`; never execution readiness.
+    Live,
+}
+
+/// Configuration failures never include input values, file contents or paths.
+#[derive(Debug, Error)]
+pub enum ConfigError {
+    /// The selected configuration file cannot be read.
+    #[error("CONFIG_FILE_IO: cannot read configuration ({kind:?})")]
+    FileIo {
+        /// Portable I/O error classification.
+        kind: std::io::ErrorKind,
+    },
+    /// Invalid TOML, type, enum value or unknown key.
+    #[error("CONFIG_FILE_PARSE: invalid TOML, field type, profile or unknown key")]
+    FileParse,
+    /// Configuration input exceeds the bounded process settings size.
+    #[error("CONFIG_FILE_TOO_LARGE: configuration exceeds 65536 bytes")]
+    FileTooLarge,
+    /// A supported field has an invalid value.
+    #[error("INVALID_CONFIG_VALUE: {field} requires {expected}")]
+    InvalidValue {
+        /// Setting name, never the submitted value.
+        field: &'static str,
+        /// Expected format.
+        expected: &'static str,
+    },
+    /// An unrecognized CONVEX_ environment variable was supplied.
+    #[error("UNKNOWN_CONFIG_ENVIRONMENT: {name}")]
+    UnknownEnvironment {
+        /// Variable name; its value is never retained.
+        name: String,
+    },
+    /// Environment values must be valid Unicode.
+    #[error("INVALID_CONFIG_ENCODING: {name} requires Unicode")]
+    EnvironmentEncoding {
+        /// Variable name; its value is never retained.
+        name: String,
+    },
+    /// A setting requests behavior not implemented by the composition root.
+    #[error("UNSUPPORTED_CONFIG: {field}: {reason}")]
+    Unsupported {
+        /// Unsupported setting name.
+        field: &'static str,
+        /// Missing capability.
+        reason: &'static str,
+    },
+}
+
+/// Server process settings. Defaults < file < environment; unknown keys fail.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct ServerConfig {
-    /// Host to bind to
-    #[serde(default = "default_host")]
+    /// Authentication, authorization, browser origins and TLS ingress boundary.
+    pub access: crate::access::identity::AccessSettings,
+    /// Explicit demo or production profile.
+    pub profile: ServerProfile,
+    /// IPv4 or IPv6 bind address. Hostnames are unsupported.
     pub host: String,
-
-    /// Port to listen on
-    #[serde(default = "default_port")]
+    /// HTTP port; zero asks the operating system for an ephemeral port.
     pub port: u16,
-
-    /// Enable WebSocket
-    #[serde(default = "default_true")]
+    /// Enable the WebSocket routes on the HTTP listener.
     pub websocket_enabled: bool,
-
-    /// WebSocket port (if different from HTTP)
+    /// Only the HTTP port is supported; a distinct listener is rejected.
     pub websocket_port: Option<u16>,
-
-    /// Storage path
-    #[serde(default = "default_storage_path")]
+    /// Local redb file. Its parent directory must already exist.
     pub storage_path: String,
-
-    /// Market data quotes file
+    /// Reserved file integration; rejected until the provider is wired.
     pub quotes_file: Option<String>,
-
-    /// Market data curves file
+    /// Complete bounded JSON runtime plan; required in replay mode.
+    pub runtime_plan: Option<String>,
+    /// Plan the stored active configuration: production requires it, live may use it
+    /// instead of `runtime_plan`, and demo runs it on demonstration data.
+    pub configuration_id: Option<String>,
+    /// Reserved file integration; rejected until the provider is wired.
     pub curves_file: Option<String>,
-
-    /// Market data fixings file
+    /// Reserved file integration; rejected until the provider is wired.
     pub fixings_file: Option<String>,
-
-    /// Reference data bonds file
+    /// Reserved file integration; rejected until the provider is wired.
     pub bonds_file: Option<String>,
-}
-
-fn default_host() -> String {
-    "0.0.0.0".to_string()
-}
-
-fn default_port() -> u16 {
-    8080
-}
-
-fn default_true() -> bool {
-    true
-}
-
-fn default_storage_path() -> String {
-    "./data/convex.redb".to_string()
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            host: default_host(),
-            port: default_port(),
+            access: Default::default(),
+            profile: ServerProfile::Production,
+            host: "0.0.0.0".into(),
+            port: 8080,
             websocket_enabled: true,
             websocket_port: None,
-            storage_path: default_storage_path(),
+            storage_path: "./data/convex.redb".into(),
             quotes_file: None,
+            runtime_plan: None,
+            configuration_id: None,
             curves_file: None,
             fixings_file: None,
             bonds_file: None,
@@ -69,91 +123,406 @@ impl Default for ServerConfig {
     }
 }
 
+/// Safe startup inspection: all paths are redacted, including unsupported inputs.
+#[derive(Debug, Serialize)]
+pub struct EffectiveConfig<'a> {
+    /// Safe access configuration summary; no secret references, URLs or paths.
+    pub access: crate::access::identity::RedactedAccessSettings,
+    /// Selected profile.
+    pub profile: ServerProfile,
+    /// Validated bind address.
+    pub host: &'a str,
+    /// Requested listener port; the bound address is logged separately.
+    pub port: u16,
+    /// Whether WebSocket routes are registered.
+    pub websocket_enabled: bool,
+    /// Shared listener setting.
+    pub websocket_port: Option<u16>,
+    /// Redacted storage path.
+    pub storage_path: &'static str,
+    /// Redacted optional quote source.
+    pub quotes_file: Option<&'static str>,
+    /// Redacted optional runtime plan location.
+    pub runtime_plan: Option<&'static str>,
+    /// Stored configuration the live runtime plans; an identity, not a path.
+    pub configuration_id: Option<&'a str>,
+    /// Redacted optional curve source.
+    pub curves_file: Option<&'static str>,
+    /// Redacted optional fixing source.
+    pub fixings_file: Option<&'static str>,
+    /// Redacted optional bond source.
+    pub bonds_file: Option<&'static str>,
+}
+
+impl fmt::Debug for ServerConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.effective_redacted().fmt(formatter)
+    }
+}
+
 impl ServerConfig {
-    /// Load configuration from a TOML file.
-    pub fn from_file(path: &str) -> Result<Self, std::io::Error> {
-        let content = std::fs::read_to_string(path)?;
-        let mut config: Self = toml::from_str(&content)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        config.apply_env_overrides();
+    /// Load an explicit file, or the optional config/convex.toml when no path is supplied.
+    /// Only an absent optional default file is allowed; other I/O failures propagate.
+    pub fn load(path: Option<&Path>) -> Result<Self, ConfigError> {
+        let mut config = match path {
+            Some(path) => Self::read_file(path)?,
+            None => match Self::read_file(Path::new("config/convex.toml")) {
+                Ok(config) => config,
+                Err(ConfigError::FileIo {
+                    kind: std::io::ErrorKind::NotFound,
+                }) => Self::default(),
+                Err(error) => return Err(error),
+            },
+        };
+        config.apply_env_overrides()?;
         Ok(config)
     }
 
-    /// Create configuration from defaults with environment variable overrides.
-    ///
-    /// This is useful when no config file is provided.
-    pub fn from_env() -> Self {
+    /// Load an explicit TOML file and apply environment overrides. Missing files fail.
+    pub fn from_file(path: &str) -> Result<Self, ConfigError> {
+        Self::load(Some(Path::new(path)))
+    }
+
+    /// Load defaults and environment only, without looking for a configuration file.
+    pub fn from_env() -> Result<Self, ConfigError> {
         let mut config = Self::default();
-        config.apply_env_overrides();
-        config
+        config.apply_env_overrides()?;
+        Ok(config)
     }
 
-    /// Apply environment variable overrides to the configuration.
-    ///
-    /// Environment variables take precedence over file-based configuration.
-    /// Supported variables:
-    /// - `CONVEX_HOST` - Server host (default: "0.0.0.0")
-    /// - `CONVEX_PORT` - Server port (default: 8080)
-    /// - `CONVEX_WEBSOCKET_ENABLED` - Enable WebSocket ("true"/"false")
-    /// - `CONVEX_WEBSOCKET_PORT` - WebSocket port (if different from HTTP)
-    /// - `CONVEX_STORAGE_PATH` - Storage file path
-    /// - `CONVEX_QUOTES_FILE` - Market data quotes file
-    /// - `CONVEX_CURVES_FILE` - Market data curves file
-    /// - `CONVEX_FIXINGS_FILE` - Market data fixings file
-    /// - `CONVEX_BONDS_FILE` - Reference data bonds file
-    pub fn apply_env_overrides(&mut self) {
-        if let Ok(host) = std::env::var("CONVEX_HOST") {
-            self.host = host;
+    fn read_file(path: &Path) -> Result<Self, ConfigError> {
+        const MAX_BYTES: u64 = 65536;
+        let file = std::fs::File::open(path)
+            .map_err(|error| ConfigError::FileIo { kind: error.kind() })?;
+        let mut bytes = Vec::new();
+        file.take(MAX_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|error| ConfigError::FileIo { kind: error.kind() })?;
+        if bytes.len() as u64 > MAX_BYTES {
+            return Err(ConfigError::FileTooLarge);
         }
+        let content = std::str::from_utf8(&bytes).map_err(|_| ConfigError::FileParse)?;
+        Self::parse_file(content)
+    }
 
-        if let Ok(port) = std::env::var("CONVEX_PORT") {
-            if let Ok(p) = port.parse::<u16>() {
-                self.port = p;
+    fn parse_file(content: &str) -> Result<Self, ConfigError> {
+        let config: Self = toml::from_str(content).map_err(|_| ConfigError::FileParse)?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// Apply supported CONVEX_ overrides atomically. Invalid and unknown values fail.
+    /// See env_var_names and the server configuration guide for the supported settings.
+    pub fn apply_env_overrides(&mut self) -> Result<(), ConfigError> {
+        self.apply_overrides(std::env::vars_os())
+    }
+
+    fn apply_overrides(
+        &mut self,
+        variables: impl IntoIterator<Item = (OsString, OsString)>,
+    ) -> Result<(), ConfigError> {
+        let mut candidate = self.clone();
+        for (name, value) in variables {
+            if !name.to_string_lossy().starts_with("CONVEX_") {
+                continue;
+            }
+            let name = name
+                .into_string()
+                .map_err(|_| ConfigError::EnvironmentEncoding {
+                    name: "CONVEX_ variable name".into(),
+                })?;
+            if !Self::env_var_names().contains(&name.as_str()) {
+                return Err(ConfigError::UnknownEnvironment { name });
+            }
+            let value = value
+                .into_string()
+                .map_err(|_| ConfigError::EnvironmentEncoding { name: name.clone() })?;
+            match name.as_str() {
+                "CONVEX_ACCESS_MODE" => {
+                    candidate.access.mode = match value.as_str() {
+                        "required" => crate::access::identity::AccessMode::Required,
+                        "local_development" => {
+                            crate::access::identity::AccessMode::LocalDevelopment
+                        }
+                        _ => {
+                            return Err(ConfigError::InvalidValue {
+                                field: "access.mode",
+                                expected: "required or local_development",
+                            })
+                        }
+                    }
+                }
+                "CONVEX_ACCESS_POLICY_FILE" => candidate.access.policy_file = Some(value),
+                "CONVEX_TLS_BOUNDARY" => {
+                    candidate.access.tls_boundary = match value.as_str() {
+                        "local_only" => crate::access::identity::TlsBoundary::LocalOnly,
+                        "proxy" => crate::access::identity::TlsBoundary::Proxy,
+                        _ => {
+                            return Err(ConfigError::InvalidValue {
+                                field: "access.tls_boundary",
+                                expected: "local_only or proxy",
+                            })
+                        }
+                    }
+                }
+                "CONVEX_CORS_ORIGINS" => {
+                    candidate.access.cors_origins =
+                        serde_json::from_str(&value).map_err(|_| ConfigError::InvalidValue {
+                            field: "access.cors_origins",
+                            expected: "a JSON array of exact origins",
+                        })?
+                }
+                "CONVEX_PROFILE" => {
+                    candidate.profile = match value.as_str() {
+                        "production" => ServerProfile::Production,
+                        "demo" => ServerProfile::Demo,
+                        "replay" => ServerProfile::Replay,
+                        "live" => ServerProfile::Live,
+                        _ => {
+                            return Err(ConfigError::InvalidValue {
+                                field: "profile",
+                                expected: "production, demo, replay or live",
+                            })
+                        }
+                    }
+                }
+                "CONVEX_HOST" => candidate.host = value,
+                "CONVEX_PORT" => candidate.port = Self::parse_port(&value, "port")?,
+                "CONVEX_WEBSOCKET_ENABLED" => {
+                    candidate.websocket_enabled = match value.to_ascii_lowercase().as_str() {
+                        "true" | "1" => true,
+                        "false" | "0" => false,
+                        _ => {
+                            return Err(ConfigError::InvalidValue {
+                                field: "websocket_enabled",
+                                expected: "true, false, 1 or 0",
+                            })
+                        }
+                    }
+                }
+                "CONVEX_WEBSOCKET_PORT" => {
+                    candidate.websocket_port = Some(Self::parse_port(&value, "websocket_port")?)
+                }
+                "CONVEX_STORAGE_PATH" => candidate.storage_path = value,
+                "CONVEX_RUNTIME_PLAN" => candidate.runtime_plan = Some(value),
+                "CONVEX_CONFIGURATION_ID" => candidate.configuration_id = Some(value),
+                "CONVEX_QUOTES_FILE" => candidate.quotes_file = Some(value),
+                "CONVEX_CURVES_FILE" => candidate.curves_file = Some(value),
+                "CONVEX_FIXINGS_FILE" => candidate.fixings_file = Some(value),
+                "CONVEX_BONDS_FILE" => candidate.bonds_file = Some(value),
+                _ => return Err(ConfigError::UnknownEnvironment { name }),
             }
         }
+        candidate.validate()?;
+        *self = candidate;
+        Ok(())
+    }
 
-        if let Ok(ws_enabled) = std::env::var("CONVEX_WEBSOCKET_ENABLED") {
-            self.websocket_enabled = ws_enabled.to_lowercase() == "true" || ws_enabled == "1";
-        }
+    fn parse_port(value: &str, field: &'static str) -> Result<u16, ConfigError> {
+        value.parse().map_err(|_| ConfigError::InvalidValue {
+            field,
+            expected: "an integer in 0..=65535",
+        })
+    }
 
-        if let Ok(ws_port) = std::env::var("CONVEX_WEBSOCKET_PORT") {
-            if let Ok(p) = ws_port.parse::<u16>() {
-                self.websocket_port = Some(p);
+    /// Validate syntax and supported settings without creating resources.
+    pub fn validate(&self) -> Result<(), ConfigError> {
+        self.bind_address()?;
+        self.access
+            .validate()
+            .map_err(|_| ConfigError::InvalidValue {
+                field: "access",
+                expected: "valid bounded access settings and exact origins",
+            })?;
+        if let Some(port) = self.websocket_port {
+            if !self.websocket_enabled || port != self.port {
+                return Err(ConfigError::Unsupported {
+                    field: "websocket_port",
+                    reason: "only enabled WebSockets on the HTTP listener are supported",
+                });
             }
         }
-
-        if let Ok(storage_path) = std::env::var("CONVEX_STORAGE_PATH") {
-            self.storage_path = storage_path;
+        if self.storage_path.trim().is_empty() || self.storage_path.contains('\0') {
+            return Err(ConfigError::InvalidValue {
+                field: "storage_path",
+                expected: "a nonempty file path without NUL",
+            });
         }
-
-        if let Ok(quotes_file) = std::env::var("CONVEX_QUOTES_FILE") {
-            self.quotes_file = Some(quotes_file);
+        for (field, configured) in [
+            (
+                "quotes_file",
+                self.quotes_file.is_some() && self.profile != ServerProfile::Replay,
+            ),
+            ("curves_file", self.curves_file.is_some()),
+            ("fixings_file", self.fixings_file.is_some()),
+            ("bonds_file", self.bonds_file.is_some()),
+        ] {
+            if configured {
+                return Err(ConfigError::Unsupported {
+                    field,
+                    reason: "file provider composition is not implemented",
+                });
+            }
         }
-
-        if let Ok(curves_file) = std::env::var("CONVEX_CURVES_FILE") {
-            self.curves_file = Some(curves_file);
+        if self.profile == ServerProfile::Replay
+            && (self.runtime_plan.is_none() || self.quotes_file.is_none())
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "replay",
+                expected: "runtime_plan and canonical quotes_file",
+            });
         }
-
-        if let Ok(fixings_file) = std::env::var("CONVEX_FIXINGS_FILE") {
-            self.fixings_file = Some(fixings_file);
+        if self.profile == ServerProfile::Live
+            && self.runtime_plan.is_some() == self.configuration_id.is_some()
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "live",
+                expected: "exactly one of runtime_plan or configuration_id",
+            });
         }
+        if let Some(id) = &self.configuration_id {
+            if self.profile == ServerProfile::Replay {
+                return Err(ConfigError::Unsupported {
+                    field: "configuration_id",
+                    reason: "replay runs a plan file, not a stored configuration",
+                });
+            }
+            if convex_core::contracts::SourceId::new(id.as_str()).is_err() {
+                return Err(ConfigError::InvalidValue {
+                    field: "configuration_id",
+                    expected: "a stored configuration identity",
+                });
+            }
+        }
+        if matches!(self.profile, ServerProfile::Replay | ServerProfile::Live) {
+            if !self.host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
+                return Err(ConfigError::Unsupported {
+                    field: "host",
+                    reason: "this executable uses a loopback-only HTTP upstream",
+                });
+            }
+        } else if self.runtime_plan.is_some() {
+            return Err(ConfigError::Unsupported {
+                field: "runtime_plan",
+                reason: "runtime plan requires the explicit replay or live profile",
+            });
+        }
+        Ok(())
+    }
 
-        if let Ok(bonds_file) = std::env::var("CONVEX_BONDS_FILE") {
-            self.bonds_file = Some(bonds_file);
+    /// Refuse an incomplete composition before opening storage.
+    pub fn validate_startup(&self) -> Result<(), ConfigError> {
+        self.validate()?;
+        if self.profile == ServerProfile::Production {
+            self.validate_production()?;
+        }
+        if !self.bind_address()?.ip().is_loopback() {
+            return Err(ConfigError::Unsupported {
+                field: "host",
+                reason:
+                    "plain HTTP must bind loopback; remote ingress requires an external TLS proxy",
+            });
+        }
+        if self.access.mode == crate::access::identity::AccessMode::Required
+            && (self.access.policy_file.is_none() || self.access.introspection.is_none())
+        {
+            return Err(ConfigError::InvalidValue {
+                field: "access",
+                expected: "policy_file and introspection settings, or explicit local_development",
+            });
+        }
+        if self
+            .access
+            .introspection
+            .as_ref()
+            .is_some_and(|i| i.allow_http_loopback)
+            && self.access.tls_boundary != crate::access::identity::TlsBoundary::LocalOnly
+        {
+            return Err(ConfigError::Unsupported {
+                field: "access.introspection",
+                reason: "HTTP identity fixtures require the local_only TLS boundary",
+            });
+        }
+        Ok(())
+    }
+
+    /// Production runs the Live runtime of a stored activated configuration (D23: live
+    /// valuations display-only, official results from core-workflow snapshot runs), behind
+    /// required access and an external TLS proxy. Each missing condition is its own error.
+    fn validate_production(&self) -> Result<(), ConfigError> {
+        use crate::access::identity::{AccessMode, TlsBoundary};
+        let missing = |field, expected| Err(ConfigError::InvalidValue { field, expected });
+        if self.configuration_id.is_none() {
+            return missing(
+                "configuration_id",
+                "a stored activated configuration in production",
+            );
+        }
+        if self.access.mode != AccessMode::Required {
+            return missing("access.mode", "required in production");
+        }
+        if self.access.tls_boundary != TlsBoundary::Proxy {
+            return missing("access.tls_boundary", "proxy in production");
+        }
+        Ok(())
+    }
+
+    /// Resolve the exact listener address; never fall back to a different interface.
+    pub fn bind_address(&self) -> Result<SocketAddr, ConfigError> {
+        let host = self
+            .host
+            .parse::<IpAddr>()
+            .map_err(|_| ConfigError::InvalidValue {
+                field: "host",
+                expected: "an IPv4 or IPv6 literal",
+            })?;
+        Ok(SocketAddr::new(host, self.port))
+    }
+
+    /// Return an inspection view that cannot expose configured paths.
+    pub fn effective_redacted(&self) -> EffectiveConfig<'_> {
+        const REDACTED: &str = "[REDACTED]";
+        EffectiveConfig {
+            access: self.access.redacted(),
+            profile: self.profile,
+            // Debug on an unvalidated config must not expose an arbitrary input value.
+            host: if self.host.parse::<IpAddr>().is_ok() {
+                &self.host
+            } else {
+                REDACTED
+            },
+            port: self.port,
+            websocket_enabled: self.websocket_enabled,
+            websocket_port: self.websocket_port,
+            storage_path: REDACTED,
+            quotes_file: self.quotes_file.as_ref().map(|_| REDACTED),
+            runtime_plan: self.runtime_plan.as_ref().map(|_| REDACTED),
+            // Shown only once valid, like `host`.
+            configuration_id: self
+                .configuration_id
+                .as_deref()
+                .filter(|id| convex_core::contracts::SourceId::new(*id).is_ok()),
+            curves_file: self.curves_file.as_ref().map(|_| REDACTED),
+            fixings_file: self.fixings_file.as_ref().map(|_| REDACTED),
+            bonds_file: self.bonds_file.as_ref().map(|_| REDACTED),
         }
     }
 
-    /// Get all configured environment variable names.
-    ///
-    /// Useful for documentation and debugging.
+    /// Supported environment names; unknown CONVEX_ variables are rejected.
     pub fn env_var_names() -> &'static [&'static str] {
         &[
+            "CONVEX_PROFILE",
+            "CONVEX_ACCESS_MODE",
+            "CONVEX_ACCESS_POLICY_FILE",
+            "CONVEX_TLS_BOUNDARY",
+            "CONVEX_CORS_ORIGINS",
             "CONVEX_HOST",
             "CONVEX_PORT",
             "CONVEX_WEBSOCKET_ENABLED",
             "CONVEX_WEBSOCKET_PORT",
             "CONVEX_STORAGE_PATH",
             "CONVEX_QUOTES_FILE",
+            "CONVEX_RUNTIME_PLAN",
             "CONVEX_CURVES_FILE",
             "CONVEX_FIXINGS_FILE",
             "CONVEX_BONDS_FILE",
@@ -164,167 +533,302 @@ impl ServerConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-    use std::sync::Mutex;
 
-    // Mutex to ensure env var tests run serially
-    static ENV_TEST_MUTEX: Mutex<()> = Mutex::new(());
-
-    // Helper to run tests with specific env vars set, then clean up
-    fn with_env_vars<F, T>(vars: &[(&str, &str)], f: F) -> T
-    where
-        F: FnOnce() -> T,
-    {
-        let _guard = ENV_TEST_MUTEX.lock().unwrap();
-
-        // Clear all CONVEX_ env vars first
-        for var_name in ServerConfig::env_var_names() {
-            env::remove_var(var_name);
-        }
-
-        // Set vars
-        for (key, value) in vars {
-            env::set_var(key, value);
-        }
-
-        let result = f();
-
-        // Clean up
-        for (key, _) in vars {
-            env::remove_var(key);
-        }
-
-        result
+    fn overrides(config: &mut ServerConfig, values: &[(&str, &str)]) -> Result<(), ConfigError> {
+        config.apply_overrides(
+            values
+                .iter()
+                .map(|(key, value)| (OsString::from(key), OsString::from(value))),
+        )
     }
 
     #[test]
-    fn test_default_config() {
-        let config = ServerConfig::default();
-        assert_eq!(config.host, "0.0.0.0");
+    fn defaults_are_production_and_file_keys_are_strict() {
+        let config = ServerConfig::parse_file("").unwrap();
+        assert_eq!(config.profile, ServerProfile::Production);
         assert_eq!(config.port, 8080);
-        assert!(config.websocket_enabled);
-        assert!(config.websocket_port.is_none());
-        assert_eq!(config.storage_path, "./data/convex.redb");
+        assert!(matches!(
+            ServerConfig::parse_file("unknown = 'secret'"),
+            Err(ConfigError::FileParse)
+        ));
+        assert!(matches!(
+            ServerConfig::parse_file("port = -1"),
+            Err(ConfigError::FileParse)
+        ));
+        assert!(matches!(
+            ServerConfig::parse_file("profile = 'unknown'"),
+            Err(ConfigError::FileParse)
+        ));
     }
 
     #[test]
-    fn test_env_override_host() {
-        with_env_vars(&[("CONVEX_HOST", "127.0.0.1")], || {
-            let config = ServerConfig::from_env();
-            assert_eq!(config.host, "127.0.0.1");
-        });
-    }
-
-    #[test]
-    fn test_env_override_port() {
-        with_env_vars(&[("CONVEX_PORT", "3000")], || {
-            let config = ServerConfig::from_env();
-            assert_eq!(config.port, 3000);
-        });
-    }
-
-    #[test]
-    fn test_env_override_port_invalid() {
-        with_env_vars(&[("CONVEX_PORT", "not_a_number")], || {
-            let config = ServerConfig::from_env();
-            // Should keep default when parsing fails
-            assert_eq!(config.port, 8080);
-        });
-    }
-
-    #[test]
-    fn test_env_override_websocket_enabled_true() {
-        with_env_vars(&[("CONVEX_WEBSOCKET_ENABLED", "true")], || {
-            let config = ServerConfig::from_env();
-            assert!(config.websocket_enabled);
-        });
-    }
-
-    #[test]
-    fn test_env_override_websocket_enabled_false() {
-        with_env_vars(&[("CONVEX_WEBSOCKET_ENABLED", "false")], || {
-            let config = ServerConfig::from_env();
-            assert!(!config.websocket_enabled);
-        });
-    }
-
-    #[test]
-    fn test_env_override_websocket_enabled_numeric() {
-        with_env_vars(&[("CONVEX_WEBSOCKET_ENABLED", "1")], || {
-            let config = ServerConfig::from_env();
-            assert!(config.websocket_enabled);
-        });
-
-        with_env_vars(&[("CONVEX_WEBSOCKET_ENABLED", "0")], || {
-            let config = ServerConfig::from_env();
-            assert!(!config.websocket_enabled);
-        });
-    }
-
-    #[test]
-    fn test_env_override_websocket_port() {
-        with_env_vars(&[("CONVEX_WEBSOCKET_PORT", "8081")], || {
-            let config = ServerConfig::from_env();
-            assert_eq!(config.websocket_port, Some(8081));
-        });
-    }
-
-    #[test]
-    fn test_env_override_storage_path() {
-        with_env_vars(&[("CONVEX_STORAGE_PATH", "/custom/path.redb")], || {
-            let config = ServerConfig::from_env();
-            assert_eq!(config.storage_path, "/custom/path.redb");
-        });
-    }
-
-    #[test]
-    fn test_env_override_market_data_files() {
-        with_env_vars(
+    fn environment_precedence_is_deterministic_without_global_mutation() {
+        let mut config = ServerConfig::parse_file(
+            "profile='production'\nhost='::1'\nport=9000\nwebsocket_enabled=true",
+        )
+        .unwrap();
+        overrides(
+            &mut config,
             &[
-                ("CONVEX_QUOTES_FILE", "/data/quotes.json"),
-                ("CONVEX_CURVES_FILE", "/data/curves.json"),
-                ("CONVEX_FIXINGS_FILE", "/data/fixings.json"),
-                ("CONVEX_BONDS_FILE", "/data/bonds.json"),
-            ],
-            || {
-                let config = ServerConfig::from_env();
-                assert_eq!(config.quotes_file, Some("/data/quotes.json".to_string()));
-                assert_eq!(config.curves_file, Some("/data/curves.json".to_string()));
-                assert_eq!(config.fixings_file, Some("/data/fixings.json".to_string()));
-                assert_eq!(config.bonds_file, Some("/data/bonds.json".to_string()));
-            },
-        );
-    }
-
-    #[test]
-    fn test_env_override_multiple() {
-        with_env_vars(
-            &[
-                ("CONVEX_HOST", "localhost"),
-                ("CONVEX_PORT", "9000"),
+                ("CONVEX_PROFILE", "demo"),
+                ("CONVEX_ACCESS_MODE", "local_development"),
+                ("CONVEX_HOST", "127.0.0.1"),
+                ("CONVEX_PORT", "0"),
                 ("CONVEX_WEBSOCKET_ENABLED", "false"),
+                ("CONVEX_STORAGE_PATH", "/custom/store"),
             ],
-            || {
-                let config = ServerConfig::from_env();
-                assert_eq!(config.host, "localhost");
-                assert_eq!(config.port, 9000);
-                assert!(!config.websocket_enabled);
-            },
+        )
+        .unwrap();
+        assert_eq!(config.profile, ServerProfile::Demo);
+        assert_eq!(
+            config.bind_address().unwrap(),
+            "127.0.0.1:0".parse().unwrap()
+        );
+        assert!(!config.websocket_enabled);
+        assert_eq!(config.storage_path, "/custom/store");
+        config.validate_startup().unwrap();
+    }
+
+    #[test]
+    fn live_profile_needs_one_plan_source_loopback_and_no_quotes_file() {
+        let mut config = ServerConfig::parse_file("").unwrap();
+        overrides(
+            &mut config,
+            &[
+                ("CONVEX_PROFILE", "live"),
+                ("CONVEX_ACCESS_MODE", "local_development"),
+                ("CONVEX_HOST", "127.0.0.1"),
+                ("CONVEX_RUNTIME_PLAN", "/plan.json"),
+            ],
+        )
+        .unwrap();
+        assert_eq!(config.profile, ServerProfile::Live);
+        config.validate_startup().unwrap();
+        config.runtime_plan = None;
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::InvalidValue { field: "live", .. })
+        ));
+        config.configuration_id = Some("SHOWCASE-USD".into());
+        config.validate_startup().unwrap();
+        config.runtime_plan = Some("/plan.json".into());
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::InvalidValue { field: "live", .. })
+        ));
+        config.configuration_id = None;
+        config.quotes_file = Some("/quotes.jsonl".into());
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::Unsupported {
+                field: "quotes_file",
+                ..
+            })
+        ));
+        config.quotes_file = None;
+        config.host = "0.0.0.0".into();
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::Unsupported { field: "host", .. })
+        ));
+        config.host = "127.0.0.1".into();
+        // The demo profile may run a stored configuration live; it never takes a plan file.
+        config.profile = ServerProfile::Demo;
+        config.runtime_plan = None;
+        config.configuration_id = Some("SHOWCASE-USD".into());
+        config.validate_startup().unwrap();
+        config.runtime_plan = Some("/plan.json".into());
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::Unsupported {
+                field: "runtime_plan",
+                ..
+            })
+        ));
+        config.runtime_plan = None;
+        config.profile = ServerProfile::Replay;
+        config.quotes_file = Some("/quotes.jsonl".into());
+        config.runtime_plan = Some("/plan.json".into());
+        assert!(matches!(
+            config.validate(),
+            Err(ConfigError::Unsupported {
+                field: "configuration_id",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn invalid_overrides_are_typed_and_never_partially_apply() {
+        for (name, value, field) in [
+            ("CONVEX_PORT", "bad", "port"),
+            ("CONVEX_PORT", "-1", "port"),
+            ("CONVEX_PORT", "65536", "port"),
+            ("CONVEX_HOST", "localhost", "host"),
+            ("CONVEX_PROFILE", "", "profile"),
+            ("CONVEX_WEBSOCKET_ENABLED", "yes", "websocket_enabled"),
+            ("CONVEX_STORAGE_PATH", " ", "storage_path"),
+        ] {
+            let mut config = ServerConfig::default();
+            let result = overrides(&mut config, &[("CONVEX_HOST", "::1"), (name, value)]);
+            assert!(
+                matches!(result, Err(ConfigError::InvalidValue { field: actual, .. }) if actual == field)
+            );
+            assert_eq!(config.host, "0.0.0.0");
+        }
+    }
+
+    #[test]
+    fn unsupported_settings_and_unknown_environment_are_typed() {
+        for name in [
+            "CONVEX_QUOTES_FILE",
+            "CONVEX_CURVES_FILE",
+            "CONVEX_FIXINGS_FILE",
+            "CONVEX_BONDS_FILE",
+            "CONVEX_WEBSOCKET_PORT",
+        ] {
+            assert!(matches!(
+                overrides(&mut ServerConfig::default(), &[(name, "9000")]),
+                Err(ConfigError::Unsupported { .. })
+            ));
+        }
+        assert!(matches!(
+            overrides(&mut ServerConfig::default(), &[("CONVEX_SECRET", "secret")]),
+            Err(ConfigError::UnknownEnvironment { .. })
+        ));
+        assert!(matches!(
+            ServerConfig::default().validate_startup(),
+            Err(ConfigError::InvalidValue {
+                field: "configuration_id",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn production_needs_a_stored_configuration_required_access_and_the_tls_proxy() {
+        use crate::access::identity::{AccessMode, IntrospectionSettings, TlsBoundary};
+        let refused = |config: &ServerConfig| match config.validate_startup() {
+            Err(
+                ConfigError::InvalidValue { field, .. } | ConfigError::Unsupported { field, .. },
+            ) => field,
+            other => panic!("{other:?}"),
+        };
+        let mut config = ServerConfig {
+            host: "127.0.0.1".into(),
+            ..Default::default()
+        };
+        assert_eq!(config.profile, ServerProfile::Production);
+        assert_eq!(refused(&config), "configuration_id");
+        config.configuration_id = Some("BOOK-USD".into());
+        config.access.mode = AccessMode::LocalDevelopment;
+        assert_eq!(refused(&config), "access.mode");
+        config.access.mode = AccessMode::Required;
+        assert_eq!(refused(&config), "access.tls_boundary");
+        config.access.tls_boundary = TlsBoundary::Proxy;
+        assert_eq!(refused(&config), "access");
+        config.access.policy_file = Some("/access.json".into());
+        config.access.introspection = Some(IntrospectionSettings {
+            endpoint: "https://identity.example.invalid/introspect".into(),
+            issuer: "https://identity.example.invalid/issuer".into(),
+            audience: "convex-api".into(),
+            client_id: "convex".into(),
+            client_secret_ref: "env://IDENTITY_SECRET".into(),
+            allow_http_loopback: false,
+        });
+        config.validate_startup().unwrap();
+        // A plan file is replay or local live input, never production's.
+        config.runtime_plan = Some("/plan.json".into());
+        assert_eq!(refused(&config), "runtime_plan");
+        config.runtime_plan = None;
+        // The HTTP identity fixture exception stays local-only.
+        let introspection = config.access.introspection.as_mut().unwrap();
+        introspection.endpoint = "http://127.0.0.1:9/introspect".into();
+        introspection.allow_http_loopback = true;
+        assert_eq!(refused(&config), "access.introspection");
+        let introspection = config.access.introspection.as_mut().unwrap();
+        introspection.endpoint = "https://identity.example.invalid/introspect".into();
+        introspection.allow_http_loopback = false;
+        // TLS terminates at the proxy; the executable still binds loopback only.
+        config.host = "0.0.0.0".into();
+        assert_eq!(refused(&config), "host");
+        config.host = "127.0.0.1".into();
+        config.validate_startup().unwrap();
+    }
+
+    #[test]
+    fn shared_websocket_port_and_all_supported_booleans_work() {
+        for (value, enabled) in [
+            ("true", true),
+            ("TRUE", true),
+            ("1", true),
+            ("false", false),
+            ("0", false),
+        ] {
+            let mut config = ServerConfig::default();
+            overrides(&mut config, &[("CONVEX_WEBSOCKET_ENABLED", value)]).unwrap();
+            assert_eq!(config.websocket_enabled, enabled);
+        }
+        overrides(
+            &mut ServerConfig::default(),
+            &[("CONVEX_WEBSOCKET_PORT", "8080")],
+        )
+        .unwrap();
+        let result = overrides(
+            &mut ServerConfig::default(),
+            &[
+                ("CONVEX_WEBSOCKET_ENABLED", "false"),
+                ("CONVEX_WEBSOCKET_PORT", "8080"),
+            ],
+        );
+        assert!(matches!(
+            result,
+            Err(ConfigError::Unsupported {
+                field: "websocket_port",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn ipv6_and_maximum_port_are_valid() {
+        let mut config = ServerConfig::default();
+        overrides(
+            &mut config,
+            &[("CONVEX_HOST", "::1"), ("CONVEX_PORT", "65535")],
+        )
+        .unwrap();
+        assert_eq!(
+            config.bind_address().unwrap(),
+            "[::1]:65535".parse().unwrap()
         );
     }
 
     #[test]
-    fn test_env_var_names() {
-        let names = ServerConfig::env_var_names();
-        assert_eq!(names.len(), 9);
-        assert!(names.contains(&"CONVEX_HOST"));
-        assert!(names.contains(&"CONVEX_PORT"));
-        assert!(names.contains(&"CONVEX_WEBSOCKET_ENABLED"));
-        assert!(names.contains(&"CONVEX_WEBSOCKET_PORT"));
-        assert!(names.contains(&"CONVEX_STORAGE_PATH"));
-        assert!(names.contains(&"CONVEX_QUOTES_FILE"));
-        assert!(names.contains(&"CONVEX_CURVES_FILE"));
-        assert!(names.contains(&"CONVEX_FIXINGS_FILE"));
-        assert!(names.contains(&"CONVEX_BONDS_FILE"));
+    fn inspection_debug_and_errors_never_expose_values() {
+        let config = ServerConfig {
+            host: "secret-marker".into(),
+            storage_path: "secret-marker".into(),
+            quotes_file: Some("secret-marker".into()),
+            ..ServerConfig::default()
+        };
+        let view = serde_json::to_string(&config.effective_redacted()).unwrap();
+        assert!(!view.contains("secret-marker"));
+        assert!(!format!("{config:?}").contains("secret-marker"));
+        let error = config.validate().unwrap_err();
+        assert!(!error.to_string().contains("secret-marker"));
+        assert!(!format!("{error:?}").contains("secret-marker"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn non_unicode_environment_values_are_rejected() {
+        use std::os::unix::ffi::OsStringExt;
+        let result = ServerConfig::default()
+            .apply_overrides([(OsString::from("CONVEX_HOST"), OsString::from_vec(vec![255]))]);
+        assert!(matches!(
+            result,
+            Err(ConfigError::EnvironmentEncoding { .. })
+        ));
     }
 }

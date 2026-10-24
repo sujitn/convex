@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "qualification": "Synthetic CVX-061 inputs. Only native schema shape reused from earlier CDS fixture; every date/quote/calendar/entity/model assumption below is explicitly supplied engineering data, never actual market admission.",
+  "as_of": "2026-10-07T12:00:00Z",
+  "snapshot_id": "standalone.synthetic.CVX061.snapshot",
+  "source_reads": {
+    "tests/fixtures/comparisons/credit-isda-1.8.3/inputs.json": "a2e30428a157f58afe75728e8014a64a48e746f2295dfcf9801ca0b69fd3cd75"
+  },
+  "cds_template": {
+    "trade_id": "standalone.synthetic.cds",
+    "version": 1,
+    "side": "ProtectionBuyer",
+    "currency": "USD",
+    "notional": "1000000",
+    "reference": {
+      "entity_id": "standalone.synthetic.reference-entity",
+      "seniority": "SeniorUnsecured",
+      "document": {
+        "id": "standalone.synthetic.confirmation",
+        "version": 1
+      },
+      "restructuring_clause": {
+        "id": "standalone.synthetic.no-restructuring",
+        "version": 1
+      },
+      "recovery_fraction": 0.4
+    },
+    "model": "Standard183",
+    "trade_date": "2026-10-07",
+    "step_in_date": "2026-10-08",
+    "protection_start_date": "2026-10-08",
+    "cash_settlement_date": "2026-10-13",
+    "settlement_lag_business_days": 3,
+    "premium_schedule": {
+      "start_date": "2026-10-07",
+      "end_date": "2029-03-20",
+      "frequency": "Quarterly",
+      "stub_type": "ShortFirst",
+      "end_of_month": false,
+      "first_regular_date": null,
+      "penultimate_date": null
+    },
+    "maturity_rule": "QuarterlyTwentieth",
+    "coupon_decimal": "0.01",
+    "premium_day_count": "Act360",
+    "pay_accrual_on_default": true,
+    "premium_calendar": {
+      "id": "standalone.synthetic.credit-calendar",
+      "version": 1
+    },
+    "settlement_calendar": {
+      "id": "standalone.synthetic.credit-calendar",
+      "version": 1
+    },
+    "discount_curve": {
+      "id": "standalone.cds.discount",
+      "version": "1"
+    },
+    "survival_curve": {
+      "id": "standalone.cds.survival",
+      "version": "1"
+    },
+    "initial_clean_upfront_fraction": null
+  },
+  "cds_quotes": [
+    {
+      "maturity": "2027-03-20",
+      "decimal_spread": "0.009"
+    },
+    {
+      "maturity": "2028-03-20",
+      "decimal_spread": "0.012"
+    },
+    {
+      "maturity": "2029-03-20",
+      "decimal_spread": "0.014"
+    }
+  ],
+  "cds_discount": {
+    "reference_date": "2026-10-07",
+    "continuous_rate": "0.03",
+    "final_tenor": "10",
+    "interpretation": "Explicit directly supplied flat ACT365F log-linear discount grid, independent from OIS discount calibration; no curve conversion or native RFR bootstrap claim."
+  },
+  "bond_spread_decimal": "0.002",
+  "irs_fixed_rate_shift": "0.0035",
+  "ois_fixed_rate_shift": "0.0025",
+  "legal_entity": "standalone.synthetic.book-entity",
+  "reporting_currency": "EUR",
+  "usd_eur_fx": "0.9",
+  "gross_exposure_policy": "Synthetic externally supplied absolute USD-equivalent notional for this example's five trades; separate reporting-policy inputs, not values inferred from PV, quantities or a risk limit admission. Missing inputs remain unknown.",
+  "gross_exposure_usd": ["10000", "1000000", "2000000", "1000000", "3000000"],
+  "risk_bump": "0.0001",
+  "risk_stability_absolute": "0.05",
+  "risk_stability_relative": "0.0001"
+}

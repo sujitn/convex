@@ -1,0 +1,4739 @@
+{
+  "reference": "Python Fraction exact rational supplied economics; no Convex output used",
+  "decimal_policy": "Exact final magnitude <=2^96-1; greatest scale<=28 with nearest/even coefficient; reject nonzero rounded zero.",
+  "arithmetic": "par*(clean+supplied accrued)*supplied FX/100; weighted factor ratio; actual currency DV01 /10000.",
+  "absolute_decimal_bound": "0",
+  "relative_decimal_bound": "0",
+  "cases": [
+    {
+      "id": "captured-residual-1-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order0-ParValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000033333333",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual-1-order1-MarketValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order1-ParValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order1-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000033333333",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual-1-order2-MarketValue",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order2-ParValue",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order2-EqualWeight",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000033333333",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual-1-order3-MarketValue",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order3-ParValue",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order3-EqualWeight",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000033333333",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual-1-order4-MarketValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order4-ParValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order4-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000033333333",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual-1-order5-MarketValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order5-ParValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual-1-order5-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000033333333",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual--1-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order0-ParValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "-0.0000000000000000000033333333",
+            "known_partial_dv01": "-0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "-0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual--1-order1-MarketValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order1-ParValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order1-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "-0.0000000000000000000033333333",
+            "known_partial_dv01": "-0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "-0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual--1-order2-MarketValue",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order2-ParValue",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order2-EqualWeight",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "-0.0000000000000000000033333333",
+            "known_partial_dv01": "-0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "-0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual--1-order3-MarketValue",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order3-ParValue",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order3-EqualWeight",
+      "holdings": [
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "-0.0000000000000000000033333333",
+            "known_partial_dv01": "-0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "-0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual--1-order4-MarketValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order4-ParValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order4-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "-0.0000000000000000000033333333",
+            "known_partial_dv01": "-0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "-0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "captured-residual--1-order5-MarketValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order5-ParValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "captured-residual--1-order5-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-1"
+          }
+        },
+        {
+          "id": "small",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.00000000000000000001"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "10000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "-0.0000000000000000000033333333",
+            "known_partial_dv01": "-0.0000000000000000000000010000",
+            "covered_market_value": "20000000001.000000000000000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "-0.0000000000000000000033333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order0-ParValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.3333333333333333333333333333",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.3333333333333333333333333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order1-MarketValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order1-ParValue",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order1-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.3333333333333333333333333333",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.3333333333333333333333333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order2-MarketValue",
+      "holdings": [
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order2-ParValue",
+      "holdings": [
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order2-EqualWeight",
+      "holdings": [
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.3333333333333333333333333333",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.3333333333333333333333333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order3-MarketValue",
+      "holdings": [
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order3-ParValue",
+      "holdings": [
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order3-EqualWeight",
+      "holdings": [
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.3333333333333333333333333333",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.3333333333333333333333333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order4-MarketValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order4-ParValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order4-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.3333333333333333333333333333",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.3333333333333333333333333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order5-MarketValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order5-ParValue",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000050000000",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000050000000",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "overflowing-signed-products-cancel-order5-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-negative",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-100000000000000000000"
+          }
+        },
+        {
+          "id": "residual",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "1"
+          }
+        },
+        {
+          "id": "large-positive",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.3333333333333333333333333333",
+            "known_partial_dv01": "0.0001000000000000000000000000",
+            "covered_market_value": "200000000000000000001.00000000",
+            "covered_holdings": 3,
+            "total_holdings": 3
+          }
+        ],
+        "total_duration_decimal": "0.3333333333333333333333333333",
+        "complete_holdings": 3,
+        "total_holdings": 3
+      },
+      "expected": "success"
+    },
+    {
+      "id": "subresolution-individual-risk-cancels-exactly-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        },
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "subresolution-individual-risk-cancels-exactly-order0-ParValue",
+      "holdings": [
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        },
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "subresolution-individual-risk-cancels-exactly-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        },
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "subresolution-individual-risk-cancels-exactly-order1-MarketValue",
+      "holdings": [
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.0000000000000000000000000001"
+          }
+        },
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "subresolution-individual-risk-cancels-exactly-order1-ParValue",
+      "holdings": [
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.0000000000000000000000000001"
+          }
+        },
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "subresolution-individual-risk-cancels-exactly-order1-EqualWeight",
+      "holdings": [
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-0.0000000000000000000000000001"
+          }
+        },
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "profile-factor-cancellation-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "multi",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "10000000000",
+            "5": "0.00000000000000000001",
+            "10": "-10000000000"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "2",
+        "5",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "2",
+            "duration": "10000000000.000000000000000000",
+            "known_partial_dv01": "1000000.0000000000000000000000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          },
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000100000000",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          },
+          {
+            "tenor": "10",
+            "duration": "-10000000000.000000000000000000",
+            "known_partial_dv01": "-1000000.0000000000000000000000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000100000000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "profile-factor-cancellation-order0-ParValue",
+      "holdings": [
+        {
+          "id": "multi",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "10000000000",
+            "5": "0.00000000000000000001",
+            "10": "-10000000000"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "2",
+        "5",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "2",
+            "duration": "10000000000.000000000000000000",
+            "known_partial_dv01": "1000000.0000000000000000000000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          },
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000100000000",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          },
+          {
+            "tenor": "10",
+            "duration": "-10000000000.000000000000000000",
+            "known_partial_dv01": "-1000000.0000000000000000000000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000100000000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "profile-factor-cancellation-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "multi",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "10000000000",
+            "5": "0.00000000000000000001",
+            "10": "-10000000000"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "2",
+        "5",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "2",
+            "duration": "10000000000.000000000000000000",
+            "known_partial_dv01": "1000000.0000000000000000000000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          },
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000100000000",
+            "known_partial_dv01": "0.0000000000000000000000010000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          },
+          {
+            "tenor": "10",
+            "duration": "-10000000000.000000000000000000",
+            "known_partial_dv01": "-1000000.0000000000000000000000",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000100000000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "explicit-zero-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "zero",
+          "par": "123.5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1.25",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "154.37500000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "explicit-zero-order0-ParValue",
+      "holdings": [
+        {
+          "id": "zero",
+          "par": "123.5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1.25",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "154.37500000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "explicit-zero-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "zero",
+          "par": "123.5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1.25",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "154.37500000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "explicit-zero-price-without-risk-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "no-risk",
+          "par": "1",
+          "clean": "0",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {}
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": null,
+        "complete_holdings": 0,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "explicit-zero-price-without-risk-order0-ParValue",
+      "holdings": [
+        {
+          "id": "no-risk",
+          "par": "1",
+          "clean": "0",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {}
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": null,
+        "complete_holdings": 0,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "explicit-zero-price-without-risk-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "no-risk",
+          "par": "1",
+          "clean": "0",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {}
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": null,
+        "complete_holdings": 0,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "missing-factor-with-actual-zero-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "covered-zero",
+          "par": "3",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        },
+        {
+          "id": "missing",
+          "par": "5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "2"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5",
+        "2",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "3.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "2",
+            "duration": "2.0000000000000000000000000000",
+            "known_partial_dv01": "0.0010000000000000000000000000",
+            "covered_market_value": "5.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "10",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "2.0000000000000000000000000000",
+        "complete_holdings": 0,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "missing-factor-with-actual-zero-order0-ParValue",
+      "holdings": [
+        {
+          "id": "covered-zero",
+          "par": "3",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        },
+        {
+          "id": "missing",
+          "par": "5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "2"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5",
+        "2",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "3.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "2",
+            "duration": "2.0000000000000000000000000000",
+            "known_partial_dv01": "0.0010000000000000000000000000",
+            "covered_market_value": "5.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "10",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "2.0000000000000000000000000000",
+        "complete_holdings": 0,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "missing-factor-with-actual-zero-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "covered-zero",
+          "par": "3",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        },
+        {
+          "id": "missing",
+          "par": "5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "2"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5",
+        "2",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "3.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "2",
+            "duration": "2.0000000000000000000000000000",
+            "known_partial_dv01": "0.0010000000000000000000000000",
+            "covered_market_value": "5.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "10",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "2.0000000000000000000000000000",
+        "complete_holdings": 0,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "missing-factor-with-actual-zero-order1-MarketValue",
+      "holdings": [
+        {
+          "id": "missing",
+          "par": "5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "2"
+          }
+        },
+        {
+          "id": "covered-zero",
+          "par": "3",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5",
+        "2",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "3.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "2",
+            "duration": "2.0000000000000000000000000000",
+            "known_partial_dv01": "0.0010000000000000000000000000",
+            "covered_market_value": "5.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "10",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "2.0000000000000000000000000000",
+        "complete_holdings": 0,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "missing-factor-with-actual-zero-order1-ParValue",
+      "holdings": [
+        {
+          "id": "missing",
+          "par": "5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "2"
+          }
+        },
+        {
+          "id": "covered-zero",
+          "par": "3",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5",
+        "2",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "3.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "2",
+            "duration": "2.0000000000000000000000000000",
+            "known_partial_dv01": "0.0010000000000000000000000000",
+            "covered_market_value": "5.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "10",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "2.0000000000000000000000000000",
+        "complete_holdings": 0,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "missing-factor-with-actual-zero-order1-EqualWeight",
+      "holdings": [
+        {
+          "id": "missing",
+          "par": "5",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "2": "2"
+          }
+        },
+        {
+          "id": "covered-zero",
+          "par": "3",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5",
+        "2",
+        "10"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "3.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "2",
+            "duration": "2.0000000000000000000000000000",
+            "known_partial_dv01": "0.0010000000000000000000000000",
+            "covered_market_value": "5.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 2
+          },
+          {
+            "tenor": "10",
+            "duration": null,
+            "known_partial_dv01": null,
+            "covered_market_value": "0.0000000000000000000000000000",
+            "covered_holdings": 0,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "2.0000000000000000000000000000",
+        "complete_holdings": 0,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "mixed-scales-accrual-fx-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "first",
+          "par": "123.456789",
+          "clean": "101.23456789",
+          "accrued": "0.3141592653589793238462643383",
+          "fx": "1.0123456789012345678901234567",
+          "factors": {
+            "5": "4.1234567890123456789012345678"
+          }
+        },
+        {
+          "id": "second",
+          "par": "1.0000000000000000000000000001",
+          "clean": "99.5",
+          "accrued": "-0.25",
+          "fx": "0.9",
+          "factors": {
+            "5": "-0.1234567890123456789012345678"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "4.0937755342506621056340500639",
+            "known_partial_dv01": "0.0523224676238282462036999040",
+            "covered_market_value": "127.80981073845202812153237906",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "4.0937755342506621056340500639",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "mixed-scales-accrual-fx-order0-ParValue",
+      "holdings": [
+        {
+          "id": "first",
+          "par": "123.456789",
+          "clean": "101.23456789",
+          "accrued": "0.3141592653589793238462643383",
+          "fx": "1.0123456789012345678901234567",
+          "factors": {
+            "5": "4.1234567890123456789012345678"
+          }
+        },
+        {
+          "id": "second",
+          "par": "1.0000000000000000000000000001",
+          "clean": "99.5",
+          "accrued": "-0.25",
+          "fx": "0.9",
+          "factors": {
+            "5": "-0.1234567890123456789012345678"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "4.0930930023146455961009943003",
+            "known_partial_dv01": "0.0523224676238282462036999040",
+            "covered_market_value": "127.80981073845202812153237906",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "4.0930930023146455961009943003",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "mixed-scales-accrual-fx-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "first",
+          "par": "123.456789",
+          "clean": "101.23456789",
+          "accrued": "0.3141592653589793238462643383",
+          "fx": "1.0123456789012345678901234567",
+          "factors": {
+            "5": "4.1234567890123456789012345678"
+          }
+        },
+        {
+          "id": "second",
+          "par": "1.0000000000000000000000000001",
+          "clean": "99.5",
+          "accrued": "-0.25",
+          "fx": "0.9",
+          "factors": {
+            "5": "-0.1234567890123456789012345678"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "2.0000000000000000000000000000",
+            "known_partial_dv01": "0.0523224676238282462036999040",
+            "covered_market_value": "127.80981073845202812153237906",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "2.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "mixed-scales-accrual-fx-order1-MarketValue",
+      "holdings": [
+        {
+          "id": "second",
+          "par": "1.0000000000000000000000000001",
+          "clean": "99.5",
+          "accrued": "-0.25",
+          "fx": "0.9",
+          "factors": {
+            "5": "-0.1234567890123456789012345678"
+          }
+        },
+        {
+          "id": "first",
+          "par": "123.456789",
+          "clean": "101.23456789",
+          "accrued": "0.3141592653589793238462643383",
+          "fx": "1.0123456789012345678901234567",
+          "factors": {
+            "5": "4.1234567890123456789012345678"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "4.0937755342506621056340500639",
+            "known_partial_dv01": "0.0523224676238282462036999040",
+            "covered_market_value": "127.80981073845202812153237906",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "4.0937755342506621056340500639",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "mixed-scales-accrual-fx-order1-ParValue",
+      "holdings": [
+        {
+          "id": "second",
+          "par": "1.0000000000000000000000000001",
+          "clean": "99.5",
+          "accrued": "-0.25",
+          "fx": "0.9",
+          "factors": {
+            "5": "-0.1234567890123456789012345678"
+          }
+        },
+        {
+          "id": "first",
+          "par": "123.456789",
+          "clean": "101.23456789",
+          "accrued": "0.3141592653589793238462643383",
+          "fx": "1.0123456789012345678901234567",
+          "factors": {
+            "5": "4.1234567890123456789012345678"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "4.0930930023146455961009943003",
+            "known_partial_dv01": "0.0523224676238282462036999040",
+            "covered_market_value": "127.80981073845202812153237906",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "4.0930930023146455961009943003",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "mixed-scales-accrual-fx-order1-EqualWeight",
+      "holdings": [
+        {
+          "id": "second",
+          "par": "1.0000000000000000000000000001",
+          "clean": "99.5",
+          "accrued": "-0.25",
+          "fx": "0.9",
+          "factors": {
+            "5": "-0.1234567890123456789012345678"
+          }
+        },
+        {
+          "id": "first",
+          "par": "123.456789",
+          "clean": "101.23456789",
+          "accrued": "0.3141592653589793238462643383",
+          "fx": "1.0123456789012345678901234567",
+          "factors": {
+            "5": "4.1234567890123456789012345678"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "2.0000000000000000000000000000",
+            "known_partial_dv01": "0.0523224676238282462036999040",
+            "covered_market_value": "127.80981073845202812153237906",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "2.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "nonzero-currency-underflow-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "tiny-risk",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "nonzero-currency-underflow-order0-ParValue",
+      "holdings": [
+        {
+          "id": "tiny-risk",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "nonzero-currency-underflow-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "tiny-risk",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000000001"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "nonzero output rounds to zero"
+    },
+    {
+      "id": "currency-overflow-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "exact output exceeds Decimal maximum"
+    },
+    {
+      "id": "currency-overflow-order0-ParValue",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "exact output exceeds Decimal maximum"
+    },
+    {
+      "id": "currency-overflow-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "large",
+          "par": "100000000000000000000",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "100000000000000000000"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "exact output exceeds Decimal maximum"
+    },
+    {
+      "id": "covered-market-value-overflow-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "large-one",
+          "par": "79228162514264337593543950335",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        },
+        {
+          "id": "large-two",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "exact output exceeds Decimal maximum"
+    },
+    {
+      "id": "covered-market-value-overflow-order0-ParValue",
+      "holdings": [
+        {
+          "id": "large-one",
+          "par": "79228162514264337593543950335",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        },
+        {
+          "id": "large-two",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "exact output exceeds Decimal maximum"
+    },
+    {
+      "id": "covered-market-value-overflow-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "large-one",
+          "par": "79228162514264337593543950335",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        },
+        {
+          "id": "large-two",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "expected": "reject",
+      "reason": "exact output exceeds Decimal maximum"
+    },
+    {
+      "id": "final-rounding-half-even-up-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "one",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000015"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000015000",
+            "known_partial_dv01": "0.0000000000000000000000000002",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000015000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "final-rounding-half-even-up-order0-ParValue",
+      "holdings": [
+        {
+          "id": "one",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000015"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000015000",
+            "known_partial_dv01": "0.0000000000000000000000000002",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000015000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "final-rounding-half-even-up-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "one",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000015"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000015000",
+            "known_partial_dv01": "0.0000000000000000000000000002",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000015000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "final-rounding-half-even-down-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "one",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000025"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000025000",
+            "known_partial_dv01": "0.0000000000000000000000000002",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000025000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "final-rounding-half-even-down-order0-ParValue",
+      "holdings": [
+        {
+          "id": "one",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000025"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000025000",
+            "known_partial_dv01": "0.0000000000000000000000000002",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000025000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "final-rounding-half-even-down-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "one",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "0.0000000000000000000000025"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000025000",
+            "known_partial_dv01": "0.0000000000000000000000000002",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000025000",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-duration-with-zero-net-risk-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        },
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-duration-with-zero-net-risk-order0-ParValue",
+      "holdings": [
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        },
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-duration-with-zero-net-risk-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        },
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-duration-with-zero-net-risk-order1-MarketValue",
+      "holdings": [
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-79228162514264337593543950335"
+          }
+        },
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-duration-with-zero-net-risk-order1-ParValue",
+      "holdings": [
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-79228162514264337593543950335"
+          }
+        },
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-duration-with-zero-net-risk-order1-EqualWeight",
+      "holdings": [
+        {
+          "id": "negative",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "-79228162514264337593543950335"
+          }
+        },
+        {
+          "id": "positive",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "0.0000000000000000000000000000",
+            "known_partial_dv01": "0.0000000000000000000000000000",
+            "covered_market_value": "2.0000000000000000000000000000",
+            "covered_holdings": 2,
+            "total_holdings": 2
+          }
+        ],
+        "total_duration_decimal": "0.0000000000000000000000000000",
+        "complete_holdings": 2,
+        "total_holdings": 2
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-supported-final-duration-order0-MarketValue",
+      "holdings": [
+        {
+          "id": "maximum",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "MarketValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "79228162514264337593543950335",
+            "known_partial_dv01": "7922816251426433759354395.0335",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "79228162514264337593543950335",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-supported-final-duration-order0-ParValue",
+      "holdings": [
+        {
+          "id": "maximum",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "ParValue",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "79228162514264337593543950335",
+            "known_partial_dv01": "7922816251426433759354395.0335",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "79228162514264337593543950335",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    },
+    {
+      "id": "maximum-supported-final-duration-order0-EqualWeight",
+      "holdings": [
+        {
+          "id": "maximum",
+          "par": "1",
+          "clean": "100",
+          "accrued": "0",
+          "fx": "1",
+          "factors": {
+            "5": "79228162514264337593543950335"
+          }
+        }
+      ],
+      "weighting": "EqualWeight",
+      "tenors": [
+        "5"
+      ],
+      "result": {
+        "factors": [
+          {
+            "tenor": "5",
+            "duration": "79228162514264337593543950335",
+            "known_partial_dv01": "7922816251426433759354395.0335",
+            "covered_market_value": "1.0000000000000000000000000000",
+            "covered_holdings": 1,
+            "total_holdings": 1
+          }
+        ],
+        "total_duration_decimal": "79228162514264337593543950335",
+        "complete_holdings": 1,
+        "total_holdings": 1
+      },
+      "expected": "success"
+    }
+  ],
+  "case_count": 105,
+  "successes": 72,
+  "rejections": 33,
+  "original_three_probe_functions_and_expectations_unchanged": true,
+  "certified": false
+}

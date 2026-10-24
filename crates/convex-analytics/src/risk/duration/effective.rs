@@ -49,8 +49,10 @@ pub fn effective_duration(
         ));
     }
 
-    let eff_dur = (price_down - price_up) / (2.0 * price_base * bump_size);
-    Ok(Duration::from(eff_dur))
+    let value = convex_bonds::pricing::risk_math::duration_stencil(
+        price_up, price_down, price_base, bump_size,
+    )?;
+    Ok(Duration::new(crate::risk::cash::decimal(value)?))
 }
 
 /// Standard bump size for effective duration (10 basis points)

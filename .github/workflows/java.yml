@@ -11,6 +11,68 @@ on:
       - 'crates/convex-core/**'
       - 'crates/convex-curves/**'
       - 'crates/convex-math/**'
+      - 'crates/convex/**'
+      - 'crates/convex-rates/**'
+      - 'crates/convex-credit/**'
+      - 'crates/convex-portfolio/**'
+      - 'tests/fixtures/library/**'
+      - 'tests/fixtures/packed.*'
+      - 'tools/fixtures.py'
+      - 'tests/scripts/library_parity.py'
+      - 'tests/scripts/library_operations_parity.py'
+      - 'tests/scripts/library_cash_parity.py'
+      - 'tests/scripts/library_rate_helpers_parity.py'
+      - 'tests/scripts/library_credit_helpers_parity.py'
+      - 'tests/scripts/library_cash_helpers_parity.py'
+      - 'tests/scripts/library_workout_parity.py'
+      - 'tests/scripts/floating_workout_parity.py'
+      - 'tests/scripts/icma_parity.py'
+      - 'tests/scripts/icma_government_parity.py'
+      - 'tests/scripts/icma_workout_parity.py'
+      - 'tests/scripts/icma_helpers_parity.py'
+      - 'tests/scripts/icma_risk_parity.py'
+      - 'tests/scripts/graph_hedge_parity.py'
+      - 'tests/scripts/cash_basis_hedge_parity.py'
+      - 'tests/scripts/recovery_hedge_parity.py'
+      - 'tests/scripts/delivery_hedge_parity.py'
+      - 'tests/scripts/delivery_hedge_census.py'
+      - 'tests/scripts/mixed_scenario*.py'
+      - 'tests/scripts/causal_pnl*.py'
+      - 'tests/scripts/cohort_pnl*.py'
+      - 'tests/scripts/residual_pnl*.py'
+      - 'tests/scripts/lot_pnl*.py'
+      - 'tests/scripts/claim_pnl*.py'
+      - 'tests/scripts/physical_partition_pnl*.py'
+      - 'tests/scripts/custody_lineage_pnl*.py'
+      - 'tests/scripts/dated_cash_pnl*.py'
+      - 'tests/scripts/pending_cash_pnl*.py'
+      - 'tests/scripts/child_cash_pnl*.py'
+      - 'tests/scripts/child_maturity_pnl*.py'
+      - 'tests/scripts/concurrent_claims_pnl*.py'
+      - 'tests/scripts/settled_claims_pnl*.py'
+      - 'tests/fixtures/library/mixed-scenario*.json'
+      - 'tests/fixtures/library/causal-pnl*.json'
+      - 'tests/fixtures/library/cohort-pnl*.json'
+      - 'tests/fixtures/library/residual-pnl*.json'
+      - 'tests/fixtures/library/lot-pnl*.json'
+      - 'tests/fixtures/library/claim-pnl*.json'
+      - 'tests/fixtures/library/physical-partition-pnl*.json'
+      - 'tests/fixtures/library/custody-lineage-pnl*.json'
+      - 'tests/fixtures/library/dated-cash-pnl*.json'
+      - 'tests/fixtures/library/pending-cash-pnl*.json'
+      - 'tests/fixtures/library/child-cash-pnl*.json'
+      - 'tests/fixtures/library/child-maturity-pnl*.json'
+      - 'tests/fixtures/library/concurrent-claims-pnl*.json'
+      - 'tests/fixtures/library/settled-claims-pnl*.json'
+      - 'tests/scripts/optional_graph_hedge_parity.py'
+      - 'tests/scripts/library_curve_families_parity.py'
+      - 'tests/scripts/library_curve_methods_parity.py'
+      - 'tests/scripts/library_ufr_parity.py'
+      - 'tests/scripts/library_host_census.py'
+      - 'tests/scripts/library_monotone_parity.py'
+      - 'tools/library/api-capabilities.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/java.yml'
   pull_request:
     branches: [main]
@@ -22,6 +84,68 @@ on:
       - 'crates/convex-core/**'
       - 'crates/convex-curves/**'
       - 'crates/convex-math/**'
+      - 'crates/convex/**'
+      - 'crates/convex-rates/**'
+      - 'crates/convex-credit/**'
+      - 'crates/convex-portfolio/**'
+      - 'tests/fixtures/library/**'
+      - 'tests/fixtures/packed.*'
+      - 'tools/fixtures.py'
+      - 'tests/scripts/library_parity.py'
+      - 'tests/scripts/library_operations_parity.py'
+      - 'tests/scripts/library_cash_parity.py'
+      - 'tests/scripts/library_rate_helpers_parity.py'
+      - 'tests/scripts/library_credit_helpers_parity.py'
+      - 'tests/scripts/library_cash_helpers_parity.py'
+      - 'tests/scripts/library_workout_parity.py'
+      - 'tests/scripts/floating_workout_parity.py'
+      - 'tests/scripts/icma_parity.py'
+      - 'tests/scripts/icma_government_parity.py'
+      - 'tests/scripts/icma_workout_parity.py'
+      - 'tests/scripts/icma_helpers_parity.py'
+      - 'tests/scripts/icma_risk_parity.py'
+      - 'tests/scripts/graph_hedge_parity.py'
+      - 'tests/scripts/cash_basis_hedge_parity.py'
+      - 'tests/scripts/recovery_hedge_parity.py'
+      - 'tests/scripts/delivery_hedge_parity.py'
+      - 'tests/scripts/delivery_hedge_census.py'
+      - 'tests/scripts/mixed_scenario*.py'
+      - 'tests/scripts/causal_pnl*.py'
+      - 'tests/scripts/cohort_pnl*.py'
+      - 'tests/scripts/residual_pnl*.py'
+      - 'tests/scripts/lot_pnl*.py'
+      - 'tests/scripts/claim_pnl*.py'
+      - 'tests/scripts/physical_partition_pnl*.py'
+      - 'tests/scripts/custody_lineage_pnl*.py'
+      - 'tests/scripts/dated_cash_pnl*.py'
+      - 'tests/scripts/pending_cash_pnl*.py'
+      - 'tests/scripts/child_cash_pnl*.py'
+      - 'tests/scripts/child_maturity_pnl*.py'
+      - 'tests/scripts/concurrent_claims_pnl*.py'
+      - 'tests/scripts/settled_claims_pnl*.py'
+      - 'tests/fixtures/library/mixed-scenario*.json'
+      - 'tests/fixtures/library/causal-pnl*.json'
+      - 'tests/fixtures/library/cohort-pnl*.json'
+      - 'tests/fixtures/library/residual-pnl*.json'
+      - 'tests/fixtures/library/lot-pnl*.json'
+      - 'tests/fixtures/library/claim-pnl*.json'
+      - 'tests/fixtures/library/physical-partition-pnl*.json'
+      - 'tests/fixtures/library/custody-lineage-pnl*.json'
+      - 'tests/fixtures/library/dated-cash-pnl*.json'
+      - 'tests/fixtures/library/pending-cash-pnl*.json'
+      - 'tests/fixtures/library/child-cash-pnl*.json'
+      - 'tests/fixtures/library/child-maturity-pnl*.json'
+      - 'tests/fixtures/library/concurrent-claims-pnl*.json'
+      - 'tests/fixtures/library/settled-claims-pnl*.json'
+      - 'tests/scripts/optional_graph_hedge_parity.py'
+      - 'tests/scripts/library_curve_families_parity.py'
+      - 'tests/scripts/library_curve_methods_parity.py'
+      - 'tests/scripts/library_ufr_parity.py'
+      - 'tests/scripts/library_host_census.py'
+      - 'tests/scripts/library_monotone_parity.py'
+      - 'tools/library/api-capabilities.json'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/java.yml'
 
 # Build + test only; no repo writes.
@@ -42,20 +166,127 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Materialize packed fixtures
+        run: python3 tools/fixtures.py materialize
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
+      # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build convex-ffi cdylib
-        run: cargo build -p convex-ffi --release
+        run: cargo build --locked -p convex-ffi --profile excel -p convex --lib --example library_workflow --features convex/schemars
+
+      - name: Build supplemental native operation consumer
+        run: cargo build --locked --profile excel -p convex --example library_operations --features schemars
+
+      - name: Build native full cash quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_cash --features schemars
+
+      - name: Build native full rate-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_rate_helpers --features schemars
+
+      - name: Build native full CDS-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_credit_helpers --features schemars
+
+      - name: Build native full cash-helper quotation consumer
+        run: cargo build --locked --profile excel -p convex --example library_cash_helpers --features schemars
+
+      - name: Build native complete floating workout consumer
+        run: cargo build --locked --profile excel -p convex --example floating_workout --features schemars
+
+      - name: Build contextual ICMA host consumer
+        run: cargo build --locked --profile excel -p convex --example icma_quotation --features schemars
+
+      - name: Build contextual government native expectations
+        run: cargo build --locked --profile excel -p convex --example icma_government --features schemars
+
+      - name: Build contextual workout native expectations
+        run: cargo build --locked --profile excel -p convex --example icma_workout --features schemars
+
+      - name: Build contextual ICMA helper Java consumer
+        run: cargo build --locked --profile excel -p convex --example icma_helpers --features schemars
+
+      - name: Build direct ICMA risk and hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example icma_risk --features schemars
+
+      - name: Build graph hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example graph_hedge --features schemars
+
+      - name: Build issuer cash hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example cash_basis_hedge --features schemars
+
+      - name: Build recovery mixed hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example recovery_hedge --features schemars
+
+      - name: Build mixed-book scenario Java consumer
+        run: cargo build --locked --profile excel -p convex --example mixed_scenario --features schemars
+
+      - name: Build causal lifecycle and cash consumer
+        run: cargo build --locked --profile excel -p convex --example causal_pnl --features schemars
+
+      - name: Build complete cohort cash and physical delivery consumer
+        run: cargo build --locked --profile excel -p convex --example cohort_pnl --features schemars
+
+      - name: Build residual claim and partial receipt consumer
+        run: cargo build --locked --profile excel -p convex --example residual_pnl --features schemars
+
+      - name: Build complete original lot amendment Java expectations
+        run: cargo build --locked --profile excel -p convex --example lot_pnl --features schemars
+
+      - name: Build original cash transfer Java expectations
+        run: cargo build --locked --profile excel -p convex --example claim_pnl --features schemars
+
+      - name: Build physical custody Java controls
+        run: cargo build --locked --profile excel -p convex --example physical_partition_pnl --features schemars
+
+      - name: Build successive custody disposal Java controls
+        run: cargo build --locked --profile excel -p convex --example custody_lineage_pnl --features schemars
+      - name: Build dated cash Java consumer
+        run: cargo build --locked --profile excel -p convex --example dated_cash_pnl --features schemars
+      - name: Build pending delivery cash Java consumer
+        run: cargo build --locked --profile excel -p convex --example pending_cash_pnl --features schemars
+
+      - name: Build child cash transport consumer
+        run: cargo build --locked --profile excel -p convex --example child_cash_pnl --features schemars
+
+      - name: Build child maturity transport consumer
+        run: cargo build --locked --profile excel -p convex --example child_maturity_pnl --features schemars
+
+      - name: Build concurrent claims transport consumer
+        run: cargo build --locked --profile excel -p convex --example concurrent_claims_pnl --features schemars
+
+      - name: Build full settlement transport consumer
+        run: cargo build --locked --profile excel -p convex --example settled_claims_pnl --features schemars
+
+      - name: Build full delivery basket hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example delivery_hedge --features schemars
+
+      - name: Build guarded optional graph hedge Java consumer
+        run: cargo build --locked --profile excel -p convex --example optional_graph_hedge --features schemars
+
+      - name: Build native complete workout consumer
+        run: cargo build --locked --profile excel -p convex --example library_workout --features schemars
+
+      - name: Build native complete curve-family consumer
+        run: cargo build --locked --profile excel -p convex --example library_curve_families --features schemars
+
+      - name: Build native explicit curve-method consumer
+        run: cargo build --locked --profile excel -p convex --example library_curve_methods --features schemars
+
+      - name: Build native complete UFR consumer
+        run: cargo build --locked --profile excel -p convex --example library_ufr --features schemars
+
+      - name: Build native monotone and complete host consumers
+        run: cargo build --locked --profile excel -p convex --example library_monotone --example library_host_census --features schemars
 
       - name: Stage native library
         run: |
           dest=bindings/java/src/main/resources/native/linux-x86_64
           mkdir -p "$dest"
-          cp target/release/libconvex_ffi.so "$dest/"
+          cp target/excel/libconvex_ffi.so "$dest/"
 
       - name: Set up JDK 22
         uses: actions/setup-java@v5
@@ -63,6 +294,120 @@ jobs:
           distribution: temurin
           java-version: '22'
           cache: maven
+
+      - name: Generate fresh native adapter expectations
+        run: python3 tests/scripts/library_parity.py prepare --binary target/excel/examples/library_workflow --output bindings/java/target/library-parity.json
+
+      - name: Generate fresh native operation adapter expectations
+        run: python3 tests/scripts/library_operations_parity.py prepare --binary target/excel/examples/library_operations --output bindings/java/target/library-operations-parity.json
+
+      - name: Generate fresh native full cash adapter expectations
+        run: python3 tests/scripts/library_cash_parity.py prepare --binary target/excel/examples/library_cash --output bindings/java/target/library-cash-parity.json
+
+      - name: Generate fresh native full rate-helper adapter expectations
+        run: python3 tests/scripts/library_rate_helpers_parity.py prepare --binary target/excel/examples/library_rate_helpers --output bindings/java/target/library-rate-helpers-parity.json
+
+      - name: Generate fresh native full CDS-helper adapter expectations
+        run: python3 tests/scripts/library_credit_helpers_parity.py prepare --binary target/excel/examples/library_credit_helpers --output bindings/java/target/library-credit-helpers-parity.json
+
+      - name: Generate fresh native full cash-helper adapter expectations
+        run: python3 tests/scripts/library_cash_helpers_parity.py prepare --binary target/excel/examples/library_cash_helpers --output bindings/java/target/library-cash-helpers-parity.json
+
+      - name: Generate fresh native floating workout adapter expectations
+        run: python3 tests/scripts/floating_workout_parity.py --binary target/excel/examples/floating_workout --output bindings/java/target/floating-workout-parity.json
+
+      - name: Prepare fresh contextual ICMA host transport expectations
+        run: python3 tests/scripts/icma_parity.py --binary target/excel/examples/icma_quotation --output bindings/java/target/icma-parity.json
+
+      - name: Generate contextual government Java expectations
+        run: python3 tests/scripts/icma_government_parity.py --binary target/excel/examples/icma_government --output bindings/java/target/icma-government-parity.json
+
+      - name: Generate contextual workout Java expectations
+        run: python3 tests/scripts/icma_workout_parity.py --binary target/excel/examples/icma_workout --output bindings/java/target/icma-workout-parity.json
+
+      - name: Generate contextual ICMA helper Java expectations
+        run: python3 tests/scripts/icma_helpers_parity.py --binary target/excel/examples/icma_helpers --output bindings/java/target/icma-helpers-parity.json
+
+      - name: Generate direct ICMA risk and hedge Java expectations
+        run: python3 tests/scripts/icma_risk_parity.py --binary target/excel/examples/icma_risk --output bindings/java/target/icma-risk-parity.json
+
+      - name: Generate graph hedge Java expectations
+        run: python3 tests/scripts/graph_hedge_parity.py --binary target/excel/examples/graph_hedge --output bindings/java/target/graph-hedge-parity.json
+
+      - name: Generate issuer cash hedge Java expectations
+        run: python3 tests/scripts/cash_basis_hedge_parity.py --binary target/excel/examples/cash_basis_hedge --output bindings/java/target/cash-basis-hedge-parity.json
+
+      - name: Generate recovery mixed hedge Java expectations
+        run: python3 tests/scripts/recovery_hedge_parity.py --binary target/excel/examples/recovery_hedge --output bindings/java/target/recovery-hedge-parity.json
+
+      - name: Generate mixed-book scenario Java expectations
+        run: python3 tests/scripts/mixed_scenario_parity.py --binary target/excel/examples/mixed_scenario --output bindings/java/target/mixed-scenario-parity.json
+
+      - name: Generate complete causal cash transport corpus
+        run: python3 tests/scripts/causal_pnl_parity.py --binary target/excel/examples/causal_pnl --output bindings/java/target/causal-pnl-parity.json
+
+      - name: Complete cohort cash and physical delivery parity
+        run: python3 tests/scripts/cohort_pnl_admitted_parity.py --binary target/excel/examples/cohort_pnl --output bindings/java/target/cohort-pnl-parity.json
+
+      - name: Original residual claim and partial receipt parity
+        run: python3 tests/scripts/residual_pnl_parity.py --binary target/excel/examples/residual_pnl --output bindings/java/target/residual-pnl-parity.json
+
+      - name: Complete original lot amendment Java transport
+        run: python3 tests/scripts/lot_pnl_parity.py --binary target/excel/examples/lot_pnl --output bindings/java/target/lot-pnl-parity.json
+
+      - name: Original cash transfer Java transport
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/claim_pnl_parity.py --binary target/excel/examples/claim_pnl --output bindings/java/target/claim-pnl-parity.json
+
+      - name: Physical custody and invoice Java transport
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/physical_partition_pnl_parity.py --binary target/excel/examples/physical_partition_pnl --output bindings/java/target/physical-partition-pnl-parity.json
+
+      - name: Successive custody disposal Java transport
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/custody_lineage_pnl_parity.py --binary target/excel/examples/custody_lineage_pnl --output bindings/java/target/custody-lineage-pnl-parity.json
+      - name: Prepare dated cash Java transport controls
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/dated_cash_pnl_parity.py --binary target/excel/examples/dated_cash_pnl --output bindings/java/target/dated-cash-pnl-parity.json
+      - name: Retain pending delivery cash native envelopes for Java transport
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/pending_cash_pnl_parity.py --binary target/excel/examples/pending_cash_pnl --output bindings/java/target/pending-cash-pnl-parity.json
+
+      - name: Generate fresh child cash Java parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_cash_pnl_parity.py --binary target/excel/examples/child_cash_pnl --output bindings/java/target/child-cash-pnl-parity.json
+
+      - name: Generate fresh child maturity Java parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/child_maturity_pnl_parity.py --binary target/excel/examples/child_maturity_pnl --output bindings/java/target/child-maturity-pnl-parity.json
+
+      - name: Generate fresh concurrent claims Java parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/concurrent_claims_pnl_parity.py --binary target/excel/examples/concurrent_claims_pnl --output bindings/java/target/concurrent-claims-pnl-parity.json
+
+      - name: Generate fresh full settlement Java parity
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/settled_claims_pnl_parity.py --binary target/excel/examples/settled_claims_pnl --output bindings/java/target/settled-claims-pnl-parity.json
+
+      - name: Generate full delivery basket hedge Java expectations
+        run: python3 tests/scripts/delivery_hedge_parity.py --binary target/excel/examples/delivery_hedge --output bindings/java/target/delivery-hedge-parity.json
+
+      - name: Generate guarded optional graph hedge Java expectations
+        run: python3 tests/scripts/optional_graph_hedge_parity.py --binary target/excel/examples/optional_graph_hedge --output bindings/java/target/optional-graph-hedge-parity.json
+
+      - name: Generate fresh native full workout adapter expectations
+        run: python3 tests/scripts/library_workout_parity.py prepare --binary target/excel/examples/library_workout --output bindings/java/target/library-workout-parity.json
+
+      - name: Generate fresh native full curve-family adapter expectations
+        run: python3 tests/scripts/library_curve_families_parity.py prepare --binary target/excel/examples/library_curve_families --output bindings/java/target/library-curve-families-parity.json
+
+      - name: Generate fresh native curve-method adapter expectations
+        run: python3 tests/scripts/library_curve_methods_parity.py prepare --binary target/excel/examples/library_curve_methods --output bindings/java/target/library-curve-methods-parity.json
+
+      - name: Generate fresh native full UFR adapter expectations
+        run: python3 tests/scripts/library_ufr_parity.py prepare --binary target/excel/examples/library_ufr --output bindings/java/target/library-ufr-parity.json
+
+      - name: Generate fresh monotone Java expectations
+        run: python3 tests/scripts/library_monotone_parity.py prepare --binary target/excel/examples/library_monotone --output bindings/java/target/library-monotone-parity.json
+
+      - name: Retain every current complete request for actual Java FFM
+        run: PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/library_host_census.py --binary target/excel/examples/library_host_census --output-dir bindings/java/target/library-host-census
+
+      - name: Build and retain complete Treasury bill Java expectations
+        run: |
+          cargo build --locked --profile excel -p convex --example treasury_bill
+          python3 tests/scripts/treasury_bill_parity.py prepare --binary target/excel/examples/treasury_bill --output bindings/java/target/treasury-bill-parity.json
 
       - name: Maven verify
         run: mvn -B -f bindings/java/pom.xml verify

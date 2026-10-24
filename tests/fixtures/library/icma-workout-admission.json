@@ -1,0 +1,91 @@
+{
+  "certified": false,
+  "original_requests": 122,
+  "original_answers_unchanged": true,
+  "original_domains_and_bounds_unchanged": true,
+  "admission_declarations": [
+    {
+      "id": "icma_workout.regular.Continuous.-0.0075.worst",
+      "reason": "One or more complete original legal paths exclude the observed target in the ORIGINAL closed domain; no path may be discarded.",
+      "failed_paths": [
+        {
+          "selection": {
+            "kind": "exercise",
+            "provision": 0,
+            "date": "2024-03-05"
+          },
+          "low_residual": "-1.077159553045496570261103569015544232655616143538146948529",
+          "high_residual": "-16.7935967916906650370540989576211911205562759273884514299251"
+        }
+      ]
+    },
+    {
+      "id": "icma_workout.regular.Simple.-0.0075.worst",
+      "reason": "One or more complete original legal paths exclude the observed target in the ORIGINAL closed domain; no path may be discarded.",
+      "failed_paths": [
+        {
+          "selection": {
+            "kind": "exercise",
+            "provision": 0,
+            "date": "2024-03-05"
+          },
+          "low_residual": "-0.747285353840046567651092108560159551451041074274720959715",
+          "high_residual": "-16.5392928548444919272731434444677337015414694743811385461015"
+        }
+      ]
+    },
+    {
+      "id": "icma_workout.regular.Monthly.-0.0075.worst",
+      "reason": "One or more complete original legal paths exclude the observed target in the ORIGINAL closed domain; no path may be discarded.",
+      "failed_paths": [
+        {
+          "selection": {
+            "kind": "exercise",
+            "provision": 0,
+            "date": "2024-03-05"
+          },
+          "low_residual": "-0.895954730083292652286074860786217852046004891658942815325",
+          "high_residual": "-16.6463629216075677479037231274402614596416496059349747446121"
+        }
+      ]
+    },
+    {
+      "id": "icma_workout.quarterly.Quarterly.-0.0075.worst",
+      "reason": "One or more complete original legal paths exclude the observed target in the ORIGINAL closed domain; no path may be discarded.",
+      "failed_paths": [
+        {
+          "selection": {
+            "kind": "exercise",
+            "provision": 0,
+            "date": "2024-03-05"
+          },
+          "low_residual": "-0.604543954082129660002963319304566067882905136085088012111",
+          "high_residual": "-16.2729256219169762134545986146776861813400866859976537532524"
+        }
+      ]
+    },
+    {
+      "id": "icma_workout.delayed_claim.Quarterly.0.035.worst",
+      "reason": "One or more complete original legal paths exclude the observed target in the ORIGINAL closed domain; no path may be discarded.",
+      "failed_paths": [
+        {
+          "selection": {
+            "kind": "exercise",
+            "provision": 0,
+            "date": "2024-03-05"
+          },
+          "low_residual": "-3.126042817008274447738287854033427556573871631021274344117",
+          "high_residual": "-4.589205647505148186726164610936729776024433852231033180580"
+        }
+      ]
+    },
+    {
+      "id": "icma_workout.invalid.ex_coupon_partial.price_paths",
+      "reason": "Original post-accrual ex-date and notice exclusion do not create partial ownership ambiguity. Full independent cash/time/price/invoice answer declared separately."
+    },
+    {
+      "id": "icma_workout.invalid.ex_coupon_partial_before_inverse.worst",
+      "reason": "Same admissible original context; original target10000 lies outside every original closed quotation bracket."
+    }
+  ]
+}

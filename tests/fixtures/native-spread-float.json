@@ -1,0 +1,187 @@
+{
+  "status": "independent_binary64_reference_declared_before_candidate_execution",
+  "recorded_at": "2026-10-17T03:47:43.409430+00:00",
+  "complete_cases": 25,
+  "reference": "Exact Fraction in decimal-rate units; Python binary64 conversion rounds the rational directly to nearest/even.",
+  "amount_unit": "decimal annual rate",
+  "absolute_bit_difference": 0,
+  "native_results_consulted": false,
+  "cases": [
+    {
+      "id": "spread-float-01",
+      "value_bps": "0",
+      "expected_numerator": "0",
+      "expected_denominator": "1",
+      "expected_binary64_bits": "0000000000000000"
+    },
+    {
+      "id": "spread-float-02",
+      "value_bps": "1e-28",
+      "expected_numerator": "1",
+      "expected_denominator": "100000000000000000000000000000000",
+      "expected_binary64_bits": "3949f623d5a8a733"
+    },
+    {
+      "id": "spread-float-03",
+      "value_bps": "-1e-28",
+      "expected_numerator": "-1",
+      "expected_denominator": "100000000000000000000000000000000",
+      "expected_binary64_bits": "b949f623d5a8a733"
+    },
+    {
+      "id": "spread-float-04",
+      "value_bps": "1e-24",
+      "expected_numerator": "1",
+      "expected_denominator": "10000000000000000000000000000",
+      "expected_binary64_bits": "3a1fb0f6be506019"
+    },
+    {
+      "id": "spread-float-05",
+      "value_bps": "-1e-24",
+      "expected_numerator": "-1",
+      "expected_denominator": "10000000000000000000000000000",
+      "expected_binary64_bits": "ba1fb0f6be506019"
+    },
+    {
+      "id": "spread-float-06",
+      "value_bps": "0.0001",
+      "expected_numerator": "1",
+      "expected_denominator": "100000000",
+      "expected_binary64_bits": "3e45798ee2308c3a"
+    },
+    {
+      "id": "spread-float-07",
+      "value_bps": "-0.0001",
+      "expected_numerator": "-1",
+      "expected_denominator": "100000000",
+      "expected_binary64_bits": "be45798ee2308c3a"
+    },
+    {
+      "id": "spread-float-08",
+      "value_bps": "1",
+      "expected_numerator": "1",
+      "expected_denominator": "10000",
+      "expected_binary64_bits": "3f1a36e2eb1c432d"
+    },
+    {
+      "id": "spread-float-09",
+      "value_bps": "-1",
+      "expected_numerator": "-1",
+      "expected_denominator": "10000",
+      "expected_binary64_bits": "bf1a36e2eb1c432d"
+    },
+    {
+      "id": "spread-float-10",
+      "value_bps": "125",
+      "expected_numerator": "1",
+      "expected_denominator": "80",
+      "expected_binary64_bits": "3f8999999999999a"
+    },
+    {
+      "id": "spread-float-11",
+      "value_bps": "-125",
+      "expected_numerator": "-1",
+      "expected_denominator": "80",
+      "expected_binary64_bits": "bf8999999999999a"
+    },
+    {
+      "id": "spread-float-12",
+      "value_bps": "10000",
+      "expected_numerator": "1",
+      "expected_denominator": "1",
+      "expected_binary64_bits": "3ff0000000000000"
+    },
+    {
+      "id": "spread-float-13",
+      "value_bps": "-10000",
+      "expected_numerator": "-1",
+      "expected_denominator": "1",
+      "expected_binary64_bits": "bff0000000000000"
+    },
+    {
+      "id": "spread-float-14",
+      "value_bps": "79228162514264337593543950335",
+      "expected_numerator": "15845632502852867518708790067",
+      "expected_denominator": "2000",
+      "expected_binary64_bits": "451a36e2eb1c432d"
+    },
+    {
+      "id": "spread-float-15",
+      "value_bps": "-79228162514264337593543950335",
+      "expected_numerator": "-15845632502852867518708790067",
+      "expected_denominator": "2000",
+      "expected_binary64_bits": "c51a36e2eb1c432d"
+    },
+    {
+      "id": "spread-float-16",
+      "value_bps": "1.2345678901234567890123456789",
+      "expected_numerator": "12345678901234567890123456789",
+      "expected_denominator": "100000000000000000000000000000000",
+      "expected_binary64_bits": "3f202e85be180b74"
+    },
+    {
+      "id": "spread-float-17",
+      "value_bps": "-1.2345678901234567890123456789",
+      "expected_numerator": "-12345678901234567890123456789",
+      "expected_denominator": "100000000000000000000000000000000",
+      "expected_binary64_bits": "bf202e85be180b74"
+    },
+    {
+      "id": "spread-float-18",
+      "value_bps": "12.345678901234567890123456789",
+      "expected_numerator": "12345678901234567890123456789",
+      "expected_denominator": "10000000000000000000000000000000",
+      "expected_binary64_bits": "3f543a272d9e0e51"
+    },
+    {
+      "id": "spread-float-19",
+      "value_bps": "-12.345678901234567890123456789",
+      "expected_numerator": "-12345678901234567890123456789",
+      "expected_denominator": "10000000000000000000000000000000",
+      "expected_binary64_bits": "bf543a272d9e0e51"
+    },
+    {
+      "id": "spread-float-20",
+      "value_bps": "44.91584521789404283125302075",
+      "expected_numerator": "179663380871576171325012083",
+      "expected_denominator": "40000000000000000000000000000",
+      "expected_binary64_bits": "3f7265c48a0d89d9"
+    },
+    {
+      "id": "spread-float-21",
+      "value_bps": "-44.91584521789404283125302075",
+      "expected_numerator": "-179663380871576171325012083",
+      "expected_denominator": "40000000000000000000000000000",
+      "expected_binary64_bits": "bf7265c48a0d89d9"
+    },
+    {
+      "id": "spread-float-22",
+      "value_bps": "7922816251426433759354395.0335",
+      "expected_numerator": "15845632502852867518708790067",
+      "expected_denominator": "20000000",
+      "expected_binary64_bits": "4445798ee2308c3a"
+    },
+    {
+      "id": "spread-float-23",
+      "value_bps": "-7922816251426433759354395.0335",
+      "expected_numerator": "-15845632502852867518708790067",
+      "expected_denominator": "20000000",
+      "expected_binary64_bits": "c445798ee2308c3a"
+    },
+    {
+      "id": "spread-float-24",
+      "value_bps": "9999999999999999999999999999",
+      "expected_numerator": "9999999999999999999999999999",
+      "expected_denominator": "10000",
+      "expected_binary64_bits": "44ea784379d99db4"
+    },
+    {
+      "id": "spread-float-25",
+      "value_bps": "-9999999999999999999999999999",
+      "expected_numerator": "-9999999999999999999999999999",
+      "expected_denominator": "10000",
+      "expected_binary64_bits": "c4ea784379d99db4"
+    }
+  ],
+  "certified": false
+}

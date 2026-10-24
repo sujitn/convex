@@ -1,0 +1,24 @@
+{
+  "parent_sha256": "af7c0f32f1680bdbf8eb286bd5b88e3e40770199042c6cc5b8dcc80577b47679",
+  "qualification": "Explicit second local starting points, not independent approval or global convergence assurance. Earlier budget failures retained; financial controls/tolerances unchanged.",
+  "initial_parameters": {
+    "svensson.government.positive": {
+      "kind": "svensson",
+      "beta0": 0.040100000000000004,
+      "beta1": -0.0121,
+      "beta2": 0.0201,
+      "beta3": -0.0121,
+      "tau1": 1.683,
+      "tau2": 4.04
+    },
+    "svensson.government.negative": {
+      "kind": "svensson",
+      "beta0": -0.0149,
+      "beta1": -0.0121,
+      "beta2": 0.0201,
+      "beta3": -0.0121,
+      "tau1": 1.683,
+      "tau2": 4.04
+    }
+  }
+}

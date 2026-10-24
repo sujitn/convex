@@ -35,21 +35,28 @@ impl fmt::Display for PriceKind {
 /// Trader's mark on a bond. Tagged with `mark` for JSON.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-#[serde(tag = "mark", rename_all = "snake_case")]
+#[serde(tag = "mark", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Mark {
     /// Price per 100 face.
     Price {
-        /// Price per 100 face. rust_decimal lacks a JsonSchema impl, so the schema
-        /// is `f64`; serde-float renders it as a JSON number.
-        #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+        /// Price per 100 face, preserving exact digits on the wire.
+        #[serde(with = "crate::contracts::numeric_decimal")]
+        #[cfg_attr(
+            feature = "schemars",
+            schemars(schema_with = "crate::contracts::numeric_decimal::schema")
+        )]
         value: Decimal,
         /// Clean or dirty.
         kind: PriceKind,
     },
     /// Yield as decimal (0.05 = 5%) at the given compounding frequency.
     Yield {
-        /// Yield as decimal.
-        #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+        /// Yield as decimal, preserving exact digits on the wire.
+        #[serde(with = "crate::contracts::numeric_decimal")]
+        #[cfg_attr(
+            feature = "schemars",
+            schemars(schema_with = "crate::contracts::numeric_decimal::schema")
+        )]
         value: Decimal,
         /// Compounding frequency the yield is quoted on.
         frequency: Frequency,
@@ -110,6 +117,11 @@ impl FromStr for Mark {
         if raw.is_empty() {
             return Err(MarkParseError("empty input".into()));
         }
+        if raw.len() > 8192 {
+            return Err(MarkParseError(
+                "mark exceeds the admitted byte bound".into(),
+            ));
+        }
 
         // Spread (must look at '@')
         if let Some(at_pos) = raw.rfind('@') {
@@ -151,7 +163,7 @@ fn parse_price(raw: &str) -> Result<Mark, MarkParseError> {
     } else {
         (upper.as_str(), PriceKind::Clean)
     };
-    let value = Decimal::from_str(num_part.trim())
+    let value = crate::contracts::numeric_decimal::from_text(num_part.trim())
         .map_err(|_| MarkParseError(format!("invalid price number {raw:?}")))?;
     Ok(Mark::Price { value, kind })
 }
@@ -193,9 +205,16 @@ fn parse_yield(raw: &str) -> Result<Mark, MarkParseError> {
     let num_part = raw[..percent].trim();
     let after = raw[percent + 1..].trim();
 
-    let value_pct = Decimal::from_str(num_part)
+    let value_pct = crate::contracts::numeric_decimal::from_text(num_part)
         .map_err(|_| MarkParseError(format!("invalid yield number {raw:?}")))?;
-    let value = value_pct / Decimal::ONE_HUNDRED;
+    let value = value_pct
+        .checked_div(Decimal::ONE_HUNDRED)
+        .filter(|value| value.checked_mul(Decimal::ONE_HUNDRED) == Some(value_pct))
+        .ok_or_else(|| {
+            MarkParseError(
+                "yield percentage requires rounding or exceeds exact representation".into(),
+            )
+        })?;
 
     let frequency = if after.is_empty() {
         Frequency::SemiAnnual
@@ -256,7 +275,7 @@ fn parse_spread(raw: &str, at_pos: usize) -> Result<Mark, MarkParseError> {
         .trim_end_matches("BPS")
         .trim_end_matches("BP")
         .trim();
-    let bps = Decimal::from_str(num_clean)
+    let bps = crate::contracts::numeric_decimal::from_text(num_clean)
         .map_err(|_| MarkParseError(format!("invalid spread number {raw:?}")))?;
 
     let spread_type = match type_token.as_deref() {

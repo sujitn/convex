@@ -43,27 +43,10 @@ impl DayCount for Act365Fixed {
     }
 }
 
-/// Actual/365 Leap day count convention (ACT/365L).
-///
-/// The denominator is 366 if the period includes February 29 of a leap year,
-/// otherwise 365.
-///
-/// # Usage
-///
-/// - ISDA 2006 definitions for certain products
-/// - Some floating rate notes
-///
-/// # Formula
-///
-/// $$\text{Year Fraction} = \frac{\text{Actual Days}}{365 \text{ or } 366}$$
-///
-/// The denominator is 366 if:
-/// - The period contains Feb 29, OR
-/// - The end date is in a leap year (ISDA variant)
-///
-/// # Bloomberg
-///
-/// Matches Bloomberg `ACT/365L` convention.
+/// Date-only leap-day diagnostic at the retained two-date trait boundary.
+/// Its interval leap-day test does not implement complete ACT/365L coupon accrual.
+/// Use [`crate::cashflows::act365l_year_fraction`] with the ORIGINAL coupon period
+/// and frequency. Checked CouponPeriod accrual delegates to that contextual owner.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Act365Leap;
 
@@ -120,11 +103,6 @@ impl DayCount for Act365Leap {
 fn is_leap_year(year: i32) -> bool {
     (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
 }
-
-/// Type alias for backwards compatibility.
-///
-/// `Act365` is equivalent to [`Act365Fixed`].
-pub type Act365 = Act365Fixed;
 
 #[cfg(test)]
 mod tests {

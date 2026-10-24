@@ -4,9 +4,9 @@
 //! and current yield. Supports configurable weighting methods and
 //! optional parallel processing.
 
-use crate::analytics::parallel::maybe_parallel_fold;
-use crate::types::{AnalyticsConfig, Holding, WeightingMethod};
-use rust_decimal::Decimal;
+use super::metrics::MetricBook;
+use crate::types::{AnalyticsConfig, Holding};
+use crate::PortfolioResult;
 use serde::{Deserialize, Serialize};
 
 /// Aggregated yield metrics for a portfolio.
@@ -39,7 +39,6 @@ pub struct YieldMetrics {
 
 impl YieldMetrics {
     /// Returns the YTM coverage as a percentage.
-    #[must_use]
     pub fn ytm_coverage_pct(&self) -> f64 {
         if self.total_holdings > 0 {
             self.ytm_coverage as f64 / self.total_holdings as f64 * 100.0
@@ -49,7 +48,6 @@ impl YieldMetrics {
     }
 
     /// Returns the YTW coverage as a percentage.
-    #[must_use]
     pub fn ytw_coverage_pct(&self) -> f64 {
         if self.total_holdings > 0 {
             self.ytw_coverage as f64 / self.total_holdings as f64 * 100.0
@@ -71,14 +69,16 @@ impl YieldMetrics {
 /// - `w_i` = weight of holding i (based on weighting method)
 /// - `YTM_i` = yield to maturity of holding i
 ///
-/// Holdings without YTM are excluded from the calculation.
+/// A missing required YTM leaves the complete portfolio average unavailable.
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have YTM data.
-#[must_use]
-pub fn weighted_ytm(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.ytm)
+/// Returns `None` if any holdings lack YTM data.
+pub fn weighted_ytm(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?.weighted("ytm", |h| h.analytics.ytm)
 }
 
 /// Calculates weighted average yield to worst.
@@ -88,20 +88,24 @@ pub fn weighted_ytm(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f6
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have YTW data.
-#[must_use]
-pub fn weighted_ytw(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.ytw)
+/// Returns `None` if any holdings lack YTW data.
+pub fn weighted_ytw(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?.weighted("ytw", |h| h.analytics.ytw)
 }
 
 /// Calculates weighted average yield to call.
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have YTC data.
-#[must_use]
-pub fn weighted_ytc(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.ytc)
+/// Returns `None` if any holdings lack YTC data.
+pub fn weighted_ytc(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?.weighted("ytc", |h| h.analytics.ytc)
 }
 
 /// Calculates weighted average current yield.
@@ -110,10 +114,12 @@ pub fn weighted_ytc(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f6
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have current yield data.
-#[must_use]
-pub fn weighted_current_yield(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.current_yield)
+/// Returns `None` if any holdings lack current yield data.
+pub fn weighted_current_yield(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?.weighted("current_yield", |h| h.analytics.current_yield)
 }
 
 /// Calculates weighted best yield (prefers YTW over YTM).
@@ -122,10 +128,12 @@ pub fn weighted_current_yield(holdings: &[Holding], config: &AnalyticsConfig) ->
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have yield data.
-#[must_use]
-pub fn weighted_best_yield(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.best_yield())
+/// Returns `None` if any holdings lack yield data.
+pub fn weighted_best_yield(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?.weighted("best_yield", |h| h.analytics.best_yield())
 }
 
 /// Calculates all yield metrics for a portfolio.
@@ -137,8 +145,10 @@ pub fn weighted_best_yield(holdings: &[Holding], config: &AnalyticsConfig) -> Op
 /// println!("Portfolio YTM: {:?}", metrics.ytm);
 /// println!("YTM coverage: {:.1}%", metrics.ytm_coverage_pct());
 /// ```
-#[must_use]
-pub fn calculate_yield_metrics(holdings: &[Holding], config: &AnalyticsConfig) -> YieldMetrics {
+pub fn calculate_yield_metrics(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<YieldMetrics> {
     let ytm_coverage = holdings
         .iter()
         .filter(|h| h.analytics.ytm.is_some())
@@ -148,62 +158,25 @@ pub fn calculate_yield_metrics(holdings: &[Holding], config: &AnalyticsConfig) -
         .filter(|h| h.analytics.ytw.is_some())
         .count();
 
-    YieldMetrics {
-        ytm: weighted_ytm(holdings, config),
-        ytw: weighted_ytw(holdings, config),
-        ytc: weighted_ytc(holdings, config),
-        current_yield: weighted_current_yield(holdings, config),
-        best_yield: weighted_best_yield(holdings, config),
+    Ok(YieldMetrics {
+        ytm: weighted_ytm(holdings, config)?,
+        ytw: weighted_ytw(holdings, config)?,
+        ytc: weighted_ytc(holdings, config)?,
+        current_yield: weighted_current_yield(holdings, config)?,
+        best_yield: weighted_best_yield(holdings, config)?,
         ytm_coverage,
         ytw_coverage,
         total_holdings: holdings.len(),
-    }
-}
-
-/// Internal helper to calculate weighted average of any metric.
-fn weighted_metric<F>(holdings: &[Holding], config: &AnalyticsConfig, get_value: F) -> Option<f64>
-where
-    F: Fn(&Holding) -> Option<f64> + Sync,
-{
-    let (sum_weighted, sum_weights) = maybe_parallel_fold(
-        holdings,
-        config,
-        (0.0_f64, 0.0_f64),
-        |(sum_w, sum_wt), h| {
-            if let Some(value) = get_value(h) {
-                let weight = weight_for_holding(h, config.weighting);
-                (sum_w + value * weight, sum_wt + weight)
-            } else {
-                (sum_w, sum_wt)
-            }
-        },
-        |(a, b), (c, d)| (a + c, b + d),
-    );
-
-    if sum_weights > 0.0 {
-        Some(sum_weighted / sum_weights)
-    } else {
-        None
-    }
-}
-
-/// Returns the weight for a holding as f64.
-fn weight_for_holding(holding: &Holding, method: WeightingMethod) -> f64 {
-    let weight_dec = holding.weight_value(method);
-    decimal_to_f64(weight_dec)
-}
-
-/// Converts Decimal to f64.
-fn decimal_to_f64(d: Decimal) -> f64 {
-    use rust_decimal::prelude::ToPrimitive;
-    d.to_f64().unwrap_or(0.0)
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::types::HoldingAnalytics;
+    use crate::WeightingMethod;
     use convex_bonds::types::BondIdentifiers;
+    use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
 
     fn create_holding(
@@ -236,7 +209,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let ytm = weighted_ytm(&holdings, &config).unwrap();
+        let ytm = weighted_ytm(&holdings, &config).unwrap().unwrap();
 
         // Weighted by MV: (1M × 5% + 0.5M × 6%) / 1.5M = 5.33%
         assert!((ytm - 0.0533).abs() < 0.001);
@@ -250,7 +223,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let ytm = weighted_ytm(&holdings, &config).unwrap();
+        let ytm = weighted_ytm(&holdings, &config).unwrap().unwrap();
 
         // Weighted by MV: (980k × 5% + 510k × 6%) / 1.49M
         let expected = (980_000.0 * 0.05 + 510_000.0 * 0.06) / 1_490_000.0;
@@ -265,7 +238,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let ytw = weighted_ytw(&holdings, &config).unwrap();
+        let ytw = weighted_ytw(&holdings, &config).unwrap().unwrap();
 
         // Equal MV, so average of 4% and 5.5% = 4.75%
         assert!((ytw - 0.0475).abs() < 0.001);
@@ -281,7 +254,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let best = weighted_best_yield(&holdings, &config).unwrap();
+        let best = weighted_best_yield(&holdings, &config).unwrap().unwrap();
 
         // Equal MV: (4% + 6%) / 2 = 5%
         assert!((best - 0.05).abs() < 0.001);
@@ -299,14 +272,14 @@ mod tests {
             .unwrap()];
 
         let config = AnalyticsConfig::default();
-        assert!(weighted_ytm(&holdings, &config).is_none());
+        assert!(weighted_ytm(&holdings, &config).unwrap().is_none());
     }
 
     #[test]
     fn test_empty_portfolio() {
         let holdings: Vec<Holding> = vec![];
         let config = AnalyticsConfig::default();
-        assert!(weighted_ytm(&holdings, &config).is_none());
+        assert!(weighted_ytm(&holdings, &config).unwrap().is_none());
     }
 
     #[test]
@@ -317,7 +290,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default().with_weighting(WeightingMethod::ParValue);
-        let ytm = weighted_ytm(&holdings, &config).unwrap();
+        let ytm = weighted_ytm(&holdings, &config).unwrap().unwrap();
 
         // Par weighted: (1M × 5% + 0.5M × 6%) / 1.5M = 5.33%
         assert!((ytm - 0.0533).abs() < 0.001);
@@ -331,7 +304,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default().with_weighting(WeightingMethod::EqualWeight);
-        let ytm = weighted_ytm(&holdings, &config).unwrap();
+        let ytm = weighted_ytm(&holdings, &config).unwrap().unwrap();
 
         // Equal weight: (5% + 7%) / 2 = 6%
         assert!((ytm - 0.06).abs() < 0.001);
@@ -345,10 +318,10 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let metrics = calculate_yield_metrics(&holdings, &config);
+        let metrics = calculate_yield_metrics(&holdings, &config).unwrap();
 
         assert!(metrics.ytm.is_some());
-        assert!(metrics.ytw.is_some()); // Only one has YTW
+        assert!(metrics.ytw.is_none()); // The second holding has no supplied YTW.
         assert!(metrics.best_yield.is_some());
 
         assert_eq!(metrics.ytm_coverage, 2);

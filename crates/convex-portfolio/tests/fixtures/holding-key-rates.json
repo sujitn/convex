@@ -1,0 +1,2061 @@
+{
+  "status": "independent_following_declarations_before_implementation",
+  "recorded_at": "2026-10-16T07:07:36.584797+00:00",
+  "reference": "Independent Python Fraction exact rational supplied par*(clean price + supplied accrued interest)*explicit FX/100, signed supplied factor durations; Decimal90 text only. Original36 zero-accrual cases retained byte-for-byte as JSON values.",
+  "units": "supplied common-base currency per one bp; positive DV01 is loss for an upward yield move, signed duration retained",
+  "contract": {
+    "exact_tenor_identity": "positive finite binary64 identity, no bucketing/tolerance",
+    "currency_risk": "sum actual covered par*(clean+supplied accrued)*FX/100*factor duration/10000, independent of presentation weights",
+    "missing": "explicit per-factor coverage and known-only risk; no absent factor or undefined denominator becomes a successful zero",
+    "present_zero": "a supplied zero duration or zero market value may yield actual known zero currency risk",
+    "profile": "known weighted factors only; whole requested coverage never inferred",
+    "bounds": "holdings<=65536, factors<=4096, cross-product work<=1048576, unique bounded identities and finite positive distinct tenors; checked Decimal products/sums; no nonzero-underflow",
+    "scope": "supplied precomputed bond holdings, explicit FX; full signed multi-instrument portfolio owner remains separate",
+    "price_basis": "actual supplied clean price plus actual supplied accrued interest, no accrued interest inferred or zero substituted for unavailable external data; Holding default zero represents its caller supplied zero"
+  },
+  "cases": [
+    {
+      "id": "complete-standard-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "1"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "2",
+          "known_partial_dv01": "0.04",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "200"
+        }
+      ]
+    },
+    {
+      "id": "complete-standard-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "1"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "2",
+          "known_partial_dv01": "0.04",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "200"
+        }
+      ]
+    },
+    {
+      "id": "complete-standard-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "1"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "2",
+          "known_partial_dv01": "0.04",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "200"
+        }
+      ]
+    },
+    {
+      "id": "nearby-factors-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "2.0005"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "nearby-factors-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "2.0005"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "nearby-factors-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "2.0005"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "missing-profile-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": null
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.05",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "missing-profile-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": null
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.05",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "missing-profile-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": null
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.05",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "unequal-values-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "1"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "200",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "9"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "6.33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333",
+          "known_partial_dv01": "0.19",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "300"
+        }
+      ]
+    },
+    {
+      "id": "unequal-values-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "1"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "200",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "9"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.19",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "300"
+        }
+      ]
+    },
+    {
+      "id": "unequal-values-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "1"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "200",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "9"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.19",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "300"
+        }
+      ]
+    },
+    {
+      "id": "zero-value-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "0",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [],
+      "admission_error": "relative_duration_requires_positive_dirty_price"
+    },
+    {
+      "id": "zero-value-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "0",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [],
+      "admission_error": "relative_duration_requires_positive_dirty_price"
+    },
+    {
+      "id": "zero-value-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "0",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [],
+      "admission_error": "relative_duration_requires_positive_dirty_price"
+    },
+    {
+      "id": "missing-factor-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "2"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "101",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5",
+        "30"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "2",
+          "known_partial_dv01": "0.0198",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "99"
+        },
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.0505",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "101"
+        },
+        {
+          "tenor": "30",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "missing-factor-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "2"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "101",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5",
+        "30"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "2",
+          "known_partial_dv01": "0.0198",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "99"
+        },
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.0505",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "101"
+        },
+        {
+          "tenor": "30",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "missing-factor-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "2"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "101",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5",
+        "30"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "2",
+          "known_partial_dv01": "0.0198",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "99"
+        },
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.0505",
+          "covered_holdings": 1,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "101"
+        },
+        {
+          "tenor": "30",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 2,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "explicit-zero-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "300",
+          "price": "80",
+          "fx": "1.25",
+          "risk": [
+            [
+              "2",
+              "0"
+            ],
+            [
+              "5",
+              "-3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "0",
+          "known_partial_dv01": "0",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "300"
+        },
+        {
+          "tenor": "5",
+          "duration": "-3",
+          "known_partial_dv01": "-0.09",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "300"
+        }
+      ]
+    },
+    {
+      "id": "explicit-zero-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "300",
+          "price": "80",
+          "fx": "1.25",
+          "risk": [
+            [
+              "2",
+              "0"
+            ],
+            [
+              "5",
+              "-3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "0",
+          "known_partial_dv01": "0",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "300"
+        },
+        {
+          "tenor": "5",
+          "duration": "-3",
+          "known_partial_dv01": "-0.09",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "300"
+        }
+      ]
+    },
+    {
+      "id": "explicit-zero-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "300",
+          "price": "80",
+          "fx": "1.25",
+          "risk": [
+            [
+              "2",
+              "0"
+            ],
+            [
+              "5",
+              "-3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "0",
+          "known_partial_dv01": "0",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "300"
+        },
+        {
+          "tenor": "5",
+          "duration": "-3",
+          "known_partial_dv01": "-0.09",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "300"
+        }
+      ]
+    },
+    {
+      "id": "signed-factors-and-FX-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "137",
+          "price": "97.25",
+          "fx": "1.3",
+          "risk": [
+            [
+              "2",
+              "-1.25"
+            ],
+            [
+              "5",
+              "3.5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "251",
+          "price": "103.5",
+          "fx": "0.8",
+          "risk": [
+            [
+              "2",
+              "2.75"
+            ],
+            [
+              "5",
+              "-0.5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "0.931748037065298621303689142791156345198314307066171255431819389667880699760714536444284935",
+          "known_partial_dv01": "0.03550241875",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "381.03025"
+        },
+        {
+          "tenor": "5",
+          "duration": "1.31825196293470137869631085720884365480168569293382874456818061033211930023928546355571506",
+          "known_partial_dv01": "0.0502293875",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "381.03025"
+        }
+      ]
+    },
+    {
+      "id": "signed-factors-and-FX-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "137",
+          "price": "97.25",
+          "fx": "1.3",
+          "risk": [
+            [
+              "2",
+              "-1.25"
+            ],
+            [
+              "5",
+              "3.5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "251",
+          "price": "103.5",
+          "fx": "0.8",
+          "risk": [
+            [
+              "2",
+              "2.75"
+            ],
+            [
+              "5",
+              "-0.5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "0.869820533122195830034309844286091316970176827659012932172077065188704143573502243335972552",
+          "known_partial_dv01": "0.03550241875",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "381.03025"
+        },
+        {
+          "tenor": "5",
+          "duration": "1.38017946687780416996569015571390868302982317234098706782792293481129585642649775666402745",
+          "known_partial_dv01": "0.0502293875",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "381.03025"
+        }
+      ]
+    },
+    {
+      "id": "signed-factors-and-FX-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "137",
+          "price": "97.25",
+          "fx": "1.3",
+          "risk": [
+            [
+              "2",
+              "-1.25"
+            ],
+            [
+              "5",
+              "3.5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "251",
+          "price": "103.5",
+          "fx": "0.8",
+          "risk": [
+            [
+              "2",
+              "2.75"
+            ],
+            [
+              "5",
+              "-0.5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "0.75",
+          "known_partial_dv01": "0.03550241875",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "381.03025"
+        },
+        {
+          "tenor": "5",
+          "duration": "1.5",
+          "known_partial_dv01": "0.0502293875",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "381.03025"
+        }
+      ]
+    },
+    {
+      "id": "all-missing-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": null
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 1,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "all-missing-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": null
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 1,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "all-missing-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": null
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 1,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "empty-MarketValue",
+      "holdings": [],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 0,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "empty-ParValue",
+      "holdings": [],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 0,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "empty-EqualWeight",
+      "holdings": [],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": null,
+          "known_partial_dv01": null,
+          "covered_holdings": 0,
+          "total_holdings": 0,
+          "complete": false,
+          "covered_market_value": "0"
+        }
+      ]
+    },
+    {
+      "id": "zero-sum-durations-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "3"
+            ],
+            [
+              "5",
+              "-3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "3",
+          "known_partial_dv01": "0.03",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "5",
+          "duration": "-3",
+          "known_partial_dv01": "-0.03",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "zero-sum-durations-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "3"
+            ],
+            [
+              "5",
+              "-3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "3",
+          "known_partial_dv01": "0.03",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "5",
+          "duration": "-3",
+          "known_partial_dv01": "-0.03",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "zero-sum-durations-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "3"
+            ],
+            [
+              "5",
+              "-3"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "3",
+          "known_partial_dv01": "0.03",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "5",
+          "duration": "-3",
+          "known_partial_dv01": "-0.03",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "reversed-tenor-order-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2.0005",
+        "2"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "reversed-tenor-order-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2.0005",
+        "2"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "reversed-tenor-order-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2.0005",
+        "2"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "accrued-and-FX-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "200",
+          "price": "101",
+          "accrued": "2",
+          "fx": "0.5",
+          "risk": [
+            [
+              "5",
+              "9"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "7.02955665024630541871921182266009852216748768472906403940886699507389162561576354679802956",
+          "known_partial_dv01": "0.1427",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "203"
+        }
+      ]
+    },
+    {
+      "id": "accrued-and-FX-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "200",
+          "price": "101",
+          "accrued": "2",
+          "fx": "0.5",
+          "risk": [
+            [
+              "5",
+              "9"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "7",
+          "known_partial_dv01": "0.1427",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "203"
+        }
+      ]
+    },
+    {
+      "id": "accrued-and-FX-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "200",
+          "price": "101",
+          "accrued": "2",
+          "fx": "0.5",
+          "risk": [
+            [
+              "5",
+              "9"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "7",
+          "known_partial_dv01": "0.1427",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "203"
+        }
+      ]
+    },
+    {
+      "id": "zero-clean-known-accrued-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "0",
+          "accrued": "2",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.001",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "2"
+        }
+      ]
+    },
+    {
+      "id": "zero-clean-known-accrued-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "0",
+          "accrued": "2",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.001",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "2"
+        }
+      ]
+    },
+    {
+      "id": "zero-clean-known-accrued-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "0",
+          "accrued": "2",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "5",
+          "known_partial_dv01": "0.001",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "2"
+        }
+      ]
+    },
+    {
+      "id": "ex-coupon-accrual-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "accrued": "-2",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "-1"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "1.95477386934673366834170854271356783919597989949748743718592964824120603015075376884422111",
+          "known_partial_dv01": "0.0389",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "199"
+        }
+      ]
+    },
+    {
+      "id": "ex-coupon-accrual-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "accrued": "-2",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "-1"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "2",
+          "known_partial_dv01": "0.0389",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "199"
+        }
+      ]
+    },
+    {
+      "id": "ex-coupon-accrual-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "100",
+          "accrued": "-2",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "5"
+            ]
+          ]
+        },
+        {
+          "id": "B",
+          "par": "100",
+          "price": "100",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "5",
+              "-1"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "5"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "5",
+          "duration": "2",
+          "known_partial_dv01": "0.0389",
+          "covered_holdings": 2,
+          "total_holdings": 2,
+          "complete": true,
+          "covered_market_value": "199"
+        }
+      ]
+    },
+    {
+      "id": "nearby-factor-accrual-MarketValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "2.0005"
+      ],
+      "weighting": "MarketValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "nearby-factor-accrual-ParValue",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "2.0005"
+      ],
+      "weighting": "ParValue",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    },
+    {
+      "id": "nearby-factor-accrual-EqualWeight",
+      "holdings": [
+        {
+          "id": "A",
+          "par": "100",
+          "price": "99",
+          "accrued": "1",
+          "fx": "1",
+          "risk": [
+            [
+              "2",
+              "1"
+            ],
+            [
+              "2.0005",
+              "7"
+            ]
+          ]
+        }
+      ],
+      "requested_tenors": [
+        "2",
+        "2.0005"
+      ],
+      "weighting": "EqualWeight",
+      "factors": [
+        {
+          "tenor": "2",
+          "duration": "1",
+          "known_partial_dv01": "0.01",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        },
+        {
+          "tenor": "2.0005",
+          "duration": "7",
+          "known_partial_dv01": "0.07",
+          "covered_holdings": 1,
+          "total_holdings": 1,
+          "complete": true,
+          "covered_market_value": "100"
+        }
+      ]
+    }
+  ],
+  "absolute_bound": "1e-12",
+  "relative_bound": "1e-14",
+  "independent_approved_pack": false,
+  "certified": false,
+  "original_36_case_reference_sha256": "ea928ed3ba84b8bbea3a8167c753ea31b2e6e28b73c0fe2405ca80eeb8182c12",
+  "dirty_price_basis": "Native bond duration is normalized by full dirty value. MarketValue weighting and currency DV01 use this same dirty value. ParValue/EqualWeight remain presentation choices; currency DV01 always sums actual dirty position risk.",
+  "new_cases_declared_before_dirty_value_implementation": true,
+  "zero_price_domain": "A supplied relative duration cannot establish absolute risk without a strictly positive dirty valuation base. Zero dirty-price holdings with declared relative factors are invalid, independent of presentation weighting. Valid zero sensitivity at positive price remains zero. Zero clean price with positive supplied accrued/dirty value remains valid.",
+  "prior_unexecuted_arithmetic_reference_sha256": "07e381fdc7684a70682a5f5f87c5efe303f742cb0c1672018a01c3ab70d16fdd"
+}

@@ -21,16 +21,8 @@ use crate::error::{AnalyticsError, AnalyticsResult};
 ///
 /// Current yield as percentage (e.g., 5.08 for 5.08%)
 pub fn current_yield(annual_coupon: Decimal, clean_price: Decimal) -> AnalyticsResult<Decimal> {
-    if clean_price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "clean price must be positive".to_string(),
-        ));
-    }
-
-    // Current yield = (coupon rate × 100) / price × 100
-    // e.g., 7.5% coupon at 110.503 price = 7.5 / 110.503 × 100 = 6.79%
-    let current = (annual_coupon * Decimal::ONE_HUNDRED) / clean_price * Decimal::ONE_HUNDRED;
-    Ok(current)
+    convex_bonds::pricing::yield_scalars::current_percent_from_rate(annual_coupon, clean_price)
+        .map_err(scalar_error)
 }
 
 /// Calculate current yield from coupon amount and price.
@@ -43,15 +35,8 @@ pub fn current_yield_from_amount(
     coupon_amount: Decimal,
     clean_price: Decimal,
 ) -> AnalyticsResult<Decimal> {
-    if clean_price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "clean price must be positive".to_string(),
-        ));
-    }
-
-    // Current yield = coupon / price × 100
-    let current = coupon_amount / clean_price * Decimal::ONE_HUNDRED;
-    Ok(current)
+    convex_bonds::pricing::yield_scalars::current_percent_from_amount(coupon_amount, clean_price)
+        .map_err(scalar_error)
 }
 
 /// Calculate current yield from a fixed coupon bond.
@@ -64,14 +49,20 @@ pub fn current_yield_from_bond(
     bond: &dyn FixedCouponBond,
     clean_price: Decimal,
 ) -> AnalyticsResult<Decimal> {
-    if clean_price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "clean price must be positive".to_string(),
-        ));
-    }
+    convex_bonds::pricing::yield_scalars::fixed_current_percent(
+        bond.coupon_rate(),
+        bond.face_value(),
+        clean_price,
+    )
+    .map_err(scalar_error)
+}
 
-    let annual_coupon = bond.coupon_rate() * bond.face_value();
-    current_yield_from_amount(annual_coupon, clean_price)
+// Preserve the established analytics domain-error vocabulary at this boundary.
+pub(super) fn scalar_error(error: convex_bonds::BondError) -> AnalyticsError {
+    match error {
+        convex_bonds::BondError::InvalidSpec { reason } => AnalyticsError::InvalidInput(reason),
+        error => error.into(),
+    }
 }
 
 #[cfg(test)]

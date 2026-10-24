@@ -28,10 +28,16 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
 
 pub mod calendars;
+pub mod cashflows;
+pub mod contracts;
 pub mod daycounts;
 pub mod error;
+pub mod fixings;
+pub mod futures;
 pub mod traits;
 pub mod types;
 
@@ -53,3 +59,4 @@ pub mod prelude {
 // Re-export commonly used types at crate root
 pub use error::{ConvexError, ConvexResult};
 pub use types::{Currency, Date, Price, Yield};
+pub mod ids;

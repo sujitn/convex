@@ -8,7 +8,7 @@
 //! - **Optimization**: Function optimization (Levenberg-Marquardt, BFGS)
 //! - **Linear Algebra**: Matrix operations and decompositions
 //! - **Interpolation**: Numerical interpolation methods
-//! - **Extrapolation**: Curve extrapolation (Flat, Linear, Smith-Wilson)
+//! - **Extrapolation**: Curve extrapolation (Flat, Linear, UFR-convergence)
 //!
 //! ## Design Philosophy
 //!
@@ -18,12 +18,22 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
+#![cfg_attr(
+    not(test),
+    deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)
+)]
 
+pub mod bounds;
+/// Bounded exact Decimal accumulation and final rounding.
+pub mod decimal;
 pub mod error;
 pub mod extrapolation;
 pub mod interpolation;
 pub mod linear_algebra;
 pub mod optimization;
+pub mod portable;
 pub mod solvers;
 pub mod stats;
 
@@ -31,7 +41,7 @@ pub mod stats;
 pub mod prelude {
     pub use crate::error::{MathError, MathResult};
     pub use crate::extrapolation::{
-        ExtrapolationMethod, Extrapolator, FlatExtrapolator, LinearExtrapolator, SmithWilson,
+        Extrapolator, FlatExtrapolator, LinearExtrapolator, UfrConvergence,
     };
     pub use crate::interpolation::{
         CubicSpline, Interpolator, LinearInterpolator, LogLinearInterpolator, MonotoneConvex,

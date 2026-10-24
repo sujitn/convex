@@ -1,5 +1,6 @@
 [package]
 name = "convex-wasm"
+publish = false  # internal; not published to crates.io
 version = "0.1.0"
 edition = "2021"
 description = "WebAssembly bindings for Convex fixed income analytics"
@@ -21,6 +22,7 @@ convex-math = { path = "../convex-math" }
 convex-curves = { path = "../convex-curves" }
 convex-bonds = { path = "../convex-bonds" }
 convex-analytics = { path = "../convex-analytics" }
+convex = { workspace = true, features = ["schemars"] }
 
 wasm-bindgen = "0.2"
 serde = { version = "1.0", features = ["derive"] }
@@ -33,4 +35,5 @@ getrandom = { version = "0.2", features = ["js"] }
 uuid = { version = "1.23", features = ["serde", "v4", "js"] }
 
 [dev-dependencies]
+serde_json = { workspace = true }
 wasm-bindgen-test = "0.3"

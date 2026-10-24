@@ -1,5 +1,7 @@
 [package]
 name = "convex-server"
+default-run = "convex-server"
+publish = false  # internal; not published to crates.io
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,12 +13,13 @@ keywords = ["finance", "bonds", "server", "rest", "websocket"]
 categories = ["finance", "web-programming"]
 
 [dependencies]
+convex = { workspace = true }
+convex-engine = { workspace = true }
 # Engine and traits
-convex-engine = { path = "../convex-engine" }
-convex-traits = { path = "../convex-traits" }
 convex-portfolio = { path = "../convex-portfolio" }
 convex-bonds = { workspace = true }
 convex-core = { workspace = true }
+convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-analytics = { workspace = true }
 
@@ -45,13 +48,19 @@ rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+sha2 = "0.10.9"
 chrono = "0.4"
+async-trait = "0.1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "form"] }
 
 [[bin]]
 name = "convex-server"
 path = "src/main.rs"
 
 [dev-dependencies]
+convex-ports = { workspace = true }
+async-trait = "0.1"
+tempfile = "3"
 reqwest = { version = "0.13", features = ["json"] }
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
