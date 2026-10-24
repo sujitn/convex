@@ -100,7 +100,7 @@ No token claim grants a local role, and no role grants data/resources implicitly
 | analyst | Reader operations, calculations and scoped job submit/cancel |
 | reference_writer | Reference mutations, curve construction/deletion and market input writes (fixings, live quotes) |
 | book_writer | Portfolio/position mutations |
-| operator | Runtime/dependency and configuration inspection |
+| operator | Runtime/dependency and configuration inspection; configuration staging, activation and rollback |
 
 Combine roles deliberately. `reference_writer` does not automatically include `reader`; `operator` does not authorize a calculation or grant market data. The separate data classes are `reference`, `market`, `results`, `books`, `configuration`, `operations`. Resource namespaces are instrument, curve, book, ETF, source and configuration. v1 `portfolio_id` maps exactly to the book namespace; the present portfolio store remains volatile and does not establish authoritative financial books.
 
@@ -117,6 +117,10 @@ Combine roles deliberately. `reference_writer` does not automatically include `r
 | Portfolio/position operations | Book ID and every instrument in input/returned content; nested batches are checked before dispatch |
 | Portfolio analytics stream | Book plus whole underlying instrument/curve/source grants and market/results/books |
 | Configuration inspection | Operator, configuration ID and configuration/reference/market grants; returned dependency IDs are checked |
+| Configuration stage/activate/rollback | Operator (`ConfigurationWrite`), configuration ID and configuration/reference/market grants; every ID in the body is checked; bodies up to 4 MiB |
+| Configuration validate/diff, history and versions | Operator; validate also needs reference/market grants |
+| Reference import upload | Reference writer; checked like a reference transaction, whole instrument dataset when the file has master changes; up to 8 MiB |
+| Reference master listing | Whole instrument dataset and reference data |
 | Runtime/dependencies/WS status | Operator and operations data |
 | New or unclassified endpoints | Denied until their access contract is added to the closed route table |
 

@@ -73,6 +73,7 @@ pub fn staged(version: u64) -> StagedConfiguration {
         actor: "fixture-operator".into(),
         reason: "Fictional regression fixture".into(),
         staged_at: snapshot::time("2026-10-02T14:59:59Z"),
+        fixture_evidence: FixtureEvidence::ReplayChecked,
     }
 }
 pub fn activate(version: u64, expected_revision: u64, key: &str) -> ActivationCommand {
@@ -90,5 +91,6 @@ pub fn activate(version: u64, expected_revision: u64, key: &str) -> ActivationCo
             ReloadClass::Hot
         },
         action: ActivationKind::Activate,
+        fixture_evidence: FixtureEvidence::ReplayChecked,
     }
 }

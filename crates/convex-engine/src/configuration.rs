@@ -121,7 +121,7 @@ pub struct ConfigurationActivationOutcome {
     pub accepted_generation: Option<Version>,
     /// Actual accepted pointer; a concurrent later selection may supersede this command.
     pub accepted_activation_revision: Option<Version>,
-    /// Stopped/new process needs startup to apply its selected configuration.
+    /// A stopped/new process, or a restart-required selection, applies at the next start.
     pub restart_required: bool,
 }
 /// Typed control failure; Display/Debug never include provider error text or input documents.
@@ -169,7 +169,7 @@ pub struct ConfigurationUseCases {
     repository: Arc<dyn ConfigurationRepository>,
     assembler: SnapshotAssembler,
     capabilities: ConfigurationCapabilities,
-    admission: tokio::sync::Semaphore,
+    admission: Arc<tokio::sync::Semaphore>,
     warmed: parking_lot::Mutex<Option<Arc<SnapshotValuator>>>,
 }
 impl ConfigurationUseCases {
@@ -190,9 +190,24 @@ impl ConfigurationUseCases {
             repository,
             assembler: SnapshotAssembler::new(references, configurations, fixings, snapshots),
             capabilities,
-            admission: tokio::sync::Semaphore::new(1),
+            admission: Arc::new(tokio::sync::Semaphore::new(1)),
             warmed: parking_lot::Mutex::new(None),
         }
+    }
+    /// The same repositories and validation gate under other capabilities, such as those
+    /// a start composes for a staged document.
+    pub fn with_capabilities(&self, capabilities: ConfigurationCapabilities) -> Self {
+        Self {
+            repository: self.repository.clone(),
+            assembler: self.assembler.clone(),
+            capabilities,
+            admission: self.admission.clone(),
+            warmed: parking_lot::Mutex::new(None),
+        }
+    }
+    /// Capabilities this composition validates against.
+    pub fn capabilities(&self) -> &ConfigurationCapabilities {
+        &self.capabilities
     }
     /// Configuration persistence boundary for inspection and immutable selection recovery.
     pub fn repository(&self) -> &Arc<dyn ConfigurationRepository> {
@@ -588,12 +603,12 @@ impl ConfigurationUseCases {
         }
         Ok(report)
     }
-    /// Revalidate/warm actual inputs, then CAS. Running processes can accept only hot changes.
+    /// Revalidate/warm actual inputs, then CAS. A restart-required selection commits and
+    /// applies at the next start; only a hot one can be applied by a running runtime.
     pub async fn activate(
         &self,
         command: &ActivationCommand,
         fixtures: &[ConfigurationFixture],
-        running: bool,
     ) -> Result<ActivationRecord, ConfigurationError> {
         command.validate()?;
         if let Some(retained) = io(self
@@ -603,9 +618,6 @@ impl ConfigurationUseCases {
         {
             self.verify_activation(command, &retained).await?;
             return Ok(retained);
-        }
-        if running && command.mode != ReloadClass::Hot {
-            return Err(ConfigurationError::RestartRequired);
         }
         let staged = io(self
             .repository

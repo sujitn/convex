@@ -257,7 +257,7 @@ async fn cli_invalid_schema_credentials_fixture_and_process_values_are_redacted(
 }
 
 #[tokio::test]
-async fn http_configuration_inspection_uses_same_policy_and_exposes_no_mutation_route() {
+async fn http_configuration_inspection_uses_same_policy_and_redacts_credentials() {
     let setup = runtime::setup().await;
     let service = cases(&setup);
     let mut staged = fixture::staged(1);
@@ -322,4 +322,259 @@ fn create_router(engine: std::sync::Arc<convex_engine::PricingEngine>) -> axum::
         true,
         convex_server::access::AccessControl::local_development(),
     )
+}
+
+async fn post(
+    router: &axum::Router,
+    path: &str,
+    key: Option<&str>,
+    if_match: Option<&str>,
+    body: Value,
+) -> (axum::http::StatusCode, Value) {
+    let mut request = axum::http::Request::builder()
+        .method("POST")
+        .uri(path)
+        .header("content-type", "application/json");
+    if let Some(key) = key {
+        request = request.header("idempotency-key", key);
+    }
+    if let Some(revision) = if_match {
+        request = request.header("if-match", revision);
+    }
+    let response = router
+        .clone()
+        .oneshot(
+            request
+                .body(axum::body::Body::from(serde_json::to_vec(&body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), 8 * 1024 * 1024)
+        .await
+        .unwrap();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+async fn get(router: &axum::Router, path: &str) -> (axum::http::StatusCode, Value) {
+    let response = router
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(path)
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), 8 * 1024 * 1024)
+        .await
+        .unwrap();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+#[tokio::test]
+async fn http_stage_activate_rollback_record_the_caller_and_whether_fixtures_were_replay_checked() {
+    let setup = runtime::setup().await;
+    let service = cases(&setup);
+    let engine = engine(&setup, service.clone());
+    let mut first = fixture::staged(1);
+    first.document.runtime.mode = RuntimeMode::Replay;
+    first.document.runtime.build_id = ModelId::new(SERVER_BUILD_ID).unwrap();
+    first.document.providers[0]
+        .capabilities
+        .push(ProviderCapability::Replay);
+    let mut second = first.clone();
+    second.document.pricing.version = 2;
+    second.document.pricing.updated_at = 200;
+    second.document.assembly.configuration.version = Version::new(2).unwrap();
+    second.document.assembly.quotes[0].max_age_ms = 3000;
+    let replay = setup.dir.path().join("quotes.jsonl");
+    std::fs::write(
+        &replay,
+        setup
+            .plan
+            .seed_events
+            .iter()
+            .map(|event| serde_json::to_string(event).unwrap() + "\n")
+            .collect::<String>(),
+    )
+    .unwrap();
+    let fixtures = fixtures(&setup);
+    // A replay composition checks fixtures against its quotes file; a live one cannot.
+    let traced = create_router(engine.clone()).layer(axum::Extension(
+        convex_server::configuration_admin::ConfigurationTrace(replay),
+    ));
+    let untraced = create_router(engine.clone());
+    let base = "/api/v1/configuration/CONFIG-RESTORE";
+    let stage = |staged: &StagedConfiguration,
+                 fixtures: &[convex_engine::configuration::ConfigurationFixture]| {
+        json!({"document": staged.document, "fixtures": fixtures, "reason": staged.reason,
+            "staged_at": staged.staged_at})
+    };
+    let (status, report) = post(
+        &traced,
+        "/api/v1/configuration/validate",
+        None,
+        None,
+        json!({"document": first.document, "fixtures": fixtures}),
+    )
+    .await;
+    assert_eq!(status, 200, "{report}");
+    assert_eq!(report["valid"], true);
+    let (status, diff) = post(
+        &untraced,
+        "/api/v1/configuration/diff",
+        None,
+        None,
+        json!({"previous": first.document, "next": second.document}),
+    )
+    .await;
+    assert_eq!(status, 200, "{diff}");
+    assert!(!diff["changes"].as_array().unwrap().is_empty());
+    // Fixtures that are not a prefix of the replay are refused.
+    let mut foreign = fixtures.clone();
+    foreign[0].events[0].key.source = "foreign-feed".into();
+    let (status, refused) = post(
+        &traced,
+        &format!("{base}/stage"),
+        Some("stage-foreign"),
+        None,
+        stage(&first, &foreign),
+    )
+    .await;
+    assert_eq!(status, 400, "{refused}");
+    assert_eq!(
+        refused["error"]["reason"],
+        "fixture trace differs from actual canonical replay prefix"
+    );
+    let (status, missing_key) = post(
+        &traced,
+        &format!("{base}/stage"),
+        None,
+        None,
+        stage(&first, &fixtures),
+    )
+    .await;
+    assert_eq!(status, 400, "{missing_key}");
+    let (status, staged) = post(
+        &traced,
+        &format!("{base}/stage"),
+        Some("stage-1"),
+        None,
+        stage(&first, &fixtures),
+    )
+    .await;
+    assert_eq!(
+        (status, &staged["valid"]),
+        (axum::http::StatusCode::OK, &json!(true)),
+        "{staged}"
+    );
+    let (status, _) = post(
+        &untraced,
+        &format!("{base}/stage"),
+        Some("stage-2"),
+        None,
+        stage(&second, &fixtures),
+    )
+    .await;
+    assert_eq!(status, 200);
+    let (_, retained) = get(&untraced, &format!("{base}/versions/1")).await;
+    assert_eq!(retained["actor"], "local-development");
+    assert_eq!(retained["fixture_evidence"], "replay_checked");
+    let (_, retained) = get(&untraced, &format!("{base}/versions/2")).await;
+    assert_eq!(retained["fixture_evidence"], "operator_supplied");
+    let selection = |version: u64, mode: &str| {
+        json!({"configuration_version": version, "reason": "Fictional HTTP activation",
+            "activated_at": "2026-10-02T15:00:00Z", "mode": mode, "fixtures": fixtures})
+    };
+    let (status, first_activation) = post(
+        &traced,
+        &format!("{base}/activate"),
+        Some("activate-1"),
+        Some("0"),
+        selection(1, "restart_required"),
+    )
+    .await;
+    assert_eq!(status, 200, "{first_activation}");
+    assert_eq!(first_activation["activation"]["revision"], 1);
+    assert_eq!(first_activation["restart_required"], true);
+    // The If-Match revision is the compare-and-set expectation.
+    let (status, stale) = post(
+        &untraced,
+        &format!("{base}/activate"),
+        Some("activate-stale"),
+        Some("0"),
+        selection(2, "restart_required"),
+    )
+    .await;
+    assert_eq!(status, 409, "{stale}");
+    let (status, second_activation) = post(
+        &untraced,
+        &format!("{base}/activate"),
+        Some("activate-2"),
+        Some("1"),
+        selection(2, "hot"),
+    )
+    .await;
+    assert_eq!(status, 200, "{second_activation}");
+    assert_eq!(
+        second_activation["activation"]["command"]["fixture_evidence"],
+        "operator_supplied"
+    );
+    let rollback = json!({"to_revision": 1, "reason": "Fictional HTTP rollback",
+        "activated_at": "2026-10-02T15:00:00Z", "mode": "hot", "fixtures": fixtures});
+    let (status, reverted) = post(
+        &traced,
+        &format!("{base}/rollback"),
+        Some("rollback-1"),
+        Some("2"),
+        rollback.clone(),
+    )
+    .await;
+    assert_eq!(status, 200, "{reverted}");
+    assert_eq!(reverted["activation"]["revision"], 3);
+    assert_eq!(
+        reverted["activation"]["command"]["configuration_version"],
+        1
+    );
+    assert_eq!(
+        reverted["activation"]["command"]["actor"],
+        "local-development"
+    );
+    assert!(reverted["activation"]["command"]
+        .get("fixture_evidence")
+        .is_none());
+    // An exact retry returns the retained record.
+    let (status, retried) = post(
+        &traced,
+        &format!("{base}/rollback"),
+        Some("rollback-1"),
+        Some("2"),
+        rollback,
+    )
+    .await;
+    assert_eq!((status, retried), (axum::http::StatusCode::OK, reverted));
+    let (status, history) = get(&untraced, &format!("{base}/history?offset=0&limit=10")).await;
+    assert_eq!(status, 200, "{history}");
+    assert_eq!(history["total"], 3);
+    assert_eq!(
+        service
+            .active(&SourceId::new("CONFIG-RESTORE").unwrap())
+            .await
+            .unwrap()
+            .unwrap()
+            .activation
+            .revision
+            .get(),
+        3
+    );
 }

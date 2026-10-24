@@ -227,3 +227,32 @@ async fn initial_hot_restart_changes_and_false_rollback_targets_fail_without_poi
         first
     );
 }
+
+#[tokio::test]
+async fn operator_supplied_fixture_evidence_is_retained_and_replay_checked_keeps_its_bytes() {
+    // Replay-checked records omit the field, so records written before it keep their bytes.
+    let checked = serde_json::to_value(staged(1)).unwrap();
+    assert!(checked.get("fixture_evidence").is_none());
+    let earlier: StagedConfiguration = serde_json::from_value(checked).unwrap();
+    assert_eq!(earlier.fixture_evidence, FixtureEvidence::ReplayChecked);
+    let dir = tempfile::tempdir().unwrap();
+    let storage = convex_ext_redb::create_redb_storage(dir.path().join("config.redb")).unwrap();
+    let repo = storage.configuration.clone();
+    let mut supplied = staged(1);
+    supplied.fixture_evidence = FixtureEvidence::OperatorSupplied;
+    assert_eq!(
+        serde_json::to_value(&supplied).unwrap()["fixture_evidence"],
+        "operator_supplied"
+    );
+    repo.stage(&supplied).await.unwrap();
+    let mut command = activate(1, 0, "supplied");
+    command.fixture_evidence = FixtureEvidence::OperatorSupplied;
+    let record = repo.activate(&command).await.unwrap();
+    let active = repo.active(&command.id).await.unwrap().unwrap();
+    assert_eq!(active.staged, supplied);
+    assert_eq!(active.activation, record);
+    assert_eq!(
+        record.command.fixture_evidence,
+        FixtureEvidence::OperatorSupplied
+    );
+}

@@ -75,7 +75,6 @@ async fn real_configuration_stage_activation_and_snapshot_selection_retain_compl
         .activate(
             &configuration::fixture::activate(1, 0, "full-calibration"),
             &configuration::fixtures(&setup),
-            false,
         )
         .await
         .unwrap();

@@ -11,9 +11,10 @@ use convex_core::contracts::{RequestId, UtcTimestamp, Version};
 use convex_core::ids::InstrumentId;
 use convex_core::Currency;
 use convex_engine::ports::reference_data::{BondReferenceData, BondType, IssuerType};
-use convex_engine::ports::reference_master::{ExternalIdentifier, ReferenceLookup};
+use convex_engine::ports::reference_master::{ExternalIdentifier, MasterKind, ReferenceLookup};
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::storage::{BondFilter, Pagination};
+use convex_ext_file::{parse_reference_import, preflight_reference_import, ReferenceImportError};
 use serde::Deserialize;
 
 use crate::handlers::AppState;
@@ -50,6 +51,84 @@ pub(crate) async fn commit_reference_transaction(
     };
     match state.engine.commit_reference(&command, time).await {
         Ok(receipt) => Json(receipt).into_response(),
+        Err(error) => reference_error(error),
+    }
+}
+
+/// Commit an uploaded import file: the strict envelope's one atomic transaction. The
+/// body is the file itself, at most `MAX_REFERENCE_IMPORT_BYTES`. Refusals carry the
+/// importer's row and field diagnostics, never source values.
+pub(crate) async fn import_reference(
+    State(state): State<Arc<AppState>>,
+    body: axum::body::Bytes,
+) -> Response {
+    let refused = |error: ReferenceImportError| {
+        crate::error::ApiError::from(error.error)
+            .with_diagnostics(serde_json::json!(error.diagnostics))
+    };
+    let document = match parse_reference_import(&body) {
+        Ok(document) => document,
+        Err(error) => return refused(error),
+    };
+    let repository = state.engine.reference_repository();
+    if let Err(error) = preflight_reference_import(repository.as_ref(), &document).await {
+        return refused(error);
+    }
+    let time = match now() {
+        Ok(time) => time,
+        Err(error) => return reference_error(error),
+    };
+    match state.engine.commit_reference(&document.command, time).await {
+        Ok(receipt) => Json(receipt).into_response(),
+        Err(error) => reference_error(error),
+    }
+}
+
+/// Master listing page: identities strictly after `after`, at most `limit` (default 100).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct MasterPage {
+    after: Option<String>,
+    limit: Option<usize>,
+}
+
+/// Current master resources of one kind in identity order. Books have their own listing.
+pub(crate) async fn list_masters(
+    State(state): State<Arc<AppState>>,
+    Path(kind): Path<String>,
+    page: Result<Query<MasterPage>, QueryRejection>,
+) -> Response {
+    let Ok(Query(page)) = page else {
+        return reference_error(ReferenceError::InvalidInput("invalid master page query"));
+    };
+    let kind = match serde_json::from_value::<MasterKind>(serde_json::Value::String(kind)) {
+        Ok(kind) if kind != MasterKind::Book => kind,
+        _ => {
+            return reference_error(ReferenceError::InvalidInput(
+                "unknown master kind; books are listed under /api/v1/books",
+            ))
+        }
+    };
+    if page.after.as_ref().is_some_and(|after| after.len() > 256) {
+        return reference_error(ReferenceError::InvalidInput("invalid master cursor"));
+    }
+    let limit = page.limit.unwrap_or(100);
+    match state
+        .engine
+        .reference_repository()
+        .list_masters(kind, page.after.as_deref(), limit)
+        .await
+    {
+        Ok(items) => {
+            let next = (items.len() == limit)
+                .then(|| items.last())
+                .flatten()
+                .and_then(|record| {
+                    let key = record.definition.key().storage_key();
+                    key.split_once('/').map(|(_, id)| id.to_owned())
+                });
+            Json(serde_json::json!({"kind": kind, "items": items, "next": next})).into_response()
+        }
         Err(error) => reference_error(error),
     }
 }

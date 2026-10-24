@@ -215,6 +215,7 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | curves_file | CONVEX_CURVES_FILE | Rejected: file provider composition is not implemented |
 | fixings_file | CONVEX_FIXINGS_FILE | Rejected: file provider composition is not implemented |
 | bonds_file | CONVEX_BONDS_FILE | Rejected: file provider composition is not implemented |
+| admin_ui_dir | CONVEX_ADMIN_UI_DIR | Optional built admin app served at `/admin`; must hold `index.html` |
 | access.mode | CONVEX_ACCESS_MODE | Required by default; explicit local_development only for isolated loopback |
 | access.policy_file | CONVEX_ACCESS_POLICY_FILE | Bounded versioned grants, atomically reloaded each second |
 | access.tls_boundary | CONVEX_TLS_BOUNDARY | local_only or proxy; executable upstream stays loopback |
@@ -403,7 +404,13 @@ The [local redb storage guide](../convex-ext-redb/README.md) documents immutable
 
 ## Configuration operator
 
-Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` alongside the server. Its [runnable configuration guide](../convex-engine/CONFIGURATION.md) creates a new fictional workspace and shows schema, validate/explain, diff, stage, activate, rollback, exact-version/history/effective inspection and plan export. The CLI opens local redb exclusively, so stop the server for these operations. Embedded hosts can apply hot policies through the same engine use cases; the server adds only read-only `GET /api/v1/configuration/schema` and `GET /api/v1/configuration/:id?as_of=...&known_at=...`. There is no network configuration mutation route. These network inspection routes share [current access control and quotas](ACCESS.md). The offline CLI still relies on trusted local filesystem/operator access; authenticated shared administration remains subsequent work.
+Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` alongside the server. Its [runnable configuration guide](../convex-engine/CONFIGURATION.md) creates a new fictional workspace and shows schema, validate/explain, diff, stage, activate, rollback, exact-version/history/effective inspection and plan export. The CLI opens local redb exclusively, so stop the server for these operations. A running server offers the same validate, diff, stage, activate, rollback, history and version operations over HTTP for the `operator` role (see the [configuration guide](../convex-engine/CONFIGURATION.md)), beside read-only `GET /api/v1/configuration/schema` and `GET /api/v1/configuration/:id?as_of=...&known_at=...`. A restart-required activation commits and applies at the next start; the server never restarts itself. These routes share [current access control and quotas](ACCESS.md). The offline CLI still relies on trusted local filesystem/operator access.
+
+## Management routes and the admin app
+
+- `POST /api/v1/reference/import` takes a reference import file as the request body: the strict `{schema_version, command}` envelope, at most 8 MiB. It commits the one atomic transaction like `/api/v1/reference/transactions`. The file's idempotency key makes a re-upload return the retained receipt. A refusal carries the importer's `diagnostics` (section, row, field, code, line and column), never source values.
+- `GET /api/v1/reference/masters/:kind?after=&limit=` lists current master resources of one kind (`entity`, `calendar`, `convention`, `rate_index`, `identifier`, ...) in identity order. `limit` defaults to 100, `next` is the cursor for the following page, and books keep `/api/v1/books`.
+- `admin_ui_dir` (`CONVEX_ADMIN_UI_DIR`) serves a built admin app at `/admin`, falling back to its `index.html`. Startup refuses a directory without one. The files are public static assets outside the API access layer. They are sent with a policy that loads scripts only from the server and forbids framing, because the page holds a pasted bearer token in memory. Unset, nothing is served there.
 
 On-demand nominal fixed/zero quotes now use the [shared pure bond route](../../docs/BOND-QUOTES.md). Supply an observed price and exact optional discount/swap/government inputs; no demo curves, assumed volatility or model/par price are generated. Missing optional measures have structured errors. Full historical contexts, live admission and complete product/model certificates retain their separate gates.
 
