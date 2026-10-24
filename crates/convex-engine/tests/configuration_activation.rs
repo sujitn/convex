@@ -496,6 +496,20 @@ async fn cvx010_ac3_rollback_revalidates_content_and_records_new_activation_and_
             .get(),
         4
     );
+    // Later quotes keep pricing under the accepted revision until the next start.
+    engine
+        .submit_update(runtime::event(2, 0, "99.25"), time(1000), time(1000))
+        .await
+        .unwrap();
+    let kept = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(kept.result.status(), ResultStatus::Complete);
+    assert_eq!(kept.result.provenance().configuration_version.get(), 1);
+    let health = engine.runtime_health();
+    assert_eq!(health.activation_revision.unwrap().get(), 3);
+    assert_ne!(health.phase, convex_engine::RuntimePhase::Failed);
     engine.shutdown().await.unwrap();
 }
 

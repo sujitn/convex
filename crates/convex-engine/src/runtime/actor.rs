@@ -237,6 +237,20 @@ impl Actor {
                 .await
                 .map_err(|_| RuntimeError::Storage)?
             {
+                // At start the active selection must fit the composed plan; only a running
+                // runtime defers a selection that needs a restart.
+                cases
+                    .compatible_runtime(
+                        &actor.services.plan,
+                        &actor.baseline_pricing,
+                        actor.concurrency,
+                        &current,
+                    )
+                    .map_err(|_| {
+                        RuntimeError::Configuration(
+                            "selected configuration requires restart with a compatible process/plan",
+                        )
+                    })?;
                 actor.health.write().desired_activation_revision =
                     Some(current.activation.revision);
                 if actor.checkpoint.configuration_activation.as_ref() != Some(&current.activation) {
@@ -818,18 +832,19 @@ impl Actor {
             .await
             .map_err(|_| RuntimeError::Storage)?;
         if let Some(selected) = &selected {
-            cases
+            if cases
                 .compatible_runtime(
                     &self.services.plan,
                     &self.baseline_pricing,
                     self.concurrency,
                     selected,
                 )
-                .map_err(|_| {
-                    RuntimeError::Configuration(
-                        "selected configuration requires restart with a compatible process/plan",
-                    )
-                })?;
+                .is_err()
+            {
+                // A restart-required activation commits while the runtime runs and applies
+                // at the next start; until then the runtime keeps the selection it accepted.
+                return self.accepted_configuration().await.map(Some);
+            }
             if self
                 .checkpoint
                 .configuration_activation
@@ -842,6 +857,42 @@ impl Actor {
             return Err(RuntimeError::RecoveryConflict);
         }
         Ok(selected)
+    }
+    /// The exact content of the activation this runtime accepted, when it still fits the
+    /// running process and plan.
+    async fn accepted_configuration(
+        &mut self,
+    ) -> Result<convex_ports::configuration::ActiveConfiguration, RuntimeError> {
+        let refused = RuntimeError::Configuration(
+            "selected configuration requires restart with a compatible process/plan",
+        );
+        let (Some(cases), Some(activation)) = (
+            &self.configurations,
+            &self.checkpoint.configuration_activation,
+        ) else {
+            return Err(refused);
+        };
+        let staged = cases
+            .get_version(
+                &activation.command.id,
+                activation.command.configuration_version,
+            )
+            .await
+            .map_err(|_| RuntimeError::Storage)?
+            .ok_or(refused.clone())?;
+        let accepted = convex_ports::configuration::ActiveConfiguration {
+            activation: activation.clone(),
+            staged,
+        };
+        cases
+            .compatible_runtime(
+                &self.services.plan,
+                &self.baseline_pricing,
+                self.concurrency,
+                &accepted,
+            )
+            .map_err(|_| refused)?;
+        Ok(accepted)
     }
     async fn refresh_configuration(
         &mut self,

@@ -131,11 +131,16 @@ async fn the_admin_app_is_served_only_when_configured_with_a_restrictive_policy(
     .unwrap();
     std::fs::create_dir(ui.path().join("assets")).unwrap();
     std::fs::write(ui.path().join("assets").join("app.js"), "export {};").unwrap();
+    let origin = "http://127.0.0.1:8080";
     let server = |admin_ui_dir: Option<String>| {
         Server::with_access_control(
             ServerConfig {
                 host: "127.0.0.1".into(),
                 admin_ui_dir,
+                access: AccessSettings {
+                    cors_origins: vec![origin.into()],
+                    ..Default::default()
+                },
                 ..Default::default()
             },
             engine.clone(),
@@ -160,6 +165,22 @@ async fn the_admin_app_is_served_only_when_configured_with_a_restrictive_policy(
         assert!(policy.contains("script-src 'self'") && policy.contains("frame-ancestors 'none'"));
         assert_eq!(headers[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
     }
+    // A module script is fetched with the page's Origin, which must be listed.
+    let script = |from: &str| {
+        Request::builder()
+            .uri("/admin/assets/app.js")
+            .header(header::ORIGIN, from)
+            .body(axum::body::Body::empty())
+            .unwrap()
+    };
+    let response = configured.clone().oneshot(script(origin)).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let response = configured
+        .clone()
+        .oneshot(script("http://elsewhere.example"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
     let response = configured
         .clone()
         .oneshot(
@@ -198,6 +219,15 @@ async fn the_admin_app_is_served_only_when_configured_with_a_restrictive_policy(
             ..
         })
     ));
+    // The page's origin must be listed, or its own script and writes are refused.
     config.admin_ui_dir = Some(ui.path().to_string_lossy().into_owned());
+    assert!(matches!(
+        config.validate_startup(),
+        Err(ConfigError::InvalidValue {
+            field: "access.cors_origins",
+            ..
+        })
+    ));
+    config.access.cors_origins = vec![origin.into()];
     config.validate_startup().unwrap();
 }

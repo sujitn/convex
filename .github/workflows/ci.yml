@@ -3524,3 +3524,32 @@ jobs:
       # The composition, its single redb database and the application path on Windows.
       - name: Run storage and server tests
         run: cargo test --locked -p convex-ext-redb -p convex-server -- --test-threads=1
+
+  admin-app:
+    name: Admin App
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # tsc runs inside the build script.
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
