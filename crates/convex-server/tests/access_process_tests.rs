@@ -57,6 +57,7 @@ async fn binary_requires_identity_composition_reloads_grants_and_preserves_runti
     drop(s.store);
     drop(s.snapshots);
     drop(s.results);
+    drop(s.fixings);
     let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_convex-server"));
     for (name, _) in
         std::env::vars_os().filter(|(name, _)| name.to_string_lossy().starts_with("CONVEX_"))

@@ -128,6 +128,7 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
     drop(s.store);
     drop(s.snapshots);
     drop(s.results);
+    drop(s.fixings);
     let live = config(ServerProfile::Live, &database, Some(&plan_path));
 
     let server = Running::start(live.clone()).await;
