@@ -92,7 +92,9 @@ Each mechanic is taken from the note's `overrides`, then the index's `convention
 then the note's own fields: frequency, day count, payment lag and calendar. A value
 none of them supplies is refused when the note is valued, and the reason names the
 field. Conventions of the other index kind, and a note whose index enum names the
-other kind, are invalid. `floating_mechanics` is optional and omitted when absent.
+other kind, are invalid. So is a note and index pair that pins two revisions of one
+calendar, because the result lineage records one revision per calendar.
+`floating_mechanics` is optional and omitted when absent.
 Puts, sinking funds and inflation terms remain unsupported.
 
 Calendar dispatch is restricted to the actually implemented `weekends_only`,

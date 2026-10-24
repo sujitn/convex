@@ -363,6 +363,21 @@ fn floating_resources_must_be_the_pinned_index_of_the_same_kind_and_currency() {
         known_at: UtcTimestamp::parse("2026-10-02T15:00:00Z").unwrap(),
     };
     validate_floating_resources(&note, &resolved(rate_index(&note)), lookup).unwrap();
+    // The bond and its index cannot pin two revisions of one calendar.
+    let mut later = resolved(RateIndexDefinition {
+        calendar: ReferencePin {
+            version: Version::new(2).unwrap(),
+            ..rate_index(&note).calendar
+        },
+        ..rate_index(&note)
+    });
+    later.calendar.version = Version::new(2).unwrap();
+    assert!(matches!(
+        validate_floating_resources(&note, &later, lookup),
+        Err(ReferenceError::InvalidInput(
+            "the bond and its rate index pin different revisions of one calendar"
+        ))
+    ));
     // A EURIBOR note cannot use an overnight index resource.
     let mut euribor = frn();
     euribor.floating_terms.as_mut().unwrap().index =

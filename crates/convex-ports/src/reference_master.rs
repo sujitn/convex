@@ -1036,10 +1036,13 @@ pub fn validate_floating_resources(
     floating: &ResolvedFloating,
     lookup: ReferenceLookup,
 ) -> Result<(), ReferenceError> {
-    let mechanics = bond
+    let contract = bond
         .contractual_terms
         .as_ref()
-        .and_then(|t| t.floating_mechanics.as_ref())
+        .ok_or(ReferenceError::InvalidInput("missing terms"))?;
+    let mechanics = contract
+        .floating_mechanics
+        .as_ref()
         .ok_or(ReferenceError::InvalidInput("missing floating mechanics"))?;
     let terms = bond
         .floating_terms
@@ -1071,6 +1074,14 @@ pub fn validate_floating_resources(
     {
         return Err(ReferenceError::InvalidInput(
             "pinned floating resources conflict with terms",
+        ));
+    }
+    // Lineage records one revision per calendar, so both pins must name the same one.
+    if index.calendar.id == contract.calendar.id
+        && index.calendar.version != contract.calendar.version
+    {
+        return Err(ReferenceError::InvalidInput(
+            "the bond and its rate index pin different revisions of one calendar",
         ));
     }
     if calendar.rule_version.as_str() != SUPPORTED_BOND_CALENDAR_RULES {
