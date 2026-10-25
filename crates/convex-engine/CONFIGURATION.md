@@ -154,7 +154,7 @@ uses, so the stream and `GET /quotes/:id` consume the same revision.
   revision's freshness budget expires.
 - **A gap is data, not a failure.** In the stream, a stale revision is still used,
   and the snapshot's quality reports it `Stale`. When a curve's graph is
-  incomplete at the cutoff, the snapshot carries no curves and reports them missing.
+  incomplete at the cutoff, or larger than a snapshot holds, the snapshot carries no curves and reports them missing.
 - **Fixtures and supplied snapshots resolve at their own cutoffs.** Each fixture
   resolves the curves at its own `known_at`. A supplied snapshot that claims such an
   activation must carry exactly the records the store resolves at its `known_at`.

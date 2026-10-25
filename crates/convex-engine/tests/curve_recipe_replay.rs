@@ -353,3 +353,45 @@ async fn live_records_keep_stale_revisions_and_drop_incomplete_graphs() {
         .unwrap();
     assert!(records.is_empty());
 }
+
+/// A stored closure larger than one snapshot holds is a data problem: request-time
+/// refuses it as before, and the stream reports the curve missing instead of failing.
+#[tokio::test]
+async fn an_oversized_stored_closure_is_missing_to_the_stream() {
+    use convex_core::ids::CurveId as StoreCurveId;
+    use convex_engine::curve_resolution::{
+        live_curve_records, resolve_curves, CurveResolutionError,
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let storage = convex_ext_redb::create_redb_storage(dir.path().join("curves.redb")).unwrap();
+    let mut keys = Vec::new();
+    for n in 0..MAX_SNAPSHOT_CURVES {
+        let mut dependency = recipe();
+        dependency["key"]["id"] = format!("dep-{n}").into();
+        keys.push(dependency["key"].clone());
+        storage
+            .curves
+            .save_recipe(&record(dependency))
+            .await
+            .unwrap();
+    }
+    let mut wide = recipe();
+    wide["key"]["id"] = "wide".into();
+    wide["source"] = serde_json::json!({"DiscountEquivalent":{"base":keys[0]}});
+    wide["dependencies"] = keys.into();
+    storage.curves.save_recipe(&record(wide)).await.unwrap();
+    let at = fixture::time("2026-10-02T15:00:05Z");
+    let refused = resolve_curves(storage.curves.as_ref(), &[StoreCurveId::new("wide")], at).await;
+    assert!(matches!(
+        refused,
+        Err(CurveResolutionError::Port(TraitError::CapacityExceeded))
+    ));
+    let records = live_curve_records(
+        storage.curves.as_ref(),
+        &[convex_core::contracts::CurveId::new("wide").unwrap()],
+        at,
+    )
+    .await
+    .unwrap();
+    assert!(records.is_empty());
+}

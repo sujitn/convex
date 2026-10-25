@@ -104,7 +104,12 @@ pub async fn resolve_curves(
     roots: &[CurveId],
     known_at: UtcTimestamp,
 ) -> Result<ResolvedCurves, CurveResolutionError> {
-    let records = gather(store, roots, known_at).await?;
+    let records = gather(store, roots, known_at)
+        .await
+        .map_err(|error| match error {
+            Gather::Failed(error) => error,
+            Gather::TooLarge => TraitError::CapacityExceeded.into(),
+        })?;
     for record in &records {
         check_fresh(record, known_at)?;
     }
@@ -124,9 +129,9 @@ pub fn reads_stored_curves(mode: RuntimeMode, assembly: &SnapshotAssembly) -> bo
 
 /// The stored records a Live snapshot consumes for its `required` curves at
 /// `known_at`. A gap is data, not a failure: a stale revision is kept, and the
-/// snapshot's quality reports it stale. An incomplete or unbuildable graph yields no
-/// records, so the snapshot reports every required curve missing. Only storage and
-/// capacity failures are errors.
+/// snapshot's quality reports it stale. An incomplete, oversized or unbuildable graph
+/// yields no records, so the snapshot reports every required curve missing. Only
+/// curve-store failures are errors; the document bounds `required`.
 pub async fn live_curve_records(
     store: &dyn CurveStore,
     required: &[convex_core::contracts::CurveId],
@@ -138,9 +143,26 @@ pub async fn live_curve_records(
         .collect();
     match gather(store, &roots, known_at).await {
         Ok(records) if crate::curve_replay::rebuild_curve_recipes(&records).is_ok() => Ok(records),
-        Ok(_) | Err(CurveResolutionError::Missing(_)) => Ok(Vec::new()),
-        Err(CurveResolutionError::Port(error)) => Err(error),
-        Err(_) => Ok(Vec::new()),
+        Err(Gather::Failed(CurveResolutionError::Port(error))) => Err(error),
+        Ok(_) | Err(Gather::TooLarge | Gather::Failed(_)) => Ok(Vec::new()),
+    }
+}
+
+/// Why gathering stopped.
+enum Gather {
+    /// A curve is absent at the cutoff, or the store failed.
+    Failed(CurveResolutionError),
+    /// The stored dependency closure holds more curves than one snapshot can.
+    TooLarge,
+}
+impl From<CurveResolutionError> for Gather {
+    fn from(error: CurveResolutionError) -> Self {
+        Self::Failed(error)
+    }
+}
+impl From<TraitError> for Gather {
+    fn from(error: TraitError) -> Self {
+        Self::Failed(error.into())
     }
 }
 
@@ -150,7 +172,7 @@ async fn gather(
     store: &dyn CurveStore,
     roots: &[CurveId],
     known_at: UtcTimestamp,
-) -> Result<Vec<SnapshotCurveRecipe>, CurveResolutionError> {
+) -> Result<Vec<SnapshotCurveRecipe>, Gather> {
     if roots.len() > MAX_SNAPSHOT_CURVES {
         return Err(TraitError::CapacityExceeded.into());
     }
@@ -172,7 +194,7 @@ async fn gather(
                 continue; // a different pinned version fails the native build below
             }
             if records.len() >= MAX_SNAPSHOT_CURVES {
-                return Err(TraitError::CapacityExceeded.into());
+                return Err(Gather::TooLarge);
             }
             let missing = || CurveResolutionError::Missing(id.clone());
             let label = label.ok_or_else(missing)?;

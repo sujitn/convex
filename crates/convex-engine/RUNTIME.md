@@ -68,7 +68,7 @@ A Live plan that pins no curve data reads its required curves from the engine's
 curve store each time it builds a snapshot, at that snapshot's cutoff. A re-marked
 curve therefore reaches the stream at the next quote, or at the deadline when the
 previous revision expires. A stale revision is still used and makes the snapshot
-`Stale`. An incomplete curve graph makes it `Invalid` (curve missing). Only a
+`Stale`. An incomplete or oversized curve graph makes it `Invalid` (curve missing). Only a
 storage failure stops the runtime. Each result lists the curve revisions it
 consumed in `provenance.input_versions`.
 
