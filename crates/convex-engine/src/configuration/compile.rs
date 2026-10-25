@@ -1,5 +1,6 @@
 //! Compile a configuration document from stored books, reference terms, one stored
 //! pricing configuration and stored curve recipes, all read at one explicit cutoff.
+//! Replay and Captured documents pin the recipes; Live documents name the curves only.
 //! The result goes through the normal validate → stage → activate use cases.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -222,7 +223,12 @@ pub async fn assemble_from_repository(
                 .collect::<Result<_, _>>()
                 .map_err(|_| ConfigurationError::Invalid("invalid configured curve identity"))?,
             curves: vec![],
-            curve_recipes: resolved.records().to_vec(),
+            // Live reads each configured curve's current revision at every snapshot (D50);
+            // the resolution above still refuses a curve missing or stale at the cutoff.
+            curve_recipes: match selection.mode {
+                RuntimeMode::Live => vec![],
+                RuntimeMode::Replay | RuntimeMode::Captured => resolved.records().to_vec(),
+            },
             calibration: None,
             max_source_skew_ms: selection.max_source_skew_ms,
         },

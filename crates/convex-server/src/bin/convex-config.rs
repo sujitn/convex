@@ -130,6 +130,7 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
             storage.configuration.clone(),
             storage.bonds.clone(),
             storage.configs.clone(),
+            storage.curves.clone(),
             Arc::new(JsonFixingRepository::empty()),
             snapshots.clone(),
             capabilities,

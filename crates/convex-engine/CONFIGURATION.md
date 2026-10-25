@@ -87,7 +87,7 @@ document to round-trip into staging.
 | `process` | Storage/result transport identities, explicit shared-writer requirement and numerical concurrency 1..=64. These are requirements checked against actual composition. |
 | `providers` | Source identities and canonical quote/replay/live-image capabilities; optional credential **references**. |
 | `runtime` | Runtime namespace, captured/replay/live interpretation, settlement, executable build, measures and existing compiled numerical policy. |
-| `assembly` | Exact reference versions, selected quote source/fields, explicit supplied curve revisions and base freshness/skew requirements; bootstrap generation is 1. |
+| `assembly` | Exact reference versions, selected quote source/fields, required curves with their explicit supplied revisions (a Live document may name them only; see below) and base freshness/skew requirements; bootstrap generation is 1. |
 | `overrides` | Approved scoped freshness exceptions with creation/approval/expiry times, actor and reason. No model-price override representation is provided. |
 
 Credentials accept `env://NAME` or `secret://namespace/key`. Inline credentials,
@@ -135,12 +135,31 @@ At the cutoff, compile:
 - uses the latest version of the stored pricing configuration. It must be active,
   recorded by the cutoff, and apply to every instrument. Its id and version
   identify the configuration;
-- pins the fresh recipe revisions of every configured curve role and their
-  dependencies;
+- resolves the fresh recipe revisions of every configured curve role and their
+  dependencies, and refuses a missing or stale one. A Replay or Captured document
+  pins them. A Live document only names them in `required_curves`;
 - requires one quote per instrument from `source`, which must be a provider the
   server composes for `mode`;
 - sets the runtime id to `<pricing config>-v<version>`. Each compiled version is a
   separate runtime with its own checkpoint, and clients resynchronise on the new id.
+
+A Live document that pins no curve data (`curves`, `curve_recipes` and
+`calibration` are all empty) reads each required curve from the curve store at
+every snapshot's cutoff: the highest revision recorded by then, with the dependency
+closure its recipe names. This is the store and the rule that request-time pricing
+uses, so the stream and `GET /quotes/:id` consume the same revision.
+
+- **A re-mark is market data.** A new revision changes no document, needs no
+  activation, and reaches the stream at the next quote or when the previous
+  revision's freshness budget expires.
+- **A gap is data, not a failure.** In the stream, a stale revision is still used,
+  and the snapshot's quality reports it `Stale`. When a curve's graph is
+  incomplete at the cutoff, or larger than a snapshot holds, the snapshot carries no curves and reports them missing.
+- **Fixtures and supplied snapshots resolve at their own cutoffs.** Each fixture
+  resolves the curves at its own `known_at`. A supplied snapshot that claims such an
+  activation must carry exactly the records the store resolves at its `known_at`.
+- **Pinned documents keep their pins.** This covers Live documents activated before
+  this rule and explicit plans.
 
 Validation still needs explicit numerical fixtures. The document is checked against
 the capabilities the server composes for its mode: a live document needs the
@@ -202,7 +221,7 @@ intentional restart footprint change, not for every hot activation.
 |---|---|
 | Description, priority, quote age limits, source skew, approved freshness overrides | Hot; current reference/model/provider/process footprint must match. |
 | Backend, publisher, worker budget, providers or credentials | Restart. |
-| Runtime namespace/mode, settlement, build, measures, numerical policy, model/filter/curve roles, reference/curve/fixing pins, selected quote sources/fields | Restart with compatible explicit plan and process. |
+| Runtime namespace/mode, settlement, build, measures, numerical policy, model/filter/curve roles, required curves, reference/curve/fixing pins, selected quote sources/fields | Restart with compatible explicit plan and process. A new revision of a curve a Live document only names is market data, not a change. |
 
 `PricingEngine::activate_configuration` separates durable commit from runtime
 acceptance. A running runtime applies only a `hot` activation. A

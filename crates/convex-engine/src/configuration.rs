@@ -1,6 +1,7 @@
 //! Local configuration control use cases. Numerical fixtures reuse the actual snapshot/router path.
 #![forbid(unsafe_code)]
 use crate::{
+    curve_resolution::{live_curve_records, reads_stored_curves},
     snapshot::{SnapshotAssembler, SnapshotValuator},
     RuntimePlan,
 };
@@ -11,7 +12,7 @@ use convex_ports::{
     quote_event::QuoteEvent,
     reference_repository::ReferenceRepository,
     snapshot::{content_digest, SnapshotRepository},
-    storage::{ConfigStore, Page, Pagination},
+    storage::{ConfigStore, CurveStore, Page, Pagination},
     TraitError,
 };
 use serde::{Deserialize, Serialize};
@@ -168,6 +169,8 @@ impl From<TraitError> for ConfigurationError {
 pub struct ConfigurationUseCases {
     repository: Arc<dyn ConfigurationRepository>,
     assembler: SnapshotAssembler,
+    /// Live documents read their curves here at each cutoff (D50).
+    curves: Arc<dyn CurveStore>,
     capabilities: ConfigurationCapabilities,
     admission: Arc<tokio::sync::Semaphore>,
     warmed: parking_lot::Mutex<Option<Arc<SnapshotValuator>>>,
@@ -182,6 +185,7 @@ impl ConfigurationUseCases {
         repository: Arc<dyn ConfigurationRepository>,
         references: Arc<dyn ReferenceRepository>,
         configurations: Arc<dyn ConfigStore>,
+        curves: Arc<dyn CurveStore>,
         fixings: Arc<dyn FixingRepository>,
         snapshots: Arc<dyn SnapshotRepository>,
         capabilities: ConfigurationCapabilities,
@@ -189,6 +193,7 @@ impl ConfigurationUseCases {
         Self {
             repository,
             assembler: SnapshotAssembler::new(references, configurations, fixings, snapshots),
+            curves,
             capabilities,
             admission: Arc::new(tokio::sync::Semaphore::new(1)),
             warmed: parking_lot::Mutex::new(None),
@@ -200,6 +205,7 @@ impl ConfigurationUseCases {
         Self {
             repository: self.repository.clone(),
             assembler: self.assembler.clone(),
+            curves: self.curves.clone(),
             capabilities,
             admission: self.admission.clone(),
             warmed: parking_lot::Mutex::new(None),
@@ -292,8 +298,16 @@ impl ConfigurationUseCases {
                 );
                 continue;
             }
-            let assembly =
+            let mut assembly =
                 document.effective_assembly(fixture.as_of, fixture.known_at, version_one()?)?;
+            if reads_stored_curves(document.runtime.mode, &assembly) {
+                assembly.curve_recipes = io(live_curve_records(
+                    self.curves.as_ref(),
+                    &assembly.required_curves,
+                    fixture.known_at,
+                ))
+                .await?;
+            }
             let snapshot = match io(self.assembler.resolve_with_configuration(
                 &assembly,
                 &fixture.events,
@@ -499,6 +513,9 @@ impl ConfigurationUseCases {
         }
     }
     fn check_curves(&self, document: &ConfigurationDocument, report: &mut ConfigurationValidation) {
+        // A Live document that pins nothing reads each required curve at every cutoff;
+        // its fixtures prove the curves resolve.
+        let stored = reads_stored_curves(document.runtime.mode, &document.assembly);
         if crate::calibration_replay::rebuild_captured_curves(
             &document.assembly.curve_recipes,
             document.assembly.calibration.as_ref(),
@@ -533,11 +550,12 @@ impl ConfigurationUseCases {
                 .map(|id| id.as_str()),
         );
         for id in required {
-            if !(document
-                .assembly
-                .curves
-                .iter()
-                .any(|c| c.curve_id.as_str() == id)
+            if !(stored
+                || document
+                    .assembly
+                    .curves
+                    .iter()
+                    .any(|c| c.curve_id.as_str() == id)
                 || document
                     .assembly
                     .curve_recipes
@@ -558,7 +576,7 @@ impl ConfigurationUseCases {
                     report,
                     "assembly.curves",
                     "MISSING_CURVE",
-                    "Every configured curve role must have an explicit required supplied revision",
+                    "Every configured curve role must be required, with a supplied revision unless Live reads it from the curve store",
                 );
             }
         }
@@ -719,6 +737,15 @@ impl ConfigurationUseCases {
             .ok_or(ConfigurationError::Invalid("no captured activation"))?;
         let selected = self.selection(&capture.activation).await?;
         let mut expected = selected.capture(content.as_of, content.known_at, content.generation)?;
+        if reads_stored_curves(selected.staged.document.runtime.mode, &expected) {
+            // Revisions are immutable, so the store gives the same records at that cutoff.
+            expected.curve_recipes = io(live_curve_records(
+                self.curves.as_ref(),
+                &expected.required_curves,
+                content.known_at,
+            ))
+            .await?;
+        }
         // Compare the retained selection in the same canonical order as immutable manifests.
         expected
             .instruments

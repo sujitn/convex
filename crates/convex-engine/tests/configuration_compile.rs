@@ -180,7 +180,25 @@ async fn compiles_the_book_universe_with_exact_pins() {
         .map(|id| id.as_str())
         .collect();
     assert_eq!(required, ["D.OIS", "P.SOFR"]);
-    let pins: Vec<_> = document
+    // Live names its curves and reads their revisions at each snapshot (D50).
+    assert!(document.assembly.curve_recipes.is_empty());
+    // Replay pins the revisions current at the cutoff.
+    let mut replay = selection();
+    replay.mode = RuntimeMode::Replay;
+    let mut replay_capabilities = capabilities("showcase-feed");
+    replay_capabilities.providers[0]
+        .capabilities
+        .push(ProviderCapability::Replay);
+    let pinned = assemble_from_repository(
+        &replay,
+        storage.bonds.as_ref(),
+        storage.configs.as_ref(),
+        storage.curves.as_ref(),
+        &replay_capabilities,
+    )
+    .await
+    .unwrap();
+    let pins: Vec<_> = pinned
         .assembly
         .curve_recipes
         .iter()

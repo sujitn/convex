@@ -16,6 +16,7 @@ pub fn cases(setup: &Setup) -> Arc<ConfigurationUseCases> {
         setup.storage.configuration.clone(),
         setup.storage.bonds.clone(),
         setup.storage.configs.clone(),
+        setup.storage.curves.clone(),
         Arc::new(JsonFixingRepository::empty()),
         setup.snapshots.clone(),
         ConfigurationCapabilities {
