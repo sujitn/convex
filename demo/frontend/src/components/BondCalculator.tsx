@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Calculator, RefreshCw, TrendingUp, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { formatBps, cn } from '../lib/utils';
-import { priceBondWithDetails, BondQuoteResponse } from '../lib/api';
+import { priceBondWithDetails, BondQuoteResponse, describeContext } from '../lib/api';
 
 // Helper to safely parse numeric values (API returns strings)
 const toNum = (val: unknown): number => {
@@ -671,6 +671,7 @@ export default function BondCalculator() {
               {/* Spreads */}
               <div className="card">
                 <h3 className="card-header">Spread Analysis</h3>
+                <p className="text-xs text-slate-500 mb-3">{describeContext(quote.context)}</p>
                 <div className="grid grid-cols-2 gap-4">
                   {quote.z_spread_mid !== null && quote.z_spread_mid !== undefined && (
                     <MetricCard

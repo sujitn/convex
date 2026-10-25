@@ -1,7 +1,8 @@
 //! Integration tests for the Convex Server API endpoints.
 
-#[path = "../../convex-ports/tests/support/reference_terms.rs"]
-mod reference_terms;
+#[path = "../../convex-ports/tests/support/configuration_fixtures.rs"]
+mod configuration_fixture;
+use configuration_fixture::snapshot::reference_terms;
 
 use std::sync::Arc;
 
@@ -23,7 +24,7 @@ use convex_engine::ports::reference_master::ExternalIdentifier;
 use convex_engine::ports::reference_repository::{
     ReferenceCommand, ReferenceCommit, ReferenceError, ReferenceRecord, ReferenceRepository,
 };
-use convex_engine::ports::storage::{BondFilter, Page, Pagination};
+use convex_engine::ports::storage::{BondFilter, BondPricingConfig, Page, Pagination};
 use convex_engine::PricingEngineBuilder;
 // These economic/API fixtures explicitly use local development. Access denial has its own suite.
 fn create_router(engine: Arc<convex_engine::PricingEngine>) -> axum::Router {
@@ -256,7 +257,7 @@ async fn inline_pricing_refuses_missing_terms_resources_and_unsupported_models()
 
 #[tokio::test]
 async fn authoritative_reference_version_matches_api_and_pricing() {
-    let engine = engine_with_pricing_inputs().await;
+    let (engine, _) = engine_with_pricing_inputs().await;
     let app = create_router(engine.clone());
     let bond = create_test_bond("SHARED-VERSION", dec!(0.05), 2030);
     let (status, headers, created) = reference_request(
@@ -276,7 +277,7 @@ async fn authoritative_reference_version_matches_api_and_pricing() {
         .unwrap();
     assert_eq!(reference.version.get(), 1);
     assert_eq!(json!(reference.bond.unwrap()), created);
-    let quote_uri = "/api/v1/quotes/SHARED-VERSION?settlement_date=2026-10-02&market_price=100";
+    let quote_uri = "/api/v1/quotes/SHARED-VERSION?settlement_date=2026-10-02&market_price=100&configuration=SHOWCASE-USD";
     let (status, headers, first_quote) =
         reference_request(app.clone(), "GET", quote_uri, None, &[]).await;
     assert_eq!(status, StatusCode::OK, "{first_quote}");
@@ -1498,11 +1499,57 @@ fn recipe_recorded_now(id: &str) -> convex_engine::ports::snapshot::SnapshotCurv
     recipe
 }
 
-/// Test engine holding the showcase pricing configuration and fresh curves.
-async fn engine_with_pricing_inputs() -> Arc<convex_engine::PricingEngine> {
+type Configurations = Arc<dyn convex_engine::ports::configuration::ConfigurationRepository>;
+
+/// Stage `config` in a document, as the configuration routes do. Staging alone does
+/// not approve it.
+async fn stage(configurations: &Configurations, config: &BondPricingConfig) {
+    let mut staged = configuration_fixture::staged(config.version);
+    staged.document.pricing = config.clone();
+    staged.document.assembly.configuration =
+        convex_engine::ports::configuration::ConfigurationPin {
+            id: convex_core::contracts::SourceId::new(&config.config_id).unwrap(),
+            version: Version::new(config.version).unwrap(),
+        };
+    // Ordered after every seed revision time, and before the activations below.
+    staged.staged_at = UtcTimestamp::parse("2030-01-01T00:00:00Z").unwrap();
+    configurations.stage(&staged).await.unwrap();
+}
+
+/// Activate (or roll back to) a staged version: the operator approval.
+async fn activate(
+    configurations: &Configurations,
+    version: u64,
+    expected_revision: u64,
+    action: convex_engine::ports::configuration::ActivationKind,
+) {
+    use convex_engine::ports::configuration::ReloadClass;
+    let key = format!("activate-{expected_revision}");
+    let mut command = configuration_fixture::activate(version, expected_revision, &key);
+    command.id = convex_core::contracts::SourceId::new("SHOWCASE-USD").unwrap();
+    command.mode = ReloadClass::RestartRequired;
+    command.action = action;
+    command.activated_at = UtcTimestamp::from_datetime(
+        UtcTimestamp::parse("2030-01-01T00:01:00Z")
+            .unwrap()
+            .datetime()
+            + chrono::Duration::seconds(expected_revision as i64),
+    )
+    .unwrap();
+    configurations.activate(&command).await.unwrap();
+}
+
+fn showcase_config() -> BondPricingConfig {
+    serde_json::from_value(showcase_seed()["pricing_configs"][0].clone()).unwrap()
+}
+
+/// Test engine holding the activated showcase pricing configuration and fresh curves.
+async fn engine_with_pricing_inputs() -> (Arc<convex_engine::PricingEngine>, Configurations) {
+    use convex_engine::ports::configuration::ActivationKind;
     let storage = convex_ext_redb::create_test_storage().unwrap();
-    let config = serde_json::from_value(showcase_seed()["pricing_configs"][0].clone()).unwrap();
-    storage.configs.save(&config).await.unwrap();
+    let configurations = storage.configuration.clone();
+    stage(&configurations, &showcase_config()).await;
+    activate(&configurations, 1, 0, ActivationKind::Activate).await;
     for id in ["D.OIS", "P.SOFR"] {
         storage
             .curves
@@ -1510,7 +1557,129 @@ async fn engine_with_pricing_inputs() -> Arc<convex_engine::PricingEngine> {
             .await
             .unwrap();
     }
-    create_test_engine_with_storage(storage)
+    (create_test_engine_with_storage(storage), configurations)
+}
+
+/// G14: only an activation approves a configuration. A staged version changes no
+/// price; activating it does, and a rollback restores the earlier one. Every
+/// request-time route reports the context it priced under.
+#[tokio::test]
+async fn request_time_pricing_uses_only_the_activated_configuration() {
+    use convex_engine::ports::configuration::ActivationKind;
+    let (engine, configurations) = engine_with_pricing_inputs().await;
+    let app = create_router(engine);
+    let bond = create_test_bond("CONTEXT-BOND", dec!(0.05), 2030);
+    let (status, _, _) = reference_request(
+        app.clone(),
+        "POST",
+        "/api/v1/bonds",
+        Some(json!(bond)),
+        &[("idempotency-key", "context-bond")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    let quote = |configuration: &str| {
+        format!(
+            "/api/v1/quotes/CONTEXT-BOND?settlement_date=2026-10-02&market_price=100{configuration}"
+        )
+    };
+    let pinned = |headers: &axum::http::HeaderMap| {
+        [
+            headers["x-convex-pricing-config"]
+                .to_str()
+                .unwrap()
+                .to_owned(),
+            headers["x-convex-activation"].to_str().unwrap().to_owned(),
+        ]
+    };
+    // No runtime runs here, so there is no default context.
+    let (status, _, body) = reference_request(app.clone(), "GET", &quote(""), None, &[]).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["code"], "NO_VALUATION_CONTEXT");
+    let named = quote("&configuration=SHOWCASE-USD");
+    let (status, headers, first) = reference_request(app.clone(), "GET", &named, None, &[]).await;
+    assert_eq!(status, StatusCode::OK, "{first}");
+    assert_eq!(pinned(&headers), ["SHOWCASE-USD@1", "1"]);
+    assert!(first["i_spread_mid"].is_number(), "{first}");
+
+    // v2 drops the swap benchmark. Staged, it changes nothing.
+    let mut second = showcase_config();
+    second.version = 2;
+    second.updated_at += 1;
+    second.analytics_curves.swap_curve = None;
+    stage(&configurations, &second).await;
+    let (status, headers, body) = reference_request(app.clone(), "GET", &named, None, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(pinned(&headers), ["SHOWCASE-USD@1", "1"]);
+    assert_eq!(body["i_spread_mid"], first["i_spread_mid"]);
+    // Activated, it prices.
+    activate(&configurations, 2, 1, ActivationKind::Activate).await;
+    let (status, headers, body) = reference_request(app.clone(), "GET", &named, None, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(pinned(&headers), ["SHOWCASE-USD@2", "2"]);
+    assert!(body["i_spread_mid"].is_null(), "{body}");
+    // Rolled back, v1 prices again under a new activation.
+    activate(
+        &configurations,
+        1,
+        2,
+        ActivationKind::Rollback {
+            to_revision: Version::new(1).unwrap(),
+        },
+    )
+    .await;
+    let (status, headers, body) = reference_request(app.clone(), "GET", &named, None, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(pinned(&headers), ["SHOWCASE-USD@1", "3"]);
+    assert_eq!(body["i_spread_mid"], first["i_spread_mid"]);
+
+    // POST prices inline terms under the named context and reports it.
+    let posted = json!({"bond": bond, "settlement_date": "2026-10-02", "market_price": "100",
+        "configuration": "SHOWCASE-USD"});
+    let (status, body) = post_json(app.clone(), "/api/v1/quote", posted.clone()).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["context"]["kind"], "configuration");
+    assert_eq!(body["context"]["configuration"], "SHOWCASE-USD@1");
+    assert_eq!(body["context"]["activation"], 3);
+    assert_eq!(body["i_spread_mid"], first["i_spread_mid"]);
+    // A configuration and supplied inputs are exclusive contexts.
+    let mut mixed = posted.clone();
+    mixed["volatility"] = json!("0.1");
+    let (status, body) = post_json(app.clone(), "/api/v1/quote", mixed).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["code"], "INVALID_INPUT", "{body}");
+    // A bond the configuration does not cover is refused, not priced yield-only.
+    let mut euro = bond.clone();
+    euro.instrument_id = InstrumentId::new("CONTEXT-EUR");
+    euro.currency = Currency::EUR;
+    let mut uncovered = posted.clone();
+    uncovered["bond"] = json!(euro);
+    let (status, body) = post_json(app.clone(), "/api/v1/quote", uncovered).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body["code"], "NOT_COVERED", "{body}");
+    // Without a configuration or supplied curves the price stays yield-only.
+    let mut bare = posted.clone();
+    bare.as_object_mut().unwrap().remove("configuration");
+    let (status, body) = post_json(app.clone(), "/api/v1/quote", bare).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["context"]["kind"], "none");
+    assert!(body["z_spread_mid"].is_null());
+
+    // A batch resolves one context; an uncovered bond fails on its own.
+    let batch = json!({"bonds": [{"bond": bond, "market_price": "100"}, {"bond": euro, "market_price": "100"}],
+        "settlement_date": "2026-10-02", "configuration": "SHOWCASE-USD"});
+    let (status, body) = post_json(app, "/api/v1/batch/price", batch).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["context"]["configuration"], "SHOWCASE-USD@1");
+    assert_eq!(body["quotes"][0]["i_spread_mid"], first["i_spread_mid"]);
+    assert_eq!(body["errors"][0]["instrument_id"], "CONTEXT-EUR");
+    assert!(
+        body["errors"][0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("NOT_COVERED"),
+        "{body}"
+    );
 }
 
 async fn get_json(app: axum::Router, uri: &str) -> (StatusCode, axum::http::HeaderMap, Value) {

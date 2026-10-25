@@ -175,6 +175,7 @@ impl Server {
                 HeaderName::from_static("x-convex-curve-version"),
                 HeaderName::from_static("x-convex-curve-versions"),
                 HeaderName::from_static("x-convex-pricing-config"),
+                HeaderName::from_static("x-convex-activation"),
                 HeaderName::from_static("x-convex-known-at"),
                 HeaderName::from_static("etag"),
             ]);

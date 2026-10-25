@@ -715,36 +715,6 @@ impl BondPricingConfig {
     }
 }
 
-/// The active configuration that applies to `bond` with the highest effective
-/// priority. `Ok(None)` when none applies; a tie between distinct configurations
-/// is refused rather than broken by an arbitrary order.
-pub fn select_pricing_config<'a>(
-    configs: &'a [BondPricingConfig],
-    bond: &BondReferenceData,
-) -> Result<Option<&'a BondPricingConfig>, TraitError> {
-    let mut best: Option<&BondPricingConfig> = None;
-    let mut tied = false;
-    for config in configs
-        .iter()
-        .filter(|c| c.active && c.applies_to.matches(bond))
-    {
-        match best.map(|b| config.effective_priority().cmp(&b.effective_priority())) {
-            None | Some(std::cmp::Ordering::Greater) => {
-                best = Some(config);
-                tied = false;
-            }
-            Some(std::cmp::Ordering::Equal) => tied = true,
-            Some(std::cmp::Ordering::Less) => {}
-        }
-    }
-    if tied {
-        return Err(TraitError::Conflict(
-            "ambiguous applicable pricing configuration",
-        ));
-    }
-    Ok(best)
-}
-
 /// Config version info.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConfigVersion {

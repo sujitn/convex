@@ -89,17 +89,68 @@ use std::sync::Arc;
 use crate::ports::config::EngineConfig;
 use crate::ports::storage::StorageAdapter;
 
-/// Curves and the configuration consumed by one priced request, for reporting.
+/// Curves one bond prices on under a request's valuation context.
 #[derive(Debug, Clone)]
 pub struct PricingCurves {
-    /// The applicable pricing configuration that named the curve roles.
-    pub config: ports::storage::BondPricingConfig,
     /// Configured discount curve.
     pub discount: BuiltCurve,
     /// Configured swap benchmark, when the configuration names one.
     pub benchmark: Option<BuiltCurve>,
-    /// Every consumed (curve, version) pin, including dependencies.
-    pub curves: Vec<(String, convex_core::contracts::Version)>,
+}
+
+/// The approved valuation context of one request: an activated configuration's exact
+/// pricing version and the curves its roles name, resolved once at the request cutoff.
+/// Government and FRN reference roles are not consumed here, as in snapshot valuation.
+pub struct RequestContext {
+    id: convex_core::contracts::SourceId,
+    activation_revision: convex_core::contracts::Version,
+    config: ports::storage::BondPricingConfig,
+    resolved: curve_resolution::ResolvedCurves,
+}
+
+impl RequestContext {
+    /// The approved pricing configuration.
+    pub fn config(&self) -> &ports::storage::BondPricingConfig {
+        &self.config
+    }
+
+    /// Revision of the activation that approved the configuration.
+    pub fn activation_revision(&self) -> convex_core::contracts::Version {
+        self.activation_revision
+    }
+
+    /// Every consumed (curve, version) pin, roots and dependencies.
+    pub fn pins(&self) -> impl Iterator<Item = (&str, convex_core::contracts::Version)> {
+        self.resolved.pins()
+    }
+
+    /// Curves for `bond`, which the configuration must cover; each curve must fit
+    /// its role and the bond's currency.
+    pub fn curves_for(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+    ) -> Result<PricingCurves, curve_resolution::CurveResolutionError> {
+        use curve_resolution::CurveResolutionError;
+        if !self.config.applies_to.matches(bond) {
+            return Err(CurveResolutionError::NotCovered(self.id.clone()));
+        }
+        let checked = |id: &convex_core::ids::CurveId, discount: bool| {
+            let native = self.resolved.native(id)?;
+            if !curve_resolution::pricing_role_matches(native.recipe(), discount, bond.currency) {
+                return Err(CurveResolutionError::Role(id.clone()));
+            }
+            self.resolved.curve(id)
+        };
+        let roles = &self.config.analytics_curves;
+        Ok(PricingCurves {
+            discount: checked(&roles.discount_curve, true)?,
+            benchmark: roles
+                .swap_curve
+                .as_ref()
+                .map(|id| checked(id, false))
+                .transpose()?,
+        })
+    }
 }
 
 /// The main pricing engine.
@@ -301,48 +352,44 @@ impl PricingEngine {
         &self.storage.curves
     }
 
-    /// Curves for pricing `bond` at `known_at`. The applicable pricing
-    /// configuration names the discount and swap-benchmark roles; the curve
-    /// store supplies the revisions current at the cutoff. Government and FRN
-    /// reference roles are not consumed here, as in snapshot valuation.
-    pub async fn pricing_curves(
+    /// The configuration a request prices under when it names none: the one the
+    /// runtime runs. A server without a runtime has no default.
+    pub fn default_valuation_configuration(&self) -> Option<&convex_core::contracts::SourceId> {
+        self.runtime.configuration_id()
+    }
+
+    /// The approved valuation context of a request at `known_at`: the active
+    /// selection of `configuration` (or of the default) and the curves its roles
+    /// name, current at the cutoff. Only an activation approves a configuration;
+    /// a staged version never prices. The configuration is the one active now, and
+    /// the cutoff governs the curve reads.
+    pub async fn request_context(
         &self,
-        bond: &ports::reference_data::BondReferenceData,
+        configuration: Option<&convex_core::contracts::SourceId>,
         known_at: convex_core::contracts::UtcTimestamp,
-    ) -> Result<PricingCurves, curve_resolution::CurveResolutionError> {
+    ) -> Result<RequestContext, curve_resolution::CurveResolutionError> {
         use curve_resolution::CurveResolutionError;
-        let configs = self.storage.configs.list().await?;
-        let config = ports::storage::select_pricing_config(&configs, bond)?
-            .ok_or(CurveResolutionError::NoConfiguration)?
-            .clone();
+        let id = configuration
+            .or(self.default_valuation_configuration())
+            .ok_or(CurveResolutionError::NoConfiguration)?;
+        let active = self
+            .storage
+            .configuration
+            .active(id)
+            .await?
+            .ok_or_else(|| CurveResolutionError::NotActivated(id.clone()))?;
+        let config = active.staged.document.pricing;
         let roles = &config.analytics_curves;
         let mut roots = vec![roles.discount_curve.clone()];
         roots.extend(roles.swap_curve.clone());
         let resolved =
             curve_resolution::resolve_curves(self.storage.curves.as_ref(), &roots, known_at)
                 .await?;
-        let checked = |id: &convex_core::ids::CurveId, discount: bool| {
-            let native = resolved.native(id)?;
-            if !curve_resolution::pricing_role_matches(native.recipe(), discount, bond.currency) {
-                return Err(CurveResolutionError::Role(id.clone()));
-            }
-            resolved.curve(id)
-        };
-        let discount = checked(&roles.discount_curve, true)?;
-        let benchmark = roles
-            .swap_curve
-            .as_ref()
-            .map(|id| checked(id, false))
-            .transpose()?;
-        let curves = resolved
-            .pins()
-            .map(|(id, version)| (id.to_owned(), version))
-            .collect();
-        Ok(PricingCurves {
+        Ok(RequestContext {
+            id: id.clone(),
+            activation_revision: active.activation.revision,
             config,
-            discount,
-            benchmark,
-            curves,
+            resolved,
         })
     }
 

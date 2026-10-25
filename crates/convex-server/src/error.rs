@@ -48,6 +48,14 @@ impl ApiError {
             message,
         )
     }
+    /// The product is priced by the runtime, not by request-time routes.
+    pub(crate) fn unsupported_product(message: impl Into<String>) -> Self {
+        Self::new(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "UNSUPPORTED_PRODUCT",
+            message,
+        )
+    }
     /// The response could not be produced; safe to retry.
     pub(crate) fn unavailable(message: impl Into<String>) -> Self {
         Self {
@@ -77,6 +85,10 @@ impl ApiError {
 }
 
 impl ApiError {
+    /// Code and message on one line, for a per-item failure inside a batch.
+    pub(crate) fn summary(&self) -> String {
+        format!("{}: {}", self.code, self.message)
+    }
     /// The refusal with bounded structured evidence beside its message.
     pub(crate) fn with_diagnostics(self, diagnostics: serde_json::Value) -> Response {
         (
@@ -132,9 +144,20 @@ impl From<TraitError> for ApiError {
 
 impl From<CurveResolutionError> for ApiError {
     fn from(error: CurveResolutionError) -> Self {
+        let message = error.to_string();
         match error {
             CurveResolutionError::Port(error) => Self::stored(error),
-            other => Self::missing_input(other.to_string()),
+            CurveResolutionError::NoConfiguration | CurveResolutionError::NotActivated(_) => {
+                Self::new(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    "NO_VALUATION_CONTEXT",
+                    message,
+                )
+            }
+            CurveResolutionError::NotCovered(_) => {
+                Self::new(StatusCode::UNPROCESSABLE_ENTITY, "NOT_COVERED", message)
+            }
+            _ => Self::missing_input(message),
         }
     }
 }

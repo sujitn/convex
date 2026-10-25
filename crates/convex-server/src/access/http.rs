@@ -215,8 +215,10 @@ fn requirement(
             req.resources.push(Resource::new(R::Source, "*"));
             req.resources.push(Resource::new(R::Curve, "*"));
         }
+        // They read the activated configuration's curves unless the request supplies them.
         "/api/v1/quote" | "/api/v1/batch/price" => {
             req.data.push(D::Reference);
+            req.data.push(D::Market);
             req.resources.push(Resource::new(R::Source, "*"));
             req.resources.push(Resource::new(R::Curve, "*"));
         }
