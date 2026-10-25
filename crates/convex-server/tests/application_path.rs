@@ -529,6 +529,21 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
         pins[1..],
         ["SHOWCASE-USD@1", "1", "D.OIS@1,P.SOFR@1", known_at.as_str()]
     );
+    // Two days after the capture, before the fresh revisions, the seed curves are
+    // outside their one-day budget: refused, never priced without curves.
+    let stale_at =
+        chrono::DateTime::parse_from_rfc3339(&known_at).unwrap() + chrono::Duration::days(2);
+    let stale = get(
+        &server,
+        &format!(
+            "/api/v1/quotes/{instrument}?market_price=99.5&known_at={}",
+            stale_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+        ),
+    )
+    .await;
+    assert_eq!(stale.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body: Value = stale.json().await.unwrap();
+    assert_eq!(body["code"], "MISSING_INPUT", "{body}");
     // The same context prices inline terms; supplied curves cannot be mixed in.
     let terms = get(&server, &format!("/api/v1/bonds/{instrument}"))
         .await

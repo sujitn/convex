@@ -279,7 +279,9 @@ applies.
 
 The reference terms and curve revisions are read at `known_at`, and the curves
 must be fresh at it by the same rule as core snapshot assembly. The configuration
-is the one active now, whatever the cutoff, and the response names it. A missing
+is the one active now, whatever the cutoff, and the response names it. That is why
+the activation is reported: a price at an earlier cutoff under a later rule is
+auditable only because its activation is named. A missing
 or stale curve, or one with the wrong role or currency, is refused with
 `422 MISSING_INPUT`; the route never prices without curves. Callables and FRNs are
 priced by the runtime; this route refuses them with `422 UNSUPPORTED_PRODUCT`.
