@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload reconciliation artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: reconciliation-report
           path: |
