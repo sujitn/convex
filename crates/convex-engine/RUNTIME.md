@@ -56,7 +56,9 @@ strategy or execution permission.
 Live market data is not stored. The actor ingests each event once into quote
 state held in memory and resolves each snapshot from it without publishing the
 snapshot. A result's `snapshot_id` therefore names content that cannot be read
-back, and an intraday live valuation cannot be reproduced later. Live plans take
+back, and an intraday live valuation cannot be reproduced later. Each tick is a
+new snapshot, and the actor's result cache keeps only the current snapshot's
+contexts (`SNAPSHOTS.md`), so a long-running runtime never fills it. Live plans take
 no seed events. The checkpoint holds no events, results or outbox. Storage is
 written when the runtime first starts, when result revisions or generations pass
 the stored ceiling (each write reserves 2^20 more), and when the accepted

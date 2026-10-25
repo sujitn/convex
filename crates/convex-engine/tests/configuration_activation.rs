@@ -134,6 +134,28 @@ async fn cvx010_ac3_dry_run_reports_missing_curves_providers_and_never_publishes
     assert!(mismatch.issues.iter().any(|i| i.code == "FIXTURE_MISMATCH"));
 }
 
+/// G20: one service validates on a shared fixture valuator whose result cache holds 256
+/// contexts. 33 validations of 8 fixtures value 264 distinct snapshots.
+#[tokio::test]
+async fn fixture_validation_stays_valid_past_the_result_cache_capacity() {
+    let setup = runtime::setup().await;
+    let service = cases(&setup);
+    let document = fixture::document(1);
+    let case = fixtures(&setup).remove(0);
+    for validation in 0..33i64 {
+        let cases: Vec<_> = (0..8i64)
+            .map(|index| ConfigurationFixture {
+                id: SourceId::new(format!("bond-mid-regression-{index}")).unwrap(),
+                as_of: time(validation * 8 + index),
+                known_at: time(validation * 8 + index),
+                ..case.clone()
+            })
+            .collect();
+        let report = service.validate(&document, &cases).await.unwrap();
+        assert!(report.valid, "validation {validation}: {:?}", report.issues);
+    }
+}
+
 #[test]
 fn cvx010_ac1_in_flight_real_valuation_keeps_its_original_selection_across_activation() {
     let runtime = tokio::runtime::Builder::new_multi_thread()

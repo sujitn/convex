@@ -101,9 +101,13 @@ completion time do not change compatibility. Identical retries and concurrent
 misses keep the first retained result and its original calculation time; only
 request correlation is rebound. Conflicting values or lineage fail explicitly.
 
-`ValuationCache` has an explicit 1..=100,000 entry bound. A full cache returns
-`CapacityExceeded`; it performs no arbitrary eviction. `clear_cache` is an
-administrative release of retained contexts and leaves issued values immutable.
+`ValuationCache` retains the contexts of one snapshot (D51). Every context names
+its snapshot, so a result for another snapshot releases the retained entries;
+they can never be addressed again by a newer snapshot's context. Within one
+snapshot the explicit 1..=100,000 entry bound holds: a full cache returns
+`CapacityExceeded` and performs no arbitrary eviction. Callers that share one
+cache across alternating snapshots recompute; they never fail. `clear_cache` is
+an administrative release of retained contexts and leaves issued values immutable.
 This process-local memoization is neither a durable result journal nor shared
 ownership across servers. Every successful measure or per-measure error must
 account for exactly one requested measure.

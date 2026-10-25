@@ -285,6 +285,42 @@ fn cvx008_ac1_every_context_dimension_is_a_cache_compatibility_input() {
         .is_err());
 }
 
+/// D51: the cache keeps one snapshot's contexts. A result for another snapshot releases them,
+/// so a full cache refuses only within one snapshot.
+#[test]
+fn a_result_for_another_snapshot_releases_the_retained_snapshot() {
+    let snapshot = fixture::snapshot();
+    let ctx = context(&snapshot);
+    let result = calculate(&snapshot, &ctx);
+    let cache = ValuationCache::new(1).unwrap();
+    for index in 0..300 {
+        let mut spec = ctx.spec().clone();
+        spec.snapshot_id = SnapshotId::new(format!("snapshot-{index}")).unwrap();
+        let envelope = result.envelope();
+        let mut provenance = envelope.provenance().clone();
+        provenance.snapshot_id = spec.snapshot_id.clone();
+        let moved = SnapshotValuationResult::new(
+            ValuationContext::new(spec).unwrap(),
+            ResultEnvelope::new(
+                envelope.request_id().clone(),
+                envelope.status(),
+                envelope.quality(),
+                envelope.results().clone(),
+                envelope.errors().to_vec(),
+                provenance,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        cache.insert(moved.clone()).unwrap();
+        assert_eq!(cache.len(), 1);
+        assert!(cache.get(moved.context()).unwrap().is_some());
+    }
+    assert!(cache.get(&ctx).unwrap().is_none());
+    cache.insert(result).unwrap();
+    assert_eq!(cache.len(), 1);
+}
+
 #[tokio::test]
 async fn cvx008_ac2_assembly_excludes_later_published_and_later_recorded_fixings() {
     let initial = fixture::fixing(1, "2026-10-02T14:00:00Z", "2026-10-02T14:00:01Z", "-0.001");

@@ -769,6 +769,32 @@ async fn live_ticks_stay_in_memory_and_restart_continues_above_reserved_counters
     restarted.shutdown().await.unwrap();
 }
 
+/// G20: every tick is a new snapshot, so a Live runtime values more contexts than its
+/// 256-entry result cache holds. The cache keeps one snapshot's results (D51).
+#[tokio::test]
+async fn live_ticks_stay_complete_past_the_result_cache_capacity() {
+    let s = setup().await;
+    let source = Arc::new(SubscriptionSource::new());
+    let engine = live_engine(&s, live_plan(&s), s.store.clone(), source.clone());
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    for sequence in 1..=300u64 {
+        let stamp = chrono::Utc::now().timestamp_millis();
+        source.send(fixture::event(sequence, stamp, stamp, "99.25"));
+        let result = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            result.result.status(),
+            ResultStatus::Complete,
+            "tick {sequence}: {:?}",
+            result.result.errors()
+        );
+    }
+    engine.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn live_plan_refuses_seed_events() {
     let s = setup().await;

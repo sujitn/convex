@@ -303,7 +303,8 @@ per instrument, 64 providers/curves and 256 scoped exceptions. The current
 runtime accepts no fixing-dependent instruments and at most four measures.
 Validation admits one control operation per use-case instance, one to eight
 fixtures, 4,096 aggregate trace events and 8,192 expectations; the warmed
-valuation cache is bounded at 256. CLI JSON input/output is bounded and history
+valuation cache keeps the 256 contexts of one fixture snapshot and releases them
+at the next snapshot. CLI JSON input/output is bounded and history
 uses the existing page limit of 1,000.
 
 The redb repository adds five `configuration_*_v1` tables and the independent
