@@ -18,9 +18,15 @@ use crate::curve_builder::BuiltCurve;
 /// Why a request could not obtain a curve it needs. Nothing is substituted.
 #[derive(Debug, thiserror::Error)]
 pub enum CurveResolutionError {
-    /// No pricing configuration applies to the instrument.
-    #[error("no applicable pricing configuration")]
+    /// The request names no configuration and the runtime runs none.
+    #[error("no valuation context: name an activated configuration")]
     NoConfiguration,
+    /// The named configuration has no activation, so nothing approved it.
+    #[error("configuration {0} has no activation")]
+    NotActivated(convex_core::contracts::SourceId),
+    /// The activated configuration does not apply to the instrument.
+    #[error("configuration {0} does not apply to the instrument")]
+    NotCovered(convex_core::contracts::SourceId),
     /// No revision recorded by the cutoff, or a named dependency version is absent.
     #[error("missing curve {0}")]
     Missing(CurveId),

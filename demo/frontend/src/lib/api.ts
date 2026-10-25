@@ -68,6 +68,30 @@ export interface BondQuoteResponse {
 
   // Workout info (for callable)
   workout_date?: string;
+
+  // The valuation context that priced the quote
+  context?: QuoteContext;
+}
+
+// An activated configuration (and the curves it named), supplied curves, or none
+export interface QuoteContext {
+  kind: 'configuration' | 'supplied' | 'none';
+  configuration?: string;
+  activation?: number;
+  known_at?: string;
+  curves?: string[];
+}
+
+/** One line naming the context a quote priced under. */
+export function describeContext(context: QuoteContext | undefined): string {
+  if (!context || context.kind === 'none') {
+    return 'No valuation context: yield and risk only, no curve spreads';
+  }
+  if (context.kind === 'supplied') {
+    return 'Supplied curves (what-if)';
+  }
+  const curves = context.curves?.length ? ` · curves ${context.curves.join(', ')}` : '';
+  return `${context.configuration} · activation ${context.activation}${curves}`;
 }
 
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {

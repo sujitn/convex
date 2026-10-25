@@ -159,9 +159,9 @@ async fn get(server: &Running, path: &str) -> reqwest::Response {
 }
 
 /// Steps 1, 2 and the stored half of 8: import the showcase seed, retry its
-/// reference and curve writes over HTTP (idempotent), price the stored bond by
-/// identifier with the configured curves at an explicit cutoff, restart, and read
-/// the same versions back.
+/// reference and curve writes over HTTP (idempotent), restart, and read the same
+/// versions back. A stored pricing configuration that no activation approved does
+/// not price; the activated path is in the live test below.
 #[tokio::test]
 async fn stored_references_and_curve_recipes_price_and_survive_restart() {
     let seed = seed();
@@ -179,27 +179,14 @@ async fn stored_references_and_curve_recipes_price_and_survive_restart() {
     let etag = created.headers()["etag"].clone();
 
     let known_at = capture_time(&seed);
-    let quote_path = format!("/api/v1/quotes/{instrument}?market_price=99.5&known_at={known_at}");
-    let quote = get(&server, &quote_path).await;
-    assert_eq!(quote.status(), StatusCode::OK);
-    let pins = quote_pins(&quote);
-    assert_eq!(pins[1], "SHOWCASE-USD@1");
-    assert_eq!(pins[2], "D.OIS@1,P.SOFR@1");
-    assert_eq!(pins[3], known_at);
-    let body: Value = quote.json().await.unwrap();
-    assert_eq!(body["instrument_id"], instrument.as_str());
-    assert!(body["ytm_mid"].is_number() || body["ytm_mid"].is_string());
-
-    // At the current time the dated capture is outside its one-day budget, and
-    // the quote is refused rather than priced without its curves.
-    let stale = get(
-        &server,
-        &format!("/api/v1/quotes/{instrument}?market_price=99.5"),
-    )
-    .await;
-    assert_eq!(stale.status(), StatusCode::UNPROCESSABLE_ENTITY);
-    let body: Value = stale.json().await.unwrap();
-    assert_eq!(body["code"], "MISSING_INPUT", "{body}");
+    let quote_path = format!(
+        "/api/v1/quotes/{instrument}?market_price=99.5&known_at={known_at}&configuration=SHOWCASE-USD"
+    );
+    // The seed stores SHOWCASE-USD, but nothing activated it, so nothing prices under it.
+    let unapproved = get(&server, &quote_path).await;
+    assert_eq!(unapproved.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body: Value = unapproved.json().await.unwrap();
+    assert_eq!(body["code"], "NO_VALUATION_CONTEXT", "{body}");
 
     let listing: Value = get(&server, "/api/v1/curves").await.json().await.unwrap();
     assert_eq!(listing["curves"].as_array().unwrap().len(), recipes.len());
@@ -216,19 +203,18 @@ async fn stored_references_and_curve_recipes_price_and_survive_restart() {
     let reopened = get(&server, &bond_path).await;
     assert_eq!(reopened.status(), StatusCode::OK);
     assert_eq!(reopened.headers()["etag"], etag);
-    let quote = get(&server, &quote_path).await;
-    assert_eq!(quote.status(), StatusCode::OK);
-    assert_eq!(quote_pins(&quote), pins);
     commit_references(&server, &seed).await;
     recipes_survived(&server, recipes).await;
     server.stop().await;
 }
 
-/// Reference version, pricing configuration, curve versions and cutoff consumed.
-fn quote_pins(response: &reqwest::Response) -> [String; 4] {
+/// Reference version, pricing configuration, activation, curve versions and cutoff
+/// consumed.
+fn quote_pins(response: &reqwest::Response) -> [String; 5] {
     [
         "x-convex-reference-version",
         "x-convex-pricing-config",
+        "x-convex-activation",
         "x-convex-curve-versions",
         "x-convex-known-at",
     ]
@@ -520,6 +506,63 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0]["runtime_id"], "SHOWCASE-USD-v1");
     assert!(results[0]["live_valid_until"].is_string(), "{}", results[0]);
+    // Request-time pricing names no configuration and prices under the runtime's
+    // activated one, on the curves current now.
+    let quote = get(
+        &server,
+        &format!("/api/v1/quotes/{instrument}?market_price=99.5"),
+    )
+    .await;
+    assert_eq!(quote.status(), StatusCode::OK);
+    let pins = quote_pins(&quote);
+    assert_eq!(pins[1..4], ["SHOWCASE-USD@1", "1", "D.OIS@2,P.SOFR@2"]);
+    let body: Value = quote.json().await.unwrap();
+    assert!(body["z_spread_mid"].is_number(), "{body}");
+    // An earlier cutoff reads the curves current then, under the configuration active
+    // now, and says so.
+    let known_at = capture_time(&seed);
+    let historical = format!("/api/v1/quotes/{instrument}?market_price=99.5&known_at={known_at}");
+    let quote = get(&server, &historical).await;
+    assert_eq!(quote.status(), StatusCode::OK);
+    let pins = quote_pins(&quote);
+    assert_eq!(
+        pins[1..],
+        ["SHOWCASE-USD@1", "1", "D.OIS@1,P.SOFR@1", known_at.as_str()]
+    );
+    // Two days after the capture, before the fresh revisions, the seed curves are
+    // outside their one-day budget: refused, never priced without curves.
+    let stale_at =
+        chrono::DateTime::parse_from_rfc3339(&known_at).unwrap() + chrono::Duration::days(2);
+    let stale = get(
+        &server,
+        &format!(
+            "/api/v1/quotes/{instrument}?market_price=99.5&known_at={}",
+            stale_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+        ),
+    )
+    .await;
+    assert_eq!(stale.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body: Value = stale.json().await.unwrap();
+    assert_eq!(body["code"], "MISSING_INPUT", "{body}");
+    // The same context prices inline terms; supplied curves cannot be mixed in.
+    let terms = get(&server, &format!("/api/v1/bonds/{instrument}"))
+        .await
+        .json::<Value>()
+        .await
+        .unwrap();
+    let posted = server
+        .client
+        .post(server.url("/api/v1/quote"))
+        .json(&json!({"bond": terms, "settlement_date": chrono::Utc::now().date_naive().to_string(), "market_price": "99.5"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(posted.status(), StatusCode::OK);
+    assert_eq!(posted.headers()["x-convex-activation"], "1");
+    let body: Value = posted.json().await.unwrap();
+    assert_eq!(body["context"]["kind"], "configuration", "{body}");
+    assert_eq!(body["context"]["configuration"], "SHOWCASE-USD@1");
+    assert!(body["z_spread_mid"].is_number(), "{body}");
     // Valid results pass the gate; the book names no currency, which is not defaulted.
     let (status, body) = book_analytics(&server, "SHOWCASE-BOOK").await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
@@ -536,6 +579,8 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     post_image(&server, image(&instrument, 1, now, 0, "99.75")).await;
     let fresh = wait_ready(&server).await;
     assert!(fresh["revision"].as_u64() > restored["revision"].as_u64());
+    let quote = get(&server, &historical).await;
+    assert_eq!(quote_pins(&quote), pins);
     server.stop().await;
     // Live stores no market snapshot and archives no result.
     let stored = convex_ext_redb::open_redb_storage(&path).unwrap();

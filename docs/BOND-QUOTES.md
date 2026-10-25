@@ -118,7 +118,12 @@ zero price, zero spread sensitivity or a fabricated curve.
 ## REST and C ABI contracts
 
 `POST /api/v1/quote` keeps `bond`, `settlement_date`, `market_price`. Reference
-terms and exact issuer/calendar/convention versions must already resolve.
+terms and exact issuer/calendar/convention versions must already resolve. With
+no supplied curves, it prices under an activated configuration: the one named by
+`configuration`, or the one the runtime runs. That configuration's curve roles are
+read at `known_at`, and the response's `context` names the configuration,
+activation and curve pins (see the server README). Supplied curves are an
+exclusive what-if context.
 `GET /api/v1/bonds/:id/quote` uses the same engine route. Both quote responses
 expose checked derived dirty prices. These on-demand routes require a supplied
 observed price; they do not assume par or generate model prices.

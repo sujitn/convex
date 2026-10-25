@@ -844,10 +844,14 @@ impl Actor {
                 // A restart-required activation commits while the runtime runs and applies
                 // at the next start; until then the runtime keeps the selection it accepted,
                 // or none when it started unselected, and readiness targets that selection.
-                let accepted = if self.checkpoint.configuration_activation.is_some() {
-                    Some(self.accepted_configuration().await?)
-                } else {
-                    None
+                // The accepted content is already held in memory; storage is read only if
+                // the held selection is not the checkpoint's.
+                let accepted = match (&self.checkpoint.configuration_activation, &self.selected) {
+                    (None, _) => None,
+                    (Some(activation), Some(held)) if held.activation == *activation => {
+                        Some(held.clone())
+                    }
+                    (Some(_), _) => Some(self.accepted_configuration().await?),
                 };
                 self.health.write().desired_activation_revision =
                     accepted.as_ref().map(|a| a.activation.revision);

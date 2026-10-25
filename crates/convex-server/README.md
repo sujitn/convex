@@ -266,20 +266,48 @@ recipes (`SnapshotCurveRecipe`) in redb; the server keeps no curve cache.
 There is no `DELETE`: revisions are history. `known_at` defaults to the current
 time; cutoff-aware curve reads and quote responses echo it in `x-convex-known-at`.
 
-`GET /api/v1/quotes/{id}?market_price=&settlement_date=&known_at=` prices a
-stored bond with curves. The reference terms are read at `known_at`. The
-applicable pricing configuration (active, `applies_to` matches, highest
-priority; a tie is refused) names the discount curve and optional swap
-benchmark. Those curves are the revisions current at `known_at` and must be
-fresh at it, by the same rule as core snapshot assembly. If no configuration
-applies, or a curve is missing, stale or has the wrong role or currency, the
-request is refused with `422 MISSING_INPUT`; it never prices without curves.
-The response reports what it consumed in `x-convex-reference-version`,
-`x-convex-pricing-config` (`id@version`), `x-convex-curve-versions`
-(`id@version,...`, including dependencies) and `x-convex-known-at`. The
-settlement date defaults to the `known_at` date. `market_price` is required; a
+`GET /api/v1/quotes/{id}?market_price=&settlement_date=&known_at=&configuration=`
+prices a stored bond under its valuation context. The context is the active
+selection of `configuration`, or of the configuration the runtime runs when the
+request names none. Only an activation approves a configuration: a staged version
+never prices, and a rollback prices the version it restores. A server without a
+runtime has no default, and a request that names nothing is refused with
+`422 NO_VALUATION_CONTEXT`, as is a named configuration that has no activation. The
+configuration must apply to the bond (`applies_to`), else `422 NOT_COVERED`. It
+names the discount curve and optional swap benchmark, and its bid/ask policy
+applies.
+
+The reference terms and curve revisions are read at `known_at`, and the curves
+must be fresh at it by the same rule as core snapshot assembly. The configuration
+is the one active now, whatever the cutoff, and the response names it. That is why
+the activation is reported: a price at an earlier cutoff under a later rule is
+auditable only because its activation is named. A missing
+or stale curve, or one with the wrong role or currency, is refused with
+`422 MISSING_INPUT`; the route never prices without curves. Callables and FRNs are
+priced by the runtime; this route refuses them with `422 UNSUPPORTED_PRODUCT`.
+
+The response reports what it consumed:
+- `x-convex-reference-version`
+- `x-convex-pricing-config` (`id@version`)
+- `x-convex-activation` (the activation revision)
+- `x-convex-curve-versions` (`id@version,...`, including dependencies)
+- `x-convex-known-at`
+
+The settlement date defaults to the `known_at` date. `market_price` is required; a
 request without it is `422 MISSING_INPUT`. The quote is returned in the response
 only; it is not sent on the WebSocket.
+
+`POST /api/v1/quote` and `POST /api/v1/batch/price` take the same optional
+`configuration` and `known_at` and resolve the same context. A batch resolves the
+context and its curves once. A bond the context cannot price fails on its own in
+`errors`, and the rest still price. Their bodies carry `context`:
+- `{"kind": "configuration", "configuration", "activation", "known_at", "curves"}`
+  for a configuration, with the headers above.
+- `{"kind": "supplied"}` when `POST /api/v1/quote` supplies its own curves or
+  volatility. That is a what-if, and naming a `configuration` with it is
+  `422 INVALID_INPUT`.
+- `{"kind": "none"}` when no configuration is named and no runtime runs one. The
+  price is then yield-only, and curve measures report `MISSING_MARKET_DATA`.
 
 Curve and quote errors share one body, `{"error", "code", "retryable"}`
 (`crate::error::ApiError`); other routes migrate to it over time.
@@ -412,7 +440,7 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 - `GET /api/v1/reference/masters/:kind?after=&limit=` lists current master resources of one kind (`entity`, `calendar`, `convention`, `rate_index`, `identifier`, ...) in identity order. `limit` defaults to 100, `next` is the cursor for the following page, and books keep `/api/v1/books`.
 - `admin_ui_dir` (`CONVEX_ADMIN_UI_DIR`) serves a built admin app at `/admin`, falling back to its `index.html`. The repository's app is [`admin/`](../../admin/README.md); build it with `npm run build` and point the setting at `admin/dist`. List the page's own origin (for example `https://convex.example.com`, or `http://127.0.0.1:8080` locally) in `access.cors_origins`: browsers send it on the page's script and on every write, and the origin guard admits listed origins only. Startup refuses `admin_ui_dir` with no listed origin. Startup refuses a directory without one. The files are public static assets outside the API access layer. They are sent with a policy that loads scripts only from the server and forbids framing, because the page holds a pasted bearer token in memory. Unset, nothing is served there.
 
-On-demand nominal fixed/zero quotes now use the [shared pure bond route](../../docs/BOND-QUOTES.md). Supply an observed price and exact optional discount/swap/government inputs; no demo curves, assumed volatility or model/par price are generated. Missing optional measures have structured errors. Full historical contexts, live admission and complete product/model certificates retain their separate gates.
+On-demand nominal fixed/zero quotes now use the [shared pure bond route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from exact supplied discount/swap/government inputs for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures have structured errors. Full historical contexts, live admission and complete product/model certificates retain their separate gates.
 
 
 The [bond default/recovery example](../../tools/BOND-EVENTS.md) reuses these ports
