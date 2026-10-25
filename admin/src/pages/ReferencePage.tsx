@@ -56,7 +56,7 @@ export function ReferencePage() {
       >
         {kind === 'bond' ? <Bonds onEdit={setDraft} /> : <Masters key={kind} kind={kind} onEdit={setDraft} />}
       </Panel>
-      {draft !== null && <TransactionEditor initial={draft} onClose={() => setDraft(null)} />}
+      {draft !== null && <TransactionEditor key={draft} initial={draft} onClose={() => setDraft(null)} />}
     </div>
   )
 }

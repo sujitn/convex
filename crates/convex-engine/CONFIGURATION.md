@@ -207,7 +207,8 @@ intentional restart footprint change, not for every hot activation.
 `PricingEngine::activate_configuration` separates durable commit from runtime
 acceptance. A running runtime applies only a `hot` activation. A
 `restart_required` activation still commits while the runtime runs; the runtime
-keeps its accepted selection, and later quotes keep pricing under it. The outcome
+keeps its accepted selection (or none, if it started without one), and later quotes
+keep pricing under it; readiness targets that selection until the restart. The outcome
 reports `restart_required: true`, and the next start applies the new selection. A
 start whose plan does not fit the active selection is still refused. A hot
 activation reports `restart_required: true` unless the runtime accepted that exact

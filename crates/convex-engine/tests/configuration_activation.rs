@@ -509,6 +509,65 @@ async fn cvx010_ac3_rollback_revalidates_content_and_records_new_activation_and_
     assert_eq!(kept.result.provenance().configuration_version.get(), 1);
     let health = engine.runtime_health();
     assert_eq!(health.activation_revision.unwrap().get(), 3);
+    assert_eq!(health.phase, convex_engine::RuntimePhase::Ready);
+    // A hot change on top of the deferred selection is still deferred, and readiness
+    // keeps targeting the accepted revision instead of waiting for a restart.
+    let mut hot = fixture::staged(4);
+    hot.document.process.max_concurrent_calcs = 6;
+    hot.document.assembly.max_source_skew_ms = 200;
+    service.stage(&hot, &fixtures).await.unwrap();
+    let outcome = engine
+        .activate_configuration(&fixture::activate(4, 4, "hot-on-deferred"), &fixtures)
+        .await
+        .unwrap();
+    assert!(outcome.restart_required);
+    assert_eq!(outcome.activation.revision.get(), 5);
+    engine
+        .submit_update(runtime::event(3, 0, "99.5"), time(1001), time(1001))
+        .await
+        .unwrap();
+    let kept = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(kept.result.provenance().configuration_version.get(), 1);
+    let health = engine.runtime_health();
+    assert_eq!(health.activation_revision.unwrap().get(), 3);
+    assert!(health.ready);
+    assert_eq!(health.phase, convex_engine::RuntimePhase::Ready);
+    engine.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_runtime_started_unselected_keeps_its_plan_after_a_restart_required_activation() {
+    let setup = runtime::setup().await;
+    let service = cases(&setup);
+    let fixtures = fixtures(&setup);
+    let engine = engine(&setup, service.clone());
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    let mut first = fixture::staged(1);
+    first.document.process.max_concurrent_calcs = 6;
+    service.stage(&first, &fixtures).await.unwrap();
+    let mut command = fixture::activate(1, 0, "unselected-restart");
+    command.mode = ReloadClass::RestartRequired;
+    let outcome = engine
+        .activate_configuration(&command, &fixtures)
+        .await
+        .unwrap();
+    assert!(outcome.restart_required);
+    // The runtime keeps pricing under its composed plan until the next start.
+    engine
+        .submit_update(runtime::event(2, 0, "99.25"), time(1000), time(1000))
+        .await
+        .unwrap();
+    let kept = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(kept.result.status(), ResultStatus::Complete);
+    let health = engine.runtime_health();
+    assert_eq!(health.activation_revision, None);
     assert_ne!(health.phase, convex_engine::RuntimePhase::Failed);
     engine.shutdown().await.unwrap();
 }

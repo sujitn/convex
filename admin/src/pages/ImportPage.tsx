@@ -14,7 +14,7 @@ export function ImportPage() {
       if (chosen.size > MAX_IMPORT_BYTES) {
         throw new ApiFailure(0, 'FILE_TOO_LARGE', `the import is limited to ${MAX_IMPORT_BYTES} bytes`)
       }
-      return (await call<unknown>('/api/v1/reference/import', { method: 'POST', body: chosen })).data
+      return (await call<unknown>('/api/v1/reference/import', { method: 'POST', raw: chosen })).data
     },
     onSuccess: () => client.invalidateQueries({ queryKey: ['reference'] }),
   })
