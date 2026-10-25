@@ -178,7 +178,7 @@ pub fn mode_capabilities(
     Ok(capabilities)
 }
 
-/// The canonical replay that fixture traces must prefix, at most 4,096 events.
+/// The first 4,096 events of the canonical replay, the most a fixture trace can prefix.
 pub async fn replay_events(path: &FsPath) -> Result<Vec<QuoteEvent>, ConfigurationError> {
     let mut source = FileQuoteReplay::open(path).map_err(|_| {
         ConfigurationError::Invalid("canonical replay file is unavailable; path redacted")
@@ -187,10 +187,10 @@ pub async fn replay_events(path: &FsPath) -> Result<Vec<QuoteEvent>, Configurati
     loop {
         match source.next_event().await {
             Ok(event) => {
-                if events.len() == 4096 {
-                    return Err(ConfigurationError::CapacityExceeded);
-                }
                 events.push(event);
+                if events.len() == 4096 {
+                    return Ok(events);
+                }
             }
             Err(StreamError::Closed) => return Ok(events),
             Err(_) => {
@@ -282,6 +282,14 @@ pub struct RollbackRequest {
 pub struct HistoryPage {
     offset: usize,
     limit: usize,
+}
+
+/// Two retained versions to compare.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VersionRange {
+    from: u64,
+    to: u64,
 }
 
 enum Refusal {
@@ -649,6 +657,38 @@ pub async fn history(
                 "total": page.total,
                 "offset": page.offset,
                 "limit": page.limit,
+            }))
+        }
+        .await,
+    )
+}
+
+/// Changed fields between two retained versions. Values stay on the server, so a
+/// redacted credential never compares as a change.
+pub async fn version_diff(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Query(range): Query<VersionRange>,
+) -> Response {
+    respond(
+        async {
+            let id = configuration_id(id)?;
+            let cases = use_cases(&state)?;
+            let mut documents = Vec::with_capacity(2);
+            for version in [range.from, range.to] {
+                let version = Version::new(version)
+                    .map_err(|_| ConfigurationError::Invalid("invalid configuration version"))?;
+                let staged = cases
+                    .get_version(&id, version)
+                    .await?
+                    .ok_or(ConfigurationError::Invalid("missing staged configuration"))?;
+                documents.push(staged.document);
+            }
+            Ok::<_, Refusal>(json!({
+                "schema_version": 1,
+                "from": range.from,
+                "to": range.to,
+                "changes": configuration_diff(&documents[0], &documents[1]),
             }))
         }
         .await,

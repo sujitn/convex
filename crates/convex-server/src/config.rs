@@ -436,6 +436,14 @@ impl ServerConfig {
                     expected: "a directory holding the built admin app's index.html",
                 });
             }
+            // Browsers send Origin on the page's module script and on every write, even
+            // to its own server, and the origin guard admits listed origins only.
+            if self.access.cors_origins.is_empty() {
+                return Err(ConfigError::InvalidValue {
+                    field: "access.cors_origins",
+                    expected: "the admin page's own origin when admin_ui_dir is set",
+                });
+            }
         }
         if self.profile == ServerProfile::Production {
             self.validate_production()?;

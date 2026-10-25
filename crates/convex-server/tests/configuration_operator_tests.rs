@@ -430,6 +430,29 @@ async fn http_stage_activate_rollback_record_the_caller_and_whether_fixtures_wer
     .await;
     assert_eq!(status, 200, "{report}");
     assert_eq!(report["valid"], true);
+    // A replay longer than any fixture can prefix is read only as far as fixtures reach.
+    let long = setup.dir.path().join("long.jsonl");
+    let line = |event: &convex_engine::ports::quote_event::QuoteEvent| {
+        serde_json::to_string(event).unwrap() + "\n"
+    };
+    let seed = &setup.plan.seed_events;
+    let repeated = std::iter::repeat_n(seed.last().unwrap(), 4097);
+    std::fs::write(
+        &long,
+        seed.iter().chain(repeated).map(line).collect::<String>(),
+    )
+    .unwrap();
+    let (status, report) = post(
+        &create_router(engine.clone()).layer(axum::Extension(
+            convex_server::configuration_admin::ConfigurationTrace(long),
+        )),
+        "/api/v1/configuration/validate",
+        None,
+        None,
+        json!({"document": first.document, "fixtures": fixtures}),
+    )
+    .await;
+    assert_eq!(status, 200, "{report}");
     let (status, diff) = post(
         &untraced,
         "/api/v1/configuration/diff",
@@ -492,6 +515,17 @@ async fn http_stage_activate_rollback_record_the_caller_and_whether_fixtures_wer
     assert_eq!(retained["fixture_evidence"], "replay_checked");
     let (_, retained) = get(&untraced, &format!("{base}/versions/2")).await;
     assert_eq!(retained["fixture_evidence"], "operator_supplied");
+    // Retained versions compare on the server and return only field names.
+    let (status, changed) = get(&untraced, &format!("{base}/diff?from=1&to=2")).await;
+    assert_eq!(status, 200, "{changed}");
+    assert!(changed["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|change| change["field"] == "assembly.quote_freshness"));
+    assert!(changed.get("previous").is_none() && changed.get("next").is_none());
+    let (status, _) = get(&untraced, &format!("{base}/diff?from=1&to=9")).await;
+    assert_eq!(status, 400);
     let selection = |version: u64, mode: &str| {
         json!({"configuration_version": version, "reason": "Fictional HTTP activation",
             "activated_at": "2026-10-02T15:00:00Z", "mode": mode, "fixtures": fixtures})

@@ -304,7 +304,9 @@ fn requirement(
             req.action = Operate;
             req.data = vec![D::Configuration, D::Reference, D::Market];
         }
-        "/api/v1/configuration/:id/history" | "/api/v1/configuration/:id/versions/:version" => {
+        "/api/v1/configuration/:id/history"
+        | "/api/v1/configuration/:id/versions/:version"
+        | "/api/v1/configuration/:id/diff" => {
             exact(R::Configuration, "id")?;
             req.action = Operate;
             req.data = vec![D::Configuration];
