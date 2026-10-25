@@ -228,6 +228,7 @@ async fn with_runtime(
         storage.configuration.clone(),
         storage.bonds.clone(),
         storage.configs.clone(),
+        storage.curves.clone(),
         fixings.clone(),
         snapshots.clone(),
         capabilities,

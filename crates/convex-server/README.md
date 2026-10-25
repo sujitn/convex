@@ -266,6 +266,13 @@ recipes (`SnapshotCurveRecipe`) in redb; the server keeps no curve cache.
 There is no `DELETE`: revisions are history. `known_at` defaults to the current
 time; cutoff-aware curve reads and quote responses echo it in `x-convex-known-at`.
 
+A stored revision is market data. A compiled Live configuration names its curves
+and reads the current revision of each one whenever it builds a snapshot. A
+re-mark therefore reaches the stream at the next quote, with no compile,
+activation or restart, and request-time pricing reads the same revision. Each
+runtime result lists the revisions it consumed in `provenance.input_versions`. See
+[RUNTIME.md](../convex-engine/RUNTIME.md).
+
 `GET /api/v1/quotes/{id}?market_price=&settlement_date=&known_at=&configuration=`
 prices a stored bond under its valuation context. The context is the active
 selection of `configuration`, or of the configuration the runtime runs when the

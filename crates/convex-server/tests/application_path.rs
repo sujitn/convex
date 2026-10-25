@@ -362,27 +362,7 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     not_before(book["recorded_at"].as_str().unwrap());
     // The seed's dated Demo curves cannot pass validation; record fresh revisions.
     for id in ["D.OIS", "P.SOFR"] {
-        let mut recipe = seed["curves"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|c| c["curve_id"] == id)
-            .unwrap()
-            .clone();
-        recipe["version"] = json!(2);
-        recipe["recipe"]["key"]["version"] = json!("2");
-        recipe["source_time"] = timestamp();
-        recipe["recorded_at"] = timestamp();
-        recipe["quality"] = json!("Valid");
-        recipe["max_age_ms"] = json!(600_000);
-        let response = server
-            .client
-            .post(server.url("/api/v1/curves"))
-            .json(&recipe)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::NO_CONTENT, "{id}");
+        save_curve(&server, &curve_revision(&seed, id, 2)).await;
     }
     server.stop().await;
 
@@ -416,9 +396,15 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
         document["assembly"]["instruments"][0]["instrument_id"],
         instrument.as_str()
     );
-    let recipes = document["assembly"]["curve_recipes"].as_array().unwrap();
-    assert_eq!(recipes.len(), 2);
-    assert!(recipes.iter().all(|r| r["version"] == 2), "{recipes:?}");
+    // Live names its curves and reads their revisions at each snapshot (D50).
+    assert_eq!(
+        document["assembly"]["required_curves"],
+        json!(["D.OIS", "P.SOFR"])
+    );
+    assert!(
+        document["assembly"].get("curve_recipes").is_none(),
+        "{document}"
+    );
 
     // A fixture under the mid market-quote model: the clean mid is the quoted mid.
     let now = chrono::Utc::now().timestamp_millis();
@@ -506,6 +492,7 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     assert_eq!(results.len(), 1);
     assert_eq!(results[0]["runtime_id"], "SHOWCASE-USD-v1");
     assert!(results[0]["live_valid_until"].is_string(), "{}", results[0]);
+    assert_eq!(streamed_curves(&server).await, ["D.OIS@2", "P.SOFR@2"]);
     // Request-time pricing names no configuration and prices under the runtime's
     // activated one, on the curves current now.
     let quote = get(
@@ -567,6 +554,32 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     let (status, body) = book_analytics(&server, "SHOWCASE-BOOK").await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert_eq!(body["code"], "BOOK_CURRENCY_REQUIRED", "{body}");
+    // A re-mark is market data (D47): the next tick values on it with no compile,
+    // activation or restart, and request-time pricing reads the same revision.
+    save_curve(&server, &curve_revision(&seed, "D.OIS", 3)).await;
+    let now = chrono::Utc::now().timestamp_millis();
+    post_image(&server, image(&instrument, 2, now, 0, "99.5")).await;
+    let streamed = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let streamed = streamed_curves(&server).await;
+            if streamed[0] == "D.OIS@3" {
+                return streamed;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(streamed, ["D.OIS@3", "P.SOFR@2"]);
+    let quote = get(
+        &server,
+        &format!("/api/v1/quotes/{instrument}?market_price=99.5"),
+    )
+    .await;
+    assert_eq!(
+        quote_pins(&quote)[1..4],
+        ["SHOWCASE-USD@1", "1", "D.OIS@3,P.SOFR@2"]
+    );
     server.stop().await;
 
     // The same activation plans the same digest: the checkpoint restores, and the
@@ -884,6 +897,56 @@ async fn post_image(server: &Running, event: Value) {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::ACCEPTED);
+}
+
+/// A fresh Valid revision of a seed curve, recorded now.
+fn curve_revision(seed: &Value, id: &str, version: u64) -> Value {
+    let mut recipe = seed["curves"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["curve_id"] == id)
+        .unwrap()
+        .clone();
+    recipe["version"] = json!(version);
+    recipe["recipe"]["key"]["version"] = json!(version.to_string());
+    recipe["source_time"] = timestamp();
+    recipe["recorded_at"] = timestamp();
+    recipe["quality"] = json!("Valid");
+    recipe["max_age_ms"] = json!(600_000);
+    recipe
+}
+
+async fn save_curve(server: &Running, recipe: &Value) {
+    let response = server
+        .client
+        .post(server.url("/api/v1/curves"))
+        .json(recipe)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::NO_CONTENT,
+        "{}",
+        recipe["curve_id"]
+    );
+}
+
+/// The curve revisions the first runtime result consumed, as `id@version`.
+async fn streamed_curves(server: &Running) -> Vec<String> {
+    let results: Value = get(server, "/api/v1/runtime/results")
+        .await
+        .json()
+        .await
+        .unwrap();
+    results[0]["result"]["provenance"]["input_versions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|v| v["kind"] == "curve")
+        .map(|v| format!("{}@{}", v["id"].as_str().unwrap(), v["version"]))
+        .collect()
 }
 
 async fn runtime(server: &Running) -> Value {

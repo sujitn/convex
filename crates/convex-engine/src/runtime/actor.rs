@@ -28,6 +28,9 @@ pub(super) struct Actor {
     baseline_pricing: convex_ports::storage::BondPricingConfig,
     selected: Option<convex_ports::configuration::ActiveConfiguration>,
     live_state: Option<LiveState>,
+    /// A Live plan that pins no curve data reads its curves here at each snapshot's
+    /// cutoff: the store request-time pricing reads (D50).
+    stored_curves: Option<Arc<dyn convex_ports::storage::CurveStore>>,
 }
 impl Actor {
     pub(super) async fn restore(
@@ -174,6 +177,11 @@ impl Actor {
         } else {
             None
         };
+        let stored_curves = crate::curve_resolution::reads_stored_curves(
+            services.plan.mode,
+            &services.plan.assembly,
+        )
+        .then(|| engine.storage.curves.clone());
         let assembler = SnapshotAssembler::new(
             engine.storage.bonds.clone(),
             engine.storage.configs.clone(),
@@ -216,6 +224,7 @@ impl Actor {
             baseline_pricing,
             selected,
             live_state,
+            stored_curves,
         };
         // Reopen replay from the beginning, verify its accepted prefix, and only then continue.
         if let RuntimeInput::Replay(source) = &mut actor.services.input {
@@ -340,7 +349,16 @@ impl Actor {
     }
     /// Live resolves held quotes without storing a snapshot; other modes publish one from the trace.
     async fn snapshot(&mut self) -> Result<Arc<MarketSnapshot>, RuntimeError> {
-        let request = self.request()?;
+        let mut request = self.request()?;
+        if let Some(store) = &self.stored_curves {
+            // A re-marked curve reaches the stream at the next tick or data deadline.
+            request.curve_recipes = bounded(crate::curve_resolution::live_curve_records(
+                store.as_ref(),
+                &request.required_curves,
+                request.known_at,
+            ))
+            .await?;
+        }
         let snapshot = match &self.live_state {
             Some(live) => bounded(self.assembler.resolve_ingested(&request, &live.quotes)).await?,
             None => bounded(self.assembler.assemble(&request, &self.checkpoint.events)).await?,

@@ -289,3 +289,67 @@ async fn stored_dependencies_resolve_by_native_key_label() {
     let missing = resolve_curves(storage.curves.as_ref(), &[StoreCurveId::new("orphan")], at).await;
     assert!(matches!(missing, Err(CurveResolutionError::Missing(id)) if id.as_str() == "base"));
 }
+
+/// The Live stream reads the same records, but reports a gap as data: a stale
+/// revision is kept for snapshot quality to judge, and an incomplete graph gives
+/// no records, so the snapshot reports the curve missing (D50).
+#[tokio::test]
+async fn live_records_keep_stale_revisions_and_drop_incomplete_graphs() {
+    use convex_core::ids::CurveId as StoreCurveId;
+    use convex_engine::curve_resolution::{live_curve_records, resolve_curves};
+    let dir = tempfile::tempdir().unwrap();
+    let storage = convex_ext_redb::create_redb_storage(dir.path().join("curves.redb")).unwrap();
+    let mut base = recipe();
+    base["key"]["id"] = "base".into();
+    let mut derived = recipe();
+    derived["key"]["id"] = "derived".into();
+    derived["dependencies"] = serde_json::json!([base["key"]]);
+    derived["source"] = serde_json::json!({"DiscountEquivalent":{"base":base["key"]}});
+    let mut orphan = derived.clone();
+    orphan["key"]["id"] = "orphan".into();
+    orphan["dependencies"] = serde_json::json!([{"id":"base","version":"absent.label"}]);
+    for value in [base, derived, orphan] {
+        storage.curves.save_recipe(&record(value)).await.unwrap();
+    }
+    let required = |id: &str| [convex_core::contracts::CurveId::new(id).unwrap()];
+    let pins = |records: &[SnapshotCurveRecipe]| {
+        records
+            .iter()
+            .map(|r| (r.curve_id.as_str().to_owned(), r.version.get()))
+            .collect::<Vec<_>>()
+    };
+    let fresh = fixture::time("2026-10-02T15:00:05Z");
+    let records = live_curve_records(storage.curves.as_ref(), &required("derived"), fresh)
+        .await
+        .unwrap();
+    assert_eq!(
+        pins(&records),
+        [("derived".to_owned(), 7), ("base".to_owned(), 7)]
+    );
+    // A minute later the ten-second budget has passed: request-time refuses, the stream
+    // keeps the revision and its snapshot reports it stale.
+    let stale = fixture::time("2026-10-02T15:01:00Z");
+    assert!(resolve_curves(
+        storage.curves.as_ref(),
+        &[StoreCurveId::new("derived")],
+        stale
+    )
+    .await
+    .is_err());
+    let records = live_curve_records(storage.curves.as_ref(), &required("derived"), stale)
+        .await
+        .unwrap();
+    assert_eq!(records.len(), 2);
+    for id in ["orphan", "absent"] {
+        let records = live_curve_records(storage.curves.as_ref(), &required(id), fresh)
+            .await
+            .unwrap();
+        assert!(records.is_empty(), "{id}");
+    }
+    // Before any revision was recorded there is nothing to read.
+    let before = fixture::time("2026-10-02T14:59:59Z");
+    let records = live_curve_records(storage.curves.as_ref(), &required("derived"), before)
+        .await
+        .unwrap();
+    assert!(records.is_empty());
+}

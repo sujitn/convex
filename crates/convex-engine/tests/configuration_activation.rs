@@ -613,6 +613,7 @@ async fn committed_unknown_outcomes_reconcile_once_uncommitted_failure_and_false
         fault.clone(),
         setup.storage.bonds.clone(),
         setup.storage.configs.clone(),
+        setup.storage.curves.clone(),
         Arc::new(convex_ext_file::JsonFixingRepository::empty()),
         setup.snapshots.clone(),
         ConfigurationCapabilities {
@@ -704,6 +705,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
         setup.storage.configuration.clone(),
         setup.storage.bonds.clone(),
         setup.storage.configs.clone(),
+        setup.storage.curves.clone(),
         Arc::new(JsonFixingRepository::empty()),
         setup.snapshots.clone(),
         ConfigurationCapabilities {

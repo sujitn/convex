@@ -9,6 +9,7 @@ use convex_core::contracts::{DataQuality, UtcTimestamp, Version};
 use convex_core::ids::CurveId;
 use convex_core::Currency;
 use convex_curves::contracts::{CurveBuildOutput, CurveRecipe, CurveRole};
+use convex_ports::configuration::{RuntimeMode, SnapshotAssembly};
 use convex_ports::snapshot::{SnapshotCurveRecipe, MAX_SNAPSHOT_CURVES};
 use convex_ports::storage::CurveStore;
 use convex_ports::TraitError;
@@ -103,6 +104,53 @@ pub async fn resolve_curves(
     roots: &[CurveId],
     known_at: UtcTimestamp,
 ) -> Result<ResolvedCurves, CurveResolutionError> {
+    let records = gather(store, roots, known_at).await?;
+    for record in &records {
+        check_fresh(record, known_at)?;
+    }
+    let built = crate::curve_replay::rebuild_curve_recipes(&records).map_err(TraitError::from)?;
+    Ok(ResolvedCurves { records, built })
+}
+
+/// Whether a runtime reads its curves from the curve store at each snapshot's
+/// cutoff (D50): a Live assembly that pins no curve data. An assembly that pins
+/// keeps its pins.
+pub fn reads_stored_curves(mode: RuntimeMode, assembly: &SnapshotAssembly) -> bool {
+    mode == RuntimeMode::Live
+        && assembly.curves.is_empty()
+        && assembly.curve_recipes.is_empty()
+        && assembly.calibration.is_none()
+}
+
+/// The stored records a Live snapshot consumes for its `required` curves at
+/// `known_at`. A gap is data, not a failure: a stale revision is kept, and the
+/// snapshot's quality reports it stale. An incomplete or unbuildable graph yields no
+/// records, so the snapshot reports every required curve missing. Only storage and
+/// capacity failures are errors.
+pub async fn live_curve_records(
+    store: &dyn CurveStore,
+    required: &[convex_core::contracts::CurveId],
+    known_at: UtcTimestamp,
+) -> Result<Vec<SnapshotCurveRecipe>, TraitError> {
+    let roots: Vec<_> = required
+        .iter()
+        .map(|id| CurveId::new(id.as_str()))
+        .collect();
+    match gather(store, &roots, known_at).await {
+        Ok(records) if crate::curve_replay::rebuild_curve_recipes(&records).is_ok() => Ok(records),
+        Ok(_) | Err(CurveResolutionError::Missing(_)) => Ok(Vec::new()),
+        Err(CurveResolutionError::Port(error)) => Err(error),
+        Err(_) => Ok(Vec::new()),
+    }
+}
+
+/// Each root at the cutoff, then its dependency closure; nothing is checked for
+/// freshness or built.
+async fn gather(
+    store: &dyn CurveStore,
+    roots: &[CurveId],
+    known_at: UtcTimestamp,
+) -> Result<Vec<SnapshotCurveRecipe>, CurveResolutionError> {
     if roots.len() > MAX_SNAPSHOT_CURVES {
         return Err(TraitError::CapacityExceeded.into());
     }
@@ -135,11 +183,7 @@ pub async fn resolve_curves(
         }
         next += 1;
     }
-    for record in &records {
-        check_fresh(record, known_at)?;
-    }
-    let built = crate::curve_replay::rebuild_curve_recipes(&records).map_err(TraitError::from)?;
-    Ok(ResolvedCurves { records, built })
+    Ok(records)
 }
 
 /// Pricing role admission shared with snapshot valuation: the configured
