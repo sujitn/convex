@@ -59,6 +59,11 @@ pub const RUNTIME_MEASURES: [&str; 26] = [
     "krd_20y_mid",
     "krd_30y_mid",
 ];
+/// Measures read from curves: spreads and curve risk. The others read the mid quote's
+/// own yield, so a plan that asks for none of these prices without curves.
+fn curve_measure(measure: &str) -> bool {
+    matches!(measure, "z_spread_mid" | "i_spread_mid" | "asw_mid") || curve_risk_measure(measure)
+}
 /// Measures read from the router's frozen-Z curve risk, which fails as one `curve_risk` field.
 fn curve_risk_measure(measure: &str) -> bool {
     matches!(
@@ -672,23 +677,29 @@ impl SnapshotValuator {
                     .map(BuiltCurve::from_snapshot)
                     .transpose()
             };
+            // Every runtime measure reads the mid quote, so bid and ask are not priced.
+            // The configured curves are still resolved and checked, but reach the router
+            // only when a spread or curve-risk measure is asked for.
+            let discount = curve(&configuration.analytics_curves.discount_curve)?;
+            let benchmark = configuration
+                .analytics_curves
+                .swap_curve
+                .as_ref()
+                .map(curve)
+                .transpose()?
+                .flatten();
+            let curves = spec.measures.iter().any(|m| curve_measure(m.as_str()));
             let input = PricingInput {
                 bond: bond.clone(),
                 settlement_date: spec.settlement_date.date(),
-                market_price_bid: mark(QuoteField::BidPrice),
+                market_price_bid: None,
                 market_price_mid: mark(QuoteField::MidPrice),
-                market_price_ask: mark(QuoteField::AskPrice),
-                discount_curve: curve(&configuration.analytics_curves.discount_curve)?,
-                benchmark_curve: configuration
-                    .analytics_curves
-                    .swap_curve
-                    .as_ref()
-                    .map(curve)
-                    .transpose()?
-                    .flatten(),
+                market_price_ask: None,
+                discount_curve: discount.filter(|_| curves),
+                benchmark_curve: benchmark.filter(|_| curves),
                 government_curve: None,
                 volatility: None,
-                bid_ask_config: configuration.bid_ask_spread.clone(),
+                bid_ask_config: None,
             };
             let router = PricingRouter {
                 bump_bps: spec.numerical_settings.bump_bps.get(),

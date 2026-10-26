@@ -778,6 +778,48 @@ fn risk_measures_publish_the_router_quote_in_explicit_units() {
     assert_eq!(&back, envelope);
 }
 
+/// A plan that asks for no spread or curve-risk measure is priced without curves. Its
+/// values equal those of a valuation that also asks for curve measures, which the test
+/// above ties to the full router quote (bid, mid and ask over the configured curves).
+#[test]
+fn yield_measures_priced_without_curves_equal_those_priced_with_them() {
+    let snapshot = fixture::snapshot();
+    let mut spec = context(&snapshot).spec().clone();
+    spec.measures = [
+        "clean_price_mid",
+        "dirty_price_mid",
+        "accrued_interest",
+        "ytm_mid",
+        "modified_duration_mid",
+        "convexity_mid",
+        "dv01_mid",
+        "macaulay_duration_mid",
+    ]
+    .iter()
+    .map(|m| MeasureId::new(*m).unwrap())
+    .collect();
+    let lean = ValuationContext::new(spec.clone()).unwrap();
+    spec.measures = RUNTIME_MEASURES
+        .iter()
+        .map(|m| MeasureId::new(*m).unwrap())
+        .collect();
+    let with_curves = calculate(&snapshot, &ValuationContext::new(spec).unwrap());
+    let lean_result = calculate(&snapshot, &lean);
+    assert_eq!(
+        lean_result.envelope().status(),
+        ResultStatus::Complete,
+        "{:?}",
+        lean_result.envelope().errors()
+    );
+    for measure in &lean.spec().measures {
+        assert_eq!(
+            lean_result.envelope().results()[measure].value,
+            with_curves.envelope().results()[measure].value,
+            "{measure:?}"
+        );
+    }
+}
+
 #[test]
 fn a_zero_prices_its_yield_measures_and_keeps_the_router_reason_for_curve_measures() {
     // An unadjusted zero; its calendar/convention resources are rebuilt from its own terms.

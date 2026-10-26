@@ -118,6 +118,14 @@ Only `Auto` or `MarketQuote` with `Mid` selection is admitted, using exactly one
 declared source with required `mid_price`. No bid/ask midpoint, FX conversion,
 trade economics, unsupported scenario/model or missing field is substituted.
 
+Valuation prices only what its context asks for. Every measure below reads the mid
+quote, so the bid and ask sides are not priced. The configured curves are still
+resolved and checked against their roles, but they reach the router only when a
+spread or curve-risk measure (`z_spread_mid`, `i_spread_mid`, `asw_mid`, or a measure
+in the curve-risk family) is requested. A context that asks only for price, yield and
+yield-risk measures is priced without curves, and its values equal those of a context
+that also asks for curve measures.
+
 | Measure | Canonical quantity |
 |---|---|
 | `clean_price_mid` | Exact observed price per 100 |
