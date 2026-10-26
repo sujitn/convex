@@ -62,6 +62,7 @@ pub mod portfolio_analytics;
 pub mod pricing_router;
 pub mod runtime;
 pub mod snapshot;
+pub mod telemetry;
 
 pub mod cache;
 pub mod configuration;
@@ -364,6 +365,17 @@ impl PricingEngine {
     /// a staged version never prices. The configuration is the one active now, and
     /// the cutoff governs the curve reads.
     pub async fn request_context(
+        &self,
+        configuration: Option<&convex_core::contracts::SourceId>,
+        known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<RequestContext, curve_resolution::CurveResolutionError> {
+        let started = std::time::Instant::now();
+        let context = self.resolve_request_context(configuration, known_at).await;
+        telemetry::observe(telemetry::REQUEST_CONTEXT_SECONDS, started);
+        context
+    }
+
+    async fn resolve_request_context(
         &self,
         configuration: Option<&convex_core::contracts::SourceId>,
         known_at: convex_core::contracts::UtcTimestamp,

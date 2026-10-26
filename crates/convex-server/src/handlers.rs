@@ -481,6 +481,16 @@ fn supplied_curves(
 /// both. With neither, the price is yield-only and curve measures report
 /// `MISSING_MARKET_DATA`. The response's `context` says which one priced it.
 pub async fn price_single_bond(
+    state: State<Arc<AppState>>,
+    request: Result<Json<SingleBondPricingRequest>, axum::extract::rejection::JsonRejection>,
+) -> axum::response::Response {
+    let started = std::time::Instant::now();
+    let response = price_one_bond(state, request).await;
+    convex_engine::telemetry::observe(convex_engine::telemetry::QUOTE_SECONDS, started);
+    response
+}
+
+async fn price_one_bond(
     State(state): State<Arc<AppState>>,
     request: Result<Json<SingleBondPricingRequest>, axum::extract::rejection::JsonRejection>,
 ) -> axum::response::Response {

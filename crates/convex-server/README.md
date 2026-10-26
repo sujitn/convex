@@ -447,6 +447,21 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 - `GET /api/v1/reference/masters/:kind?after=&limit=` lists current master resources of one kind (`entity`, `calendar`, `convention`, `rate_index`, `identifier`, ...) in identity order. `limit` defaults to 100, `next` is the cursor for the following page, and books keep `/api/v1/books`.
 - `admin_ui_dir` (`CONVEX_ADMIN_UI_DIR`) serves a built admin app at `/admin`, falling back to its `index.html`. The repository's app is [`admin/`](../../admin/README.md); build it with `npm run build` and point the setting at `admin/dist`. List the page's own origin (for example `https://convex.example.com`, or `http://127.0.0.1:8080` locally) in `access.cors_origins`: browsers send it on the page's script and on every write, and the origin guard admits listed origins only. Startup refuses `admin_ui_dir` with no listed origin. Startup refuses a directory without one. The files are public static assets outside the API access layer. They are sent with a policy that loads scripts only from the server and forbids framing, because the page holds a pasted bearer token in memory. Unset, nothing is served there.
 
+## Metrics
+
+`GET /metrics` renders stage latency histograms in the Prometheus text format. It needs the operator role and the operations grant, like `/api/v1/runtime`, so a scraper sends a bearer token. The server installs one recorder per process at composition, with a thread that drains recorded observations every 5 s so an unscraped process stays bounded; the exporter opens no listener of its own. Every histogram is in seconds, with buckets from 1 µs to 10 s, and no label carries an instrument, curve or request id:
+
+| Histogram | One observation |
+|---|---|
+| `convex_ingress_seconds` | `POST /api/v1/market/quotes`: one parsed batch through ingress validation and queue admission, the whole batch or nothing. It starts after JSON extraction and excludes the runtime's work. |
+| `convex_snapshot_assemble_seconds` | One tick's snapshot, including the stored-curve read for an unpinned Live document |
+| `convex_curve_build_seconds{path}` | One curve graph built from recipes: `request`, `stream` (the Live build check), `graph` (calculation-graph activation) or `valuation` (each instrument) |
+| `convex_valuation_seconds` | One instrument valued in the runtime |
+| `convex_calculate_seconds` | Every instrument of one snapshot, including graph commits |
+| `convex_publish_seconds` | One result record handed to the publisher |
+| `convex_request_context_seconds` | One request-time valuation context: activation read and curve resolution |
+| `convex_quote_seconds` | One `POST /api/v1/quote` |
+
 On-demand nominal fixed/zero quotes now use the [shared pure bond route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from exact supplied discount/swap/government inputs for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures have structured errors. Full historical contexts, live admission and complete product/model certificates retain their separate gates.
 
 

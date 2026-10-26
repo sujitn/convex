@@ -48,6 +48,7 @@ pub fn create_router_with_access(
         .route("/strategy-ready", get(crate::health::strategy_readiness))
         .route("/api/v1/dependencies", get(crate::health::dependencies))
         .route("/api/v1/runtime", get(handlers::runtime_health))
+        .route("/metrics", get(crate::telemetry::render))
         .route("/api/v1/runtime/results", get(handlers::runtime_results))
         .route("/api/v1/runtime/valuation", post(handlers::runtime_value))
         .route("/api/v1/market/quotes", post(crate::market::post_quotes))

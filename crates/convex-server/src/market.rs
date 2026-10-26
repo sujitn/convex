@@ -224,7 +224,10 @@ pub async fn post_quotes(
     let Some(Extension(ingress)) = ingress else {
         return ApiError::unavailable("this server has no live runtime").into_response();
     };
-    match ingress.submit(batch.events) {
+    let started = std::time::Instant::now();
+    let submitted = ingress.submit(batch.events);
+    convex_engine::telemetry::observe(convex_engine::telemetry::INGRESS_SECONDS, started);
+    match submitted {
         Ok(receipt) => (
             StatusCode::ACCEPTED,
             Json(serde_json::json!({

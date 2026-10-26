@@ -349,6 +349,12 @@ impl Actor {
     }
     /// Live resolves held quotes without storing a snapshot; other modes publish one from the trace.
     async fn snapshot(&mut self) -> Result<Arc<MarketSnapshot>, RuntimeError> {
+        let started = std::time::Instant::now();
+        let snapshot = self.resolve_snapshot().await;
+        crate::telemetry::observe(crate::telemetry::SNAPSHOT_ASSEMBLE_SECONDS, started);
+        snapshot
+    }
+    async fn resolve_snapshot(&mut self) -> Result<Arc<MarketSnapshot>, RuntimeError> {
         let mut request = self.request()?;
         if let Some(store) = &self.stored_curves {
             // A re-marked curve reaches the stream at the next tick or data deadline.
@@ -520,6 +526,7 @@ impl Actor {
     }
     async fn calculate(&mut self, snapshot: Arc<MarketSnapshot>) -> Result<(), RuntimeError> {
         self.set_deadline(&snapshot)?;
+        let started = std::time::Instant::now();
         let produced = worker::calculate(
             &self.graph,
             &self.valuator,
@@ -529,7 +536,9 @@ impl Actor {
             self.concurrency,
             self.demo(),
         )
-        .await?;
+        .await;
+        crate::telemetry::observe(crate::telemetry::CALCULATE_SECONDS, started);
+        let produced = produced?;
         let mut next = self.checkpoint.clone();
         next.result_revision = produced.last().map_or(next.result_revision, |p| p.revision);
         next.results = produced.clone();
@@ -543,8 +552,11 @@ impl Actor {
     async fn flush_outbox(&mut self) -> Result<(), RuntimeError> {
         // Whole bounded batch retains its original delivery keys on retry; consumers deduplicate.
         for record in &self.checkpoint.outbox {
-            tokio::time::timeout(IO_BUDGET, self.services.publisher.publish(record))
-                .await
+            let started = std::time::Instant::now();
+            let published =
+                tokio::time::timeout(IO_BUDGET, self.services.publisher.publish(record)).await;
+            crate::telemetry::observe(crate::telemetry::PUBLISH_SECONDS, started);
+            published
                 .map_err(|_| RuntimeError::Deadline)?
                 .map_err(|_| RuntimeError::Publication)?;
         }

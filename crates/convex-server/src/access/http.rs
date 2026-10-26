@@ -246,7 +246,7 @@ fn requirement(
             req.resources.push(Resource::new(R::Source, "*"));
             req.body_required = false;
         }
-        "/api/v1/runtime" | "/api/v1/dependencies" | "/api/v1/ws/status" => {
+        "/api/v1/runtime" | "/api/v1/dependencies" | "/api/v1/ws/status" | "/metrics" => {
             req.action = Operate;
             req.data = vec![D::Operations];
             req.body_required = false;

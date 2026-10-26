@@ -43,6 +43,10 @@ toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Metrics: rendered on GET /metrics; the exporter runs no listener of its own
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.18", default-features = false }
+
 # Core dependencies
 rust_decimal = { workspace = true }
 serde = { workspace = true }
