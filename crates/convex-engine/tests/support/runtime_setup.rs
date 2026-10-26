@@ -116,6 +116,52 @@ pub fn make_engine(
             .unwrap(),
     )
 }
+/// Widen `plan` to `width` bonds: copies of the fixture bond under new identities
+/// (`BOND-W001`...), stored in `s`, each quoted under its own key.
+pub async fn widen(s: &Setup, plan: &mut RuntimePlan, width: usize) {
+    let copies: Vec<_> = (1..width)
+        .map(|index| {
+            let mut bond = fixture::bond();
+            bond.instrument_id = convex_core::ids::InstrumentId::new(format!("BOND-W{index:03}"));
+            bond.isin = Some(format!("fixture-isin-w{index:03}"));
+            bond.cusip = Some(format!("fixture-cusip-w{index:03}"));
+            bond
+        })
+        .collect();
+    if copies.is_empty() {
+        return;
+    }
+    s.storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("wide-seed").unwrap(),
+                changes: copies
+                    .iter()
+                    .map(|bond| ReferenceChange::Create {
+                        bond: Box::new(bond.clone()),
+                    })
+                    .collect(),
+                master_changes: vec![],
+            },
+            fixture::time("2025-01-01T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    // Source skew is checked across every quote in a snapshot (G24). Compiled Live
+    // configurations allow ten minutes (`configuration_compile`); the one-bond fixture
+    // allows one second, which a wide book exceeds as soon as bonds tick apart.
+    plan.assembly.max_source_skew_ms = 600_000;
+    for bond in &copies {
+        plan.assembly.instruments.push(InstrumentPin {
+            instrument_id: InstrumentId::new(bond.instrument_id.as_str()).unwrap(),
+            version: fixture::version(1),
+        });
+        let mut quote = plan.assembly.quotes[0].clone();
+        quote.key.instrument_id = bond.instrument_id.clone();
+        plan.assembly.quotes.push(quote);
+    }
+}
 pub fn archive(s: &Setup) -> Arc<dyn ResultPublisher> {
     s.results.clone()
 }

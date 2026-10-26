@@ -2,6 +2,8 @@
 use super::*;
 /// Revisions and generations reserved per durable Live write.
 const LIVE_RESERVATION: u64 = 1 << 20;
+/// Live quotes one tick admits (D54): the capacity of the server's HTTP ingress queue.
+const LIVE_BATCH_EVENTS: usize = 1024;
 /// Live market state lives only in this process; ticks and snapshots are not stored.
 /// Storage holds counter ceilings reserved ahead of use, so a restarted process
 /// continues above every revision and generation it may already have published.
@@ -434,7 +436,11 @@ impl Actor {
         event
             .validate()
             .map_err(|_| RuntimeError::Configuration("invalid normalized event"))?;
-        if self.checkpoint.pending || !self.checkpoint.outbox.is_empty() {
+        // A Live tick admits every queued quote before it values (D54), so its generation
+        // is still pending; in other modes pending work means recovery is due.
+        if (self.checkpoint.pending && self.services.plan.mode != RuntimeMode::Live)
+            || !self.checkpoint.outbox.is_empty()
+        {
             return Err(RuntimeError::State("prior accepted work requires recovery"));
         }
         if !self
@@ -714,6 +720,49 @@ impl Actor {
         );
         health.activation_revision = accepted_activation;
     }
+    /// Cutoffs for one source event. Live values at the wall clock, which can step back
+    /// between ticks; the cutoff never does.
+    fn cutoffs(&self, event: &QuoteEvent) -> Result<(UtcTimestamp, UtcTimestamp), RuntimeError> {
+        let stamp = |ms| {
+            UtcTimestamp::from_datetime(
+                chrono::DateTime::from_timestamp_millis(ms).ok_or(RuntimeError::Source)?,
+            )
+            .map_err(|_| RuntimeError::Source)
+        };
+        let (mut as_of, mut known_at) = (
+            self.checkpoint.as_of.max(stamp(event.source_time_ms)?),
+            self.checkpoint.known_at.max(stamp(event.receive_time_ms)?),
+        );
+        if self.services.plan.mode == RuntimeMode::Live {
+            let now = UtcTimestamp::from_datetime(chrono::Utc::now())
+                .map_err(|_| RuntimeError::Source)?;
+            (as_of, known_at) = (as_of.max(now), known_at.max(now));
+        }
+        Ok((as_of, known_at))
+    }
+    /// Live conflation (D54): quotes already queued join the accepted quote's tick, up to
+    /// `LIVE_BATCH_EVENTS` in all, the accepted one included, so a full ingress queue
+    /// fits in one tick and a quote waits for at most the running tick and its own.
+    /// Each is still validated and admitted in order. Replay and Captured value every event.
+    async fn conflate(&mut self) -> Result<(), RuntimeError> {
+        if self.services.plan.mode != RuntimeMode::Live {
+            return Ok(());
+        }
+        for _ in 1..LIVE_BATCH_EVENTS {
+            match self.live.as_mut().and_then(StreamReceiver::try_recv) {
+                None => break,
+                Some(Ok(event)) => {
+                    let (as_of, known_at) = self.cutoffs(&event)?;
+                    self.accept(event, as_of, known_at).await?;
+                }
+                Some(Err(_)) => {
+                    self.lose_delivery().await?;
+                    return Err(RuntimeError::Source);
+                }
+            }
+        }
+        Ok(())
+    }
     async fn next_event(&mut self) -> Result<QuoteEvent, StreamError> {
         match &mut self.services.input {
             RuntimeInput::Replay(source) => source.next_event().await,
@@ -792,16 +841,10 @@ impl Actor {
                 event = self.next_event(), if !source_finished => {
                     match event {
                         Ok(event) => {
-                            let source = UtcTimestamp::from_datetime(chrono::DateTime::from_timestamp_millis(event.source_time_ms).ok_or(RuntimeError::Source)?).map_err(|_| RuntimeError::Source)?;
-                            let receipt = UtcTimestamp::from_datetime(chrono::DateTime::from_timestamp_millis(event.receive_time_ms).ok_or(RuntimeError::Source)?).map_err(|_| RuntimeError::Source)?;
-                            let (mut as_of, mut known_at) = (self.checkpoint.as_of.max(source), self.checkpoint.known_at.max(receipt));
-                            // Live values at the wall clock, which can step back between ticks;
-                            // the cutoff never does.
-                            if self.services.plan.mode == RuntimeMode::Live {
-                                let now = UtcTimestamp::from_datetime(chrono::Utc::now()).map_err(|_| RuntimeError::Source)?;
-                                (as_of, known_at) = (as_of.max(now), known_at.max(now));
-                            }
-                            self.accept(event, as_of, known_at).await?; self.process().await?;
+                            let (as_of, known_at) = self.cutoffs(&event)?;
+                            self.accept(event, as_of, known_at).await?;
+                            self.conflate().await?;
+                            self.process().await?;
                         }
                         Err(StreamError::Closed) if self.services.plan.mode == RuntimeMode::Replay => { source_finished = true; self.health.write().replay_complete = true; }
                         Err(_) => {

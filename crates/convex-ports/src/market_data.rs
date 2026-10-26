@@ -66,6 +66,17 @@ impl<T: Clone> StreamReceiver<T> {
             tokio::sync::broadcast::error::RecvError::Closed => StreamError::Closed,
         })
     }
+
+    /// Take one item already buffered, without waiting; `None` when nothing is queued.
+    pub fn try_recv(&mut self) -> Option<Result<T, StreamError>> {
+        use tokio::sync::broadcast::error::TryRecvError;
+        match self.rx.try_recv() {
+            Ok(item) => Some(Ok(item)),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Lagged(missed)) => Some(Err(StreamError::Lagged { missed })),
+            Err(TryRecvError::Closed) => Some(Err(StreamError::Closed)),
+        }
+    }
 }
 
 // =============================================================================

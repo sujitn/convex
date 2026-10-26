@@ -108,6 +108,19 @@ fn image(sequence: u64, price: &str) -> QuoteEvent {
 /// A Live server configuration over the runtime fixture: one bond priced from posted
 /// images. The directory holds the database and must outlive the server.
 async fn live_setup() -> (tempfile::TempDir, std::path::PathBuf, ServerConfig) {
+    let (dir, database, live, _) = wide_live_setup(1).await;
+    (dir, database, live)
+}
+
+/// `live_setup` widened to `width` bonds, with every quoted key.
+async fn wide_live_setup(
+    width: usize,
+) -> (
+    tempfile::TempDir,
+    std::path::PathBuf,
+    ServerConfig,
+    Vec<convex_engine::ports::quote_event::QuoteKey>,
+) {
     let s = setup().await;
     let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
     let mut plan = s.plan.clone();
@@ -120,6 +133,8 @@ async fn live_setup() -> (tempfile::TempDir, std::path::PathBuf, ServerConfig) {
     plan.assembly.curves[0].recorded_at = now;
     plan.assembly.curves[0].max_age_ms = 600_000;
     plan.assembly.quotes[0].max_age_ms = 600_000;
+    widen(&s, &mut plan, width).await;
+    let keys = plan.assembly.quotes.iter().map(|q| q.key.clone()).collect();
     let plan_path = s.dir.path().join("runtime.json");
     std::fs::write(&plan_path, serde_json::to_vec(&plan).unwrap()).unwrap();
     let database = s.dir.path().join("inputs.redb");
@@ -131,7 +146,7 @@ async fn live_setup() -> (tempfile::TempDir, std::path::PathBuf, ServerConfig) {
     drop(s.results);
     drop(s.fixings);
     let live = config(ServerProfile::Live, &database, Some(&plan_path));
-    (dir, database, live)
+    (dir, database, live, keys)
 }
 
 #[tokio::test]
@@ -217,24 +232,31 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
 
 /// Quotes offered faster than the runtime values them end in 429 at the full ingress
 /// queue, never in lost delivery: every accepted quote is valued and the runtime stays up.
+/// A tick admits up to 1,024 queued quotes (D54), so one bond drains faster than one
+/// client posts; 256 bonds make a tick long enough for posted batches to fill the queue.
 #[tokio::test]
 async fn an_offered_rate_above_the_drain_rate_is_refused_with_429_and_nothing_is_lost() {
-    let (dir, _, live) = live_setup().await;
+    let (dir, _, live, keys) = wide_live_setup(256).await;
     let server = Running::start(live).await;
-    let mut sequence = 1;
-    let accepted = server.post_quotes(vec![image(sequence, "99.25")]).await;
+    let mut sequence = 0;
+    let mut batch = |size: usize| -> Vec<QuoteEvent> {
+        (0..size)
+            .map(|_| {
+                let mut event = image(sequence + 1, "99.25");
+                event.key = keys[sequence as usize % keys.len()].clone();
+                sequence += 1;
+                event
+            })
+            .collect()
+    };
+    // Every bond needs its first image before the runtime is ready.
+    let accepted = server.post_quotes(batch(keys.len())).await;
     assert_eq!(accepted.status(), StatusCode::ACCEPTED);
     let start = server.wait_ready().await["generation"].as_u64().unwrap();
     let mut queued = 0;
     let mut refused = None;
     for _ in 0..64 {
-        let events: Vec<_> = (0..256)
-            .map(|_| {
-                sequence += 1;
-                image(sequence, "99.25")
-            })
-            .collect();
-        let response = server.post_quotes(events).await;
+        let response = server.post_quotes(batch(256)).await;
         match response.status() {
             StatusCode::ACCEPTED => {
                 let receipt: Value = response.json().await.unwrap();
