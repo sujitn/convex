@@ -449,11 +449,11 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 
 ## Metrics
 
-`GET /metrics` renders stage latency histograms in the Prometheus text format. It needs the operator role and the operations grant, like `/api/v1/runtime`, so a scraper sends a bearer token. The server installs one recorder per process at composition; the exporter opens no listener of its own. Every histogram is in seconds, with buckets from 1 µs to 10 s, and no label carries an instrument, curve or request id:
+`GET /metrics` renders stage latency histograms in the Prometheus text format. It needs the operator role and the operations grant, like `/api/v1/runtime`, so a scraper sends a bearer token. The server installs one recorder per process at composition, with a thread that drains recorded observations every 5 s so an unscraped process stays bounded; the exporter opens no listener of its own. Every histogram is in seconds, with buckets from 1 µs to 10 s, and no label carries an instrument, curve or request id:
 
 | Histogram | One observation |
 |---|---|
-| `convex_ingress_seconds` | `POST /api/v1/market/quotes`, from handler entry until the runtime accepts or refuses the batch. The JSON body is already parsed. |
+| `convex_ingress_seconds` | `POST /api/v1/market/quotes`: one parsed batch through ingress validation and queue admission, the whole batch or nothing. It starts after JSON extraction and excludes the runtime's work. |
 | `convex_snapshot_assemble_seconds` | One tick's snapshot, including the stored-curve read for an unpinned Live document |
 | `convex_curve_build_seconds{path}` | One curve graph built from recipes: `request`, `stream` (the Live build check), `graph` (calculation-graph activation) or `valuation` (each instrument) |
 | `convex_valuation_seconds` | One instrument valued in the runtime |

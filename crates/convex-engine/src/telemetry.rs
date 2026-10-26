@@ -6,7 +6,8 @@
 
 use std::time::Instant;
 
-/// An HTTP quote batch, from handler entry until the runtime accepts or refuses it.
+/// One parsed HTTP quote batch through ingress validation and queue admission, the
+/// whole batch or nothing. It starts after JSON extraction and excludes runtime work.
 pub const INGRESS_SECONDS: &str = "convex_ingress_seconds";
 /// One snapshot resolved from the held quotes (Live) or the retained trace.
 pub const SNAPSHOT_ASSEMBLE_SECONDS: &str = "convex_snapshot_assemble_seconds";
@@ -27,7 +28,7 @@ pub const QUOTE_SECONDS: &str = "convex_quote_seconds";
 pub const HISTOGRAMS: [(&str, &str); 8] = [
     (
         INGRESS_SECONDS,
-        "HTTP quote batch until accepted or refused",
+        "Parsed HTTP quote batch through validation and queue admission",
     ),
     (
         SNAPSHOT_ASSEMBLE_SECONDS,

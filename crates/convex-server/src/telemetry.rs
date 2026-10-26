@@ -5,10 +5,11 @@
 #![forbid(unsafe_code)]
 
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use axum::http::header;
 use axum::response::{IntoResponse, Response};
-use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
+use metrics_exporter_prometheus::{BuildError, Matcher, PrometheusBuilder, PrometheusHandle};
 use tracing::warn;
 
 use crate::error::ApiError;
@@ -22,32 +23,52 @@ pub const LATENCY_BUCKETS: [f64; 22] = [
 /// The Prometheus text exposition format.
 const CONTENT_TYPE: &str = "text/plain; version=0.0.4; charset=utf-8";
 
-/// `None` once installation has failed: another recorder owns the process.
+/// How often recorded observations are drained into the histograms. Between
+/// drains they accumulate, so without upkeep an unscraped process grows without
+/// bound.
+const UPKEEP_INTERVAL: Duration = Duration::from_secs(5);
+
+/// `None` once installation has failed: another recorder owns the process, or
+/// the upkeep thread could not start.
 static HANDLE: OnceLock<Option<PrometheusHandle>> = OnceLock::new();
 
 /// Install the recorder once per process; later calls return the same handle.
-/// Returns `None` when another recorder already owns the process. Metrics only
-/// observe, so the caller continues without them.
+/// Returns `None` when it cannot be installed. Metrics only observe, so the
+/// caller continues without them.
 pub fn install() -> Option<&'static PrometheusHandle> {
     HANDLE
-        .get_or_init(|| {
-            let handle = PrometheusBuilder::new()
-                .set_buckets_for_metric(Matcher::Suffix("_seconds".into()), &LATENCY_BUCKETS)
-                .and_then(PrometheusBuilder::install_recorder);
-            match handle {
-                Ok(handle) => {
-                    for (name, help) in convex_engine::telemetry::HISTOGRAMS {
-                        metrics::describe_histogram!(name, metrics::Unit::Seconds, help);
-                    }
-                    Some(handle)
+        .get_or_init(|| match build() {
+            Ok(handle) => {
+                for (name, help) in convex_engine::telemetry::HISTOGRAMS {
+                    metrics::describe_histogram!(name, metrics::Unit::Seconds, help);
                 }
-                Err(error) => {
-                    warn!(%error, "Metrics recorder not installed; /metrics is unavailable");
-                    None
-                }
+                Some(handle)
+            }
+            Err(error) => {
+                warn!(%error, "Metrics recorder not installed; /metrics is unavailable");
+                None
             }
         })
         .as_ref()
+}
+
+/// Build the recorder, start its upkeep thread for the life of the process, then
+/// install it. The thread starts first, so an installed recorder always has
+/// upkeep; if installation then fails, the thread only drains an unused handle.
+fn build() -> Result<PrometheusHandle, Box<dyn std::error::Error + Send + Sync>> {
+    let recorder = PrometheusBuilder::new()
+        .set_buckets_for_metric(Matcher::Suffix("_seconds".into()), &LATENCY_BUCKETS)?
+        .build_recorder();
+    let handle = recorder.handle();
+    let upkeep = handle.clone();
+    std::thread::Builder::new()
+        .name("convex-metrics-upkeep".into())
+        .spawn(move || loop {
+            std::thread::sleep(UPKEEP_INTERVAL);
+            upkeep.run_upkeep();
+        })?;
+    metrics::set_global_recorder(recorder).map_err(BuildError::from)?;
+    Ok(handle)
 }
 
 /// `GET /metrics`: every recorded histogram in the Prometheus text format.
