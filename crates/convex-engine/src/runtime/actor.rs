@@ -741,7 +741,8 @@ impl Actor {
         Ok((as_of, known_at))
     }
     /// Live conflation (D54): quotes already queued join the accepted quote's tick, up to
-    /// the ingress capacity, so a quote waits for at most the running tick and its own.
+    /// `LIVE_BATCH_EVENTS` in all, the accepted one included, so a full ingress queue
+    /// fits in one tick and a quote waits for at most the running tick and its own.
     /// Each is still validated and admitted in order. Replay and Captured value every event.
     async fn conflate(&mut self) -> Result<(), RuntimeError> {
         if self.services.plan.mode != RuntimeMode::Live {

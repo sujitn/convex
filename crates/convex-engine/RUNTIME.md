@@ -68,9 +68,9 @@ activation changes. A restart recalculates from no quotes above the stored
 ceilings, which writes one new reservation. Until new images arrive, every
 instrument publishes a failed result with no retained last-good value.
 
-Live ticks conflate quotes. After the actor takes one quote, it also admits every
-quote already queued, up to 1,024 (the HTTP ingress queue's capacity), then
-assembles and values once. Each quote is still validated and admitted in order and
+Live ticks conflate quotes. After the actor takes one quote, it also admits the
+quotes already queued behind it, up to 1,024 per tick in all (the HTTP ingress
+queue's capacity, so a full queue fits in one tick), then assembles and values once. Each quote is still validated and admitted in order and
 advances the generation and cutoff, so a tick's results carry the generation of its
 newest quote. A quote superseded within one tick gets no result of its own. Under
 load a quote waits for at most the running tick and its own, not for every queued
