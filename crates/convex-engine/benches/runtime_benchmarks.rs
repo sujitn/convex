@@ -1,5 +1,6 @@
 //! P9c stage benchmarks on the shared fictional fixtures: one curve graph build,
 //! snapshot verification and valuation, request-time pricing, and one Live tick.
+//! P10a adds the Live quote rate and snapshot assembly over 1, 16 and 256 instruments.
 //!
 //! Run with: cargo bench -p convex-engine --bench runtime_benchmarks --profile ci
 //! Report medians only (`tools/REPLAY-MEASUREMENTS.md`); CI sets no timing threshold.
@@ -17,13 +18,17 @@ use convex_core::Date;
 use convex_engine::context::ValuationContext;
 use convex_engine::pricing_router::PricingInput;
 use convex_engine::runtime::{RuntimeMode, RuntimePlan};
-use convex_engine::snapshot::SnapshotValuator;
+use convex_engine::snapshot::{SnapshotAssembler, SnapshotValuator};
 use convex_engine::{PricingEngine, PricingEngineBuilder, RuntimeInput, RuntimeServices};
 use convex_ext_file::JsonFixingRepository;
+use convex_ports::configuration::InstrumentPin;
+use convex_ports::market_data::{QuoteSource, RawQuote, SourceType, StreamReceiver};
+use convex_ports::quote_event::QuoteEvent;
+use convex_ports::reference_repository::{ReferenceChange, ReferenceCommand};
 use convex_ports::runtime::{PublishedValuation, ResultPublisher};
 use convex_ports::snapshot::{MarketSnapshot, SnapshotRepository};
 use convex_ports::TraitError;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rust_decimal_macros::dec;
 use std::hint::black_box;
 use std::sync::Arc;
@@ -204,11 +209,11 @@ impl ResultPublisher for DisplayOnly {
         Ok(())
     }
 }
-fn live_engine(s: &Setup, source: Arc<SubscriptionSource>) -> PricingEngine {
+fn live_engine(s: &Setup, plan: RuntimePlan, source: Arc<dyn QuoteSource>) -> PricingEngine {
     PricingEngineBuilder::new()
         .with_storage(s.storage.clone())
         .with_runtime(RuntimeServices {
-            plan: live_plan(s),
+            plan,
             snapshots: s.snapshots.clone(),
             fixings: Arc::new(JsonFixingRepository::empty()),
             store: s.store.clone(),
@@ -224,7 +229,7 @@ fn bench_live_tick(c: &mut Criterion) {
     let rt = runtime();
     let s = rt.block_on(setup());
     let source = Arc::new(SubscriptionSource::new());
-    let engine = live_engine(&s, source.clone());
+    let engine = live_engine(&s, live_plan(&s), source.clone());
     rt.block_on(engine.start()).unwrap();
     let mut updates = engine.subscribe_results();
     let mut sequence = 0u64;
@@ -252,5 +257,231 @@ fn bench_live_tick(c: &mut Criterion) {
     rt.block_on(engine.shutdown()).unwrap();
 }
 
-criterion_group!(benches, bench_snapshot, bench_request_time, bench_live_tick);
+/// Instrument counts for the P10a cases; 256 is `MAX_SNAPSHOT_INSTRUMENTS`.
+const WIDTHS: [usize; 3] = [1, 16, 256];
+/// Quotes sent per measured burst, well inside the 1,024-event queue.
+const BURST: u64 = 64;
+
+/// `setup()` widened to `width` bonds on one Live plan: copies of the fixture bond under
+/// new identities, each quoted under its own key.
+async fn wide_setup(width: usize) -> (Setup, RuntimePlan) {
+    let s = setup().await;
+    let copies: Vec<_> = (1..width)
+        .map(|index| {
+            let mut bond = fixture::bond();
+            bond.instrument_id = convex_core::ids::InstrumentId::new(format!("BOND-W{index:03}"));
+            bond.isin = Some(format!("fixture-isin-w{index:03}"));
+            bond.cusip = Some(format!("fixture-cusip-w{index:03}"));
+            bond
+        })
+        .collect();
+    if !copies.is_empty() {
+        s.storage
+            .bonds
+            .commit(
+                &ReferenceCommand {
+                    idempotency_key: RequestId::new("wide-seed").unwrap(),
+                    changes: copies
+                        .iter()
+                        .map(|bond| ReferenceChange::Create {
+                            bond: Box::new(bond.clone()),
+                        })
+                        .collect(),
+                    master_changes: vec![],
+                },
+                fixture::time("2025-01-01T00:00:00Z"),
+            )
+            .await
+            .unwrap();
+    }
+    let mut plan = live_plan(&s);
+    // Source skew is checked across every quote in a snapshot. Compiled Live
+    // configurations allow ten minutes (`configuration_compile`); the one-bond fixture
+    // allows one second, which a wide book exceeds as soon as instruments tick apart.
+    plan.assembly.max_source_skew_ms = 600_000;
+    for bond in &copies {
+        plan.assembly.instruments.push(InstrumentPin {
+            instrument_id: InstrumentId::new(bond.instrument_id.as_str()).unwrap(),
+            version: fixture::version(1),
+        });
+        let mut quote = plan.assembly.quotes[0].clone();
+        quote.key.instrument_id = bond.instrument_id.clone();
+        plan.assembly.quotes.push(quote);
+    }
+    (s, plan)
+}
+
+/// A Live source shaped like the server quote ingress: one 1,024-event queue for every
+/// key in the plan. The bench never offers more than the queue holds.
+struct WideSource {
+    sender: tokio::sync::broadcast::Sender<QuoteEvent>,
+}
+#[async_trait::async_trait]
+impl QuoteSource for WideSource {
+    fn source_type(&self) -> SourceType {
+        SourceType::Streaming
+    }
+    async fn get_quote(
+        &self,
+        _: &convex_core::ids::InstrumentId,
+    ) -> Result<Option<RawQuote>, TraitError> {
+        Err(TraitError::Unsupported("canonical subscription bench only"))
+    }
+    async fn get_quotes(
+        &self,
+        _: &[convex_core::ids::InstrumentId],
+    ) -> Result<Vec<RawQuote>, TraitError> {
+        Err(TraitError::Unsupported("canonical subscription bench only"))
+    }
+    async fn subscribe(
+        &self,
+        _: &[convex_core::ids::InstrumentId],
+    ) -> Result<StreamReceiver<QuoteEvent>, TraitError> {
+        Ok(StreamReceiver::new(self.sender.subscribe()))
+    }
+    async fn unsubscribe(&self, _: &[convex_core::ids::InstrumentId]) -> Result<(), TraitError> {
+        Ok(())
+    }
+}
+
+/// Round-robin image quotes over the plan keys. Receipt stamps never step back, so a
+/// wall-clock step cannot make the runtime refuse an event.
+struct Quotes {
+    keys: Vec<convex_core::ids::InstrumentId>,
+    sequence: u64,
+    stamp: i64,
+}
+impl Quotes {
+    fn new(plan: &RuntimePlan) -> Self {
+        Self {
+            keys: plan
+                .assembly
+                .quotes
+                .iter()
+                .map(|q| q.key.instrument_id.clone())
+                .collect(),
+            sequence: 0,
+            stamp: 0,
+        }
+    }
+    fn next(&mut self) -> QuoteEvent {
+        self.sequence += 1;
+        self.stamp = self.stamp.max(chrono::Utc::now().timestamp_millis());
+        let mut event = fixture::event(self.sequence, self.stamp, self.stamp, "99.25");
+        event.key.instrument_id = self.keys[self.sequence as usize % self.keys.len()].clone();
+        event
+    }
+}
+
+/// Wait for a published result of `generation` or later. Display lag is skipped: only the
+/// newest generation matters here.
+fn wait_for(
+    rt: &tokio::runtime::Runtime,
+    updates: &mut tokio::sync::broadcast::Receiver<PublishedValuation>,
+    generation: u64,
+) -> PublishedValuation {
+    use tokio::sync::broadcast::error::RecvError;
+    rt.block_on(async {
+        tokio::time::timeout(Duration::from_secs(120), async {
+            loop {
+                match updates.recv().await {
+                    Ok(record) if record.generation.get() >= generation => return record,
+                    Ok(_) | Err(RecvError::Lagged(_)) => continue,
+                    Err(RecvError::Closed) => panic!("the runtime stopped"),
+                }
+            }
+        })
+        .await
+        .expect("a burst is valued within two minutes")
+    })
+}
+
+/// Quotes/s a Live runtime of N instruments sustains: send a burst, then wait for the
+/// result of its last quote.
+fn bench_live_throughput(c: &mut Criterion) {
+    let rt = runtime();
+    let mut group = c.benchmark_group("live_throughput");
+    group.sample_size(10);
+    group.throughput(Throughput::Elements(BURST));
+    for width in WIDTHS {
+        let (s, plan) = rt.block_on(wide_setup(width));
+        let mut quotes = Quotes::new(&plan);
+        let (sender, _) = tokio::sync::broadcast::channel(1024);
+        let source = Arc::new(WideSource { sender });
+        let engine = live_engine(&s, plan, source.clone());
+        rt.block_on(engine.start()).unwrap();
+        let mut updates = engine.subscribe_results();
+        let mut generation = engine.runtime_health().generation;
+        // Every instrument needs its first image before its results are complete.
+        for _ in 0..width {
+            source.sender.send(quotes.next()).unwrap();
+        }
+        generation += width as u64;
+        let warm = wait_for(&rt, &mut updates, generation);
+        assert_eq!(warm.result.status(), ResultStatus::Complete);
+        group.bench_function(BenchmarkId::from_parameter(width), |b| {
+            b.iter_custom(|iterations| {
+                let mut total = Duration::ZERO;
+                for _ in 0..iterations {
+                    let started = Instant::now();
+                    for _ in 0..BURST {
+                        source.sender.send(quotes.next()).unwrap();
+                    }
+                    generation += BURST;
+                    let last = wait_for(&rt, &mut updates, generation);
+                    total += started.elapsed();
+                    assert_eq!(last.result.status(), ResultStatus::Complete);
+                }
+                total
+            })
+        });
+        rt.block_on(engine.shutdown()).unwrap();
+    }
+    group.finish();
+}
+
+/// One snapshot over N instruments from their images: configuration and reference reads,
+/// quote ingestion and the content hash, without publication.
+fn bench_assemble(c: &mut Criterion) {
+    let rt = runtime();
+    let mut group = c.benchmark_group("snapshot/assemble");
+    for width in WIDTHS {
+        let (s, plan) = rt.block_on(wide_setup(width));
+        let assembler = SnapshotAssembler::new(
+            s.storage.bonds.clone(),
+            s.storage.configs.clone(),
+            Arc::new(JsonFixingRepository::empty()),
+            s.snapshots.clone(),
+        );
+        let cutoff = plan.assembly.known_at.datetime().timestamp_millis() - 1_000;
+        let mut quotes = Quotes::new(&plan);
+        let events: Vec<_> = (0..width)
+            .map(|_| {
+                let mut event = quotes.next();
+                (event.source_time_ms, event.receive_time_ms) = (cutoff, cutoff);
+                event
+            })
+            .collect();
+        let snapshot = rt
+            .block_on(assembler.resolve(&plan.assembly, &events))
+            .unwrap();
+        assert_eq!(snapshot.content().references.len(), width);
+        group.bench_function(BenchmarkId::from_parameter(width), |b| {
+            b.iter(|| {
+                rt.block_on(assembler.resolve(black_box(&plan.assembly), &events))
+                    .unwrap()
+            })
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_snapshot,
+    bench_request_time,
+    bench_live_tick,
+    bench_live_throughput,
+    bench_assemble
+);
 criterion_main!(benches);

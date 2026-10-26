@@ -105,8 +105,9 @@ fn image(sequence: u64, price: &str) -> QuoteEvent {
     fixture::event(sequence, chrono::Utc::now().timestamp_millis(), 0, price)
 }
 
-#[tokio::test]
-async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
+/// A Live server configuration over the runtime fixture: one bond priced from posted
+/// images. The directory holds the database and must outlive the server.
+async fn live_setup() -> (tempfile::TempDir, std::path::PathBuf, ServerConfig) {
     let s = setup().await;
     let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
     let mut plan = s.plan.clone();
@@ -130,7 +131,12 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
     drop(s.results);
     drop(s.fixings);
     let live = config(ServerProfile::Live, &database, Some(&plan_path));
+    (dir, database, live)
+}
 
+#[tokio::test]
+async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
+    let (dir, database, live) = live_setup().await;
     let server = Running::start(live.clone()).await;
     let runtime = server.runtime().await;
     assert_eq!(runtime["mode"], "live", "{runtime}");
@@ -206,6 +212,58 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
     let stored = convex_ext_redb::open_redb_storage(&database).unwrap();
     assert_eq!(stored.snapshots.market_snapshot_count().unwrap(), 0);
     assert!(stored.results.is_empty().unwrap());
+    drop(dir);
+}
+
+/// Quotes offered faster than the runtime values them end in 429 at the full ingress
+/// queue, never in lost delivery: every accepted quote is valued and the runtime stays up.
+#[tokio::test]
+async fn an_offered_rate_above_the_drain_rate_is_refused_with_429_and_nothing_is_lost() {
+    let (dir, _, live) = live_setup().await;
+    let server = Running::start(live).await;
+    let mut sequence = 1;
+    let accepted = server.post_quotes(vec![image(sequence, "99.25")]).await;
+    assert_eq!(accepted.status(), StatusCode::ACCEPTED);
+    let start = server.wait_ready().await["generation"].as_u64().unwrap();
+    let mut queued = 0;
+    let mut refused = None;
+    for _ in 0..64 {
+        let events: Vec<_> = (0..256)
+            .map(|_| {
+                sequence += 1;
+                image(sequence, "99.25")
+            })
+            .collect();
+        let response = server.post_quotes(events).await;
+        match response.status() {
+            StatusCode::ACCEPTED => {
+                let receipt: Value = response.json().await.unwrap();
+                queued += receipt["accepted"].as_u64().unwrap();
+            }
+            StatusCode::TOO_MANY_REQUESTS => {
+                refused = Some(response.json::<Value>().await.unwrap());
+                break;
+            }
+            other => panic!("unexpected status {other}"),
+        }
+    }
+    let refused = refused.expect("a full queue refuses the batch");
+    assert_eq!(refused["code"], "CAPACITY_EXCEEDED", "{refused}");
+    assert_eq!(refused["retryable"], true, "{refused}");
+    let drained = tokio::time::timeout(Duration::from_secs(120), async {
+        loop {
+            let runtime = server.runtime().await;
+            assert!(runtime["failure"].is_null(), "{runtime}");
+            if runtime["generation"].as_u64() == Some(start + queued) && runtime["ready"] == true {
+                return runtime;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("every accepted quote is valued");
+    assert_eq!(drained["phase"], "ready", "{drained}");
+    server.stop().await;
     drop(dir);
 }
 
