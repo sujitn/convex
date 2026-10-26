@@ -455,7 +455,7 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 |---|---|
 | `convex_ingress_seconds` | `POST /api/v1/market/quotes`: one parsed batch through ingress validation and queue admission, the whole batch or nothing. It starts after JSON extraction and excludes the runtime's work. |
 | `convex_snapshot_assemble_seconds` | One tick's snapshot, including the stored-curve read for an unpinned Live document |
-| `convex_curve_build_seconds{path}` | One curve graph built from recipes: `request`, `stream` (the Live build check), `graph` (calculation-graph activation) or `valuation` (each instrument) |
+| `convex_curve_build_seconds{path}` | One curve graph built from recipes: `request`, `stream` (the Live build check), `graph` (the one build per snapshot at activation, shared by every instrument it values) or `valuation` (a single valuation that missed the cache, such as a supplied context) |
 | `convex_valuation_seconds` | One instrument valued in the runtime |
 | `convex_calculate_seconds` | Every instrument of one snapshot, including graph commits |
 | `convex_publish_seconds` | One result record handed to the publisher |

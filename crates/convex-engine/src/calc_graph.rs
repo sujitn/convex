@@ -840,18 +840,24 @@ impl CalculationGraph {
         nodes: Vec<NodeSpec>,
         snapshot: Arc<MarketSnapshot>,
     ) -> Result<u64, GraphError> {
-        snapshot.verify().map_err(|_| GraphError::ContextConflict)?;
-        let started = std::time::Instant::now();
-        let built = crate::curve_replay::replay_snapshot_curves(&snapshot);
-        crate::telemetry::observe_curve_build(crate::telemetry::CurvePath::Graph, started);
-        built.map_err(|_| GraphError::ContextConflict)?;
+        let built = crate::curve_replay::BuiltSnapshot::build(snapshot)
+            .map_err(|_| GraphError::ContextConflict)?;
+        self.activate_built(nodes, &built)
+    }
+    /// Activate a snapshot already verified and built once, whose curves its valuations share.
+    pub fn activate_built(
+        &self,
+        nodes: Vec<NodeSpec>,
+        built: &crate::curve_replay::BuiltSnapshot,
+    ) -> Result<u64, GraphError> {
         let dag = Dag::validate(nodes, self.limits)?;
+        let snapshot = built.snapshot();
         let generation = snapshot.content().generation.get();
         let mut state = self.state.lock();
         if generation <= state.generation {
             return Err(GraphError::ContextConflict);
         }
-        self.replace(&mut state, dag, generation, Some(snapshot))
+        self.replace(&mut state, dag, generation, Some(snapshot.clone()))
     }
     fn replace(
         &self,

@@ -26,7 +26,9 @@ when an observed clean mark would otherwise be available. No spread, risk, price
 or curve is synthesized to fill a missing dependency.
 
 The complete manifest supplies each bond's dependencies. Every bond in a batch
-consumes the same captured snapshot and configuration. Graph mutation, mutable
+consumes the same captured snapshot and configuration. Each snapshot is verified and
+its curves built once, at graph activation, and every bond's valuation reads that
+build. Graph mutation, mutable
 curve-builder reads and current reference/configuration lookups do not occur in
 CPU workers. CVX-010 adds [validated configuration activation](CONFIGURATION.md):
 quote freshness/skew and approved scoped exceptions can change within the same

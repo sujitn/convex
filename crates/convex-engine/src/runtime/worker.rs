@@ -2,6 +2,7 @@
 use super::{RuntimeError, RuntimePlan, NO_APPLICABLE_MEASURE};
 use crate::{
     context::*,
+    curve_replay::BuiltSnapshot,
     optional_valuation::{product_measures, product_model},
     snapshot::{SnapshotValuationResult, SnapshotValuator},
     CalculationGraph, CommitOutcome, NodeId, NodeSpec, NodeValue,
@@ -76,11 +77,12 @@ pub(super) fn context(
     context.validate_snapshot(snapshot)?;
     Ok(context)
 }
+/// Verify the snapshot and build its curves once; the activation's valuations share them.
 pub(super) fn activate(
     graph: &CalculationGraph,
     plan: &RuntimePlan,
     snapshot: Arc<MarketSnapshot>,
-) -> Result<(), RuntimeError> {
+) -> Result<Arc<BuiltSnapshot>, RuntimeError> {
     check_callables(&snapshot)?;
     // Each context contains the complete validated manifest. No mutable compatibility roots are admitted.
     let nodes = plan
@@ -96,10 +98,11 @@ pub(super) fn activate(
             )
         })
         .collect();
+    let built = Arc::new(BuiltSnapshot::build(snapshot).map_err(|_| RuntimeError::Worker)?);
     graph
-        .activate_snapshot(nodes, snapshot)
+        .activate_built(nodes, &built)
         .map_err(|_| RuntimeError::Worker)?;
-    Ok(())
+    Ok(built)
 }
 /// The plan pins only identities; product types are known once references resolve.
 pub(super) fn check_callables(snapshot: &MarketSnapshot) -> Result<(), RuntimeError> {
@@ -182,14 +185,25 @@ fn quality_error(snapshot: &MarketSnapshot) -> ErrorCode {
 pub(super) fn accepted(quality: DataQuality, demo: bool) -> bool {
     quality == DataQuality::Valid || (demo && quality == DataQuality::Demo)
 }
+/// What one valuation reads: the activation's snapshot, verified and built once, or a
+/// supplied snapshot whose curves are built only on a cache miss.
+#[derive(Clone, Copy)]
+pub(super) enum Input<'a> {
+    Built(&'a BuiltSnapshot),
+    Supplied(&'a MarketSnapshot),
+}
 pub(super) fn value(
     valuator: &SnapshotValuator,
-    snapshot: &MarketSnapshot,
+    input: Input<'_>,
     context: &ValuationContext,
     request: RequestId,
     calculated: UtcTimestamp,
     demo: bool,
 ) -> Result<SnapshotValuationResult, RuntimeError> {
+    let snapshot = match input {
+        Input::Built(built) => built.snapshot().as_ref(),
+        Input::Supplied(snapshot) => snapshot,
+    };
     context.validate_snapshot(snapshot)?;
     if calculated < context.spec().valuation_time
         || calculated < context.spec().known_at
@@ -211,7 +225,15 @@ pub(super) fn value(
             quality_error(snapshot),
         )
     } else {
-        match valuator.value(snapshot, context, request.clone(), calculated) {
+        let valued = match input {
+            Input::Built(built) => {
+                valuator.value_built(built, context, request.clone(), calculated)
+            }
+            Input::Supplied(snapshot) => {
+                valuator.value(snapshot, context, request.clone(), calculated)
+            }
+        };
+        match valued {
             Ok(result) => Ok(result),
             Err(error) => failed(
                 context,
@@ -231,17 +253,18 @@ pub(super) async fn calculate(
     graph: &Arc<CalculationGraph>,
     valuator: &Arc<SnapshotValuator>,
     plan: &RuntimePlan,
-    snapshot: Arc<MarketSnapshot>,
+    built: Arc<BuiltSnapshot>,
     checkpoint: &RuntimeCheckpoint,
     concurrency: usize,
     demo: bool,
 ) -> Result<Vec<PublishedValuation>, RuntimeError> {
+    let snapshot = built.snapshot();
     checkpoint
         .result_revision
         .checked_add(plan.assembly.instruments.len() as u64)
         .ok_or(RuntimeError::CapacityExceeded)?;
     let live_valid_until = if plan.mode == super::RuntimeMode::Live {
-        expiry(&snapshot)?
+        expiry(snapshot)?
     } else {
         None
     };
@@ -254,7 +277,7 @@ pub(super) async fn calculate(
         let mut prepared = Vec::with_capacity(chunk.len());
         for pin in chunk {
             let preparation = (|| {
-                let ctx = context(plan, &snapshot, &pin.instrument_id)?;
+                let ctx = context(plan, snapshot, &pin.instrument_id)?;
                 let request = RequestId::new(format!(
                     "valuation-{}-{}",
                     ctx.cache_key()?,
@@ -286,10 +309,17 @@ pub(super) async fn calculate(
         let mut jobs = Vec::with_capacity(prepared.len());
         for (ticket, ctx, request, calculated) in prepared {
             let valuator = valuator.clone();
-            let snapshot = snapshot.clone();
+            let built = built.clone();
             jobs.push(tokio::task::spawn_blocking(move || {
                 let started = std::time::Instant::now();
-                let result = value(&valuator, &snapshot, &ctx, request, calculated, demo);
+                let result = value(
+                    &valuator,
+                    Input::Built(&built),
+                    &ctx,
+                    request,
+                    calculated,
+                    demo,
+                );
                 crate::telemetry::observe(crate::telemetry::VALUATION_SECONDS, started);
                 (ticket, result)
             }));

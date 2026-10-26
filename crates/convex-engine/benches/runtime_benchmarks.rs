@@ -92,6 +92,15 @@ fn bench_snapshot(c: &mut Criterion) {
                 .unwrap()
         })
     });
+    let built = convex_engine::curve_replay::BuiltSnapshot::build(snapshot.clone()).unwrap();
+    group.bench_function("value_built", |b| {
+        b.iter(|| {
+            SnapshotValuator::new(build.clone(), 1)
+                .unwrap()
+                .value_built(&built, &context, request.clone(), calculated)
+                .unwrap()
+        })
+    });
     let cached = SnapshotValuator::new(build.clone(), 1).unwrap();
     cached
         .value(&snapshot, &context, request.clone(), calculated)

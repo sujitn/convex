@@ -106,6 +106,36 @@ pub fn replay_snapshot_curves(
     .map_err(|e| CurveReplayError::Calibration(Box::new(e)))
 }
 
+/// One snapshot verified once, with every curve it carries built once. Graph activation and
+/// every instrument valued in that activation share it, so a tick neither re-hashes the
+/// snapshot nor rebuilds its curves per instrument (G19). Only [`BuiltSnapshot::build`]
+/// constructs one, so the curves always belong to the snapshot they are paired with.
+#[derive(Debug)]
+pub struct BuiltSnapshot {
+    snapshot: Arc<MarketSnapshot>,
+    curves: CurveBuildOutput,
+}
+impl BuiltSnapshot {
+    /// Verify the snapshot and build its curves, recorded as the `graph` curve build.
+    pub fn build(snapshot: Arc<MarketSnapshot>) -> Result<Self, CurveReplayError> {
+        let started = std::time::Instant::now();
+        let curves = replay_snapshot_curves(&snapshot);
+        crate::telemetry::observe_curve_build(crate::telemetry::CurvePath::Graph, started);
+        Ok(Self {
+            snapshot,
+            curves: curves?,
+        })
+    }
+    /// The verified snapshot.
+    pub fn snapshot(&self) -> &Arc<MarketSnapshot> {
+        &self.snapshot
+    }
+    /// Its built curves.
+    pub fn curves(&self) -> &CurveBuildOutput {
+        &self.curves
+    }
+}
+
 /// Thin bridge to older object-safe rate pricing. Full queries still expose
 /// original sides, units, method diagnostics and actual extension consumption.
 #[derive(Debug, Clone)]

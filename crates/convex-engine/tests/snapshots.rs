@@ -821,6 +821,21 @@ fn yield_measures_priced_without_curves_equal_those_priced_with_them() {
 }
 
 #[test]
+fn a_snapshot_built_once_values_as_a_build_per_valuation_does() {
+    let snapshot = std::sync::Arc::new(fixture::snapshot());
+    let context = context(&snapshot);
+    let built = convex_engine::curve_replay::BuiltSnapshot::build(snapshot.clone()).unwrap();
+    let request = RequestId::new("replay-result").unwrap();
+    let at = fixture::time("2026-10-04T10:00:00Z");
+    let shared = valuator()
+        .value_built(&built, &context, request.clone(), at)
+        .unwrap();
+    let separate = valuator().value(&snapshot, &context, request, at).unwrap();
+    assert_eq!(shared.envelope().status(), ResultStatus::Complete);
+    assert_eq!(shared, separate);
+}
+
+#[test]
 fn a_zero_prices_its_yield_measures_and_keeps_the_router_reason_for_curve_measures() {
     // An unadjusted zero; its calendar/convention resources are rebuilt from its own terms.
     let mut bond = fixture::bond();
