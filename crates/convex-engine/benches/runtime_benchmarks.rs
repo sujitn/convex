@@ -1,6 +1,7 @@
 //! P9c stage benchmarks on the shared fictional fixtures: one curve graph build,
 //! snapshot verification and valuation, request-time pricing, and one Live tick.
-//! P10a adds the Live quote rate and snapshot assembly over 1, 16 and 256 instruments.
+//! P10a adds the Live quote rate and snapshot assembly over 1, 16 and 256 instruments;
+//! P10b-i adds a 512-quote burst at 256, the batch conflation (D54) admits at that size.
 //!
 //! Run with: cargo bench -p convex-engine --bench runtime_benchmarks --profile ci
 //! Report medians only (`tools/REPLAY-MEASUREMENTS.md`); CI sets no timing threshold.
@@ -21,10 +22,8 @@ use convex_engine::runtime::{RuntimeMode, RuntimePlan};
 use convex_engine::snapshot::{SnapshotAssembler, SnapshotValuator};
 use convex_engine::{PricingEngine, PricingEngineBuilder, RuntimeInput, RuntimeServices};
 use convex_ext_file::JsonFixingRepository;
-use convex_ports::configuration::InstrumentPin;
 use convex_ports::market_data::{QuoteSource, RawQuote, SourceType, StreamReceiver};
 use convex_ports::quote_event::QuoteEvent;
-use convex_ports::reference_repository::{ReferenceChange, ReferenceCommand};
 use convex_ports::runtime::{PublishedValuation, ResultPublisher};
 use convex_ports::snapshot::{MarketSnapshot, SnapshotRepository};
 use convex_ports::TraitError;
@@ -261,53 +260,15 @@ fn bench_live_tick(c: &mut Criterion) {
 const WIDTHS: [usize; 3] = [1, 16, 256];
 /// Quotes sent per measured burst, well inside the 1,024-event queue.
 const BURST: u64 = 64;
+/// A burst at 256 instruments larger than the ~300 quotes one conflated tick must admit
+/// for 10k quotes/s (D54), still inside the queue.
+const SATURATING_BURST: u64 = 512;
 
-/// `setup()` widened to `width` bonds on one Live plan: copies of the fixture bond under
-/// new identities, each quoted under its own key.
+/// `setup()` widened to `width` bonds on one Live plan.
 async fn wide_setup(width: usize) -> (Setup, RuntimePlan) {
     let s = setup().await;
-    let copies: Vec<_> = (1..width)
-        .map(|index| {
-            let mut bond = fixture::bond();
-            bond.instrument_id = convex_core::ids::InstrumentId::new(format!("BOND-W{index:03}"));
-            bond.isin = Some(format!("fixture-isin-w{index:03}"));
-            bond.cusip = Some(format!("fixture-cusip-w{index:03}"));
-            bond
-        })
-        .collect();
-    if !copies.is_empty() {
-        s.storage
-            .bonds
-            .commit(
-                &ReferenceCommand {
-                    idempotency_key: RequestId::new("wide-seed").unwrap(),
-                    changes: copies
-                        .iter()
-                        .map(|bond| ReferenceChange::Create {
-                            bond: Box::new(bond.clone()),
-                        })
-                        .collect(),
-                    master_changes: vec![],
-                },
-                fixture::time("2025-01-01T00:00:00Z"),
-            )
-            .await
-            .unwrap();
-    }
     let mut plan = live_plan(&s);
-    // Source skew is checked across every quote in a snapshot. Compiled Live
-    // configurations allow ten minutes (`configuration_compile`); the one-bond fixture
-    // allows one second, which a wide book exceeds as soon as instruments tick apart.
-    plan.assembly.max_source_skew_ms = 600_000;
-    for bond in &copies {
-        plan.assembly.instruments.push(InstrumentPin {
-            instrument_id: InstrumentId::new(bond.instrument_id.as_str()).unwrap(),
-            version: fixture::version(1),
-        });
-        let mut quote = plan.assembly.quotes[0].clone();
-        quote.key.instrument_id = bond.instrument_id.clone();
-        plan.assembly.quotes.push(quote);
-    }
+    widen(&s, &mut plan, width).await;
     (s, plan)
 }
 
@@ -402,8 +363,11 @@ fn bench_live_throughput(c: &mut Criterion) {
     let rt = runtime();
     let mut group = c.benchmark_group("live_throughput");
     group.sample_size(10);
-    group.throughput(Throughput::Elements(BURST));
-    for width in WIDTHS {
+    let cases = WIDTHS
+        .map(|width| (width, BURST))
+        .into_iter()
+        .chain([(256, SATURATING_BURST)]);
+    for (width, burst) in cases {
         let (s, plan) = rt.block_on(wide_setup(width));
         let mut quotes = Quotes::new(&plan);
         let (sender, _) = tokio::sync::broadcast::channel(1024);
@@ -419,15 +383,21 @@ fn bench_live_throughput(c: &mut Criterion) {
         generation += width as u64;
         let warm = wait_for(&rt, &mut updates, generation);
         assert_eq!(warm.result.status(), ResultStatus::Complete);
-        group.bench_function(BenchmarkId::from_parameter(width), |b| {
+        let id = if burst == BURST {
+            BenchmarkId::from_parameter(width)
+        } else {
+            BenchmarkId::new(format!("burst{burst}"), width)
+        };
+        group.throughput(Throughput::Elements(burst));
+        group.bench_function(id, |b| {
             b.iter_custom(|iterations| {
                 let mut total = Duration::ZERO;
                 for _ in 0..iterations {
                     let started = Instant::now();
-                    for _ in 0..BURST {
+                    for _ in 0..burst {
                         source.sender.send(quotes.next()).unwrap();
                     }
-                    generation += BURST;
+                    generation += burst;
                     let last = wait_for(&rt, &mut updates, generation);
                     total += started.elapsed();
                     assert_eq!(last.result.status(), ResultStatus::Complete);

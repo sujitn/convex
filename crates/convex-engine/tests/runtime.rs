@@ -795,6 +795,45 @@ async fn live_ticks_stay_complete_past_the_result_cache_capacity() {
     engine.shutdown().await.unwrap();
 }
 
+/// D54: quotes queued while the runtime is busy are valued in one tick. Every quote
+/// still advances the generation, and the result reflects the newest.
+#[tokio::test]
+async fn live_quotes_queued_together_are_valued_in_one_tick() {
+    let s = setup().await;
+    let source = Arc::new(SubscriptionSource::new());
+    let engine = live_engine(&s, live_plan(&s), s.store.clone(), source.clone());
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    let start = engine.runtime_health().generation;
+    let stamp = chrono::Utc::now().timestamp_millis();
+    // This current-thread test runs the actor only while it awaits, so all ten quotes
+    // are queued before the actor takes the first.
+    for sequence in 1..=10u64 {
+        let price = if sequence == 10 { "99.50" } else { "99.00" };
+        source.send(fixture::event(sequence, stamp, stamp, price));
+    }
+    let batched = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(batched.generation.get(), start + 10);
+    assert_eq!(batched.result.status(), ResultStatus::Complete);
+    let stamp = chrono::Utc::now().timestamp_millis().max(stamp);
+    source.send(fixture::event(11, stamp, stamp, "99.50"));
+    let single = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(single.generation.get(), start + 11);
+    let clean = MeasureId::new("clean_price_mid").unwrap();
+    assert_eq!(
+        batched.result.results()[&clean].value,
+        single.result.results()[&clean].value
+    );
+    assert!(engine.runtime_health().ready);
+    engine.shutdown().await.unwrap();
+}
+
 #[tokio::test]
 async fn live_plan_refuses_seed_events() {
     let s = setup().await;
