@@ -15,6 +15,7 @@ use convex_ports::storage::CurveStore;
 use convex_ports::TraitError;
 
 use crate::curve_builder::BuiltCurve;
+use crate::telemetry::{observe_curve_build, CurvePath};
 
 /// Why a request could not obtain a curve it needs. Nothing is substituted.
 #[derive(Debug, thiserror::Error)]
@@ -113,7 +114,10 @@ pub async fn resolve_curves(
     for record in &records {
         check_fresh(record, known_at)?;
     }
-    let built = crate::curve_replay::rebuild_curve_recipes(&records).map_err(TraitError::from)?;
+    let started = std::time::Instant::now();
+    let built = crate::curve_replay::rebuild_curve_recipes(&records);
+    observe_curve_build(CurvePath::Request, started);
+    let built = built.map_err(TraitError::from)?;
     Ok(ResolvedCurves { records, built })
 }
 
@@ -142,9 +146,14 @@ pub async fn live_curve_records(
         .map(|id| CurveId::new(id.as_str()))
         .collect();
     match gather(store, &roots, known_at).await {
-        Ok(records) if crate::curve_replay::rebuild_curve_recipes(&records).is_ok() => Ok(records),
+        Ok(records) => {
+            let started = std::time::Instant::now();
+            let built = crate::curve_replay::rebuild_curve_recipes(&records);
+            observe_curve_build(CurvePath::Stream, started);
+            Ok(if built.is_ok() { records } else { Vec::new() })
+        }
         Err(Gather::Failed(CurveResolutionError::Port(error))) => Err(error),
-        Ok(_) | Err(Gather::TooLarge | Gather::Failed(_)) => Ok(Vec::new()),
+        Err(Gather::TooLarge | Gather::Failed(_)) => Ok(Vec::new()),
     }
 }
 

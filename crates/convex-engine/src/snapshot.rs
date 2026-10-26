@@ -505,8 +505,10 @@ impl SnapshotValuator {
         calculated_at: UtcTimestamp,
     ) -> Result<SnapshotValuationResult, TraitError> {
         context.validate_snapshot(snapshot)?;
-        let recipe_curves =
-            crate::curve_replay::replay_snapshot_curves(snapshot).map_err(TraitError::from)?;
+        let started = std::time::Instant::now();
+        let recipe_curves = crate::curve_replay::replay_snapshot_curves(snapshot);
+        crate::telemetry::observe_curve_build(crate::telemetry::CurvePath::Valuation, started);
+        let recipe_curves = recipe_curves.map_err(TraitError::from)?;
         let spec = context.spec();
         if calculated_at < spec.known_at || calculated_at < spec.valuation_time {
             return Err(TraitError::InvalidInput(

@@ -39,6 +39,8 @@ pub struct Composition {
 /// `storage_path` reopens the same durable state.
 pub async fn compose(config: ServerConfig) -> Result<Composition, StartupError> {
     config.validate_startup()?;
+    // Before the first tick, so every stage timing is kept.
+    crate::telemetry::install();
     let access = crate::access::AccessControl::from_settings(&config.access).await?;
     if access.is_local_development() {
         warn!("Explicit local development access: loopback API has no authentication");

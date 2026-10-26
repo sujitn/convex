@@ -288,7 +288,9 @@ pub(super) async fn calculate(
             let valuator = valuator.clone();
             let snapshot = snapshot.clone();
             jobs.push(tokio::task::spawn_blocking(move || {
+                let started = std::time::Instant::now();
                 let result = value(&valuator, &snapshot, &ctx, request, calculated, demo);
+                crate::telemetry::observe(crate::telemetry::VALUATION_SECONDS, started);
                 (ticket, result)
             }));
         }

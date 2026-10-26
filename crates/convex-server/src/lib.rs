@@ -35,6 +35,7 @@ pub mod health;
 pub mod market;
 mod reference;
 pub mod routes;
+pub mod telemetry;
 pub mod websocket;
 
 use std::sync::Arc;

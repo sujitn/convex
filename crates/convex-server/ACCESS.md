@@ -158,6 +158,7 @@ Global admission is capped at 64 concurrent HTTP/auth operations, 128 WS session
 | /ready | Public sanitized analytics readiness and required dependency classes |
 | /api/v1/dependencies | Protected assessment from the same health calculation |
 | /api/v1/runtime | Protected actual lifecycle, exact configuration/generation and failure classification |
+| /metrics | Protected Prometheus text: stage latency histograms (operator role, operations grant); 503 when the process has no recorder |
 | /strategy-ready | Public 503: risk reservations, ownership fencing, execution reconciliation and kill controls are not composed |
 
 Readiness combines the real runtime's verified dependencies, snapshot quality/market context and acknowledged output with available unexpired policy and an actual identity endpoint probe. Reference/curve/checkpoint validity is owned by runtime startup/recovery; this endpoint does not invent separate successful database/provider tests. Missing context, stale data, failed delivery, identity outage and unavailable policy close analytics readiness while liveness can remain true. Captured/replay readiness certifies only the selected historical context; it cannot imply live freshness or strategy authorization.

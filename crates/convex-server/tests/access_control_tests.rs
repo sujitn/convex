@@ -923,6 +923,57 @@ async fn bootstrap_curve_label_is_not_a_scoped_curve() {
 }
 
 #[tokio::test]
+async fn metrics_need_the_operator_role_and_the_operations_grant() {
+    use http_body_util::BodyExt;
+    let issuer = IssuerFixture::start().await;
+    let access = AccessControl::new(issuer.verifier.clone(), policy()).unwrap();
+    let s = support::setup().await;
+    let engine = support::make_engine(
+        &s,
+        support::archive(&s),
+        s.plan.clone(),
+        s.store.clone(),
+        convex_engine::RuntimeInput::Captured,
+    );
+    assert!(convex_server::telemetry::install().is_some());
+    // A refused request-time context still records its timing.
+    assert!(engine
+        .request_context(None, support::time(0))
+        .await
+        .is_err());
+    let router = convex_server::routes::create_router_with_access(engine, true, access);
+    for (token, expected) in [
+        (None, StatusCode::UNAUTHORIZED),
+        (Some(SERVICE_TOKEN), StatusCode::FORBIDDEN),
+    ] {
+        let (status, _, body) = request(router.clone(), "GET", "/metrics", token, None).await;
+        assert_eq!(status, expected, "{token:?} {body}");
+    }
+    let response = router
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .header("authorization", format!("Bearer {HUMAN_TOKEN}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()["content-type"],
+        "text/plain; version=0.0.4; charset=utf-8"
+    );
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let body = String::from_utf8(bytes.to_vec()).unwrap();
+    assert!(
+        body.contains("# TYPE convex_request_context_seconds histogram")
+            && body.contains("convex_request_context_seconds_bucket{le="),
+        "{body}"
+    );
+}
+
+#[tokio::test]
 async fn live_quote_ingress_needs_writer_market_and_each_event_scope() {
     let issuer = IssuerFixture::start().await;
     let mut document = policy();
