@@ -410,10 +410,10 @@ impl Actor {
                 worker::restore_good(&self.graph, &self.services.plan, &old, &good)?;
             }
         }
-        worker::activate(&self.graph, &self.services.plan, snapshot.clone())?;
+        let built = worker::activate(&self.graph, &self.services.plan, snapshot.clone())?;
         self.set_deadline(&snapshot)?;
         if self.checkpoint.pending {
-            self.calculate(snapshot).await?;
+            self.calculate(built).await?;
         } else {
             worker::restore_results(
                 &self.graph,
@@ -518,20 +518,24 @@ impl Actor {
     }
     async fn process(&mut self) -> Result<(), RuntimeError> {
         let snapshot = self.snapshot().await?;
-        worker::activate(&self.graph, &self.services.plan, snapshot.clone())?;
-        self.calculate(snapshot).await?;
+        let built = worker::activate(&self.graph, &self.services.plan, snapshot)?;
+        self.calculate(built).await?;
         self.flush_outbox().await?;
         self.refresh_health();
         Ok(())
     }
-    async fn calculate(&mut self, snapshot: Arc<MarketSnapshot>) -> Result<(), RuntimeError> {
+    async fn calculate(
+        &mut self,
+        built: Arc<crate::curve_replay::BuiltSnapshot>,
+    ) -> Result<(), RuntimeError> {
+        let snapshot = built.snapshot().clone();
         self.set_deadline(&snapshot)?;
         let started = std::time::Instant::now();
         let produced = worker::calculate(
             &self.graph,
             &self.valuator,
             &self.services.plan,
-            snapshot.clone(),
+            built,
             &self.checkpoint,
             self.concurrency,
             self.demo(),

@@ -109,7 +109,14 @@ snapshot the explicit 1..=100,000 entry bound holds: a full cache returns
 cache across alternating snapshots recompute; they never fail. `clear_cache` is
 an administrative release of retained contexts and leaves issued values immutable.
 This process-local memoization is neither a durable result journal nor shared
-ownership across servers. Every successful measure or per-measure error must
+ownership across servers.
+
+`value` looks the cache up before it verifies the snapshot or builds any curve. A
+context names its snapshot by content digest, and every retained result was valued
+from that verified content, so a hit needs neither. A miss verifies the snapshot and
+builds its curves. The runtime instead verifies and builds once per snapshot
+(`BuiltSnapshot::build`, at graph activation) and values every instrument with
+`value_built` over that one build. Both paths price identically. Every successful measure or per-measure error must
 account for exactly one requested measure.
 
 The first model is `convex-fixed-bullet-router-v1`, with compiled numerical policy
@@ -117,6 +124,14 @@ The first model is `convex-fixed-bullet-router-v1`, with compiled numerical poli
 Only `Auto` or `MarketQuote` with `Mid` selection is admitted, using exactly one
 declared source with required `mid_price`. No bid/ask midpoint, FX conversion,
 trade economics, unsupported scenario/model or missing field is substituted.
+
+Valuation prices only what its context asks for. Every measure below reads the mid
+quote, so the bid and ask sides are not priced. The configured curves are still
+resolved and checked against their roles, but they reach the router only when a
+spread or curve-risk measure (`z_spread_mid`, `i_spread_mid`, `asw_mid`, or a measure
+in the curve-risk family) is requested. A context that asks only for price, yield and
+yield-risk measures is priced without curves, and its values equal those of a context
+that also asks for curve measures.
 
 | Measure | Canonical quantity |
 |---|---|

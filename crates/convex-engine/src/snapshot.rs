@@ -59,6 +59,11 @@ pub const RUNTIME_MEASURES: [&str; 26] = [
     "krd_20y_mid",
     "krd_30y_mid",
 ];
+/// Measures read from curves: spreads and curve risk. The others read the mid quote's
+/// own yield, so a plan that asks for none of these prices without curves.
+fn curve_measure(measure: &str) -> bool {
+    matches!(measure, "z_spread_mid" | "i_spread_mid" | "asw_mid") || curve_risk_measure(measure)
+}
 /// Measures read from the router's frozen-Z curve risk, which fails as one `curve_risk` field.
 fn curve_risk_measure(measure: &str) -> bool {
     matches!(
@@ -497,6 +502,9 @@ impl SnapshotValuator {
     }
     /// Price the declared R0 mid measures. No reference/data/configuration/clock access occurs here.
     /// Cache hits preserve the original result; request correlation is supplied on the returned envelope.
+    /// The cache is looked up before any build. A context names its snapshot by content digest,
+    /// and every retained result was valued from that verified content, so a hit needs neither
+    /// verification nor curves. A miss verifies the snapshot and builds its curves.
     pub fn value(
         &self,
         snapshot: &MarketSnapshot,
@@ -504,11 +512,44 @@ impl SnapshotValuator {
         request_id: RequestId,
         calculated_at: UtcTimestamp,
     ) -> Result<SnapshotValuationResult, TraitError> {
-        context.validate_snapshot(snapshot)?;
+        self.admit(snapshot, context, calculated_at)?;
+        if let Some(cached) = self.cache.get(context)? {
+            return rebound(context, &cached, request_id);
+        }
         let started = std::time::Instant::now();
         let recipe_curves = crate::curve_replay::replay_snapshot_curves(snapshot);
         crate::telemetry::observe_curve_build(crate::telemetry::CurvePath::Valuation, started);
         let recipe_curves = recipe_curves.map_err(TraitError::from)?;
+        self.price(snapshot, &recipe_curves, context, request_id, calculated_at)
+    }
+    /// [`Self::value`] over a snapshot verified and built once for its whole activation, so
+    /// valuing each instrument neither re-hashes the snapshot nor rebuilds its curves.
+    pub fn value_built(
+        &self,
+        built: &crate::curve_replay::BuiltSnapshot,
+        context: &ValuationContext,
+        request_id: RequestId,
+        calculated_at: UtcTimestamp,
+    ) -> Result<SnapshotValuationResult, TraitError> {
+        self.admit(built.snapshot(), context, calculated_at)?;
+        if let Some(cached) = self.cache.get(context)? {
+            return rebound(context, &cached, request_id);
+        }
+        self.price(
+            built.snapshot(),
+            built.curves(),
+            context,
+            request_id,
+            calculated_at,
+        )
+    }
+    fn admit(
+        &self,
+        snapshot: &MarketSnapshot,
+        context: &ValuationContext,
+        calculated_at: UtcTimestamp,
+    ) -> Result<(), TraitError> {
+        context.validate_snapshot(snapshot)?;
         let spec = context.spec();
         if calculated_at < spec.known_at || calculated_at < spec.valuation_time {
             return Err(TraitError::InvalidInput(
@@ -524,21 +565,17 @@ impl SnapshotValuator {
                 "unsupported build/model/numerical/scenario policy",
             ));
         }
-        if let Some(cached) = self.cache.get(context)? {
-            let envelope = cached.envelope();
-            return SnapshotValuationResult::new(
-                context.clone(),
-                ResultEnvelope::new(
-                    request_id,
-                    envelope.status(),
-                    envelope.quality(),
-                    envelope.results().clone(),
-                    envelope.errors().to_vec(),
-                    envelope.provenance().clone(),
-                )
-                .map_err(contract_error)?,
-            );
-        }
+        Ok(())
+    }
+    fn price(
+        &self,
+        snapshot: &MarketSnapshot,
+        recipe_curves: &convex_curves::contracts::CurveBuildOutput,
+        context: &ValuationContext,
+        request_id: RequestId,
+        calculated_at: UtcTimestamp,
+    ) -> Result<SnapshotValuationResult, TraitError> {
+        let spec = context.spec();
         let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
             return Err(TraitError::Unsupported("trade economics unavailable"));
         };
@@ -613,7 +650,7 @@ impl SnapshotValuator {
                 snapshot,
                 spec,
                 reference,
-                &recipe_curves,
+                recipe_curves,
                 mark(QuoteField::MidPrice),
             )?
         } else if spec.model_id.as_str() == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
@@ -621,7 +658,7 @@ impl SnapshotValuator {
                 snapshot,
                 spec,
                 reference,
-                &recipe_curves,
+                recipe_curves,
                 mark(QuoteField::MidPrice),
             )?
         } else {
@@ -672,23 +709,29 @@ impl SnapshotValuator {
                     .map(BuiltCurve::from_snapshot)
                     .transpose()
             };
+            // Every runtime measure reads the mid quote, so bid and ask are not priced.
+            // The configured curves are still resolved and checked, but reach the router
+            // only when a spread or curve-risk measure is asked for.
+            let discount = curve(&configuration.analytics_curves.discount_curve)?;
+            let benchmark = configuration
+                .analytics_curves
+                .swap_curve
+                .as_ref()
+                .map(curve)
+                .transpose()?
+                .flatten();
+            let curves = spec.measures.iter().any(|m| curve_measure(m.as_str()));
             let input = PricingInput {
                 bond: bond.clone(),
                 settlement_date: spec.settlement_date.date(),
-                market_price_bid: mark(QuoteField::BidPrice),
+                market_price_bid: None,
                 market_price_mid: mark(QuoteField::MidPrice),
-                market_price_ask: mark(QuoteField::AskPrice),
-                discount_curve: curve(&configuration.analytics_curves.discount_curve)?,
-                benchmark_curve: configuration
-                    .analytics_curves
-                    .swap_curve
-                    .as_ref()
-                    .map(curve)
-                    .transpose()?
-                    .flatten(),
+                market_price_ask: None,
+                discount_curve: discount.filter(|_| curves),
+                benchmark_curve: benchmark.filter(|_| curves),
                 government_curve: None,
                 volatility: None,
-                bid_ask_config: configuration.bid_ask_spread.clone(),
+                bid_ask_config: None,
             };
             let router = PricingRouter {
                 bump_bps: spec.numerical_settings.bump_bps.get(),
@@ -782,20 +825,29 @@ impl SnapshotValuator {
         .map_err(contract_error)?;
         let result = SnapshotValuationResult::new(context.clone(), envelope)?;
         let retained = self.cache.insert(result)?;
-        let envelope = retained.envelope();
-        SnapshotValuationResult::new(
-            context.clone(),
-            ResultEnvelope::new(
-                request_id,
-                envelope.status(),
-                envelope.quality(),
-                envelope.results().clone(),
-                envelope.errors().to_vec(),
-                envelope.provenance().clone(),
-            )
-            .map_err(contract_error)?,
-        )
+        rebound(context, &retained, request_id)
     }
+}
+
+/// A retained result with this request's correlation.
+fn rebound(
+    context: &ValuationContext,
+    retained: &SnapshotValuationResult,
+    request_id: RequestId,
+) -> Result<SnapshotValuationResult, TraitError> {
+    let envelope = retained.envelope();
+    SnapshotValuationResult::new(
+        context.clone(),
+        ResultEnvelope::new(
+            request_id,
+            envelope.status(),
+            envelope.quality(),
+            envelope.results().clone(),
+            envelope.errors().to_vec(),
+            envelope.provenance().clone(),
+        )
+        .map_err(contract_error)?,
+    )
 }
 
 type Measures = (BTreeMap<MeasureId, MeasureResult>, Vec<StructuredError>);

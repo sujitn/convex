@@ -390,7 +390,12 @@ impl RuntimeController {
                         .and_then(|valuator| {
                             // A supplied context is valued only on Valid inputs.
                             worker::value(
-                                &valuator, &snapshot, &context, request, calculated, false,
+                                &valuator,
+                                worker::Input::Supplied(&snapshot),
+                                &context,
+                                request,
+                                calculated,
+                                false,
                             )
                             .map_err(|_| {
                                 TraitError::InvalidInput("invalid supplied runtime context")

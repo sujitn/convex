@@ -122,8 +122,11 @@ API adoption remain later work.
 ## Immutable snapshot use
 
 `activate_snapshot(nodes, Arc<MarketSnapshot>)` verifies the CVX-008 information
-set and requires its positive generation to advance beyond the current graph
-counter. All nodes in that activation share the same snapshot/configuration.
+set, builds its curves, and requires its positive generation to advance beyond the
+current graph counter. `activate_built(nodes, &BuiltSnapshot)` does the same for a
+snapshot `BuiltSnapshot::build` has already verified and built, so the runtime
+builds once and passes the same build to `SnapshotValuator::value_built` for every
+node. All nodes in that activation share the same snapshot/configuration.
 For bond pricing, call `begin_valuation(node, ValuationContext)` with the complete
 matching context, then call the existing `SnapshotValuator` and commit
 `NodeValue::Valuation(result)`. The ticket holds the actual immutable snapshot and

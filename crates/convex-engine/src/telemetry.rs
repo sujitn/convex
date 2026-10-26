@@ -52,9 +52,9 @@ pub enum CurvePath {
     Request,
     /// The build check on records a Live snapshot reads from the curve store.
     Stream,
-    /// Calculation-graph activation of one snapshot.
+    /// The one build of a snapshot at graph activation, shared by all its valuations.
     Graph,
-    /// Snapshot valuation of one instrument.
+    /// A single snapshot valuation that missed the cache, such as a supplied context.
     Valuation,
 }
 impl CurvePath {
