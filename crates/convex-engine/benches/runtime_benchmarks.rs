@@ -20,7 +20,9 @@ use convex_engine::runtime::{RuntimeMode, RuntimePlan};
 use convex_engine::snapshot::SnapshotValuator;
 use convex_engine::{PricingEngine, PricingEngineBuilder, RuntimeInput, RuntimeServices};
 use convex_ext_file::JsonFixingRepository;
+use convex_ports::runtime::{PublishedValuation, ResultPublisher};
 use convex_ports::snapshot::{MarketSnapshot, SnapshotRepository};
+use convex_ports::TraitError;
 use criterion::{criterion_group, criterion_main, Criterion};
 use rust_decimal_macros::dec;
 use std::hint::black_box;
@@ -170,7 +172,7 @@ fn bench_request_time(c: &mut Criterion) {
     group.finish();
 }
 
-/// The Live plan and engine of `tests/runtime.rs`: one bond, one legacy curve record.
+/// The Live plan of `tests/runtime.rs`: one bond, one legacy curve record.
 fn live_plan(s: &Setup) -> RuntimePlan {
     let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
     let mut plan = s.plan.clone();
@@ -184,6 +186,15 @@ fn live_plan(s: &Setup) -> RuntimePlan {
     plan.assembly.quotes[0].max_age_ms = 600_000;
     plan
 }
+/// Live results are not archived: the server composes Live with a publisher that
+/// only acknowledges (`DisplayOnlyPublisher`, D5a). This bench does the same.
+struct DisplayOnly;
+#[async_trait::async_trait]
+impl ResultPublisher for DisplayOnly {
+    async fn publish(&self, _: &PublishedValuation) -> Result<(), TraitError> {
+        Ok(())
+    }
+}
 fn live_engine(s: &Setup, source: Arc<SubscriptionSource>) -> PricingEngine {
     PricingEngineBuilder::new()
         .with_storage(s.storage.clone())
@@ -192,7 +203,7 @@ fn live_engine(s: &Setup, source: Arc<SubscriptionSource>) -> PricingEngine {
             snapshots: s.snapshots.clone(),
             fixings: Arc::new(JsonFixingRepository::empty()),
             store: s.store.clone(),
-            publisher: archive(s),
+            publisher: Arc::new(DisplayOnly),
             input: RuntimeInput::Live(source),
         })
         .build()
