@@ -227,8 +227,11 @@ fn bench_live_tick(c: &mut Criterion) {
                 let stamp = chrono::Utc::now().timestamp_millis();
                 let started = Instant::now();
                 source.send(fixture::event(sequence, stamp, stamp, "99.25"));
+                // The timer is created inside the runtime.
                 let result = rt
-                    .block_on(tokio::time::timeout(Duration::from_secs(5), updates.recv()))
+                    .block_on(async {
+                        tokio::time::timeout(Duration::from_secs(5), updates.recv()).await
+                    })
                     .expect("a Live tick publishes within five seconds")
                     .unwrap();
                 total += started.elapsed();
