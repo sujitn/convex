@@ -99,6 +99,20 @@ pub(crate) fn valuation_inputs<'a>(
     let curves = read_curves(spec, &snapshot.content().configuration.analytics_curves);
     Ok(snapshot.inputs(instrument_id.as_str(), &curves))
 }
+/// Whether one valuation context reads the same inputs in `snapshot` as in `previous`
+/// (D55). The caller compares the frame (`MarketSnapshot::same_frame`) first, so the
+/// configured curves are the same in both.
+pub(crate) fn same_valuation_inputs(
+    snapshot: &MarketSnapshot,
+    previous: &MarketSnapshot,
+    spec: &ValuationContextSpec,
+) -> Result<bool, TraitError> {
+    let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
+        return Err(TraitError::Unsupported("trade economics unavailable"));
+    };
+    let curves = read_curves(spec, &snapshot.content().configuration.analytics_curves);
+    Ok(snapshot.same_inputs(previous, instrument_id.as_str(), &curves))
+}
 /// Quality of the inputs one valuation context reads, never the whole snapshot's.
 pub(crate) fn valuation_quality(
     snapshot: &MarketSnapshot,

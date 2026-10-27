@@ -86,6 +86,26 @@ impl Dag {
             dependents,
         })
     }
+    /// The roots with every node connected to them through dependencies or dependents.
+    pub(super) fn component(&self, roots: &[usize]) -> Vec<bool> {
+        let mut seen = vec![false; self.nodes.len()];
+        let mut work = Vec::with_capacity(roots.len());
+        for &root in roots {
+            if !seen[root] {
+                seen[root] = true;
+                work.push(root);
+            }
+        }
+        while let Some(i) = work.pop() {
+            for &d in self.dependencies[i].iter().chain(&self.dependents[i]) {
+                if !seen[d] {
+                    seen[d] = true;
+                    work.push(d);
+                }
+            }
+        }
+        seen
+    }
     pub(super) fn affected(&self, roots: &[usize]) -> Vec<usize> {
         let mut seen = vec![false; self.nodes.len()];
         let mut work = Vec::with_capacity(self.nodes.len());

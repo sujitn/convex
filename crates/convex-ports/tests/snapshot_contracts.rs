@@ -297,3 +297,74 @@ fn instrument_quality_reads_only_that_instruments_inputs() {
     assert_eq!(snapshot.curve_quality("USD-OTHER"), DataQuality::Valid);
     assert_eq!(snapshot.curve_quality("USD-ABSENT"), DataQuality::Invalid);
 }
+
+/// D55: a later snapshot keeps one instrument's result when its frame, reference, quotes,
+/// fixings and read curves are those of the snapshot before.
+#[test]
+fn an_instrument_reads_the_same_inputs_until_its_own_change() {
+    let base = || {
+        let mut content = fixture::content();
+        fixture::add_bond(&mut content, "BOND-002", 0);
+        let mut other = content.curves[0].clone();
+        other.curve_id = CurveId::new("USD-OTHER").unwrap();
+        content.required_curves.push(other.curve_id.clone());
+        content.curves.push(other);
+        content
+    };
+    let previous = MarketSnapshot::new(base()).unwrap();
+    let id = previous.content().references[0]
+        .record
+        .instrument_id
+        .clone();
+    let id = id.as_str();
+    // A field observed one millisecond earlier: another observation of the same quote.
+    let observe = |quote: &mut SnapshotQuote| {
+        for field in quote.image.as_mut().unwrap().fields.values_mut() {
+            field.source_time_ms -= 1;
+        }
+    };
+    let same = |content: SnapshotContent, curves: &[&str]| {
+        let snapshot = MarketSnapshot::new(content).unwrap();
+        (
+            snapshot.same_frame(&previous),
+            snapshot.same_inputs(&previous, id, curves),
+        )
+    };
+    // Later the same day, with another generation: the same frame and inputs.
+    let mut later = base();
+    later.as_of = fixture::time("2026-10-02T23:59:00Z");
+    later.known_at = later.as_of;
+    later.generation = fixture::version(2);
+    assert_eq!(same(later, &["USD-FIXTURE"]), (true, true));
+
+    // Another instrument's quote and a curve this valuation does not read.
+    let mut others = base();
+    observe(&mut others.quotes[1]);
+    others.curves[1].version = fixture::version(2);
+    assert_eq!(same(others.clone(), &["USD-FIXTURE"]), (true, true));
+    assert_eq!(same(others, &["USD-FIXTURE", "USD-OTHER"]), (true, false));
+
+    // Its own quote, its read curve and its reference.
+    let mut quote = base();
+    observe(&mut quote.quotes[0]);
+    assert_eq!(same(quote, &[]), (true, false));
+    let mut curve = base();
+    curve.curves[0].version = fixture::version(2);
+    assert_eq!(same(curve.clone(), &[]), (true, true));
+    assert_eq!(same(curve, &["USD-FIXTURE"]), (true, false));
+    let mut reference = base();
+    reference.references[0].record.version = fixture::version(2);
+    assert_eq!(same(reference, &[]), (true, false));
+
+    // The frame: the next day, the skew policy and the configuration.
+    let mut tomorrow = base();
+    tomorrow.as_of = fixture::time("2026-10-03T00:00:00Z");
+    tomorrow.known_at = tomorrow.as_of;
+    assert_eq!(same(tomorrow, &[]), (false, true));
+    let mut skew = base();
+    skew.max_source_skew_ms = 2_000;
+    assert!(!same(skew, &[]).0);
+    let mut configuration = base();
+    configuration.configuration.version += 1;
+    assert!(!same(configuration, &[]).0);
+}
