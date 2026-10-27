@@ -234,7 +234,9 @@ activation reports `restart_required: true` unless the runtime accepted that exa
 revision. A `hot` activation of a restart-required change is
 refused with `CONFIGURATION_RESTART_REQUIRED`. Its outcome includes the committed record and optional accepted
 generation/activation revision. A full queue or application failure leaves a
-committed selection for reconciliation; it does not guess a rollback. A later
+committed selection for reconciliation; it does not guess a rollback. A Live
+runtime's quotes do not read the active pointer, so a selection it did not accept
+waits for a retry of the same activation or a restart. A later
 concurrent activation can supersede the command before runtime acceptance.
 Readiness closes while a notified desired revision has not been accepted.
 New work freezes one coherent selection into its checkpoint before receipt;

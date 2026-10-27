@@ -3,6 +3,7 @@
 
 use convex_core::contracts::*;
 use convex_ports::{
+    configuration::ConfigurationPin,
     fixing::FixingRepository,
     quote_event::{QuoteEvent, QuoteField, QuoteKey},
     reference_master::{ReferenceLookup, ResolvedBondReference},
@@ -222,18 +223,42 @@ impl SnapshotAssembler {
         }
         Ok(references)
     }
-    /// Resolve over quote state the caller already ingested, without publishing.
-    /// Live mode keeps that state in memory; market data is not stored.
-    pub(crate) async fn resolve_ingested(
-        &self,
-        request: &SnapshotAssembly,
-        quotes: &IngestedQuotes,
-    ) -> Result<MarketSnapshot, TraitError> {
+    /// Resolve the exact configuration and the pinned references `request` selects, at its
+    /// cutoff, for reuse by later snapshots of the same selection (D56).
+    pub(crate) async fn pin(&self, request: &SnapshotAssembly) -> Result<PinnedInputs, TraitError> {
         validate_request(request, &[])?;
         let configuration = self.configuration(request).await?;
         let references = self.references(request, &configuration).await?;
-        self.build(request, configuration, references, quotes.quotes(request))
-            .await
+        Ok(PinnedInputs {
+            activation: activation_revision(request),
+            configuration_pin: request.configuration.clone(),
+            instruments: request.instruments.clone(),
+            configuration,
+            references,
+        })
+    }
+    /// Resolve over quote state the caller already ingested and inputs it pinned, without
+    /// publishing. Live mode keeps both in memory; market data is not stored. Fixings are
+    /// read at this request's cutoff.
+    pub(crate) async fn resolve_ingested(
+        &self,
+        request: &SnapshotAssembly,
+        pinned: &PinnedInputs,
+        quotes: &IngestedQuotes,
+    ) -> Result<MarketSnapshot, TraitError> {
+        validate_request(request, &[])?;
+        if !pinned.serves(request) {
+            return Err(TraitError::Conflict(
+                "pinned inputs belong to another selection",
+            ));
+        }
+        self.build(
+            request,
+            pinned.configuration.clone(),
+            pinned.references.clone(),
+            quotes.quotes(request),
+        )
+        .await
     }
     async fn build(
         &self,
@@ -314,6 +339,34 @@ impl IngestedQuotes {
             })
             .collect()
     }
+}
+
+/// The pricing configuration and pinned references of one selection, resolved once at
+/// the cutoff of its first snapshot (D56). Every record is an exact pinned version, so
+/// none changes while the selection holds; each snapshot still checks them at its own
+/// cutoff (`MarketSnapshot::new`).
+pub(crate) struct PinnedInputs {
+    activation: Option<Version>,
+    configuration_pin: ConfigurationPin,
+    instruments: Vec<InstrumentPin>,
+    configuration: convex_ports::storage::BondPricingConfig,
+    references: Vec<ResolvedBondReference>,
+}
+impl PinnedInputs {
+    /// Whether these inputs were resolved for `request`'s activation, configuration and
+    /// instrument pins.
+    pub(crate) fn serves(&self, request: &SnapshotAssembly) -> bool {
+        self.activation == activation_revision(request)
+            && self.configuration_pin == request.configuration
+            && self.instruments == request.instruments
+    }
+}
+
+fn activation_revision(request: &SnapshotAssembly) -> Option<Version> {
+    request
+        .configuration_capture
+        .as_ref()
+        .map(|capture| capture.activation.revision)
 }
 
 fn capture_ms(request: &SnapshotAssembly) -> i64 {

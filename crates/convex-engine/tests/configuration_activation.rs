@@ -696,55 +696,10 @@ async fn committed_unknown_outcomes_reconcile_once_uncommitted_failure_and_false
 
 #[tokio::test]
 async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_periodic_poll() {
-    use convex_engine::{PricingEngineBuilder, RuntimeInput, RuntimeServices};
-    use convex_ext_file::*;
     use std::sync::Arc;
     let setup = runtime::setup().await;
     let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
-    let mut first = fixture::staged(1);
-    first.staged_at = now;
-    first.document.runtime.mode = RuntimeMode::Live;
-    first.document.providers[0]
-        .capabilities
-        .push(ProviderCapability::LiveImages);
-    first.document.assembly.as_of = now;
-    first.document.assembly.known_at = now;
-    first.document.assembly.quotes[0].max_age_ms = 50;
-    first.document.assembly.curves[0].source_time = now;
-    first.document.assembly.curves[0].recorded_at = now;
-    first.document.assembly.curves[0].max_age_ms = 60_000;
-    let mut fixture_cases = fixtures(&setup);
-    fixture_cases[0].as_of = now;
-    fixture_cases[0].known_at = now;
-    fixture_cases[0].events = vec![fixture::snapshot::event(
-        1,
-        now.datetime().timestamp_millis(),
-        now.datetime().timestamp_millis(),
-        "99.25",
-    )];
-    let doc = &first.document;
-    let service = Arc::new(ConfigurationUseCases::new(
-        setup.storage.configuration.clone(),
-        setup.storage.bonds.clone(),
-        setup.storage.configs.clone(),
-        setup.storage.curves.clone(),
-        Arc::new(JsonFixingRepository::empty()),
-        setup.snapshots.clone(),
-        ConfigurationCapabilities {
-            build_id: doc.runtime.build_id.clone(),
-            storage: doc.process.storage.clone(),
-            durable: true,
-            atomic_activation: true,
-            shared_writers: false,
-            result_transport: doc.process.result_transport.clone(),
-            providers: doc.providers.clone(),
-            demo: false,
-        },
-    ));
-    service.stage(&first, &fixture_cases).await.unwrap();
-    let mut command = fixture::activate(1, 0, "live-first");
-    command.activated_at = now;
-    service.activate(&command, &fixture_cases).await.unwrap();
+    let (service, first, fixture_cases) = live_selection(&setup, now, 50).await;
     let expiry =
         UtcTimestamp::from_datetime(now.datetime() + chrono::Duration::seconds(2)).unwrap();
     let mut second = first.clone();
@@ -768,19 +723,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
     command.activated_at = now;
     service.activate(&command, &fixture_cases).await.unwrap();
     let source = Arc::new(subscription_source::SubscriptionSource::new());
-    let engine = PricingEngineBuilder::new()
-        .with_storage(setup.storage.clone())
-        .with_configuration_use_cases(service)
-        .with_runtime(RuntimeServices {
-            plan: plan(&first.document, vec![]),
-            snapshots: setup.snapshots.clone(),
-            fixings: Arc::new(JsonFixingRepository::empty()),
-            store: setup.store.clone(),
-            publisher: runtime::archive(&setup),
-            input: RuntimeInput::Live(source.clone()),
-        })
-        .build()
-        .unwrap();
+    let engine = live_engine(&setup, service, &first.document, source.clone());
     engine.start().await.unwrap();
     let mut updates = engine.subscribe_results();
     let stamp = chrono::Utc::now().timestamp_millis();
@@ -811,4 +754,148 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
     assert!(source
         .unsubscribed
         .load(std::sync::atomic::Ordering::SeqCst));
+}
+
+/// D56: a Live runtime keeps the selection it accepted until a refresh applies another.
+/// A quote does not read the active configuration, so an activation committed without
+/// the engine waits for the engine's refresh, which re-resolves the pinned inputs.
+#[tokio::test]
+async fn live_runtime_applies_an_activation_at_refresh_not_at_the_next_quote() {
+    use std::sync::Arc;
+    let setup = runtime::setup().await;
+    let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    let (service, first, fixture_cases) = live_selection(&setup, now, 600_000).await;
+    let mut second = first.clone();
+    second.document.pricing.version = 2;
+    second.document.pricing.updated_at = now.datetime().timestamp_millis();
+    second.document.assembly.configuration.version = fixture::snapshot::version(2);
+    second.idempotency_key = RequestId::new("live-stage-repriced").unwrap();
+    service.stage(&second, &fixture_cases).await.unwrap();
+    let source = Arc::new(subscription_source::SubscriptionSource::new());
+    let engine = live_engine(&setup, service.clone(), &first.document, source.clone());
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    let quote = |sequence, value| {
+        let stamp = chrono::Utc::now().timestamp_millis();
+        source.send(fixture::snapshot::event(sequence, stamp, stamp, value));
+    };
+    quote(1, "99.25");
+    let held = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(held.result.status(), ResultStatus::Complete);
+    assert_eq!(held.result.provenance().configuration_version.get(), 1);
+    // Committed without the engine: the next quote keeps the held selection.
+    let mut command = fixture::activate(2, 1, "live-repriced");
+    command.activated_at = now;
+    service.activate(&command, &fixture_cases).await.unwrap();
+    quote(2, "99.5");
+    let kept = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(kept.result.status(), ResultStatus::Complete);
+    assert_eq!(kept.result.provenance().configuration_version.get(), 1);
+    assert_eq!(
+        engine.runtime_health().activation_revision.unwrap().get(),
+        1
+    );
+    // The engine's retry of the same activation refreshes the runtime, which values
+    // under the new configuration version.
+    let outcome = engine
+        .activate_configuration(&command, &fixture_cases)
+        .await
+        .unwrap();
+    assert!(!outcome.restart_required);
+    let applied = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(applied.result.status(), ResultStatus::Complete);
+    assert_eq!(applied.result.provenance().configuration_version.get(), 2);
+    let health = engine.runtime_health();
+    assert_eq!(health.activation_revision.unwrap().get(), 2);
+    assert!(health.ready);
+    engine.shutdown().await.unwrap();
+}
+
+/// A Live selection staged and activated at `now` as revision 1, with the fixtures it was
+/// checked against and the use cases that hold it.
+async fn live_selection(
+    setup: &runtime::Setup,
+    now: UtcTimestamp,
+    quote_max_age_ms: i64,
+) -> (
+    std::sync::Arc<ConfigurationUseCases>,
+    StagedConfiguration,
+    Vec<ConfigurationFixture>,
+) {
+    let mut first = fixture::staged(1);
+    first.staged_at = now;
+    first.document.runtime.mode = RuntimeMode::Live;
+    first.document.providers[0]
+        .capabilities
+        .push(ProviderCapability::LiveImages);
+    first.document.assembly.as_of = now;
+    first.document.assembly.known_at = now;
+    first.document.assembly.quotes[0].max_age_ms = quote_max_age_ms;
+    first.document.assembly.curves[0].source_time = now;
+    first.document.assembly.curves[0].recorded_at = now;
+    first.document.assembly.curves[0].max_age_ms = 60_000;
+    let mut fixture_cases = fixtures(setup);
+    fixture_cases[0].as_of = now;
+    fixture_cases[0].known_at = now;
+    fixture_cases[0].events = vec![fixture::snapshot::event(
+        1,
+        now.datetime().timestamp_millis(),
+        now.datetime().timestamp_millis(),
+        "99.25",
+    )];
+    let doc = &first.document;
+    let service = std::sync::Arc::new(ConfigurationUseCases::new(
+        setup.storage.configuration.clone(),
+        setup.storage.bonds.clone(),
+        setup.storage.configs.clone(),
+        setup.storage.curves.clone(),
+        std::sync::Arc::new(convex_ext_file::JsonFixingRepository::empty()),
+        setup.snapshots.clone(),
+        ConfigurationCapabilities {
+            build_id: doc.runtime.build_id.clone(),
+            storage: doc.process.storage.clone(),
+            durable: true,
+            atomic_activation: true,
+            shared_writers: false,
+            result_transport: doc.process.result_transport.clone(),
+            providers: doc.providers.clone(),
+            demo: false,
+        },
+    ));
+    service.stage(&first, &fixture_cases).await.unwrap();
+    let mut command = fixture::activate(1, 0, "live-first");
+    command.activated_at = now;
+    service.activate(&command, &fixture_cases).await.unwrap();
+    (service, first, fixture_cases)
+}
+
+/// A Live engine for `document`'s plan, fed by `source`.
+fn live_engine(
+    setup: &runtime::Setup,
+    service: std::sync::Arc<ConfigurationUseCases>,
+    document: &ConfigurationDocument,
+    source: std::sync::Arc<subscription_source::SubscriptionSource>,
+) -> convex_engine::PricingEngine {
+    convex_engine::PricingEngineBuilder::new()
+        .with_storage(setup.storage.clone())
+        .with_configuration_use_cases(service)
+        .with_runtime(convex_engine::RuntimeServices {
+            plan: plan(document, vec![]),
+            snapshots: setup.snapshots.clone(),
+            fixings: std::sync::Arc::new(convex_ext_file::JsonFixingRepository::empty()),
+            store: setup.store.clone(),
+            publisher: runtime::archive(setup),
+            input: convex_engine::RuntimeInput::Live(source),
+        })
+        .build()
+        .unwrap()
 }

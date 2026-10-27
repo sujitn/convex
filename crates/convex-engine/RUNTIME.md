@@ -70,12 +70,24 @@ instrument publishes a failed result with no retained last-good value.
 
 Live ticks conflate quotes. After the actor takes one quote, it also admits the
 quotes already queued behind it, up to 1,024 per tick in all (the HTTP ingress
-queue's capacity, so a full queue fits in one tick), then assembles and values once. Each quote is still validated and admitted in order and
-advances the generation and cutoff, so a tick's results carry the generation of its
-newest quote. A quote superseded within one tick gets no result of its own. Under
-load a quote waits for at most the running tick and its own, not for every queued
-tick before it. A tick still values every instrument. Replay and Captured value
-every event.
+queue's capacity, so a full queue fits in one tick), then assembles and values
+once. Each quote is still validated and admitted in order and advances the
+generation and cutoff, so a tick's results carry the generation of its newest
+quote. A quote superseded within one tick gets no result of its own. Under load a
+quote waits for at most the running tick and its own, not for every queued tick
+before it. A tick still values every instrument. Replay and Captured value every
+event.
+
+A Live runtime resolves its pricing configuration and pinned references, with
+their issuer, calendar, convention and rate-index records, once per accepted
+activation, at the first snapshot that needs them, and reuses them at every tick.
+All are exact pinned versions, so none changes while that selection holds, and each
+snapshot still checks them at its own cutoff. Quotes, fixings and stored curve
+revisions are read at every snapshot's cutoff. A Live quote does not read the active
+configuration: the runtime keeps the selection it accepted until the engine's
+activation refresh or a restart applies another. An activation committed without
+the engine therefore waits for one of those. Captured and Replay read the active
+selection at each event.
 
 A Live plan that pins no curve data reads its required curves from the engine's
 curve store each time it builds a snapshot, at that snapshot's cutoff. A re-marked
@@ -188,7 +200,8 @@ The additive `pricing_runtime_v1` redb table contains one CAS checkpoint per run
 It is covered by the same database backup as authoritative inputs. Immutable
 snapshot files and result archives must be retained/backed up with that database.
 The application schema remains version 1; checkpoint records have their own schema.
-Older code does not process the new checkpoint/outbox and must not run its old
+In memory a checkpoint shares its results and outbox, so copying it costs the same
+at any width; they are stored as plain arrays. Older code does not process the new checkpoint/outbox and must not run its old
 pricing lifecycle against this state. Keep a closed pre-upgrade backup for rollback;
 forward recovery uses the same plan and verified assets. A changed plan digest,
 corrupt checkpoint, missing last-good snapshot or conflicting replay prefix refuses

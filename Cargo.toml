@@ -72,7 +72,7 @@ convex-server = { path = "crates/convex-server" }
 chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = { version = "1.42", features = ["serde", "serde-float", "maths", "serde-with-str"] }
 rust_decimal_macros = "1.40"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
 thiserror = "2.0"
 anyhow = "1.0"
