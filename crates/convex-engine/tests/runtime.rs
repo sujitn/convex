@@ -6,7 +6,16 @@ use async_trait::async_trait;
 use convex_core::contracts::*;
 use convex_engine::*;
 use convex_ext_file::*;
-use convex_ports::{market_data::*, runtime::*, snapshot::SnapshotRepository, TraitError};
+use convex_ports::{
+    market_data::*,
+    reference_master::{
+        ExternalIdentifier, IdentifierResolution, MasterKey, MasterRecord, ReferenceLookup,
+    },
+    reference_repository::{ReferenceCommand, ReferenceCommit, ReferenceError, ReferenceRecord},
+    runtime::*,
+    snapshot::SnapshotRepository,
+    TraitError,
+};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -271,7 +280,7 @@ async fn publication_failure_is_checkpointed_and_retried_before_restart_readines
     );
     reopened.start().await.unwrap();
     assert!(reopened.runtime_health().ready);
-    assert_eq!(reopened.runtime_results(), saved.results);
+    assert_eq!(reopened.runtime_results(), saved.results.to_vec());
     assert!(s
         .store
         .load(&s.plan.runtime_id)
@@ -832,6 +841,128 @@ async fn live_quotes_queued_together_are_valued_in_one_tick() {
     );
     assert!(engine.runtime_health().ready);
     engine.shutdown().await.unwrap();
+}
+
+/// D56: a Live runtime reads its pinned references once per selection, at start, and
+/// not at each tick.
+#[tokio::test]
+async fn live_ticks_reuse_the_pinned_references() {
+    let s = setup().await;
+    let references = Arc::new(CountingReferences {
+        inner: s.storage.bonds.clone(),
+        reads: Default::default(),
+    });
+    let storage = Arc::new(convex_ports::storage::StorageAdapter {
+        bonds: references.clone(),
+        curves: s.storage.curves.clone(),
+        configs: s.storage.configs.clone(),
+        configuration: s.storage.configuration.clone(),
+        audit: s.storage.audit.clone(),
+    });
+    let source = Arc::new(SubscriptionSource::new());
+    let engine = PricingEngineBuilder::new()
+        .with_storage(storage)
+        .with_runtime(RuntimeServices {
+            plan: live_plan(&s),
+            snapshots: s.snapshots.clone(),
+            fixings: Arc::new(JsonFixingRepository::empty()),
+            store: s.store.clone(),
+            publisher: archive(&s),
+            input: RuntimeInput::Live(source.clone()),
+        })
+        .build()
+        .unwrap();
+    engine.start().await.unwrap();
+    assert_eq!(references.reads.load(Ordering::SeqCst), 1);
+    let mut updates = engine.subscribe_results();
+    for sequence in 1..=5u64 {
+        let stamp = chrono::Utc::now().timestamp_millis();
+        source.send(fixture::event(sequence, stamp, stamp, "99.25"));
+        let result = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.result.status(), ResultStatus::Complete);
+    }
+    assert_eq!(references.reads.load(Ordering::SeqCst), 1);
+    engine.shutdown().await.unwrap();
+}
+
+/// Counts exact-version reference reads, the read a snapshot makes for each pinned instrument.
+struct CountingReferences {
+    inner: Arc<dyn convex_ports::reference_repository::ReferenceRepository>,
+    reads: std::sync::atomic::AtomicUsize,
+}
+#[async_trait]
+impl convex_ports::reference_repository::ReferenceRepository for CountingReferences {
+    async fn get(
+        &self,
+        id: &convex_core::ids::InstrumentId,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        self.inner.get(id).await
+    }
+    async fn get_version(
+        &self,
+        id: &convex_core::ids::InstrumentId,
+        version: Version,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        self.reads.fetch_add(1, Ordering::SeqCst);
+        self.inner.get_version(id, version).await
+    }
+    async fn list(
+        &self,
+        filter: &convex_ports::storage::BondFilter,
+        pagination: &convex_ports::storage::Pagination,
+    ) -> Result<convex_ports::storage::Page<ReferenceRecord>, ReferenceError> {
+        self.inner.list(filter, pagination).await
+    }
+    async fn resolve(
+        &self,
+        id: &ExternalIdentifier,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        self.inner.resolve(id).await
+    }
+    async fn commit(
+        &self,
+        command: &ReferenceCommand,
+        time: UtcTimestamp,
+    ) -> Result<ReferenceCommit, ReferenceError> {
+        self.inner.commit(command, time).await
+    }
+    async fn get_commit(&self, key: &RequestId) -> Result<Option<ReferenceCommit>, ReferenceError> {
+        self.inner.get_commit(key).await
+    }
+    async fn get_at(
+        &self,
+        id: &convex_core::ids::InstrumentId,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError> {
+        self.inner.get_at(id, lookup).await
+    }
+    async fn get_master(&self, key: &MasterKey) -> Result<Option<MasterRecord>, ReferenceError> {
+        self.inner.get_master(key).await
+    }
+    async fn get_master_version(
+        &self,
+        key: &MasterKey,
+        version: Version,
+    ) -> Result<Option<MasterRecord>, ReferenceError> {
+        self.inner.get_master_version(key, version).await
+    }
+    async fn get_master_at(
+        &self,
+        key: &MasterKey,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<MasterRecord>, ReferenceError> {
+        self.inner.get_master_at(key, lookup).await
+    }
+    async fn resolve_at(
+        &self,
+        id: &ExternalIdentifier,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<IdentifierResolution>, ReferenceError> {
+        self.inner.resolve_at(id, lookup).await
+    }
 }
 
 #[tokio::test]

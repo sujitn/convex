@@ -11,6 +11,8 @@ struct LiveState {
     quotes: crate::snapshot::IngestedQuotes,
     last_receive_ms: Option<i64>,
     reserved: RuntimeCheckpoint,
+    /// The selection's configuration and references, resolved once per activation (D56).
+    pinned: Option<crate::snapshot::PinnedInputs>,
 }
 pub(super) struct Actor {
     services: RuntimeServices,
@@ -21,7 +23,7 @@ pub(super) struct Actor {
     checkpoint: RuntimeCheckpoint,
     live: Option<StreamReceiver<QuoteEvent>>,
     health: Arc<parking_lot::RwLock<RuntimeHealth>>,
-    results: Arc<parking_lot::RwLock<Vec<PublishedValuation>>>,
+    results: Arc<parking_lot::RwLock<Arc<[PublishedValuation]>>>,
     updates: broadcast::Sender<PublishedValuation>,
     live_source: Option<Arc<dyn convex_ports::market_data::QuoteSource>>,
     data_deadline: Option<tokio::time::Instant>,
@@ -39,7 +41,7 @@ impl Actor {
         services: RuntimeServices,
         engine: &crate::PricingEngine,
         health: Arc<parking_lot::RwLock<RuntimeHealth>>,
-        results: Arc<parking_lot::RwLock<Vec<PublishedValuation>>>,
+        results: Arc<parking_lot::RwLock<Arc<[PublishedValuation]>>>,
         updates: broadcast::Sender<PublishedValuation>,
     ) -> Result<Self, RuntimeError> {
         let digest = services.plan.digest()?;
@@ -73,8 +75,8 @@ impl Actor {
             snapshot_id: None,
             pending: true,
             result_revision: 0,
-            results: vec![],
-            outbox: vec![],
+            results: Arc::default(),
+            outbox: Arc::default(),
             delivery_lost: false,
         });
         checkpoint.validate()?;
@@ -158,8 +160,8 @@ impl Actor {
             if !absent {
                 // Nothing stored describes the market. Recalculate from no quotes, above the ceilings.
                 checkpoint.events.clear();
-                checkpoint.results.clear();
-                checkpoint.outbox.clear();
+                checkpoint.results = Arc::default();
+                checkpoint.outbox = Arc::default();
                 checkpoint.snapshot_id = None;
                 checkpoint.pending = true;
                 checkpoint.generation = Version::new(
@@ -175,6 +177,7 @@ impl Actor {
                 quotes: crate::snapshot::IngestedQuotes::new()?,
                 last_receive_ms: None,
                 reserved,
+                pinned: None,
             })
         } else {
             None
@@ -367,8 +370,22 @@ impl Actor {
             ))
             .await?;
         }
-        let snapshot = match &self.live_state {
-            Some(live) => bounded(self.assembler.resolve_ingested(&request, &live.quotes)).await?,
+        let snapshot = match self.live_state.as_mut() {
+            Some(live) => {
+                let pinned = match live.pinned.take() {
+                    Some(pinned) if pinned.serves(&request) => pinned,
+                    // A refresh or restart selects another activation and re-resolves.
+                    _ => bounded(self.assembler.pin(&request)).await?,
+                };
+                let snapshot = bounded(self.assembler.resolve_ingested(
+                    &request,
+                    &pinned,
+                    &live.quotes,
+                ))
+                .await;
+                live.pinned = Some(pinned);
+                snapshot?
+            }
             None => bounded(self.assembler.assemble(&request, &self.checkpoint.events)).await?,
         };
         Ok(Arc::new(snapshot))
@@ -389,7 +406,7 @@ impl Actor {
             }
         }
         let mut retained = std::collections::BTreeMap::new();
-        for record in &self.checkpoint.results {
+        for record in self.checkpoint.results.iter() {
             if let Some(good) = &record.last_good {
                 if good.provenance().snapshot_id != *snapshot.id() {
                     let old = bounded(self.services.snapshots.get(&good.provenance().snapshot_id))
@@ -466,7 +483,14 @@ impl Actor {
             return Err(RuntimeError::CapacityExceeded);
         }
         let mut next = self.checkpoint.clone();
-        let selected = self.current_configuration().await?;
+        // Live keeps the selection it holds until a refresh or restart applies another
+        // (D56); the other modes read the active selection at each event.
+        let reread = self.live_state.is_none();
+        let selected = if reread {
+            self.current_configuration().await?
+        } else {
+            None
+        };
         if let Some(selected) = &selected {
             selected.capture(as_of, known_at, next.generation)?;
             next.configuration_activation = Some(selected.activation.clone());
@@ -499,7 +523,9 @@ impl Actor {
             live.quotes
                 .ingest(event, as_of.max(known_at).datetime().timestamp_millis());
         }
-        self.selected = selected;
+        if reread {
+            self.selected = selected;
+        }
         {
             let mut health = self.health.write();
             health.ready = false;
@@ -548,7 +574,7 @@ impl Actor {
         )
         .await;
         crate::telemetry::observe(crate::telemetry::CALCULATE_SECONDS, started);
-        let produced = produced?;
+        let produced: Arc<[PublishedValuation]> = produced?.into();
         let mut next = self.checkpoint.clone();
         next.result_revision = produced.last().map_or(next.result_revision, |p| p.revision);
         next.results = produced.clone();
@@ -561,7 +587,7 @@ impl Actor {
     }
     async fn flush_outbox(&mut self) -> Result<(), RuntimeError> {
         // Whole bounded batch retains its original delivery keys on retry; consumers deduplicate.
-        for record in &self.checkpoint.outbox {
+        for record in self.checkpoint.outbox.iter() {
             let started = std::time::Instant::now();
             let published =
                 tokio::time::timeout(IO_BUDGET, self.services.publisher.publish(record)).await;
@@ -573,11 +599,11 @@ impl Actor {
         if !self.checkpoint.outbox.is_empty() {
             let delivered = self.checkpoint.outbox.clone();
             let mut next = self.checkpoint.clone();
-            next.outbox.clear();
+            next.outbox = Arc::default();
             self.save(next).await?;
             self.refresh_health();
-            for record in delivered {
-                let _ = self.updates.send(record);
+            for record in delivered.iter() {
+                let _ = self.updates.send(record.clone());
             }
         }
         Ok(())
@@ -636,13 +662,14 @@ impl Actor {
         let mut next = self.checkpoint.clone();
         next.delivery_lost = true;
         let mut records = Vec::with_capacity(next.results.len());
-        for prior in &next.results {
+        for prior in next.results.iter() {
             next.result_revision = next
                 .result_revision
                 .checked_add(1)
                 .ok_or(RuntimeError::CapacityExceeded)?;
             records.push(worker::lost_record(prior, next.result_revision)?);
         }
+        let records: Arc<[PublishedValuation]> = records.into();
         next.results = records.clone();
         next.outbox = records;
         self.save(next).await?;
@@ -1033,8 +1060,8 @@ impl Actor {
 fn reservation(next: &RuntimeCheckpoint) -> Result<RuntimeCheckpoint, RuntimeError> {
     let mut image = next.clone();
     image.events.clear();
-    image.results.clear();
-    image.outbox.clear();
+    image.results = Arc::default();
+    image.outbox = Arc::default();
     image.snapshot_id = None;
     image.pending = true;
     image.result_revision = next

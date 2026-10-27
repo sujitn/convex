@@ -309,7 +309,7 @@ struct Lifecycle {
 pub(crate) struct RuntimeController {
     lifecycle: Mutex<Lifecycle>,
     health: Arc<parking_lot::RwLock<RuntimeHealth>>,
-    results: Arc<parking_lot::RwLock<Vec<PublishedValuation>>>,
+    results: Arc<parking_lot::RwLock<Arc<[PublishedValuation]>>>,
     updates: broadcast::Sender<PublishedValuation>,
     demo: bool,
     stopped: watch::Sender<bool>,
@@ -336,7 +336,7 @@ impl RuntimeController {
                 interactive_jobs: Vec::new(),
             }),
             health: Arc::new(parking_lot::RwLock::new(RuntimeHealth::default())),
-            results: Arc::new(parking_lot::RwLock::new(vec![])),
+            results: Arc::new(parking_lot::RwLock::new(Arc::default())),
             updates,
             demo,
             stopped,
@@ -416,7 +416,7 @@ impl RuntimeController {
         self.health.read().clone()
     }
     pub(crate) fn results(&self) -> Vec<PublishedValuation> {
-        self.results.read().clone()
+        self.results.read().to_vec()
     }
     pub(crate) fn settlement_date(&self) -> Option<BusinessDate> {
         self.settlement_date

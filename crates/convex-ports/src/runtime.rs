@@ -7,6 +7,7 @@ use convex_core::contracts::{
     DataQuality, ResultEnvelope, SnapshotId, SourceId, UtcTimestamp, Version,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// Maximum retained replay events before explicit archival/compaction is required.
 pub const MAX_RUNTIME_EVENTS: usize = 100_000;
@@ -65,10 +66,11 @@ pub struct RuntimeCheckpoint {
     pub pending: bool,
     /// Last allocated publication revision.
     pub result_revision: u64,
-    /// Current result states for at most 256 instruments.
-    pub results: Vec<PublishedValuation>,
+    /// Current result states for at most 256 instruments. Shared and immutable, so a
+    /// checkpoint copies in constant time; stored as a plain array.
+    pub results: Arc<[PublishedValuation]>,
     /// Undelivered results. Publishers may see retries with the same deduplication key.
-    pub outbox: Vec<PublishedValuation>,
+    pub outbox: Arc<[PublishedValuation]>,
     /// Live transport continuity lost; restart must not silently restore fresh readiness.
     pub delivery_lost: bool,
 }
@@ -107,7 +109,7 @@ impl RuntimeCheckpoint {
             previous = Some(event.receive_time_ms);
         }
         let mut subjects = std::collections::BTreeSet::new();
-        for result in &self.results {
+        for result in self.results.iter() {
             if !subjects.insert(
                 serde_json::to_string(&result.result.provenance().subject)
                     .map_err(|_| TraitError::InvalidInput("invalid runtime subject"))?,
@@ -115,7 +117,7 @@ impl RuntimeCheckpoint {
                 return Err(TraitError::InvalidInput("duplicate runtime result subject"));
             }
         }
-        for result in self.results.iter().chain(&self.outbox) {
+        for result in self.results.iter().chain(self.outbox.iter()) {
             if result.runtime_id != self.runtime_id
                 || result.revision == 0
                 || result.revision > self.result_revision
@@ -150,7 +152,7 @@ impl RuntimeCheckpoint {
                 }
             }
         }
-        for record in &self.outbox {
+        for record in self.outbox.iter() {
             if !self.results.contains(record) {
                 return Err(TraitError::InvalidInput(
                     "outbox differs from checkpointed results",
