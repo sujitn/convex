@@ -129,7 +129,9 @@ Successful shutdown is idempotent. Dropping an engine signals emergency stopping
 callers must await shutdown for the joining guarantee.
 
 Event calculations admit at most `EngineConfig.max_concurrent_calcs` blocking jobs
-at once, with default 4 and valid range 1 through 64. Interactive
+at once, with default 4 and valid range 1 through 64. Each finished job is
+replaced at once, rather than after the slowest of a batch; result revisions still
+follow plan order, never completion order. Interactive
 `evaluate_context` requests have a separate bounded budget of the same size and
 fail capacity admission rather than building an unbounded queue. Canceled request
 replies do not detach their CPU jobs; shutdown still joins them. Tokio's shared

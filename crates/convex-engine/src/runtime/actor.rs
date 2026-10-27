@@ -28,6 +28,8 @@ pub(super) struct Actor {
     live_source: Option<Arc<dyn convex_ports::market_data::QuoteSource>>,
     data_deadline: Option<tokio::time::Instant>,
     needs_images: std::collections::HashSet<convex_ports::quote_event::QuoteKey>,
+    /// The plan's selected quote keys, so `accept` checks a quote without a plan scan.
+    quote_keys: std::collections::HashSet<convex_ports::quote_event::QuoteKey>,
     configurations: Option<Arc<crate::configuration::ConfigurationUseCases>>,
     baseline_pricing: convex_ports::storage::BondPricingConfig,
     selected: Option<convex_ports::configuration::ActiveConfiguration>,
@@ -208,6 +210,13 @@ impl Actor {
         } else {
             Default::default()
         };
+        let quote_keys = services
+            .plan
+            .assembly
+            .quotes
+            .iter()
+            .map(|q| q.key.clone())
+            .collect();
         let mut actor = Self {
             valuator: Arc::new(crate::snapshot::SnapshotValuator::new(
                 services.plan.build_id.clone(),
@@ -225,6 +234,7 @@ impl Actor {
             results,
             updates,
             needs_images,
+            quote_keys,
             configurations,
             baseline_pricing,
             selected,
@@ -460,13 +470,7 @@ impl Actor {
         {
             return Err(RuntimeError::State("prior accepted work requires recovery"));
         }
-        if !self
-            .services
-            .plan
-            .assembly
-            .quotes
-            .iter()
-            .any(|q| q.key == event.key)
+        if !self.quote_keys.contains(&event.key)
             || as_of < self.checkpoint.as_of
             || known_at < self.checkpoint.known_at
             || event.source_time_ms > as_of.datetime().timestamp_millis()

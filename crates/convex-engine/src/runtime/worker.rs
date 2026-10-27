@@ -9,30 +9,26 @@ use crate::{
 };
 use convex_core::contracts::*;
 use convex_ports::{
+    configuration::InstrumentPin,
     runtime::{PublishedValuation, RuntimeCheckpoint},
     snapshot::{MarketSnapshot, SnapshotIssueKind},
 };
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
+/// The context of one of the plan's own pins; the snapshot must hold that revision.
 pub(super) fn context(
     plan: &RuntimePlan,
     snapshot: &MarketSnapshot,
-    instrument: &InstrumentId,
+    pin: &InstrumentPin,
 ) -> Result<ValuationContext, RuntimeError> {
+    let instrument = &pin.instrument_id;
     let reference = snapshot
-        .content()
-        .references
-        .iter()
-        .find(|r| r.record.instrument_id.as_str() == instrument.as_str())
+        .reference(instrument.as_str())
+        .filter(|reference| reference.record.version == pin.version)
         .ok_or(RuntimeError::RecoveryConflict)?;
-    if !plan
-        .assembly
-        .instruments
-        .iter()
-        .any(|pin| pin.instrument_id == *instrument && pin.version == reference.record.version)
-    {
-        return Err(RuntimeError::RecoveryConflict);
-    }
     let bond = reference
         .record
         .bond
@@ -76,6 +72,17 @@ pub(super) fn context(
     })?;
     context.validate_snapshot(snapshot)?;
     Ok(context)
+}
+/// The plan's pin for one instrument, for callers that start from an id rather than the plan.
+pub(super) fn plan_pin<'a>(
+    plan: &'a RuntimePlan,
+    instrument: &InstrumentId,
+) -> Result<&'a InstrumentPin, RuntimeError> {
+    plan.assembly
+        .instruments
+        .iter()
+        .find(|pin| pin.instrument_id == *instrument)
+        .ok_or(RuntimeError::RecoveryConflict)
 }
 /// Verify the snapshot and build its curves once; the activation's valuations share them.
 pub(super) fn activate(
@@ -135,19 +142,11 @@ fn failed(
         })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| RuntimeError::Worker)?;
+    let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
+        return Err(RuntimeError::RecoveryConflict);
+    };
     let reference = snapshot
-        .content()
-        .references
-        .iter()
-        .find(|r| {
-            r.record.instrument_id.as_str()
-                == match &spec.subject {
-                    ValuationSubject::InstrumentVersion { instrument_id, .. } => {
-                        instrument_id.as_str()
-                    }
-                    _ => "",
-                }
-        })
+        .reference(instrument_id.as_str())
         .ok_or(RuntimeError::RecoveryConflict)?;
     let input_versions = crate::snapshot::consumed_versions(snapshot, reference)?;
     let envelope = ResultEnvelope::new(
@@ -268,16 +267,20 @@ pub(super) async fn calculate(
     } else {
         None
     };
-    let mut produced = Vec::with_capacity(plan.assembly.instruments.len());
-    let mut revision = checkpoint.result_revision;
-    // A maximum of concurrency blocking jobs is admitted at once, and every join is awaited.
-    for chunk in plan.assembly.instruments.chunks(concurrency) {
-        // Prepare the complete bounded chunk before spawning. An admission failure cancels every
-        // ticket already captured, so no early-return can leave an unjoined blocking worker.
-        let mut prepared = Vec::with_capacity(chunk.len());
-        for pin in chunk {
+    let pins = &plan.assembly.instruments;
+    // At most `concurrency` blocking jobs run at once. Each joined job is committed and
+    // the next prepared at once, so no job waits for a slower one (G26). Tickets stay
+    // here by plan index, so a panicked job's attempt is still cancelled.
+    let mut tickets = Vec::with_capacity(pins.len());
+    let mut valued = vec![None; pins.len()];
+    let mut jobs = tokio::task::JoinSet::new();
+    let mut failure = None;
+    loop {
+        while failure.is_none() && jobs.len() < concurrency && tickets.len() < pins.len() {
+            let index = tickets.len();
+            let pin = &pins[index];
             let preparation = (|| {
-                let ctx = context(plan, snapshot, &pin.instrument_id)?;
+                let ctx = context(plan, snapshot, pin)?;
                 let request = RequestId::new(format!(
                     "valuation-{}-{}",
                     ctx.cache_key()?,
@@ -296,21 +299,17 @@ pub(super) async fn calculate(
                     .map_err(|_| RuntimeError::Worker)?;
                 Ok::<_, RuntimeError>((ticket, ctx, request, calculated))
             })();
-            match preparation {
-                Ok(input) => prepared.push(input),
+            let (ticket, ctx, request, calculated) = match preparation {
+                Ok(prepared) => prepared,
                 Err(error) => {
-                    for (ticket, _, _, _) in &prepared {
-                        graph.cancel_attempt(ticket);
-                    }
-                    return Err(error);
+                    failure = Some(error);
+                    break;
                 }
-            }
-        }
-        let mut jobs = Vec::with_capacity(prepared.len());
-        for (ticket, ctx, request, calculated) in prepared {
+            };
+            tickets.push(Some(ticket));
             let valuator = valuator.clone();
             let built = built.clone();
-            jobs.push(tokio::task::spawn_blocking(move || {
+            jobs.spawn_blocking(move || {
                 let started = std::time::Instant::now();
                 let result = value(
                     &valuator,
@@ -321,78 +320,106 @@ pub(super) async fn calculate(
                     demo,
                 );
                 crate::telemetry::observe(crate::telemetry::VALUATION_SECONDS, started);
-                (ticket, result)
-            }));
+                (index, result)
+            });
         }
-        // Never early-return with unjoined jobs, including on panic/deadline/commit failure.
-        let mut failure = None;
-        for job in jobs {
-            match job.await {
-                Ok((ticket, result)) => match result {
-                    Ok(result) => {
-                        let committed = graph.commit_result(
-                            &ticket,
-                            Ok(NodeValue::Valuation(Arc::new(result.clone()))),
-                        );
-                        if !matches!(committed, Ok(CommitOutcome::Committed { .. })) {
-                            graph.cancel_attempt(&ticket);
-                            failure = Some(RuntimeError::Worker);
-                            continue;
-                        }
-                        revision = match revision.checked_add(1) {
-                            Some(v) => v,
-                            None => {
-                                failure = Some(RuntimeError::CapacityExceeded);
-                                continue;
-                            }
-                        };
-                        let last_good = if result.envelope().status() == ResultStatus::Complete
-                            && accepted(result.envelope().quality(), demo)
-                        {
-                            Some(result.envelope().clone())
-                        } else {
-                            checkpoint
-                                .results
-                                .iter()
-                                .find(|r| {
-                                    r.result.provenance().subject
-                                        == result.envelope().provenance().subject
-                                })
-                                .and_then(|r| r.last_good.clone())
-                        };
-                        let retained_quality = last_good.as_ref().map(|good| {
-                            if good == result.envelope() {
-                                good.quality()
-                            } else {
-                                DataQuality::Stale
-                            }
-                        });
-                        produced.push(PublishedValuation {
-                            runtime_id: plan.runtime_id.clone(),
-                            revision,
-                            generation: checkpoint.generation,
-                            context_key: result.cache_key().into(),
-                            live_valid_until,
-                            result: result.envelope().clone(),
-                            last_good,
-                            retained_quality,
-                        });
-                    }
-                    Err(error) => {
-                        graph.cancel_attempt(&ticket);
-                        failure = Some(error);
-                    }
-                },
-                Err(_) => {
-                    failure = Some(RuntimeError::Worker);
+        // Never return with a job unjoined, including on panic or commit failure.
+        let Some(joined) = jobs.join_next().await else {
+            break;
+        };
+        let Ok((index, result)) = joined else {
+            failure.get_or_insert(RuntimeError::Worker);
+            continue;
+        };
+        let Some(ticket) = tickets.get_mut(index).and_then(Option::take) else {
+            failure.get_or_insert(RuntimeError::Worker);
+            continue;
+        };
+        match result {
+            Ok(result) => {
+                let committed = graph
+                    .commit_result(&ticket, Ok(NodeValue::Valuation(Arc::new(result.clone()))));
+                if matches!(committed, Ok(CommitOutcome::Committed { .. })) {
+                    valued[index] = Some(result);
+                } else {
+                    graph.cancel_attempt(&ticket);
+                    failure.get_or_insert(RuntimeError::Worker);
                 }
             }
-        }
-        if let Some(error) = failure {
-            return Err(error);
+            Err(error) => {
+                graph.cancel_attempt(&ticket);
+                failure.get_or_insert(error);
+            }
         }
     }
+    // Only a panicked job leaves its ticket here.
+    for ticket in tickets.iter().flatten() {
+        graph.cancel_attempt(ticket);
+    }
+    if let Some(error) = failure {
+        return Err(error);
+    }
+    // Revisions follow plan order, never completion order.
+    let mut produced = Vec::with_capacity(pins.len());
+    let mut revision = checkpoint.result_revision;
+    let mut prior = None;
+    for result in valued {
+        let result = result.ok_or(RuntimeError::Worker)?;
+        revision = revision
+            .checked_add(1)
+            .ok_or(RuntimeError::CapacityExceeded)?;
+        let last_good = if result.envelope().status() == ResultStatus::Complete
+            && accepted(result.envelope().quality(), demo)
+        {
+            Some(result.envelope().clone())
+        } else {
+            subject_key(&result.envelope().provenance().subject)
+                .and_then(|key| {
+                    prior
+                        .get_or_insert_with(|| by_subject(&checkpoint.results))
+                        .get(&key)
+                        .copied()
+                })
+                .and_then(|r| r.last_good.clone())
+        };
+        let retained_quality = last_good.as_ref().map(|good| {
+            if good == result.envelope() {
+                good.quality()
+            } else {
+                DataQuality::Stale
+            }
+        });
+        produced.push(PublishedValuation {
+            runtime_id: plan.runtime_id.clone(),
+            revision,
+            generation: checkpoint.generation,
+            context_key: result.cache_key().into(),
+            live_valid_until,
+            result: result.envelope().clone(),
+            last_good,
+            retained_quality,
+        });
+    }
     Ok(produced)
+}
+/// Prior results by valued instrument revision, built at most once per tick.
+fn by_subject(results: &[PublishedValuation]) -> HashMap<(&str, u64), &PublishedValuation> {
+    let mut index = HashMap::with_capacity(results.len());
+    for record in results {
+        if let Some(key) = subject_key(&record.result.provenance().subject) {
+            index.entry(key).or_insert(record);
+        }
+    }
+    index
+}
+fn subject_key(subject: &ValuationSubject) -> Option<(&str, u64)> {
+    match subject {
+        ValuationSubject::InstrumentVersion {
+            instrument_id,
+            version,
+        } => Some((instrument_id.as_str(), version.get())),
+        _ => None,
+    }
 }
 pub(super) fn restore_results(
     graph: &CalculationGraph,
@@ -404,7 +431,7 @@ pub(super) fn restore_results(
         return Err(RuntimeError::RecoveryConflict);
     }
     for pin in &plan.assembly.instruments {
-        let ctx = context(plan, snapshot, &pin.instrument_id)?;
+        let ctx = context(plan, snapshot, pin)?;
         let matches: Vec<_> = records
             .iter()
             .filter(|r| r.result.provenance().subject == ctx.spec().subject)
@@ -504,7 +531,7 @@ pub(super) fn restore_good(
     else {
         return Err(RuntimeError::RecoveryConflict);
     };
-    let ctx = context(plan, snapshot, instrument_id)?;
+    let ctx = context(plan, snapshot, plan_pin(plan, instrument_id)?)?;
     let node = NodeId::BondPrice {
         instrument_id: instrument_id.clone().into(),
     };
