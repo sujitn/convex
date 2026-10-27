@@ -597,7 +597,15 @@ impl SnapshotValuator {
         let recipe_curves = crate::curve_replay::replay_snapshot_curves(snapshot);
         crate::telemetry::observe_curve_build(crate::telemetry::CurvePath::Valuation, started);
         let recipe_curves = recipe_curves.map_err(TraitError::from)?;
-        self.price(snapshot, &recipe_curves, context, request_id, calculated_at)
+        let quality = valuation_quality(snapshot, context.spec())?.quality;
+        self.price(
+            snapshot,
+            &recipe_curves,
+            context,
+            request_id,
+            calculated_at,
+            quality,
+        )
     }
     /// [`Self::value`] over a snapshot verified and built once for its whole activation, so
     /// valuing each instrument neither re-hashes the snapshot nor rebuilds its curves.
@@ -607,6 +615,19 @@ impl SnapshotValuator {
         context: &ValuationContext,
         request_id: RequestId,
         calculated_at: UtcTimestamp,
+    ) -> Result<SnapshotValuationResult, TraitError> {
+        let quality = valuation_quality(built.snapshot(), context.spec())?.quality;
+        self.value_built_judged(built, context, request_id, calculated_at, quality)
+    }
+    /// [`Self::value_built`] for a caller that already derived the instrument's quality
+    /// (D58), so one valuation derives it once.
+    pub(crate) fn value_built_judged(
+        &self,
+        built: &crate::curve_replay::BuiltSnapshot,
+        context: &ValuationContext,
+        request_id: RequestId,
+        calculated_at: UtcTimestamp,
+        quality: DataQuality,
     ) -> Result<SnapshotValuationResult, TraitError> {
         self.admit(built.snapshot(), context, calculated_at)?;
         if let Some(cached) = self.cache.get(context)? {
@@ -618,6 +639,7 @@ impl SnapshotValuator {
             context,
             request_id,
             calculated_at,
+            quality,
         )
     }
     fn admit(
@@ -651,6 +673,7 @@ impl SnapshotValuator {
         context: &ValuationContext,
         request_id: RequestId,
         calculated_at: UtcTimestamp,
+        quality: DataQuality,
     ) -> Result<SnapshotValuationResult, TraitError> {
         let spec = context.spec();
         let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
@@ -706,7 +729,6 @@ impl SnapshotValuator {
                 "mid valuation must declare a required mid-price field",
             ));
         }
-        let quality = valuation_quality(snapshot, spec)?.quality;
         let quote = selected[0].image.as_ref();
         let mark = |field| {
             quote

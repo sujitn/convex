@@ -229,9 +229,13 @@ pub(super) fn value(
         )
     } else {
         let valued = match input {
-            Input::Built(built) => {
-                valuator.value_built(built, context, request.clone(), calculated)
-            }
+            Input::Built(built) => valuator.value_built_judged(
+                built,
+                context,
+                request.clone(),
+                calculated,
+                quality.quality,
+            ),
             Input::Supplied(snapshot) => {
                 valuator.value(snapshot, context, request.clone(), calculated)
             }
