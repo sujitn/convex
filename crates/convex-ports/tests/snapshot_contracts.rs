@@ -231,3 +231,64 @@ fn instrument_lookups_find_each_reference_and_every_source_in_canonical_order() 
         assert!(snapshot.quotes_for(absent).is_empty());
     }
 }
+
+/// D58: one instrument's quality reads its own quotes, a floating note's fixings and,
+/// only when its valuation reads curves, the required curves.
+#[test]
+fn instrument_quality_reads_only_that_instruments_inputs() {
+    let mut content = fixture::content();
+    // Observed 20 s before the other: past its 10 s age and the 1 s skew policy.
+    fixture::add_bond(&mut content, "BOND-002", 20_000);
+    content.fixings.push(SnapshotFixing {
+        key: fixture::fixing_key(),
+        fixing: None,
+    });
+    let snapshot = MarketSnapshot::new(content).unwrap();
+    let reasons: Vec<_> = snapshot.quality().issues.iter().map(|i| i.reason).collect();
+    assert_eq!(snapshot.quality().quality, DataQuality::Invalid);
+    for reason in [
+        SnapshotIssueKind::Stale,
+        SnapshotIssueKind::SourceSkew,
+        SnapshotIssueKind::MissingFixing,
+    ] {
+        assert!(reasons.contains(&reason), "{reasons:?}");
+    }
+    // A fixed-coupon bond reads no fixing; its own fresh quote and curve are valid.
+    let fresh = snapshot.inputs("BOND-001", true);
+    assert!(fresh.fixings().is_empty());
+    assert_eq!(fresh.quotes().len(), 1);
+    assert_eq!(
+        fresh.curves(),
+        snapshot.content().required_curves.as_slice()
+    );
+    let quality = snapshot.quality_of(&fresh);
+    assert!(quality.complete && quality.issues.is_empty());
+    assert_eq!(quality.quality, DataQuality::Valid);
+    let stale = snapshot.quality_of(&snapshot.inputs("BOND-002", false));
+    assert_eq!(stale.quality, DataQuality::Stale);
+    assert_eq!(
+        stale.issues,
+        [SnapshotIssue {
+            dependency: "quote:BOND-002:feed-a:MidPrice".into(),
+            reason: SnapshotIssueKind::Stale,
+        }]
+    );
+    assert!(snapshot.inputs("BOND-404", true).quotes().is_empty());
+
+    // A curve counts only when the valuation reads curves. A one-instrument set that
+    // reads them gives the snapshot-wide answer.
+    let mut content = fixture::content();
+    let old = fixture::time("2026-10-02T14:59:00Z");
+    content.curves[0].source_time = old;
+    content.curves[0].recorded_at = old;
+    let snapshot = MarketSnapshot::new(content).unwrap();
+    assert_eq!(snapshot.quality().quality, DataQuality::Stale);
+    assert_eq!(
+        snapshot.quality_of(&snapshot.inputs("BOND-001", true)),
+        *snapshot.quality()
+    );
+    let mid_only = snapshot.quality_of(&snapshot.inputs("BOND-001", false));
+    assert!(mid_only.issues.is_empty());
+    assert_eq!(snapshot.curve_quality("USD-FIXTURE"), DataQuality::Stale);
+    assert_eq!(snapshot.curve_quality("USD-ABSENT"), DataQuality::Invalid);
+}

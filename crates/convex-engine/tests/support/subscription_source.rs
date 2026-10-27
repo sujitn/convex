@@ -52,7 +52,7 @@ impl QuoteSource for SubscriptionSource {
         &self,
         ids: &[convex_core::ids::InstrumentId],
     ) -> Result<StreamReceiver<QuoteEvent>, TraitError> {
-        assert_eq!(ids, &[convex_core::ids::InstrumentId::new("BOND-001")]);
+        assert!(ids.contains(&convex_core::ids::InstrumentId::new("BOND-001")));
         Ok(StreamReceiver::new(
             self.sender.lock().unwrap().as_ref().unwrap().subscribe(),
         ))

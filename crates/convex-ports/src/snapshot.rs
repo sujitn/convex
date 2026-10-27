@@ -15,7 +15,9 @@ use crate::fixing::{FixingKey, PublishedFixing};
 use crate::quote_event::{
     DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
 };
-use crate::reference_master::{validate_resolved_bond, ReferenceLookup, ResolvedBondReference};
+use crate::reference_master::{
+    validate_resolved_bond, MasterDefinition, ReferenceLookup, ResolvedBondReference,
+};
 use crate::storage::BondPricingConfig;
 use crate::TraitError;
 
@@ -364,6 +366,36 @@ pub struct SnapshotQuality {
     pub issues: Vec<SnapshotIssue>,
 }
 
+/// The inputs one dependent reads from a snapshot, in snapshot order (D58). Quality over
+/// a set judges only these inputs; source skew is measured among its quotes alone.
+#[derive(Debug, Clone)]
+pub struct InputSet<'a> {
+    quotes: &'a [SnapshotQuote],
+    fixings: Vec<&'a SnapshotFixing>,
+    curves: &'a [CurveId],
+}
+impl<'a> InputSet<'a> {
+    fn all(content: &'a SnapshotContent) -> Self {
+        Self {
+            quotes: &content.quotes,
+            fixings: content.fixings.iter().collect(),
+            curves: &content.required_curves,
+        }
+    }
+    /// Selected quotes read.
+    pub fn quotes(&self) -> &'a [SnapshotQuote] {
+        self.quotes
+    }
+    /// Required fixings read.
+    pub fn fixings(&self) -> &[&'a SnapshotFixing] {
+        &self.fixings
+    }
+    /// Required curves read.
+    pub fn curves(&self) -> &'a [CurveId] {
+        self.curves
+    }
+}
+
 /// Verified immutable content-addressed information set, schema 1, 2 or 3.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(try_from = "SnapshotWire", into = "SnapshotWire")]
@@ -382,7 +414,11 @@ impl MarketSnapshot {
     pub fn new(mut content: SnapshotContent) -> Result<Self, TraitError> {
         normalize(&mut content)?;
         validate_content(&content)?;
-        let quality = derive_quality(&content, content.as_of.max(content.known_at));
+        let quality = derive_quality(
+            &content,
+            content.as_of.max(content.known_at),
+            &InputSet::all(&content),
+        );
         let bytes = serde_json::to_vec(&content)
             .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
         if bytes.len() > MAX_SNAPSHOT_BYTES {
@@ -437,6 +473,56 @@ impl MarketSnapshot {
             quotes.partition_point(|q| q.requirement.key.instrument_id.as_str() <= instrument_id);
         &quotes[start..end]
     }
+    /// What one instrument's valuation reads (D58): its selected quotes, a floating
+    /// note's fixings on its pinned index and fixing source, and every required curve
+    /// when the valuation reads curves.
+    pub fn inputs(&self, instrument_id: &str, reads_curves: bool) -> InputSet<'_> {
+        let content = &self.0.content;
+        let index = self
+            .reference(instrument_id)
+            .and_then(|reference| reference.floating.as_ref())
+            .and_then(|floating| match &floating.index.definition {
+                MasterDefinition::RateIndex(index) => Some(index),
+                _ => None,
+            });
+        InputSet {
+            quotes: self.quotes_for(instrument_id),
+            fixings: index.map_or_else(Vec::new, |index| {
+                content
+                    .fixings
+                    .iter()
+                    .filter(|f| {
+                        f.key.index_id == index.index_id && f.key.source == index.fixing_source
+                    })
+                    .collect()
+            }),
+            curves: if reads_curves {
+                &content.required_curves
+            } else {
+                &[]
+            },
+        }
+    }
+    /// Quality of this snapshot's inputs in `inputs` alone, at the snapshot's own time.
+    pub fn quality_of(&self, inputs: &InputSet<'_>) -> SnapshotQuality {
+        let content = &self.0.content;
+        derive_quality(content, content.as_of.max(content.known_at), inputs)
+    }
+    /// Quality of one curve alone; a curve the snapshot does not require is `Invalid`.
+    pub fn curve_quality(&self, curve_id: &str) -> DataQuality {
+        let curves = &self.0.content.required_curves;
+        match curves.iter().position(|id| id.as_str() == curve_id) {
+            Some(i) => {
+                self.quality_of(&InputSet {
+                    quotes: &[],
+                    fixings: Vec::new(),
+                    curves: std::slice::from_ref(&curves[i]),
+                })
+                .quality
+            }
+            None => DataQuality::Invalid,
+        }
+    }
     /// Verify content/quality against its identity (also required after deserialization).
     pub fn verify(&self) -> Result<(), TraitError> {
         let verified = Self::new(self.0.content.clone())?;
@@ -467,9 +553,13 @@ impl MarketSnapshot {
             || decision_time < self.0.content.as_of
             || !self.0.quality.complete
             || self.0.quality.quality != DataQuality::Valid
-            || !derive_quality(&self.0.content, decision_time)
-                .issues
-                .is_empty()
+            || !derive_quality(
+                &self.0.content,
+                decision_time,
+                &InputSet::all(&self.0.content),
+            )
+            .issues
+            .is_empty()
             || self
                 .0
                 .content
@@ -840,7 +930,11 @@ fn validate_quote(quote: &SnapshotQuote, content: &SnapshotContent) -> Result<()
     Ok(())
 }
 
-fn derive_quality(content: &SnapshotContent, now: UtcTimestamp) -> SnapshotQuality {
+fn derive_quality(
+    content: &SnapshotContent,
+    now: UtcTimestamp,
+    inputs: &InputSet<'_>,
+) -> SnapshotQuality {
     let now_ms = now.datetime().timestamp_millis();
     let now_sub_ms = now.datetime().timestamp_subsec_nanos() % 1_000_000;
     use SnapshotIssueKind as K;
@@ -848,7 +942,7 @@ fn derive_quality(content: &SnapshotContent, now: UtcTimestamp) -> SnapshotQuali
     let mut complete = true;
     let mut source_times = Vec::new();
     let mut add = |dependency: String, reason| issues.push(SnapshotIssue { dependency, reason });
-    for quote in &content.quotes {
+    for quote in inputs.quotes {
         let id = format!(
             "quote:{}:{}",
             quote.requirement.key.instrument_id, quote.requirement.key.source
@@ -921,7 +1015,7 @@ fn derive_quality(content: &SnapshotContent, now: UtcTimestamp) -> SnapshotQuali
             add("selected_sources".into(), K::SourceSkew);
         }
     }
-    for selected in &content.fixings {
+    for selected in &inputs.fixings {
         let id = format!(
             "fixing:{}:{}:{}",
             selected.key.index_id,
@@ -938,7 +1032,7 @@ fn derive_quality(content: &SnapshotContent, now: UtcTimestamp) -> SnapshotQuali
             _ => {}
         }
     }
-    for id in &content.required_curves {
+    for id in inputs.curves {
         let dependency = format!("curve:{id}");
         let retained = content
             .curves

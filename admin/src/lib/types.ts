@@ -6,6 +6,7 @@ export interface RuntimeHealth {
   ready: boolean
   mode: string | null
   quality: string
+  failed_instruments: number
   snapshot_id: string | null
   generation: number
   revision: number

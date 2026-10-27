@@ -101,10 +101,14 @@ async fn cvx005_ac1_actual_quote_to_snapshot_graph_and_durable_publication() {
 async fn cvx005_ac2_curve_expiry_and_cleared_mark_retain_original_last_good() {
     for clear in [false, true] {
         let s = setup().await;
+        // A curve expires only for a context that reads it (D58), so this plan asks for a
+        // spread as well.
+        let mut plan = s.plan.clone();
+        plan.measures.push(MeasureId::new("z_spread_mid").unwrap());
         let engine = make_engine(
             &s,
             archive(&s),
-            s.plan.clone(),
+            plan.clone(),
             s.store.clone(),
             RuntimeInput::Captured,
         );
@@ -148,7 +152,7 @@ async fn cvx005_ac2_curve_expiry_and_cleared_mark_retain_original_last_good() {
         let reopened = make_engine(
             &s,
             archive(&s),
-            s.plan.clone(),
+            plan,
             s.store.clone(),
             RuntimeInput::Captured,
         );
@@ -776,6 +780,132 @@ async fn live_ticks_stay_in_memory_and_restart_continues_above_reserved_counters
     assert!(fresh.revision > restored[0].revision);
     assert!(restarted.runtime_health().ready);
     restarted.shutdown().await.unwrap();
+}
+
+/// The two records one tick of a two-bond plan publishes, in plan order.
+async fn two_bond_tick(
+    updates: &mut tokio::sync::broadcast::Receiver<PublishedValuation>,
+) -> [PublishedValuation; 2] {
+    let mut records = Vec::with_capacity(2);
+    for _ in 0..2 {
+        records.push(
+            tokio::time::timeout(Duration::from_secs(5), updates.recv())
+                .await
+                .unwrap()
+                .unwrap(),
+        );
+    }
+    assert_eq!(records[0].generation, records[1].generation);
+    records.try_into().unwrap()
+}
+
+/// D58: each bond is judged only on its own inputs. Two bonds ticked further apart than
+/// the skew policy both value. When one bond's quote ages out, only that bond fails and
+/// the runtime stays ready (D58a); its past expiry is never armed, so the tick does not
+/// re-run.
+#[tokio::test]
+async fn live_judges_each_bond_only_on_its_own_inputs() {
+    let s = setup().await;
+    let mut plan = live_plan(&s);
+    widen(&s, &mut plan, 2).await;
+    plan.assembly.max_source_skew_ms = 500;
+    plan.assembly.quotes[1].max_age_ms = 3_000;
+    let source = Arc::new(SubscriptionSource::new());
+    let engine = live_engine(&s, plan, s.store.clone(), source.clone());
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    // This current-thread test runs the actor only while it awaits, so both quotes are
+    // valued in one tick (D54).
+    let stamp = chrono::Utc::now().timestamp_millis();
+    let mut other = fixture::event(1, stamp - 600, stamp - 600, "99.00");
+    other.key.instrument_id = convex_core::ids::InstrumentId::new("BOND-W001");
+    source.send(other);
+    source.send(fixture::event(1, stamp, stamp, "99.25"));
+    let both = two_bond_tick(&mut updates).await;
+    for record in &both {
+        assert_eq!(
+            record.result.status(),
+            ResultStatus::Complete,
+            "{:?}",
+            record.result.errors()
+        );
+        assert_eq!(record.result.quality(), DataQuality::Valid);
+    }
+    let health = engine.runtime_health();
+    assert!(health.ready && health.failed_instruments == 0, "{health:?}");
+
+    // The second bond's quote ages out three seconds after it was observed.
+    let aged = two_bond_tick(&mut updates).await;
+    assert_eq!(aged[0].result.status(), ResultStatus::Complete);
+    assert_eq!(aged[0].result.quality(), DataQuality::Valid);
+    assert_eq!(aged[0].result.results(), both[0].result.results());
+    assert_eq!(aged[1].result.status(), ResultStatus::Failed);
+    assert_eq!(aged[1].result.quality(), DataQuality::Stale);
+    assert!(aged[1]
+        .result
+        .errors()
+        .iter()
+        .all(|e| e.code() == ErrorCode::StaleInput));
+    assert_eq!(aged[1].retained_quality, Some(DataQuality::Stale));
+    assert_eq!(aged[1].last_good.as_ref(), Some(&both[1].result));
+    let health = engine.runtime_health();
+    assert!(health.ready, "{health:?}");
+    assert_eq!(health.failed_instruments, 1);
+    assert_eq!(health.quality, DataQuality::Stale);
+
+    // Only the valid bond's expiry is armed, ten minutes away: no further tick.
+    assert!(
+        tokio::time::timeout(Duration::from_millis(500), updates.recv())
+            .await
+            .is_err()
+    );
+    assert_eq!(engine.runtime_health().generation, health.generation);
+    engine.shutdown().await.unwrap();
+}
+
+/// D58: a curve counts only for a context that reads curves. A stale curve fails a
+/// spread measure's context and leaves a mid-only context valid.
+#[tokio::test]
+async fn a_stale_curve_fails_only_a_context_that_reads_curves() {
+    for (measure, read) in [("ytm_mid", false), ("z_spread_mid", true)] {
+        let s = setup().await;
+        let mut plan = s.plan.clone();
+        let stale = fixture::time("2026-10-02T14:59:00Z");
+        plan.assembly.curves[0].source_time = stale;
+        plan.assembly.curves[0].recorded_at = stale;
+        plan.measures = vec![MeasureId::new(measure).unwrap()];
+        let engine = make_engine(
+            &s,
+            archive(&s),
+            plan,
+            s.store.clone(),
+            RuntimeInput::Captured,
+        );
+        engine.start().await.unwrap();
+        let results = engine.runtime_results();
+        assert_eq!(results.len(), 1);
+        let result = &results[0].result;
+        let health = engine.runtime_health();
+        if read {
+            assert_eq!(result.status(), ResultStatus::Failed);
+            assert_eq!(result.quality(), DataQuality::Stale);
+            assert_eq!(result.errors()[0].code(), ErrorCode::StaleInput);
+            assert!(
+                !health.ready && health.failed_instruments == 1,
+                "{health:?}"
+            );
+        } else {
+            assert_eq!(
+                result.status(),
+                ResultStatus::Complete,
+                "{:?}",
+                result.errors()
+            );
+            assert_eq!(result.quality(), DataQuality::Valid);
+            assert!(health.ready && health.failed_instruments == 0, "{health:?}");
+        }
+        engine.shutdown().await.unwrap();
+    }
 }
 
 /// G20: every tick is a new snapshot, so a Live runtime values more contexts than its

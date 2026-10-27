@@ -235,6 +235,9 @@ pub struct RuntimeHealth {
     pub mode: Option<RuntimeMode>,
     /// Latest frozen snapshot data condition.
     pub quality: DataQuality,
+    /// Current results that are not `Complete` with an accepted quality. Readiness needs
+    /// one accepted result, not every one (D58a).
+    pub failed_instruments: usize,
     /// Published input identity, when available.
     pub snapshot_id: Option<SnapshotId>,
     /// Restored/accepted target generation.
@@ -263,6 +266,7 @@ impl Default for RuntimeHealth {
             ready: false,
             mode: None,
             quality: DataQuality::Invalid,
+            failed_instruments: 0,
             snapshot_id: None,
             generation: 0,
             revision: 0,

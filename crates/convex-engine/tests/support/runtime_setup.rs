@@ -148,10 +148,6 @@ pub async fn widen(s: &Setup, plan: &mut RuntimePlan, width: usize) {
         )
         .await
         .unwrap();
-    // Source skew is checked across every quote in a snapshot (G24). Compiled Live
-    // configurations allow ten minutes (`configuration_compile`); the one-bond fixture
-    // allows one second, which a wide book exceeds as soon as bonds tick apart.
-    plan.assembly.max_source_skew_ms = 600_000;
     for bond in &copies {
         plan.assembly.instruments.push(InstrumentPin {
             instrument_id: InstrumentId::new(bond.instrument_id.as_str()).unwrap(),

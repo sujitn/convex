@@ -249,6 +249,26 @@ async fn a_stored_sofr_note_publishes_its_discount_margin_from_derived_fixings()
         fixings.last().unwrap().key.observation_date.date(),
         Date::parse("2026-10-01").unwrap()
     );
+    // D58: the note reads the fixings on its own index and fixing source, so a missing
+    // fixing on another index fails the snapshot but not the note.
+    let mut content = snapshot.content().clone();
+    let mut other = content.fixings[0].key.clone();
+    other.index_id = IndexId::new("EUR-ESTR").unwrap();
+    content
+        .fixings
+        .push(convex_ports::snapshot::SnapshotFixing {
+            key: other,
+            fixing: None,
+        });
+    let widened = convex_ports::snapshot::MarketSnapshot::new(content).unwrap();
+    assert_eq!(widened.quality().quality, DataQuality::Invalid);
+    let inputs = widened.inputs(frn().instrument_id.as_str(), true);
+    assert_eq!(inputs.fixings().len(), fixings.len());
+    assert_eq!(
+        inputs.curves(),
+        widened.content().required_curves.as_slice()
+    );
+    assert_eq!(widened.quality_of(&inputs).quality, DataQuality::Valid);
     assert!(result
         .provenance()
         .input_versions
