@@ -34,6 +34,9 @@ export function RuntimePage() {
               <Badge tone={runtime.ready ? 'good' : 'bad'}>{runtime.phase}</Badge>
               <Badge tone="neutral">mode {runtime.mode ?? 'none'}</Badge>
               <Badge tone={runtime.quality === 'Valid' ? 'good' : 'warn'}>quality {runtime.quality}</Badge>
+              {runtime.failed_instruments > 0 && (
+                <Badge tone="warn">{runtime.failed_instruments} failed instruments</Badge>
+              )}
               {runtime.failure && <Badge tone="bad">{runtime.failure}</Badge>}
             </div>
             <Table

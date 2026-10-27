@@ -440,7 +440,6 @@ impl Actor {
             }
         }
         let built = worker::activate(&self.graph, &self.services.plan, snapshot.clone())?;
-        self.set_deadline(&snapshot)?;
         if self.checkpoint.pending {
             self.calculate(built).await?;
         } else {
@@ -451,6 +450,7 @@ impl Actor {
                 &self.checkpoint.results,
             )?;
         }
+        self.set_deadline(&snapshot);
         *self.results.write() = self.checkpoint.results.clone();
         Ok(())
     }
@@ -565,7 +565,6 @@ impl Actor {
         built: Arc<crate::curve_replay::BuiltSnapshot>,
     ) -> Result<(), RuntimeError> {
         let snapshot = built.snapshot().clone();
-        self.set_deadline(&snapshot)?;
         let started = std::time::Instant::now();
         let produced = worker::calculate(
             &self.graph,
@@ -586,6 +585,7 @@ impl Actor {
         next.pending = false;
         next.snapshot_id = Some(snapshot.id().clone());
         self.save(next).await?;
+        self.set_deadline(&snapshot);
         *self.results.write() = self.checkpoint.results.clone();
         Ok(())
     }
@@ -612,38 +612,38 @@ impl Actor {
         }
         Ok(())
     }
-    fn set_deadline(&mut self, snapshot: &MarketSnapshot) -> Result<(), RuntimeError> {
-        self.data_deadline = if self.services.plan.mode == RuntimeMode::Live
-            && self.accepts(snapshot.quality().quality)
-        {
-            worker::expiry(snapshot)?.map(|deadline| {
-                let delta = deadline
-                    .datetime()
-                    .signed_duration_since(chrono::Utc::now())
-                    .to_std()
-                    .unwrap_or(Duration::ZERO);
-                tokio::time::Instant::now() + delta + Duration::from_nanos(1)
-            })
-        } else {
-            None
-        };
-        if self.services.plan.mode == RuntimeMode::Live {
-            if let Some(capture) = &snapshot.content().configuration_capture {
-                if let Some(expiry) = capture.applied_overrides.iter().map(|o| o.expires_at).min() {
-                    let delta = expiry
-                        .datetime()
-                        .signed_duration_since(chrono::Utc::now())
-                        .to_std()
-                        .unwrap_or(Duration::ZERO);
-                    let deadline = tokio::time::Instant::now() + delta;
-                    self.data_deadline = Some(
-                        self.data_deadline
-                            .map_or(deadline, |prior| prior.min(deadline)),
-                    );
-                }
-            }
+    /// Live arms the earliest expiry among the results it accepts, and the first applied
+    /// override's expiry (D58). A refused result's past expiry is never armed, so a stale
+    /// instrument cannot re-run the tick; an accepted one the clock has already passed
+    /// re-runs it once.
+    fn set_deadline(&mut self, snapshot: &MarketSnapshot) {
+        self.data_deadline = None;
+        if self.services.plan.mode != RuntimeMode::Live {
+            return;
         }
-        Ok(())
+        let at = |time: UtcTimestamp| {
+            let delta = time
+                .datetime()
+                .signed_duration_since(chrono::Utc::now())
+                .to_std()
+                .unwrap_or(Duration::ZERO);
+            tokio::time::Instant::now() + delta
+        };
+        let data = self
+            .checkpoint
+            .results
+            .iter()
+            .filter(|r| self.accepts(r.result.quality()))
+            .filter_map(|r| r.live_valid_until)
+            .min()
+            .map(|expiry| at(expiry) + Duration::from_nanos(1));
+        let overrides = snapshot
+            .content()
+            .configuration_capture
+            .as_ref()
+            .and_then(|capture| capture.applied_overrides.iter().map(|o| o.expires_at).min())
+            .map(at);
+        self.data_deadline = data.into_iter().chain(overrides).min();
     }
     async fn expire_data(&mut self) -> Result<(), RuntimeError> {
         let now =
@@ -705,22 +705,23 @@ impl Actor {
                 .or_else(|| qualities.clone().find(|q| *q == DataQuality::Demo))
                 .unwrap_or(DataQuality::Valid)
         };
-        let complete = !self.checkpoint.results.is_empty()
-            && self
-                .checkpoint
-                .results
-                .iter()
-                .all(|r| r.result.status() == ResultStatus::Complete);
+        // Readiness needs one accepted result, not every one (D58a).
+        let accepted = self
+            .checkpoint
+            .results
+            .iter()
+            .filter(|r| {
+                r.result.status() == ResultStatus::Complete && self.accepts(r.result.quality())
+            })
+            .count();
         let mut health = self.health.write();
         let accepted_activation = self
             .checkpoint
             .configuration_activation
             .as_ref()
             .map(|a| a.revision);
-        let ready = complete
-            && self.accepts(quality)
+        let ready = accepted > 0
             && !self.checkpoint.delivery_lost
-            && self.needs_images.is_empty()
             && self.checkpoint.outbox.is_empty()
             && !self.checkpoint.pending
             && health
@@ -737,6 +738,7 @@ impl Actor {
         health.mode = Some(self.services.plan.mode);
         health.configuration_id = Some(self.services.plan.assembly.configuration.id.clone());
         health.quality = quality;
+        health.failed_instruments = self.checkpoint.results.len() - accepted;
         health.snapshot_id = self.checkpoint.snapshot_id.clone();
         health.generation = self.checkpoint.generation.get();
         health.revision = self.checkpoint.result_revision;

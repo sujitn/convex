@@ -11,7 +11,7 @@ use convex_core::contracts::*;
 use convex_ports::{
     configuration::InstrumentPin,
     runtime::{PublishedValuation, RuntimeCheckpoint},
-    snapshot::{MarketSnapshot, SnapshotIssueKind},
+    snapshot::{InputSet, MarketSnapshot, SnapshotIssueKind, SnapshotQuality},
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -126,6 +126,7 @@ fn failed(
     snapshot: &MarketSnapshot,
     request: RequestId,
     calculated: UtcTimestamp,
+    quality: DataQuality,
     code: ErrorCode,
 ) -> Result<SnapshotValuationResult, RuntimeError> {
     let spec = context.spec();
@@ -152,7 +153,7 @@ fn failed(
     let envelope = ResultEnvelope::new(
         request,
         ResultStatus::Failed,
-        snapshot.quality().quality,
+        quality,
         BTreeMap::new(),
         errors,
         Provenance {
@@ -170,9 +171,9 @@ fn failed(
     .map_err(|_| RuntimeError::Worker)?;
     Ok(SnapshotValuationResult::new(context.clone(), envelope)?)
 }
-fn quality_error(snapshot: &MarketSnapshot) -> ErrorCode {
+fn quality_error(quality: &SnapshotQuality) -> ErrorCode {
     use SnapshotIssueKind as K;
-    match snapshot.quality().issues.first().map(|i| i.reason) {
+    match quality.issues.first().map(|i| i.reason) {
         Some(K::Stale) => ErrorCode::StaleInput,
         Some(K::Gap | K::Closed | K::AwaitingImage) => ErrorCode::DataGap,
         Some(K::Unauthorized) => ErrorCode::EntitlementDenied,
@@ -215,19 +216,26 @@ pub(super) fn value(
             "unsupported context/time/model policy",
         ));
     }
-    if !accepted(snapshot.quality().quality, demo) {
+    // Each instrument is judged only on the inputs its own valuation reads (D58).
+    let quality = crate::snapshot::valuation_quality(snapshot, context.spec())?;
+    if !accepted(quality.quality, demo) {
         failed(
             context,
             snapshot,
             request,
             calculated,
-            quality_error(snapshot),
+            quality.quality,
+            quality_error(&quality),
         )
     } else {
         let valued = match input {
-            Input::Built(built) => {
-                valuator.value_built(built, context, request.clone(), calculated)
-            }
+            Input::Built(built) => valuator.value_built_judged(
+                built,
+                context,
+                request.clone(),
+                calculated,
+                quality.quality,
+            ),
             Input::Supplied(snapshot) => {
                 valuator.value(snapshot, context, request.clone(), calculated)
             }
@@ -239,6 +247,7 @@ pub(super) fn value(
                 snapshot,
                 request,
                 calculated,
+                quality.quality,
                 match error {
                     convex_ports::TraitError::Unsupported(_) => ErrorCode::UnsupportedConvention,
                     convex_ports::TraitError::Conflict(_) => ErrorCode::VersionConflict,
@@ -262,11 +271,7 @@ pub(super) async fn calculate(
         .result_revision
         .checked_add(plan.assembly.instruments.len() as u64)
         .ok_or(RuntimeError::CapacityExceeded)?;
-    let live_valid_until = if plan.mode == super::RuntimeMode::Live {
-        expiry(snapshot)?
-    } else {
-        None
-    };
+    let live = plan.mode == super::RuntimeMode::Live;
     let pins = &plan.assembly.instruments;
     // At most `concurrency` blocking jobs run at once. Each joined job is committed and
     // the next prepared at once, so no job waits for a slower one (G26). Tickets stay
@@ -320,6 +325,19 @@ pub(super) async fn calculate(
                     demo,
                 );
                 crate::telemetry::observe(crate::telemetry::VALUATION_SECONDS, started);
+                // Each Live record expires with its own instrument's inputs (D58).
+                let result = result.and_then(|result| {
+                    let until = if live {
+                        let snapshot = built.snapshot();
+                        expiry(
+                            snapshot,
+                            &crate::snapshot::valuation_inputs(snapshot, ctx.spec())?,
+                        )?
+                    } else {
+                        None
+                    };
+                    Ok((result, until))
+                });
                 (index, result)
             });
         }
@@ -336,11 +354,11 @@ pub(super) async fn calculate(
             continue;
         };
         match result {
-            Ok(result) => {
+            Ok((result, until)) => {
                 let committed = graph
                     .commit_result(&ticket, Ok(NodeValue::Valuation(Arc::new(result.clone()))));
                 if matches!(committed, Ok(CommitOutcome::Committed { .. })) {
-                    valued[index] = Some(result);
+                    valued[index] = Some((result, until));
                 } else {
                     graph.cancel_attempt(&ticket);
                     failure.get_or_insert(RuntimeError::Worker);
@@ -363,8 +381,8 @@ pub(super) async fn calculate(
     let mut produced = Vec::with_capacity(pins.len());
     let mut revision = checkpoint.result_revision;
     let mut prior = None;
-    for result in valued {
-        let result = result.ok_or(RuntimeError::Worker)?;
+    for valued in valued {
+        let (result, live_valid_until) = valued.ok_or(RuntimeError::Worker)?;
         revision = revision
             .checked_add(1)
             .ok_or(RuntimeError::CapacityExceeded)?;
@@ -462,45 +480,45 @@ pub(super) fn restore_results(
     Ok(())
 }
 
-pub(super) fn expiry(snapshot: &MarketSnapshot) -> Result<Option<UtcTimestamp>, RuntimeError> {
+/// When one instrument's inputs stop being fresh: its quote fields, the overrides on its
+/// quote keys, and the curves or calibration it reads.
+pub(super) fn expiry(
+    snapshot: &MarketSnapshot,
+    inputs: &InputSet<'_>,
+) -> Result<Option<UtcTimestamp>, RuntimeError> {
+    let content = snapshot.content();
+    let after = |time: UtcTimestamp, max_age_ms: i64| {
+        let deadline = time
+            .datetime()
+            .checked_add_signed(chrono::Duration::milliseconds(max_age_ms))
+            .ok_or(RuntimeError::Configuration("curve deadline overflow"))?;
+        UtcTimestamp::from_datetime(deadline)
+            .map_err(|_| RuntimeError::Configuration("curve deadline overflow"))
+    };
     let mut deadlines = Vec::new();
-    if let Some(capture) = &snapshot.content().configuration_capture {
-        deadlines.extend(capture.applied_overrides.iter().map(|o| o.expires_at));
-    }
-    for curve in &snapshot.content().curves {
-        let deadline = curve
-            .source_time
-            .datetime()
-            .checked_add_signed(chrono::Duration::milliseconds(curve.max_age_ms))
-            .ok_or(RuntimeError::Configuration("curve deadline overflow"))?;
-        deadlines.push(
-            UtcTimestamp::from_datetime(deadline)
-                .map_err(|_| RuntimeError::Configuration("curve deadline overflow"))?,
+    if let Some(capture) = &content.configuration_capture {
+        deadlines.extend(
+            capture
+                .applied_overrides
+                .iter()
+                .filter(|o| inputs.quotes().iter().any(|q| q.requirement.key == o.scope))
+                .map(|o| o.expires_at),
         );
     }
-    for curve in &snapshot.content().curve_recipes {
-        let deadline = curve
-            .source_time
-            .datetime()
-            .checked_add_signed(chrono::Duration::milliseconds(curve.max_age_ms))
-            .ok_or(RuntimeError::Configuration("curve deadline overflow"))?;
-        deadlines.push(
-            UtcTimestamp::from_datetime(deadline)
-                .map_err(|_| RuntimeError::Configuration("curve deadline overflow"))?,
-        );
+    for &id in inputs.curves() {
+        if let Some(curve) = content.curves.iter().find(|c| &c.curve_id == id) {
+            deadlines.push(after(curve.source_time, curve.max_age_ms)?);
+        } else if let Some(curve) = content.curve_recipes.iter().find(|c| &c.curve_id == id) {
+            deadlines.push(after(curve.source_time, curve.max_age_ms)?);
+        } else if let Some(calibration) = content
+            .calibration
+            .as_ref()
+            .filter(|c| c.curves.iter().any(|p| &p.curve_id == id))
+        {
+            deadlines.push(after(calibration.source_time, calibration.max_age_ms)?);
+        }
     }
-    if let Some(calibration) = &snapshot.content().calibration {
-        let deadline = calibration
-            .source_time
-            .datetime()
-            .checked_add_signed(chrono::Duration::milliseconds(calibration.max_age_ms))
-            .ok_or(RuntimeError::Configuration("calibration deadline overflow"))?;
-        deadlines.push(
-            UtcTimestamp::from_datetime(deadline)
-                .map_err(|_| RuntimeError::Configuration("calibration deadline overflow"))?,
-        );
-    }
-    for quote in &snapshot.content().quotes {
+    for quote in inputs.quotes() {
         if let Some(image) = &quote.image {
             for field in &quote.requirement.fields {
                 if let Some(value) = image.fields.get(field) {

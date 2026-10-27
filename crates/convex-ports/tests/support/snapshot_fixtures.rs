@@ -172,3 +172,34 @@ pub fn content() -> SnapshotContent {
 pub fn snapshot() -> MarketSnapshot {
     MarketSnapshot::new(content()).unwrap()
 }
+/// Add a copy of the fixture bond under `id`, its mid observed `age_ms` before `as_of`.
+pub fn add_bond(content: &mut SnapshotContent, id: &str, age_ms: i64) {
+    let mut reference = content.references[0].clone();
+    reference.record.instrument_id = convex_core::ids::InstrumentId::new(id);
+    if let Some(bond) = &mut reference.record.bond {
+        bond.instrument_id = reference.record.instrument_id.clone();
+    }
+    let mut quote = content.quotes[0].clone();
+    quote.requirement.key.instrument_id = reference.record.instrument_id.clone();
+    let key = quote.requirement.key.clone();
+    let observed = content.as_of.datetime().timestamp_millis() - age_ms;
+    for event in quote
+        .delivery_watermark
+        .iter_mut()
+        .chain(quote.image.iter_mut().map(|image| &mut image.watermark))
+    {
+        event.key = key.clone();
+        event.source_time_ms = observed;
+        event.receive_time_ms = observed;
+    }
+    for field in quote
+        .image
+        .iter_mut()
+        .flat_map(|image| image.fields.values_mut())
+    {
+        field.source_time_ms = observed;
+        field.receive_time_ms = observed;
+    }
+    content.references.push(reference);
+    content.quotes.push(quote);
+}

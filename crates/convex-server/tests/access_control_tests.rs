@@ -319,7 +319,12 @@ async fn dependency_failure_preserves_liveness_and_strategy_never_becomes_ready(
     let issuer = IssuerFixture::start().await;
     let document = policy();
     let access = AccessControl::new(issuer.verifier.clone(), document.clone()).unwrap();
-    let s = support::setup().await;
+    let mut s = support::setup().await;
+    // Curve expiry fails only a context that reads the curve (D58), so the plan asks for
+    // a spread as well.
+    s.plan
+        .measures
+        .push(convex_core::contracts::MeasureId::new("z_spread_mid").unwrap());
     let engine = support::make_engine(
         &s,
         support::archive(&s),

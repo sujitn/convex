@@ -65,6 +65,47 @@ pub const RUNTIME_MEASURES: [&str; 26] = [
 fn curve_measure(measure: &str) -> bool {
     matches!(measure, "z_spread_mid" | "i_spread_mid" | "asw_mid") || curve_risk_measure(measure)
 }
+/// The configured curves one valuation reads (D58): a callable's discount curve, a
+/// floating rate note's discount and reference curves, and another bond's discount and
+/// swap curves when it asks for a spread or curve-risk measure. No snapshot valuation
+/// reads the government curve.
+fn read_curves<'c>(
+    spec: &ValuationContextSpec,
+    curves: &'c convex_ports::storage::AnalyticsCurves,
+) -> Vec<&'c str> {
+    let model = spec.model_id.as_str();
+    let second = if model == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL {
+        None
+    } else if model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
+        curves.frn_reference_curve.as_ref()
+    } else if spec.measures.iter().any(|m| curve_measure(m.as_str())) {
+        curves.swap_curve.as_ref()
+    } else {
+        return Vec::new();
+    };
+    std::iter::once(&curves.discount_curve)
+        .chain(second)
+        .map(|id| id.as_str())
+        .collect()
+}
+/// The snapshot inputs one valuation context reads (D58).
+pub(crate) fn valuation_inputs<'a>(
+    snapshot: &'a MarketSnapshot,
+    spec: &ValuationContextSpec,
+) -> Result<convex_ports::snapshot::InputSet<'a>, TraitError> {
+    let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
+        return Err(TraitError::Unsupported("trade economics unavailable"));
+    };
+    let curves = read_curves(spec, &snapshot.content().configuration.analytics_curves);
+    Ok(snapshot.inputs(instrument_id.as_str(), &curves))
+}
+/// Quality of the inputs one valuation context reads, never the whole snapshot's.
+pub(crate) fn valuation_quality(
+    snapshot: &MarketSnapshot,
+    spec: &ValuationContextSpec,
+) -> Result<convex_ports::snapshot::SnapshotQuality, TraitError> {
+    Ok(snapshot.quality_of(&valuation_inputs(snapshot, spec)?))
+}
 /// Measures read from the router's frozen-Z curve risk, which fails as one `curve_risk` field.
 fn curve_risk_measure(measure: &str) -> bool {
     matches!(
@@ -573,7 +614,15 @@ impl SnapshotValuator {
         let recipe_curves = crate::curve_replay::replay_snapshot_curves(snapshot);
         crate::telemetry::observe_curve_build(crate::telemetry::CurvePath::Valuation, started);
         let recipe_curves = recipe_curves.map_err(TraitError::from)?;
-        self.price(snapshot, &recipe_curves, context, request_id, calculated_at)
+        let quality = valuation_quality(snapshot, context.spec())?.quality;
+        self.price(
+            snapshot,
+            &recipe_curves,
+            context,
+            request_id,
+            calculated_at,
+            quality,
+        )
     }
     /// [`Self::value`] over a snapshot verified and built once for its whole activation, so
     /// valuing each instrument neither re-hashes the snapshot nor rebuilds its curves.
@@ -583,6 +632,19 @@ impl SnapshotValuator {
         context: &ValuationContext,
         request_id: RequestId,
         calculated_at: UtcTimestamp,
+    ) -> Result<SnapshotValuationResult, TraitError> {
+        let quality = valuation_quality(built.snapshot(), context.spec())?.quality;
+        self.value_built_judged(built, context, request_id, calculated_at, quality)
+    }
+    /// [`Self::value_built`] for a caller that already derived the instrument's quality
+    /// (D58), so one valuation derives it once.
+    pub(crate) fn value_built_judged(
+        &self,
+        built: &crate::curve_replay::BuiltSnapshot,
+        context: &ValuationContext,
+        request_id: RequestId,
+        calculated_at: UtcTimestamp,
+        quality: DataQuality,
     ) -> Result<SnapshotValuationResult, TraitError> {
         self.admit(built.snapshot(), context, calculated_at)?;
         if let Some(cached) = self.cache.get(context)? {
@@ -594,6 +656,7 @@ impl SnapshotValuator {
             context,
             request_id,
             calculated_at,
+            quality,
         )
     }
     fn admit(
@@ -627,6 +690,7 @@ impl SnapshotValuator {
         context: &ValuationContext,
         request_id: RequestId,
         calculated_at: UtcTimestamp,
+        quality: DataQuality,
     ) -> Result<SnapshotValuationResult, TraitError> {
         let spec = context.spec();
         let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
@@ -697,6 +761,7 @@ impl SnapshotValuator {
                 reference,
                 recipe_curves,
                 mark(QuoteField::MidPrice),
+                quality,
             )?
         } else if spec.model_id.as_str() == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
             floating_measures(
@@ -705,6 +770,7 @@ impl SnapshotValuator {
                 reference,
                 recipe_curves,
                 mark(QuoteField::MidPrice),
+                quality,
             )?
         } else {
             let curve = |id: &convex_core::ids::CurveId| {
@@ -803,7 +869,7 @@ impl SnapshotValuator {
                             measure.clone(),
                             MeasureResult {
                                 value,
-                                quality: snapshot.quality().quality,
+                                quality,
                                 method: spec.model_id.clone(),
                                 source_observation_id: None,
                             },
@@ -852,7 +918,7 @@ impl SnapshotValuator {
         let envelope = ResultEnvelope::new(
             request_id.clone(),
             status,
-            snapshot.quality().quality,
+            quality,
             results,
             errors,
             Provenance {
@@ -926,6 +992,7 @@ fn floating_measures(
     reference: &ResolvedBondReference,
     recipe_curves: &convex_curves::contracts::CurveBuildOutput,
     clean_mid: Option<rust_decimal::Decimal>,
+    quality: DataQuality,
 ) -> Result<Measures, TraitError> {
     use crate::optional_valuation::{failure, Failure};
     let configuration = &snapshot.content().configuration;
@@ -1057,7 +1124,7 @@ fn floating_measures(
                     measure.clone(),
                     MeasureResult {
                         value,
-                        quality: snapshot.quality().quality,
+                        quality,
                         method: spec.model_id.clone(),
                         source_observation_id: None,
                     },
@@ -1085,6 +1152,7 @@ fn callable_measures(
     reference: &ResolvedBondReference,
     recipe_curves: &convex_curves::contracts::CurveBuildOutput,
     clean_mid: Option<rust_decimal::Decimal>,
+    quality: DataQuality,
 ) -> Result<Measures, TraitError> {
     use crate::optional_valuation::{self as optional, Failure};
     let failure = |code, message: &str| Failure {
@@ -1208,7 +1276,7 @@ fn callable_measures(
                     measure.clone(),
                     MeasureResult {
                         value,
-                        quality: snapshot.quality().quality,
+                        quality,
                         method: spec.model_id.clone(),
                         source_observation_id: None,
                     },

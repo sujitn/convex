@@ -21,12 +21,21 @@ rate index. Each instrument requests the plan measures its own model publishes. 
 plan pins no fixing keys: each snapshot derives a note's due fixings from its contract
 and reads them from the durable fixing store the server's
 `POST /api/v1/analytics/fixings` writes. Unsupported measures, products and
-configurations fail explicitly. Required missing/stale/invalid curves block runtime results even
-when an observed clean mark would otherwise be available. No spread, risk, price
-or curve is synthesized to fill a missing dependency.
+configurations fail explicitly. A missing, stale or invalid required curve blocks the
+results that read it, even when an observed clean mark would otherwise be available.
+No spread, risk, price or curve is synthesized to fill a missing dependency.
 
 The complete manifest supplies each bond's dependencies. Every bond in a batch
-consumes the same captured snapshot and configuration. Each snapshot is verified and
+consumes the same captured snapshot and configuration, but each result is judged
+only on the inputs its own valuation reads: its selected quotes, a floating rate
+note's fixings on its index and fixing source, and the configured curves it reads. A
+callable reads the discount curve, a floating rate note the discount and FRN
+reference curves, and another bond the discount and swap curves only when it asks for
+a spread or curve-risk measure. No runtime valuation reads the government curve.
+Source skew is measured among one bond's own quotes. A stale or
+missing input fails only the bonds that read it. The snapshot keeps its own
+snapshot-wide quality for its identity, configuration fixture checks and the hedge
+execution gate. Each snapshot is verified and
 its curves built once, at graph activation, and every bond's valuation reads that
 build. Graph mutation, mutable
 curve-builder reads and current reference/configuration lookups do not occur in
@@ -41,17 +50,26 @@ analytics remain their owning tasks.
 
 | Mode | Input and time | Readiness meaning |
 | --- | --- | --- |
-| Captured | Caller supplies normalized events and both cutoffs | Complete valid historical/captured context |
-| Replay | Pull source such as `FileQuoteReplay`, with original event order/time | Complete valid historical context; EOF sets `replay_complete` |
-| Live | `RuntimeInput::Live` quote source subscription, such as the server's HTTP ingress | All selected sources supplied new images in this process, data remains valid, output is acknowledged |
+| Captured | Caller supplies normalized events and both cutoffs | At least one complete result on valid captured inputs |
+| Replay | Pull source such as `FileQuoteReplay`, with original event order/time | At least one complete result on valid historical inputs; EOF sets `replay_complete` |
+| Live | `RuntimeInput::Live` quote source subscription, such as the server's HTTP ingress | At least one complete result on valid inputs from this process; after a delivery loss, every selected source supplied a new image |
 | Idle demo | Explicit `with_demo_mode`, no numerical runtime | Demo quality; readiness stays false |
+
+Every mode also needs the accepted configuration activation, acknowledged output
+and no pending work. One quiet or stale bond does not close readiness: it publishes
+its own failed result, and health counts it in `failed_instruments`. Health
+`quality` is `Stale` once a data deadline has passed, else the first refused result
+quality, else `Demo` if any result is `Demo`, else `Valid`.
 
 `Live` is a provider integration point. Its broadcast transport reports lag and
 closure; these stop acceptance, publish a failed/stale state when storage/output
-permit it, and unsubscribe. Restart restores dependencies but waits for new images
-from all selected sources. A deadline wakeup revalues expired inputs without a
-periodic calculation poll. Live records include `live_valid_until`, derived from
-the original dependency times. Consumers must respect that deadline, snapshot
+permit it, and unsubscribe. Restart restores dependencies, and each bond fails until
+its source supplies a new image. After a delivery loss readiness waits for new
+images from all selected sources. A deadline wakeup revalues expired inputs without
+a periodic calculation poll. It is armed at the earliest expiry among the results
+whose quality is accepted, so a bond that is already stale never re-runs the tick.
+Live records include `live_valid_until`, derived from that bond's own dependency
+times. Consumers must respect that deadline, snapshot
 quality and their own product freshness rules. Analytics readiness never grants
 strategy or execution permission.
 

@@ -275,3 +275,50 @@ fn partial_invalid_and_failed_snapshot_measures_block_aggregation_and_keep_full_
         }
     }
 }
+
+/// D58: one stale bond leaves a shared curve node Valid, so a valuation that depends on
+/// the curve is still ready. A curve the snapshot does not hold is Invalid.
+#[test]
+fn a_stale_bond_beside_a_shared_curve_node_leaves_the_curve_valid() {
+    let graph = CalculationGraph::new();
+    let mut content = fixture::content();
+    fixture::add_bond(&mut content, "BOND-002", 20_000);
+    let snapshot = Arc::new(MarketSnapshot::new(content).unwrap());
+    assert_ne!(snapshot.quality().quality, DataQuality::Valid);
+    let curve = |id: &str| NodeId::Curve {
+        curve_id: convex_core::ids::CurveId::new(id),
+    };
+    graph
+        .activate_snapshot(
+            vec![
+                NodeSpec::calculation(curve("USD-FIXTURE"), vec![]),
+                NodeSpec::calculation(curve("USD-ABSENT"), vec![]),
+                NodeSpec::calculation(bond(), vec![curve("USD-FIXTURE")]),
+            ],
+            snapshot.clone(),
+        )
+        .unwrap();
+    for (id, quality) in [
+        ("USD-FIXTURE", DataQuality::Valid),
+        ("USD-ABSENT", DataQuality::Invalid),
+    ] {
+        let ticket = graph.begin_calculation(&curve(id)).unwrap();
+        graph
+            .commit_result(
+                &ticket,
+                Ok(NodeValue::Curve {
+                    points: vec![(365, 0.04)],
+                }),
+            )
+            .unwrap();
+        assert_eq!(graph.get_cached(&curve(id)).unwrap().quality, quality);
+    }
+    let ctx = context(&snapshot, &["clean_price_mid", "ytm_mid"]);
+    let ticket = graph.begin_valuation(&bond(), ctx.clone()).unwrap();
+    let result = calculate(&snapshot, &ctx);
+    assert_eq!(result.envelope().status(), ResultStatus::Complete);
+    assert_eq!(result.envelope().quality(), DataQuality::Valid);
+    graph
+        .commit_result(&ticket, Ok(NodeValue::Valuation(result)))
+        .unwrap();
+}

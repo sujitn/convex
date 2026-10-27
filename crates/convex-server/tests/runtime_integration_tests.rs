@@ -15,7 +15,12 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn liveness_is_separate_from_readiness_and_rest_matches_the_actual_runtime_context() {
-    let s = setup().await;
+    let mut s = setup().await;
+    // Curve expiry fails only a context that reads the curve (D58), so the plan asks for
+    // a spread as well.
+    s.plan
+        .measures
+        .push(convex_core::contracts::MeasureId::new("z_spread_mid").unwrap());
     let engine = make_engine(
         &s,
         archive(&s),

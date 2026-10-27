@@ -1414,12 +1414,17 @@ impl CalculationGraph {
                     NodeValue::Valuation(result) => {
                         (result.envelope().status(), result.envelope().quality())
                     }
+                    // A curve node takes its own curve's quality. Any other node reads no
+                    // snapshot input directly, and capture took each dependency Complete
+                    // and Valid, so one stale bond never stops shared nodes (D58).
                     _ => (
                         ResultStatus::Complete,
-                        ticket
-                            .snapshot
-                            .as_ref()
-                            .map_or(DataQuality::Valid, |snapshot| snapshot.quality().quality),
+                        match (&ticket.snapshot, &state.dag.nodes[i].id) {
+                            (Some(snapshot), NodeId::Curve { curve_id }) => {
+                                snapshot.curve_quality(curve_id.as_str())
+                            }
+                            _ => DataQuality::Valid,
+                        },
                     ),
                 };
                 let cached = Arc::new(CachedValue {
