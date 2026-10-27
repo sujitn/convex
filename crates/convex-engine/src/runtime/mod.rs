@@ -122,7 +122,7 @@ impl RuntimePlan {
         instrument: &InstrumentId,
     ) -> Result<crate::context::ValuationContext, RuntimeError> {
         self.validate()?;
-        worker::context(self, snapshot, instrument)
+        worker::context(self, snapshot, worker::plan_pin(self, instrument)?)
     }
     fn digest(&self) -> Result<String, RuntimeError> {
         self.validate()?;

@@ -633,10 +633,7 @@ impl SnapshotValuator {
             return Err(TraitError::Unsupported("trade economics unavailable"));
         };
         let reference = snapshot
-            .content()
-            .references
-            .iter()
-            .find(|r| r.record.instrument_id.as_str() == instrument_id.as_str())
+            .reference(instrument_id.as_str())
             .ok_or(TraitError::InvalidInput("missing pinned reference"))?;
         let bond = reference
             .record
@@ -670,12 +667,7 @@ impl SnapshotValuator {
                 "snapshot pricing currently requires observed clean marks",
             ));
         }
-        let selected = snapshot
-            .content()
-            .quotes
-            .iter()
-            .filter(|q| q.requirement.key.instrument_id.as_str() == instrument_id.as_str())
-            .collect::<Vec<_>>();
+        let selected = snapshot.quotes_for(instrument_id.as_str());
         if selected.len() != 1 {
             return Err(TraitError::InvalidInput(
                 "pricing requires one explicitly selected quote source",

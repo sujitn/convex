@@ -164,3 +164,70 @@ fn snapshot_configuration_keeps_exact_decimals_under_workspace_feature_unificati
         snapshot
     );
 }
+
+#[test]
+fn instrument_lookups_find_each_reference_and_every_source_in_canonical_order() {
+    let mut content = fixture::content();
+    let reference = content.references[0].clone();
+    let quote = content.quotes[0].clone();
+    content.references.clear();
+    content.quotes.clear();
+    // Supplied out of order; one instrument has two sources.
+    for (id, sources) in [
+        ("BOND-003", &["feed-a"][..]),
+        ("BOND-001", &["feed-b", "feed-a"][..]),
+        ("BOND-002", &["feed-a"][..]),
+    ] {
+        let mut reference = reference.clone();
+        reference.record.instrument_id = convex_core::ids::InstrumentId::new(id);
+        if let Some(bond) = &mut reference.record.bond {
+            bond.instrument_id = reference.record.instrument_id.clone();
+        }
+        content.references.push(reference);
+        for source in sources {
+            let mut quote = quote.clone();
+            quote.requirement.key.instrument_id = convex_core::ids::InstrumentId::new(id);
+            quote.requirement.key.source = (*source).into();
+            let key = quote.requirement.key.clone();
+            for event in quote
+                .delivery_watermark
+                .iter_mut()
+                .chain(quote.image.iter_mut().map(|image| &mut image.watermark))
+            {
+                event.key = key.clone();
+            }
+            content.quotes.push(quote);
+        }
+    }
+    let snapshot = MarketSnapshot::new(content).unwrap();
+    for id in ["BOND-001", "BOND-002", "BOND-003"] {
+        assert_eq!(
+            snapshot
+                .reference(id)
+                .unwrap()
+                .record
+                .instrument_id
+                .as_str(),
+            id
+        );
+    }
+    let sources: Vec<_> = snapshot
+        .quotes_for("BOND-001")
+        .iter()
+        .map(|q| q.requirement.key.source.as_str())
+        .collect();
+    assert_eq!(sources, ["feed-a", "feed-b"]);
+    assert_eq!(snapshot.quotes_for("BOND-002").len(), 1);
+    assert_eq!(
+        snapshot.quotes_for("BOND-003")[0]
+            .requirement
+            .key
+            .instrument_id
+            .as_str(),
+        "BOND-003"
+    );
+    for absent in ["BOND-000", "BOND-0015", "BOND-004"] {
+        assert!(snapshot.reference(absent).is_none());
+        assert!(snapshot.quotes_for(absent).is_empty());
+    }
+}

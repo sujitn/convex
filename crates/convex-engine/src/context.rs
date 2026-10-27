@@ -113,10 +113,10 @@ impl ValuationContext {
                 "snapshot trade economics are not implemented",
             ));
         };
-        if !content.references.iter().any(|reference| {
-            reference.record.instrument_id.as_str() == instrument_id.as_str()
-                && &reference.record.version == version
-        }) {
+        if !snapshot
+            .reference(instrument_id.as_str())
+            .is_some_and(|reference| &reference.record.version == version)
+        {
             return Err(TraitError::Conflict(
                 "instrument revision is not pinned by snapshot",
             ));

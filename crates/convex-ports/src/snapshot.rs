@@ -418,6 +418,25 @@ impl MarketSnapshot {
     pub fn quality(&self) -> &SnapshotQuality {
         &self.0.quality
     }
+    /// The resolved reference of one instrument. Every snapshot holds its references
+    /// sorted by instrument id without duplicates, so this is a binary search.
+    pub fn reference(&self, instrument_id: &str) -> Option<&ResolvedBondReference> {
+        let references = &self.0.content.references;
+        references
+            .binary_search_by(|r| r.record.instrument_id.as_str().cmp(instrument_id))
+            .ok()
+            .map(|i| &references[i])
+    }
+    /// The selected quotes of one instrument, one per source, in source order. Every
+    /// snapshot holds its quotes sorted by instrument id, then source.
+    pub fn quotes_for(&self, instrument_id: &str) -> &[SnapshotQuote] {
+        let quotes = &self.0.content.quotes;
+        let start =
+            quotes.partition_point(|q| q.requirement.key.instrument_id.as_str() < instrument_id);
+        let end =
+            quotes.partition_point(|q| q.requirement.key.instrument_id.as_str() <= instrument_id);
+        &quotes[start..end]
+    }
     /// Verify content/quality against its identity (also required after deserialization).
     pub fn verify(&self) -> Result<(), TraitError> {
         let verified = Self::new(self.0.content.clone())?;
