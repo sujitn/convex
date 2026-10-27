@@ -756,9 +756,10 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
         .load(std::sync::atomic::Ordering::SeqCst));
 }
 
-/// D56: a Live runtime keeps the selection it accepted until a refresh applies another.
-/// A quote does not read the active configuration, so an activation committed without
-/// the engine waits for the engine's refresh, which re-resolves the pinned inputs.
+/// D56: a Live runtime keeps the selection it accepted until a refresh or a restart applies
+/// another. A quote does not read the active configuration, so an activation committed
+/// without the engine waits for the engine's refresh or the next start, either of which
+/// re-resolves the pinned inputs.
 #[tokio::test]
 async fn live_runtime_applies_an_activation_at_refresh_not_at_the_next_quote() {
     use std::sync::Arc;
@@ -818,6 +819,39 @@ async fn live_runtime_applies_an_activation_at_refresh_not_at_the_next_quote() {
     assert_eq!(health.activation_revision.unwrap().get(), 2);
     assert!(health.ready);
     engine.shutdown().await.unwrap();
+    drop(engine);
+    // Committed while the engine is stopped, as the offline CLI does: the restart reads the
+    // active selection and refreshes to it before the first quote.
+    let mut third = first.clone();
+    third.document.pricing.version = 3;
+    third.document.pricing.updated_at = now.datetime().timestamp_millis();
+    third.document.assembly.configuration.version = fixture::snapshot::version(3);
+    third.idempotency_key = RequestId::new("live-stage-restarted").unwrap();
+    service.stage(&third, &fixture_cases).await.unwrap();
+    let mut command = fixture::activate(3, 2, "live-restarted");
+    command.activated_at = now;
+    service.activate(&command, &fixture_cases).await.unwrap();
+    let source = Arc::new(subscription_source::SubscriptionSource::new());
+    let restarted = live_engine(&setup, service, &first.document, source.clone());
+    restarted.start().await.unwrap();
+    assert_eq!(
+        restarted
+            .runtime_health()
+            .activation_revision
+            .unwrap()
+            .get(),
+        3
+    );
+    let mut updates = restarted.subscribe_results();
+    let stamp = chrono::Utc::now().timestamp_millis();
+    source.send(fixture::snapshot::event(3, stamp, stamp, "99.75"));
+    let restored = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(restored.result.status(), ResultStatus::Complete);
+    assert_eq!(restored.result.provenance().configuration_version.get(), 3);
+    restarted.shutdown().await.unwrap();
 }
 
 /// A Live selection staged and activated at `now` as revision 1, with the fixtures it was
