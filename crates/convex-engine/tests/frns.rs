@@ -262,11 +262,21 @@ async fn a_stored_sofr_note_publishes_its_discount_margin_from_derived_fixings()
         });
     let widened = convex_ports::snapshot::MarketSnapshot::new(content).unwrap();
     assert_eq!(widened.quality().quality, DataQuality::Invalid);
-    let inputs = widened.inputs(frn().instrument_id.as_str(), true);
+    // It reads its discount and reference curves.
+    let roles = &widened.content().configuration.analytics_curves;
+    let read = [
+        roles.discount_curve.as_str(),
+        roles.frn_reference_curve.as_ref().unwrap().as_str(),
+    ];
+    let inputs = widened.inputs(frn().instrument_id.as_str(), &read);
     assert_eq!(inputs.fixings().len(), fixings.len());
     assert_eq!(
-        inputs.curves(),
-        widened.content().required_curves.as_slice()
+        inputs
+            .curves()
+            .iter()
+            .map(|id| id.as_str())
+            .collect::<Vec<_>>(),
+        read
     );
     assert_eq!(widened.quality_of(&inputs).quality, DataQuality::Valid);
     assert!(result

@@ -505,7 +505,7 @@ pub(super) fn expiry(
                 .map(|o| o.expires_at),
         );
     }
-    for id in inputs.curves() {
+    for &id in inputs.curves() {
         if let Some(curve) = content.curves.iter().find(|c| &c.curve_id == id) {
             deadlines.push(after(curve.source_time, curve.max_age_ms)?);
         } else if let Some(curve) = content.curve_recipes.iter().find(|c| &c.curve_id == id) {

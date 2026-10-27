@@ -65,12 +65,28 @@ pub const RUNTIME_MEASURES: [&str; 26] = [
 fn curve_measure(measure: &str) -> bool {
     matches!(measure, "z_spread_mid" | "i_spread_mid" | "asw_mid") || curve_risk_measure(measure)
 }
-/// Whether one valuation reads the snapshot's curves (D58): callables and floating rate
-/// notes always, other bonds only for a spread or curve-risk measure.
-fn reads_curves(spec: &ValuationContextSpec) -> bool {
-    spec.model_id.as_str() == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
-        || spec.model_id.as_str() == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL
-        || spec.measures.iter().any(|m| curve_measure(m.as_str()))
+/// The configured curves one valuation reads (D58): a callable's discount curve, a
+/// floating rate note's discount and reference curves, and another bond's discount and
+/// swap curves when it asks for a spread or curve-risk measure. No snapshot valuation
+/// reads the government curve.
+fn read_curves<'c>(
+    spec: &ValuationContextSpec,
+    curves: &'c convex_ports::storage::AnalyticsCurves,
+) -> Vec<&'c str> {
+    let model = spec.model_id.as_str();
+    let second = if model == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL {
+        None
+    } else if model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
+        curves.frn_reference_curve.as_ref()
+    } else if spec.measures.iter().any(|m| curve_measure(m.as_str())) {
+        curves.swap_curve.as_ref()
+    } else {
+        return Vec::new();
+    };
+    std::iter::once(&curves.discount_curve)
+        .chain(second)
+        .map(|id| id.as_str())
+        .collect()
 }
 /// The snapshot inputs one valuation context reads (D58).
 pub(crate) fn valuation_inputs<'a>(
@@ -80,7 +96,8 @@ pub(crate) fn valuation_inputs<'a>(
     let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
         return Err(TraitError::Unsupported("trade economics unavailable"));
     };
-    Ok(snapshot.inputs(instrument_id.as_str(), reads_curves(spec)))
+    let curves = read_curves(spec, &snapshot.content().configuration.analytics_curves);
+    Ok(snapshot.inputs(instrument_id.as_str(), &curves))
 }
 /// Quality of the inputs one valuation context reads, never the whole snapshot's.
 pub(crate) fn valuation_quality(

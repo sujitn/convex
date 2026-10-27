@@ -372,14 +372,14 @@ pub struct SnapshotQuality {
 pub struct InputSet<'a> {
     quotes: &'a [SnapshotQuote],
     fixings: Vec<&'a SnapshotFixing>,
-    curves: &'a [CurveId],
+    curves: Vec<&'a CurveId>,
 }
 impl<'a> InputSet<'a> {
     fn all(content: &'a SnapshotContent) -> Self {
         Self {
             quotes: &content.quotes,
             fixings: content.fixings.iter().collect(),
-            curves: &content.required_curves,
+            curves: content.required_curves.iter().collect(),
         }
     }
     /// Selected quotes read.
@@ -391,8 +391,8 @@ impl<'a> InputSet<'a> {
         &self.fixings
     }
     /// Required curves read.
-    pub fn curves(&self) -> &'a [CurveId] {
-        self.curves
+    pub fn curves(&self) -> &[&'a CurveId] {
+        &self.curves
     }
 }
 
@@ -474,9 +474,10 @@ impl MarketSnapshot {
         &quotes[start..end]
     }
     /// What one instrument's valuation reads (D58): its selected quotes, a floating
-    /// note's fixings on its pinned index and fixing source, and every required curve
-    /// when the valuation reads curves.
-    pub fn inputs(&self, instrument_id: &str, reads_curves: bool) -> InputSet<'_> {
+    /// note's fixings on its pinned index and fixing source, and the required curves
+    /// named in `curves`, the ones its valuation reads. A named curve the snapshot does
+    /// not require is not judged.
+    pub fn inputs(&self, instrument_id: &str, curves: &[&str]) -> InputSet<'_> {
         let content = &self.0.content;
         let index = self
             .reference(instrument_id)
@@ -496,11 +497,11 @@ impl MarketSnapshot {
                     })
                     .collect()
             }),
-            curves: if reads_curves {
-                &content.required_curves
-            } else {
-                &[]
-            },
+            curves: content
+                .required_curves
+                .iter()
+                .filter(|id| curves.contains(&id.as_str()))
+                .collect(),
         }
     }
     /// Quality of this snapshot's inputs in `inputs` alone, at the snapshot's own time.
@@ -511,12 +512,12 @@ impl MarketSnapshot {
     /// Quality of one curve alone; a curve the snapshot does not require is `Invalid`.
     pub fn curve_quality(&self, curve_id: &str) -> DataQuality {
         let curves = &self.0.content.required_curves;
-        match curves.iter().position(|id| id.as_str() == curve_id) {
-            Some(i) => {
+        match curves.iter().find(|id| id.as_str() == curve_id) {
+            Some(id) => {
                 self.quality_of(&InputSet {
                     quotes: &[],
                     fixings: Vec::new(),
-                    curves: std::slice::from_ref(&curves[i]),
+                    curves: vec![id],
                 })
                 .quality
             }
@@ -1032,7 +1033,7 @@ fn derive_quality(
             _ => {}
         }
     }
-    for id in inputs.curves {
+    for &id in &inputs.curves {
         let dependency = format!("curve:{id}");
         let retained = content
             .curves

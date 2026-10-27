@@ -660,6 +660,42 @@ async fn selected_sources_exceeding_skew_policy_are_ineligible_even_with_fresh_c
         .is_err());
 }
 
+/// D58: a valuation is judged only on the curves it reads. A fixed bond's spread
+/// valuation reads its discount and swap curves, never the government or FRN reference
+/// curve, so a stale curve in those roles leaves it valid until it is also the swap curve.
+#[test]
+fn a_stale_curve_counts_only_for_a_valuation_that_reads_it() {
+    for (swap, quality) in [(false, DataQuality::Valid), (true, DataQuality::Stale)] {
+        let mut content = fixture::content();
+        let mut other = content.curves[0].clone();
+        other.curve_id = CurveId::new("USD-OTHER").unwrap();
+        other.source_time = fixture::time("2026-10-02T14:59:00Z");
+        other.recorded_at = other.source_time;
+        content.required_curves.push(other.curve_id.clone());
+        content.curves.push(other);
+        let id = convex_core::ids::CurveId::new("USD-OTHER");
+        let roles = &mut content.configuration.analytics_curves;
+        roles.government_curve = Some(id.clone());
+        roles.frn_reference_curve = Some(id.clone());
+        if swap {
+            roles.swap_curve = Some(id);
+        }
+        let snapshot = MarketSnapshot::new(content).unwrap();
+        assert_eq!(snapshot.quality().quality, DataQuality::Stale);
+        let mut spec = context(&snapshot).spec().clone();
+        spec.measures.push(MeasureId::new("z_spread_mid").unwrap());
+        let result = calculate(&snapshot, &ValuationContext::new(spec).unwrap());
+        let envelope = result.envelope();
+        assert_eq!(
+            envelope.status(),
+            ResultStatus::Complete,
+            "{:?}",
+            envelope.errors()
+        );
+        assert_eq!(envelope.quality(), quality, "swap curve stale: {swap}");
+    }
+}
+
 #[test]
 fn risk_measures_publish_the_router_quote_in_explicit_units() {
     use convex_engine::pricing_router::{PricingInput, PricingRouter};
