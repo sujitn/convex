@@ -891,7 +891,7 @@ pub async fn batch_price(
     };
     for (index, result) in indices.into_iter().zip(priced) {
         outcomes[index] = Some(result.and_then(|quote| {
-            serde_json::to_value(quote)
+            bond_quote_json(&quote)
                 .map_err(|_| convex_engine::EngineError::Internal("quote serialization".into()))
         }));
     }

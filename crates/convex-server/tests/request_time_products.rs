@@ -286,6 +286,10 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     assert_eq!(body["errors"], json!([]), "{body}");
     let quotes = body["quotes"].as_array().unwrap();
     assert_eq!(quotes.len(), 3);
+    // Every item has the single-quote shape, bullets included.
+    for quote in quotes {
+        assert!(!quote["dirty_price_mid"].is_null(), "{quote}");
+    }
     assert_eq!(quotes[0]["instrument_id"], "BOND-001");
     assert!(quotes[0].get("snapshot").is_none());
     assert_eq!(quotes[1]["oas_mid"], priced[0].1["oas_mid"]);
