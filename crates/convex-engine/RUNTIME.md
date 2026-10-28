@@ -93,8 +93,21 @@ once. Each quote is still validated and admitted in order and advances the
 generation and cutoff, so a tick's results carry the generation of its newest
 quote. A quote superseded within one tick gets no result of its own. Under load a
 quote waits for at most the running tick and its own, not for every queued tick
-before it. A tick still values every instrument. Replay and Captured value every
-event.
+before it. Replay and Captured value every event.
+
+A Live tick values only the instruments whose inputs changed since the tick before
+(D55). An instrument is valued when its reference, its quotes, a floating note's
+fixings on its index and source, a curve its valuation reads, or its derived
+quality differs, or when the configuration, its applied overrides, the skew policy
+or the UTC date of `as_of` does. Quality depends on time, so a quote that ages out
+counts as a change. Every other instrument keeps its record exactly as valued: its
+revision, generation, snapshot, valuation time, input versions and
+`live_valid_until` (D60). A kept record is not published again, so the stream
+carries only changed instruments, and `/api/v1/runtime/results` can hold records
+from earlier ticks than the generation and snapshot health reports. The first
+tick after start and after an activation refresh values every instrument. Replay
+and Captured store their checkpoints, whose results all share one generation and
+snapshot, so they value every instrument at each event (D59).
 
 A Live runtime resolves its pricing configuration and pinned references, with
 their issuer, calendar, convention and rate-index records, once per accepted

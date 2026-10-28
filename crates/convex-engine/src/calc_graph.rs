@@ -859,6 +859,63 @@ impl CalculationGraph {
         }
         self.replace(&mut state, dag, generation, Some(snapshot.clone()))
     }
+    /// Bind a later built snapshot to the active graph and reset only `revalue`, closed
+    /// over its connected components (D55). Every other node keeps its committed value,
+    /// failure and generation, stays readable and is not calculated again; its inputs
+    /// are unchanged in the new snapshot, which the caller has established. A component
+    /// is reset whole because capture reads only dependencies committed under the bound
+    /// snapshot. A kept node must be settled (committed, no attempt in flight), and a
+    /// refused call changes nothing.
+    pub fn rebind_built(
+        &self,
+        built: &crate::curve_replay::BuiltSnapshot,
+        revalue: &[NodeId],
+    ) -> Result<u64, GraphError> {
+        let snapshot = built.snapshot();
+        let generation = snapshot.content().generation.get();
+        let mut state = self.state.lock();
+        if generation <= state.generation || state.snapshot.is_none() {
+            return Err(GraphError::ContextConflict);
+        }
+        let roots = revalue
+            .iter()
+            .map(|id| {
+                state
+                    .dag
+                    .indices
+                    .get(id)
+                    .copied()
+                    .ok_or_else(|| GraphError::UnknownNode(id.clone()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let reset = state.dag.component(&roots);
+        if state
+            .nodes
+            .iter()
+            .zip(&reset)
+            .any(|(node, &reset)| !reset && (node.dirty || node.attempt.is_some()))
+        {
+            return Err(GraphError::ContextConflict);
+        }
+        let epoch = next(state.epoch)?;
+        for (node, _) in state
+            .nodes
+            .iter_mut()
+            .zip(reset)
+            .filter(|(_, reset)| *reset)
+        {
+            *node = NodeState {
+                generation,
+                dirty: true,
+                last_good: node.last_good.take(),
+                ..NodeState::default()
+            };
+        }
+        state.generation = generation;
+        state.epoch = epoch;
+        state.snapshot = Some(snapshot.clone());
+        Ok(generation)
+    }
     fn replace(
         &self,
         state: &mut GraphState,

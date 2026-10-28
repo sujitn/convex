@@ -111,6 +111,83 @@ pub(super) fn activate(
         .map_err(|_| RuntimeError::Worker)?;
     Ok(built)
 }
+/// Bind a Live tick's snapshot, built once, and reset only the pins it values (D55);
+/// every other pin keeps its committed result.
+pub(super) fn rebind(
+    graph: &CalculationGraph,
+    plan: &RuntimePlan,
+    snapshot: Arc<MarketSnapshot>,
+    selected: &[usize],
+) -> Result<Arc<BuiltSnapshot>, RuntimeError> {
+    check_callables(&snapshot)?;
+    let revalue: Vec<_> = selected
+        .iter()
+        .map(|&index| NodeId::BondPrice {
+            instrument_id: plan.assembly.instruments[index]
+                .instrument_id
+                .clone()
+                .into(),
+        })
+        .collect();
+    let built = Arc::new(BuiltSnapshot::build(snapshot).map_err(|_| RuntimeError::Worker)?);
+    graph
+        .rebind_built(&built, &revalue)
+        .map_err(|_| RuntimeError::Worker)?;
+    Ok(built)
+}
+/// What a Live tick keeps for the next one (D55): its snapshot and each pin's derived
+/// quality, by plan index.
+pub(super) struct Baseline {
+    snapshot: Arc<MarketSnapshot>,
+    qualities: Vec<SnapshotQuality>,
+}
+/// The pins a Live tick values, by plan index, and the baseline for the next tick
+/// (D55). Without a baseline every pin is valued. With one, a pin is valued when the
+/// frame, its own inputs or its derived quality differ; quality depends on time, so a
+/// quote that ages out counts. `results[i]` must be pin `i`'s record.
+pub(super) fn changed(
+    plan: &RuntimePlan,
+    snapshot: &Arc<MarketSnapshot>,
+    baseline: Option<&Baseline>,
+    results: &[PublishedValuation],
+) -> Result<(Vec<usize>, Baseline), RuntimeError> {
+    let pins = &plan.assembly.instruments;
+    let frame = baseline.filter(|baseline| snapshot.same_frame(&baseline.snapshot));
+    if frame.is_some_and(|b| results.len() != pins.len() || b.qualities.len() != pins.len()) {
+        return Err(RuntimeError::RecoveryConflict);
+    }
+    let mut selected = Vec::new();
+    let mut qualities = Vec::with_capacity(pins.len());
+    for (index, pin) in pins.iter().enumerate() {
+        let ctx = context(plan, snapshot, pin)?;
+        let quality = crate::snapshot::valuation_quality(snapshot, ctx.spec())?;
+        let kept = match frame {
+            Some(baseline) => {
+                if subject_key(&results[index].result.provenance().subject)
+                    != Some((pin.instrument_id.as_str(), pin.version.get()))
+                {
+                    return Err(RuntimeError::RecoveryConflict);
+                }
+                baseline.qualities[index] == quality
+                    && crate::snapshot::same_valuation_inputs(
+                        snapshot,
+                        &baseline.snapshot,
+                        ctx.spec(),
+                    )?
+            }
+            None => false,
+        };
+        if !kept {
+            selected.push(index);
+        }
+        qualities.push(quality);
+    }
+    let baseline = Baseline {
+        snapshot: snapshot.clone(),
+        qualities,
+    };
+    Ok((selected, baseline))
+}
 /// The plan pins only identities; product types are known once references resolve.
 pub(super) fn check_callables(snapshot: &MarketSnapshot) -> Result<(), RuntimeError> {
     if crate::optional_valuation::within_callable_bound(snapshot) {
@@ -257,34 +334,38 @@ pub(super) fn value(
         }
     }
 }
+/// Value the `selected` pins (plan indices, ascending) and return their records in that
+/// order. A Live tick selects only the pins whose inputs changed (D55).
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn calculate(
     graph: &Arc<CalculationGraph>,
     valuator: &Arc<SnapshotValuator>,
     plan: &RuntimePlan,
     built: Arc<BuiltSnapshot>,
     checkpoint: &RuntimeCheckpoint,
+    selected: &[usize],
     concurrency: usize,
     demo: bool,
 ) -> Result<Vec<PublishedValuation>, RuntimeError> {
     let snapshot = built.snapshot();
     checkpoint
         .result_revision
-        .checked_add(plan.assembly.instruments.len() as u64)
+        .checked_add(selected.len() as u64)
         .ok_or(RuntimeError::CapacityExceeded)?;
     let live = plan.mode == super::RuntimeMode::Live;
     let pins = &plan.assembly.instruments;
     // At most `concurrency` blocking jobs run at once. Each joined job is committed and
     // the next prepared at once, so no job waits for a slower one (G26). Tickets stay
-    // here by plan index, so a panicked job's attempt is still cancelled.
-    let mut tickets = Vec::with_capacity(pins.len());
-    let mut valued = vec![None; pins.len()];
+    // here by position in `selected`, so a panicked job's attempt is still cancelled.
+    let mut tickets = Vec::with_capacity(selected.len());
+    let mut valued = vec![None; selected.len()];
     let mut jobs = tokio::task::JoinSet::new();
     let mut failure = None;
     loop {
-        while failure.is_none() && jobs.len() < concurrency && tickets.len() < pins.len() {
+        while failure.is_none() && jobs.len() < concurrency && tickets.len() < selected.len() {
             let index = tickets.len();
-            let pin = &pins[index];
             let preparation = (|| {
+                let pin = pins.get(selected[index]).ok_or(RuntimeError::Worker)?;
                 let ctx = context(plan, snapshot, pin)?;
                 let request = RequestId::new(format!(
                     "valuation-{}-{}",
@@ -378,7 +459,7 @@ pub(super) async fn calculate(
         return Err(error);
     }
     // Revisions follow plan order, never completion order.
-    let mut produced = Vec::with_capacity(pins.len());
+    let mut produced = Vec::with_capacity(selected.len());
     let mut revision = checkpoint.result_revision;
     let mut prior = None;
     for valued in valued {

@@ -800,9 +800,9 @@ async fn two_bond_tick(
 }
 
 /// D58: each bond is judged only on its own inputs. Two bonds ticked further apart than
-/// the skew policy both value. When one bond's quote ages out, only that bond fails and
-/// the runtime stays ready (D58a); its past expiry is never armed, so the tick does not
-/// re-run.
+/// the skew policy both value. When one bond's quote ages out, only that bond is valued
+/// and fails (D55), and the runtime stays ready (D58a); its past expiry is never armed,
+/// so the tick does not re-run.
 #[tokio::test]
 async fn live_judges_each_bond_only_on_its_own_inputs() {
     let s = setup().await;
@@ -834,21 +834,25 @@ async fn live_judges_each_bond_only_on_its_own_inputs() {
     let health = engine.runtime_health();
     assert!(health.ready && health.failed_instruments == 0, "{health:?}");
 
-    // The second bond's quote ages out three seconds after it was observed.
-    let aged = two_bond_tick(&mut updates).await;
-    assert_eq!(aged[0].result.status(), ResultStatus::Complete);
-    assert_eq!(aged[0].result.quality(), DataQuality::Valid);
-    assert_eq!(aged[0].result.results(), both[0].result.results());
-    assert_eq!(aged[1].result.status(), ResultStatus::Failed);
-    assert_eq!(aged[1].result.quality(), DataQuality::Stale);
-    assert!(aged[1]
+    // The second bond's quote ages out three seconds after it was observed. Only that
+    // bond is valued and published; the first keeps its record as valued (D60).
+    let aged = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(updates.is_empty());
+    assert_eq!(aged.result.status(), ResultStatus::Failed);
+    assert_eq!(aged.result.quality(), DataQuality::Stale);
+    assert!(aged
         .result
         .errors()
         .iter()
         .all(|e| e.code() == ErrorCode::StaleInput));
-    assert_eq!(aged[1].retained_quality, Some(DataQuality::Stale));
-    assert_eq!(aged[1].last_good.as_ref(), Some(&both[1].result));
+    assert_eq!(aged.retained_quality, Some(DataQuality::Stale));
+    assert_eq!(aged.last_good.as_ref(), Some(&both[1].result));
+    assert_eq!(engine.runtime_results(), [both[0].clone(), aged.clone()]);
     let health = engine.runtime_health();
+    assert_eq!(health.generation, aged.generation.get());
     assert!(health.ready, "{health:?}");
     assert_eq!(health.failed_instruments, 1);
     assert_eq!(health.quality, DataQuality::Stale);
@@ -860,6 +864,55 @@ async fn live_judges_each_bond_only_on_its_own_inputs() {
             .is_err()
     );
     assert_eq!(engine.runtime_health().generation, health.generation);
+    engine.shutdown().await.unwrap();
+}
+
+/// D55: a tick values only the bonds whose inputs changed. A quote on one of two bonds
+/// values and publishes that bond alone; the other keeps its record, with the revision,
+/// generation and snapshot it was valued under (D60), and the runtime stays ready.
+#[tokio::test]
+async fn live_values_only_the_bonds_whose_inputs_changed() {
+    let s = setup().await;
+    let mut plan = live_plan(&s);
+    widen(&s, &mut plan, 2).await;
+    let source = Arc::new(SubscriptionSource::new());
+    let engine = live_engine(&s, plan, s.store.clone(), source.clone());
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    let quote = |sequence, id: &str, value| {
+        let stamp = chrono::Utc::now().timestamp_millis();
+        let mut event = fixture::event(sequence, stamp, stamp, value);
+        event.key.instrument_id = convex_core::ids::InstrumentId::new(id);
+        source.send(event);
+    };
+    // Every bond's first image values both, in one tick.
+    quote(1, "BOND-001", "99.25");
+    quote(1, "BOND-W001", "99.00");
+    let both = two_bond_tick(&mut updates).await;
+    for sequence in 2..=4 {
+        quote(sequence, "BOND-001", "99.50");
+        let single = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(updates.is_empty());
+        assert_eq!(single.result.status(), ResultStatus::Complete);
+        assert!(single.generation > both[0].generation);
+        assert!(single.revision > both[1].revision);
+        assert_ne!(
+            single.result.provenance().snapshot_id,
+            both[1].result.provenance().snapshot_id
+        );
+        assert_eq!(engine.runtime_results(), [single.clone(), both[1].clone()]);
+        let health = engine.runtime_health();
+        assert!(health.ready, "{health:?}");
+        assert_eq!(health.generation, single.generation.get());
+        assert_eq!(health.revision, single.revision);
+        assert_eq!(
+            health.snapshot_id.as_ref(),
+            Some(&single.result.provenance().snapshot_id)
+        );
+    }
     engine.shutdown().await.unwrap();
 }
 

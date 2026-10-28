@@ -504,6 +504,60 @@ impl MarketSnapshot {
                 .collect(),
         }
     }
+    /// Whether this snapshot shares every valuation's frame with `previous` (D55): the
+    /// configuration and its capture, the skew policy, the schema and the valuation
+    /// date. A floating note's valuation date and its due fixings follow the date.
+    pub fn same_frame(&self, previous: &MarketSnapshot) -> bool {
+        let (now, then) = (&self.0.content, &previous.0.content);
+        now.schema_version == then.schema_version
+            && now.max_source_skew_ms == then.max_source_skew_ms
+            && now.as_of.datetime().date_naive() == then.as_of.datetime().date_naive()
+            && now.configuration == then.configuration
+            && now.configuration_capture == then.configuration_capture
+    }
+    /// Whether one instrument's valuation reads the same inputs here as in `previous`
+    /// (D55): its reference, its quotes, a floating note's fixings, and each curve in
+    /// `curves` with its record, recipe or calibration. A recipe pins the versions of
+    /// the curves it is built on. The frame is compared once, by `same_frame`.
+    pub fn same_inputs(
+        &self,
+        previous: &MarketSnapshot,
+        instrument_id: &str,
+        curves: &[&str],
+    ) -> bool {
+        let (now, then) = (
+            self.inputs(instrument_id, curves),
+            previous.inputs(instrument_id, curves),
+        );
+        self.reference(instrument_id) == previous.reference(instrument_id)
+            && now.quotes == then.quotes
+            && now.fixings == then.fixings
+            && now.curves == then.curves
+            && now
+                .curves
+                .iter()
+                .all(|id| self.curve_data(id) == previous.curve_data(id))
+    }
+    /// What one required curve resolves to: its record, its recipe and the calibration
+    /// that holds it.
+    fn curve_data(
+        &self,
+        id: &CurveId,
+    ) -> (
+        Option<&SnapshotCurve>,
+        Option<&SnapshotCurveRecipe>,
+        Option<&SnapshotCalibration>,
+    ) {
+        let content = &self.0.content;
+        (
+            content.curves.iter().find(|c| &c.curve_id == id),
+            content.curve_recipes.iter().find(|c| &c.curve_id == id),
+            content
+                .calibration
+                .as_ref()
+                .filter(|c| c.curves.iter().any(|p| &p.curve_id == id)),
+        )
+    }
     /// Quality of this snapshot's inputs in `inputs` alone, at the snapshot's own time.
     pub fn quality_of(&self, inputs: &InputSet<'_>) -> SnapshotQuality {
         let content = &self.0.content;

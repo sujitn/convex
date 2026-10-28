@@ -322,3 +322,112 @@ fn a_stale_bond_beside_a_shared_curve_node_leaves_the_curve_valid() {
         .commit_result(&ticket, Ok(NodeValue::Valuation(result)))
         .unwrap();
 }
+
+/// D55: rebinding a later snapshot resets only the listed nodes with their connected
+/// components. Every other settled node keeps its committed value, stays readable and is
+/// not calculated again. A ticket from before is discarded, and a refused call changes
+/// nothing.
+#[test]
+fn rebinding_a_snapshot_keeps_settled_nodes_outside_the_listed_components() {
+    let graph = CalculationGraph::new();
+    let at = |generation: u64| {
+        let mut content = fixture::content();
+        content.generation = fixture::version(generation);
+        let mut other = content.curves[0].clone();
+        other.curve_id = CurveId::new("USD-OTHER").unwrap();
+        content.required_curves.push(other.curve_id.clone());
+        content.curves.push(other);
+        convex_engine::curve_replay::BuiltSnapshot::build(Arc::new(
+            MarketSnapshot::new(content).unwrap(),
+        ))
+        .unwrap()
+    };
+    let curve = |id: &str| NodeId::Curve {
+        curve_id: convex_core::ids::CurveId::new(id),
+    };
+    let points = || NodeValue::Curve {
+        points: vec![(365, 0.04)],
+    };
+    let (kept, shared) = (curve("USD-OTHER"), curve("USD-FIXTURE"));
+    let seven = at(7);
+    graph
+        .activate_built(
+            vec![
+                NodeSpec::calculation(kept.clone(), vec![]),
+                NodeSpec::calculation(shared.clone(), vec![]),
+                NodeSpec::calculation(bond(), vec![shared.clone()]),
+            ],
+            &seven,
+        )
+        .unwrap();
+    // A kept node must be settled: dirty, then in flight, is refused.
+    let eight = at(8);
+    let refused = |graph: &CalculationGraph| {
+        assert_eq!(
+            graph.rebind_built(&eight, std::slice::from_ref(&shared)),
+            Err(GraphError::ContextConflict)
+        );
+    };
+    refused(&graph);
+    let ticket = graph.begin_calculation(&kept).unwrap();
+    refused(&graph);
+    graph.commit_result(&ticket, Ok(points())).unwrap();
+    let ticket = graph.begin_calculation(&shared).unwrap();
+    graph.commit_result(&ticket, Ok(points())).unwrap();
+    let ctx7 = context(seven.snapshot(), &["clean_price_mid", "ytm_mid"]);
+    let old = graph.begin_valuation(&bond(), ctx7.clone()).unwrap();
+    let kept_value = graph.get_cached(&kept).unwrap();
+
+    // The shared curve's component (the curve and the bond) resets; the other curve keeps.
+    assert_eq!(
+        graph.rebind_built(&eight, std::slice::from_ref(&shared)),
+        Ok(8)
+    );
+    assert_eq!(
+        graph.commit_result(
+            &old,
+            Ok(NodeValue::Valuation(calculate(seven.snapshot(), &ctx7)))
+        ),
+        Ok(CommitOutcome::Discarded)
+    );
+    let still = graph.get_cached(&kept).unwrap();
+    assert!(Arc::ptr_eq(&still, &kept_value));
+    assert_eq!(still.generation, 7);
+    assert_eq!(still.snapshot_id.as_ref(), Some(seven.snapshot().id()));
+    assert_eq!(graph.inspect_node(&kept).unwrap().phase, NodePhase::Fresh);
+    assert!(matches!(
+        graph.begin_calculation(&kept),
+        Err(GraphError::NotReady)
+    ));
+    assert!(graph.get_cached(&shared).is_none());
+    let ticket = graph.begin_calculation(&shared).unwrap();
+    graph.commit_result(&ticket, Ok(points())).unwrap();
+    assert_eq!(graph.get_cached(&shared).unwrap().generation, 8);
+    let ctx8 = context(eight.snapshot(), &["clean_price_mid", "ytm_mid"]);
+    let ticket = graph.begin_valuation(&bond(), ctx8.clone()).unwrap();
+    assert!(matches!(
+        graph.commit_result(
+            &ticket,
+            Ok(NodeValue::Valuation(calculate(eight.snapshot(), &ctx8)))
+        ),
+        Ok(CommitOutcome::Committed { .. })
+    ));
+
+    // An earlier or equal generation and an unknown node are refused.
+    assert_eq!(
+        graph.rebind_built(&eight, &[]),
+        Err(GraphError::ContextConflict)
+    );
+    assert_eq!(
+        graph.rebind_built(&at(9), &[curve("USD-ABSENT")]),
+        Err(GraphError::UnknownNode(curve("USD-ABSENT")))
+    );
+    assert_eq!(graph.get_cached(&shared).unwrap().generation, 8);
+    // Rebinding needs a bound snapshot.
+    let unbound = CalculationGraph::new();
+    unbound.activate(definition()).unwrap();
+    assert_eq!(
+        unbound.rebind_built(&at(9), &[]),
+        Err(GraphError::ContextConflict)
+    );
+}

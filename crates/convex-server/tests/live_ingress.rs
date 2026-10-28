@@ -232,10 +232,15 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
 
 /// Quotes offered faster than the runtime values them end in 429 at the full ingress
 /// queue, never in lost delivery: every accepted quote is valued and the runtime stays up.
-/// A tick admits up to 1,024 queued quotes (D54), so one bond drains faster than one
-/// client posts; 256 bonds make a tick long enough for posted batches to fill the queue.
+/// A tick admits up to 1,024 queued quotes (D54) and values each changed bond once (D55),
+/// so at 256 bonds one client posting batch after batch can keep pace with the drain.
+/// Each round therefore posts `ROUND` batches at once, four times what the queue holds,
+/// so a tick that drains the queue mid-round still leaves more than it holds. A key's
+/// images can then reach the runtime out of order; each is admitted, and an older one
+/// is dropped as out of order without blocking the key.
 #[tokio::test]
 async fn an_offered_rate_above_the_drain_rate_is_refused_with_429_and_nothing_is_lost() {
+    const ROUND: usize = 16;
     let (dir, _, live, keys) = wide_live_setup(256).await;
     let server = Running::start(live).await;
     let mut sequence = 0;
@@ -254,24 +259,32 @@ async fn an_offered_rate_above_the_drain_rate_is_refused_with_429_and_nothing_is
     assert_eq!(accepted.status(), StatusCode::ACCEPTED);
     let start = server.wait_ready().await["generation"].as_u64().unwrap();
     let mut queued = 0;
-    let mut refused = None;
-    for _ in 0..64 {
-        let response = server.post_quotes(batch(256)).await;
-        match response.status() {
-            StatusCode::ACCEPTED => {
-                let receipt: Value = response.json().await.unwrap();
-                queued += receipt["accepted"].as_u64().unwrap();
+    let mut refused = Vec::new();
+    for _ in 0..16 {
+        let batches: Vec<_> = (0..ROUND).map(|_| batch(256)).collect();
+        let responses =
+            futures::future::join_all(batches.into_iter().map(|b| server.post_quotes(b))).await;
+        for response in responses {
+            match response.status() {
+                StatusCode::ACCEPTED => {
+                    let receipt: Value = response.json().await.unwrap();
+                    queued += receipt["accepted"].as_u64().unwrap();
+                }
+                StatusCode::TOO_MANY_REQUESTS => {
+                    refused.push(response.json::<Value>().await.unwrap());
+                }
+                other => panic!("unexpected status {other}"),
             }
-            StatusCode::TOO_MANY_REQUESTS => {
-                refused = Some(response.json::<Value>().await.unwrap());
-                break;
-            }
-            other => panic!("unexpected status {other}"),
+        }
+        if !refused.is_empty() {
+            break;
         }
     }
-    let refused = refused.expect("a full queue refuses the batch");
-    assert_eq!(refused["code"], "CAPACITY_EXCEEDED", "{refused}");
-    assert_eq!(refused["retryable"], true, "{refused}");
+    assert!(!refused.is_empty(), "a full queue refuses a batch");
+    for body in &refused {
+        assert_eq!(body["code"], "CAPACITY_EXCEEDED", "{body}");
+        assert_eq!(body["retryable"], true, "{body}");
+    }
     let drained = tokio::time::timeout(Duration::from_secs(120), async {
         loop {
             let runtime = server.runtime().await;

@@ -34,6 +34,9 @@ pub(super) struct Actor {
     baseline_pricing: convex_ports::storage::BondPricingConfig,
     selected: Option<convex_ports::configuration::ActiveConfiguration>,
     live_state: Option<LiveState>,
+    /// The last Live tick's snapshot and qualities; the next tick values only the pins
+    /// whose inputs changed (D55). None at start, after a delivery loss and on refresh.
+    baseline: Option<worker::Baseline>,
     /// A Live plan that pins no curve data reads its curves here at each snapshot's
     /// cutoff: the store request-time pricing reads (D50).
     stored_curves: Option<Arc<dyn convex_ports::storage::CurveStore>>,
@@ -239,6 +242,7 @@ impl Actor {
             baseline_pricing,
             selected,
             live_state,
+            baseline: None,
             stored_curves,
         };
         // Reopen replay from the beginning, verify its accepted prefix, and only then continue.
@@ -439,10 +443,10 @@ impl Actor {
                 worker::restore_good(&self.graph, &self.services.plan, &old, &good)?;
             }
         }
-        let built = worker::activate(&self.graph, &self.services.plan, snapshot.clone())?;
         if self.checkpoint.pending {
-            self.calculate(built).await?;
+            self.value(snapshot.clone()).await?;
         } else {
+            worker::activate(&self.graph, &self.services.plan, snapshot.clone())?;
             worker::restore_results(
                 &self.graph,
                 &self.services.plan,
@@ -554,15 +558,38 @@ impl Actor {
     }
     async fn process(&mut self) -> Result<(), RuntimeError> {
         let snapshot = self.snapshot().await?;
-        let built = worker::activate(&self.graph, &self.services.plan, snapshot)?;
-        self.calculate(built).await?;
+        self.value(snapshot).await?;
         self.flush_outbox().await?;
         self.refresh_health();
+        Ok(())
+    }
+    /// Value every pin, or in Live only the pins whose inputs changed since the last
+    /// tick (D55). The other Live pins keep their records and publish nothing.
+    async fn value(&mut self, snapshot: Arc<MarketSnapshot>) -> Result<(), RuntimeError> {
+        let plan = &self.services.plan;
+        if self.live_state.is_none() {
+            let all: Vec<_> = (0..plan.assembly.instruments.len()).collect();
+            let built = worker::activate(&self.graph, plan, snapshot)?;
+            return self.calculate(built, &all).await;
+        }
+        let (selected, baseline) = worker::changed(
+            plan,
+            &snapshot,
+            self.baseline.as_ref(),
+            &self.checkpoint.results,
+        )?;
+        let built = match self.baseline.take() {
+            Some(_) => worker::rebind(&self.graph, plan, snapshot, &selected)?,
+            None => worker::activate(&self.graph, plan, snapshot)?,
+        };
+        self.calculate(built, &selected).await?;
+        self.baseline = Some(baseline);
         Ok(())
     }
     async fn calculate(
         &mut self,
         built: Arc<crate::curve_replay::BuiltSnapshot>,
+        selected: &[usize],
     ) -> Result<(), RuntimeError> {
         let snapshot = built.snapshot().clone();
         let started = std::time::Instant::now();
@@ -572,6 +599,7 @@ impl Actor {
             &self.services.plan,
             built,
             &self.checkpoint,
+            selected,
             self.concurrency,
             self.demo(),
         )
@@ -580,7 +608,19 @@ impl Actor {
         let produced: Arc<[PublishedValuation]> = produced?.into();
         let mut next = self.checkpoint.clone();
         next.result_revision = produced.last().map_or(next.result_revision, |p| p.revision);
-        next.results = produced.clone();
+        // A Live tick that values some pins merges their records into the kept ones,
+        // which are not re-stamped (D60); only the new records are published.
+        next.results = if selected.len() == self.services.plan.assembly.instruments.len() {
+            produced.clone()
+        } else {
+            let mut results = next.results.to_vec();
+            for (&index, record) in selected.iter().zip(produced.iter()) {
+                *results
+                    .get_mut(index)
+                    .ok_or(RuntimeError::RecoveryConflict)? = record.clone();
+            }
+            results.into()
+        };
         next.outbox = produced;
         next.pending = false;
         next.snapshot_id = Some(snapshot.id().clone());
@@ -663,6 +703,8 @@ impl Actor {
         self.process().await
     }
     async fn lose_delivery(&mut self) -> Result<(), RuntimeError> {
+        // Every record is replaced, so the next tick values every pin.
+        self.baseline = None;
         let mut next = self.checkpoint.clone();
         next.delivery_lost = true;
         let mut records = Vec::with_capacity(next.results.len());
@@ -1050,6 +1092,8 @@ impl Actor {
         next.pending = true;
         self.save(next).await?;
         self.selected = Some(selected);
+        // A new activation re-pins its inputs, so the next tick values every pin.
+        self.baseline = None;
         self.health.write().ready = false;
         Ok(AcceptedUpdate {
             checkpoint_revision: self.checkpoint.revision,

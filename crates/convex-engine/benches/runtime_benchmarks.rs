@@ -263,6 +263,9 @@ const BURST: u64 = 64;
 /// A burst at 256 instruments larger than the ~300 quotes one conflated tick must admit
 /// for 10k quotes/s (D54), still inside the queue.
 const SATURATING_BURST: u64 = 512;
+/// One quote per tick at 256 instruments: the tick values one bond and keeps the rest
+/// (D55), so it measures the per-tick cost that does not scale with the quotes.
+const SINGLE: u64 = 1;
 
 /// `setup()` widened to `width` bonds on one Live plan.
 async fn wide_setup(width: usize) -> (Setup, RuntimePlan) {
@@ -366,7 +369,7 @@ fn bench_live_throughput(c: &mut Criterion) {
     let cases = WIDTHS
         .map(|width| (width, BURST))
         .into_iter()
-        .chain([(256, SATURATING_BURST)]);
+        .chain([(256, SATURATING_BURST), (256, SINGLE)]);
     for (width, burst) in cases {
         let (s, plan) = rt.block_on(wide_setup(width));
         let mut quotes = Quotes::new(&plan);
