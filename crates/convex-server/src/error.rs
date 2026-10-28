@@ -9,6 +9,7 @@ use axum::Json;
 use convex_engine::curve_resolution::CurveResolutionError;
 use convex_engine::ports::reference_repository::ReferenceError;
 use convex_engine::ports::TraitError;
+use convex_engine::request_valuation::RequestValuationError;
 
 /// A refused request. Nothing partial or substituted accompanies it.
 #[derive(Debug)]
@@ -48,7 +49,8 @@ impl ApiError {
             message,
         )
     }
-    /// The product is priced by the runtime, not by request-time routes.
+    /// No runtime is composed, and only a runtime values callables and floating rate
+    /// notes (D65).
     pub(crate) fn unsupported_product(message: impl Into<String>) -> Self {
         Self::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -158,6 +160,25 @@ impl From<CurveResolutionError> for ApiError {
                 Self::new(StatusCode::UNPROCESSABLE_ENTITY, "NOT_COVERED", message)
             }
             _ => Self::missing_input(message),
+        }
+    }
+}
+
+impl From<RequestValuationError> for ApiError {
+    fn from(error: RequestValuationError) -> Self {
+        let message = error.to_string();
+        match error {
+            RequestValuationError::NoRuntime => Self::unsupported_product(message),
+            RequestValuationError::UnstoredTerms => Self::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "INVALID_REFERENCE",
+                message,
+            ),
+            RequestValuationError::Reference(error) => error.into(),
+            RequestValuationError::Curves(error) => error.into(),
+            // Every interactive slot is taken; another request frees one (D64).
+            RequestValuationError::Port(TraitError::CapacityExceeded) => Self::overloaded(message),
+            RequestValuationError::Port(error) => error.into(),
         }
     }
 }

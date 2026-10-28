@@ -2,43 +2,21 @@
 //! recipe and the configuration's HW1F assumption, valued by `convex::library`.
 #[path = "support/configuration_setup.rs"]
 mod configuration;
+#[path = "support/products.rs"]
+mod products;
 #[path = "support/curve_replay.rs"]
 mod recipes;
 use configuration::runtime::*;
 use convex_core::contracts::*;
 use convex_engine::{optional_valuation::*, snapshot::RUNTIME_MEASURES, RuntimeInput};
 use convex_ports::{
-    reference_data::{BondReferenceData, BondType, CallScheduleEntry},
-    reference_master::{CallStyle, CallTerms},
+    reference_master::CallStyle,
     reference_repository::{ReferenceChange, ReferenceCommand},
     snapshot::SnapshotRepository,
     storage::OptionModelAssumption,
 };
 use rust_decimal::Decimal;
 use std::str::FromStr;
-
-fn callable(style: CallStyle) -> BondReferenceData {
-    let mut bond = fixture::bond();
-    bond.bond_type = BondType::FixedCallable;
-    bond.is_callable = true;
-    bond.call_schedule = [
-        ("2027-01-15", "101"),
-        ("2028-01-15", "100.5"),
-        ("2029-01-15", "100"),
-    ]
-    .iter()
-    .map(|(date, price)| CallScheduleEntry {
-        call_date: convex_core::Date::parse(date).unwrap(),
-        call_price: Decimal::from_str(price).unwrap(),
-        is_make_whole: false,
-    })
-    .collect();
-    bond.contractual_terms.as_mut().unwrap().call_terms = Some(CallTerms {
-        style,
-        notice_days: 30,
-    });
-    bond
-}
 
 /// Version 2 of BOND-001 is a callable; configuration version 2 carries the HW1F assumption.
 /// The plan requests the router measures and `oas_mid` together, over a stored recipe.
@@ -51,7 +29,7 @@ async fn callable_setup(style: CallStyle, assumption: bool) -> Setup {
             &ReferenceCommand {
                 idempotency_key: RequestId::new("callable-terms").unwrap(),
                 changes: vec![ReferenceChange::Update {
-                    bond: Box::new(callable(style)),
+                    bond: Box::new(products::callable(fixture::bond(), style)),
                     expected_version: fixture::version(1),
                 }],
                 master_changes: vec![],
@@ -209,4 +187,59 @@ async fn plans_accept_oas_and_still_refuse_measures_no_model_publishes() {
         .measures
         .push(MeasureId::new("g_spread_mid").unwrap());
     assert!(unknown.validate().is_err());
+}
+
+/// D57: a request-time valuation of the stored callable, at the stream's cutoff and
+/// settlement and with the stream's mark, gives the stream's values. Its one-instrument
+/// snapshot reads only the discount curve and is not stored.
+#[tokio::test]
+async fn a_request_time_callable_valuation_matches_the_stream() {
+    let setup = callable_setup(CallStyle::Bermudan, true).await;
+    let config = setup
+        .storage
+        .configs
+        .get_version("CONFIG-RESTORE", 2)
+        .await
+        .unwrap()
+        .unwrap();
+    setup
+        .storage
+        .curves
+        .save_recipe(&recipes::record(recipes::recipe()))
+        .await
+        .unwrap();
+    let engine = make_engine(
+        &setup,
+        archive(&setup),
+        setup.plan.clone(),
+        setup.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    // A runtime without configuration use cases starts only with nothing activated.
+    configuration::activate_pricing(&setup, &config).await;
+    let stream = engine.runtime_results()[0].result.clone();
+    let valued =
+        configuration::value_at(&engine, &stream, setup.plan.settlement_date, Some("99.25"))
+            .await
+            .unwrap();
+    engine.shutdown().await.unwrap();
+    let result = valued.result.envelope();
+    assert_eq!(
+        result.status(),
+        ResultStatus::Complete,
+        "{:?}",
+        result.errors()
+    );
+    assert_eq!(result.results(), stream.results());
+    assert_eq!(
+        valued.curves,
+        vec![("USD-FIXTURE".to_owned(), fixture::version(7))]
+    );
+    assert!(setup
+        .snapshots
+        .get(&result.provenance().snapshot_id)
+        .await
+        .unwrap()
+        .is_none());
 }

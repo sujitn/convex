@@ -60,6 +60,7 @@ pub mod market_ingestion;
 pub mod optional_valuation;
 pub mod portfolio_analytics;
 pub mod pricing_router;
+pub mod request_valuation;
 pub mod runtime;
 pub mod snapshot;
 pub mod telemetry;
@@ -78,7 +79,9 @@ pub use calc_graph::{
 pub use curve_builder::BuiltCurve;
 pub use error::EngineError;
 pub use etf_pricing::EtfPricer;
-pub use portfolio_analytics::{runtime_bond_quote, Portfolio, PortfolioAnalyzer, Position};
+pub use portfolio_analytics::{
+    request_bond_quote, runtime_bond_quote, Portfolio, PortfolioAnalyzer, Position,
+};
 pub use pricing_router::{BatchPricingResult, PricingRouter};
 pub use runtime::{
     AcceptedUpdate, RuntimeError, RuntimeHealth, RuntimeInput, RuntimeMode, RuntimePhase,
@@ -177,6 +180,8 @@ pub struct PricingEngine {
     /// Sole lifecycle and accepted-work owner.
     runtime: runtime::RuntimeController,
     configurations: Option<Arc<configuration::ConfigurationUseCases>>,
+    /// Request-time valuation through the composed runtime (D57); none without one.
+    request: Option<request_valuation::RequestValuer>,
 }
 
 impl PricingEngine {
@@ -197,6 +202,7 @@ impl PricingEngine {
             storage,
             runtime: runtime::RuntimeController::new(None, false, concurrency),
             configurations: None,
+            request: None,
         }
     }
 
@@ -403,6 +409,78 @@ impl PricingEngine {
             config,
             resolved,
         })
+    }
+
+    /// Whether a composed runtime values callables and floating rate notes at request
+    /// time (D57, D65).
+    pub fn values_requests(&self) -> bool {
+        self.request.is_some()
+    }
+
+    /// The stored terms that inline `bond` names, current at `known_at`. Callables and
+    /// floating rate notes are valued on stored terms only, so inline terms must equal
+    /// them (D62).
+    pub async fn stored_terms(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+        known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<
+        ports::reference_repository::ReferenceRecord,
+        request_valuation::RequestValuationError,
+    > {
+        let lookup = ports::reference_master::ReferenceLookup {
+            as_of: known_at,
+            known_at,
+        };
+        match self
+            .reference_at_for_pricing(&bond.instrument_id, lookup)
+            .await?
+        {
+            Some(record) if record.bond.as_ref() == Some(bond) => Ok(record),
+            _ => Err(request_valuation::RequestValuationError::UnstoredTerms),
+        }
+    }
+
+    /// Value a stored callable or floating rate note at request time (D57): an
+    /// unpublished one-instrument snapshot under `context` at `known_at`, with `mark` as
+    /// a labelled `request` quote, valued through [`Self::evaluate_context`] as the stream
+    /// values a bond. Without a mark every measure fails `MISSING_MARKET_DATA`. Nothing
+    /// is stored.
+    pub async fn value_request(
+        &self,
+        context: &RequestContext,
+        reference: &ports::reference_repository::ReferenceRecord,
+        settlement_date: convex_core::contracts::BusinessDate,
+        known_at: convex_core::contracts::UtcTimestamp,
+        mark: Option<rust_decimal::Decimal>,
+    ) -> Result<request_valuation::RequestValuation, request_valuation::RequestValuationError> {
+        use request_valuation::RequestValuationError;
+        let valuer = self
+            .request
+            .as_ref()
+            .ok_or(RequestValuationError::NoRuntime)?;
+        let (snapshot, valuation, curves) = valuer
+            .prepare(
+                &self.storage,
+                context,
+                reference,
+                settlement_date,
+                known_at,
+                mark,
+            )
+            .await?;
+        let invalid = |_| ports::TraitError::InvalidInput("invalid request identity");
+        // As the stream names its valuations, by context.
+        let request =
+            convex_core::contracts::RequestId::new(format!("request-{}", valuation.cache_key()?))
+                .map_err(invalid)?;
+        let calculated = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
+            .map_err(invalid)?
+            .max(known_at);
+        let result = self
+            .evaluate_context(snapshot, valuation, request, calculated)
+            .await?;
+        Ok(request_valuation::RequestValuation { result, curves })
     }
 
     /// Get the pricing router.

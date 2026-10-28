@@ -79,16 +79,63 @@ pub fn runtime_bond_quote(
     settlement_date: Date,
     currency: Currency,
 ) -> Result<BondQuoteOutput, EngineError> {
-    use convex_core::contracts::{DataQuality, MeasureValue, ResultStatus, ValuationSubject};
     let envelope = &published.result;
-    let provenance = envelope.provenance();
-    let ValuationSubject::InstrumentVersion { instrument_id, .. } = &provenance.subject else {
-        return Err(failure("runtime", "instrument valuation required"));
-    };
-    let id = instrument_id.as_str();
-    if envelope.status() != ResultStatus::Complete {
+    let id = envelope_instrument(envelope)?;
+    if envelope.status() != convex_core::contracts::ResultStatus::Complete {
         return Err(failure(id, "complete runtime result required"));
     }
+    envelope_quote(
+        envelope,
+        settlement_date,
+        currency,
+        published.runtime_id.as_str(),
+    )
+}
+/// Read a request-time valuation (D57) as a quote, in the shape bullets answer with
+/// (D63). Each measure the valuation could not produce is reported in
+/// `measure_errors` with the runtime's code and reason, not refused.
+pub fn request_bond_quote(
+    envelope: &convex_core::contracts::ResultEnvelope,
+    settlement_date: Date,
+    currency: Currency,
+) -> Result<BondQuoteOutput, EngineError> {
+    use convex_core::contracts::ResultStatus;
+    let mut quote = envelope_quote(
+        envelope,
+        settlement_date,
+        currency,
+        crate::request_valuation::REQUEST_SOURCE,
+    )?;
+    quote.measure_errors = envelope.errors().to_vec();
+    // The router's scale: 100 complete, 75 partial; nothing produced is 0.
+    quote.quality = match envelope.status() {
+        ResultStatus::Complete => 100,
+        ResultStatus::Partial => 75,
+        _ => 0,
+    };
+    Ok(quote)
+}
+fn envelope_instrument(
+    envelope: &convex_core::contracts::ResultEnvelope,
+) -> Result<&str, EngineError> {
+    match &envelope.provenance().subject {
+        convex_core::contracts::ValuationSubject::InstrumentVersion { instrument_id, .. } => {
+            Ok(instrument_id.as_str())
+        }
+        _ => Err(failure("runtime", "instrument valuation required")),
+    }
+}
+/// The envelope's measures as an analyzer quote, from `source`. A measure the result
+/// lacks stays absent; one in an unexpected unit is refused.
+fn envelope_quote(
+    envelope: &convex_core::contracts::ResultEnvelope,
+    settlement_date: Date,
+    currency: Currency,
+    source: &str,
+) -> Result<BondQuoteOutput, EngineError> {
+    use convex_core::contracts::{DataQuality, MeasureValue};
+    let provenance = envelope.provenance();
+    let id = envelope_instrument(envelope)?;
     let model = |value: f64| {
         Decimal::from_f64_retain(value)
             .map(Some)
@@ -192,7 +239,7 @@ pub fn runtime_bond_quote(
         measure_errors: Vec::new(),
         timestamp: provenance.calculated_at.datetime().timestamp_millis(),
         pricing_spec: provenance.model_version.as_str().into(),
-        source: published.runtime_id.as_str().into(),
+        source: source.into(),
         is_stale: envelope.quality() == DataQuality::Stale,
         // The router's convention: 100 when the mid quote has no measure errors.
         quality: 100,

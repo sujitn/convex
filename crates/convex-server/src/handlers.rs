@@ -203,33 +203,40 @@ pub struct BondQuoteQuery {
     pub configuration: Option<convex_core::contracts::SourceId>,
 }
 
-/// Request-time routes price bullets and zeros. Callables and FRNs are priced by the
-/// runtime through `convex::library`, so these routes refuse them instead of failing
-/// inside the router.
-fn request_time_product(bond: &BondReferenceData) -> Result<(), crate::error::ApiError> {
-    if convex_engine::optional_valuation::product_model(bond)
-        == convex_engine::snapshot::BOND_SNAPSHOT_MODEL
-    {
-        return Ok(());
-    }
-    Err(crate::error::ApiError::unsupported_product(
-        "callables and floating rate notes are priced by the runtime; read /api/v1/runtime/results",
-    ))
+/// Callables and floating rate notes are valued by the runtime at request time (D57);
+/// bullets and zeros by the router.
+fn runtime_product(bond: &BondReferenceData) -> bool {
+    convex_engine::optional_valuation::product_model(bond)
+        != convex_engine::snapshot::BOND_SNAPSHOT_MODEL
 }
 
-/// The approved valuation context a price consumed: configuration, activation,
-/// every curve pin and the cutoff, as headers.
+/// A server with no runtime refuses callables and floating rate notes (D65).
+fn runtime_composed(engine: &PricingEngine) -> Result<(), crate::error::ApiError> {
+    if engine.values_requests() {
+        Ok(())
+    } else {
+        Err(convex_engine::request_valuation::RequestValuationError::NoRuntime.into())
+    }
+}
+
+/// Every curve pin a context resolved, as `id@version`.
+fn context_pins(context: &convex_engine::RequestContext) -> Vec<String> {
+    context
+        .pins()
+        .map(|(id, version)| format!("{id}@{}", version.get()))
+        .collect()
+}
+
+/// The approved valuation context a price consumed: configuration, activation, the
+/// curve pins it read and the cutoff, as headers.
 fn with_context_headers(
     response: axum::response::Response,
     context: &convex_engine::RequestContext,
+    pins: &[String],
     known_at: convex_core::contracts::UtcTimestamp,
 ) -> Result<axum::response::Response, crate::error::ApiError> {
     use crate::curves::{rfc3339, with_header};
     let config = context.config();
-    let pins: Vec<_> = context
-        .pins()
-        .map(|(id, version)| format!("{id}@{}", version.get()))
-        .collect();
     let response = with_header(
         response,
         "x-convex-pricing-config",
@@ -278,6 +285,68 @@ async fn optional_context(
     }
 }
 
+/// Value a stored callable or floating rate note at request time (D57) and read it as
+/// the bullets' quote (D63). `snapshot` names the unpublished snapshot it read and the
+/// curve pins it consumed, which are also returned.
+async fn value_stored(
+    engine: &PricingEngine,
+    context: &convex_engine::RequestContext,
+    reference: &convex_engine::ports::reference_repository::ReferenceRecord,
+    settlement_date: Date,
+    known_at: convex_core::contracts::UtcTimestamp,
+    mark: Option<Decimal>,
+) -> Result<(serde_json::Value, Vec<String>), crate::error::ApiError> {
+    use crate::error::ApiError;
+    let bond = reference
+        .bond
+        .as_ref()
+        .ok_or_else(|| ApiError::not_found("the stored reference is deleted"))?;
+    let settlement = convex_core::contracts::BusinessDate::try_from(settlement_date)
+        .map_err(|e| ApiError::invalid(e.to_string()))?;
+    let valued = engine
+        .value_request(context, reference, settlement, known_at, mark)
+        .await?;
+    let envelope = valued.result.envelope();
+    let quote = convex_engine::request_bond_quote(envelope, settlement_date, bond.currency)
+        .map_err(|e| ApiError::calculation(e.to_string()))?;
+    let mut value =
+        bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
+    let pins: Vec<_> = valued
+        .curves
+        .iter()
+        .map(|(id, version)| format!("{id}@{}", version.get()))
+        .collect();
+    // Nothing stores the snapshot, so its id names the content but cannot be fetched.
+    value["snapshot"] = serde_json::json!({
+        "id": envelope.provenance().snapshot_id,
+        "published": false,
+        "curves": pins,
+    });
+    Ok((value, pins))
+}
+
+/// One callable or floating rate note quote: the valuation, its context in the body and
+/// headers, and the stored reference version it priced.
+async fn runtime_quote(
+    engine: &PricingEngine,
+    context: &convex_engine::RequestContext,
+    reference: &convex_engine::ports::reference_repository::ReferenceRecord,
+    settlement_date: Date,
+    known_at: convex_core::contracts::UtcTimestamp,
+    mark: Option<Decimal>,
+) -> Result<axum::response::Response, crate::error::ApiError> {
+    let (mut value, pins) =
+        value_stored(engine, context, reference, settlement_date, known_at, mark).await?;
+    value["context"] = context_json(Some(context), false, known_at);
+    value["context"]["curves"] = serde_json::json!(pins);
+    let response = crate::curves::with_header(
+        Json(value).into_response(),
+        "x-convex-reference-version",
+        &reference.version.get().to_string(),
+    )?;
+    with_context_headers(response, context, &pins, known_at)
+}
+
 pub(crate) fn bond_quote_json(
     quote: &convex_engine::ports::output::BondQuoteOutput,
 ) -> Result<serde_json::Value, serde_json::Error> {
@@ -316,6 +385,7 @@ pub async fn get_bond_quote(
         .ok_or_else(|| ApiError::not_found(format!("Bond not found: {instrument_id}")))?;
     let bond = reference
         .bond
+        .clone()
         .ok_or_else(|| ApiError::not_found(format!("Bond not found: {instrument_id}")))?;
     let market_price = query.market_price.ok_or_else(|| {
         ApiError::missing_input("market_price is required; no model or market value is substituted")
@@ -328,11 +398,24 @@ pub async fn get_bond_quote(
                 .map_err(|e| ApiError::invalid(e.to_string()))?
         }
     };
-    request_time_product(&bond)?;
+    if runtime_product(&bond) {
+        runtime_composed(&state.engine)?;
+    }
     let context = state
         .engine
         .request_context(query.configuration.as_ref(), known_at)
         .await?;
+    if runtime_product(&bond) {
+        return runtime_quote(
+            &state.engine,
+            &context,
+            &reference,
+            settlement_date,
+            known_at,
+            Some(market_price),
+        )
+        .await;
+    }
     let curves = context.curves_for(&bond)?;
     let input = PricingInput {
         bond,
@@ -358,7 +441,7 @@ pub async fn get_bond_quote(
         "x-convex-reference-version",
         &reference.version.get().to_string(),
     )?;
-    with_context_headers(response, &context, known_at)
+    with_context_headers(response, &context, &context_pins(&context), known_at)
 }
 
 // =============================================================================
@@ -542,6 +625,14 @@ async fn price_one_bond(
         Ok(known_at) => known_at,
         Err(error) => return error.into_response(),
     };
+    // Callables and floating rate notes price through the runtime, except in what-if
+    // mode (D45).
+    let runtime = !supplied && runtime_product(&request.bond);
+    if runtime {
+        if let Err(error) = runtime_composed(&state.engine) {
+            return error.into_response();
+        }
+    }
     let context = if supplied {
         None
     } else {
@@ -552,12 +643,33 @@ async fn price_one_bond(
     };
     let curve_versions: Vec<_> = [("discount",request.discount_curve.as_ref()),("swap",request.swap_curve.as_ref())].into_iter().filter_map(|(role,input)|input.map(|v|serde_json::json!({"role":role,"currency":v.currency,"curve_id":v.curve.curve_id,"version":v.curve.version,"source":v.curve.source,"model_id":v.curve.model_id}))).collect();
     let input = match &context {
+        Some(context) if runtime => {
+            let quoted = match state.engine.stored_terms(&request.bond, known_at).await {
+                Ok(reference) => {
+                    runtime_quote(
+                        &state.engine,
+                        context,
+                        &reference,
+                        settlement_date,
+                        known_at,
+                        request.market_price,
+                    )
+                    .await
+                }
+                Err(error) => Err(error.into()),
+            };
+            return quoted.unwrap_or_else(IntoResponse::into_response);
+        }
+        None if runtime => {
+            return crate::error::ApiError::from(
+                convex_engine::curve_resolution::CurveResolutionError::NoConfiguration,
+            )
+            .into_response()
+        }
         Some(context) => {
-            let curves = match request_time_product(&request.bond)
-                .and_then(|()| context.curves_for(&request.bond).map_err(Into::into))
-            {
+            let curves = match context.curves_for(&request.bond) {
                 Ok(curves) => curves,
-                Err(error) => return error.into_response(),
+                Err(error) => return crate::error::ApiError::from(error).into_response(),
             };
             PricingInput {
                 bond: request.bond,
@@ -607,7 +719,7 @@ async fn price_one_bond(
     response["context"] = context_json(context.as_ref(), supplied, known_at);
     let response = Json(response).into_response();
     match &context {
-        Some(context) => with_context_headers(response, context, known_at)
+        Some(context) => with_context_headers(response, context, &context_pins(context), known_at)
             .unwrap_or_else(IntoResponse::into_response),
         None => response,
     }
@@ -650,8 +762,9 @@ pub struct BondPricingItem {
 /// Response for batch pricing.
 #[derive(Debug, Serialize)]
 pub struct BatchPricingResponse {
-    /// Successful quotes
-    pub quotes: Vec<BondQuoteOutput>,
+    /// Successful quotes, in request order. Callables and floating rate notes also
+    /// carry their unpublished `snapshot` (D63).
+    pub quotes: Vec<serde_json::Value>,
     /// Errors
     pub errors: Vec<PricingError>,
     /// Statistics
@@ -722,20 +835,35 @@ pub async fn batch_price(
             Ok(context) => context,
             Err(error) => return error.into_response(),
         };
-    let mut item_errors = Vec::with_capacity(request.bonds.len());
-    let mut inputs = Vec::with_capacity(request.bonds.len());
-    for item in request.bonds {
-        let checked = match state.engine.validate_inline_reference(&item.bond).await {
-            Err(error) => Err(error.to_string()),
-            Ok(()) => match &context {
-                Some(context) => request_time_product(&item.bond)
-                    .and_then(|()| context.curves_for(&item.bond).map_err(Into::into))
-                    .map(Some)
-                    .map_err(|error| error.summary()),
-                None => Ok(None),
+    let instrument_ids: Vec<_> = request
+        .bonds
+        .iter()
+        .map(|item| item.bond.instrument_id.as_str().to_owned())
+        .collect();
+    let mut outcomes: Vec<Option<Result<serde_json::Value, convex_engine::EngineError>>> =
+        instrument_ids.iter().map(|_| None).collect();
+    let mut routed = Vec::with_capacity(request.bonds.len());
+    let mut valued = Vec::new();
+    for (index, item) in request.bonds.into_iter().enumerate() {
+        let refused = |error: String| Some(Err(convex_engine::EngineError::PricingError(error)));
+        if let Err(error) = state.engine.validate_inline_reference(&item.bond).await {
+            outcomes[index] = refused(error.to_string());
+            continue;
+        }
+        if runtime_product(&item.bond) {
+            valued.push((index, item));
+            continue;
+        }
+        let curves = match &context {
+            Some(context) => match context.curves_for(&item.bond) {
+                Ok(curves) => Some(curves),
+                Err(error) => {
+                    outcomes[index] = refused(crate::error::ApiError::from(error).summary());
+                    continue;
+                }
             },
+            None => None,
         };
-        let curves = checked.as_ref().ok().cloned().flatten();
         let mut input = PricingInput::with_mid_price(
             item.bond,
             settlement_date,
@@ -748,41 +876,40 @@ pub async fn batch_price(
         input.bid_ask_config = context
             .as_ref()
             .and_then(|c| c.config().bid_ask_spread.clone());
-        item_errors.push(checked.err());
-        inputs.push(input);
+        routed.push((index, input));
     }
 
     let router = state.engine.pricing_router();
     let start = Instant::now();
 
     // Execute pricing (parallel or sequential)
-    let instrument_ids: Vec<_> = inputs
-        .iter()
-        .map(|input| input.bond.instrument_id.as_str().to_owned())
-        .collect();
-    let valid_inputs: Vec<_> = inputs
-        .into_iter()
-        .zip(&item_errors)
-        .filter(|(_, error)| error.is_none())
-        .map(|(input, _)| input)
-        .collect();
-    let mut valid_results = if request.parallel {
-        router.price_batch_parallel(&valid_inputs)
+    let (indices, inputs): (Vec<_>, Vec<_>) = routed.into_iter().unzip();
+    let priced = if request.parallel {
+        router.price_batch_parallel(&inputs)
     } else {
-        router.price_batch(&valid_inputs)
+        router.price_batch(&inputs)
+    };
+    for (index, result) in indices.into_iter().zip(priced) {
+        outcomes[index] = Some(result.and_then(|quote| {
+            serde_json::to_value(quote)
+                .map_err(|_| convex_engine::EngineError::Internal("quote serialization".into()))
+        }));
     }
-    .into_iter();
-    let results: Vec<_> = item_errors
-        .into_iter()
-        .map(|error| match error {
-            Some(error) => Err(convex_engine::EngineError::PricingError(error)),
-            None => valid_results.next().unwrap_or_else(|| {
-                Err(convex_engine::EngineError::Internal(
-                    "missing batch result".into(),
-                ))
-            }),
-        })
-        .collect();
+    // Callables and floating rate notes one at a time, each on one interactive slot, so
+    // a batch never takes every slot (D64).
+    for (index, item) in valued {
+        outcomes[index] = Some(
+            runtime_item(
+                &state.engine,
+                context.as_ref(),
+                &item,
+                settlement_date,
+                known_at,
+            )
+            .await
+            .map_err(|error| convex_engine::EngineError::PricingError(error.summary())),
+        );
+    }
 
     let elapsed = start.elapsed();
     let elapsed_ms = elapsed.as_millis() as u64;
@@ -791,8 +918,13 @@ pub async fn batch_price(
     let mut quotes = Vec::new();
     let mut errors = Vec::new();
 
-    for (result, instrument_id) in results.into_iter().zip(instrument_ids) {
-        match result {
+    for (outcome, instrument_id) in outcomes.into_iter().zip(instrument_ids) {
+        let outcome = outcome.unwrap_or_else(|| {
+            Err(convex_engine::EngineError::Internal(
+                "missing batch result".into(),
+            ))
+        });
+        match outcome {
             Ok(quote) => quotes.push(quote),
             Err(e) => errors.push(PricingError {
                 instrument_id,
@@ -828,10 +960,35 @@ pub async fn batch_price(
         }
     };
     match &context {
-        Some(context) => with_context_headers(response, context, known_at)
+        Some(context) => with_context_headers(response, context, &context_pins(context), known_at)
             .unwrap_or_else(IntoResponse::into_response),
         None => response,
     }
+}
+
+/// One batch callable or floating rate note, valued at request time (D57) on stored
+/// terms (D62) under the batch's context.
+async fn runtime_item(
+    engine: &PricingEngine,
+    context: Option<&convex_engine::RequestContext>,
+    item: &BondPricingItem,
+    settlement_date: Date,
+    known_at: convex_core::contracts::UtcTimestamp,
+) -> Result<serde_json::Value, crate::error::ApiError> {
+    runtime_composed(engine)?;
+    let context =
+        context.ok_or(convex_engine::curve_resolution::CurveResolutionError::NoConfiguration)?;
+    let reference = engine.stored_terms(&item.bond, known_at).await?;
+    let (value, _) = value_stored(
+        engine,
+        context,
+        &reference,
+        settlement_date,
+        known_at,
+        item.market_price,
+    )
+    .await?;
+    Ok(value)
 }
 
 // =============================================================================
