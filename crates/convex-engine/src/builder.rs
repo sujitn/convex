@@ -83,8 +83,13 @@ impl PricingEngineBuilder {
                 "max_concurrent_calcs requires 1..=64".into(),
             ));
         }
+        let request = self
+            .runtime
+            .as_ref()
+            .map(|services| crate::request_valuation::RequestValuer::new(services, &storage));
         let mut engine = PricingEngine::new(config, storage);
         engine.configurations = self.configurations;
+        engine.request = request;
         engine.runtime = crate::runtime::RuntimeController::new(
             self.runtime,
             self.demo,

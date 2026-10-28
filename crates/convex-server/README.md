@@ -290,8 +290,24 @@ is the one active now, whatever the cutoff, and the response names it. That is w
 the activation is reported: a price at an earlier cutoff under a later rule is
 auditable only because its activation is named. A missing
 or stale curve, or one with the wrong role or currency, is refused with
-`422 MISSING_INPUT`; the route never prices without curves. Callables and FRNs are
-priced by the runtime; this route refuses them with `422 UNSUPPORTED_PRODUCT`.
+`422 MISSING_INPUT`; the route never prices without curves.
+
+Callables and FRNs are valued by the runtime, through the code the stream runs, so
+the numbers match the stream's for the same mark, cutoff and settlement. Each request
+builds a one-instrument snapshot that is never stored: the stored terms at `known_at`,
+the configuration's curves that product reads (a callable's discount curve; a note's
+discount and `frn_reference_curve`), the note's due fixings, and the mark as one quote
+from source `request`. The runtime values it on one of its interactive slots, with the
+runtime's measures for the product. The response has the bullets' shape, with:
+- `source: "request"`;
+- `measure_errors` for each measure the valuation could not produce, with the
+  runtime's code;
+- `snapshot`: `{"id", "published": false, "curves"}`. The id names the content but
+  cannot be fetched.
+`x-convex-curve-versions` lists the curves that valuation read. A server without a
+runtime refuses callables and FRNs with `422 UNSUPPORTED_PRODUCT`. A runtime that is
+not ready returns `503 UNAVAILABLE`, and `429 CAPACITY_EXCEEDED` when every slot is
+taken; both are retryable.
 
 The response reports what it consumed:
 - `x-convex-reference-version`
@@ -315,6 +331,12 @@ context and its curves once. A bond the context cannot price fails on its own in
   `422 INVALID_INPUT`.
 - `{"kind": "none"}` when no configuration is named and no runtime runs one. The
   price is then yield-only, and curve measures report `MISSING_MARKET_DATA`.
+
+On these routes a callable or FRN must carry the stored terms at `known_at`; other
+terms are `422 INVALID_REFERENCE`. Without `market_price`, each of its measures reports
+`MISSING_MARKET_DATA`. A batch values its callables and FRNs one at a time, so it never
+takes every interactive slot. An item that finds every slot taken fails on its own with
+`CAPACITY_EXCEEDED`. Supplied-curve what-ifs still go to the router.
 
 Curve and quote errors share one body, `{"error", "code", "retryable"}`
 (`crate::error::ApiError`); other routes migrate to it over time.

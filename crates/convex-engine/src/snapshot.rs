@@ -73,12 +73,19 @@ fn read_curves<'c>(
     spec: &ValuationContextSpec,
     curves: &'c convex_ports::storage::AnalyticsCurves,
 ) -> Vec<&'c str> {
-    let model = spec.model_id.as_str();
+    read_curve_ids(spec.model_id.as_str(), &spec.measures, curves)
+}
+/// [`read_curves`] for a context not yet built: its model and measures.
+pub(crate) fn read_curve_ids<'c>(
+    model: &str,
+    measures: &[MeasureId],
+    curves: &'c convex_ports::storage::AnalyticsCurves,
+) -> Vec<&'c str> {
     let second = if model == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL {
         None
     } else if model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
         curves.frn_reference_curve.as_ref()
-    } else if spec.measures.iter().any(|m| curve_measure(m.as_str())) {
+    } else if measures.iter().any(|m| curve_measure(m.as_str())) {
         curves.swap_curve.as_ref()
     } else {
         return Vec::new();

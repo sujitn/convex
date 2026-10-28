@@ -3,135 +3,27 @@
 //! valued by `convex::library` at the observed clean mid.
 #[path = "support/configuration_setup.rs"]
 mod configuration;
+#[path = "support/products.rs"]
+mod products;
 #[path = "support/curve_replay.rs"]
 mod recipes;
 use configuration::runtime::*;
-use convex_core::{
-    calendars::{Calendar, SIFMACalendar},
-    contracts::*,
-    ids::FloatingRateIndex,
-    Date,
-};
+use convex_core::{contracts::*, Date};
 use convex_engine::{floating_valuation::*, snapshot::RUNTIME_MEASURES, RuntimeInput};
 use convex_ports::{
-    fixing::{FixingKey, FixingRepository, PublishedFixing},
-    reference_data::{BondReferenceData, BondType, FloatingRateTerms},
-    reference_master::{
-        ConventionDefinition, FloatingConventions, FloatingMechanics, MasterChange,
-        MasterDefinition, RateIndexDefinition, RateIndexKind, ReferencePin,
-    },
+    fixing::{FixingRepository, PublishedFixing},
     reference_repository::{ReferenceChange, ReferenceCommand},
     snapshot::SnapshotRepository,
 };
+use products::{convention, index, published};
 use rust_decimal::Decimal;
 use std::str::FromStr;
-
-/// Fictional quarterly note on the fixture bond: 45 bp over SOFR, paying two days late.
-fn frn() -> BondReferenceData {
-    let mut bond = fixture::bond();
-    bond.bond_type = BondType::FloatingRate;
-    bond.coupon_rate = None;
-    bond.frequency = 4;
-    bond.floating_terms = Some(FloatingRateTerms {
-        index: FloatingRateIndex::Sofr,
-        spread: Decimal::from(45),
-        reset_frequency: 4,
-        cap: None,
-        floor: None,
-    });
-    bond.day_count = "ACT/360".into();
-    let terms = bond.contractual_terms.as_mut().unwrap();
-    terms.settings.day_count = convex_core::daycounts::DayCountConvention::Act360;
-    terms.convention.id = ReferenceDataId::new("fixture-convention-act360").unwrap();
-    terms.payment_lag = 2;
-    terms.floating_mechanics = Some(FloatingMechanics {
-        index: ReferencePin {
-            id: ReferenceDataId::new("usd-sofr").unwrap(),
-            version: fixture::version(1),
-        },
-        overrides: FloatingConventions::default(),
-    });
-    bond
-}
-/// The note's ACT/360 convention pack; overnight compounding accrues on ACT/360 or ACT/365F.
-fn convention(bond: &BondReferenceData) -> MasterChange {
-    let terms = bond.contractual_terms.as_ref().unwrap();
-    MasterChange {
-        expected_version: None,
-        definition: MasterDefinition::Convention(Box::new(ConventionDefinition {
-            convention_id: terms.convention.id.clone(),
-            settings: terms.settings.clone(),
-            effective: terms.effective,
-            provenance: terms.provenance.clone(),
-        })),
-    }
-}
-/// Fictional rule on the bond's own calendar: published the next business day at 13:00 UTC.
-fn index(bond: &BondReferenceData) -> MasterChange {
-    let terms = bond.contractual_terms.as_ref().unwrap();
-    MasterChange {
-        expected_version: None,
-        definition: MasterDefinition::RateIndex(Box::new(RateIndexDefinition {
-            rate_index_id: ReferenceDataId::new("usd-sofr").unwrap(),
-            index_id: IndexId::new("USD-SOFR").unwrap(),
-            currency: bond.currency,
-            kind: RateIndexKind::Overnight,
-            fixing_source: SourceId::new("fixture-administrator").unwrap(),
-            calendar: terms.calendar.clone(),
-            calendar_code: terms.calendar_code,
-            publication_lag_business_days: 1,
-            publication_utc_seconds: 13 * 3600,
-            conventions: FloatingConventions {
-                lookback_business_days: Some(2),
-                observation_shift: Some(false),
-                lockout_business_days: Some(0),
-                ..FloatingConventions::default()
-            },
-            effective: terms.effective,
-            provenance: terms.provenance.clone(),
-        })),
-    }
-}
-fn projection() -> serde_json::Value {
-    let mut recipe = recipes::recipe();
-    recipe["key"]["id"] = "USD-SOFR-PROJECTION".into();
-    recipe["role"] = serde_json::json!({"kind":"Projection","index_id":"USD-SOFR"});
-    recipe
-}
-/// Every SIFMA business day from 1 July to 1 October at 4.30%, on the rule's schedule.
-fn published() -> Vec<PublishedFixing> {
-    let calendar = SIFMACalendar::new();
-    let mut fixings = Vec::new();
-    let mut day = Date::parse("2026-07-01").unwrap();
-    while day <= Date::parse("2026-10-01").unwrap() {
-        if calendar.is_business_day(day) {
-            let at = fixture::time(&format!("{}T13:00:00Z", calendar.add_business_days(day, 1)));
-            fixings.push(PublishedFixing {
-                schema_version: 1,
-                key: FixingKey {
-                    index_id: IndexId::new("USD-SOFR").unwrap(),
-                    observation_date: BusinessDate::try_from(day).unwrap(),
-                    source: SourceId::new("fixture-administrator").unwrap(),
-                },
-                version: fixture::version(1),
-                rate: DecimalRate::new(ExactDecimal::new(Decimal::from_str("0.043").unwrap())),
-                published_at: at,
-                recorded_at: at,
-                is_preliminary: false,
-                entitled: true,
-                evidence_reference: "fictional".into(),
-            });
-        }
-        day = day.add_days(1);
-    }
-    fixings
-}
 
 /// Version 2 of BOND-001 is the note; configuration version 2 names the projection curve.
 /// The plan requests every router measure and the discount margin, over stored recipes.
 async fn frn_setup(fixings: Vec<PublishedFixing>, projection_role: bool) -> Setup {
     let mut setup = setup().await;
-    let bond = frn();
+    let bond = products::frn(fixture::bond());
     setup
         .storage
         .bonds
@@ -162,7 +54,7 @@ async fn frn_setup(fixings: Vec<PublishedFixing>, projection_role: bool) -> Setu
     plan.assembly.curves.clear();
     plan.assembly.curve_recipes = vec![
         recipes::record(recipes::recipe()),
-        recipes::record(projection()),
+        recipes::record(products::projection(recipes::recipe())),
     ];
     plan.assembly
         .required_curves
@@ -268,7 +160,7 @@ async fn a_stored_sofr_note_publishes_its_discount_margin_from_derived_fixings()
         roles.discount_curve.as_str(),
         roles.frn_reference_curve.as_ref().unwrap().as_str(),
     ];
-    let inputs = widened.inputs(frn().instrument_id.as_str(), &read);
+    let inputs = widened.inputs(fixture::bond().instrument_id.as_str(), &read);
     assert_eq!(inputs.fixings().len(), fixings.len());
     assert_eq!(
         inputs
@@ -327,4 +219,53 @@ async fn plans_accept_the_discount_margin_and_still_refuse_measures_no_model_pub
         .measures
         .push(MeasureId::new("g_spread_mid").unwrap());
     assert!(unknown.validate().is_err());
+}
+
+/// D57: a request-time valuation of the stored note at the stream's cutoff, settlement
+/// and mark gives the stream's values, and with a due fixing missing from the store it
+/// fails as the stream does.
+#[tokio::test]
+async fn a_request_time_note_valuation_matches_the_stream_and_fails_as_it_does() {
+    let mut missing = published();
+    missing.retain(|f| f.key.observation_date.date() != Date::parse("2026-09-15").unwrap());
+    for (fixings, complete) in [(published(), true), (missing, false)] {
+        let setup = frn_setup(fixings, true).await;
+        let config = setup
+            .storage
+            .configs
+            .get_version("CONFIG-RESTORE", 2)
+            .await
+            .unwrap()
+            .unwrap();
+        for recipe in [recipes::recipe(), products::projection(recipes::recipe())] {
+            setup
+                .storage
+                .curves
+                .save_recipe(&recipes::record(recipe))
+                .await
+                .unwrap();
+        }
+        let engine = make_engine(
+            &setup,
+            archive(&setup),
+            setup.plan.clone(),
+            setup.store.clone(),
+            RuntimeInput::Captured,
+        );
+        engine.start().await.unwrap();
+        // A runtime without configuration use cases starts only with nothing activated.
+        configuration::activate_pricing(&setup, &config).await;
+        let stream = engine.runtime_results()[0].result.clone();
+        let valued =
+            configuration::value_at(&engine, &stream, setup.plan.settlement_date, Some("99.25"))
+                .await
+                .unwrap();
+        engine.shutdown().await.unwrap();
+        let result = valued.result.envelope();
+        assert_eq!(result.status() == ResultStatus::Complete, complete);
+        assert_eq!(result.status(), stream.status());
+        assert_eq!(result.results(), stream.results());
+        assert_eq!(result.errors(), stream.errors());
+        assert_eq!(valued.curves.len(), 2, "{:?}", valued.curves);
+    }
 }
