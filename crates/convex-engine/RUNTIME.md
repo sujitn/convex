@@ -113,8 +113,9 @@ A Live runtime resolves its pricing configuration and pinned references, with
 their issuer, calendar, convention and rate-index records, once per accepted
 activation, at the first snapshot that needs them, and reuses them at every tick.
 All are exact pinned versions, so none changes while that selection holds, and each
-snapshot still checks them at its own cutoff. Quotes, fixings and stored curve
-revisions are read at every snapshot's cutoff. A Live quote does not read the active
+snapshot still checks them at its own cutoff. Every tick's snapshot shares one copy of
+the references, written as JSON once and checked once apart from the cutoff (D68).
+Quotes, fixings and stored curve revisions are read at every snapshot's cutoff. A Live quote does not read the active
 configuration: the runtime keeps the selection it accepted until the engine's
 activation refresh or a restart applies another. An activation committed without
 the engine therefore waits for one of those. Captured and Replay read the active

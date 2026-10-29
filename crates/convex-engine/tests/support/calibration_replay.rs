@@ -64,7 +64,7 @@ pub fn runtime_capture() -> SnapshotCalibration {
 pub fn content(mut content: SnapshotContent, capture: SnapshotCalibration) -> SnapshotContent {
     content.schema_version = 3;
     // This standalone graph consumes no R0 bond reference or market mark.
-    content.references.clear();
+    content.references.make_mut().clear();
     content.quotes.clear();
     // Explicit fictional capture configuration, valid at each original fixture instant.
     content.configuration.created_at = 0;

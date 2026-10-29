@@ -17,7 +17,7 @@ convex-core = { workspace = true }
 # Trait definitions only - NO runtime deps (no reqwest, sqlx, redis, ...)
 async-trait = "0.1"
 serde = { workspace = true }
-serde_json = { workspace = true, features = ["float_roundtrip"] }
+serde_json = { workspace = true, features = ["float_roundtrip", "raw_value"] }
 sha2 = "0.10.9"
 thiserror = { workspace = true }
 rust_decimal = { workspace = true }

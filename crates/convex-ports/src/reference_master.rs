@@ -1080,6 +1080,51 @@ pub fn validate_resolved_bond(
     }
 }
 
+/// The checks of [`validate_resolved_bond`] that read `lookup`: the record was recorded
+/// by its cutoff, its terms are effective at its instant, and so is every resource,
+/// each recorded by the cutoff. Every other check reads the reference alone, so a
+/// reference that passed [`validate_resolved_bond`] at one lookup passes it at another
+/// exactly when it passes this (D68).
+pub fn validate_resolved_bond_at(
+    reference: &ResolvedBondReference,
+    lookup: ReferenceLookup,
+) -> Result<(), ReferenceError> {
+    let terms = reference
+        .record
+        .bond
+        .as_ref()
+        .ok_or(ReferenceError::NotFound)?
+        .contractual_terms
+        .as_ref()
+        .ok_or(ReferenceError::InvalidInput("missing terms"))?;
+    if reference.record.recorded_at > lookup.known_at || !terms.effective.contains(lookup.as_of) {
+        return Err(ReferenceError::NotFound);
+    }
+    let floating = reference
+        .floating
+        .iter()
+        .flat_map(|floating| [&floating.index, &floating.calendar]);
+    [
+        &reference.issuer,
+        &reference.calendar,
+        &reference.convention,
+    ]
+    .into_iter()
+    .chain(floating)
+    .try_for_each(|record| resource_in_scope(record, lookup))
+}
+
+/// A resource record known by the lookup's cutoff and effective at its instant.
+fn resource_in_scope(record: &MasterRecord, lookup: ReferenceLookup) -> Result<(), ReferenceError> {
+    if record.recorded_at > lookup.known_at || !record.definition.effective().contains(lookup.as_of)
+    {
+        return Err(ReferenceError::InvalidInput(
+            "reference resource outside effective/known-at scope",
+        ));
+    }
+    Ok(())
+}
+
 /// A floating rate note the service values: floating terms without a cap or floor, and
 /// explicit mechanics pinning its rate index.
 pub fn is_valued_floating(bond: &BondReferenceData) -> bool {
@@ -1114,13 +1159,7 @@ pub fn validate_floating_resources(
         .ok_or(ReferenceError::InvalidInput("missing floating terms"))?;
     for record in [&floating.index, &floating.calendar] {
         record.definition.validate()?;
-        if record.recorded_at > lookup.known_at
-            || !record.definition.effective().contains(lookup.as_of)
-        {
-            return Err(ReferenceError::InvalidInput(
-                "reference resource outside effective/known-at scope",
-            ));
-        }
+        resource_in_scope(record, lookup)?;
     }
     let (MasterDefinition::RateIndex(index), MasterDefinition::Calendar(calendar)) =
         (&floating.index.definition, &floating.calendar.definition)
@@ -1205,13 +1244,7 @@ pub fn validate_service_resources(
     }
     for record in [issuer, calendar, convention] {
         record.definition.validate()?;
-        if record.recorded_at > lookup.known_at
-            || !record.definition.effective().contains(lookup.as_of)
-        {
-            return Err(ReferenceError::InvalidInput(
-                "reference resource outside effective/known-at scope",
-            ));
-        }
+        resource_in_scope(record, lookup)?;
     }
     if let MasterDefinition::Calendar(definition) = &calendar.definition {
         if definition.rule_version.as_str() != SUPPORTED_BOND_CALENDAR_RULES {

@@ -209,7 +209,7 @@ impl SnapshotAssembler {
         configuration: convex_ports::storage::BondPricingConfig,
     ) -> Result<MarketSnapshot, TraitError> {
         validate_request(request, events)?;
-        let references = self.references(request, &configuration).await?;
+        let references = SnapshotReferences::new(self.references(request, &configuration).await?);
         let capture = capture_ms(request);
         let mut quotes = IngestedQuotes::new()?;
         for event in events {
@@ -290,7 +290,7 @@ impl SnapshotAssembler {
     pub(crate) async fn pin(&self, request: &SnapshotAssembly) -> Result<PinnedInputs, TraitError> {
         validate_request(request, &[])?;
         let configuration = self.configuration(request).await?;
-        let references = self.references(request, &configuration).await?;
+        let references = SnapshotReferences::new(self.references(request, &configuration).await?);
         Ok(PinnedInputs {
             activation: activation_revision(request),
             configuration_pin: request.configuration.clone(),
@@ -326,7 +326,7 @@ impl SnapshotAssembler {
         &self,
         request: &SnapshotAssembly,
         configuration: convex_ports::storage::BondPricingConfig,
-        references: Vec<ResolvedBondReference>,
+        references: SnapshotReferences,
         quotes: Vec<SnapshotQuote>,
     ) -> Result<MarketSnapshot, TraitError> {
         let keys = required_fixings(request, &references)?;
@@ -406,13 +406,14 @@ impl IngestedQuotes {
 /// The pricing configuration and pinned references of one selection, resolved once at
 /// the cutoff of its first snapshot (D56). Every record is an exact pinned version, so
 /// none changes while the selection holds; each snapshot still checks them at its own
-/// cutoff (`MarketSnapshot::new`).
+/// cutoff (`MarketSnapshot::new`). Every snapshot shares the one references section, so
+/// its checks that read no cutoff and its canonical JSON are done once (D68).
 pub(crate) struct PinnedInputs {
     activation: Option<Version>,
     configuration_pin: ConfigurationPin,
     instruments: Vec<InstrumentPin>,
     configuration: convex_ports::storage::BondPricingConfig,
-    references: Vec<ResolvedBondReference>,
+    references: SnapshotReferences,
 }
 impl PinnedInputs {
     /// Whether these inputs were resolved for `request`'s activation, configuration and
