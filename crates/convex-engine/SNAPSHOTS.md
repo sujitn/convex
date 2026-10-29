@@ -58,7 +58,9 @@ content with domain `convex.snapshot.v2\0`. Original schema-1 bytes remain exact
 See [complete recipe replay](../../docs/CURVE-SNAPSHOT-REPLAY.md). Unordered manifests are
 normalized; duplicates, conflicting resource revisions, unknown fields and
 out-of-scope inputs fail validation. Deserialization recomputes content identity
-and derived quality. The file adapter additionally requires exact canonical bytes.
+and derived quality, and no method mutates a snapshot, so one held in memory is
+always verified and valuations do not re-verify it (D67). The file adapter
+additionally requires exact canonical bytes.
 This verifies integrity; it does not authenticate a provider or licensing decision.
 
 Each snapshot is bounded to 16 MiB, 256 instruments/selected quote keys, 1,024

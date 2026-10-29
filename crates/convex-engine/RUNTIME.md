@@ -35,8 +35,8 @@ a spread or curve-risk measure. No runtime valuation reads the government curve.
 Source skew is measured among one bond's own quotes. A stale or
 missing input fails only the bonds that read it. The snapshot keeps its own
 snapshot-wide quality for its identity, configuration fixture checks and the hedge
-execution gate. Each snapshot is verified and
-its curves built once, at graph activation, and every bond's valuation reads that
+execution gate. Each snapshot is verified once, when it is made (D67),
+its curves are built once, at graph activation, and every bond's valuation reads that
 build. Graph mutation, mutable
 curve-builder reads and current reference/configuration lookups do not occur in
 CPU workers. CVX-010 adds [validated configuration activation](CONFIGURATION.md):

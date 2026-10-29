@@ -84,7 +84,7 @@ pub(super) fn plan_pin<'a>(
         .find(|pin| pin.instrument_id == *instrument)
         .ok_or(RuntimeError::RecoveryConflict)
 }
-/// Verify the snapshot and build its curves once; the activation's valuations share them.
+/// Build the snapshot's curves once; the activation's valuations share them.
 pub(super) fn activate(
     graph: &CalculationGraph,
     plan: &RuntimePlan,
