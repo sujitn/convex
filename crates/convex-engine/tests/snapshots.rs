@@ -892,7 +892,7 @@ fn a_zero_prices_its_yield_measures_and_keeps_the_router_reason_for_curve_measur
         })
         .collect();
     let mut content = fixture::content();
-    let reference = &mut content.references[0];
+    let reference = &mut content.references.make_mut()[0];
     reference.record.bond = Some(bond);
     reference.issuer = resources[0].clone();
     reference.calendar = resources[1].clone();

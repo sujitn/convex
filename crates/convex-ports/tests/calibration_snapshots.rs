@@ -31,6 +31,12 @@ fn content(capture: SnapshotCalibration) -> SnapshotContent {
     content.calibration = Some(capture);
     content
 }
+/// D68: a schema-3 identity is SHA-256 over the content's plain serialization.
+#[test]
+fn calibration_identity_is_the_hash_of_the_plain_content_bytes() {
+    fixture::assert_plain_identity(&MarketSnapshot::new(content(record())).unwrap());
+}
+
 #[test]
 fn original_bounds_and_identity_pins_apply_to_the_whole_calibration() {
     let original = record();

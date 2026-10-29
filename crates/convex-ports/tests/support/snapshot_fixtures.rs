@@ -139,7 +139,7 @@ pub fn content() -> SnapshotContent {
         generation: version(1),
         configuration: config(),
         configuration_capture: None,
-        references: vec![ResolvedBondReference {
+        references: SnapshotReferences::new(vec![ResolvedBondReference {
             record: ReferenceRecord {
                 schema_version: SchemaVersion::V2,
                 instrument_id: bond.instrument_id.clone(),
@@ -151,7 +151,7 @@ pub fn content() -> SnapshotContent {
             calendar: resources[1].clone(),
             convention: resources[2].clone(),
             floating: None,
-        }],
+        }]),
         quotes: vec![SnapshotQuote {
             requirement: quote_requirement(),
             delivery_watermark: Some(event.clone()),
@@ -171,6 +171,21 @@ pub fn content() -> SnapshotContent {
 }
 pub fn snapshot() -> MarketSnapshot {
     MarketSnapshot::new(content()).unwrap()
+}
+/// The identity is SHA-256 over the content's plain serialization (D68): the hash streams
+/// the references from their section's cached JSON, and this writes them record by record.
+pub fn assert_plain_identity(snapshot: &MarketSnapshot) {
+    let content = snapshot.content();
+    let domain: &[u8] = match content.schema_version {
+        1 => b"convex.snapshot.v1\0",
+        2 => b"convex.snapshot.v2\0",
+        _ => b"convex.snapshot.v3\0",
+    };
+    let bytes = serde_json::to_vec(content).unwrap();
+    assert_eq!(
+        snapshot.id().as_str(),
+        format!("sha256:{}", content_digest(domain, &bytes))
+    );
 }
 /// Add a copy of the fixture bond under `id`, its mid observed `age_ms` before `as_of`.
 pub fn add_bond(content: &mut SnapshotContent, id: &str, age_ms: i64) {
@@ -200,6 +215,6 @@ pub fn add_bond(content: &mut SnapshotContent, id: &str, age_ms: i64) {
         field.source_time_ms = observed;
         field.receive_time_ms = observed;
     }
-    content.references.push(reference);
+    content.references.make_mut().push(reference);
     content.quotes.push(quote);
 }

@@ -131,7 +131,10 @@ fn unknown_later_known_resources_and_invalid_curves_are_rejected_before_publicat
     for case in 0..6 {
         let mut content = fixture::content();
         match case {
-            0 => content.references[0].calendar.recorded_at = fixture::time("2026-10-03T00:00:00Z"),
+            0 => {
+                content.references.make_mut()[0].calendar.recorded_at =
+                    fixture::time("2026-10-03T00:00:00Z")
+            }
             1 => content.configuration.version = 0,
             2 => content.curves[0].points.swap(0, 1),
             3 => content.curves[0].points[1].tenor_years = content.curves[0].points[0].tenor_years,
@@ -143,6 +146,64 @@ fn unknown_later_known_resources_and_invalid_curves_are_rejected_before_publicat
         }
         assert!(MarketSnapshot::new(content).is_err());
     }
+}
+
+/// D68: the identity equals SHA-256 over the content's plain serialization, one quote
+/// field changes it, and a change to a section whose JSON was written drops that JSON.
+#[test]
+fn identity_is_the_hash_of_the_plain_content_bytes() {
+    let mut content = fixture::content();
+    fixture::add_bond(&mut content, "BOND-002", 0);
+    let first = MarketSnapshot::new(content.clone()).unwrap();
+    fixture::assert_plain_identity(&first);
+    let id = first.id().clone();
+
+    let mut quote = content.clone();
+    for field in quote.quotes[0].image.as_mut().unwrap().fields.values_mut() {
+        field.source_time_ms -= 1;
+    }
+    let quote = MarketSnapshot::new(quote).unwrap();
+    fixture::assert_plain_identity(&quote);
+    assert_ne!(quote.id(), &id);
+    assert_eq!(quote.content().references, first.content().references);
+
+    // The section is no longer shared and its JSON is written: a change made in place.
+    drop((first, quote));
+    fixture::add_bond(&mut content, "BOND-003", 0);
+    let grown = MarketSnapshot::new(content).unwrap();
+    fixture::assert_plain_identity(&grown);
+    assert_ne!(grown.id(), &id);
+}
+
+/// D68: a shared section's checks that read no cutoff run once, each snapshot still
+/// checks it at its own cutoff, and a change drops the checks.
+#[test]
+fn a_checked_reference_section_is_still_checked_at_each_cutoff_and_after_a_change() {
+    let mut content = fixture::content();
+    content.references.make_mut()[0].calendar.recorded_at = fixture::time("2026-10-02T12:00:00Z");
+    let checked = MarketSnapshot::new(content.clone()).unwrap();
+
+    // Before the calendar revision was recorded.
+    let mut earlier = content.clone();
+    earlier.as_of = fixture::time("2026-10-02T11:00:00Z");
+    earlier.known_at = earlier.as_of;
+    assert!(matches!(
+        MarketSnapshot::new(earlier),
+        Err(convex_ports::TraitError::InvalidInput(
+            "invalid resolved snapshot reference"
+        ))
+    ));
+
+    // A duplicate added in place, once the section is no longer shared.
+    drop(checked);
+    let duplicate = content.references[0].clone();
+    content.references.make_mut().push(duplicate);
+    assert!(matches!(
+        MarketSnapshot::new(content),
+        Err(convex_ports::TraitError::InvalidInput(
+            "duplicate snapshot reference"
+        ))
+    ));
 }
 
 #[test]
@@ -170,7 +231,7 @@ fn instrument_lookups_find_each_reference_and_every_source_in_canonical_order() 
     let mut content = fixture::content();
     let reference = content.references[0].clone();
     let quote = content.quotes[0].clone();
-    content.references.clear();
+    content.references.make_mut().clear();
     content.quotes.clear();
     // Supplied out of order; one instrument has two sources.
     for (id, sources) in [
@@ -183,7 +244,7 @@ fn instrument_lookups_find_each_reference_and_every_source_in_canonical_order() 
         if let Some(bond) = &mut reference.record.bond {
             bond.instrument_id = reference.record.instrument_id.clone();
         }
-        content.references.push(reference);
+        content.references.make_mut().push(reference);
         for source in sources {
             let mut quote = quote.clone();
             quote.requirement.key.instrument_id = convex_core::ids::InstrumentId::new(id);
@@ -353,7 +414,7 @@ fn an_instrument_reads_the_same_inputs_until_its_own_change() {
     assert_eq!(same(curve.clone(), &[]), (true, true));
     assert_eq!(same(curve, &["USD-FIXTURE"]), (true, false));
     let mut reference = base();
-    reference.references[0].record.version = fixture::version(2);
+    reference.references.make_mut()[0].record.version = fixture::version(2);
     assert_eq!(same(reference, &[]), (true, false));
 
     // The frame: the next day, the skew policy and the configuration.

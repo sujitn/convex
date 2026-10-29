@@ -55,6 +55,11 @@ one nanosecond beyond it is stale. Reading a cache never renews its age.
 Snapshot identity is `sha256:<64 lowercase hexadecimal digits>` over canonical
 schema-1 content with domain `convex.snapshot.v1\0`, or complete recipe schema-2
 content with domain `convex.snapshot.v2\0`. Original schema-1 bytes remain exact.
+The references are one shared, immutable section (D68). Every snapshot of a Live
+selection shares the section it pinned: its canonical JSON is written once, its checks
+that read no cutoff run once, and each snapshot still checks it at its own cutoff. The
+identity streams the same canonical bytes into the hash, so ids and stored snapshots
+are unchanged.
 See [complete recipe replay](../../docs/CURVE-SNAPSHOT-REPLAY.md). Unordered manifests are
 normalized; duplicates, conflicting resource revisions, unknown fields and
 out-of-scope inputs fail validation. Deserialization recomputes content identity

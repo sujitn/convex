@@ -7,8 +7,11 @@ use convex_core::contracts::{
     SourceId, UtcTimestamp, Version,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
+use std::io::Write as _;
+use std::sync::{Arc, OnceLock};
 
 use crate::calibration::SnapshotCalibration;
 use crate::fixing::{FixingKey, PublishedFixing};
@@ -16,7 +19,8 @@ use crate::quote_event::{
     DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
 };
 use crate::reference_master::{
-    validate_resolved_bond, MasterDefinition, ReferenceLookup, ResolvedBondReference,
+    validate_resolved_bond, validate_resolved_bond_at, MasterDefinition, ReferenceLookup,
+    ResolvedBondReference,
 };
 use crate::storage::BondPricingConfig;
 use crate::TraitError;
@@ -290,8 +294,8 @@ pub struct SnapshotContent {
     /// Omitted on older explicit-pin manifests to preserve their content identities.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub configuration_capture: Option<crate::configuration::ConfigurationCapture>,
-    /// Resolved instrument, issuer, calendar and convention revisions.
-    pub references: Vec<ResolvedBondReference>,
+    /// Resolved instrument, issuer, calendar and convention revisions, one shared section.
+    pub references: SnapshotReferences,
     /// Selected quote requirements, values and feed continuity.
     pub quotes: Vec<SnapshotQuote>,
     /// Required known-at fixings, including explicit missing entries.
@@ -308,6 +312,174 @@ pub struct SnapshotContent {
     pub calibration: Option<SnapshotCalibration>,
     /// Maximum skew among required quote source-field timestamps, 0..=86,400,000 ms.
     pub max_source_skew_ms: i64,
+}
+
+/// The resolved references of a snapshot: one shared, immutable section (D68). A Live
+/// selection pins its references once per activation, and every tick's snapshot shares
+/// the section instead of copying it. The checks that read the records alone run once
+/// per section, and its canonical JSON is written once; the checks that read a cutoff
+/// run for every snapshot. [`SnapshotReferences::make_mut`] is the only way to change
+/// the records, and it drops both. It serializes as the plain array of records, so
+/// stored snapshots are unchanged.
+#[derive(Clone)]
+pub struct SnapshotReferences(Arc<ReferenceSection>);
+
+struct ReferenceSection {
+    records: Vec<ResolvedBondReference>,
+    /// Canonical JSON of `records`, written by the first identity that needs it.
+    json: OnceLock<Box<RawValue>>,
+    /// Set once `records` pass the checks that read no cutoff.
+    checked: OnceLock<()>,
+}
+
+impl ReferenceSection {
+    fn new(records: Vec<ResolvedBondReference>) -> Self {
+        Self {
+            records,
+            json: OnceLock::new(),
+            checked: OnceLock::new(),
+        }
+    }
+}
+
+impl Clone for ReferenceSection {
+    /// A copy is made only to change it, so it starts unchecked and unwritten.
+    fn clone(&self) -> Self {
+        Self::new(self.records.clone())
+    }
+}
+
+impl SnapshotReferences {
+    /// One section of `records`, sorted by instrument id as every snapshot holds them.
+    pub fn new(mut records: Vec<ResolvedBondReference>) -> Self {
+        records.sort_by(by_instrument);
+        Self(Arc::new(ReferenceSection::new(records)))
+    }
+    /// The records to change, copied first when another holder shares them. The checks
+    /// and canonical JSON are dropped; the next snapshot sorts, checks and writes again.
+    pub fn make_mut(&mut self) -> &mut Vec<ResolvedBondReference> {
+        let section = Arc::make_mut(&mut self.0);
+        section.json.take();
+        section.checked.take();
+        &mut section.records
+    }
+    /// Sort by instrument id, copying only when the records are out of order. A shared
+    /// section is already sorted, so a Live tick never copies it.
+    fn sort(&mut self) {
+        if !self
+            .0
+            .records
+            .is_sorted_by(|a, b| by_instrument(a, b).is_le())
+        {
+            self.make_mut().sort_by(by_instrument);
+        }
+    }
+    /// One instrument's reference; the records are sorted and distinct once checked.
+    fn find(&self, instrument_id: &str) -> Option<&ResolvedBondReference> {
+        let records = &self.0.records;
+        records
+            .binary_search_by(|r| r.record.instrument_id.as_str().cmp(instrument_id))
+            .ok()
+            .map(|i| &records[i])
+    }
+    /// Check sorted records at `lookup`. The checks that read the records alone run
+    /// once per section; the cutoff checks run at every call.
+    fn validate(&self, lookup: ReferenceLookup) -> Result<(), TraitError> {
+        use crate::reference_repository::validate_reference_id;
+        let invalid = |_| TraitError::InvalidInput("invalid resolved snapshot reference");
+        if self.0.checked.get().is_some() {
+            return self
+                .0
+                .records
+                .iter()
+                .try_for_each(|reference| validate_resolved_bond_at(reference, lookup))
+                .map_err(invalid);
+        }
+        let mut resources = std::collections::BTreeMap::new();
+        for (i, reference) in self.0.records.iter().enumerate() {
+            validate_reference_id(&reference.record.instrument_id)
+                .map_err(|_| TraitError::InvalidInput("invalid snapshot instrument"))?;
+            if i > 0 && self.0.records[i - 1].record.instrument_id == reference.record.instrument_id
+            {
+                return Err(TraitError::InvalidInput("duplicate snapshot reference"));
+            }
+            validate_resolved_bond(reference, lookup).map_err(invalid)?;
+            for record in [
+                &reference.issuer,
+                &reference.calendar,
+                &reference.convention,
+            ] {
+                let key = (record.definition.key(), record.version);
+                if resources
+                    .insert(key, record)
+                    .is_some_and(|prior| prior != record)
+                {
+                    return Err(TraitError::Conflict(
+                        "different content for one reference revision",
+                    ));
+                }
+            }
+        }
+        let _ = self.0.checked.set(());
+        Ok(())
+    }
+    /// The records' canonical JSON, written once per section.
+    fn json(&self) -> Result<&RawValue, TraitError> {
+        if let Some(json) = self.0.json.get() {
+            return Ok(json);
+        }
+        let json = serde_json::value::to_raw_value(&self.0.records)
+            .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
+        Ok(self.0.json.get_or_init(|| json))
+    }
+}
+
+fn by_instrument(a: &ResolvedBondReference, b: &ResolvedBondReference) -> std::cmp::Ordering {
+    a.record
+        .instrument_id
+        .as_str()
+        .cmp(b.record.instrument_id.as_str())
+}
+
+impl std::ops::Deref for SnapshotReferences {
+    type Target = [ResolvedBondReference];
+    fn deref(&self) -> &Self::Target {
+        &self.0.records
+    }
+}
+
+impl<'a> IntoIterator for &'a SnapshotReferences {
+    type Item = &'a ResolvedBondReference;
+    type IntoIter = std::slice::Iter<'a, ResolvedBondReference>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.records.iter()
+    }
+}
+
+impl PartialEq for SnapshotReferences {
+    /// Equal records; the cached checks and JSON are not compared.
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.0.records == other.0.records
+    }
+}
+
+impl std::fmt::Debug for SnapshotReferences {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.records.fmt(f)
+    }
+}
+
+impl Serialize for SnapshotReferences {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.records.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SnapshotReferences {
+    /// Records keep their wire order, so verification still refuses unsorted ones.
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Vec::deserialize(deserializer).map(|records| Self(Arc::new(ReferenceSection::new(records))))
+    }
 }
 
 /// Machine-readable quality reason; identity is a selected dependency, never raw licensed data.
@@ -422,23 +594,7 @@ impl MarketSnapshot {
             content.as_of.max(content.known_at),
             &InputSet::all(&content),
         );
-        let bytes = serde_json::to_vec(&content)
-            .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
-        if bytes.len() > MAX_SNAPSHOT_BYTES {
-            return Err(TraitError::CapacityExceeded);
-        }
-        let id = SnapshotId::new(format!(
-            "sha256:{}",
-            content_digest(
-                match content.schema_version {
-                    1 => b"convex.snapshot.v1\0",
-                    2 => b"convex.snapshot.v2\0",
-                    _ => b"convex.snapshot.v3\0",
-                },
-                &bytes
-            )
-        ))
-        .map_err(|_| TraitError::InvalidInput("invalid snapshot identity"))?;
+        let id = identity(&content)?;
         Ok(Self(SnapshotWire {
             snapshot_id: id,
             content,
@@ -460,11 +616,7 @@ impl MarketSnapshot {
     /// The resolved reference of one instrument. Every snapshot holds its references
     /// sorted by instrument id without duplicates, so this is a binary search.
     pub fn reference(&self, instrument_id: &str) -> Option<&ResolvedBondReference> {
-        let references = &self.0.content.references;
-        references
-            .binary_search_by(|r| r.record.instrument_id.as_str().cmp(instrument_id))
-            .ok()
-            .map(|i| &references[i])
+        self.0.content.references.find(instrument_id)
     }
     /// The selected quotes of one instrument, one per source, in source order. Every
     /// snapshot holds its quotes sorted by instrument id, then source.
@@ -638,6 +790,99 @@ impl MarketSnapshot {
         Ok(())
     }
 }
+/// SHA-256 under the schema's domain over the canonical JSON of normalized content, the
+/// bytes `serde_json::to_vec` writes for it. They stream into the hash, bounded as they
+/// go, and the references are written from their section's cached JSON (D68).
+fn identity(content: &SnapshotContent) -> Result<SnapshotId, TraitError> {
+    let canonical = CanonicalContent::new(content)?;
+    let mut hash = Sha256::new();
+    hash.update(match content.schema_version {
+        1 => b"convex.snapshot.v1\0",
+        2 => b"convex.snapshot.v2\0",
+        _ => b"convex.snapshot.v3\0",
+    });
+    let mut writer = std::io::BufWriter::new(BoundedDigest { hash, len: 0 });
+    let written = serde_json::to_writer(&mut writer, &canonical)
+        .map_err(drop)
+        .and_then(|()| writer.flush().map_err(drop));
+    if written.is_err() {
+        return Err(if writer.get_ref().len > MAX_SNAPSHOT_BYTES {
+            TraitError::CapacityExceeded
+        } else {
+            TraitError::InvalidInput("snapshot serialization failed")
+        });
+    }
+    let (digest, _) = writer.into_parts();
+    SnapshotId::new(format!("sha256:{:x}", digest.hash.finalize()))
+        .map_err(|_| TraitError::InvalidInput("invalid snapshot identity"))
+}
+
+/// A hash that refuses bytes beyond [`MAX_SNAPSHOT_BYTES`].
+struct BoundedDigest {
+    hash: Sha256,
+    len: usize,
+}
+
+impl std::io::Write for BoundedDigest {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.len = self.len.saturating_add(bytes.len());
+        if self.len > MAX_SNAPSHOT_BYTES {
+            return Err(std::io::Error::other("snapshot exceeds its bound"));
+        }
+        self.hash.update(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// [`SnapshotContent`] as identity writes it, with the references from their cached
+/// JSON. The fields, their order and their skip rules mirror `SnapshotContent`; a test
+/// compares the identity with SHA-256 over `serde_json::to_vec` of the content.
+#[derive(Serialize)]
+struct CanonicalContent<'a> {
+    schema_version: u32,
+    as_of: &'a UtcTimestamp,
+    known_at: &'a UtcTimestamp,
+    generation: &'a Version,
+    #[serde(serialize_with = "snapshot_configuration::serialize")]
+    configuration: &'a BondPricingConfig,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    configuration_capture: Option<&'a crate::configuration::ConfigurationCapture>,
+    references: &'a RawValue,
+    quotes: &'a [SnapshotQuote],
+    fixings: &'a [SnapshotFixing],
+    required_curves: &'a [CurveId],
+    curves: &'a [SnapshotCurve],
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    curve_recipes: &'a [SnapshotCurveRecipe],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    calibration: Option<&'a SnapshotCalibration>,
+    max_source_skew_ms: i64,
+}
+
+impl<'a> CanonicalContent<'a> {
+    fn new(content: &'a SnapshotContent) -> Result<Self, TraitError> {
+        Ok(Self {
+            schema_version: content.schema_version,
+            as_of: &content.as_of,
+            known_at: &content.known_at,
+            generation: &content.generation,
+            configuration: &content.configuration,
+            configuration_capture: content.configuration_capture.as_ref(),
+            references: content.references.json()?,
+            quotes: &content.quotes,
+            fixings: &content.fixings,
+            required_curves: &content.required_curves,
+            curves: &content.curves,
+            curve_recipes: &content.curve_recipes,
+            calibration: content.calibration.as_ref(),
+            max_source_skew_ms: content.max_source_skew_ms,
+        })
+    }
+}
+
 impl TryFrom<SnapshotWire> for MarketSnapshot {
     type Error = TraitError;
     fn try_from(value: SnapshotWire) -> Result<Self, Self::Error> {
@@ -699,12 +944,7 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
     {
         return Err(TraitError::CapacityExceeded);
     }
-    content.references.sort_by(|a, b| {
-        a.record
-            .instrument_id
-            .as_str()
-            .cmp(b.record.instrument_id.as_str())
-    });
+    content.references.sort();
     content.quotes.sort_by(|a, b| {
         (
             a.requirement.key.instrument_id.as_str(),
@@ -796,45 +1036,20 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
         .applies_to
         .validate()
         .map_err(TraitError::InvalidInput)?;
-    let mut instruments = BTreeSet::new();
-    let mut resources = std::collections::BTreeMap::new();
-    for reference in &content.references {
-        validate_reference_id(&reference.record.instrument_id)
-            .map_err(|_| TraitError::InvalidInput("invalid snapshot instrument"))?;
-        if !instruments.insert(reference.record.instrument_id.as_str()) {
-            return Err(TraitError::InvalidInput("duplicate snapshot reference"));
-        }
-        validate_resolved_bond(
-            reference,
-            ReferenceLookup {
-                as_of: content.as_of,
-                known_at: content.known_at,
-            },
-        )
-        .map_err(|_| TraitError::InvalidInput("invalid resolved snapshot reference"))?;
-        for record in [
-            &reference.issuer,
-            &reference.calendar,
-            &reference.convention,
-        ] {
-            let key = (record.definition.key(), record.version);
-            if resources
-                .insert(key, record)
-                .is_some_and(|prior| prior != record)
-            {
-                return Err(TraitError::Conflict(
-                    "different content for one reference revision",
-                ));
-            }
-        }
-    }
+    content.references.validate(ReferenceLookup {
+        as_of: content.as_of,
+        known_at: content.known_at,
+    })?;
     let mut quotes = BTreeSet::new();
     for quote in &content.quotes {
         let requirement = &quote.requirement;
         validate_reference_id(&requirement.key.instrument_id)
             .map_err(|_| TraitError::InvalidInput("invalid quote instrument"))?;
         crate::quote_event::validate_text(&requirement.key.source, 128)?;
-        if !instruments.contains(requirement.key.instrument_id.as_str())
+        if content
+            .references
+            .find(requirement.key.instrument_id.as_str())
+            .is_none()
             || !quotes.insert((
                 requirement.key.instrument_id.as_str(),
                 &requirement.key.source,

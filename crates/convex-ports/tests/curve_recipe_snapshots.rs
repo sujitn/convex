@@ -27,6 +27,12 @@ fn content(records: Vec<SnapshotCurveRecipe>) -> SnapshotContent {
     c
 }
 
+/// D68: a schema-2 identity is SHA-256 over the content's plain serialization.
+#[test]
+fn recipe_identity_is_the_hash_of_the_plain_content_bytes() {
+    fixture::assert_plain_identity(&MarketSnapshot::new(content(vec![record()])).unwrap());
+}
+
 #[test]
 fn record_and_aggregate_bounds_are_shared_with_original_zero_records() {
     let mut r = record();
