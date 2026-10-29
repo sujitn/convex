@@ -844,7 +844,7 @@ impl CalculationGraph {
             .map_err(|_| GraphError::ContextConflict)?;
         self.activate_built(nodes, &built)
     }
-    /// Activate a snapshot already verified and built once, whose curves its valuations share.
+    /// Activate a snapshot whose curves were built once and are shared by its valuations.
     pub fn activate_built(
         &self,
         nodes: Vec<NodeSpec>,

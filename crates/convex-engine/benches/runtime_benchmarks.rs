@@ -413,8 +413,10 @@ fn bench_live_throughput(c: &mut Criterion) {
     group.finish();
 }
 
-/// One snapshot over N instruments from their images: configuration and reference reads,
-/// quote ingestion and the content hash, without publication.
+/// One snapshot over N instruments from their images through `resolve`, the Captured and
+/// Replay path: configuration and reference reads from the store, quote ingestion and the
+/// content hash, without publication. A Live tick does not take this path: it pins the
+/// configuration and references once per activation (D56).
 fn bench_assemble(c: &mut Criterion) {
     let rt = runtime();
     let mut group = c.benchmark_group("snapshot/assemble");

@@ -396,7 +396,10 @@ impl<'a> InputSet<'a> {
     }
 }
 
-/// Verified immutable content-addressed information set, schema 1, 2 or 3.
+/// Verified immutable content-addressed information set, schema 1, 2 or 3. Every value
+/// is verified when it is made: [`MarketSnapshot::new`] derives the identity and quality,
+/// deserialization re-derives and compares them, and no method mutates one. Holders do not
+/// re-verify it (D67).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(try_from = "SnapshotWire", into = "SnapshotWire")]
 pub struct MarketSnapshot(SnapshotWire);
@@ -578,7 +581,8 @@ impl MarketSnapshot {
             None => DataQuality::Invalid,
         }
     }
-    /// Verify content/quality against its identity (also required after deserialization).
+    /// Re-derive identity and quality from the content and compare. Deserialization runs
+    /// this; a value made by [`MarketSnapshot::new`] passes by construction.
     pub fn verify(&self) -> Result<(), TraitError> {
         let verified = Self::new(self.0.content.clone())?;
         if verified != *self {
