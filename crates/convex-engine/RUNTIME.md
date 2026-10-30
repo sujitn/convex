@@ -52,7 +52,7 @@ analytics remain their owning tasks.
 | --- | --- | --- |
 | Captured | Caller supplies normalized events and both cutoffs | At least one complete result on valid captured inputs |
 | Replay | Pull source such as `FileQuoteReplay`, with original event order/time | At least one complete result on valid historical inputs; EOF sets `replay_complete` |
-| Live | `RuntimeInput::Live` quote source subscription, such as the server's HTTP ingress | At least one complete result on valid inputs from this process; after a delivery loss, every selected source supplied a new image |
+| Live | `RuntimeInput::Live` quote source subscription, such as the server's HTTP ingress | At least one complete result on valid inputs from this process, also after a restart that follows a delivery loss |
 | Idle demo | Explicit `with_demo_mode`, no numerical runtime | Demo quality; readiness stays false |
 
 Every mode also needs the accepted configuration activation, acknowledged output
@@ -64,8 +64,9 @@ quality, else `Demo` if any result is `Demo`, else `Valid`.
 `Live` is a provider integration point. Its broadcast transport reports lag and
 closure; these stop acceptance, publish a failed/stale state when storage/output
 permit it, and unsubscribe. Restart restores dependencies, and each bond fails until
-its source supplies a new image. After a delivery loss readiness waits for new
-images from all selected sources. A deadline wakeup revalues expired inputs without
+its source supplies a new image. A restart is a fresh start, also after a delivery
+loss: the stored Live image never holds the loss, so one accepted result makes the
+runtime ready, as at any start (D71). A deadline wakeup revalues expired inputs without
 a periodic calculation poll. It is armed at the earliest expiry among the results
 whose quality is accepted, so a bond that is already stale never re-runs the tick.
 Live records include `live_valid_until`, derived from that bond's own dependency
@@ -329,7 +330,11 @@ way ([deploy/showcase](../../deploy/showcase/README.md)).
 `POST /api/v1/market/quotes` takes `{"events": [QuoteEvent, ...]}` with 1 to 256
 canonical events. The server replaces each event's `receive_time_ms` with its own
 receipt time, stamped and queued under one lock so delivery order is receipt order.
-A batch is queued whole or not at all:
+Receipt times never step back. While the wall clock is behind the last stamp by at
+most 5 s, a batch is stamped with the last stamp, so its quotes can read up to 5 s
+ahead of the clock. A larger step refuses every batch with 503 until the clock
+catches up. A step is logged once, at warn. `FUTURE_SOURCE_TIME` compares with the
+stamp (D70). A batch is queued whole or not at all:
 
 | Status | Meaning |
 | --- | --- |
@@ -337,7 +342,7 @@ A batch is queued whole or not at all:
 | 400 | Empty batch, more than 256 events, or a body that is not a JSON quote batch (malformed JSON, wrong shape, unknown field, or not `application/json`) |
 | 422 `QUOTES_REJECTED` | Per-row `INVALID_EVENT`, `UNKNOWN_KEY` (not a plan instrument/source) or `FUTURE_SOURCE_TIME` |
 | 429 | The runtime's 1,024-event queue cannot take the batch; retry |
-| 503 | No live runtime is composed or subscribed, or the server clock moved backwards |
+| 503 | No live runtime is composed or subscribed, or the server clock moved backwards by more than 5 s |
 
 The ingress refuses anything the Live runtime would not accept, because the runtime
 stops on such an event. Results reach WebSocket subscribers and

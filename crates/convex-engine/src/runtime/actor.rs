@@ -163,7 +163,9 @@ impl Actor {
         let live_state = if services.plan.mode == RuntimeMode::Live {
             let reserved = checkpoint.clone();
             if !absent {
-                // Nothing stored describes the market. Recalculate from no quotes, above the ceilings.
+                // Nothing stored describes the market. Recalculate from no quotes, above the
+                // ceilings. A restart is a fresh start, even after a delivery loss (D71).
+                checkpoint.delivery_lost = false;
                 checkpoint.events.clear();
                 checkpoint.results = Arc::default();
                 checkpoint.outbox = Arc::default();
@@ -1109,8 +1111,10 @@ impl Actor {
     }
 }
 /// Stored Live image: counters a block ahead of use, without market state or results.
+/// It never stores a delivery loss: a restart is a fresh start (D71).
 fn reservation(next: &RuntimeCheckpoint) -> Result<RuntimeCheckpoint, RuntimeError> {
     let mut image = next.clone();
+    image.delivery_lost = false;
     image.events.clear();
     image.results = Arc::default();
     image.outbox = Arc::default();

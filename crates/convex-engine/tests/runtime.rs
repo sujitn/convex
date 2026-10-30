@@ -23,7 +23,7 @@ use std::{
     },
     time::Duration,
 };
-use subscription_source::SubscriptionSource;
+use subscription_source::{monotone_stamp, SubscriptionSource};
 use support::*;
 use tokio::sync::Notify;
 async fn update(
@@ -658,7 +658,7 @@ async fn live_subscription_requires_new_image_expires_without_polling_and_closur
         engine.start().await.unwrap();
         assert!(!engine.runtime_health().ready);
         let mut updates = engine.subscribe_results();
-        let stamp = chrono::Utc::now().timestamp_millis();
+        let stamp = monotone_stamp();
         source.send(fixture::event(1, stamp, stamp, "99.25"));
         let good = tokio::time::timeout(Duration::from_secs(5), updates.recv())
             .await
@@ -750,7 +750,7 @@ async fn live_ticks_stay_in_memory_and_restart_continues_above_reserved_counters
     let mut updates = engine.subscribe_results();
     let mut last = None;
     for sequence in 1..=20u64 {
-        let stamp = chrono::Utc::now().timestamp_millis();
+        let stamp = monotone_stamp();
         source.send(fixture::event(sequence, stamp, stamp, "99.25"));
         let result = tokio::time::timeout(Duration::from_secs(5), updates.recv())
             .await
@@ -785,7 +785,7 @@ async fn live_ticks_stay_in_memory_and_restart_continues_above_reserved_counters
     assert_ne!(restored[0].result.status(), ResultStatus::Complete);
     assert!(!restarted.runtime_health().ready);
     let mut updates = restarted.subscribe_results();
-    let stamp = chrono::Utc::now().timestamp_millis();
+    let stamp = monotone_stamp();
     source.send(fixture::event(1, stamp, stamp, "99.50"));
     let fresh = tokio::time::timeout(Duration::from_secs(5), updates.recv())
         .await
@@ -794,6 +794,50 @@ async fn live_ticks_stay_in_memory_and_restart_continues_above_reserved_counters
     assert_eq!(fresh.result.status(), ResultStatus::Complete);
     assert!(fresh.revision > restored[0].revision);
     assert!(restarted.runtime_health().ready);
+    restarted.shutdown().await.unwrap();
+}
+
+/// D71: a Live restart is a fresh start. A stored image that holds a delivery loss, as a
+/// reservation written during a loss could hold one before, does not make readiness wait
+/// for every key's image: one accepted result is enough (D58a), the quiet bond keeps its
+/// failed record (D58), and the next stored image does not hold the loss. Two bonds,
+/// because one image for a one-bond plan clears the loss anyway.
+#[tokio::test]
+async fn a_live_restart_after_a_delivery_loss_is_ready_after_one_accepted_result() {
+    let s = setup().await;
+    let mut plan = live_plan(&s);
+    widen(&s, &mut plan, 2).await;
+    let engine = live_engine(
+        &s,
+        plan.clone(),
+        s.store.clone(),
+        Arc::new(SubscriptionSource::new()),
+    );
+    engine.start().await.unwrap();
+    engine.shutdown().await.unwrap();
+    let mut lost = s.store.load(&plan.runtime_id).await.unwrap().unwrap();
+    let expected = lost.revision;
+    lost.revision += 1;
+    lost.delivery_lost = true;
+    s.store.checkpoint(expected, &lost).await.unwrap();
+
+    let source = Arc::new(SubscriptionSource::new());
+    let restarted = live_engine(&s, plan.clone(), s.store.clone(), source.clone());
+    restarted.start().await.unwrap();
+    assert!(!restarted.runtime_health().ready);
+    let mut updates = restarted.subscribe_results();
+    let stamp = monotone_stamp();
+    source.send(fixture::event(1, stamp, stamp, "99.50"));
+    // Only the quoted bond's inputs changed, so only it is valued and published (D55).
+    let fresh = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(fresh.result.status(), ResultStatus::Complete);
+    let health = restarted.runtime_health();
+    assert!(health.ready && health.failed_instruments == 1, "{health:?}");
+    let stored = s.store.load(&plan.runtime_id).await.unwrap().unwrap();
+    assert!(stored.revision > lost.revision && !stored.delivery_lost);
     restarted.shutdown().await.unwrap();
 }
 
@@ -831,7 +875,7 @@ async fn live_judges_each_bond_only_on_its_own_inputs() {
     let mut updates = engine.subscribe_results();
     // This current-thread test runs the actor only while it awaits, so both quotes are
     // valued in one tick (D54).
-    let stamp = chrono::Utc::now().timestamp_millis();
+    let stamp = monotone_stamp();
     let mut other = fixture::event(1, stamp - 600, stamp - 600, "99.00");
     other.key.instrument_id = convex_core::ids::InstrumentId::new("BOND-W001");
     source.send(other);
@@ -895,7 +939,7 @@ async fn live_values_only_the_bonds_whose_inputs_changed() {
     engine.start().await.unwrap();
     let mut updates = engine.subscribe_results();
     let quote = |sequence, id: &str, value| {
-        let stamp = chrono::Utc::now().timestamp_millis();
+        let stamp = monotone_stamp();
         let mut event = fixture::event(sequence, stamp, stamp, value);
         event.key.instrument_id = convex_core::ids::InstrumentId::new(id);
         source.send(event);
@@ -986,7 +1030,7 @@ async fn live_ticks_stay_complete_past_the_result_cache_capacity() {
     engine.start().await.unwrap();
     let mut updates = engine.subscribe_results();
     for sequence in 1..=300u64 {
-        let stamp = chrono::Utc::now().timestamp_millis();
+        let stamp = monotone_stamp();
         source.send(fixture::event(sequence, stamp, stamp, "99.25"));
         let result = tokio::time::timeout(Duration::from_secs(5), updates.recv())
             .await
@@ -1012,7 +1056,7 @@ async fn live_quotes_queued_together_are_valued_in_one_tick() {
     engine.start().await.unwrap();
     let mut updates = engine.subscribe_results();
     let start = engine.runtime_health().generation;
-    let stamp = chrono::Utc::now().timestamp_millis();
+    let stamp = monotone_stamp();
     // This current-thread test runs the actor only while it awaits, so all ten quotes
     // are queued before the actor takes the first.
     for sequence in 1..=10u64 {
@@ -1025,7 +1069,7 @@ async fn live_quotes_queued_together_are_valued_in_one_tick() {
         .unwrap();
     assert_eq!(batched.generation.get(), start + 10);
     assert_eq!(batched.result.status(), ResultStatus::Complete);
-    let stamp = chrono::Utc::now().timestamp_millis().max(stamp);
+    let stamp = monotone_stamp();
     source.send(fixture::event(11, stamp, stamp, "99.50"));
     let single = tokio::time::timeout(Duration::from_secs(5), updates.recv())
         .await
@@ -1074,7 +1118,7 @@ async fn live_ticks_reuse_the_pinned_references() {
     assert_eq!(references.reads.load(Ordering::SeqCst), 1);
     let mut updates = engine.subscribe_results();
     for sequence in 1..=5u64 {
-        let stamp = chrono::Utc::now().timestamp_millis();
+        let stamp = monotone_stamp();
         source.send(fixture::event(sequence, stamp, stamp, "99.25"));
         let result = tokio::time::timeout(Duration::from_secs(5), updates.recv())
             .await
