@@ -3,7 +3,9 @@
 //! The Live runtime stops on any event it cannot accept, so this ingress is the only
 //! gate. It admits a batch only when every event would be accepted, stamps receipt
 //! time and sends under one lock so delivery order matches receipt order, and refuses
-//! a batch rather than let the runtime's queue overflow.
+//! a batch rather than let the runtime's queue overflow. Receipt times never step back:
+//! while the wall clock is behind the last stamp by at most [`MAX_CLOCK_STEP_MS`], a
+//! batch is stamped with the last stamp (D70).
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -21,6 +23,7 @@ use convex_engine::ports::quote_event::{QuoteEvent, QuoteKey};
 use convex_engine::ports::TraitError;
 use serde::Deserialize;
 use tokio::sync::broadcast;
+use tracing::warn;
 
 use crate::error::ApiError;
 
@@ -30,6 +33,9 @@ pub const MAX_BATCH: usize = 256;
 const CAPACITY: usize = 1024;
 /// Rejected rows reported per response.
 const MAX_ROW_ERRORS: usize = 64;
+/// A backward wall-clock step the ingress absorbs by repeating its last receipt time.
+/// While the clock is further behind, every batch is refused with 503 (D70).
+pub const MAX_CLOCK_STEP_MS: i64 = 5_000;
 
 /// The Live runtime's only quote source, fed by [`QuoteIngress::submit`].
 pub struct QuoteIngress {
@@ -40,6 +46,34 @@ pub struct QuoteIngress {
 struct Queue {
     sender: broadcast::Sender<QuoteEvent>,
     last_receive_ms: i64,
+    /// The clock is behind the last stamp; the step has been logged.
+    stepped: bool,
+}
+
+impl Queue {
+    /// Receipt time for a batch read at `clock_ms`: the clock, or the last stamp while
+    /// the clock is behind it by at most [`MAX_CLOCK_STEP_MS`].
+    fn stamp(&mut self, clock_ms: i64) -> Result<i64, IngressError> {
+        let behind = self.last_receive_ms.saturating_sub(clock_ms);
+        if behind <= 0 {
+            self.stepped = false;
+            return Ok(clock_ms);
+        }
+        if !self.stepped {
+            self.stepped = true;
+            warn!(
+                behind_ms = behind,
+                bound_ms = MAX_CLOCK_STEP_MS,
+                "server clock moved backwards behind the last quote receipt time"
+            );
+        }
+        if behind > MAX_CLOCK_STEP_MS {
+            return Err(IngressError::Unavailable(
+                "server clock moved backwards by more than 5 s",
+            ));
+        }
+        Ok(self.last_receive_ms)
+    }
 }
 
 /// Queued events and the server receipt time stamped on all of them.
@@ -89,12 +123,23 @@ impl QuoteIngress {
             queue: Mutex::new(Queue {
                 sender,
                 last_receive_ms: 0,
+                stepped: false,
             }),
         }
     }
 
     /// Stamp server receipt time on every event and queue the whole batch, or nothing.
-    pub fn submit(&self, mut events: Vec<QuoteEvent>) -> Result<Receipt, IngressError> {
+    pub fn submit(&self, events: Vec<QuoteEvent>) -> Result<Receipt, IngressError> {
+        self.submit_with_clock(events, || chrono::Utc::now().timestamp_millis())
+    }
+
+    /// [`Self::submit`] with the wall clock read from `clock`, under the queue lock so
+    /// clock readings follow queue order.
+    fn submit_with_clock(
+        &self,
+        mut events: Vec<QuoteEvent>,
+        clock: impl FnOnce() -> i64,
+    ) -> Result<Receipt, IngressError> {
         if events.is_empty() || events.len() > MAX_BATCH {
             return Err(IngressError::Batch);
         }
@@ -105,11 +150,8 @@ impl QuoteIngress {
         if queue.sender.receiver_count() == 0 {
             return Err(IngressError::Unavailable("no live runtime is subscribed"));
         }
-        let now = chrono::Utc::now().timestamp_millis();
-        // The runtime refuses receipt times later than its own clock or out of order.
-        if now < queue.last_receive_ms {
-            return Err(IngressError::Unavailable("server clock moved backwards"));
-        }
+        // The runtime refuses receipt times out of order; its cutoffs never fall below one.
+        let now = queue.stamp(clock())?;
         let mut rows = Vec::new();
         let mut refused = 0usize;
         for (index, event) in events.iter_mut().enumerate() {
@@ -365,5 +407,57 @@ mod tests {
         }
         ingress.submit(vec![event(1, now())]).unwrap();
         assert!(runtime.recv().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn a_clock_behind_by_up_to_the_bound_repeats_the_last_stamp_and_beyond_it_refuses() {
+        let ingress = QuoteIngress::new([key("feed-a")]);
+        let mut runtime = ingress.subscribe(&[]).await.unwrap();
+        let t = 1_700_000_000_000;
+        let stamped = |clock: i64, events| {
+            ingress
+                .submit_with_clock(events, || clock)
+                .map(|r| r.receive_time_ms)
+        };
+        assert_eq!(stamped(t, vec![event(1, t)]), Ok(t));
+        // Behind by the bound: the last stamp, and source times are checked against it.
+        assert_eq!(
+            stamped(t - MAX_CLOCK_STEP_MS, vec![event(2, t - 10), event(3, t)]),
+            Ok(t)
+        );
+        let Err(IngressError::Rejected { rows, .. }) = stamped(t - 1, vec![event(4, t + 1)]) else {
+            panic!("a source time after the stamp is in the future");
+        };
+        assert_eq!(rows[0].code, "FUTURE_SOURCE_TIME");
+        let beyond = t - MAX_CLOCK_STEP_MS - 1;
+        assert_eq!(
+            stamped(beyond, vec![event(4, beyond)]),
+            Err(IngressError::Unavailable(
+                "server clock moved backwards by more than 5 s"
+            ))
+        );
+        // Back within the bound, the last stamp again; past it, the clock.
+        assert_eq!(stamped(t - 1, vec![event(4, t - 1)]), Ok(t));
+        assert_eq!(stamped(t + 1, vec![event(5, t + 1)]), Ok(t + 1));
+        for expected in [(1, t), (2, t), (3, t), (4, t), (5, t + 1)] {
+            let event = runtime.recv().await.unwrap();
+            assert_eq!((event.sequence, event.receive_time_ms), expected);
+        }
+    }
+
+    #[test]
+    fn a_clock_step_is_logged_once_until_the_clock_catches_up() {
+        let (sender, _) = broadcast::channel(1);
+        let mut queue = Queue {
+            sender,
+            last_receive_ms: 1_000,
+            stepped: false,
+        };
+        assert_eq!(queue.stamp(900), Ok(1_000));
+        assert!(queue.stepped);
+        assert_eq!(queue.stamp(950), Ok(1_000));
+        assert!(queue.stepped);
+        assert_eq!(queue.stamp(1_000), Ok(1_000));
+        assert!(!queue.stepped);
     }
 }

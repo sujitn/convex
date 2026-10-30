@@ -72,7 +72,8 @@ pub struct RuntimeCheckpoint {
     pub results: Arc<[Arc<PublishedValuation>]>,
     /// Undelivered results. Publishers may see retries with the same deduplication key.
     pub outbox: Arc<[Arc<PublishedValuation>]>,
-    /// Live transport continuity lost; restart must not silently restore fresh readiness.
+    /// Live transport continuity lost in this process, which then stops. A stored Live
+    /// image never holds it, so a restart is a fresh start.
     pub delivery_lost: bool,
 }
 impl RuntimeCheckpoint {

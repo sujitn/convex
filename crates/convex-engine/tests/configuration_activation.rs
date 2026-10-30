@@ -726,7 +726,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
     let engine = live_engine(&setup, service, &first.document, source.clone());
     engine.start().await.unwrap();
     let mut updates = engine.subscribe_results();
-    let stamp = chrono::Utc::now().timestamp_millis();
+    let stamp = subscription_source::monotone_stamp();
     source.send(fixture::snapshot::event(1, stamp, stamp, "99.25"));
     let good = tokio::time::timeout(Duration::from_secs(5), updates.recv())
         .await
@@ -777,7 +777,7 @@ async fn live_runtime_applies_an_activation_at_refresh_not_at_the_next_quote() {
     engine.start().await.unwrap();
     let mut updates = engine.subscribe_results();
     let quote = |sequence, value| {
-        let stamp = chrono::Utc::now().timestamp_millis();
+        let stamp = subscription_source::monotone_stamp();
         source.send(fixture::snapshot::event(sequence, stamp, stamp, value));
     };
     quote(1, "99.25");
@@ -843,7 +843,7 @@ async fn live_runtime_applies_an_activation_at_refresh_not_at_the_next_quote() {
         3
     );
     let mut updates = restarted.subscribe_results();
-    let stamp = chrono::Utc::now().timestamp_millis();
+    let stamp = subscription_source::monotone_stamp();
     source.send(fixture::snapshot::event(3, stamp, stamp, "99.75"));
     let restored = tokio::time::timeout(Duration::from_secs(5), updates.recv())
         .await

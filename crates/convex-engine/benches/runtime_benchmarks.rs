@@ -32,7 +32,7 @@ use rust_decimal_macros::dec;
 use std::hint::black_box;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use subscription_source::SubscriptionSource;
+use subscription_source::{monotone_stamp, SubscriptionSource};
 
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
@@ -237,7 +237,7 @@ fn bench_live_tick(c: &mut Criterion) {
             let mut total = Duration::ZERO;
             for _ in 0..iterations {
                 sequence += 1;
-                let stamp = chrono::Utc::now().timestamp_millis();
+                let stamp = monotone_stamp();
                 let started = Instant::now();
                 source.send(fixture::event(sequence, stamp, stamp, "99.25"));
                 // The timer is created inside the runtime.
