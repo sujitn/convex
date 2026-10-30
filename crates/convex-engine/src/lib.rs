@@ -102,14 +102,28 @@ pub struct PricingCurves {
     pub benchmark: Option<BuiltCurve>,
 }
 
+/// The most curve sets one request context resolves. Each set is the roots a product
+/// path reads from the configuration's roles: a bullet's discount and swap curves, a
+/// callable's discount curve, and a note's discount and FRN reference curves.
+const MAX_CURVE_SETS: usize = 3;
+
+/// One curve set's resolution, kept by its context, failure included.
+type CurveRead =
+    Result<Arc<curve_resolution::ResolvedCurves>, curve_resolution::CurveResolutionError>;
+
 /// The approved valuation context of one request: an activated configuration's exact
-/// pricing version and the curves its roles name, resolved once at the request cutoff.
-/// Government and FRN reference roles are not consumed here, as in snapshot valuation.
+/// pricing version, at the request cutoff. Each product path reads the curves it needs
+/// at first use, and the context keeps every set it resolved, a failed one included, so
+/// a request resolves each set once (D69). The government role is not consumed here, as
+/// in snapshot valuation.
 pub struct RequestContext {
     id: convex_core::contracts::SourceId,
     activation_revision: convex_core::contracts::Version,
     config: ports::storage::BondPricingConfig,
-    resolved: curve_resolution::ResolvedCurves,
+    known_at: convex_core::contracts::UtcTimestamp,
+    curves: Arc<dyn ports::storage::CurveStore>,
+    /// Each curve set read, by its roots, in first-use order.
+    reads: Vec<(Vec<convex_core::ids::CurveId>, CurveRead)>,
 }
 
 impl RequestContext {
@@ -123,27 +137,59 @@ impl RequestContext {
         self.activation_revision
     }
 
-    /// Every consumed (curve, version) pin, roots and dependencies.
-    pub fn pins(&self) -> impl Iterator<Item = (&str, convex_core::contracts::Version)> {
-        self.resolved.pins()
+    /// Every (curve, version) pin the request read, roots and dependencies, each once,
+    /// in first-use order. A set that failed to resolve priced nothing and lists nothing.
+    pub fn pins(&self) -> Vec<(&str, convex_core::contracts::Version)> {
+        let mut pins = Vec::new();
+        for pin in self
+            .reads
+            .iter()
+            .filter_map(|(_, read)| read.as_ref().ok())
+            .flat_map(|resolved| resolved.pins())
+        {
+            if !pins.contains(&pin) {
+                pins.push(pin);
+            }
+        }
+        pins
     }
 
-    /// Curves for `bond`, which the configuration must cover; each curve must fit
-    /// its role and the bond's currency.
-    pub fn curves_for(
-        &self,
+    /// The curves `roots` name, with their dependencies, at the cutoff. A set is
+    /// resolved at its first read and kept, failure included.
+    pub(crate) async fn read(&mut self, roots: &[convex_core::ids::CurveId]) -> CurveRead {
+        if let Some((_, read)) = self.reads.iter().find(|(set, _)| set.as_slice() == roots) {
+            return read.clone();
+        }
+        if self.reads.len() >= MAX_CURVE_SETS {
+            return Err(ports::TraitError::CapacityExceeded.into());
+        }
+        let read = curve_resolution::resolve_curves(self.curves.as_ref(), roots, self.known_at)
+            .await
+            .map(Arc::new);
+        self.reads.push((roots.to_vec(), read.clone()));
+        read
+    }
+
+    /// Curves for a bullet `bond`, which the configuration must cover: its discount
+    /// curve and swap benchmark. Each curve must fit its role and the bond's currency.
+    pub async fn curves_for(
+        &mut self,
         bond: &ports::reference_data::BondReferenceData,
     ) -> Result<PricingCurves, curve_resolution::CurveResolutionError> {
         use curve_resolution::CurveResolutionError;
         if !self.config.applies_to.matches(bond) {
             return Err(CurveResolutionError::NotCovered(self.id.clone()));
         }
+        let roles = &self.config.analytics_curves;
+        let mut roots = vec![roles.discount_curve.clone()];
+        roots.extend(roles.swap_curve.clone());
+        let resolved = self.read(&roots).await?;
         let checked = |id: &convex_core::ids::CurveId, discount: bool| {
-            let native = self.resolved.native(id)?;
+            let native = resolved.native(id)?;
             if !curve_resolution::pricing_role_matches(native.recipe(), discount, bond.currency) {
                 return Err(CurveResolutionError::Role(id.clone()));
             }
-            self.resolved.curve(id)
+            resolved.curve(id)
         };
         let roles = &self.config.analytics_curves;
         Ok(PricingCurves {
@@ -366,10 +412,10 @@ impl PricingEngine {
     }
 
     /// The approved valuation context of a request at `known_at`: the active
-    /// selection of `configuration` (or of the default) and the curves its roles
-    /// name, current at the cutoff. Only an activation approves a configuration;
-    /// a staged version never prices. The configuration is the one active now, and
-    /// the cutoff governs the curve reads.
+    /// selection of `configuration` (or of the default). Only an activation approves a
+    /// configuration; a staged version never prices. The configuration is the one
+    /// active now, and the cutoff governs the curve reads, which each product path
+    /// makes at first use (D69).
     pub async fn request_context(
         &self,
         configuration: Option<&convex_core::contracts::SourceId>,
@@ -396,18 +442,13 @@ impl PricingEngine {
             .active(id)
             .await?
             .ok_or_else(|| CurveResolutionError::NotActivated(id.clone()))?;
-        let config = active.staged.document.pricing;
-        let roles = &config.analytics_curves;
-        let mut roots = vec![roles.discount_curve.clone()];
-        roots.extend(roles.swap_curve.clone());
-        let resolved =
-            curve_resolution::resolve_curves(self.storage.curves.as_ref(), &roots, known_at)
-                .await?;
         Ok(RequestContext {
             id: id.clone(),
             activation_revision: active.activation.revision,
-            config,
-            resolved,
+            config: active.staged.document.pricing,
+            known_at,
+            curves: self.storage.curves.clone(),
+            reads: Vec::new(),
         })
     }
 
@@ -448,7 +489,7 @@ impl PricingEngine {
     /// is stored.
     pub async fn value_request(
         &self,
-        context: &RequestContext,
+        context: &mut RequestContext,
         reference: &ports::reference_repository::ReferenceRecord,
         settlement_date: convex_core::contracts::BusinessDate,
         known_at: convex_core::contracts::UtcTimestamp,
@@ -460,14 +501,7 @@ impl PricingEngine {
             .as_ref()
             .ok_or(RequestValuationError::NoRuntime)?;
         let (snapshot, valuation, curves) = valuer
-            .prepare(
-                &self.storage,
-                context,
-                reference,
-                settlement_date,
-                known_at,
-                mark,
-            )
+            .prepare(context, reference, settlement_date, known_at, mark)
             .await?;
         let invalid = |_| ports::TraitError::InvalidInput("invalid request identity");
         // As the stream names its valuations, by context.

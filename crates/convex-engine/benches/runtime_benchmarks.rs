@@ -166,10 +166,12 @@ fn bench_request_time(c: &mut Criterion) {
     });
     group.bench_function("context_curves_price", |b| {
         b.iter(|| {
-            let context = rt
-                .block_on(engine.request_context(Some(&id), time(0)))
+            let curves = rt
+                .block_on(async {
+                    let mut context = engine.request_context(Some(&id), time(0)).await?;
+                    context.curves_for(&bond).await
+                })
                 .unwrap();
-            let curves = context.curves_for(&bond).unwrap();
             let input = PricingInput::with_mid_price(
                 bond.clone(),
                 settlement,

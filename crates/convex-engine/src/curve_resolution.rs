@@ -18,7 +18,7 @@ use crate::curve_builder::BuiltCurve;
 use crate::telemetry::{observe_curve_build, CurvePath};
 
 /// Why a request could not obtain a curve it needs. Nothing is substituted.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum CurveResolutionError {
     /// The request names no configuration and the runtime runs none.
     #[error("no valuation context: name an activated configuration")]

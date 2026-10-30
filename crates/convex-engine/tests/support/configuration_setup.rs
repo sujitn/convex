@@ -92,7 +92,7 @@ pub async fn value_at(
     else {
         panic!("instrument valuation")
     };
-    let context = engine.request_context(None, known_at).await.unwrap();
+    let mut context = engine.request_context(None, known_at).await.unwrap();
     let reference = engine
         .reference_at_for_pricing(
             &instrument_id.clone().into(),
@@ -106,6 +106,6 @@ pub async fn value_at(
         .unwrap();
     let mark = mark.map(|mid| mid.parse().unwrap());
     engine
-        .value_request(&context, &reference, settlement, known_at, mark)
+        .value_request(&mut context, &reference, settlement, known_at, mark)
         .await
 }

@@ -219,10 +219,11 @@ fn runtime_composed(engine: &PricingEngine) -> Result<(), crate::error::ApiError
     }
 }
 
-/// Every curve pin a context resolved, as `id@version`.
+/// Every curve pin a context read, as `id@version`.
 fn context_pins(context: &convex_engine::RequestContext) -> Vec<String> {
     context
         .pins()
+        .into_iter()
         .map(|(id, version)| format!("{id}@{}", version.get()))
         .collect()
 }
@@ -263,7 +264,7 @@ fn context_json(
             "configuration": format!("{}@{}", context.config().config_id, context.config().version),
             "activation": context.activation_revision().get(),
             "known_at": crate::curves::rfc3339(known_at),
-            "curves": context.pins().map(|(id, version)| format!("{id}@{}", version.get())).collect::<Vec<_>>(),
+            "curves": context_pins(context),
         }),
         None if supplied => serde_json::json!({"kind": "supplied"}),
         None => serde_json::json!({"kind": "none"}),
@@ -290,7 +291,7 @@ async fn optional_context(
 /// curve pins it consumed, which are also returned.
 async fn value_stored(
     engine: &PricingEngine,
-    context: &convex_engine::RequestContext,
+    context: &mut convex_engine::RequestContext,
     reference: &convex_engine::ports::reference_repository::ReferenceRecord,
     settlement_date: Date,
     known_at: convex_core::contracts::UtcTimestamp,
@@ -329,7 +330,7 @@ async fn value_stored(
 /// headers, and the stored reference version it priced.
 async fn runtime_quote(
     engine: &PricingEngine,
-    context: &convex_engine::RequestContext,
+    context: &mut convex_engine::RequestContext,
     reference: &convex_engine::ports::reference_repository::ReferenceRecord,
     settlement_date: Date,
     known_at: convex_core::contracts::UtcTimestamp,
@@ -337,7 +338,7 @@ async fn runtime_quote(
 ) -> Result<axum::response::Response, crate::error::ApiError> {
     let (mut value, pins) =
         value_stored(engine, context, reference, settlement_date, known_at, mark).await?;
-    value["context"] = context_json(Some(context), false, known_at);
+    value["context"] = context_json(Some(&*context), false, known_at);
     value["context"]["curves"] = serde_json::json!(pins);
     let response = crate::curves::with_header(
         Json(value).into_response(),
@@ -401,14 +402,14 @@ pub async fn get_bond_quote(
     if runtime_product(&bond) {
         runtime_composed(&state.engine)?;
     }
-    let context = state
+    let mut context = state
         .engine
         .request_context(query.configuration.as_ref(), known_at)
         .await?;
     if runtime_product(&bond) {
         return runtime_quote(
             &state.engine,
-            &context,
+            &mut context,
             &reference,
             settlement_date,
             known_at,
@@ -416,7 +417,7 @@ pub async fn get_bond_quote(
         )
         .await;
     }
-    let curves = context.curves_for(&bond)?;
+    let curves = context.curves_for(&bond).await?;
     let input = PricingInput {
         bond,
         settlement_date,
@@ -633,7 +634,7 @@ async fn price_one_bond(
             return error.into_response();
         }
     }
-    let context = if supplied {
+    let mut context = if supplied {
         None
     } else {
         match optional_context(&state.engine, request.configuration.as_ref(), known_at).await {
@@ -642,7 +643,7 @@ async fn price_one_bond(
         }
     };
     let curve_versions: Vec<_> = [("discount",request.discount_curve.as_ref()),("swap",request.swap_curve.as_ref())].into_iter().filter_map(|(role,input)|input.map(|v|serde_json::json!({"role":role,"currency":v.currency,"curve_id":v.curve.curve_id,"version":v.curve.version,"source":v.curve.source,"model_id":v.curve.model_id}))).collect();
-    let input = match &context {
+    let input = match &mut context {
         Some(context) if runtime => {
             let quoted = match state.engine.stored_terms(&request.bond, known_at).await {
                 Ok(reference) => {
@@ -667,7 +668,7 @@ async fn price_one_bond(
             .into_response()
         }
         Some(context) => {
-            let curves = match context.curves_for(&request.bond) {
+            let curves = match context.curves_for(&request.bond).await {
                 Ok(curves) => curves,
                 Err(error) => return crate::error::ApiError::from(error).into_response(),
             };
@@ -797,8 +798,9 @@ pub struct BatchStats {
     pub bonds_per_second: f64,
 }
 
-/// Batch pricing handler. One valuation context prices every bond: its curves are
-/// resolved once per batch, and a bond the context cannot price fails on its own.
+/// Batch pricing handler. One valuation context prices every bond. Each product path
+/// reads its curves at first use, once per batch (D69), and a bond the context cannot
+/// price, for a curve it reads or otherwise, fails on its own.
 pub async fn batch_price(
     State(state): State<Arc<AppState>>,
     Json(request): Json<BatchPricingRequest>,
@@ -830,7 +832,7 @@ pub async fn batch_price(
         Ok(known_at) => known_at,
         Err(error) => return error.into_response(),
     };
-    let context =
+    let mut context =
         match optional_context(&state.engine, request.configuration.as_ref(), known_at).await {
             Ok(context) => context,
             Err(error) => return error.into_response(),
@@ -854,8 +856,8 @@ pub async fn batch_price(
             valued.push((index, item));
             continue;
         }
-        let curves = match &context {
-            Some(context) => match context.curves_for(&item.bond) {
+        let curves = match context.as_mut() {
+            Some(context) => match context.curves_for(&item.bond).await {
                 Ok(curves) => Some(curves),
                 Err(error) => {
                     outcomes[index] = refused(crate::error::ApiError::from(error).summary());
@@ -901,7 +903,7 @@ pub async fn batch_price(
         outcomes[index] = Some(
             runtime_item(
                 &state.engine,
-                context.as_ref(),
+                context.as_mut(),
                 &item,
                 settlement_date,
                 known_at,
@@ -970,7 +972,7 @@ pub async fn batch_price(
 /// terms (D62) under the batch's context.
 async fn runtime_item(
     engine: &PricingEngine,
-    context: Option<&convex_engine::RequestContext>,
+    context: Option<&mut convex_engine::RequestContext>,
     item: &BondPricingItem,
     settlement_date: Date,
     known_at: convex_core::contracts::UtcTimestamp,
