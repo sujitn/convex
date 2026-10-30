@@ -109,6 +109,12 @@ tick after start and after an activation refresh values every instrument. Replay
 and Captured store their checkpoints, whose results all share one generation and
 snapshot, so they value every instrument at each event (D59).
 
+Records are shared, not copied. A tick that values some instruments copies pointers
+to the others' records, and a tick that values none keeps the results it has. The
+curves each instrument's valuation reads are worked out once, at the first tick of
+an activation or of a new frame, so a tick builds a valuation context only for the
+instruments it values. Each context derives its cache key once, when it is made.
+
 A Live runtime resolves its pricing configuration and pinned references, with
 their issuer, calendar, convention and rate-index records, once per accepted
 activation, at the first snapshot that needs them, and reuses them at every tick.

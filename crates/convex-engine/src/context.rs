@@ -63,9 +63,24 @@ pub struct ValuationContextSpec {
 }
 
 /// Structurally complete immutable context. Binding to resolved inputs is checked separately.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// Its cache key is derived once, when it is made, and is never serialized (G32).
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(try_from = "ValuationContextSpec", into = "ValuationContextSpec")]
-pub struct ValuationContext(ValuationContextSpec);
+pub struct ValuationContext {
+    spec: ValuationContextSpec,
+    key: String,
+}
+// Equality and `Debug` read the spec alone; the key is derived from it.
+impl PartialEq for ValuationContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.spec == other.spec
+    }
+}
+impl std::fmt::Debug for ValuationContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("ValuationContext").field(&self.spec).finish()
+    }
+}
 
 impl ValuationContext {
     /// Validate the complete specification and canonicalize only measure ordering.
@@ -83,22 +98,26 @@ impl ValuationContext {
         if spec.measures.windows(2).any(|w| w[0] == w[1]) {
             return Err(TraitError::InvalidInput("duplicate requested measure"));
         }
-        Ok(Self(spec))
+        let bytes = serde_json::to_vec(&spec)
+            .map_err(|_| TraitError::InvalidInput("context serialization failed"))?;
+        let key = content_digest(b"convex.valuation-context.v1\0", &bytes);
+        Ok(Self { spec, key })
     }
     /// All supplied fields; there is no mutable accessor.
     pub fn spec(&self) -> &ValuationContextSpec {
-        &self.0
+        &self.spec
     }
     /// Require exact snapshot/generation/configuration/reference/time binding before cache access.
     pub fn validate_snapshot(&self, snapshot: &MarketSnapshot) -> Result<(), TraitError> {
         let content = snapshot.content();
-        if &self.0.snapshot_id != snapshot.id()
-            || self.0.generation != content.generation
-            || self.0.valuation_time != content.as_of
-            || self.0.known_at != content.known_at
-            || self.0.fixing_known_at != content.known_at
-            || self.0.configuration.id.as_str() != content.configuration.config_id
-            || self.0.configuration.version.get() != content.configuration.version
+        let spec = &self.spec;
+        if &spec.snapshot_id != snapshot.id()
+            || spec.generation != content.generation
+            || spec.valuation_time != content.as_of
+            || spec.known_at != content.known_at
+            || spec.fixing_known_at != content.known_at
+            || spec.configuration.id.as_str() != content.configuration.config_id
+            || spec.configuration.version.get() != content.configuration.version
         {
             return Err(TraitError::Conflict(
                 "valuation context differs from immutable snapshot",
@@ -107,7 +126,7 @@ impl ValuationContext {
         let ValuationSubject::InstrumentVersion {
             instrument_id,
             version,
-        } = &self.0.subject
+        } = &spec.subject
         else {
             return Err(TraitError::Unsupported(
                 "snapshot trade economics are not implemented",
@@ -125,10 +144,8 @@ impl ValuationContext {
     }
     /// SHA-256 of the full canonical context, including generation/build/settings.
     /// Retain this context alongside the key so the run can be replayed and inspected.
-    pub fn cache_key(&self) -> Result<String, TraitError> {
-        let bytes = serde_json::to_vec(self)
-            .map_err(|_| TraitError::InvalidInput("context serialization failed"))?;
-        Ok(content_digest(b"convex.valuation-context.v1\0", &bytes))
+    pub fn cache_key(&self) -> &str {
+        &self.key
     }
 }
 impl TryFrom<ValuationContextSpec> for ValuationContext {
@@ -139,6 +156,6 @@ impl TryFrom<ValuationContextSpec> for ValuationContext {
 }
 impl From<ValuationContext> for ValuationContextSpec {
     fn from(value: ValuationContext) -> Self {
-        value.0
+        value.spec
     }
 }

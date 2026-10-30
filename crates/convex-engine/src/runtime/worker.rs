@@ -135,32 +135,66 @@ pub(super) fn rebind(
         .map_err(|_| RuntimeError::Worker)?;
     Ok(built)
 }
-/// What a Live tick keeps for the next one (D55): its snapshot and each pin's derived
-/// quality, by plan index.
+/// What a Live tick keeps for the next one (D55): its snapshot, and each pin's derived
+/// quality and read curves, by plan index.
 pub(super) struct Baseline {
     snapshot: Arc<MarketSnapshot>,
     qualities: Vec<SnapshotQuality>,
+    reads: Arc<[Vec<String>]>,
+}
+/// The curves each pin's valuation reads, by plan index (G31). They follow from the pin's
+/// model, the plan's measures and the configured curves, so they hold while the frame
+/// and the pinned reference section do. Each pin's context is built once here, so a pin
+/// that `context` refuses is refused here too.
+fn read_curves(
+    plan: &RuntimePlan,
+    snapshot: &MarketSnapshot,
+) -> Result<Arc<[Vec<String>]>, RuntimeError> {
+    let configured = &snapshot.content().configuration.analytics_curves;
+    plan.assembly
+        .instruments
+        .iter()
+        .map(|pin| {
+            let ctx = context(plan, snapshot, pin)?;
+            let spec = ctx.spec();
+            let curves =
+                crate::snapshot::read_curve_ids(spec.model_id.as_str(), &spec.measures, configured);
+            Ok(curves.into_iter().map(str::to_owned).collect())
+        })
+        .collect()
 }
 /// The pins a Live tick values, by plan index, and the baseline for the next tick
 /// (D55). Without a baseline every pin is valued. With one, a pin is valued when the
 /// frame, its own inputs or its derived quality differ; quality depends on time, so a
-/// quote that ages out counts. `results[i]` must be pin `i`'s record.
+/// quote that ages out counts. `results[i]` must be pin `i`'s record. The baseline's
+/// read curves are reused while the frame and the reference section hold (G31).
 pub(super) fn changed(
     plan: &RuntimePlan,
     snapshot: &Arc<MarketSnapshot>,
     baseline: Option<&Baseline>,
-    results: &[PublishedValuation],
+    results: &[Arc<PublishedValuation>],
 ) -> Result<(Vec<usize>, Baseline), RuntimeError> {
     let pins = &plan.assembly.instruments;
     let frame = baseline.filter(|baseline| snapshot.same_frame(&baseline.snapshot));
     if frame.is_some_and(|b| results.len() != pins.len() || b.qualities.len() != pins.len()) {
         return Err(RuntimeError::RecoveryConflict);
     }
+    let reads = match frame.filter(|baseline| {
+        let references = &baseline.snapshot.content().references;
+        references.ptr_eq(&snapshot.content().references)
+    }) {
+        Some(baseline) => baseline.reads.clone(),
+        None => read_curves(plan, snapshot)?,
+    };
+    if reads.len() != pins.len() {
+        return Err(RuntimeError::RecoveryConflict);
+    }
     let mut selected = Vec::new();
     let mut qualities = Vec::with_capacity(pins.len());
     for (index, pin) in pins.iter().enumerate() {
-        let ctx = context(plan, snapshot, pin)?;
-        let quality = crate::snapshot::valuation_quality(snapshot, ctx.spec())?;
+        let instrument = pin.instrument_id.as_str();
+        let curves: Vec<&str> = reads[index].iter().map(String::as_str).collect();
+        let quality = snapshot.quality_of(&snapshot.inputs(instrument, &curves));
         let kept = match frame {
             Some(baseline) => {
                 if subject_key(&results[index].result.provenance().subject)
@@ -169,11 +203,7 @@ pub(super) fn changed(
                     return Err(RuntimeError::RecoveryConflict);
                 }
                 baseline.qualities[index] == quality
-                    && crate::snapshot::same_valuation_inputs(
-                        snapshot,
-                        &baseline.snapshot,
-                        ctx.spec(),
-                    )?
+                    && snapshot.same_inputs(&baseline.snapshot, instrument, &curves)
             }
             None => false,
         };
@@ -185,6 +215,7 @@ pub(super) fn changed(
     let baseline = Baseline {
         snapshot: snapshot.clone(),
         qualities,
+        reads,
     };
     Ok((selected, baseline))
 }
@@ -346,7 +377,7 @@ pub(super) async fn calculate(
     selected: &[usize],
     concurrency: usize,
     demo: bool,
-) -> Result<Vec<PublishedValuation>, RuntimeError> {
+) -> Result<Vec<Arc<PublishedValuation>>, RuntimeError> {
     let snapshot = built.snapshot();
     checkpoint
         .result_revision
@@ -369,7 +400,7 @@ pub(super) async fn calculate(
                 let ctx = context(plan, snapshot, pin)?;
                 let request = RequestId::new(format!(
                     "valuation-{}-{}",
-                    ctx.cache_key()?,
+                    ctx.cache_key(),
                     checkpoint.generation.get()
                 ))
                 .map_err(|_| RuntimeError::Worker)?;
@@ -436,8 +467,10 @@ pub(super) async fn calculate(
         };
         match result {
             Ok((result, until)) => {
-                let committed = graph
-                    .commit_result(&ticket, Ok(NodeValue::Valuation(Arc::new(result.clone()))));
+                // The graph and the published record share one result (G32).
+                let result = Arc::new(result);
+                let committed =
+                    graph.commit_result(&ticket, Ok(NodeValue::Valuation(result.clone())));
                 if matches!(committed, Ok(CommitOutcome::Committed { .. })) {
                     valued[index] = Some((result, until));
                 } else {
@@ -488,7 +521,7 @@ pub(super) async fn calculate(
                 DataQuality::Stale
             }
         });
-        produced.push(PublishedValuation {
+        produced.push(Arc::new(PublishedValuation {
             runtime_id: plan.runtime_id.clone(),
             revision,
             generation: checkpoint.generation,
@@ -497,16 +530,16 @@ pub(super) async fn calculate(
             result: result.envelope().clone(),
             last_good,
             retained_quality,
-        });
+        }));
     }
     Ok(produced)
 }
 /// Prior results by valued instrument revision, built at most once per tick.
-fn by_subject(results: &[PublishedValuation]) -> HashMap<(&str, u64), &PublishedValuation> {
+fn by_subject(results: &[Arc<PublishedValuation>]) -> HashMap<(&str, u64), &PublishedValuation> {
     let mut index = HashMap::with_capacity(results.len());
     for record in results {
         if let Some(key) = subject_key(&record.result.provenance().subject) {
-            index.entry(key).or_insert(record);
+            index.entry(key).or_insert(record.as_ref());
         }
     }
     index
@@ -524,23 +557,21 @@ pub(super) fn restore_results(
     graph: &CalculationGraph,
     plan: &RuntimePlan,
     snapshot: &MarketSnapshot,
-    records: &[PublishedValuation],
+    records: &[Arc<PublishedValuation>],
 ) -> Result<(), RuntimeError> {
-    if records.len() != plan.assembly.instruments.len() {
+    // Indexed once, so a restart is linear in the pins (G34). Each pin owns exactly one
+    // record: one record per subject, and as many records as pins.
+    let index = by_subject(records);
+    if records.len() != plan.assembly.instruments.len() || index.len() != records.len() {
         return Err(RuntimeError::RecoveryConflict);
     }
     for pin in &plan.assembly.instruments {
         let ctx = context(plan, snapshot, pin)?;
-        let matches: Vec<_> = records
-            .iter()
-            .filter(|r| r.result.provenance().subject == ctx.spec().subject)
-            .collect();
-        if matches.len() != 1 {
-            return Err(RuntimeError::RecoveryConflict);
-        }
-        let record = matches[0];
+        let record = index
+            .get(&(pin.instrument_id.as_str(), pin.version.get()))
+            .ok_or(RuntimeError::RecoveryConflict)?;
         if record.generation != snapshot.content().generation
-            || record.context_key != ctx.cache_key()?
+            || record.context_key != ctx.cache_key()
         {
             return Err(RuntimeError::RecoveryConflict);
         }

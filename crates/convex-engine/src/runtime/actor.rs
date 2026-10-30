@@ -23,7 +23,7 @@ pub(super) struct Actor {
     checkpoint: RuntimeCheckpoint,
     live: Option<StreamReceiver<QuoteEvent>>,
     health: Arc<parking_lot::RwLock<RuntimeHealth>>,
-    results: Arc<parking_lot::RwLock<Arc<[PublishedValuation]>>>,
+    results: Arc<parking_lot::RwLock<Arc<[Arc<PublishedValuation>]>>>,
     updates: broadcast::Sender<PublishedValuation>,
     live_source: Option<Arc<dyn convex_ports::market_data::QuoteSource>>,
     data_deadline: Option<tokio::time::Instant>,
@@ -46,7 +46,7 @@ impl Actor {
         services: RuntimeServices,
         engine: &crate::PricingEngine,
         health: Arc<parking_lot::RwLock<RuntimeHealth>>,
-        results: Arc<parking_lot::RwLock<Arc<[PublishedValuation]>>>,
+        results: Arc<parking_lot::RwLock<Arc<[Arc<PublishedValuation>]>>>,
         updates: broadcast::Sender<PublishedValuation>,
     ) -> Result<Self, RuntimeError> {
         let digest = services.plan.digest()?;
@@ -605,22 +605,24 @@ impl Actor {
         )
         .await;
         crate::telemetry::observe(crate::telemetry::CALCULATE_SECONDS, started);
-        let produced: Arc<[PublishedValuation]> = produced?.into();
+        let produced: Arc<[Arc<PublishedValuation>]> = produced?.into();
         let mut next = self.checkpoint.clone();
         next.result_revision = produced.last().map_or(next.result_revision, |p| p.revision);
         // A Live tick that values some pins merges their records into the kept ones,
-        // which are not re-stamped (D60); only the new records are published.
-        next.results = if selected.len() == self.services.plan.assembly.instruments.len() {
-            produced.clone()
-        } else {
+        // which are not re-stamped (D60); only the new records are published. Records are
+        // shared, so the merge copies pointers and a tick that values none keeps its
+        // results (G30).
+        if selected.len() == self.services.plan.assembly.instruments.len() {
+            next.results = produced.clone();
+        } else if !selected.is_empty() {
             let mut results = next.results.to_vec();
             for (&index, record) in selected.iter().zip(produced.iter()) {
                 *results
                     .get_mut(index)
                     .ok_or(RuntimeError::RecoveryConflict)? = record.clone();
             }
-            results.into()
-        };
+            next.results = results.into();
+        }
         next.outbox = produced;
         next.pending = false;
         next.snapshot_id = Some(snapshot.id().clone());
@@ -647,7 +649,7 @@ impl Actor {
             self.save(next).await?;
             self.refresh_health();
             for record in delivered.iter() {
-                let _ = self.updates.send(record.clone());
+                let _ = self.updates.send(PublishedValuation::clone(record));
             }
         }
         Ok(())
@@ -713,9 +715,9 @@ impl Actor {
                 .result_revision
                 .checked_add(1)
                 .ok_or(RuntimeError::CapacityExceeded)?;
-            records.push(worker::lost_record(prior, next.result_revision)?);
+            records.push(Arc::new(worker::lost_record(prior, next.result_revision)?));
         }
-        let records: Arc<[PublishedValuation]> = records.into();
+        let records: Arc<[Arc<PublishedValuation>]> = records.into();
         next.results = records.clone();
         next.outbox = records;
         self.save(next).await?;

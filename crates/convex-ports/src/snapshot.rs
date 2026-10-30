@@ -374,6 +374,11 @@ impl SnapshotReferences {
             self.make_mut().sort_by(by_instrument);
         }
     }
+    /// Whether both hold one section, so their records are the same without comparing
+    /// them. Every snapshot of a Live activation shares its pinned section.
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
     /// One instrument's reference; the records are sorted and distinct once checked.
     fn find(&self, instrument_id: &str) -> Option<&ResolvedBondReference> {
         let records = &self.0.records;
@@ -673,7 +678,8 @@ impl MarketSnapshot {
     /// Whether one instrument's valuation reads the same inputs here as in `previous`
     /// (D55): its reference, its quotes, a floating note's fixings, and each curve in
     /// `curves` with its record, recipe or calibration. A recipe pins the versions of
-    /// the curves it is built on. The frame is compared once, by `same_frame`.
+    /// the curves it is built on. The frame is compared once, by `same_frame`. A shared
+    /// reference section is the same section, so its records are not compared.
     pub fn same_inputs(
         &self,
         previous: &MarketSnapshot,
@@ -684,7 +690,9 @@ impl MarketSnapshot {
             self.inputs(instrument_id, curves),
             previous.inputs(instrument_id, curves),
         );
-        self.reference(instrument_id) == previous.reference(instrument_id)
+        let references = &self.0.content.references;
+        (references.ptr_eq(&previous.0.content.references)
+            || self.reference(instrument_id) == previous.reference(instrument_id))
             && now.quotes == then.quotes
             && now.fixings == then.fixings
             && now.curves == then.curves

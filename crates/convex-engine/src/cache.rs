@@ -37,12 +37,12 @@ impl ValuationCache {
         &self,
         context: &ValuationContext,
     ) -> Result<Option<Arc<SnapshotValuationResult>>, TraitError> {
-        let key = context.cache_key()?;
+        let key = context.cache_key();
         Ok(self
             .retained
             .lock()
             .results
-            .get(&key)
+            .get(key)
             .filter(|entry| entry.context() == context)
             .cloned())
     }
@@ -52,7 +52,7 @@ impl ValuationCache {
         result: SnapshotValuationResult,
     ) -> Result<Arc<SnapshotValuationResult>, TraitError> {
         result.validate()?;
-        let key = result.context().cache_key()?;
+        let key = result.context().cache_key().to_owned();
         let mut retained = self.retained.lock();
         let snapshot_id = &result.context().spec().snapshot_id;
         if retained.snapshot_id.as_ref() != Some(snapshot_id) {
