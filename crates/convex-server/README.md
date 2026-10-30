@@ -292,6 +292,12 @@ auditable only because its activation is named. A missing
 or stale curve, or one with the wrong role or currency, is refused with
 `422 MISSING_INPUT`; the route never prices without curves.
 
+Each product reads only its own curves, when it first needs them: a bullet its
+discount curve and swap benchmark, a callable or FRN the curves listed below. A
+curve the product does not read refuses nothing, so a stale swap benchmark refuses
+bullets and still prices callables and FRNs. A bond the configuration does not cover
+is `422 NOT_COVERED` before any curve is read.
+
 Callables and FRNs are valued by the runtime, through the code the stream runs, so
 the numbers match the stream's for the same mark, cutoff and settlement. Each request
 builds a one-instrument snapshot that is never stored: the stored terms at `known_at`,
@@ -322,10 +328,12 @@ only; it is not sent on the WebSocket.
 
 `POST /api/v1/quote` and `POST /api/v1/batch/price` take the same optional
 `configuration` and `known_at` and resolve the same context. A batch resolves the
-context and its curves once. A bond the context cannot price fails on its own in
-`errors`, and the rest still price. Their bodies carry `context`:
+context once, and each product's curves at the first bond that reads them. A bond the
+context cannot price, a curve it reads included, fails on its own in `errors`, and
+the rest still price. Their bodies carry `context`:
 - `{"kind": "configuration", "configuration", "activation", "known_at", "curves"}`
-  for a configuration, with the headers above.
+  for a configuration, with the headers above. In a batch, `curves` and
+  `x-convex-curve-versions` list every curve some bond read, each once.
 - `{"kind": "supplied"}` when `POST /api/v1/quote` supplies its own curves or
   volatility. That is a what-if, and naming a `configuration` with it is
   `422 INVALID_INPUT`.
@@ -481,7 +489,7 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 | `convex_valuation_seconds` | One instrument valued in the runtime |
 | `convex_calculate_seconds` | Every instrument of one snapshot, including graph commits |
 | `convex_publish_seconds` | One result record handed to the publisher |
-| `convex_request_context_seconds` | One request-time valuation context: activation read and curve resolution |
+| `convex_request_context_seconds` | One request-time valuation context: the activation read. Each product reads its curves later, at first use, and their build is `convex_curve_build_seconds{path="request"}` |
 | `convex_quote_seconds` | One `POST /api/v1/quote` |
 
 On-demand nominal fixed/zero quotes now use the [shared pure bond route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from exact supplied discount/swap/government inputs for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures have structured errors. Full historical contexts, live admission and complete product/model certificates retain their separate gates.

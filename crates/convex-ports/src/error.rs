@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 /// Common error type for trait operations.
-#[derive(Debug, Error)]
+#[derive(Debug, Clone, Error)]
 pub enum TraitError {
     /// The request violates a declared storage precondition.
     #[error("invalid input: {0}")]

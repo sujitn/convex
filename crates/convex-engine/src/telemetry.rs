@@ -19,7 +19,8 @@ pub const CALCULATE_SECONDS: &str = "convex_calculate_seconds";
 pub const PUBLISH_SECONDS: &str = "convex_publish_seconds";
 /// One curve graph built from stored recipes, labelled by [`CurvePath`].
 pub const CURVE_BUILD_SECONDS: &str = "convex_curve_build_seconds";
-/// One request-time valuation context: activation read and curve resolution.
+/// One request-time valuation context: the activation read. Each product path reads its
+/// curves later, at first use (D69).
 pub const REQUEST_CONTEXT_SECONDS: &str = "convex_request_context_seconds";
 /// One `POST /api/v1/quote`, from handler entry to response.
 pub const QUOTE_SECONDS: &str = "convex_quote_seconds";

@@ -121,6 +121,41 @@ async fn activate(setup: &Setup) {
     configuration::activate_pricing(setup, &config).await;
 }
 
+/// Approve configuration version 3: version 2 with a swap benchmark, `USD-SWAP`, whose
+/// one stored revision has `quality`. Only bullets read it.
+async fn activate_with_swap(setup: &Setup, quality: DataQuality) {
+    let mut config = setup
+        .storage
+        .configs
+        .get_version("CONFIG-RESTORE", 2)
+        .await
+        .unwrap()
+        .unwrap();
+    config.version = 3;
+    config.analytics_curves.swap_curve = Some(convex_core::ids::CurveId::new("USD-SWAP"));
+    setup.storage.configs.save(&config).await.unwrap();
+    let mut swap = products::projection(recipes::recipe());
+    swap["key"]["id"] = "USD-SWAP".into();
+    let mut record = recipes::record(swap);
+    record.quality = quality;
+    setup.storage.curves.save_recipe(&record).await.unwrap();
+    configuration::activate_pricing(setup, &config).await;
+}
+
+/// A started runtime over the products fixture and the cutoff of its first result.
+async fn started(setup: &Setup) -> (Arc<PricingEngine>, String) {
+    let engine = make_engine(
+        setup,
+        archive(setup),
+        setup.plan.clone(),
+        setup.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    let known_at = engine.runtime_results()[0].result.provenance().known_at;
+    (engine, cutoff(known_at))
+}
+
 fn router(engine: Arc<PricingEngine>) -> axum::Router {
     convex_server::routes::create_router_with_access(
         engine,
@@ -342,4 +377,100 @@ async fn a_server_without_a_runtime_refuses_callables_and_still_prices_bullets()
             .contains("UNSUPPORTED_PRODUCT"),
         "{body}"
     );
+}
+
+/// D69: a request reads only the curves its product reads. Under a configuration whose
+/// swap curve is stale at the cutoff, a bullet is refused, alone or in a batch. A
+/// callable, which reads only the discount curve, prices alone and in the same batch,
+/// and the batch lists only the curves it read.
+#[tokio::test]
+async fn a_stale_swap_curve_refuses_bullets_and_still_prices_callables() {
+    let (setup, callable, _) = products_setup().await;
+    let (engine, known_at) = started(&setup).await;
+    // A runtime without configuration use cases starts only with nothing activated.
+    activate_with_swap(&setup, DataQuality::Stale).await;
+    let app = router(engine.clone());
+
+    let bullet = json!({"bond": fixture::bond(), "settlement_date": SETTLEMENT,
+        "known_at": known_at, "market_price": "99.25"});
+    let (status, _, body) = call(&app, "POST", "/api/v1/quote", Some(bullet)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert_eq!(body["code"], "MISSING_INPUT", "{body}");
+    assert!(
+        body["error"].as_str().unwrap().contains("USD-SWAP"),
+        "{body}"
+    );
+
+    let uri = format!(
+        "/api/v1/quotes/CALL-001?market_price=99.25&known_at={known_at}&settlement_date={SETTLEMENT}"
+    );
+    let (status, headers, body) = call(&app, "GET", &uri, None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body["oas_mid"].is_number(), "{body}");
+    assert_eq!(headers["x-convex-pricing-config"], "CONFIG-RESTORE@3");
+    assert_eq!(headers["x-convex-curve-versions"], "USD-FIXTURE@7");
+
+    let batch = json!({
+        "bonds": [
+            {"bond": fixture::bond(), "market_price": "99.25"},
+            {"bond": callable, "market_price": "99.25"},
+        ],
+        "settlement_date": SETTLEMENT,
+        "known_at": known_at,
+    });
+    let (status, headers, body) = call(&app, "POST", "/api/v1/batch/price", Some(batch)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["errors"].as_array().unwrap().len(), 1, "{body}");
+    assert_eq!(body["errors"][0]["instrument_id"], "BOND-001");
+    assert!(
+        body["errors"][0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("MISSING_INPUT"),
+        "{body}"
+    );
+    assert_eq!(body["quotes"].as_array().unwrap().len(), 1, "{body}");
+    assert_eq!(body["quotes"][0]["instrument_id"], "CALL-001");
+    assert!(body["quotes"][0]["oas_mid"].is_number(), "{body}");
+    assert_eq!(headers["x-convex-curve-versions"], "USD-FIXTURE@7");
+    assert_eq!(body["context"]["curves"], json!(["USD-FIXTURE@7"]));
+    engine.shutdown().await.unwrap();
+}
+
+/// D69: a batch of a bullet, a callable and a note reads three curve sets, each once,
+/// and lists every curve it read once, in first-use order: the bullet's discount and
+/// swap curves, then the note's projection curve.
+#[tokio::test]
+async fn a_batch_lists_each_curve_it_read_once() {
+    let (setup, callable, note) = products_setup().await;
+    let (engine, known_at) = started(&setup).await;
+    activate_with_swap(&setup, DataQuality::Valid).await;
+    let app = router(engine.clone());
+    let batch = json!({
+        "bonds": [
+            {"bond": fixture::bond(), "market_price": "99.25"},
+            {"bond": callable, "market_price": "99.25"},
+            {"bond": note, "market_price": "99.25"},
+        ],
+        "settlement_date": SETTLEMENT,
+        "known_at": known_at,
+    });
+    let (status, headers, body) = call(&app, "POST", "/api/v1/batch/price", Some(batch)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["errors"], json!([]), "{body}");
+    assert_eq!(body["quotes"].as_array().unwrap().len(), 3);
+    assert!(body["quotes"][0]["i_spread_mid"].is_number(), "{body}");
+    let read = ["USD-FIXTURE@7", "USD-SWAP@7", "USD-SOFR-PROJECTION@7"];
+    assert_eq!(headers["x-convex-curve-versions"], read.join(",").as_str());
+    assert_eq!(body["context"]["curves"], json!(read));
+    // Each item's own snapshot lists the curves that product read.
+    assert_eq!(
+        body["quotes"][1]["snapshot"]["curves"],
+        json!(["USD-FIXTURE@7"])
+    );
+    assert_eq!(
+        body["quotes"][2]["snapshot"]["curves"],
+        json!(["USD-FIXTURE@7", "USD-SOFR-PROJECTION@7"])
+    );
+    engine.shutdown().await.unwrap();
 }

@@ -23,7 +23,7 @@ use convex_ports::{
 use rust_decimal::Decimal;
 
 use crate::context::{ValuationContext, ValuationContextSpec, ValuationScenario};
-use crate::curve_resolution::{resolve_curves, CurveResolutionError};
+use crate::curve_resolution::CurveResolutionError;
 use crate::optional_valuation::{product_measures, product_model};
 use crate::runtime::RuntimeServices;
 use crate::snapshot::{read_curve_ids, SnapshotAssembler, SnapshotValuationResult};
@@ -93,12 +93,12 @@ impl RequestValuer {
     }
 
     /// The one-instrument snapshot of `reference` at `known_at` and its context. The
-    /// curves are the ones the product's valuation reads, resolved at the cutoff, so a
-    /// missing or stale one refuses the request as it does for bullets (P9a).
+    /// curves are the ones the product's valuation reads, read through `context` at its
+    /// cutoff (D69). A missing or stale one refuses the request as it does for bullets
+    /// (P9a); a curve the product does not read refuses nothing.
     pub(crate) async fn prepare(
         &self,
-        storage: &StorageAdapter,
-        context: &RequestContext,
+        context: &mut RequestContext,
         reference: &ReferenceRecord,
         settlement_date: BusinessDate,
         known_at: UtcTimestamp,
@@ -109,6 +109,12 @@ impl RequestValuer {
             .bond
             .as_ref()
             .ok_or(TraitError::InvalidInput("the stored reference is deleted"))?;
+        // The context reads its curves at its own cutoff, so the snapshot must share it.
+        if known_at != context.known_at {
+            return Err(
+                TraitError::InvalidInput("a request values at its context's cutoff").into(),
+            );
+        }
         let config = context.config();
         if !config.applies_to.matches(bond) {
             return Err(CurveResolutionError::NotCovered(context.id.clone()).into());
@@ -131,17 +137,17 @@ impl RequestValuer {
             .into_iter()
             .map(convex_core::ids::CurveId::new)
             .collect();
-        let curves = resolve_curves(storage.curves.as_ref(), &roots, known_at).await?;
         let invalid = |_| TraitError::InvalidInput("invalid request identity");
+        let configuration = ConfigurationPin {
+            id: context.id.clone(),
+            version: Version::new(config.version).map_err(invalid)?,
+        };
+        let curves = context.read(&roots).await?;
         let key = QuoteKey {
             instrument_id: reference.instrument_id.clone(),
             source: REQUEST_SOURCE.into(),
         };
         let instrument_id = InstrumentId::new(reference.instrument_id.as_str()).map_err(invalid)?;
-        let configuration = ConfigurationPin {
-            id: context.id.clone(),
-            version: Version::new(config.version).map_err(invalid)?,
-        };
         let assembly = SnapshotAssembly {
             as_of: known_at,
             known_at,
