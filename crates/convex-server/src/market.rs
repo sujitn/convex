@@ -34,7 +34,7 @@ const CAPACITY: usize = 1024;
 /// Rejected rows reported per response.
 const MAX_ROW_ERRORS: usize = 64;
 /// A backward wall-clock step the ingress absorbs by repeating its last receipt time.
-/// A larger step refuses every batch with 503 until the clock catches up (D70).
+/// While the clock is further behind, every batch is refused with 503 (D70).
 pub const MAX_CLOCK_STEP_MS: i64 = 5_000;
 
 /// The Live runtime's only quote source, fed by [`QuoteIngress::submit`].
@@ -130,14 +130,15 @@ impl QuoteIngress {
 
     /// Stamp server receipt time on every event and queue the whole batch, or nothing.
     pub fn submit(&self, events: Vec<QuoteEvent>) -> Result<Receipt, IngressError> {
-        self.submit_at(events, chrono::Utc::now().timestamp_millis())
+        self.submit_with_clock(events, || chrono::Utc::now().timestamp_millis())
     }
 
-    /// [`Self::submit`] with the wall clock read as `clock_ms`.
-    fn submit_at(
+    /// [`Self::submit`] with the wall clock read from `clock`, under the queue lock so
+    /// clock readings follow queue order.
+    fn submit_with_clock(
         &self,
         mut events: Vec<QuoteEvent>,
-        clock_ms: i64,
+        clock: impl FnOnce() -> i64,
     ) -> Result<Receipt, IngressError> {
         if events.is_empty() || events.len() > MAX_BATCH {
             return Err(IngressError::Batch);
@@ -150,7 +151,7 @@ impl QuoteIngress {
             return Err(IngressError::Unavailable("no live runtime is subscribed"));
         }
         // The runtime refuses receipt times out of order; its cutoffs never fall below one.
-        let now = queue.stamp(clock_ms)?;
+        let now = queue.stamp(clock())?;
         let mut rows = Vec::new();
         let mut refused = 0usize;
         for (index, event) in events.iter_mut().enumerate() {
@@ -413,7 +414,11 @@ mod tests {
         let ingress = QuoteIngress::new([key("feed-a")]);
         let mut runtime = ingress.subscribe(&[]).await.unwrap();
         let t = 1_700_000_000_000;
-        let stamped = |clock, events| ingress.submit_at(events, clock).map(|r| r.receive_time_ms);
+        let stamped = |clock: i64, events| {
+            ingress
+                .submit_with_clock(events, || clock)
+                .map(|r| r.receive_time_ms)
+        };
         assert_eq!(stamped(t, vec![event(1, t)]), Ok(t));
         // Behind by the bound: the last stamp, and source times are checked against it.
         assert_eq!(
@@ -431,9 +436,10 @@ mod tests {
                 "server clock moved backwards by more than 5 s"
             ))
         );
-        // Once the clock passes the last stamp, it stamps again.
-        assert_eq!(stamped(t + 1, vec![event(4, t + 1)]), Ok(t + 1));
-        for expected in [(1, t), (2, t), (3, t), (4, t + 1)] {
+        // Back within the bound, the last stamp again; past it, the clock.
+        assert_eq!(stamped(t - 1, vec![event(4, t - 1)]), Ok(t));
+        assert_eq!(stamped(t + 1, vec![event(5, t + 1)]), Ok(t + 1));
+        for expected in [(1, t), (2, t), (3, t), (4, t), (5, t + 1)] {
             let event = runtime.recv().await.unwrap();
             assert_eq!((event.sequence, event.receive_time_ms), expected);
         }

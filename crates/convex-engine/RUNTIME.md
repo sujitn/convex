@@ -332,8 +332,8 @@ canonical events. The server replaces each event's `receive_time_ms` with its ow
 receipt time, stamped and queued under one lock so delivery order is receipt order.
 Receipt times never step back. While the wall clock is behind the last stamp by at
 most 5 s, a batch is stamped with the last stamp, so its quotes can read up to 5 s
-ahead of the clock. A larger step refuses every batch with 503 until the clock
-catches up. A step is logged once, at warn. `FUTURE_SOURCE_TIME` compares with the
+ahead of the clock. While the clock is further behind, every batch is refused with
+503. A step is logged once, at warn. `FUTURE_SOURCE_TIME` compares with the
 stamp (D70). A batch is queued whole or not at all:
 
 | Status | Meaning |
