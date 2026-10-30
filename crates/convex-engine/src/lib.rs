@@ -472,7 +472,7 @@ impl PricingEngine {
         let invalid = |_| ports::TraitError::InvalidInput("invalid request identity");
         // As the stream names its valuations, by context.
         let request =
-            convex_core::contracts::RequestId::new(format!("request-{}", valuation.cache_key()?))
+            convex_core::contracts::RequestId::new(format!("request-{}", valuation.cache_key()))
                 .map_err(invalid)?;
         let calculated = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
             .map_err(invalid)?

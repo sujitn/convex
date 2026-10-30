@@ -263,16 +263,13 @@ fn cvx008_ac1_every_context_dimension_is_a_cache_compatibility_input() {
             cache.get(&changed).unwrap().is_none(),
             "dimension {dimension}"
         );
-        assert_ne!(ctx.cache_key().unwrap(), changed.cache_key().unwrap());
+        assert_ne!(ctx.cache_key(), changed.cache_key());
     }
     let mut reordered = ctx.spec().clone();
     reordered.measures.reverse();
     assert_eq!(
-        ValuationContext::new(reordered)
-            .unwrap()
-            .cache_key()
-            .unwrap(),
-        ctx.cache_key().unwrap()
+        ValuationContext::new(reordered).unwrap().cache_key(),
+        ctx.cache_key()
     );
     assert!(cache.insert(result).is_ok());
     let mut changed = ctx.spec().clone();
@@ -536,6 +533,23 @@ fn supplied_curve_reconstruction_preserves_fractional_pillars_dates_and_policies
     }
     record.points[1].tenor_years = record.points[0].tenor_years;
     assert!(convex_engine::BuiltCurve::from_snapshot(&record).is_err());
+}
+
+/// G32: a context derives its key once, when it is made, from the bytes the key always
+/// hashed: the context's own serialization, which carries no key. A context read back
+/// derives the same key.
+#[test]
+fn a_context_key_is_the_digest_of_its_serialization() {
+    let ctx = context(&fixture::snapshot());
+    let bytes = serde_json::to_vec(&ctx).unwrap();
+    assert_eq!(bytes, serde_json::to_vec(ctx.spec()).unwrap());
+    assert_eq!(
+        ctx.cache_key(),
+        content_digest(b"convex.valuation-context.v1 ", &bytes)
+    );
+    let read: ValuationContext = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(read, ctx);
+    assert_eq!(read.cache_key(), ctx.cache_key());
 }
 
 #[test]

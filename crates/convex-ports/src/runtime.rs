@@ -67,10 +67,11 @@ pub struct RuntimeCheckpoint {
     /// Last allocated publication revision.
     pub result_revision: u64,
     /// Current result states for at most 256 instruments. Shared and immutable, so a
-    /// checkpoint copies in constant time; stored as a plain array.
-    pub results: Arc<[PublishedValuation]>,
+    /// checkpoint copies in constant time and a merge copies pointers (G30); stored as a
+    /// plain array.
+    pub results: Arc<[Arc<PublishedValuation>]>,
     /// Undelivered results. Publishers may see retries with the same deduplication key.
-    pub outbox: Arc<[PublishedValuation]>,
+    pub outbox: Arc<[Arc<PublishedValuation>]>,
     /// Live transport continuity lost; restart must not silently restore fresh readiness.
     pub delivery_lost: bool,
 }
@@ -153,7 +154,11 @@ impl RuntimeCheckpoint {
             }
         }
         for record in self.outbox.iter() {
-            if !self.results.contains(record) {
+            if !self
+                .results
+                .iter()
+                .any(|result| Arc::ptr_eq(result, record) || result == record)
+            {
                 return Err(TraitError::InvalidInput(
                     "outbox differs from checkpointed results",
                 ));

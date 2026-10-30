@@ -417,6 +417,15 @@ fn an_instrument_reads_the_same_inputs_until_its_own_change() {
     reference.references.make_mut()[0].record.version = fixture::version(2);
     assert_eq!(same(reference, &[]), (true, false));
 
+    // A shared reference section is the same section; a copy made to change it is not.
+    let mut shared = base();
+    shared.references = previous.content().references.clone();
+    assert!(shared.references.ptr_eq(&previous.content().references));
+    assert_eq!(same(shared.clone(), &["USD-FIXTURE"]), (true, true));
+    shared.references.make_mut()[0].record.version = fixture::version(2);
+    assert!(!shared.references.ptr_eq(&previous.content().references));
+    assert_eq!(same(shared, &[]), (true, false));
+
     // The frame: the next day, the skew policy and the configuration.
     let mut tomorrow = base();
     tomorrow.as_of = fixture::time("2026-10-03T00:00:00Z");

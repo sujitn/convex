@@ -284,7 +284,22 @@ async fn publication_failure_is_checkpointed_and_retried_before_restart_readines
     );
     reopened.start().await.unwrap();
     assert!(reopened.runtime_health().ready);
-    assert_eq!(reopened.runtime_results(), saved.results.to_vec());
+    let saved_results: Vec<_> = saved
+        .results
+        .iter()
+        .map(|record| PublishedValuation::clone(record))
+        .collect();
+    assert_eq!(reopened.runtime_results(), saved_results);
+    // Shared records (G30) are stored as the plain records, and read back equal.
+    let json = serde_json::to_value(&saved).unwrap();
+    assert_eq!(
+        json["results"],
+        serde_json::to_value(&saved_results).unwrap()
+    );
+    assert_eq!(
+        serde_json::from_value::<RuntimeCheckpoint>(json).unwrap(),
+        saved
+    );
     assert!(s
         .store
         .load(&s.plan.runtime_id)
