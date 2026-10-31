@@ -105,7 +105,20 @@ pub async fn resolve_curves(
     roots: &[CurveId],
     known_at: UtcTimestamp,
 ) -> Result<ResolvedCurves, CurveResolutionError> {
-    let records = gather(store, roots, known_at)
+    resolve_held(store, roots, known_at, &mut Vec::new()).await
+}
+
+/// [`resolve_curves`] for one request context (D72). A curve `held` already holds is
+/// taken from it, as a root or as a dependency, and each record read from the store is
+/// added to it, a failed resolution's included. So every set the context resolves
+/// prices a curve on the same revision. `held` holds at most `MAX_SNAPSHOT_CURVES`.
+pub(crate) async fn resolve_held(
+    store: &dyn CurveStore,
+    roots: &[CurveId],
+    known_at: UtcTimestamp,
+    held: &mut Vec<SnapshotCurveRecipe>,
+) -> Result<ResolvedCurves, CurveResolutionError> {
+    let records = gather(store, roots, known_at, held)
         .await
         .map_err(|error| match error {
             Gather::Failed(error) => error,
@@ -145,7 +158,7 @@ pub async fn live_curve_records(
         .iter()
         .map(|id| CurveId::new(id.as_str()))
         .collect();
-    match gather(store, &roots, known_at).await {
+    match gather(store, &roots, known_at, &mut Vec::new()).await {
         Ok(records) => {
             let started = std::time::Instant::now();
             let built = crate::curve_replay::rebuild_curve_recipes(&records);
@@ -176,11 +189,13 @@ impl From<TraitError> for Gather {
 }
 
 /// Each root at the cutoff, then its dependency closure; nothing is checked for
-/// freshness or built.
+/// freshness or built. A curve `held` holds is taken from it, and each record read
+/// from the store is added to it.
 async fn gather(
     store: &dyn CurveStore,
     roots: &[CurveId],
     known_at: UtcTimestamp,
+    held: &mut Vec<SnapshotCurveRecipe>,
 ) -> Result<Vec<SnapshotCurveRecipe>, Gather> {
     if roots.len() > MAX_SNAPSHOT_CURVES {
         return Err(TraitError::CapacityExceeded.into());
@@ -190,10 +205,17 @@ async fn gather(
         if records.iter().any(|r| r.curve_id.as_str() == id.as_str()) {
             continue;
         }
-        let record = store
-            .recipe_at(id, known_at)
-            .await?
-            .ok_or_else(|| CurveResolutionError::Missing(id.clone()))?;
+        let record = match held_record(held, id) {
+            Some(record) => record,
+            None => {
+                let record = store
+                    .recipe_at(id, known_at)
+                    .await?
+                    .ok_or_else(|| CurveResolutionError::Missing(id.clone()))?;
+                hold(held, &record)?;
+                record
+            }
+        };
         records.push(record);
     }
     let mut next = 0;
@@ -207,14 +229,38 @@ async fn gather(
             }
             let missing = || CurveResolutionError::Missing(id.clone());
             let label = label.ok_or_else(missing)?;
-            let record = dependency_record(store, &id, &label, known_at)
-                .await?
-                .ok_or_else(missing)?;
+            let record = match held_record(held, &id) {
+                // A held revision that is not `label` fails the native build, as above.
+                Some(record) => record,
+                None => {
+                    let record = dependency_record(store, &id, &label, known_at)
+                        .await?
+                        .ok_or_else(missing)?;
+                    hold(held, &record)?;
+                    record
+                }
+            };
             records.push(record);
         }
         next += 1;
     }
     Ok(records)
+}
+
+/// The record `held` holds for `id`.
+fn held_record(held: &[SnapshotCurveRecipe], id: &CurveId) -> Option<SnapshotCurveRecipe> {
+    held.iter()
+        .find(|r| r.curve_id.as_str() == id.as_str())
+        .cloned()
+}
+
+/// Keep a record read from the store in `held`, within its bound.
+fn hold(held: &mut Vec<SnapshotCurveRecipe>, record: &SnapshotCurveRecipe) -> Result<(), Gather> {
+    if held.len() >= MAX_SNAPSHOT_CURVES {
+        return Err(TraitError::CapacityExceeded.into());
+    }
+    held.push(record.clone());
+    Ok(())
 }
 
 /// Pricing role admission shared with snapshot valuation: the configured

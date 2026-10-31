@@ -114,8 +114,9 @@ type CurveRead =
 /// The approved valuation context of one request: an activated configuration's exact
 /// pricing version, at the request cutoff. Each product path reads the curves it needs
 /// at first use, and the context keeps every set it resolved, a failed one included, so
-/// a request resolves each set once (D69). The government role is not consumed here, as
-/// in snapshot valuation.
+/// a request resolves each set once (D69). It also holds every curve record it read, and
+/// a later set takes a held curve from it, so a request prices each curve on one
+/// revision (D72). The government role is not consumed here, as in snapshot valuation.
 pub struct RequestContext {
     id: convex_core::contracts::SourceId,
     activation_revision: convex_core::contracts::Version,
@@ -124,6 +125,8 @@ pub struct RequestContext {
     curves: Arc<dyn ports::storage::CurveStore>,
     /// Each curve set read, by its roots, in first-use order.
     reads: Vec<(Vec<convex_core::ids::CurveId>, CurveRead)>,
+    /// Every stored curve record a set read, the revision each later set prices.
+    held: Vec<ports::snapshot::SnapshotCurveRecipe>,
 }
 
 impl RequestContext {
@@ -155,7 +158,8 @@ impl RequestContext {
     }
 
     /// The curves `roots` name, with their dependencies, at the cutoff. A set is
-    /// resolved at its first read and kept, failure included.
+    /// resolved at its first read and kept, failure included. A curve an earlier set
+    /// read is taken from the context, not the store.
     pub(crate) async fn read(&mut self, roots: &[convex_core::ids::CurveId]) -> CurveRead {
         if let Some((_, read)) = self.reads.iter().find(|(set, _)| set.as_slice() == roots) {
             return read.clone();
@@ -163,9 +167,14 @@ impl RequestContext {
         if self.reads.len() >= MAX_CURVE_SETS {
             return Err(ports::TraitError::CapacityExceeded.into());
         }
-        let read = curve_resolution::resolve_curves(self.curves.as_ref(), roots, self.known_at)
-            .await
-            .map(Arc::new);
+        let read = curve_resolution::resolve_held(
+            self.curves.as_ref(),
+            roots,
+            self.known_at,
+            &mut self.held,
+        )
+        .await
+        .map(Arc::new);
         self.reads.push((roots.to_vec(), read.clone()));
         read
     }
@@ -449,6 +458,7 @@ impl PricingEngine {
             known_at,
             curves: self.storage.curves.clone(),
             reads: Vec::new(),
+            held: Vec::new(),
         })
     }
 
