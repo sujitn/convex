@@ -266,6 +266,15 @@ recipes (`SnapshotCurveRecipe`) in redb; the server keeps no curve cache.
 There is no `DELETE`: revisions are history. `known_at` defaults to the current
 time; cutoff-aware curve reads and quote responses echo it in `x-convex-known-at`.
 
+A revision's `recorded_at` is the writer's: when it became known, which is in the
+past for captured history. A cutoff resolves the highest version recorded by it. A
+curve's recording times never decrease as its version rises, as for fixings: a
+revision recorded before a lower version of the curve, or after a higher one, is
+`409 CONFLICT`, and equal times are allowed. A `recorded_at` more than 5 s after the
+server clock is `400 INVALID_INPUT`. A past cutoff is still not fixed: a revision
+can be recorded later with a time between the curve's latest revision and now. Each
+response names the revisions it priced.
+
 A stored revision is market data. A compiled Live configuration names its curves
 and reads the current revision of each one whenever it builds a snapshot. A
 re-mark therefore reaches the stream at the next quote, with no compile,

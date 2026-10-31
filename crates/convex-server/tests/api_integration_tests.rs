@@ -1742,6 +1742,50 @@ async fn curve_recipes_are_stored_listed_and_read_at_a_cutoff() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
+/// D73: a curve's recording times never decrease as its version rises, and a
+/// `recorded_at` leads the server clock by at most 5 s. An identical retry of an older
+/// revision is still `204`.
+#[tokio::test]
+async fn curve_writes_keep_recording_order_within_the_clock() {
+    use chrono::{Duration, SubsecRound, Utc};
+    let app = create_router(create_test_engine());
+    let first = seed_recipe("D.OIS");
+    let revision = |version: u64, recorded_at: Value| {
+        let mut recipe = first.clone();
+        recipe["version"] = json!(version);
+        recipe["recipe"]["key"]["version"] = json!(version.to_string());
+        recipe["source_time"] = recorded_at.clone();
+        recipe["recorded_at"] = recorded_at;
+        recipe
+    };
+    let ahead = |seconds: i64| {
+        let at = Utc::now().trunc_subsecs(0) + Duration::seconds(seconds);
+        serde_json::to_value(UtcTimestamp::from_datetime(at).unwrap()).unwrap()
+    };
+    let (status, _) = post_json(app.clone(), "/api/v1/curves", first.clone()).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    let earlier = revision(2, json!("2026-09-30T12:00:00Z"));
+    let (status, body) = post_json(app.clone(), "/api/v1/curves", earlier).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "CONFLICT");
+    let future = revision(2, ahead(60));
+    let (status, body) = post_json(app.clone(), "/api/v1/analytics/curves", future).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "INVALID_INPUT");
+
+    let (status, body) = post_json(app.clone(), "/api/v1/curves", revision(2, ahead(2))).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    let (status, _) = post_json(app.clone(), "/api/v1/curves", first).await;
+    assert_eq!(
+        status,
+        StatusCode::NO_CONTENT,
+        "identical retry of an older revision"
+    );
+    let (_, _, listing) = get_json(app, "/api/v1/curves").await;
+    assert_eq!(listing["curves"][0]["version"], 2);
+}
+
 #[tokio::test]
 async fn curve_writes_are_immutable_and_validated() {
     let app = create_router(create_test_engine());

@@ -622,7 +622,10 @@ pub struct CurveRecipeHead {
 /// The single durable curve owner: immutable, versioned native curve recipes.
 #[async_trait]
 pub trait CurveStore: Send + Sync {
-    /// Save one immutable complete native curve recipe. Same revision/different content conflicts.
+    /// Save one immutable complete native curve recipe. Same revision/different content
+    /// conflicts. A curve's recording times never decrease as its version rises, so a
+    /// revision recorded before a lower version of the curve, or after a higher one,
+    /// conflicts too; equal times are allowed (D73). An identical retry succeeds.
     async fn save_recipe(
         &self,
         _recipe: &crate::snapshot::SnapshotCurveRecipe,

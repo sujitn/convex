@@ -367,23 +367,33 @@ pub async fn audit_is_append_only(store: Arc<dyn AuditStore>) {
     assert_eq!(page.total, 1);
 }
 
-pub async fn curve_recipes_resolve_at_known_at(store: Arc<dyn CurveStore>) {
+/// A curve recipe sourced and recorded at `recorded`.
+fn curve_recipe(
+    id: &str,
+    version: u64,
+    recorded: &str,
+) -> convex_ports::snapshot::SnapshotCurveRecipe {
     use convex_core::contracts::{DataQuality, ModelId, SourceId, UtcTimestamp, Version};
-    use convex_ports::snapshot::SnapshotCurveRecipe;
-    let time = |v: &str| UtcTimestamp::parse(v).unwrap();
-    let recipe = |id: &str, version: u64, recorded: &str| SnapshotCurveRecipe {
+    let recorded_at = UtcTimestamp::parse(recorded).unwrap();
+    convex_ports::snapshot::SnapshotCurveRecipe {
         schema_version: 1,
         curve_id: convex_core::contracts::CurveId::new(id).unwrap(),
         version: Version::new(version).unwrap(),
-        source_time: time(recorded),
-        recorded_at: time(recorded),
+        source_time: recorded_at,
+        recorded_at,
         source: SourceId::new("fixture-source").unwrap(),
         model_id: ModelId::new("fixture-model").unwrap(),
         input_versions: vec![],
         quality: DataQuality::Valid,
         max_age_ms: 86_400_000,
         recipe: serde_json::json!({"key": {"id": id, "version": version.to_string()}}),
-    };
+    }
+}
+
+pub async fn curve_recipes_resolve_at_known_at(store: Arc<dyn CurveStore>) {
+    use convex_core::contracts::{UtcTimestamp, Version};
+    let time = |v: &str| UtcTimestamp::parse(v).unwrap();
+    let recipe = curve_recipe;
     let id = CurveId::new("USD");
     let first = recipe("USD", 1, "2026-10-01T12:00:00Z");
     let second = recipe("USD", 2, "2026-10-02T12:00:00Z");
@@ -442,4 +452,62 @@ pub async fn curve_recipes_resolve_at_known_at(store: Arc<dyn CurveStore>) {
         store.recipe_heads(None, MAX_CURVE_LISTING + 1).await,
         Err(TraitError::CapacityExceeded)
     ));
+}
+
+/// D73: a curve's recording times never decrease as its version rises. A revision
+/// recorded before a lower version, or after a higher one, conflicts and is not
+/// stored. Equal times, a version saved between its neighbours and an identical
+/// retry of an older revision are accepted. Another curve's history does not count.
+pub async fn curve_revisions_keep_recording_order(store: Arc<dyn CurveStore>) {
+    use convex_core::contracts::{UtcTimestamp, Version};
+    let reversed = |result: Result<(), TraitError>| matches!(result, Err(TraitError::Conflict(_)));
+    let first = curve_recipe("USD", 1, "2026-10-01T12:00:00Z");
+    let third = curve_recipe("USD", 3, "2026-10-03T12:00:00Z");
+    let records = [
+        curve_recipe("EUR", 1, "2026-10-05T12:00:00Z"),
+        first.clone(),
+        third,
+        curve_recipe("USE", 1, "2026-09-01T12:00:00Z"),
+    ];
+    for record in &records {
+        store.save_recipe(record).await.unwrap();
+    }
+    for (version, recorded) in [
+        (4, "2026-10-03T11:59:59Z"),
+        (2, "2026-09-30T12:00:00Z"),
+        (2, "2026-10-03T12:00:01Z"),
+    ] {
+        let refused = store
+            .save_recipe(&curve_recipe("USD", version, recorded))
+            .await;
+        assert!(reversed(refused), "v{version} recorded {recorded}");
+    }
+    let second = curve_recipe("USD", 2, "2026-10-01T12:00:00Z");
+    let fourth = curve_recipe("USD", 4, "2026-10-03T12:00:00Z");
+    for record in [&second, &fourth, &first] {
+        store.save_recipe(record).await.unwrap();
+    }
+    let id = CurveId::new("USD");
+    assert_eq!(
+        store
+            .get_recipe(&id, Version::new(2).unwrap())
+            .await
+            .unwrap(),
+        Some(second.clone())
+    );
+    let at = UtcTimestamp::parse("2026-10-02T00:00:00Z").unwrap();
+    assert_eq!(store.recipe_at(&id, at).await.unwrap(), Some(second));
+    let heads = store.recipe_heads(None, 10).await.unwrap();
+    let listed: Vec<_> = heads
+        .iter()
+        .map(|h| (h.curve_id.as_str().to_owned(), h.version.get()))
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("EUR".to_owned(), 1),
+            ("USD".to_owned(), 4),
+            ("USE".to_owned(), 1)
+        ]
+    );
 }

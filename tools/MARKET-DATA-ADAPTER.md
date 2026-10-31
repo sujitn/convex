@@ -103,6 +103,9 @@ Resolve the cause and replay the identical capture from the beginning. Existing
 immutable identities make exact retries idempotent and conflicting retries fail.
 There is no local checkpoint to lose or get ahead of the server. Corrections
 use new original source-record revisions; never rewrite committed history.
+Captured curve revisions must arrive in recording order for each curve. The server
+refuses a revision recorded before a lower version of the same curve, or after a
+higher one (`409`), and a `recorded_at` more than 5 s after its clock (`400`).
 
 Each fixing batch is atomic. A whole capture is a sequence of independent port
 commits. Assemble the explicit snapshot only after the required publications
