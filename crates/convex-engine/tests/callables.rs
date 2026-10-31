@@ -243,3 +243,87 @@ async fn a_request_time_callable_valuation_matches_the_stream() {
         .unwrap()
         .is_none());
 }
+
+/// D72: one request context prices each curve on one revision. A bullet's read takes the
+/// discount curve at revision 7; revision 8, recorded by the same cutoff, is saved; the
+/// callable then prices on revision 7, which the context holds.
+#[tokio::test]
+async fn a_request_context_prices_each_curve_on_one_revision() {
+    let setup = callable_setup(CallStyle::Bermudan, true).await;
+    let mut config = setup
+        .storage
+        .configs
+        .get_version("CONFIG-RESTORE", 2)
+        .await
+        .unwrap()
+        .unwrap();
+    config.version = 3;
+    config.analytics_curves.swap_curve = Some(convex_core::ids::CurveId::new("USD-SWAP"));
+    setup.storage.configs.save(&config).await.unwrap();
+    let discount = recipes::record(recipes::recipe());
+    let mut swap = products::projection(recipes::recipe());
+    swap["key"]["id"] = "USD-SWAP".into();
+    for record in [discount.clone(), recipes::record(swap)] {
+        setup.storage.curves.save_recipe(&record).await.unwrap();
+    }
+    let engine = make_engine(
+        &setup,
+        archive(&setup),
+        setup.plan.clone(),
+        setup.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    configuration::activate_pricing(&setup, &config).await;
+    let stream = engine.runtime_results()[0].result.clone();
+    let known_at = stream.provenance().known_at;
+    let ValuationSubject::InstrumentVersion { instrument_id, .. } = &stream.provenance().subject
+    else {
+        panic!("instrument valuation")
+    };
+    let reference = engine
+        .reference_at_for_pricing(
+            &instrument_id.clone().into(),
+            convex_ports::reference_master::ReferenceLookup {
+                as_of: known_at,
+                known_at,
+            },
+        )
+        .await
+        .unwrap()
+        .unwrap();
+
+    let mut context = engine.request_context(None, known_at).await.unwrap();
+    context.curves_for(&fixture::bond()).await.unwrap();
+    let mut newer = discount;
+    newer.version = fixture::version(8);
+    newer.recipe["key"]["version"] = "supplied.recipe.v8".into();
+    setup.storage.curves.save_recipe(&newer).await.unwrap();
+    let mark = Some(Decimal::from_str("99.25").unwrap());
+    let valued = engine
+        .value_request(
+            &mut context,
+            &reference,
+            setup.plan.settlement_date,
+            known_at,
+            mark,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        valued.curves,
+        vec![("USD-FIXTURE".to_owned(), fixture::version(7))]
+    );
+    assert_eq!(
+        context.pins(),
+        vec![
+            ("USD-FIXTURE", fixture::version(7)),
+            ("USD-SWAP", fixture::version(7))
+        ]
+    );
+    // Revision 8 is recorded by the cutoff: a new context reads it.
+    let mut fresh = engine.request_context(None, known_at).await.unwrap();
+    fresh.curves_for(&fixture::bond()).await.unwrap();
+    assert_eq!(fresh.pins()[0], ("USD-FIXTURE", fixture::version(8)));
+    engine.shutdown().await.unwrap();
+}

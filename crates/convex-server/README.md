@@ -333,7 +333,9 @@ context cannot price, a curve it reads included, fails on its own in `errors`, a
 the rest still price. Their bodies carry `context`:
 - `{"kind": "configuration", "configuration", "activation", "known_at", "curves"}`
   for a configuration, with the headers above. In a batch, `curves` and
-  `x-convex-curve-versions` list every curve some bond read, each once.
+  `x-convex-curve-versions` list every curve some bond read, each once. A batch
+  prices each curve on one revision, the one its first read found, even when a newer
+  revision is recorded while it runs.
 - `{"kind": "supplied"}` when `POST /api/v1/quote` supplies its own curves or
   volatility. That is a what-if, and naming a `configuration` with it is
   `422 INVALID_INPUT`.
