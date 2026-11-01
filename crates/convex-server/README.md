@@ -267,12 +267,12 @@ There is no `DELETE`: revisions are history. `known_at` defaults to the current
 time; cutoff-aware curve reads and quote responses echo it in `x-convex-known-at`.
 
 A revision's `recorded_at` is the writer's: when it became known, which is in the
-past for captured history. A cutoff resolves the highest version recorded by it. A
-curve's recording times never decrease as its version rises, as for fixings: a
-revision recorded before a lower version of the curve, or after a higher one, is
-`409 CONFLICT`, and equal times are allowed. Each new revision is checked against
-the curve's stored versions just below and above it; revisions stored before this
-rule are not re-checked. On either curve `POST` route, a `recorded_at` more than
+past for captured history. A cutoff resolves the highest version recorded by it. As
+for fixings, each new revision is checked against the curve's stored versions just
+below and above it: one recorded before the lower or after the higher is
+`409 CONFLICT`, and equal times are allowed. Revisions stored before this rule are not
+re-checked, so recording times never decrease as the version rises only in a history
+written wholly under it. On either curve `POST` route, a `recorded_at` more than
 5 s after the server clock is `400 INVALID_INPUT`, except that an identical retry of
 a stored revision is still `204`. The offline `convex-core-inputs` importer has no
 clock bound; it keeps the order rule, which belongs to the store. A past cutoff is

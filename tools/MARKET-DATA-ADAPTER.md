@@ -103,7 +103,8 @@ Resolve the cause and replay the identical capture from the beginning. Existing
 immutable identities make exact retries idempotent and conflicting retries fail.
 There is no local checkpoint to lose or get ahead of the server. Corrections
 use new original source-record revisions; never rewrite committed history.
-A curve's recording times must not decrease as its version rises. Versions may
+Send each curve's revisions with recording times that do not decrease as the version
+rises; the order holds for a history written wholly under this rule. Versions may
 arrive in any order, so a backfill between two stored versions is accepted when its
 time lies between theirs. The server checks each new revision against the curve's
 nearest stored lower and higher versions and refuses one recorded before the lower
