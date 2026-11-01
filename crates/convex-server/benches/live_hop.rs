@@ -155,16 +155,22 @@ impl Live {
         };
         let images = live.quotes(width);
         live.post(images).await;
-        let expected = live.generation;
+        live.settle().await;
+        live.server.wait_ready().await;
+        live
+    }
+
+    /// Wait, untimed, until the runtime has admitted every posted quote, so no backlog
+    /// reaches the next case.
+    async fn settle(&self) {
+        let expected = self.generation;
         tokio::time::timeout(Duration::from_secs(30), async {
-            while live.server.runtime().await["generation"].as_u64() < Some(expected) {
+            while self.server.runtime().await["generation"].as_u64() < Some(expected) {
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })
         .await
-        .expect("every first image is admitted");
-        live.server.wait_ready().await;
-        live
+        .expect("every posted quote is admitted");
     }
 
     fn ids(&self) -> Vec<String> {
@@ -272,6 +278,8 @@ fn bench_live_hop(c: &mut Criterion) {
             })
         })
     });
+    // `post` waits only for each `202`; the runtime admits those quotes before the next case.
+    rt.block_on(wide.settle());
     let mut sockets = vec![rt.block_on(wide.session())];
     group.bench_function(BenchmarkId::new("burst1", WIDE), |b| {
         b.iter_custom(|iterations| {
