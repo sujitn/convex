@@ -197,7 +197,7 @@ The original native MonotoneConvex owner now uses complete nonnegative Hagan–W
 ## Complete curve recipe snapshot replay
 
 `SnapshotAssembly.curve_recipes` now carries full versioned native CurveRecipe
-payloads and explicit provenance into schema-2 snapshots. All original date,
+payloads and explicit provenance into snapshots (schema 2, or schema 4 as assembly writes since P13b-ii). All original date,
 unit, role, time basis, model/LLP, helper/settings, method/tail and exact dependency
 versions survive capture and reconstruction. Schema-1 omitted fields and content
 identities remain unchanged; its unsupported FlatForward policy is rejected.

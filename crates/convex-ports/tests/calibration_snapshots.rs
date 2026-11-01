@@ -37,6 +37,21 @@ fn calibration_identity_is_the_hash_of_the_plain_content_bytes() {
     fixture::assert_plain_identity(&MarketSnapshot::new(content(record())).unwrap());
 }
 
+/// D79: schema 4 holds a calibration under the sectioned identity, and its wire form
+/// verifies.
+#[test]
+fn schema_four_holds_a_calibration() {
+    let mut c = content(record());
+    c.schema_version = SNAPSHOT_SCHEMA;
+    let snapshot = MarketSnapshot::new(c).unwrap();
+    fixture::assert_sectioned_identity(&snapshot);
+    let wire = snapshot.canonical_bytes().unwrap();
+    assert_eq!(
+        serde_json::from_slice::<MarketSnapshot>(&wire).unwrap(),
+        snapshot
+    );
+}
+
 #[test]
 fn original_bounds_and_identity_pins_apply_to_the_whole_calibration() {
     let original = record();

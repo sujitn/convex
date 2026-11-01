@@ -161,6 +161,36 @@ impl SnapshotAssembler {
         self.snapshots.publish(&snapshot).await?;
         Ok(snapshot)
     }
+    /// Rebuild a committed checkpoint's snapshot `id` from its trace and publish it, as
+    /// `assemble` does: an exact retry when it is stored, stored again when it is not. A
+    /// snapshot is built under schema 4 now. A checkpoint written by an earlier build
+    /// names the schema that build chose: 3 with a calibration, 2 with recipes, 1
+    /// otherwise. When the schema-4 id differs, the rebuild under that schema must have
+    /// `id` exactly. `None` when neither does.
+    pub async fn restore(
+        &self,
+        request: &SnapshotAssembly,
+        events: &[QuoteEvent],
+        id: &SnapshotId,
+    ) -> Result<Option<MarketSnapshot>, TraitError> {
+        let mut snapshot = self.resolve(request, events).await?;
+        if snapshot.id() != id {
+            let content = snapshot.content();
+            let earlier = if content.calibration.is_some() {
+                3
+            } else if content.curve_recipes.is_empty() {
+                1
+            } else {
+                2
+            };
+            snapshot = snapshot.with_schema(earlier)?;
+            if snapshot.id() != id {
+                return Ok(None);
+            }
+        }
+        self.snapshots.publish(&snapshot).await?;
+        Ok(Some(snapshot))
+    }
     /// Resolve without publishing; shared by dry-run configuration validation.
     pub async fn resolve(
         &self,
@@ -322,13 +352,8 @@ impl SnapshotAssembler {
             fixings.push(SnapshotFixing { key, fixing });
         }
         let snapshot = MarketSnapshot::new(SnapshotContent {
-            schema_version: if request.calibration.is_some() {
-                3
-            } else if request.curve_recipes.is_empty() {
-                1
-            } else {
-                2
-            },
+            // The sectioned identity, whatever the curves (D79).
+            schema_version: SNAPSHOT_SCHEMA,
             as_of: request.as_of,
             known_at: request.known_at,
             generation: request.generation,

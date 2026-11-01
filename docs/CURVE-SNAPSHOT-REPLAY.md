@@ -79,11 +79,12 @@ Conflicting consumed definition revisions fail instead of disappearing.
 |---|---|---|
 | Original `curves`, with no complete recipes | 1 | `convex.snapshot.v1\0` |
 | One or more `curve_recipes`, optionally alongside separate original zero records | 2 | `convex.snapshot.v2\0` |
+| Either, as assembly writes every new snapshot | 4 | `convex.snapshot.v4\0`, by section ([identity](../crates/convex-engine/SNAPSHOTS.md#identity-quality-and-bounds)) |
 
 Empty `curve_recipes` is omitted so original schema-1 canonical bytes and hashes
-survive. Assembly chooses schema 2 when full records are present. Direct content
-construction must declare the matching version; inconsistent or unknown versions
-fail. Existing configuration/runtime request formats accept the omitted optional
+survive. Assembly writes schema 4 whatever the curves; schemas 1 and 2 still verify.
+Direct content construction must declare a version whose rules the content meets;
+inconsistent or unknown versions fail. Existing configuration/runtime request formats accept the omitted optional
 field; new records change their content digest and require normal immutable
 configuration staging/activation. No old identity is overwritten or relabelled.
 
@@ -130,7 +131,7 @@ allocation; no throughput, hot-loop allocation or latency certificate is claimed
 Older `SnapshotCurve` records remain explicit ACT/365F continuous-zero records.
 Their unsupported `FlatForward` selection continues to fail. Migration requires
 an actually supplied complete native source, correct original units/time basis,
-model and revisions, and a new schema-2 snapshot. It must not guess whether an old
+model and revisions, and a new snapshot that holds the recipe. It must not guess whether an old
 policy meant raw flat zeros or integrated forwards. Original negative-interval
 MonotoneConvex records continue to reject.
 

@@ -318,6 +318,66 @@ fn a_result_for_another_snapshot_releases_the_retained_snapshot() {
     assert_eq!(cache.len(), 1);
 }
 
+/// P13b-ii: assembly writes schema 4. A checkpoint's snapshot that an earlier build wrote
+/// under schema 1 restores under that schema with its id: nothing new is stored when it
+/// is stored, and it is stored again when it is missing. A trace that does not rebuild the
+/// id, or another id, restores nothing.
+#[tokio::test]
+async fn restore_rebuilds_a_snapshot_stored_before_schema_four_under_its_schema() {
+    let setup = setup(vec![]).await;
+    let built = setup
+        .assembler
+        .assemble(&setup.request, &setup.events)
+        .await
+        .unwrap();
+    assert_eq!(built.content().schema_version, SNAPSHOT_SCHEMA);
+    fixture::assert_sectioned_identity(&built);
+    let restore = |events: Vec<QuoteEvent>, id: SnapshotId| {
+        let setup = &setup;
+        async move {
+            setup
+                .assembler
+                .restore(&setup.request, &events, &id)
+                .await
+                .unwrap()
+        }
+    };
+    assert_eq!(
+        restore(setup.events.clone(), built.id().clone()).await,
+        Some(built.clone())
+    );
+
+    let earlier = built.with_schema(1).unwrap();
+    fixture::assert_plain_identity(&earlier);
+    setup.snapshots.publish(&earlier).await.unwrap();
+    let directory = setup._directory.path().join("snapshots");
+    let stored = std::fs::read_dir(&directory).unwrap().count();
+    assert_eq!(
+        restore(setup.events.clone(), earlier.id().clone()).await,
+        Some(earlier.clone())
+    );
+    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), stored);
+    for entry in std::fs::read_dir(&directory).unwrap() {
+        std::fs::remove_file(entry.unwrap().path()).unwrap();
+    }
+    assert_eq!(
+        restore(setup.events.clone(), earlier.id().clone()).await,
+        Some(earlier.clone())
+    );
+    assert_eq!(
+        setup.snapshots.get(earlier.id()).await.unwrap(),
+        Some(earlier.clone())
+    );
+
+    let ms = setup.request.known_at.datetime().timestamp_millis();
+    let other = vec![fixture::event(1, ms, ms, "99.5")];
+    for id in [built.id(), earlier.id()] {
+        assert_eq!(restore(other.clone(), id.clone()).await, None);
+    }
+    let absent = SnapshotId::new(format!("sha256:{}", "0".repeat(64))).unwrap();
+    assert_eq!(restore(setup.events.clone(), absent).await, None);
+}
+
 #[tokio::test]
 async fn cvx008_ac2_assembly_excludes_later_published_and_later_recorded_fixings() {
     let initial = fixture::fixing(1, "2026-10-02T14:00:00Z", "2026-10-02T14:00:01Z", "-0.001");
