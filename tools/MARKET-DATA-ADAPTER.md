@@ -105,10 +105,11 @@ There is no local checkpoint to lose or get ahead of the server. Corrections
 use new original source-record revisions; never rewrite committed history.
 A curve's recording times must not decrease as its version rises. Versions may
 arrive in any order, so a backfill between two stored versions is accepted when its
-time lies between theirs. The server refuses a revision recorded before a lower
-version of the same curve, or after a higher one (`409`), and a new revision
-recorded more than 5 s after its clock (`400`). An identical retry of a stored
-revision is accepted whatever its time.
+time lies between theirs. The server checks each new revision against the curve's
+nearest stored lower and higher versions and refuses one recorded before the lower
+or after the higher (`409`). Revisions stored before this rule are not re-checked.
+A new revision recorded more than 5 s after the server clock is refused (`400`). An
+identical retry of a stored revision is accepted whatever its time.
 
 Each fixing batch is atomic. A whole capture is a sequence of independent port
 commits. Assemble the explicit snapshot only after the required publications

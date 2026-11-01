@@ -257,7 +257,7 @@ recipes (`SnapshotCurveRecipe`) in redb; the server keeps no curve cache.
 
 | Route | Behaviour |
 |---|---|
-| `POST /api/v1/curves` | Store one recipe revision (same write as `POST /api/v1/analytics/curves`). `204`; an identical retry is `204`; different content under a stored version is `409 CONFLICT`. |
+| `POST /api/v1/curves` | Store one recipe revision (same write as `POST /api/v1/analytics/curves`). `204`; an identical retry is `204`; different content under a stored version is `409 CONFLICT`, or `400 INVALID_INPUT` when its `recorded_at` is more than 5 s after the server clock. |
 | `GET /api/v1/curves?after=&limit=` | Each curve's highest stored revision, in identity order, `limit` 1..=256 (default 100). `next` names the cursor for the following page. |
 | `GET /api/v1/curves/{id}?known_at=` | The highest revision recorded at or before `known_at`, with `x-convex-curve-version`. `404` when none. |
 | `GET /api/v1/curves/{id}/zero/{t}`, `/discount/{t}`, `/forward/{t1}/{t2}` | Build that revision and its exact dependencies, then query. A missing or stale curve is `422 MISSING_INPUT`. |
