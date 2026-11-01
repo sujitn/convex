@@ -15,11 +15,11 @@
 //!
 //! An error frame, such as `RESYNC_REQUIRED` after a lagging session (G38), fails the case.
 //!
-//! Every HTTP request and every inbound WebSocket message counts against one window of
-//! 6,000 a minute for the whole process (`AccessControl::admit_attempt`, G40), in local
-//! mode too. The bench spends at most [`ATTEMPTS_PER_SECOND`] and waits outside the timer,
-//! so each quote reaches a runtime that has finished its previous tick, as in the engine's
-//! `live_throughput/burst1/256`.
+//! The bench spends at most [`ATTEMPTS_PER_SECOND`] requests and WebSocket messages and
+//! waits outside the timer, so each quote reaches a runtime that has finished its previous
+//! tick, as in the engine's `live_throughput/burst1/256`, and the numbers compare with
+//! P13a's. P13a paced because every request then counted against a process window of
+//! 6,000 a minute, in local mode too (G40); local development now counts none (D78).
 //!
 //! Run with: cargo bench -p convex-server --bench live_hop --profile ci
 //! Report medians only; CI builds it and sets no timing threshold.
@@ -44,11 +44,11 @@ type Socket =
 const WIDE: usize = 256;
 /// Sessions in the fan-out case.
 const SESSIONS: usize = 8;
-/// Requests and inbound WebSocket messages per second, under the 100 a second that
-/// `admit_attempt` allows the process.
+/// Requests and inbound WebSocket messages per second: P13a's rate, kept so the cases
+/// compare across P13b's steps.
 const ATTEMPTS_PER_SECOND: u32 = 80;
 
-/// Spaces the bench's attempts so it never reaches the access window's cap.
+/// Spaces the bench's requests and messages, untimed.
 struct Pacer {
     next: tokio::time::Instant,
 }
@@ -155,16 +155,22 @@ impl Live {
         };
         let images = live.quotes(width);
         live.post(images).await;
-        let expected = live.generation;
+        live.settle().await;
+        live.server.wait_ready().await;
+        live
+    }
+
+    /// Wait, untimed, until the runtime has admitted every posted quote, so no backlog
+    /// reaches the next case.
+    async fn settle(&self) {
+        let expected = self.generation;
         tokio::time::timeout(Duration::from_secs(30), async {
-            while live.server.runtime().await["generation"].as_u64() < Some(expected) {
+            while self.server.runtime().await["generation"].as_u64() < Some(expected) {
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
         })
         .await
-        .expect("every first image is admitted");
-        live.server.wait_ready().await;
-        live
+        .expect("every posted quote is admitted");
     }
 
     fn ids(&self) -> Vec<String> {
@@ -272,6 +278,8 @@ fn bench_live_hop(c: &mut Criterion) {
             })
         })
     });
+    // `post` waits only for each `202`; the runtime admits those quotes before the next case.
+    rt.block_on(wide.settle());
     let mut sockets = vec![rt.block_on(wide.session())];
     group.bench_function(BenchmarkId::new("burst1", WIDE), |b| {
         b.iter_custom(|iterations| {

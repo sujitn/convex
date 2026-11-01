@@ -643,7 +643,8 @@ async fn enforce_inner(
         .contains(&path)
     }) && (request.method() == Method::GET || request.method() == Method::HEAD);
     if public {
-        // Public probes pass through the same quotas without manufacturing an authenticated identity.
+        // Public probes hold an in-flight permit like every request. They verify no
+        // credential, so no per-minute window counts them (D78).
         let ctx = AccessContext {
             identity: None,
             token: None,
