@@ -15,6 +15,12 @@
 //!
 //! An error frame, such as `RESYNC_REQUIRED` after a lagging session (G38), fails the case.
 //!
+//! Every HTTP request and every inbound WebSocket message counts against one window of
+//! 6,000 a minute for the whole process (`AccessControl::admit_attempt`, G40), in local
+//! mode too. The bench spends at most [`ATTEMPTS_PER_SECOND`] and waits outside the timer,
+//! so each quote reaches a runtime that has finished its previous tick, as in the engine's
+//! `live_throughput/burst1/256`.
+//!
 //! Run with: cargo bench -p convex-server --bench live_hop --profile ci
 //! Report medians only; CI builds it and sets no timing threshold.
 
@@ -38,6 +44,23 @@ type Socket =
 const WIDE: usize = 256;
 /// Sessions in the fan-out case.
 const SESSIONS: usize = 8;
+/// Requests and inbound WebSocket messages per second, under the 100 a second that
+/// `admit_attempt` allows the process.
+const ATTEMPTS_PER_SECOND: u32 = 80;
+
+/// Spaces the bench's attempts so it never reaches the access window's cap.
+struct Pacer {
+    next: tokio::time::Instant,
+}
+
+impl Pacer {
+    /// Wait, untimed, until `attempts` more fit under [`ATTEMPTS_PER_SECOND`].
+    async fn wait(&mut self, attempts: u32) {
+        tokio::time::sleep_until(self.next).await;
+        self.next =
+            tokio::time::Instant::now() + Duration::from_secs(1) * attempts / ATTEMPTS_PER_SECOND;
+    }
+}
 
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
@@ -97,6 +120,13 @@ async fn drain(socket: &mut Socket) {
     until(socket, |f| f.kind == "pong").await
 }
 
+/// A refused post fails the case with the server's reason.
+async fn accepted(response: reqwest::Response) {
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    assert_eq!(status, StatusCode::ACCEPTED, "{body}");
+}
+
 /// A Live server over `width` bonds, after every bond's first image.
 struct Live {
     server: Running,
@@ -104,6 +134,7 @@ struct Live {
     sequence: u64,
     /// The last generation the runtime admitted: one per posted quote.
     generation: u64,
+    pacer: Pacer,
     _dir: tempfile::TempDir,
 }
 
@@ -117,6 +148,9 @@ impl Live {
             keys,
             sequence: 0,
             generation,
+            pacer: Pacer {
+                next: tokio::time::Instant::now(),
+            },
             _dir: dir,
         };
         let images = live.quotes(width);
@@ -152,11 +186,16 @@ impl Live {
             .collect()
     }
 
-    async fn post(&mut self, quotes: Vec<QuoteEvent>) {
+    /// Post `quotes` and return the time until the `202`.
+    async fn post(&mut self, quotes: Vec<QuoteEvent>) -> Duration {
+        self.pacer.wait(1).await;
         let count = quotes.len() as u64;
+        let started = Instant::now();
         let response = self.server.post_quotes(quotes).await;
-        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        let elapsed = started.elapsed();
+        accepted(response).await;
         self.generation += count;
+        elapsed
     }
 
     /// A session subscribed to every bond, past its `connected` and `subscribed` frames.
@@ -178,8 +217,11 @@ impl Live {
     }
 
     /// Post `count` quotes and return the time until every session holds the frame of
-    /// the tick that admitted the last; then drain each session, untimed.
-    async fn hop(&mut self, sockets: &mut [Socket], count: usize) -> Duration {
+    /// the tick that admitted the last. A tick of one quote publishes one frame (D55); after
+    /// a wider one, `drain` reads each session to its end, untimed.
+    async fn hop(&mut self, sockets: &mut [Socket], count: usize, drain_after: bool) -> Duration {
+        let pings = if drain_after { sockets.len() as u32 } else { 0 };
+        self.pacer.wait(1 + pings).await;
         let quotes = self.quotes(count);
         let expected = self.generation + count as u64;
         let started = Instant::now();
@@ -189,10 +231,12 @@ impl Live {
                 .await;
             started.elapsed()
         });
-        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        accepted(response).await;
         self.generation = expected;
-        for socket in sockets.iter_mut() {
-            drain(socket).await;
+        if drain_after {
+            for socket in sockets.iter_mut() {
+                drain(socket).await;
+            }
         }
         elapsed
     }
@@ -208,6 +252,10 @@ impl Live {
 fn bench_live_hop(c: &mut Criterion) {
     let rt = runtime();
     let mut group = c.benchmark_group("live_hop");
+    // Paced iterations: criterion plans by wall time, so a case takes about 10 s.
+    group.sample_size(20);
+    group.warm_up_time(Duration::from_secs(2));
+    group.measurement_time(Duration::from_secs(10));
 
     let mut wide = rt.block_on(Live::start(WIDE));
     group.throughput(Throughput::Elements(1));
@@ -218,9 +266,7 @@ fn bench_live_hop(c: &mut Criterion) {
                 let mut total = Duration::ZERO;
                 for _ in 0..iterations {
                     let quotes = wide.quotes(1);
-                    let started = Instant::now();
-                    wide.post(quotes).await;
-                    total += started.elapsed();
+                    total += wide.post(quotes).await;
                 }
                 total
             })
@@ -232,7 +278,7 @@ fn bench_live_hop(c: &mut Criterion) {
             rt.block_on(async {
                 let mut total = Duration::ZERO;
                 for _ in 0..iterations {
-                    total += wide.hop(&mut sockets, 1).await;
+                    total += wide.hop(&mut sockets, 1, false).await;
                 }
                 total
             })
@@ -244,7 +290,7 @@ fn bench_live_hop(c: &mut Criterion) {
             rt.block_on(async {
                 let mut total = Duration::ZERO;
                 for _ in 0..iterations {
-                    total += wide.hop(&mut sockets, WIDE).await;
+                    total += wide.hop(&mut sockets, WIDE, true).await;
                 }
                 total
             })
@@ -261,7 +307,7 @@ fn bench_live_hop(c: &mut Criterion) {
                 rt.block_on(async {
                     let mut total = Duration::ZERO;
                     for _ in 0..iterations {
-                        total += wide.hop(&mut sockets, 1).await;
+                        total += wide.hop(&mut sockets, 1, false).await;
                     }
                     total
                 })
@@ -277,7 +323,7 @@ fn bench_live_hop(c: &mut Criterion) {
             rt.block_on(async {
                 let mut total = Duration::ZERO;
                 for _ in 0..iterations {
-                    total += one.hop(&mut sockets, 1).await;
+                    total += one.hop(&mut sockets, 1, false).await;
                 }
                 total
             })
