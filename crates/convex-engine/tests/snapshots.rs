@@ -318,9 +318,10 @@ fn a_result_for_another_snapshot_releases_the_retained_snapshot() {
     assert_eq!(cache.len(), 1);
 }
 
-/// P13b-ii: assembly writes schema 4. A checkpoint's snapshot that an earlier build stored
-/// under schema 1 restores under that schema with its id, and nothing new is stored. A
-/// trace that does not rebuild the id, or an id never stored, restores nothing.
+/// P13b-ii: assembly writes schema 4. A checkpoint's snapshot that an earlier build wrote
+/// under schema 1 restores under that schema with its id: nothing new is stored when it
+/// is stored, and it is stored again when it is missing. A trace that does not rebuild the
+/// id, or another id, restores nothing.
 #[tokio::test]
 async fn restore_rebuilds_a_snapshot_stored_before_schema_four_under_its_schema() {
     let setup = setup(vec![]).await;
@@ -356,6 +357,17 @@ async fn restore_rebuilds_a_snapshot_stored_before_schema_four_under_its_schema(
         Some(earlier.clone())
     );
     assert_eq!(std::fs::read_dir(&directory).unwrap().count(), stored);
+    for entry in std::fs::read_dir(&directory).unwrap() {
+        std::fs::remove_file(entry.unwrap().path()).unwrap();
+    }
+    assert_eq!(
+        restore(setup.events.clone(), earlier.id().clone()).await,
+        Some(earlier.clone())
+    );
+    assert_eq!(
+        setup.snapshots.get(earlier.id()).await.unwrap(),
+        Some(earlier.clone())
+    );
 
     let ms = setup.request.known_at.datetime().timestamp_millis();
     let other = vec![fixture::event(1, ms, ms, "99.5")];

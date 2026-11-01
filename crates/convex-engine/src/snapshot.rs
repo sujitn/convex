@@ -161,33 +161,35 @@ impl SnapshotAssembler {
         self.snapshots.publish(&snapshot).await?;
         Ok(snapshot)
     }
-    /// Rebuild a committed checkpoint's snapshot `id` from its trace, as `assemble` does.
-    /// A snapshot is built under schema 4 now; one stored under schema 1–3 by an earlier
-    /// build is rebuilt under that schema instead, so its checkpoint restores with the
-    /// same id and nothing new is stored. `None` when the trace does not rebuild `id`.
+    /// Rebuild a committed checkpoint's snapshot `id` from its trace and publish it, as
+    /// `assemble` does: an exact retry when it is stored, stored again when it is not. A
+    /// snapshot is built under schema 4 now. A checkpoint written by an earlier build
+    /// names the schema that build chose: 3 with a calibration, 2 with recipes, 1
+    /// otherwise. When the schema-4 id differs, the rebuild under that schema must have
+    /// `id` exactly. `None` when neither does.
     pub async fn restore(
         &self,
         request: &SnapshotAssembly,
         events: &[QuoteEvent],
         id: &SnapshotId,
     ) -> Result<Option<MarketSnapshot>, TraitError> {
-        let snapshot = self.resolve(request, events).await?;
-        if snapshot.id() == id {
-            self.snapshots.publish(&snapshot).await?;
-            return Ok(Some(snapshot));
+        let mut snapshot = self.resolve(request, events).await?;
+        if snapshot.id() != id {
+            let content = snapshot.content();
+            let earlier = if content.calibration.is_some() {
+                3
+            } else if content.curve_recipes.is_empty() {
+                1
+            } else {
+                2
+            };
+            snapshot = snapshot.with_schema(earlier)?;
+            if snapshot.id() != id {
+                return Ok(None);
+            }
         }
-        let Some(stored) = self.snapshots.get(id).await? else {
-            return Ok(None);
-        };
-        let schema = stored.content().schema_version;
-        if schema == SNAPSHOT_SCHEMA {
-            return Ok(None);
-        }
-        // Content that the stored schema refuses is not that snapshot's content.
-        Ok(snapshot
-            .with_schema(schema)
-            .ok()
-            .filter(|rebuilt| *rebuilt == stored))
+        self.snapshots.publish(&snapshot).await?;
+        Ok(Some(snapshot))
     }
     /// Resolve without publishing; shared by dry-run configuration validation.
     pub async fn resolve(

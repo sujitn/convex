@@ -646,8 +646,8 @@ impl MarketSnapshot {
     }
     /// The same content under `schema_version`, normalized, checked and identified as
     /// [`MarketSnapshot::new`] does, so a schema whose rules the content breaks is
-    /// refused. Restore uses it to rebuild a snapshot stored before schema 4 under the
-    /// schema it was stored with.
+    /// refused. Restore uses it to rebuild a checkpoint's snapshot under the schema an
+    /// earlier build chose.
     pub fn with_schema(&self, schema_version: u32) -> Result<Self, TraitError> {
         let mut content = self.0.content.clone();
         content.schema_version = schema_version;

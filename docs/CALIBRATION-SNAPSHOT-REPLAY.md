@@ -36,9 +36,10 @@ only seals an empty `expected` object; it cannot replace an existing capture.
 | Original zero records | 1 | `convex.snapshot.v1\0` |
 | Complete direct recipes | 2 | `convex.snapshot.v2\0` |
 | Complete product-calibration capture | 3 | `convex.snapshot.v3\0` |
+| Any of these, as assembly writes every new snapshot | 4 | `convex.snapshot.v4\0`, by section ([identity](../crates/convex-engine/SNAPSHOTS.md#identity-quality-and-bounds)) |
 
 An omitted `calibration` field preserves both older canonical identities. Schema
-3 requires a capture; other versions reject a populated capture. Migration
+3 requires a capture, schemas 1 and 2 reject one, and schema 4 holds one or none. Migration
 creates a new content-addressed snapshot with the full original graph. Historical
 snapshots are never overwritten, relabelled or completed using current providers.
 Separate direct recipe graphs can coexist only with disjoint identities; they
@@ -46,10 +47,10 @@ cannot supply omitted inputs to the embedded calibration graph. Its independent
 dependencies remain inside its original inputs. Older zero records cannot supply
 missing native calibration dependencies.
 
-A standalone product/risk graph snapshot (schema 3, or schema 4 with a calibration) can omit unrelated bond references and
-market marks. Original schema-1/2 reference requirements remain unchanged. The
-runtime's fixed-bullet pricing use case still requires its actual instrument
-references and quotes. An original supplied-node risk graph retains its complete
+A standalone product/risk graph snapshot (schema 3, or schema 4 with a
+calibration) can omit unrelated bond references and market marks. Original
+schema-1/2 reference requirements remain unchanged. The runtime's fixed-bullet
+pricing use case still requires its actual instrument references and quotes. An original supplied-node risk graph retains its complete
 independent curves and full product action even when no product fit is needed.
 
 All original valuation dates must match the snapshot economic date; an original
@@ -124,7 +125,7 @@ Thirty-two unchanged original calibration/risk requests and two independent
 Decimal(60) dated-deposit controls provide scoped evidence. They do not qualify
 all market/method combinations. CVX-063 and all 2,154 mandatory library records
 remain partial/Planned. [Full product-price parametric fits](PRODUCT-PARAMETRIC-CALIBRATION.md)
-now retain exact models and full graph diagnostics through this schema3 owner.
+now retain exact models and full graph diagnostics through this replay owner.
 Other method/model/hedge/workout operations, actual Windows/Excel/wasm32/browser execution and independent
 financial/library/production/latency certificates remain open.
 

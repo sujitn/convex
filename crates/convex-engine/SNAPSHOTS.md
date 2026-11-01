@@ -74,10 +74,12 @@ together. A schema-4 snapshot's stored JSON has the same shape as the others'; o
 `schema_version` and the id differ.
 
 Schemas 1–3 still verify, so stored snapshots keep their ids. A Replay or Captured
-restart rebuilds its committed checkpoint's snapshot from the trace. When an earlier
-build stored that snapshot under schema 1–3, the rebuild uses the stored schema, so the
-checkpoint restores with its id and nothing new is stored. The next snapshot is
-schema 4.
+restart rebuilds its committed checkpoint's snapshot from the trace and publishes it: an
+exact retry when it is stored, stored again when it is not. A checkpoint written by an
+earlier build names the schema that build chose: 3 with a calibration, 2 with recipes,
+1 otherwise. When the schema-4 rebuild has another id, the rebuild under that schema
+must have the checkpoint's id exactly, so the checkpoint restores with its id. The next
+snapshot is schema 4.
 
 The references are one shared, immutable section (D68). Every snapshot of a Live
 selection shares the section it pinned. Its schema-4 digest, or its canonical JSON for
