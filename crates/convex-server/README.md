@@ -257,7 +257,7 @@ recipes (`SnapshotCurveRecipe`) in redb; the server keeps no curve cache.
 
 | Route | Behaviour |
 |---|---|
-| `POST /api/v1/curves` | Store one recipe revision (same write as `POST /api/v1/analytics/curves`). `204`; an identical retry is `204`; different content under a stored version is `409 CONFLICT`. |
+| `POST /api/v1/curves` | Store one recipe revision (same write as `POST /api/v1/analytics/curves`). `204`; an identical retry is `204`; different content under a stored version is `409 CONFLICT`, or `400 INVALID_INPUT` when its `recorded_at` is more than 5 s after the server clock. |
 | `GET /api/v1/curves?after=&limit=` | Each curve's highest stored revision, in identity order, `limit` 1..=256 (default 100). `next` names the cursor for the following page. |
 | `GET /api/v1/curves/{id}?known_at=` | The highest revision recorded at or before `known_at`, with `x-convex-curve-version`. `404` when none. |
 | `GET /api/v1/curves/{id}/zero/{t}`, `/discount/{t}`, `/forward/{t1}/{t2}` | Build that revision and its exact dependencies, then query. A missing or stale curve is `422 MISSING_INPUT`. |
@@ -267,16 +267,17 @@ There is no `DELETE`: revisions are history. `known_at` defaults to the current
 time; cutoff-aware curve reads and quote responses echo it in `x-convex-known-at`.
 
 A revision's `recorded_at` is the writer's: when it became known, which is in the
-past for captured history. A cutoff resolves the highest version recorded by it. A
-curve's recording times never decrease as its version rises, as for fixings: a
-revision recorded before a lower version of the curve, or after a higher one, is
-`409 CONFLICT`, and equal times are allowed. Each new revision is checked against
-the curve's stored versions just below and above it; revisions stored before this
-rule are not re-checked. A `recorded_at` more than 5 s after the server clock is
-`400 INVALID_INPUT`, except that an identical retry of a stored revision is still
-`204`. A past cutoff is still not fixed: a revision
-can be recorded later with a time between the curve's latest revision and now. Each
-response names the revisions it priced.
+past for captured history. A cutoff resolves the highest version recorded by it. As
+for fixings, each new revision is checked against the curve's stored versions just
+below and above it: one recorded before the lower or after the higher is
+`409 CONFLICT`, and equal times are allowed. Revisions stored before this rule are not
+re-checked, so recording times never decrease as the version rises only in a history
+written wholly under it. On either curve `POST` route, a `recorded_at` more than
+5 s after the server clock is `400 INVALID_INPUT`, except that an identical retry of
+a stored revision is still `204`. The offline `convex-core-inputs` importer has no
+clock bound; it keeps the order rule, which belongs to the store. A past cutoff is
+still not fixed: a revision can be recorded later with a time between the curve's
+latest revision and now. Each response names the revisions it priced.
 
 A stored revision is market data. A compiled Live configuration names its curves
 and reads the current revision of each one whenever it builds a snapshot. A

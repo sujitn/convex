@@ -623,9 +623,11 @@ pub struct CurveRecipeHead {
 #[async_trait]
 pub trait CurveStore: Send + Sync {
     /// Save one immutable complete native curve recipe. Same revision/different content
-    /// conflicts. A curve's recording times never decrease as its version rises, so a
-    /// revision recorded before a lower version of the curve, or after a higher one,
-    /// conflicts too; equal times are allowed (D73). An identical retry succeeds.
+    /// conflicts. A new revision recorded before the curve's next lower stored version,
+    /// or after its next higher one, conflicts too; equal times are allowed (D73). The
+    /// check is only against those two neighbours and does not re-check stored history,
+    /// so recording times never decrease with version only in a history written wholly
+    /// under this rule. An identical retry succeeds.
     async fn save_recipe(
         &self,
         _recipe: &crate::snapshot::SnapshotCurveRecipe,
