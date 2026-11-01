@@ -659,6 +659,95 @@ async fn quotas_are_monotonic_bounded_and_release_when_admission_is_dropped() {
     issuer.finish().await;
 }
 
+/// D78 (G40): the process windows count only calls to the identity provider. Requests,
+/// preflights, WS messages and public probes hold an in-flight permit and count nothing.
+/// Credential verifications have 6,000 a minute, and readiness probes 600 of their own,
+/// so authenticated traffic cannot make `/ready` fail.
+#[tokio::test]
+async fn only_identity_provider_calls_count_against_the_process_windows() {
+    let issuer = IssuerFixture::start().await;
+    let access = AccessControl::new(issuer.verifier.clone(), policy()).unwrap();
+    for _ in 0..=VERIFICATIONS_PER_MINUTE {
+        drop(access.admit_attempt().unwrap());
+    }
+    for _ in 0..=VERIFICATIONS_PER_MINUTE {
+        assert!(matches!(
+            access.authenticate(None).await,
+            Err(AccessError::Unauthenticated)
+        ));
+    }
+    let token = || Some(BearerToken::parse(HUMAN_TOKEN).unwrap());
+    for _ in 0..VERIFICATIONS_PER_MINUTE {
+        access.authenticate(token()).await.unwrap();
+    }
+    assert!(matches!(
+        access.authenticate(token()).await,
+        Err(AccessError::Quota)
+    ));
+    let s = support::setup().await;
+    let engine = support::make_engine(
+        &s,
+        support::archive(&s),
+        s.plan.clone(),
+        s.store.clone(),
+        convex_engine::RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    let router =
+        convex_server::routes::create_router_with_access(engine.clone(), true, access.clone());
+    assert_eq!(
+        request(router.clone(), "GET", "/live", None, None).await.0,
+        StatusCode::OK
+    );
+    // One readiness probe.
+    let (status, _, view) = request(router.clone(), "GET", "/ready", None, None).await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    let (status, _, body) = request(
+        router.clone(),
+        "GET",
+        "/api/v1/bonds/BOND-001",
+        Some(HUMAN_TOKEN),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(body["code"], "ACCESS_QUOTA_EXCEEDED");
+    assert_eq!(
+        request(router, "GET", "/api/v1/bonds/BOND-001", None, None)
+            .await
+            .0,
+        StatusCode::UNAUTHORIZED
+    );
+    for _ in 1..READINESS_PROBES_PER_MINUTE {
+        assert!(access.health().await.identity_ready);
+    }
+    assert!(!access.health().await.identity_ready);
+    engine.shutdown().await.unwrap();
+    issuer.finish().await;
+}
+
+/// D78 (G40): local development verifies no credential, so no request counts.
+#[tokio::test]
+async fn local_development_requests_count_against_no_window() {
+    let s = support::setup().await;
+    let engine = support::make_engine(
+        &s,
+        support::archive(&s),
+        s.plan.clone(),
+        s.store.clone(),
+        convex_engine::RuntimeInput::Captured,
+    );
+    let router = convex_server::routes::create_router_with_access(
+        engine,
+        true,
+        AccessControl::local_development(),
+    );
+    for _ in 0..=VERIFICATIONS_PER_MINUTE {
+        let (status, _, body) = request(router.clone(), "GET", "/live", None, None).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+    }
+}
+
 #[tokio::test]
 async fn canonical_snapshot_input_version_resources_cannot_bypass_scoped_authorization() {
     let issuer = IssuerFixture::start().await;

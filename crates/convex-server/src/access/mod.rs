@@ -127,9 +127,19 @@ struct SubjectUsage {
 }
 struct Usage {
     window: Instant,
-    attempts: u32,
+    /// Credential verifications in this window.
+    verifications: u32,
+    /// Identity-provider readiness probes in this window.
+    probes: u32,
     subjects: BTreeMap<String, SubjectUsage>,
 }
+
+/// Credential verifications the process admits per monotonic minute: each request that
+/// presents a bearer token, and each remote WS refresh (D78).
+pub const VERIFICATIONS_PER_MINUTE: u32 = 6_000;
+/// Identity-provider readiness probes per monotonic minute. They have their own window,
+/// so authenticated traffic cannot make readiness fail (D78).
+pub const READINESS_PROBES_PER_MINUTE: u32 = 600;
 struct PolicyState {
     document: Option<PolicyDocument>,
     available: bool,
@@ -252,7 +262,8 @@ impl AccessControl {
             changes,
             usage: Mutex::new(Usage {
                 window: Instant::now(),
-                attempts: 0,
+                verifications: 0,
+                probes: 0,
                 subjects: BTreeMap::new(),
             }),
             requests: Arc::new(Semaphore::new(64)),
@@ -351,6 +362,7 @@ impl AccessControl {
         }
         let token = token.ok_or(AccessError::Unauthenticated)?;
         let verifier = self.verifier.as_ref().ok_or(AccessError::Unauthenticated)?;
+        self.charge_identity_call(false)?;
         let identity =
             tokio::time::timeout(std::time::Duration::from_secs(3), verifier.verify(&token))
                 .await
@@ -475,23 +487,33 @@ impl AccessControl {
             &required,
         )
     }
-    /// Global auth-attempt cap checked before network work, independent of claimed identity.
+    /// Global bound of 64 operations in flight: every request, preflight, inbound WS
+    /// message, WS refresh and readiness probe holds one while it runs. It counts nothing;
+    /// the per-minute windows count only network work toward the identity provider (D78).
     pub fn admit_attempt(&self) -> Result<OwnedSemaphorePermit, AccessError> {
-        let permit = self
-            .requests
+        self.requests
             .clone()
             .try_acquire_owned()
-            .map_err(|_| AccessError::Quota)?;
+            .map_err(|_| AccessError::Quota)
+    }
+    /// Charge one identity-provider call to its per-minute window, before the call.
+    fn charge_identity_call(&self, probe: bool) -> Result<(), AccessError> {
         let mut usage = self.usage.lock().map_err(|_| AccessError::Unavailable)?;
         if usage.window.elapsed() >= std::time::Duration::from_secs(60) {
             usage.window = Instant::now();
-            usage.attempts = 0;
+            usage.verifications = 0;
+            usage.probes = 0;
         }
-        if usage.attempts >= 6000 {
+        let (used, limit) = if probe {
+            (&mut usage.probes, READINESS_PROBES_PER_MINUTE)
+        } else {
+            (&mut usage.verifications, VERIFICATIONS_PER_MINUTE)
+        };
+        if *used >= limit {
             return Err(AccessError::Quota);
         }
-        usage.attempts += 1;
-        Ok(permit)
+        *used += 1;
+        Ok(())
     }
     fn quotas(&self, ctx: &AccessContext) -> Result<Quotas, AccessError> {
         self.check_identity(ctx, now_seconds()?)?;
@@ -605,7 +627,10 @@ impl AccessControl {
                     .is_some_and(|d| now_seconds().is_ok_and(|now| now < d.valid_until))
         });
         let identity_ready = if let Some(verifier) = &self.verifier {
-            match self.admit_attempt() {
+            match self
+                .admit_attempt()
+                .and_then(|permit| self.charge_identity_call(true).map(|()| permit))
+            {
                 Ok(_permit) => {
                     tokio::time::timeout(std::time::Duration::from_secs(3), verifier.probe())
                         .await
