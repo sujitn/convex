@@ -72,3 +72,9 @@ rust_decimal = { workspace = true }
 rust_decimal_macros = { workspace = true }
 tokio-tungstenite = "0.29"
 futures-util = "0.3"
+criterion = { workspace = true }
+
+# Market data to UI over HTTP ingress and WebSocket, on loopback (P13a)
+[[bench]]
+name = "live_hop"
+harness = false
