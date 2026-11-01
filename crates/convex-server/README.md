@@ -270,8 +270,11 @@ A revision's `recorded_at` is the writer's: when it became known, which is in th
 past for captured history. A cutoff resolves the highest version recorded by it. A
 curve's recording times never decrease as its version rises, as for fixings: a
 revision recorded before a lower version of the curve, or after a higher one, is
-`409 CONFLICT`, and equal times are allowed. A `recorded_at` more than 5 s after the
-server clock is `400 INVALID_INPUT`. A past cutoff is still not fixed: a revision
+`409 CONFLICT`, and equal times are allowed. Each new revision is checked against
+the curve's stored versions just below and above it; revisions stored before this
+rule are not re-checked. A `recorded_at` more than 5 s after the server clock is
+`400 INVALID_INPUT`, except that an identical retry of a stored revision is still
+`204`. A past cutoff is still not fixed: a revision
 can be recorded later with a time between the curve's latest revision and now. Each
 response names the revisions it priced.
 

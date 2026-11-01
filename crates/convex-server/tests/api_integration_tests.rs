@@ -1786,6 +1786,32 @@ async fn curve_writes_keep_recording_order_within_the_clock() {
     assert_eq!(listing["curves"][0]["version"], 2);
 }
 
+/// D73: an identical retry of a stored revision is `204` even when its `recorded_at`
+/// is beyond the clock bound, as one loaded offline or before the bound can be. A new
+/// revision at that time is `400`.
+#[tokio::test]
+async fn curve_retries_of_a_stored_future_revision_are_204() {
+    use chrono::{Duration, SubsecRound, Utc};
+    let storage = convex_ext_redb::create_test_storage().unwrap();
+    let mut stored: convex_engine::ports::snapshot::SnapshotCurveRecipe =
+        serde_json::from_value(seed_recipe("P.SOFR")).unwrap();
+    let later =
+        UtcTimestamp::from_datetime(Utc::now().trunc_subsecs(0) + Duration::hours(1)).unwrap();
+    stored.source_time = later;
+    stored.recorded_at = later;
+    storage.curves.save_recipe(&stored).await.unwrap();
+    let app = create_router(create_test_engine_with_storage(storage));
+    let retry = serde_json::to_value(&stored).unwrap();
+    let (status, body) = post_json(app.clone(), "/api/v1/curves", retry.clone()).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    let mut next = retry;
+    next["version"] = json!(2);
+    next["recipe"]["key"]["version"] = json!("2");
+    let (status, body) = post_json(app, "/api/v1/curves", next).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "INVALID_INPUT");
+}
+
 #[tokio::test]
 async fn curve_writes_are_immutable_and_validated() {
     let app = create_router(create_test_engine());

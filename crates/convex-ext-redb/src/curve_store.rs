@@ -148,7 +148,8 @@ const MAX_RECIPE_SCAN: usize = 10_000;
 
 /// D73: a curve's recording times never decrease as its version rises, the fixing
 /// repository's rule; equal times are allowed. A new revision is checked against its
-/// stored neighbours, which keeps the whole history in order.
+/// stored neighbours, which keeps a history written under this rule in order. Revisions
+/// stored before the rule are not re-checked.
 fn in_recording_order(
     table: &impl ReadableTable<(&'static str, u64), &'static [u8]>,
     recipe: &SnapshotCurveRecipe,

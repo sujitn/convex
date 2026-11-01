@@ -79,19 +79,26 @@ fn query<T>(query: Result<Query<T>, QueryRejection>) -> Result<T, ApiError> {
 /// Store one immutable recipe revision. `POST /api/v1/curves` and
 /// `POST /api/v1/analytics/curves` are the same write. Its `recorded_at` is the
 /// writer's, at most [`MAX_RECORDED_AHEAD_MS`] after the server clock; the store
-/// refuses one out of the curve's recording order (D73).
+/// refuses one out of the curve's recording order (D73). An identical retry of a stored
+/// revision is `204` whatever its time, since one loaded offline or before the bound
+/// can be later; a different revision beyond the bound is `400`, not `409`.
 pub(crate) async fn save_curve(
     State(state): State<Arc<AppState>>,
     payload: Result<Json<SnapshotCurveRecipe>, JsonRejection>,
 ) -> Result<StatusCode, ApiError> {
     let Json(recipe) = payload.map_err(|e| ApiError::invalid(e.body_text()))?;
-    let ahead = (recipe.recorded_at.datetime() - chrono::Utc::now()).num_milliseconds();
-    if ahead > MAX_RECORDED_AHEAD_MS {
-        return Err(ApiError::invalid(
-            "recorded_at is more than 5 s after the server clock",
-        ));
+    let store = state.engine.curve_store();
+    let bound = chrono::TimeDelta::milliseconds(MAX_RECORDED_AHEAD_MS);
+    if recipe.recorded_at.datetime() - chrono::Utc::now() > bound {
+        let id = CurveId::new(recipe.curve_id.as_str());
+        if store.get_recipe(&id, recipe.version).await?.as_ref() != Some(&recipe) {
+            return Err(ApiError::invalid(
+                "recorded_at is more than 5 s after the server clock",
+            ));
+        }
+        return Ok(StatusCode::NO_CONTENT);
     }
-    state.engine.curve_store().save_recipe(&recipe).await?;
+    store.save_recipe(&recipe).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
