@@ -161,6 +161,34 @@ impl SnapshotAssembler {
         self.snapshots.publish(&snapshot).await?;
         Ok(snapshot)
     }
+    /// Rebuild a committed checkpoint's snapshot `id` from its trace, as `assemble` does.
+    /// A snapshot is built under schema 4 now; one stored under schema 1–3 by an earlier
+    /// build is rebuilt under that schema instead, so its checkpoint restores with the
+    /// same id and nothing new is stored. `None` when the trace does not rebuild `id`.
+    pub async fn restore(
+        &self,
+        request: &SnapshotAssembly,
+        events: &[QuoteEvent],
+        id: &SnapshotId,
+    ) -> Result<Option<MarketSnapshot>, TraitError> {
+        let snapshot = self.resolve(request, events).await?;
+        if snapshot.id() == id {
+            self.snapshots.publish(&snapshot).await?;
+            return Ok(Some(snapshot));
+        }
+        let Some(stored) = self.snapshots.get(id).await? else {
+            return Ok(None);
+        };
+        let schema = stored.content().schema_version;
+        if schema == SNAPSHOT_SCHEMA {
+            return Ok(None);
+        }
+        // Content that the stored schema refuses is not that snapshot's content.
+        Ok(snapshot
+            .with_schema(schema)
+            .ok()
+            .filter(|rebuilt| *rebuilt == stored))
+    }
     /// Resolve without publishing; shared by dry-run configuration validation.
     pub async fn resolve(
         &self,
@@ -322,13 +350,8 @@ impl SnapshotAssembler {
             fixings.push(SnapshotFixing { key, fixing });
         }
         let snapshot = MarketSnapshot::new(SnapshotContent {
-            schema_version: if request.calibration.is_some() {
-                3
-            } else if request.curve_recipes.is_empty() {
-                1
-            } else {
-                2
-            },
+            // The sectioned identity, whatever the curves (D79).
+            schema_version: SNAPSHOT_SCHEMA,
             as_of: request.as_of,
             known_at: request.known_at,
             generation: request.generation,

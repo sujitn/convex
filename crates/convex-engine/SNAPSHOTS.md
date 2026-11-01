@@ -52,14 +52,37 @@ one nanosecond beyond it is stale. Reading a cache never renews its age.
 
 ## Identity, quality and bounds
 
-Snapshot identity is `sha256:<64 lowercase hexadecimal digits>` over canonical
-schema-1 content with domain `convex.snapshot.v1\0`, or complete recipe schema-2
-content with domain `convex.snapshot.v2\0`. Original schema-1 bytes remain exact.
+Snapshot identity is `sha256:<64 lowercase hexadecimal digits>`. Schemas 1–3 hash
+the whole canonical content: schema 1 (zero records) under `convex.snapshot.v1\0`,
+schema 2 (complete recipes) under `convex.snapshot.v2\0` and schema 3 (a product
+calibration) under `convex.snapshot.v3\0`. Original schema-1 bytes remain exact.
+
+Assembly writes schema 4 for every new snapshot, whatever its curves (P13b-ii, D79).
+Validation applies the same curve rules as schemas 1–3, read from the content. Its
+identity is sectioned: SHA-256 under `convex.snapshot.v4\0` over, in order,
+1. the reference section's digest: SHA-256 under `convex.snapshot.v4.references\0`
+   over the records' canonical JSON;
+2. the number of quotes, 8 bytes big-endian;
+3. each quote's digest, in snapshot order: SHA-256 under `convex.snapshot.v4.quote\0`
+   over the quote's canonical JSON;
+4. the canonical JSON of the frame: every other content field, in its order and under
+   its skip rules.
+
+Each digest is its raw 32 bytes. The frame runs to the end, so one byte string names
+one content. The JSON hashed for the three sections stays within the 16 MiB bound
+together. A schema-4 snapshot's stored JSON has the same shape as the others'; only
+`schema_version` and the id differ.
+
+Schemas 1–3 still verify, so stored snapshots keep their ids. A Replay or Captured
+restart rebuilds its committed checkpoint's snapshot from the trace. When an earlier
+build stored that snapshot under schema 1–3, the rebuild uses the stored schema, so the
+checkpoint restores with its id and nothing new is stored. The next snapshot is
+schema 4.
+
 The references are one shared, immutable section (D68). Every snapshot of a Live
-selection shares the section it pinned: its canonical JSON is written once, its checks
-that read no cutoff run once, and each snapshot still checks it at its own cutoff. The
-identity streams the same canonical bytes into the hash, so ids and stored snapshots
-are unchanged.
+selection shares the section it pinned. Its schema-4 digest, or its canonical JSON for
+schemas 1–3, is computed once, and its checks that read no cutoff run once. Each
+snapshot still checks it at its own cutoff.
 See [complete recipe replay](../../docs/CURVE-SNAPSHOT-REPLAY.md). Unordered manifests are
 normalized; duplicates, conflicting resource revisions, unknown fields and
 out-of-scope inputs fail validation. Deserialization recomputes content identity

@@ -33,6 +33,20 @@ fn recipe_identity_is_the_hash_of_the_plain_content_bytes() {
     fixture::assert_plain_identity(&MarketSnapshot::new(content(vec![record()])).unwrap());
 }
 
+/// D79: schema 4 holds recipes under the sectioned identity, and its wire form verifies.
+#[test]
+fn schema_four_holds_recipes() {
+    let mut c = content(vec![record()]);
+    c.schema_version = SNAPSHOT_SCHEMA;
+    let snapshot = MarketSnapshot::new(c).unwrap();
+    fixture::assert_sectioned_identity(&snapshot);
+    let wire = snapshot.canonical_bytes().unwrap();
+    assert_eq!(
+        serde_json::from_slice::<MarketSnapshot>(&wire).unwrap(),
+        snapshot
+    );
+}
+
 #[test]
 fn record_and_aggregate_bounds_are_shared_with_original_zero_records() {
     let mut r = record();

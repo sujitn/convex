@@ -46,7 +46,7 @@ cannot supply omitted inputs to the embedded calibration graph. Its independent
 dependencies remain inside its original inputs. Older zero records cannot supply
 missing native calibration dependencies.
 
-A standalone schema-3 product/risk graph can omit unrelated bond references and
+A standalone product/risk graph snapshot (schema 3, or schema 4 with a calibration) can omit unrelated bond references and
 market marks. Original schema-1/2 reference requirements remain unchanged. The
 runtime's fixed-bullet pricing use case still requires its actual instrument
 references and quotes. An original supplied-node risk graph retains its complete

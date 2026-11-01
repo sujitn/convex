@@ -35,6 +35,14 @@ pub const MAX_SNAPSHOT_FIXINGS: usize = 1024;
 pub const MAX_SNAPSHOT_CURVES: usize = 64;
 /// Maximum total curve pillars, not a separate allowance for each curve.
 pub const MAX_SNAPSHOT_PILLARS: usize = 4096;
+/// The schema assembly writes: the sectioned identity, whatever the curves (P13b-ii,
+/// D79). Schemas 1–3 still verify, so stored snapshots keep their ids.
+pub const SNAPSHOT_SCHEMA: u32 = 4;
+
+/// Schema 4's domains: the id's, and one for each kind of section digest it hashes.
+const SCHEMA_FOUR: &[u8] = b"convex.snapshot.v4\0";
+const SCHEMA_FOUR_REFERENCES: &[u8] = b"convex.snapshot.v4.references\0";
+const SCHEMA_FOUR_QUOTE: &[u8] = b"convex.snapshot.v4.quote\0";
 
 /// Stable content identity; domain separation prevents reuse as another record's hash.
 pub fn content_digest(domain: &[u8], bytes: &[u8]) -> String {
@@ -279,7 +287,8 @@ pub struct SnapshotFixing {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SnapshotContent {
-    /// 1 for original zero records, 2 for direct recipes, 3 for product calibration.
+    /// 1 for original zero records, 2 for direct recipes, 3 for product calibration,
+    /// each hashed whole. 4 for any of them, hashed by section ([`SNAPSHOT_SCHEMA`]).
     pub schema_version: u32,
     /// Economic market/valuation instant.
     pub as_of: UtcTimestamp,
@@ -317,19 +326,29 @@ pub struct SnapshotContent {
 /// The resolved references of a snapshot: one shared, immutable section (D68). A Live
 /// selection pins its references once per activation, and every tick's snapshot shares
 /// the section instead of copying it. The checks that read the records alone run once
-/// per section, and its canonical JSON is written once; the checks that read a cutoff
-/// run for every snapshot. [`SnapshotReferences::make_mut`] is the only way to change
-/// the records, and it drops both. It serializes as the plain array of records, so
-/// stored snapshots are unchanged.
+/// per section, and its canonical JSON (schemas 1–3) or its digest (schema 4) is
+/// computed once; the checks that read a cutoff run for every snapshot.
+/// [`SnapshotReferences::make_mut`] is the only way to change the records, and it drops
+/// all three. It serializes as the plain array of records, so stored snapshots keep
+/// their shape.
 #[derive(Clone)]
 pub struct SnapshotReferences(Arc<ReferenceSection>);
 
 struct ReferenceSection {
     records: Vec<ResolvedBondReference>,
-    /// Canonical JSON of `records`, written by the first identity that needs it.
+    /// Canonical JSON of `records`, written by the first schema 1–3 identity that needs it.
     json: OnceLock<Box<RawValue>>,
+    /// Schema 4's digest of `records`, computed by the first schema-4 identity.
+    digest: OnceLock<SectionDigest>,
     /// Set once `records` pass the checks that read no cutoff.
     checked: OnceLock<()>,
+}
+
+/// SHA-256 of a section's canonical JSON under its schema-4 domain, and the length of
+/// that JSON, which counts against the snapshot's [`MAX_SNAPSHOT_BYTES`].
+struct SectionDigest {
+    digest: sha2::digest::Output<Sha256>,
+    len: usize,
 }
 
 impl ReferenceSection {
@@ -337,6 +356,7 @@ impl ReferenceSection {
         Self {
             records,
             json: OnceLock::new(),
+            digest: OnceLock::new(),
             checked: OnceLock::new(),
         }
     }
@@ -355,11 +375,13 @@ impl SnapshotReferences {
         records.sort_by(by_instrument);
         Self(Arc::new(ReferenceSection::new(records)))
     }
-    /// The records to change, copied first when another holder shares them. The checks
-    /// and canonical JSON are dropped; the next snapshot sorts, checks and writes again.
+    /// The records to change, copied first when another holder shares them. The checks,
+    /// canonical JSON and digest are dropped; the next snapshot sorts, checks and hashes
+    /// again.
     pub fn make_mut(&mut self) -> &mut Vec<ResolvedBondReference> {
         let section = Arc::make_mut(&mut self.0);
         section.json.take();
+        section.digest.take();
         section.checked.take();
         &mut section.records
     }
@@ -436,6 +458,18 @@ impl SnapshotReferences {
         let json = serde_json::value::to_raw_value(&self.0.records)
             .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
         Ok(self.0.json.get_or_init(|| json))
+    }
+    /// The records' schema-4 digest, computed once per section. The JSON streams into
+    /// the hash and is not kept.
+    fn digest(&self) -> Result<&SectionDigest, TraitError> {
+        if let Some(digest) = self.0.digest.get() {
+            return Ok(digest);
+        }
+        let mut hash = Sha256::new();
+        hash.update(SCHEMA_FOUR_REFERENCES);
+        let mut len = 0;
+        let digest = hash_json(hash, &self.0.records, &mut len)?.finalize();
+        Ok(self.0.digest.get_or_init(|| SectionDigest { digest, len }))
     }
 }
 
@@ -573,7 +607,7 @@ impl<'a> InputSet<'a> {
     }
 }
 
-/// Verified immutable content-addressed information set, schema 1, 2 or 3. Every value
+/// Verified immutable content-addressed information set, schema 1 to 4. Every value
 /// is verified when it is made: [`MarketSnapshot::new`] derives the identity and quality,
 /// deserialization re-derives and compares them, and no method mutates one. Holders do not
 /// re-verify it (D67).
@@ -609,6 +643,15 @@ impl MarketSnapshot {
     /// Content hash identity.
     pub fn id(&self) -> &SnapshotId {
         &self.0.snapshot_id
+    }
+    /// The same content under `schema_version`, normalized, checked and identified as
+    /// [`MarketSnapshot::new`] does, so a schema whose rules the content breaks is
+    /// refused. Restore uses it to rebuild a snapshot stored before schema 4 under the
+    /// schema it was stored with.
+    pub fn with_schema(&self, schema_version: u32) -> Result<Self, TraitError> {
+        let mut content = self.0.content.clone();
+        content.schema_version = schema_version;
+        Self::new(content)
     }
     /// Immutable resolved values, including policies and input generation.
     pub fn content(&self) -> &SnapshotContent {
@@ -798,30 +841,95 @@ impl MarketSnapshot {
         Ok(())
     }
 }
-/// SHA-256 under the schema's domain over the canonical JSON of normalized content, the
-/// bytes `serde_json::to_vec` writes for it. They stream into the hash, bounded as they
-/// go, and the references are written from their section's cached JSON (D68).
+/// Schemas 1–3: SHA-256 under the schema's domain over the canonical JSON of normalized
+/// content, the bytes `serde_json::to_vec` writes for it. They stream into the hash,
+/// bounded as they go, and the references are written from their section's cached JSON
+/// (D68). Schema 4 hashes by section ([`sectioned_identity`]).
 fn identity(content: &SnapshotContent) -> Result<SnapshotId, TraitError> {
-    let canonical = CanonicalContent::new(content)?;
-    let mut hash = Sha256::new();
-    hash.update(match content.schema_version {
+    let domain: &[u8] = match content.schema_version {
         1 => b"convex.snapshot.v1\0",
         2 => b"convex.snapshot.v2\0",
-        _ => b"convex.snapshot.v3\0",
+        3 => b"convex.snapshot.v3\0",
+        4 => return sectioned_identity(content),
+        _ => return Err(TraitError::InvalidInput("unsupported snapshot schema")),
+    };
+    let canonical = CanonicalContent::new(content, true)?;
+    let mut hash = Sha256::new();
+    hash.update(domain);
+    snapshot_id(hash_json(hash, &canonical, &mut 0)?)
+}
+
+/// Schema 4 (P13b-ii, D68 B): SHA-256 under `convex.snapshot.v4\0` over, in order,
+/// 1. the reference section's digest, 32 bytes: SHA-256 under
+///    `convex.snapshot.v4.references\0` over the records' canonical JSON, computed once
+///    per section;
+/// 2. the number of quotes, 8 bytes big-endian;
+/// 3. each quote's digest in snapshot order, 32 bytes: SHA-256 under
+///    `convex.snapshot.v4.quote\0` over the quote's canonical JSON;
+/// 4. the frame's canonical JSON: the content without `references` and `quotes`, its
+///    other fields in their order and under their skip rules.
+///
+/// Every part before the frame has a fixed or stated length, and the frame runs to the
+/// end, so one byte string names one content. The JSON hashed for the three sections
+/// stays within [`MAX_SNAPSHOT_BYTES`] together, as schemas 1–3's whole content does.
+fn sectioned_identity(content: &SnapshotContent) -> Result<SnapshotId, TraitError> {
+    let references = content.references.digest()?;
+    let mut written = references.len;
+    let mut hash = Sha256::new();
+    hash.update(SCHEMA_FOUR);
+    hash.update(references.digest);
+    hash.update(
+        u64::try_from(content.quotes.len())
+            .map_err(|_| TraitError::CapacityExceeded)?
+            .to_be_bytes(),
+    );
+    let mut json = Vec::new();
+    for quote in &content.quotes {
+        json.clear();
+        serde_json::to_writer(&mut json, quote)
+            .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
+        written = written.saturating_add(json.len());
+        if written > MAX_SNAPSHOT_BYTES {
+            return Err(TraitError::CapacityExceeded);
+        }
+        let mut digest = Sha256::new();
+        digest.update(SCHEMA_FOUR_QUOTE);
+        digest.update(&json);
+        hash.update(digest.finalize());
+    }
+    let frame = CanonicalContent::new(content, false)?;
+    snapshot_id(hash_json(hash, &frame, &mut written)?)
+}
+
+/// Stream `value`'s canonical JSON into `hash`. `written` counts the JSON bytes one
+/// identity has hashed so far, and the identity fails once they pass
+/// [`MAX_SNAPSHOT_BYTES`].
+fn hash_json<T: Serialize + ?Sized>(
+    hash: Sha256,
+    value: &T,
+    written: &mut usize,
+) -> Result<Sha256, TraitError> {
+    let mut writer = std::io::BufWriter::new(BoundedDigest {
+        hash,
+        len: *written,
     });
-    let mut writer = std::io::BufWriter::new(BoundedDigest { hash, len: 0 });
-    let written = serde_json::to_writer(&mut writer, &canonical)
+    let result = serde_json::to_writer(&mut writer, value)
         .map_err(drop)
         .and_then(|()| writer.flush().map_err(drop));
-    if written.is_err() {
-        return Err(if writer.get_ref().len > MAX_SNAPSHOT_BYTES {
+    *written = writer.get_ref().len;
+    if result.is_err() {
+        return Err(if *written > MAX_SNAPSHOT_BYTES {
             TraitError::CapacityExceeded
         } else {
             TraitError::InvalidInput("snapshot serialization failed")
         });
     }
     let (digest, _) = writer.into_parts();
-    SnapshotId::new(format!("sha256:{:x}", digest.hash.finalize()))
+    Ok(digest.hash)
+}
+
+fn snapshot_id(hash: Sha256) -> Result<SnapshotId, TraitError> {
+    SnapshotId::new(format!("sha256:{:x}", hash.finalize()))
         .map_err(|_| TraitError::InvalidInput("invalid snapshot identity"))
 }
 
@@ -845,9 +953,10 @@ impl std::io::Write for BoundedDigest {
     }
 }
 
-/// [`SnapshotContent`] as identity writes it, with the references from their cached
-/// JSON. The fields, their order and their skip rules mirror `SnapshotContent`; a test
-/// compares the identity with SHA-256 over `serde_json::to_vec` of the content.
+/// [`SnapshotContent`] as identity writes it. Schemas 1–3 write every field, the
+/// references from their cached JSON; schema 4's frame leaves out the references and the
+/// quotes. The fields, their order and their skip rules mirror `SnapshotContent`; tests
+/// compare both identities with SHA-256 over `serde_json::to_vec` of the content.
 #[derive(Serialize)]
 struct CanonicalContent<'a> {
     schema_version: u32,
@@ -858,8 +967,10 @@ struct CanonicalContent<'a> {
     configuration: &'a BondPricingConfig,
     #[serde(skip_serializing_if = "Option::is_none")]
     configuration_capture: Option<&'a crate::configuration::ConfigurationCapture>,
-    references: &'a RawValue,
-    quotes: &'a [SnapshotQuote],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    references: Option<&'a RawValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    quotes: Option<&'a [SnapshotQuote]>,
     fixings: &'a [SnapshotFixing],
     required_curves: &'a [CurveId],
     curves: &'a [SnapshotCurve],
@@ -871,7 +982,8 @@ struct CanonicalContent<'a> {
 }
 
 impl<'a> CanonicalContent<'a> {
-    fn new(content: &'a SnapshotContent) -> Result<Self, TraitError> {
+    /// The whole content, or schema 4's frame when `sections` is false.
+    fn new(content: &'a SnapshotContent, sections: bool) -> Result<Self, TraitError> {
         Ok(Self {
             schema_version: content.schema_version,
             as_of: &content.as_of,
@@ -879,8 +991,12 @@ impl<'a> CanonicalContent<'a> {
             generation: &content.generation,
             configuration: &content.configuration,
             configuration_capture: content.configuration_capture.as_ref(),
-            references: content.references.json()?,
-            quotes: &content.quotes,
+            references: if sections {
+                Some(content.references.json()?)
+            } else {
+                None
+            },
+            quotes: sections.then_some(content.quotes.as_slice()),
             fixings: &content.fixings,
             required_curves: &content.required_curves,
             curves: &content.curves,
@@ -996,7 +1112,8 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
         || (content.schema_version == 2
             && !content.curve_recipes.is_empty()
             && content.calibration.is_none())
-        || (content.schema_version == 3 && content.calibration.is_some()))
+        || (content.schema_version == 3 && content.calibration.is_some())
+        || content.schema_version == SNAPSHOT_SCHEMA)
         || (content.references.is_empty() && content.calibration.is_none())
         || !(0..=86_400_000).contains(&content.max_source_skew_ms)
         || content.configuration.version == 0
