@@ -41,6 +41,9 @@ impl CurveStore for RedbCurveStore {
                     Err(TraitError::Conflict("immutable curve recipe changed"))
                 };
             }
+            if !in_recording_order(&table, recipe)? {
+                return Err(TraitError::Conflict("temporally reversed curve revision"));
+            }
             if table.len().map_err(database_error)? >= MAX_HISTORY {
                 return Err(TraitError::CapacityExceeded);
             }
@@ -142,6 +145,39 @@ impl CurveStore for RedbCurveStore {
 /// Versions inspected by one `recipe_at` before it refuses, bounding a read
 /// against a curve with a very long revision history.
 const MAX_RECIPE_SCAN: usize = 10_000;
+
+/// D73: a curve's recording times never decrease as its version rises, the fixing
+/// repository's rule; equal times are allowed. A new revision is checked against its
+/// stored neighbours, which keeps a history written under this rule in order. Revisions
+/// stored before the rule are not re-checked.
+fn in_recording_order(
+    table: &impl ReadableTable<(&'static str, u64), &'static [u8]>,
+    recipe: &SnapshotCurveRecipe,
+) -> Result<bool, TraitError> {
+    let id = CurveId::new(recipe.curve_id.as_str());
+    let version = recipe.version.get();
+    let below = table
+        .range((id.as_str(), 0)..(id.as_str(), version))
+        .map_err(database_error)?
+        .next_back();
+    if let Some(entry) = below {
+        let (key, value) = entry.map_err(database_error)?;
+        if decode_recipe(value.value(), &id, key.value().1)?.recorded_at > recipe.recorded_at {
+            return Ok(false);
+        }
+    }
+    let above = table
+        .range((id.as_str(), version)..=(id.as_str(), u64::MAX))
+        .map_err(database_error)?
+        .next();
+    if let Some(entry) = above {
+        let (key, value) = entry.map_err(database_error)?;
+        if decode_recipe(value.value(), &id, key.value().1)?.recorded_at < recipe.recorded_at {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
 
 fn decode_recipe(
     bytes: &[u8],

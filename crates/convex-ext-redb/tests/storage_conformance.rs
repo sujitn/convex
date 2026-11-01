@@ -50,3 +50,8 @@ async fn curve_recipes_resolve_at_known_at() {
     let (_directory, s) = storage();
     conformance::curve_recipes_resolve_at_known_at(s.curves).await;
 }
+#[tokio::test]
+async fn curve_revisions_keep_recording_order() {
+    let (_directory, s) = storage();
+    conformance::curve_revisions_keep_recording_order(s.curves).await;
+}
