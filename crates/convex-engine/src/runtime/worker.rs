@@ -189,7 +189,9 @@ impl Reads {
             by_instrument,
         }
     }
-    /// The plan index of `instrument`'s pin. A plan pins each instrument once.
+    /// The plan index of `instrument`'s pin. A plan pins each instrument once and selects
+    /// one quote for each pin (`RuntimePlan::validate`), and an activation keeps the plan's
+    /// instruments and quote keys, so every snapshot quote names a pin.
     fn pin(&self, pins: &[InstrumentPin], instrument: &str) -> Option<usize> {
         self.by_instrument
             .binary_search_by(|&index| pins[index].instrument_id.as_str().cmp(instrument))
