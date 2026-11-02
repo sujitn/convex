@@ -394,21 +394,20 @@ impl IngestedQuotes {
             entries: HashMap::new(),
         })
     }
-    /// Apply one event at the capture time it was accepted under. Its key's entry is
-    /// rebuilt at the next snapshot; a full key set's transport gap blocks every key, so
-    /// then every entry is.
+    /// Apply one event at the capture time it was accepted under. A duplicate or
+    /// out-of-order event changes neither its key's state nor its delivery, so its entry
+    /// stands. Any other rebuilds its key's entry at the next snapshot; a full key set's
+    /// transport gap blocks every key, so then every entry is.
     pub(crate) fn ingest(&mut self, event: QuoteEvent, capture_ms: i64) {
-        self.entries.remove(&event.key);
         let outcome = self.assembler.ingest(event.clone(), capture_ms);
-        if matches!(outcome.outcome, IngestionOutcome::CapacityExceeded) {
-            self.entries.clear();
+        match outcome.outcome {
+            IngestionOutcome::Duplicate | IngestionOutcome::OutOfOrder => return,
+            IngestionOutcome::CapacityExceeded => self.entries.clear(),
+            _ => {
+                self.entries.remove(&event.key);
+            }
         }
-        if !matches!(
-            outcome.outcome,
-            IngestionOutcome::Duplicate | IngestionOutcome::OutOfOrder
-        ) {
-            self.delivered.insert(event.key.clone(), event);
-        }
+        self.delivered.insert(event.key.clone(), event);
     }
     /// Latest delivery and retained image for each requirement, aged at `capture_ms`. A
     /// key's entry is shared with the last snapshot unless the key ingested an event since,
@@ -459,10 +458,21 @@ fn same_requirement(entry: &QuoteRequirement, requirement: &QuoteRequirement) ->
         && if requirement.fields.is_sorted() {
             entry.fields == requirement.fields
         } else {
-            let mut fields = requirement.fields.clone();
-            fields.sort();
-            entry.fields == fields
+            same_fields(&entry.fields, &requirement.fields)
         }
+}
+
+/// Whether `fields` holds each field of `sorted` as often as `sorted` does, and nothing
+/// else, without allocating. Lists longer than a quote's field limit, which the snapshot
+/// refuses, are never the same, so the count stays bounded.
+fn same_fields(sorted: &[QuoteField], fields: &[QuoteField]) -> bool {
+    let count =
+        |list: &[QuoteField], field: &QuoteField| list.iter().filter(|f| *f == field).count();
+    sorted.len() == fields.len()
+        && sorted.len() <= convex_ports::quote_event::MAX_QUOTE_FIELDS
+        && sorted
+            .iter()
+            .all(|field| count(sorted, field) == count(fields, field))
 }
 
 /// The pricing configuration and pinned references of one selection, resolved once at
@@ -1683,10 +1693,10 @@ mod tests {
     }
 
     /// P13b-ii: a Live tick shares every quote entry that did not change, so its digest
-    /// and checks are kept. An entry is built again when its key ingests an event, its
-    /// requirement changes, its state at the cutoff changes, or a full key set's
-    /// transport gap blocks every key. A requirement whose fields are out of order is
-    /// still shared. Keys the selection drops are forgotten.
+    /// and checks are kept. An entry is built again when its key ingests an event that
+    /// is not a retry or out of order, its requirement changes, its state at the cutoff
+    /// changes, or a full key set's transport gap blocks every key. A requirement whose
+    /// fields are out of order is still shared. Keys the selection drops are forgotten.
     #[test]
     fn ingested_quotes_rebuild_only_the_entries_that_changed() {
         let mut ingested = IngestedQuotes::new().unwrap();
@@ -1701,6 +1711,12 @@ mod tests {
         ingested.ingest(image("BOND-A", 2, START_MS + 2), START_MS + 2);
         let (third, shared) = resolve(&mut ingested, &requirements, START_MS + 2, &second);
         assert_eq!(shared, [false, true]);
+
+        // A retry of that event and an earlier one change nothing.
+        ingested.ingest(image("BOND-A", 2, START_MS + 2), START_MS + 3);
+        ingested.ingest(image("BOND-A", 1, START_MS), START_MS + 3);
+        let (third, shared) = resolve(&mut ingested, &requirements, START_MS + 3, &third);
+        assert_eq!(shared, [true, true]);
 
         // A day after B's observation, but not A's: B's state is stale.
         let later = START_MS + DAY_MS + 1;
@@ -1721,7 +1737,18 @@ mod tests {
         assert!(sorted[1].requirement.fields.is_sorted());
         let (again, shared) = resolve(&mut ingested, &requirements, later, &sorted);
         assert_eq!(shared, [true, true]);
-        requirements[1].fields = vec![QuoteField::BidPrice, QuoteField::BidPrice];
+        requirements[1].fields = vec![
+            QuoteField::MidPrice,
+            QuoteField::BidPrice,
+            QuoteField::BidPrice,
+        ];
+        let (again, shared) = resolve(&mut ingested, &requirements, later, &again);
+        assert_eq!(shared, [true, false]);
+        requirements[1].fields = vec![
+            QuoteField::MidPrice,
+            QuoteField::MidPrice,
+            QuoteField::BidPrice,
+        ];
         let (fifth, shared) = resolve(&mut ingested, &requirements, later, &again);
         assert_eq!(shared, [true, false]);
 
