@@ -1,6 +1,6 @@
 name: Java release
 
-# Cut a release by pushing a tag, e.g.:  git tag java-v0.13.0 && git push origin java-v0.13.0
+# Cut a release by pushing a tag, e.g.:  git tag java-v0.14.0 && git push origin java-v0.14.0
 on:
   push:
     tags:

@@ -26,7 +26,7 @@ directly to the cdylib's `char*`-in / `char*`-out C functions by symbol name.
   `--enable-native-access=ALL-UNNAMED` (the Maven build sets this for tests).
 - The native `convex-ffi` cdylib for your platform, bundled under
   `src/main/resources/native/<classifier>/` (see below). Versions track the Rust
-  workspace (currently `0.13.0`).
+  workspace (currently `0.14.0`).
 
 ## Building
 
@@ -128,7 +128,7 @@ Required repository secrets:
 | `MAVEN_GPG_PRIVATE_KEY` | ASCII-armored signing key |
 | `MAVEN_GPG_PASSPHRASE` | passphrase for that key |
 
-To cut a release: `git tag java-v0.13.0 && git push origin java-v0.13.0`.
+To cut a release: `git tag java-v0.14.0 && git push origin java-v0.14.0`.
 
 ## Full supplied-input library API
 

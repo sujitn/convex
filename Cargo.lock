@@ -567,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "convex"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "convex-analytics",
  "convex-bonds",
@@ -586,7 +586,7 @@ dependencies = [
 
 [[package]]
 name = "convex-analytics"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "approx",
  "chrono",
@@ -611,7 +611,7 @@ dependencies = [
 
 [[package]]
 name = "convex-bonds"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "approx",
  "convex-core",
@@ -633,7 +633,7 @@ dependencies = [
 
 [[package]]
 name = "convex-core"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "approx",
  "chrono",
@@ -653,7 +653,7 @@ dependencies = [
 
 [[package]]
 name = "convex-credit"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "convex-core",
  "convex-curves",
@@ -668,7 +668,7 @@ dependencies = [
 
 [[package]]
 name = "convex-curves"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "approx",
  "chrono",
@@ -688,7 +688,7 @@ dependencies = [
 
 [[package]]
 name = "convex-engine"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -720,7 +720,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ext-file"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "async-trait",
  "convex-core",
@@ -734,7 +734,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ext-redb"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "async-trait",
  "convex-core",
@@ -750,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ffi"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "cbindgen",
  "convex",
@@ -770,7 +770,7 @@ dependencies = [
 
 [[package]]
 name = "convex-math"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "approx",
  "criterion 0.8.1",
@@ -787,7 +787,7 @@ dependencies = [
 
 [[package]]
 name = "convex-mcp"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "anyhow",
  "axum 0.8.8",
@@ -811,7 +811,7 @@ dependencies = [
 
 [[package]]
 name = "convex-portfolio"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "approx",
  "chrono",
@@ -833,7 +833,7 @@ dependencies = [
 
 [[package]]
 name = "convex-ports"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "async-trait",
  "convex-core",
@@ -847,7 +847,7 @@ dependencies = [
 
 [[package]]
 name = "convex-rates"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "convex-core",
  "convex-curves",
@@ -861,7 +861,7 @@ dependencies = [
 
 [[package]]
 name = "convex-server"
-version = "0.13.0"
+version = "0.14.0"
 dependencies = [
  "async-trait",
  "axum 0.7.9",
@@ -903,7 +903,7 @@ dependencies = [
 
 [[package]]
 name = "convex-wasm"
-version = "0.1.0"
+version = "0.14.0"
 dependencies = [
  "chrono",
  "console_error_panic_hook",

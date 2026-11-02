@@ -46,3 +46,4 @@ Cargo.lock  text eol=lf
 
 # Preserve the original third-party license bytes, including CRLF.
 licenses/ISDA-CDS-Standard-Model-Public-License-1.0.txt -text
+crates/convex-credit/LICENSE-ISDA-CDS-STANDARD-MODEL.txt -text

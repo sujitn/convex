@@ -301,7 +301,7 @@ snapshots and published results are stored in the `storage_path` redb database.
 The plan must select `mode=replay`, empty `seed_events` and this executable's build
 identity. Compile a release with `CONVEX_BUILD_ID` set to the pinned artifact ID;
 it is a compile-time variable, not a server runtime setting. The default local
-build ID is `convex-server-0.13.0-local-unverified`. SIGINT/SIGTERM joins and drains.
+build ID is `convex-server-0.14.0-local-unverified`. SIGINT/SIGTERM joins and drains.
 Empty providers still require explicit demo mode. Unconfigured production and
 non-loopback HTTP upstreams remain rejected. [The access guide](../convex-server/ACCESS.md)
 documents required identity verification, role/data/book scopes, TLS proxy ingress
