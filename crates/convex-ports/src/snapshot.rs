@@ -935,14 +935,15 @@ impl MarketSnapshot {
     }
     /// The instruments whose quote entries are not shared with `previous`'s, in snapshot
     /// order and each named once (D81). `None` unless everything else a valuation reads is
-    /// the same in both: the reference section is shared, the fixings, required curves,
-    /// curve records, recipes and calibration are equal, and both hold the same quote keys
-    /// in the same order. An instrument it does not list then reads the same inputs here as
-    /// in `previous`, by [`MarketSnapshot::same_inputs`]'s rule. The frame is compared by
-    /// [`MarketSnapshot::same_frame`].
+    /// the same in both: the frame ([`MarketSnapshot::same_frame`]), a shared reference
+    /// section, equal fixings, required curves, curve records, recipes and calibration,
+    /// and the same quote keys in the same order. An instrument it does not list then has
+    /// the same frame here as in `previous`, and the same inputs by
+    /// [`MarketSnapshot::same_inputs`]'s rule.
     pub fn changed_quotes(&self, previous: &MarketSnapshot) -> Option<Vec<&str>> {
         let (now, then) = (&self.0.content, &previous.0.content);
-        if !now.references.ptr_eq(&then.references)
+        if !self.same_frame(previous)
+            || !now.references.ptr_eq(&then.references)
             || now.quotes.len() != then.quotes.len()
             || now.fixings != then.fixings
             || now.required_curves != then.required_curves

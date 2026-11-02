@@ -690,7 +690,8 @@ fn a_quality_window_holds_until_one_of_its_time_comparisons_can_turn() {
 
 /// P13b-iii (D81): `changed_quotes` names the instruments whose quote entries a later
 /// snapshot does not share, once each, while everything else a valuation reads is the
-/// same. When anything else differs it names none, so every instrument is compared.
+/// same. When anything else differs, the frame included, it names none, so every
+/// instrument is compared.
 #[test]
 fn changed_quotes_names_the_unshared_entries_only_while_nothing_else_differs() {
     let mut content = fixture::content();
@@ -723,9 +724,17 @@ fn changed_quotes_names_the_unshared_entries_only_while_nothing_else_differs() {
         Some(vec!["BOND-001".to_owned(), "BOND-003".to_owned()])
     );
 
-    // Anything else: the reference section copied, a fixing, a curve, a required curve,
-    // or another quote key.
-    let changes: [&dyn Fn(&mut SnapshotContent); 5] = [
+    // Anything else: the frame (the next day, the skew policy, the configuration, the
+    // schema), the reference section copied, a fixing, a curve, a required curve, or
+    // another quote key.
+    let changes: [&dyn Fn(&mut SnapshotContent); 9] = [
+        &|content| {
+            content.as_of = fixture::time("2026-10-03T00:00:00Z");
+            content.known_at = content.as_of;
+        },
+        &|content| content.max_source_skew_ms = 2_000,
+        &|content| content.configuration.version += 1,
+        &|content| content.schema_version = SNAPSHOT_SCHEMA,
         &|content| content.references = SnapshotReferences::new(content.references.to_vec()),
         &|content| {
             content.fixings.push(SnapshotFixing {

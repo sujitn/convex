@@ -94,11 +94,6 @@ tick copies a pointer for each unchanged quote. The entry's schema-4 digest and 
 checks that read no cutoff are computed once; each snapshot still checks its times
 against its own cutoffs and derives its quality. Replay and Captured build their
 entries from the trace for each snapshot.
-
-Because unchanged entries are shared, a Live tick finds the instruments whose quotes
-changed by comparing pointers (`MarketSnapshot::changed_quotes`, D81). `judge` returns
-an input set's quality together with the window of snapshot times it holds in, so an
-instrument whose entries are shared is judged again only once that window ends.
 See [complete recipe replay](../../docs/CURVE-SNAPSHOT-REPLAY.md). Unordered manifests are
 normalized; duplicates, conflicting resource revisions, unknown fields and
 out-of-scope inputs fail validation. Deserialization recomputes content identity
@@ -106,6 +101,15 @@ and derived quality, and no method mutates a snapshot, so one held in memory is
 always verified and valuations do not re-verify it (D67). The file adapter
 additionally requires exact canonical bytes.
 This verifies integrity; it does not authenticate a provider or licensing decision.
+
+Because unchanged entries are shared, a Live tick finds the instruments whose quotes
+changed by comparing pointers (`MarketSnapshot::changed_quotes`, D81). It does so only
+while nothing else a valuation reads changed: the same frame and shared references,
+and equal fixings, curves, calibration and quote keys. Otherwise `changed_quotes` names
+none and every instrument is judged. `judge` returns an input set's quality together
+with the window of snapshot times it holds in. So an instrument whose entries are
+shared is judged again once that window ends, or at a snapshot time before the
+window's start (a clock regression).
 
 Each snapshot is bounded to 16 MiB, 256 instruments/selected quote keys, 1,024
 fixings, 64 total original/complete curves and **4,096 total original pillars,
