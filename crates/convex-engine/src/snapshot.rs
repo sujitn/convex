@@ -413,13 +413,14 @@ impl IngestedQuotes {
     /// Latest delivery and retained image for each requirement, aged at `capture_ms`. A
     /// key's entry is shared with the last snapshot unless the key ingested an event since,
     /// its requirement changed or its state at `capture_ms` differs (a day's staleness or
-    /// a clock regression); only then is it built again, unchecked and unhashed.
+    /// a clock regression); only then is it built again, unchecked and unhashed. An entry
+    /// holds its fields in the snapshot's order, so normalizing a snapshot copies none.
     fn quotes(&mut self, requirements: &[QuoteRequirement], capture_ms: i64) -> Vec<SharedQuote> {
         let mut quotes = Vec::with_capacity(requirements.len());
         for requirement in requirements {
             let key = &requirement.key;
             let current = self.entries.get(key).filter(|entry| {
-                entry.requirement == *requirement
+                same_requirement(&entry.requirement, requirement)
                     && entry.image.as_ref().is_none_or(|image| {
                         self.assembler.state(key, capture_ms) == Some(image.state)
                     })
@@ -427,8 +428,10 @@ impl IngestedQuotes {
             let entry = match current {
                 Some(entry) => entry.clone(),
                 None => {
+                    let mut requirement = requirement.clone();
+                    requirement.fields.sort();
                     let entry = SharedQuote::new(SnapshotQuote {
-                        requirement: requirement.clone(),
+                        requirement,
                         delivery_watermark: self.delivered.get(key).cloned(),
                         image: self.assembler.snapshot(key, capture_ms),
                     });
@@ -446,6 +449,20 @@ impl IngestedQuotes {
         }
         quotes
     }
+}
+
+/// Whether an entry's requirement, its fields sorted, is `requirement` with its fields in
+/// any order. A configuration may list fields in any order; the snapshot sorts them.
+fn same_requirement(entry: &QuoteRequirement, requirement: &QuoteRequirement) -> bool {
+    entry.key == requirement.key
+        && entry.max_age_ms == requirement.max_age_ms
+        && if requirement.fields.is_sorted() {
+            entry.fields == requirement.fields
+        } else {
+            let mut fields = requirement.fields.clone();
+            fields.sort();
+            entry.fields == fields
+        }
 }
 
 /// The pricing configuration and pinned references of one selection, resolved once at
@@ -1639,7 +1656,8 @@ mod tests {
     }
 
     /// The entries `quotes` returns, and whether each is the one the previous call
-    /// returned. Each must equal the quote built from the state without a cache.
+    /// returned. Each must equal the quote built from the state without a cache, its
+    /// fields in the snapshot's order.
     fn resolve(
         ingested: &mut IngestedQuotes,
         requirements: &[QuoteRequirement],
@@ -1648,10 +1666,12 @@ mod tests {
     ) -> (Vec<SharedQuote>, Vec<bool>) {
         let quotes = ingested.quotes(requirements, capture_ms);
         for (quote, requirement) in quotes.iter().zip(requirements) {
+            let mut requirement = requirement.clone();
+            requirement.fields.sort();
             let uncached = SnapshotQuote {
-                requirement: requirement.clone(),
                 delivery_watermark: ingested.delivered.get(&requirement.key).cloned(),
                 image: ingested.assembler.snapshot(&requirement.key, capture_ms),
+                requirement,
             };
             assert_eq!(**quote, uncached);
         }
@@ -1665,7 +1685,8 @@ mod tests {
     /// P13b-ii: a Live tick shares every quote entry that did not change, so its digest
     /// and checks are kept. An entry is built again when its key ingests an event, its
     /// requirement changes, its state at the cutoff changes, or a full key set's
-    /// transport gap blocks every key. Keys the selection drops are forgotten.
+    /// transport gap blocks every key. A requirement whose fields are out of order is
+    /// still shared. Keys the selection drops are forgotten.
     #[test]
     fn ingested_quotes_rebuild_only_the_entries_that_changed() {
         let mut ingested = IngestedQuotes::new().unwrap();
@@ -1690,6 +1711,18 @@ mod tests {
         // B's requirement.
         requirements[1].max_age_ms = 30_000;
         let (fifth, shared) = resolve(&mut ingested, &requirements, later, &fourth);
+        assert_eq!(shared, [true, false]);
+
+        // B's fields out of order: built sorted once, then shared. Fields that sort to
+        // another list are another requirement.
+        requirements[1].fields = vec![QuoteField::MidPrice, QuoteField::BidPrice];
+        let (sorted, shared) = resolve(&mut ingested, &requirements, later, &fifth);
+        assert_eq!(shared, [true, false]);
+        assert!(sorted[1].requirement.fields.is_sorted());
+        let (again, shared) = resolve(&mut ingested, &requirements, later, &sorted);
+        assert_eq!(shared, [true, true]);
+        requirements[1].fields = vec![QuoteField::BidPrice, QuoteField::BidPrice];
+        let (fifth, shared) = resolve(&mut ingested, &requirements, later, &again);
         assert_eq!(shared, [true, false]);
 
         // A selection without B forgets B's entry.
