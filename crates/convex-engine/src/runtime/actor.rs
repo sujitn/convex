@@ -407,7 +407,20 @@ impl Actor {
         Ok(Arc::new(snapshot))
     }
     async fn restore_dependencies(&mut self) -> Result<(), RuntimeError> {
-        let snapshot = self.snapshot().await?;
+        let snapshot = match self.checkpoint.snapshot_id.clone() {
+            // A committed checkpoint keeps the schema its snapshot was stored under.
+            Some(id) if !self.checkpoint.pending => {
+                let request = self.request()?;
+                bounded(
+                    self.assembler
+                        .restore(&request, &self.checkpoint.events, &id),
+                )
+                .await?
+                .map(Arc::new)
+                .ok_or(RuntimeError::RecoveryConflict)?
+            }
+            _ => self.snapshot().await?,
+        };
         if !self.checkpoint.pending && self.checkpoint.snapshot_id.as_ref() != Some(snapshot.id()) {
             return Err(RuntimeError::RecoveryConflict);
         }

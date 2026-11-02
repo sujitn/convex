@@ -31,7 +31,10 @@ async fn full_original_product_graph_is_used_by_actual_runtime_and_restart() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(snapshot.content().schema_version, 3);
+    assert_eq!(
+        snapshot.content().schema_version,
+        convex_ports::snapshot::SNAPSHOT_SCHEMA
+    );
     assert!(snapshot.content().curve_recipes.is_empty() && snapshot.content().curves.is_empty());
     assert_eq!(
         snapshot.content().calibration.as_ref().unwrap().inputs,

@@ -31,7 +31,10 @@ async fn actual_runtime_capture_value_and_restart_retain_complete_recipe_lineage
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(snapshot.content().schema_version, 2);
+    assert_eq!(
+        snapshot.content().schema_version,
+        convex_ports::snapshot::SNAPSHOT_SCHEMA
+    );
     assert_eq!(
         snapshot.content().curve_recipes[0].recipe,
         recipes::recipe()

@@ -172,6 +172,12 @@ pub fn content() -> SnapshotContent {
 pub fn snapshot() -> MarketSnapshot {
     MarketSnapshot::new(content()).unwrap()
 }
+/// The fixture under schema 4, the sectioned identity assembly writes.
+pub fn sectioned_snapshot() -> MarketSnapshot {
+    let mut content = content();
+    content.schema_version = SNAPSHOT_SCHEMA;
+    MarketSnapshot::new(content).unwrap()
+}
 /// The identity is SHA-256 over the content's plain serialization (D68): the hash streams
 /// the references from their section's cached JSON, and this writes them record by record.
 pub fn assert_plain_identity(snapshot: &MarketSnapshot) {
@@ -179,12 +185,49 @@ pub fn assert_plain_identity(snapshot: &MarketSnapshot) {
     let domain: &[u8] = match content.schema_version {
         1 => b"convex.snapshot.v1\0",
         2 => b"convex.snapshot.v2\0",
-        _ => b"convex.snapshot.v3\0",
+        3 => b"convex.snapshot.v3\0",
+        other => panic!("schema {other} is not hashed whole"),
     };
     let bytes = serde_json::to_vec(content).unwrap();
     assert_eq!(
         snapshot.id().as_str(),
         format!("sha256:{}", content_digest(domain, &bytes))
+    );
+}
+/// Schema 4's id (P13b-ii), written from the content's plain serialization: the digest of
+/// the references, the quote count and each quote's digest, then the frame, which is the
+/// whole serialization with its `references` and `quotes` members cut out.
+pub fn assert_sectioned_identity(snapshot: &MarketSnapshot) {
+    let content = snapshot.content();
+    assert_eq!(content.schema_version, 4);
+    let digest = |domain: &[u8], bytes: &[u8]| -> Vec<u8> {
+        let hex = content_digest(domain, bytes);
+        (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+            .collect()
+    };
+    let references = serde_json::to_vec(&content.references).unwrap();
+    let mut hashed = digest(b"convex.snapshot.v4.references\0", &references);
+    hashed.extend((content.quotes.len() as u64).to_be_bytes());
+    for quote in &content.quotes {
+        let quote = serde_json::to_vec(quote).unwrap();
+        hashed.extend(digest(b"convex.snapshot.v4.quote\0", &quote));
+    }
+    let mut frame = String::from_utf8(serde_json::to_vec(content).unwrap()).unwrap();
+    let quotes = serde_json::to_vec(&content.quotes).unwrap();
+    for (name, json) in [("references", references), ("quotes", quotes)] {
+        let member = format!(",\"{name}\":{}", String::from_utf8(json).unwrap());
+        assert_eq!(frame.matches(&member).count(), 1, "{name}");
+        frame = frame.replacen(&member, "", 1);
+    }
+    hashed.extend(frame.as_bytes());
+    assert_eq!(
+        snapshot.id().as_str(),
+        format!(
+            "sha256:{}",
+            content_digest(b"convex.snapshot.v4\0", &hashed)
+        )
     );
 }
 /// Add a copy of the fixture bond under `id`, its mid observed `age_ms` before `as_of`.

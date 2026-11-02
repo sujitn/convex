@@ -438,3 +438,77 @@ fn an_instrument_reads_the_same_inputs_until_its_own_change() {
     configuration.configuration.version += 1;
     assert!(!same(configuration, &[]).0);
 }
+
+/// P13b-ii (D79): schema 4's id is the sectioned layout, written independently; a change
+/// to the frame, a quote or the references changes it, and so does the schema. A section
+/// changed in place after its digest was computed is hashed again.
+#[test]
+fn schema_four_identity_is_the_sectioned_layout() {
+    let mut content = fixture::content();
+    fixture::add_bond(&mut content, "BOND-002", 0);
+    let whole = MarketSnapshot::new(content.clone()).unwrap();
+    content.schema_version = SNAPSHOT_SCHEMA;
+    let first = MarketSnapshot::new(content.clone()).unwrap();
+    fixture::assert_sectioned_identity(&first);
+    assert_ne!(first.id(), whole.id());
+    let id = first.id().clone();
+
+    let mut frame = content.clone();
+    frame.max_source_skew_ms += 1;
+    let frame = MarketSnapshot::new(frame).unwrap();
+    fixture::assert_sectioned_identity(&frame);
+    assert_ne!(frame.id(), &id);
+
+    let mut quote = content.clone();
+    for field in quote.quotes[1].image.as_mut().unwrap().fields.values_mut() {
+        field.source_time_ms -= 1;
+    }
+    let quote = MarketSnapshot::new(quote).unwrap();
+    fixture::assert_sectioned_identity(&quote);
+    assert_ne!(quote.id(), &id);
+    assert!(quote
+        .content()
+        .references
+        .ptr_eq(&first.content().references));
+
+    // Only `content` holds the section now, so the change is made in place.
+    drop((whole, first, frame, quote));
+    fixture::add_bond(&mut content, "BOND-003", 0);
+    let grown = MarketSnapshot::new(content).unwrap();
+    fixture::assert_sectioned_identity(&grown);
+    assert_ne!(grown.id(), &id);
+}
+
+/// Schema 4 round-trips through its wire form, which verifies it, and a changed byte is
+/// refused. Schemas outside 1–4 are refused.
+#[test]
+fn schema_four_round_trips_and_other_schemas_are_refused() {
+    let snapshot = fixture::sectioned_snapshot();
+    let wire = snapshot.canonical_bytes().unwrap();
+    assert_eq!(
+        serde_json::from_slice::<MarketSnapshot>(&wire).unwrap(),
+        snapshot
+    );
+    let tampered = String::from_utf8(wire).unwrap().replace("99.25", "99.26");
+    assert!(serde_json::from_str::<MarketSnapshot>(&tampered).is_err());
+    for schema in [0, 5, u32::MAX] {
+        let mut content = fixture::content();
+        content.schema_version = schema;
+        assert!(matches!(
+            MarketSnapshot::new(content),
+            Err(convex_ports::TraitError::InvalidInput(_))
+        ));
+    }
+}
+
+/// Restore's re-derivation: `with_schema` equals building the content under that schema,
+/// and refuses a schema whose rules the content breaks.
+#[test]
+fn with_schema_builds_the_same_content_under_another_schema() {
+    let one = fixture::snapshot();
+    let four = fixture::sectioned_snapshot();
+    assert_eq!(four.with_schema(1).unwrap(), one);
+    assert_eq!(one.with_schema(SNAPSHOT_SCHEMA).unwrap(), four);
+    // Schema 2 requires recipes, which the fixture does not hold.
+    assert!(four.with_schema(2).is_err());
+}

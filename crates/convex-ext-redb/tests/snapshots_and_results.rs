@@ -167,6 +167,32 @@ async fn market_snapshots_retry_exactly_reopen_and_refuse_tampering() {
     assert!(open(&path).snapshots.get(snapshot.id()).await.is_err());
 }
 
+/// Schema 4 (P13b-ii) stores and reopens as schemas 1–3 do. A changed quote and a changed
+/// reference, which it hashes in separate sections, are each refused.
+#[tokio::test]
+async fn sectioned_snapshots_reopen_and_refuse_tampering() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("state.redb");
+    let snapshot = fixture::sectioned_snapshot();
+    open(&path).snapshots.publish(&snapshot).await.unwrap();
+    let storage = open(&path);
+    assert_eq!(
+        storage.snapshots.get(snapshot.id()).await.unwrap(),
+        Some(snapshot.clone())
+    );
+    drop(storage);
+    let original = String::from_utf8(stored(&path, snapshot.id())).unwrap();
+    // The price is in the quotes alone, the bond's name in the references alone.
+    for (from, to) in [
+        ("99.25", "99.26"),
+        ("Fictional reference bond", "Fictional reference bonD"),
+    ] {
+        assert!(original.contains(from));
+        tamper(&path, snapshot.id(), original.replace(from, to).as_bytes());
+        assert!(open(&path).snapshots.get(snapshot.id()).await.is_err());
+    }
+}
+
 #[tokio::test]
 async fn core_snapshots_round_trip_at_the_16_mib_bound_and_refuse_one_byte_more() {
     let dir = tempfile::tempdir().unwrap();
