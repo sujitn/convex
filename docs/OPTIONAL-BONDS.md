@@ -53,8 +53,11 @@ not silently recalibrate parameters or invent new curve identities.
 
 The facade and direct crate APIs expose the same functions. Input terms/settings
 have strict native Serde roundtrip. Borrowed resolved resources and model outputs
-are native objects. This does not add a BondSpec variant, generated JSON schema,
-C ABI export or v1 server/Java/Excel/MCP/WASM dispatch; those remain CVX-063/033.
+are native objects. The supplied-input `library()` operation `optional_bond`
+([LIBRARY-API](LIBRARY-API.md)) dispatches these functions on every adapter,
+WASM included. This does not add a BondSpec variant, generated JSON schema,
+C ABI export or v1 server/Java/Excel/MCP dispatch of the native functions; those
+remain CVX-063/033.
 
 ## Volatility quotation and calibration
 
