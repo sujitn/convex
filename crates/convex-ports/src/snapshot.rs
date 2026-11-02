@@ -720,6 +720,31 @@ impl<'a> InputSet<'a> {
     }
 }
 
+/// The snapshot times over which one input set keeps the quality it was judged to have
+/// (D81): from the time it was judged at, up to but not including the first millisecond
+/// at which one of quality's time comparisons could turn. Quality reads the time only to
+/// compare a quote field's source and receive times with the snapshot's, and a quote
+/// field's or a curve's age with its maximum. Each comparison turns at most once as time
+/// moves forward, so the same inputs judged at any time in the window are judged the same.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct QualityWindow {
+    judged_at: UtcTimestamp,
+    until_ms: Option<i64>,
+}
+
+impl QualityWindow {
+    /// The snapshot time the inputs were judged at.
+    pub fn judged_at(&self) -> UtcTimestamp {
+        self.judged_at
+    }
+    /// The first millisecond since the Unix epoch at which their quality could differ;
+    /// `None` when no comparison can turn. That millisecond itself is outside the window:
+    /// an age comparison's sub-millisecond tie-break can turn within it.
+    pub fn until_ms(&self) -> Option<i64> {
+        self.until_ms
+    }
+}
+
 /// Verified immutable content-addressed information set, schema 1 to 4. Every value
 /// is verified when it is made: [`MarketSnapshot::new`] derives the identity and quality,
 /// deserialization re-derives and compares them, and no method mutates one. Holders do not
@@ -741,7 +766,7 @@ impl MarketSnapshot {
     pub fn new(mut content: SnapshotContent) -> Result<Self, TraitError> {
         normalize(&mut content)?;
         validate_content(&content)?;
-        let quality = derive_quality(
+        let (quality, _) = derive_quality(
             &content,
             content.as_of.max(content.known_at),
             &InputSet::all(&content),
@@ -879,8 +904,70 @@ impl MarketSnapshot {
     }
     /// Quality of this snapshot's inputs in `inputs` alone, at the snapshot's own time.
     pub fn quality_of(&self, inputs: &InputSet<'_>) -> SnapshotQuality {
-        let content = &self.0.content;
-        derive_quality(content, content.as_of.max(content.known_at), inputs)
+        derive_quality(&self.0.content, self.quality_time(), inputs).0
+    }
+    /// [`MarketSnapshot::quality_of`], and the window of snapshot times over which the
+    /// same inputs keep that quality (D81).
+    pub fn judge(&self, inputs: &InputSet<'_>) -> (SnapshotQuality, QualityWindow) {
+        let judged_at = self.quality_time();
+        let (quality, until_ms) = derive_quality(&self.0.content, judged_at, inputs);
+        (
+            quality,
+            QualityWindow {
+                judged_at,
+                until_ms,
+            },
+        )
+    }
+    /// Whether this snapshot's time lies in `window`, so inputs this snapshot shares with
+    /// the one judged there keep the quality they were judged to have (D81). A time before
+    /// the window's start is outside it.
+    pub fn within(&self, window: &QualityWindow) -> bool {
+        let now = self.quality_time();
+        now >= window.judged_at
+            && window
+                .until_ms
+                .is_none_or(|until| now.datetime().timestamp_millis() < until)
+    }
+    /// The time quality is judged at: the later of the two cutoffs.
+    fn quality_time(&self) -> UtcTimestamp {
+        self.0.content.as_of.max(self.0.content.known_at)
+    }
+    /// The instruments whose quote entries are not shared with `previous`'s, in snapshot
+    /// order and each named once (D81). `None` unless everything else a valuation reads is
+    /// the same in both: the frame ([`MarketSnapshot::same_frame`]), a shared reference
+    /// section, equal fixings, required curves, curve records, recipes and calibration,
+    /// and the same quote keys in the same order. An instrument it does not list then has
+    /// the same frame here as in `previous`, and the same inputs by
+    /// [`MarketSnapshot::same_inputs`]'s rule.
+    pub fn changed_quotes(&self, previous: &MarketSnapshot) -> Option<Vec<&str>> {
+        let (now, then) = (&self.0.content, &previous.0.content);
+        if !self.same_frame(previous)
+            || !now.references.ptr_eq(&then.references)
+            || now.quotes.len() != then.quotes.len()
+            || now.fixings != then.fixings
+            || now.required_curves != then.required_curves
+            || now.curves != then.curves
+            || now.curve_recipes != then.curve_recipes
+            || now.calibration != then.calibration
+        {
+            return None;
+        }
+        let mut changed: Vec<&str> = Vec::new();
+        for (quote, prior) in now.quotes.iter().zip(&then.quotes) {
+            if quote.ptr_eq(prior) {
+                continue;
+            }
+            if quote.requirement.key != prior.requirement.key {
+                return None;
+            }
+            // Quotes are sorted by instrument, so one instrument's are adjacent.
+            let instrument = quote.requirement.key.instrument_id.as_str();
+            if changed.last() != Some(&instrument) {
+                changed.push(instrument);
+            }
+        }
+        Some(changed)
     }
     /// Quality of one curve alone; a curve the snapshot does not require is `Invalid`.
     pub fn curve_quality(&self, curve_id: &str) -> DataQuality {
@@ -933,6 +1020,7 @@ impl MarketSnapshot {
                 decision_time,
                 &InputSet::all(&self.0.content),
             )
+            .0
             .issues
             .is_empty()
             || self
@@ -1474,14 +1562,18 @@ fn check_quote_at(
     Ok(())
 }
 
+/// The quality of `inputs` at `now`, and the first millisecond at which one of its time
+/// comparisons could turn (D81, [`QualityWindow`]). Every time comparison runs, so each
+/// one's turning point counts, even where another already decides the issue.
 fn derive_quality(
     content: &SnapshotContent,
     now: UtcTimestamp,
     inputs: &InputSet<'_>,
-) -> SnapshotQuality {
+) -> (SnapshotQuality, Option<i64>) {
     let now_ms = now.datetime().timestamp_millis();
     let now_sub_ms = now.datetime().timestamp_subsec_nanos() % 1_000_000;
     use SnapshotIssueKind as K;
+    let mut until = None;
     let mut issues = Vec::new();
     let mut complete = true;
     let mut source_times = Vec::new();
@@ -1531,23 +1623,25 @@ fn derive_quality(
                 }
                 Some(value) => {
                     source_times.push(value.source_time_ms);
-                    if now_ms < value.receive_time_ms
-                        || now_ms < value.source_time_ms
-                        || age_exceeded(
-                            now_ms,
-                            now_sub_ms,
-                            value.source_time_ms,
-                            0,
-                            quote.requirement.max_age_ms,
-                        )
-                        || age_exceeded(
-                            now_ms,
-                            now_sub_ms,
-                            value.receive_time_ms,
-                            0,
-                            quote.requirement.max_age_ms,
-                        )
-                    {
+                    let max_age_ms = quote.requirement.max_age_ms;
+                    let ahead = before(now_ms, value.receive_time_ms, &mut until)
+                        | before(now_ms, value.source_time_ms, &mut until);
+                    let aged = aged(
+                        now_ms,
+                        now_sub_ms,
+                        value.source_time_ms,
+                        0,
+                        max_age_ms,
+                        &mut until,
+                    ) | aged(
+                        now_ms,
+                        now_sub_ms,
+                        value.receive_time_ms,
+                        0,
+                        max_age_ms,
+                        &mut until,
+                    );
+                    if ahead || aged {
                         add(format!("{id}:{field:?}"), K::Stale);
                     }
                 }
@@ -1603,18 +1697,20 @@ fn derive_quality(
                 add(dependency, K::MissingCurve);
             }
             Some((source_time, recorded_at, max_age_ms, curve_quality)) => {
-                if age_exceeded(
+                if aged(
                     now_ms,
                     now_sub_ms,
                     source_time.datetime().timestamp_millis(),
                     source_time.datetime().timestamp_subsec_nanos() % 1_000_000,
                     max_age_ms,
-                ) || age_exceeded(
+                    &mut until,
+                ) | aged(
                     now_ms,
                     now_sub_ms,
                     recorded_at.datetime().timestamp_millis(),
                     recorded_at.datetime().timestamp_subsec_nanos() % 1_000_000,
                     max_age_ms,
+                    &mut until,
                 ) {
                     add(dependency.clone(), K::Stale);
                 }
@@ -1656,11 +1752,14 @@ fn derive_quality(
     } else {
         DataQuality::Indicative
     };
-    SnapshotQuality {
-        complete,
-        quality,
-        issues,
-    }
+    (
+        SnapshotQuality {
+            complete,
+            quality,
+            issues,
+        },
+        until,
+    )
 }
 
 // Snapshot persistence preserves exact configuration decimals even when serde-float is unified.
@@ -1710,6 +1809,38 @@ pub fn snapshot_instrument_id(
 ) -> Result<InstrumentId, TraitError> {
     InstrumentId::new(id.as_str())
         .map_err(|_| TraitError::InvalidInput("invalid instrument identity"))
+}
+
+/// `now_ms < time_ms`. While it holds, it stops holding at `time_ms`, which `until`
+/// then counts (D81).
+fn before(now_ms: i64, time_ms: i64, until: &mut Option<i64>) -> bool {
+    let before = now_ms < time_ms;
+    if before {
+        turns_at(until, time_ms);
+    }
+    before
+}
+
+/// [`age_exceeded`]. While it does not hold, it may start to hold within the millisecond
+/// the age reaches its maximum, which `until` then counts (D81).
+fn aged(
+    now_ms: i64,
+    now_sub_ms: u32,
+    source_ms: i64,
+    source_sub_ms: u32,
+    maximum_ms: i64,
+    until: &mut Option<i64>,
+) -> bool {
+    let aged = age_exceeded(now_ms, now_sub_ms, source_ms, source_sub_ms, maximum_ms);
+    if !aged {
+        turns_at(until, source_ms.saturating_add(maximum_ms));
+    }
+    aged
+}
+
+/// Keep the earlier of `until` and `at_ms`.
+fn turns_at(until: &mut Option<i64>, at_ms: i64) {
+    *until = Some(until.map_or(at_ms, |until| until.min(at_ms)));
 }
 
 fn age_exceeded(

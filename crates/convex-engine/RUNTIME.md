@@ -116,6 +116,18 @@ curves each instrument's valuation reads are worked out once, at the first tick 
 an activation or of a new frame, so a tick builds a valuation context only for the
 instruments it values. Each context derives its cache key once, when it is made.
 
+When only quotes changed, a tick does not compare every instrument (D81). It judges
+just the instruments whose quote entries were rebuilt and those whose quality could
+have turned since they were last judged. "Only quotes" means the same frame, the same
+shared references, and equal fixings, curves, calibration and quote keys. Quality
+reads the time only to compare an age with its limit (a quote field's source and
+receive times, a curve's source and record times) or a time still ahead of the
+snapshot's. Each comparison turns at most once as time moves on. So each
+instrument's quality comes with the first millisecond in which it could turn. From
+then, or at a snapshot time earlier than the one it was judged at, the instrument is
+judged again. When anything else changed, and at a frame's first tick, every
+instrument is compared. Either way the same instruments are valued.
+
 A Live runtime resolves its pricing configuration and pinned references, with
 their issuer, calendar, convention and rate-index records, once per accepted
 activation, at the first snapshot that needs them, and reuses them at every tick.

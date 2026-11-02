@@ -102,6 +102,15 @@ always verified and valuations do not re-verify it (D67). The file adapter
 additionally requires exact canonical bytes.
 This verifies integrity; it does not authenticate a provider or licensing decision.
 
+Because unchanged entries are shared, a Live tick finds the instruments whose quotes
+changed by comparing pointers (`MarketSnapshot::changed_quotes`, D81). It does so only
+while nothing else a valuation reads changed: the same frame and shared references,
+and equal fixings, curves, calibration and quote keys. Otherwise `changed_quotes` names
+none and every instrument is judged. `judge` returns an input set's quality together
+with the window of snapshot times it holds in. So an instrument whose entries are
+shared is judged again once that window ends, or at a snapshot time before the
+window's start (a clock regression).
+
 Each snapshot is bounded to 16 MiB, 256 instruments/selected quote keys, 1,024
 fixings, 64 total original/complete curves and **4,096 total original pillars,
 observations, helpers or segments**. Each quote has at most 12
