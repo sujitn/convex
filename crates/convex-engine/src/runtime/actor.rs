@@ -587,15 +587,14 @@ impl Actor {
             let built = worker::activate(&self.graph, plan, snapshot)?;
             return self.calculate(built, &all).await;
         }
-        let (selected, baseline) = worker::changed(
-            plan,
-            &snapshot,
-            self.baseline.as_ref(),
-            &self.checkpoint.results,
-        )?;
-        let built = match self.baseline.take() {
-            Some(_) => worker::rebind(&self.graph, plan, snapshot, &selected)?,
-            None => worker::activate(&self.graph, plan, snapshot)?,
+        let previous = self.baseline.take();
+        let rebinding = previous.is_some();
+        let (selected, baseline) =
+            worker::changed(plan, &snapshot, previous, &self.checkpoint.results)?;
+        let built = if rebinding {
+            worker::rebind(&self.graph, plan, snapshot, &selected)?
+        } else {
+            worker::activate(&self.graph, plan, snapshot)?
         };
         self.calculate(built, &selected).await?;
         self.baseline = Some(baseline);

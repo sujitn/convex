@@ -11,7 +11,7 @@ use convex_core::contracts::*;
 use convex_ports::{
     configuration::InstrumentPin,
     runtime::{PublishedValuation, RuntimeCheckpoint},
-    snapshot::{InputSet, MarketSnapshot, SnapshotIssueKind, SnapshotQuality},
+    snapshot::{InputSet, MarketSnapshot, QualityWindow, SnapshotIssueKind, SnapshotQuality},
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -135,88 +135,190 @@ pub(super) fn rebind(
         .map_err(|_| RuntimeError::Worker)?;
     Ok(built)
 }
-/// What a Live tick keeps for the next one (D55): its snapshot, and each pin's derived
-/// quality and read curves, by plan index.
+/// What a Live tick keeps for the next one (D55): its snapshot, what each pin reads, and
+/// each pin's derived quality with the window it holds in (D81), by plan index.
+#[cfg_attr(test, derive(Clone))]
 pub(super) struct Baseline {
     snapshot: Arc<MarketSnapshot>,
+    reads: Reads,
     qualities: Vec<SnapshotQuality>,
-    reads: Arc<[Vec<String>]>,
+    windows: Vec<QualityWindow>,
 }
-/// The curves each pin's valuation reads, by plan index (G31). They follow from the pin's
-/// model, the plan's measures and the configured curves, so they hold while the frame
-/// and the pinned reference section do. Each pin's context is built once here, so a pin
-/// that `context` refuses is refused here too.
-fn read_curves(
-    plan: &RuntimePlan,
-    snapshot: &MarketSnapshot,
-) -> Result<Arc<[Vec<String>]>, RuntimeError> {
-    let configured = &snapshot.content().configuration.analytics_curves;
-    plan.assembly
-        .instruments
-        .iter()
-        .map(|pin| {
-            let ctx = context(plan, snapshot, pin)?;
-            let spec = ctx.spec();
-            let curves =
-                crate::snapshot::read_curve_ids(spec.model_id.as_str(), &spec.measures, configured);
-            Ok(curves.into_iter().map(str::to_owned).collect())
+/// What each pin's valuation reads while the frame and the pinned reference section hold
+/// (G31): its curves, by plan index. They follow from the pin's model, the plan's
+/// measures and the configured curves. With them, the plan indices sorted by instrument
+/// id, so an instrument whose quotes changed finds its pin (D81).
+#[cfg_attr(test, derive(Clone))]
+struct Reads {
+    curves: Vec<Vec<String>>,
+    by_instrument: Vec<usize>,
+}
+impl Reads {
+    /// Each pin's context is built once here, so a pin that `context` refuses is refused
+    /// here too.
+    fn new(plan: &RuntimePlan, snapshot: &MarketSnapshot) -> Result<Self, RuntimeError> {
+        let configured = &snapshot.content().configuration.analytics_curves;
+        let curves = plan
+            .assembly
+            .instruments
+            .iter()
+            .map(|pin| {
+                let ctx = context(plan, snapshot, pin)?;
+                let spec = ctx.spec();
+                let curves = crate::snapshot::read_curve_ids(
+                    spec.model_id.as_str(),
+                    &spec.measures,
+                    configured,
+                );
+                Ok(curves.into_iter().map(str::to_owned).collect())
+            })
+            .collect::<Result<_, RuntimeError>>()?;
+        Ok(Self::with_curves(&plan.assembly.instruments, curves))
+    }
+    /// `curves[i]` names the curves pin `i` reads.
+    fn with_curves(pins: &[InstrumentPin], curves: Vec<Vec<String>>) -> Self {
+        let mut by_instrument: Vec<usize> = (0..pins.len()).collect();
+        by_instrument.sort_unstable_by(|&a, &b| {
+            pins[a]
+                .instrument_id
+                .as_str()
+                .cmp(pins[b].instrument_id.as_str())
+        });
+        Self {
+            curves,
+            by_instrument,
+        }
+    }
+    /// The plan index of `instrument`'s pin. A plan pins each instrument once.
+    fn pin(&self, pins: &[InstrumentPin], instrument: &str) -> Option<usize> {
+        self.by_instrument
+            .binary_search_by(|&index| pins[index].instrument_id.as_str().cmp(instrument))
+            .ok()
+            .map(|found| self.by_instrument[found])
+    }
+    fn curves(&self, index: usize) -> Vec<&str> {
+        self.curves[index].iter().map(String::as_str).collect()
+    }
+}
+impl Baseline {
+    /// A frame's first tick: every pin is judged, and every pin is valued.
+    fn first(
+        snapshot: &Arc<MarketSnapshot>,
+        pins: &[InstrumentPin],
+        reads: Reads,
+    ) -> Result<Self, RuntimeError> {
+        if reads.curves.len() != pins.len() {
+            return Err(RuntimeError::RecoveryConflict);
+        }
+        let (qualities, windows) = pins
+            .iter()
+            .enumerate()
+            .map(|(index, pin)| {
+                snapshot.judge(&snapshot.inputs(pin.instrument_id.as_str(), &reads.curves(index)))
+            })
+            .unzip();
+        Ok(Self {
+            snapshot: snapshot.clone(),
+            reads,
+            qualities,
+            windows,
         })
-        .collect()
+    }
+    /// Move to `snapshot`, which shares this baseline's frame (D55), and select the pins
+    /// it values. With `listed`, the instruments whose quotes changed by
+    /// [`MarketSnapshot::changed_quotes`], only their pins and the pins whose quality
+    /// window the snapshot's time has left are judged (D81). Without it, every pin is.
+    /// A judged pin is valued when its inputs or its quality differ, and keeps the new
+    /// quality and window. `check` runs on every judged pin first. Returns the pins to
+    /// value, by plan index in plan order.
+    fn advance(
+        &mut self,
+        snapshot: &Arc<MarketSnapshot>,
+        pins: &[InstrumentPin],
+        listed: Option<Vec<&str>>,
+        check: impl Fn(usize) -> Result<(), RuntimeError>,
+    ) -> Result<Vec<usize>, RuntimeError> {
+        let count = pins.len();
+        if self.reads.curves.len() != count
+            || self.qualities.len() != count
+            || self.windows.len() != count
+        {
+            return Err(RuntimeError::RecoveryConflict);
+        }
+        let mut judge = vec![listed.is_none(); count];
+        if let Some(instruments) = listed {
+            for instrument in instruments {
+                let index = self
+                    .reads
+                    .pin(pins, instrument)
+                    .ok_or(RuntimeError::RecoveryConflict)?;
+                judge[index] = true;
+            }
+            for (index, window) in self.windows.iter().enumerate() {
+                if !snapshot.within(window) {
+                    judge[index] = true;
+                }
+            }
+        }
+        let mut valued = Vec::new();
+        for (index, pin) in pins.iter().enumerate() {
+            if !judge[index] {
+                continue;
+            }
+            check(index)?;
+            let instrument = pin.instrument_id.as_str();
+            let curves = self.reads.curves(index);
+            let (quality, window) = snapshot.judge(&snapshot.inputs(instrument, &curves));
+            if self.qualities[index] != quality
+                || !snapshot.same_inputs(&self.snapshot, instrument, &curves)
+            {
+                valued.push(index);
+            }
+            self.qualities[index] = quality;
+            self.windows[index] = window;
+        }
+        self.snapshot = snapshot.clone();
+        Ok(valued)
+    }
 }
 /// The pins a Live tick values, by plan index, and the baseline for the next tick
-/// (D55). Without a baseline every pin is valued. With one, a pin is valued when the
-/// frame, its own inputs or its derived quality differ; quality depends on time, so a
-/// quote that ages out counts. `results[i]` must be pin `i`'s record. The baseline's
-/// read curves are reused while the frame and the reference section hold (G31).
+/// (D55). Without a baseline, or when the frame changed, every pin is valued. With one,
+/// a pin is valued when its own inputs or its derived quality differ; quality depends on
+/// time, so a quote that ages out counts. Only the pins whose quotes changed, or whose
+/// quality window the snapshot's time has left, are judged, unless something else a
+/// valuation reads changed; then every pin is (D81). `results[i]` must be pin `i`'s
+/// record. The baseline's reads are reused while the frame and the reference section
+/// hold (G31). An error ends the runtime, so the baseline is taken, not borrowed.
 pub(super) fn changed(
     plan: &RuntimePlan,
     snapshot: &Arc<MarketSnapshot>,
-    baseline: Option<&Baseline>,
+    baseline: Option<Baseline>,
     results: &[Arc<PublishedValuation>],
 ) -> Result<(Vec<usize>, Baseline), RuntimeError> {
     let pins = &plan.assembly.instruments;
-    let frame = baseline.filter(|baseline| snapshot.same_frame(&baseline.snapshot));
-    if frame.is_some_and(|b| results.len() != pins.len() || b.qualities.len() != pins.len()) {
-        return Err(RuntimeError::RecoveryConflict);
-    }
-    let reads = match frame.filter(|baseline| {
-        let references = &baseline.snapshot.content().references;
-        references.ptr_eq(&snapshot.content().references)
-    }) {
-        Some(baseline) => baseline.reads.clone(),
-        None => read_curves(plan, snapshot)?,
+    let Some(mut baseline) = baseline.filter(|baseline| snapshot.same_frame(&baseline.snapshot))
+    else {
+        let baseline = Baseline::first(snapshot, pins, Reads::new(plan, snapshot)?)?;
+        return Ok(((0..pins.len()).collect(), baseline));
     };
-    if reads.len() != pins.len() {
+    if results.len() != pins.len() {
         return Err(RuntimeError::RecoveryConflict);
     }
-    let mut selected = Vec::new();
-    let mut qualities = Vec::with_capacity(pins.len());
-    for (index, pin) in pins.iter().enumerate() {
-        let instrument = pin.instrument_id.as_str();
-        let curves: Vec<&str> = reads[index].iter().map(String::as_str).collect();
-        let quality = snapshot.quality_of(&snapshot.inputs(instrument, &curves));
-        let kept = match frame {
-            Some(baseline) => {
-                if subject_key(&results[index].result.provenance().subject)
-                    != Some((pin.instrument_id.as_str(), pin.version.get()))
-                {
-                    return Err(RuntimeError::RecoveryConflict);
-                }
-                baseline.qualities[index] == quality
-                    && snapshot.same_inputs(&baseline.snapshot, instrument, &curves)
-            }
-            None => false,
-        };
-        if !kept {
-            selected.push(index);
+    let references = &baseline.snapshot.content().references;
+    if !references.ptr_eq(&snapshot.content().references) {
+        baseline.reads = Reads::new(plan, snapshot)?;
+    }
+    let listed = snapshot.changed_quotes(&baseline.snapshot);
+    let selected = baseline.advance(snapshot, pins, listed, |index| {
+        let pin = &pins[index];
+        if subject_key(&results[index].result.provenance().subject)
+            == Some((pin.instrument_id.as_str(), pin.version.get()))
+        {
+            Ok(())
+        } else {
+            Err(RuntimeError::RecoveryConflict)
         }
-        qualities.push(quality);
-    }
-    let baseline = Baseline {
-        snapshot: snapshot.clone(),
-        qualities,
-        reads,
-    };
+    })?;
     Ok((selected, baseline))
 }
 /// The plan pins only identities; product types are known once references resolve.
@@ -725,4 +827,153 @@ pub(super) fn lost_record(
         retained_quality: prior.last_good.as_ref().map(|_| DataQuality::Stale),
         ..prior.clone()
     })
+}
+
+// The ports suites' snapshot fixtures, which load the reference terms the crate's own
+// tests load too.
+#[cfg(test)]
+#[allow(clippy::duplicate_mod)]
+#[path = "../../../convex-ports/tests/support/snapshot_fixtures.rs"]
+mod fixture;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use convex_ports::snapshot::{
+        SnapshotContent, SnapshotFixing, SnapshotQuote, SnapshotReferences,
+    };
+
+    /// The fixture's day, `ms` milliseconds and `nanos` nanoseconds after its 15:00 as-of.
+    fn after_as_of(ms: i64, nanos: i64) -> UtcTimestamp {
+        let total = (15 * 3_600_000 + ms) * 1_000_000 + nanos;
+        let (seconds, nanos) = (total / 1_000_000_000, total % 1_000_000_000);
+        UtcTimestamp::parse(&format!(
+            "2026-10-02T{:02}:{:02}:{:02}.{nanos:09}Z",
+            seconds / 3_600,
+            seconds / 60 % 60,
+            seconds % 60
+        ))
+        .unwrap()
+    }
+
+    /// One quote observed again at `ms` after the as-of.
+    fn observe(quote: &mut SnapshotQuote, ms: i64) {
+        let at = after_as_of(ms, 0).datetime().timestamp_millis();
+        let image = quote.image.as_mut().unwrap();
+        image.watermark.sequence += 1;
+        image.watermark.source_time_ms = at;
+        image.watermark.receive_time_ms = at;
+        quote.delivery_watermark = Some(image.watermark.clone());
+        for field in image.fields.values_mut() {
+            field.source_time_ms = at;
+            field.receive_time_ms = at;
+            field.sequence = image.watermark.sequence;
+        }
+    }
+
+    /// P13b-iii (D81): a Live tick that judges only the pins whose quotes changed, and
+    /// the pins whose quality window it left, values exactly the pins that judging every
+    /// pin values, with the same qualities. Covered: no change, a quote, a quote's age
+    /// reaching its limit and passing it, a curve's age passing its limit, a fixing, a
+    /// copied and a changed reference section, and a time before the last tick's. The
+    /// plan's order is not the snapshot's.
+    #[test]
+    fn a_tick_that_judges_only_the_changed_pins_values_what_judging_every_pin_does() {
+        let mut content = fixture::content();
+        fixture::add_bond(&mut content, "BOND-002", 2_000);
+        fixture::add_bond(&mut content, "BOND-003", 0);
+        // BOND-001 reads the curve, 5 s old; each age limit is 10 s.
+        let curve_time = fixture::time("2026-10-02T14:59:55Z");
+        content.curves[0].source_time = curve_time;
+        content.curves[0].recorded_at = curve_time;
+        let mut pins: Vec<InstrumentPin> = content
+            .references
+            .iter()
+            .map(|reference| InstrumentPin {
+                instrument_id: InstrumentId::new(reference.record.instrument_id.as_str()).unwrap(),
+                version: reference.record.version,
+            })
+            .collect();
+        pins.reverse();
+        let curves = pins
+            .iter()
+            .map(|pin| match pin.instrument_id.as_str() {
+                "BOND-001" => vec!["USD-FIXTURE".to_owned()],
+                _ => vec![],
+            })
+            .collect();
+        let reads = Reads::with_curves(&pins, curves);
+        let first = Arc::new(MarketSnapshot::new(content).unwrap());
+        let mut baseline = Baseline::first(&first, &pins, reads).unwrap();
+        let mut generation = 1;
+        let mut tick = |ms: i64, nanos: i64, change: &dyn Fn(&mut SnapshotContent)| {
+            let mut content = baseline.snapshot.content().clone();
+            generation += 1;
+            content.generation = fixture::version(generation);
+            content.as_of = after_as_of(ms, nanos);
+            content.known_at = content.as_of;
+            change(&mut content);
+            let snapshot = Arc::new(MarketSnapshot::new(content).unwrap());
+            assert!(snapshot.same_frame(&baseline.snapshot));
+            let listed = snapshot.changed_quotes(&baseline.snapshot);
+            let gated = listed.is_some();
+            let mut every = baseline.clone();
+            let all = every.advance(&snapshot, &pins, None, |_| Ok(())).unwrap();
+            let some = baseline
+                .advance(&snapshot, &pins, listed, |_| Ok(()))
+                .unwrap();
+            assert_eq!(some, all, "at {ms} ms");
+            assert_eq!(baseline.qualities, every.qualities, "at {ms} ms");
+            let valued: Vec<_> = some
+                .iter()
+                .map(|&index| pins[index].instrument_id.as_str().to_owned())
+                .collect();
+            (gated, valued)
+        };
+        let names = |names: &[&str]| names.iter().map(|n| (*n).to_owned()).collect::<Vec<_>>();
+        // BOND-003 is index 2 in the snapshot; the plan lists it first.
+        assert_eq!(tick(1_000, 0, &|_| {}), (true, names(&[])));
+        assert_eq!(
+            tick(1_500, 0, &|content| observe(
+                content.quotes[2].make_mut(),
+                1_500
+            )),
+            (true, names(&["BOND-003"]))
+        );
+        // The curve read by BOND-001 reaches its age limit at 5 s.
+        assert_eq!(tick(5_000, 0, &|_| {}), (true, names(&[])));
+        assert_eq!(tick(5_000, 1, &|_| {}), (true, names(&["BOND-001"])));
+        // BOND-002's quote, observed 2 s before the as-of, reaches its limit at 8 s.
+        assert_eq!(tick(8_000, 0, &|_| {}), (true, names(&[])));
+        assert_eq!(tick(8_000, 1, &|_| {}), (true, names(&["BOND-002"])));
+        // Anything but a quote: every pin is judged.
+        assert_eq!(
+            tick(8_100, 0, &|content| content.fixings.push(SnapshotFixing {
+                key: fixture::fixing_key(),
+                fixing: None,
+            })),
+            (false, names(&[]))
+        );
+        assert_eq!(
+            tick(8_200, 0, &|content| {
+                content.references = SnapshotReferences::new(content.references.to_vec())
+            }),
+            (false, names(&[]))
+        );
+        assert_eq!(
+            tick(8_300, 0, &|content| {
+                content.references.make_mut()[2].record.version = fixture::version(2)
+            }),
+            (false, names(&["BOND-003"]))
+        );
+        // A time before the last tick's leaves every window, so every pin is judged.
+        assert_eq!(tick(8_250, 0, &|_| {}), (true, names(&[])));
+        assert_eq!(
+            tick(9_000, 0, &|content| observe(
+                content.quotes[1].make_mut(),
+                9_000
+            )),
+            (true, names(&["BOND-002"]))
+        );
+    }
 }

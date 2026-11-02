@@ -584,3 +584,175 @@ fn quote_entries_are_shared_and_a_changed_entry_is_checked_and_hashed_again() {
     assert_eq!(shared(&copied, &changed), [false, false]);
     assert_eq!(copied, changed);
 }
+
+/// The fixture's day, `ms` milliseconds and `nanos` nanoseconds after its 15:00 as-of.
+fn after_as_of(ms: i64, nanos: i64) -> UtcTimestamp {
+    let total = (15 * 3_600_000 + ms) * 1_000_000 + nanos;
+    let (seconds, nanos) = (total / 1_000_000_000, total % 1_000_000_000);
+    UtcTimestamp::parse(&format!(
+        "2026-10-02T{:02}:{:02}:{:02}.{nanos:09}Z",
+        seconds / 3_600,
+        seconds / 60 % 60,
+        seconds % 60
+    ))
+    .unwrap()
+}
+
+/// The snapshot of `content` at `time`, sharing its quote entries and references.
+fn snapshot_at(content: &SnapshotContent, time: UtcTimestamp) -> MarketSnapshot {
+    let mut content = content.clone();
+    content.as_of = time;
+    content.known_at = time;
+    MarketSnapshot::new(content).unwrap()
+}
+
+/// Set every observation time of one quote's fields.
+fn observe_fields(quote: &mut SnapshotQuote, source_ms: i64, receive_ms: i64) {
+    for field in quote.image.as_mut().unwrap().fields.values_mut() {
+        field.source_time_ms = source_ms;
+        field.receive_time_ms = receive_ms;
+    }
+}
+
+/// P13b-iii (D81): the same inputs keep their quality at every snapshot time in the
+/// window `judge` returns. The window ends at the first millisecond in which one of
+/// quality's time comparisons can turn: a quote field's source age, its receive age, or
+/// a curve's age, whichever comes first. A time before the window's start is outside it,
+/// and inputs with nothing time-bound have no end.
+#[test]
+fn a_quality_window_holds_until_one_of_its_time_comparisons_can_turn() {
+    let as_of_ms = fixture::time("2026-10-02T15:00:00Z")
+        .datetime()
+        .timestamp_millis();
+    let mut content = fixture::content();
+    fixture::add_bond(&mut content, "BOND-002", 4_000);
+    fixture::add_bond(&mut content, "BOND-003", 0);
+    // BOND-002's source is older than its receipt, BOND-003's receipt older than its
+    // source; each quote's age limit is 10 s. BOND-001 reads a curve 8 s old.
+    observe_fields(
+        content.quotes[1].make_mut(),
+        as_of_ms - 4_000,
+        as_of_ms - 1_000,
+    );
+    observe_fields(
+        content.quotes[2].make_mut(),
+        as_of_ms - 1_000,
+        as_of_ms - 3_000,
+    );
+    let curve_time = fixture::time("2026-10-02T14:59:52Z");
+    content.curves[0].source_time = curve_time;
+    content.curves[0].recorded_at = curve_time;
+    let snapshot = snapshot_at(&content, after_as_of(0, 0));
+    for (instrument, curves, until) in [
+        ("BOND-002", &[][..], as_of_ms + 6_000),
+        ("BOND-003", &[][..], as_of_ms + 7_000),
+        ("BOND-001", &["USD-FIXTURE"][..], as_of_ms + 2_000),
+    ] {
+        let (quality, window) = snapshot.judge(&snapshot.inputs(instrument, curves));
+        assert_eq!(
+            quality,
+            snapshot.quality_of(&snapshot.inputs(instrument, curves))
+        );
+        assert_eq!(quality.quality, DataQuality::Valid, "{instrument}");
+        assert_eq!(window.judged_at(), snapshot.content().as_of);
+        assert_eq!(window.until_ms(), Some(until), "{instrument}");
+        let quality_at = |time| {
+            let later = snapshot_at(&content, time);
+            let judged = later.quality_of(&later.inputs(instrument, curves));
+            (later.within(&window), judged.quality)
+        };
+        let deadline = until - as_of_ms;
+        // To the window's last nanosecond the quality holds.
+        assert_eq!(
+            quality_at(after_as_of(deadline - 1, 999_999)),
+            (true, DataQuality::Valid)
+        );
+        // In the deadline's own millisecond it can turn, so that millisecond is outside
+        // the window: still valid at its start, stale one nanosecond later.
+        assert_eq!(
+            quality_at(after_as_of(deadline, 0)),
+            (false, DataQuality::Valid)
+        );
+        assert_eq!(
+            quality_at(after_as_of(deadline, 1)),
+            (false, DataQuality::Stale)
+        );
+    }
+
+    // Inputs with nothing time-bound hold at every later time, but not before.
+    let later = snapshot_at(&content, after_as_of(1_000, 0));
+    let (quality, window) = later.judge(&later.inputs("BOND-404", &[]));
+    assert_eq!(quality.quality, DataQuality::Valid);
+    assert_eq!(window.until_ms(), None);
+    assert!(snapshot_at(&content, after_as_of(28_800_000, 0)).within(&window));
+    assert!(!snapshot.within(&window));
+}
+
+/// P13b-iii (D81): `changed_quotes` names the instruments whose quote entries a later
+/// snapshot does not share, once each, while everything else a valuation reads is the
+/// same. When anything else differs it names none, so every instrument is compared.
+#[test]
+fn changed_quotes_names_the_unshared_entries_only_while_nothing_else_differs() {
+    let mut content = fixture::content();
+    fixture::add_bond(&mut content, "BOND-002", 0);
+    fixture::add_bond(&mut content, "BOND-003", 0);
+    let previous = MarketSnapshot::new(content).unwrap();
+    let next = |change: &dyn Fn(&mut SnapshotContent)| {
+        let mut content = previous.content().clone();
+        content.generation = fixture::version(2);
+        change(&mut content);
+        MarketSnapshot::new(content)
+            .unwrap()
+            .changed_quotes(&previous)
+            .map(|names| names.into_iter().map(str::to_owned).collect::<Vec<_>>())
+    };
+    assert_eq!(next(&|_| {}), Some(vec![]));
+    // An equal quote in a new entry is named; so is each instrument whose entry changed.
+    assert_eq!(
+        next(&|content| content.quotes[1] = SnapshotQuote::clone(&content.quotes[1]).into()),
+        Some(vec!["BOND-002".to_owned()])
+    );
+    assert_eq!(
+        next(&|content| {
+            for index in [2, 0] {
+                let image = content.quotes[index].image.as_ref().unwrap();
+                let observed = image.fields.values().next().unwrap().source_time_ms;
+                observe_fields(content.quotes[index].make_mut(), observed - 1, observed);
+            }
+        }),
+        Some(vec!["BOND-001".to_owned(), "BOND-003".to_owned()])
+    );
+
+    // Anything else: the reference section copied, a fixing, a curve, a required curve,
+    // or another quote key.
+    let changes: [&dyn Fn(&mut SnapshotContent); 5] = [
+        &|content| content.references = SnapshotReferences::new(content.references.to_vec()),
+        &|content| {
+            content.fixings.push(SnapshotFixing {
+                key: fixture::fixing_key(),
+                fixing: None,
+            })
+        },
+        &|content| content.curves[0].version = fixture::version(2),
+        &|content| {
+            let mut other = content.curves[0].clone();
+            other.curve_id = CurveId::new("USD-OTHER").unwrap();
+            content.required_curves.push(other.curve_id.clone());
+            content.curves.push(other);
+        },
+        &|content| {
+            let quote = content.quotes[2].make_mut();
+            quote.requirement.key.source = "feed-b".into();
+            for event in quote
+                .delivery_watermark
+                .iter_mut()
+                .chain(quote.image.iter_mut().map(|image| &mut image.watermark))
+            {
+                event.key.source = "feed-b".into();
+            }
+        },
+    ];
+    for (index, change) in changes.into_iter().enumerate() {
+        assert_eq!(next(change), None, "change {index}");
+    }
+}
