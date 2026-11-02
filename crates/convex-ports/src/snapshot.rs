@@ -273,6 +273,119 @@ pub struct SnapshotQuote {
     pub image: Option<QuoteSnapshot>,
 }
 
+/// One selected quote of a snapshot: a shared, immutable entry (P13b-ii). A Live process
+/// keeps one entry for each selected key, and every tick's snapshot shares it until that
+/// key ingests an event or its state changes, so a tick copies a pointer, not the quote.
+/// The entry keeps its schema-4 digest and the result of its checks that read no cutoff,
+/// each computed once; the checks that read a cutoff run for every snapshot.
+/// [`SharedQuote::make_mut`] is the only way to change it, and it drops both. It
+/// serializes as the plain quote, so stored snapshots keep their shape.
+#[derive(Clone)]
+pub struct SharedQuote(Arc<QuoteEntry>);
+
+struct QuoteEntry {
+    quote: SnapshotQuote,
+    /// Schema 4's digest of `quote`, computed by the first schema-4 identity.
+    digest: OnceLock<SectionDigest>,
+    /// Set once `quote` passes the checks that read no cutoff.
+    checked: OnceLock<()>,
+}
+
+impl QuoteEntry {
+    fn new(quote: SnapshotQuote) -> Self {
+        Self {
+            quote,
+            digest: OnceLock::new(),
+            checked: OnceLock::new(),
+        }
+    }
+}
+
+impl Clone for QuoteEntry {
+    /// A copy is made only to change it, so it starts unchecked and unhashed.
+    fn clone(&self) -> Self {
+        Self::new(self.quote.clone())
+    }
+}
+
+impl SharedQuote {
+    /// A new entry, unchecked and unhashed.
+    pub fn new(quote: SnapshotQuote) -> Self {
+        Self(Arc::new(QuoteEntry::new(quote)))
+    }
+    /// The quote to change, copied first when another holder shares it. The checks and
+    /// digest are dropped; the next snapshot checks and hashes it again.
+    pub fn make_mut(&mut self) -> &mut SnapshotQuote {
+        let entry = Arc::make_mut(&mut self.0);
+        entry.digest.take();
+        entry.checked.take();
+        &mut entry.quote
+    }
+    /// Whether both hold one entry, so their quotes are the same without comparing them.
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+    /// The checks that read the quote alone, run once per entry.
+    fn check(&self) -> Result<(), TraitError> {
+        if self.0.checked.get().is_none() {
+            check_quote(&self.0.quote)?;
+            let _ = self.0.checked.set(());
+        }
+        Ok(())
+    }
+    /// The quote's schema-4 digest, computed once per entry.
+    fn digest(&self) -> Result<&SectionDigest, TraitError> {
+        if let Some(digest) = self.0.digest.get() {
+            return Ok(digest);
+        }
+        let mut hash = Sha256::new();
+        hash.update(SCHEMA_FOUR_QUOTE);
+        let mut len = 0;
+        let digest = hash_json(hash, &self.0.quote, &mut len)?.finalize();
+        Ok(self.0.digest.get_or_init(|| SectionDigest { digest, len }))
+    }
+}
+
+impl From<SnapshotQuote> for SharedQuote {
+    fn from(quote: SnapshotQuote) -> Self {
+        Self::new(quote)
+    }
+}
+
+impl std::ops::Deref for SharedQuote {
+    type Target = SnapshotQuote;
+    fn deref(&self) -> &SnapshotQuote {
+        &self.0.quote
+    }
+}
+
+impl PartialEq for SharedQuote {
+    /// Equal quotes; the cached checks and digest are not compared.
+    fn eq(&self, other: &Self) -> bool {
+        self.ptr_eq(other) || self.0.quote == other.0.quote
+    }
+}
+
+impl Eq for SharedQuote {}
+
+impl std::fmt::Debug for SharedQuote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.quote.fmt(f)
+    }
+}
+
+impl Serialize for SharedQuote {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.quote.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SharedQuote {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        SnapshotQuote::deserialize(deserializer).map(Self::new)
+    }
+}
+
 /// Missing historic fixings remain explicit in the manifest.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -305,8 +418,8 @@ pub struct SnapshotContent {
     pub configuration_capture: Option<crate::configuration::ConfigurationCapture>,
     /// Resolved instrument, issuer, calendar and convention revisions, one shared section.
     pub references: SnapshotReferences,
-    /// Selected quote requirements, values and feed continuity.
-    pub quotes: Vec<SnapshotQuote>,
+    /// Selected quote requirements, values and feed continuity, each a shared entry.
+    pub quotes: Vec<SharedQuote>,
     /// Required known-at fixings, including explicit missing entries.
     pub fixings: Vec<SnapshotFixing>,
     /// Required curve IDs; absent supplied curves are visible quality failures.
@@ -581,7 +694,7 @@ pub struct SnapshotQuality {
 /// a set judges only these inputs; source skew is measured among its quotes alone.
 #[derive(Debug, Clone)]
 pub struct InputSet<'a> {
-    quotes: &'a [SnapshotQuote],
+    quotes: &'a [SharedQuote],
     fixings: Vec<&'a SnapshotFixing>,
     curves: Vec<&'a CurveId>,
 }
@@ -594,7 +707,7 @@ impl<'a> InputSet<'a> {
         }
     }
     /// Selected quotes read.
-    pub fn quotes(&self) -> &'a [SnapshotQuote] {
+    pub fn quotes(&self) -> &'a [SharedQuote] {
         self.quotes
     }
     /// Required fixings read.
@@ -668,7 +781,7 @@ impl MarketSnapshot {
     }
     /// The selected quotes of one instrument, one per source, in source order. Every
     /// snapshot holds its quotes sorted by instrument id, then source.
-    pub fn quotes_for(&self, instrument_id: &str) -> &[SnapshotQuote] {
+    pub fn quotes_for(&self, instrument_id: &str) -> &[SharedQuote] {
         let quotes = &self.0.content.quotes;
         let start =
             quotes.partition_point(|q| q.requirement.key.instrument_id.as_str() < instrument_id);
@@ -722,7 +835,7 @@ impl MarketSnapshot {
     /// (D55): its reference, its quotes, a floating note's fixings, and each curve in
     /// `curves` with its record, recipe or calibration. A recipe pins the versions of
     /// the curves it is built on. The frame is compared once, by `same_frame`. A shared
-    /// reference section is the same section, so its records are not compared.
+    /// reference section or quote entry is the same one, so it is not compared.
     pub fn same_inputs(
         &self,
         previous: &MarketSnapshot,
@@ -865,7 +978,8 @@ fn identity(content: &SnapshotContent) -> Result<SnapshotId, TraitError> {
 ///    per section;
 /// 2. the number of quotes, 8 bytes big-endian;
 /// 3. each quote's digest in snapshot order, 32 bytes: SHA-256 under
-///    `convex.snapshot.v4.quote\0` over the quote's canonical JSON;
+///    `convex.snapshot.v4.quote\0` over the quote's canonical JSON, computed once per
+///    entry;
 /// 4. the frame's canonical JSON: the content without `references` and `quotes`, its
 ///    other fields in their order and under their skip rules.
 ///
@@ -883,19 +997,13 @@ fn sectioned_identity(content: &SnapshotContent) -> Result<SnapshotId, TraitErro
             .map_err(|_| TraitError::CapacityExceeded)?
             .to_be_bytes(),
     );
-    let mut json = Vec::new();
     for quote in &content.quotes {
-        json.clear();
-        serde_json::to_writer(&mut json, quote)
-            .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
-        written = written.saturating_add(json.len());
+        let quote = quote.digest()?;
+        written = written.saturating_add(quote.len);
         if written > MAX_SNAPSHOT_BYTES {
             return Err(TraitError::CapacityExceeded);
         }
-        let mut digest = Sha256::new();
-        digest.update(SCHEMA_FOUR_QUOTE);
-        digest.update(&json);
-        hash.update(digest.finalize());
+        hash.update(quote.digest);
     }
     let frame = CanonicalContent::new(content, false)?;
     snapshot_id(hash_json(hash, &frame, &mut written)?)
@@ -970,7 +1078,7 @@ struct CanonicalContent<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     references: Option<&'a RawValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    quotes: Option<&'a [SnapshotQuote]>,
+    quotes: Option<&'a [SharedQuote]>,
     fixings: &'a [SnapshotFixing],
     required_curves: &'a [CurveId],
     curves: &'a [SnapshotCurve],
@@ -1080,7 +1188,10 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
             ))
     });
     for quote in &mut content.quotes {
-        quote.requirement.fields.sort();
+        // Only an entry whose fields are out of order is copied; a shared one is sorted.
+        if !quote.requirement.fields.is_sorted() {
+            quote.make_mut().requirement.fields.sort();
+        }
     }
     content.fixings.sort_by(|a, b| a.key.cmp(&b.key));
     if let Some(calibration) = &mut content.calibration {
@@ -1105,7 +1216,6 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
 }
 
 fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
-    use crate::reference_repository::validate_reference_id;
     if !((content.schema_version == 1
         && content.curve_recipes.is_empty()
         && content.calibration.is_none())
@@ -1165,30 +1275,23 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
         as_of: content.as_of,
         known_at: content.known_at,
     })?;
-    let mut quotes = BTreeSet::new();
-    for quote in &content.quotes {
-        let requirement = &quote.requirement;
-        validate_reference_id(&requirement.key.instrument_id)
-            .map_err(|_| TraitError::InvalidInput("invalid quote instrument"))?;
-        crate::quote_event::validate_text(&requirement.key.source, 128)?;
+    let as_of_ms = content.as_of.datetime().timestamp_millis();
+    let known_at_ms = content.known_at.datetime().timestamp_millis();
+    for (i, quote) in content.quotes.iter().enumerate() {
+        quote.check()?;
+        let key = &quote.requirement.key;
+        // `normalize` sorted the quotes by instrument, then source, so a repeat is adjacent.
         if content
             .references
-            .find(requirement.key.instrument_id.as_str())
+            .find(key.instrument_id.as_str())
             .is_none()
-            || !quotes.insert((
-                requirement.key.instrument_id.as_str(),
-                &requirement.key.source,
-            ))
-            || requirement.fields.is_empty()
-            || requirement.fields.len() > 12
-            || requirement.fields.windows(2).any(|w| w[0] == w[1])
-            || !(1..=86_400_000).contains(&requirement.max_age_ms)
+            || (i > 0 && content.quotes[i - 1].requirement.key == *key)
         {
             return Err(TraitError::InvalidInput(
                 "invalid/duplicate quote requirement",
             ));
         }
-        validate_quote(quote, content)?;
+        check_quote_at(quote, as_of_ms, known_at_ms)?;
     }
     let mut fixing_keys = BTreeSet::new();
     for selected in &content.fixings {
@@ -1258,13 +1361,28 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
     Ok(())
 }
 
-fn validate_quote(quote: &SnapshotQuote, content: &SnapshotContent) -> Result<(), TraitError> {
-    let eligible = |event: &QuoteEvent| -> Result<(), TraitError> {
+/// The checks that read the quote alone: its requirement's key, fields and age policy,
+/// its events' structure and source, and how its image agrees with its delivery. Each
+/// entry runs them once ([`SharedQuote`]).
+fn check_quote(quote: &SnapshotQuote) -> Result<(), TraitError> {
+    use crate::reference_repository::validate_reference_id;
+    let requirement = &quote.requirement;
+    validate_reference_id(&requirement.key.instrument_id)
+        .map_err(|_| TraitError::InvalidInput("invalid quote instrument"))?;
+    crate::quote_event::validate_text(&requirement.key.source, 128)?;
+    // `normalize` sorted the fields, so a repeat is adjacent.
+    if requirement.fields.is_empty()
+        || requirement.fields.len() > 12
+        || requirement.fields.windows(2).any(|w| w[0] == w[1])
+        || !(1..=86_400_000).contains(&requirement.max_age_ms)
+    {
+        return Err(TraitError::InvalidInput(
+            "invalid/duplicate quote requirement",
+        ));
+    }
+    let selected = |event: &QuoteEvent| -> Result<(), TraitError> {
         event.validate()?;
-        if event.key != quote.requirement.key
-            || event.source_time_ms > content.as_of.datetime().timestamp_millis()
-            || event.receive_time_ms > content.known_at.datetime().timestamp_millis()
-        {
+        if event.key != requirement.key {
             return Err(TraitError::InvalidInput(
                 "quote outside selected source/time scope",
             ));
@@ -1272,10 +1390,10 @@ fn validate_quote(quote: &SnapshotQuote, content: &SnapshotContent) -> Result<()
         Ok(())
     };
     if let Some(delivery) = &quote.delivery_watermark {
-        eligible(delivery)?;
+        selected(delivery)?;
     }
     if let Some(image) = &quote.image {
-        eligible(&image.watermark)?;
+        selected(&image.watermark)?;
         if !matches!(
             image.watermark.event,
             QuoteEventKind::Image { .. } | QuoteEventKind::Delta { .. }
@@ -1295,8 +1413,6 @@ fn validate_quote(quote: &SnapshotQuote, content: &SnapshotContent) -> Result<()
                 || value.sequence > image.watermark.sequence
                 || value.source_time_ms < 0
                 || value.receive_time_ms < 0
-                || value.source_time_ms > content.as_of.datetime().timestamp_millis()
-                || value.receive_time_ms > content.known_at.datetime().timestamp_millis()
             {
                 return Err(TraitError::InvalidInput(
                     "invalid snapshot field observation",
@@ -1324,6 +1440,35 @@ fn validate_quote(quote: &SnapshotQuote, content: &SnapshotContent) -> Result<()
                     "live quote contradicts delivery watermark",
                 ));
             }
+        }
+    }
+    Ok(())
+}
+
+/// The checks that read the snapshot's cutoffs, run for every snapshot: nothing in the
+/// quote was observed after `as_of` or received after `known_at`.
+fn check_quote_at(
+    quote: &SnapshotQuote,
+    as_of_ms: i64,
+    known_at_ms: i64,
+) -> Result<(), TraitError> {
+    let events = quote
+        .delivery_watermark
+        .iter()
+        .chain(quote.image.iter().map(|image| &image.watermark));
+    for event in events {
+        if event.source_time_ms > as_of_ms || event.receive_time_ms > known_at_ms {
+            return Err(TraitError::InvalidInput(
+                "quote outside selected source/time scope",
+            ));
+        }
+    }
+    let fields = quote.image.iter().flat_map(|image| image.fields.values());
+    for value in fields {
+        if value.source_time_ms > as_of_ms || value.receive_time_ms > known_at_ms {
+            return Err(TraitError::InvalidInput(
+                "invalid snapshot field observation",
+            ));
         }
     }
     Ok(())

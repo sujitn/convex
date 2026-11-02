@@ -95,11 +95,11 @@ fn missing_gapped_stale_unentitled_inputs_cannot_pass_execution_data_policy() {
     for mutate in 0..6 {
         let mut content = fixture::content();
         match mutate {
-            0 => content.quotes[0].image = None,
+            0 => content.quotes[0].make_mut().image = None,
             1 => {
-                content.quotes[0].image.as_mut().unwrap().state =
-                    convex_ports::quote_event::DataState::Gap;
-                content.quotes[0].delivery_watermark.as_mut().unwrap().event =
+                let quote = content.quotes[0].make_mut();
+                quote.image.as_mut().unwrap().state = convex_ports::quote_event::DataState::Gap;
+                quote.delivery_watermark.as_mut().unwrap().event =
                     convex_ports::quote_event::QuoteEventKind::Gap;
             }
             2 => content.fixings.push(SnapshotFixing {
@@ -109,13 +109,10 @@ fn missing_gapped_stale_unentitled_inputs_cannot_pass_execution_data_policy() {
             3 => content.curves.clear(),
             4 => content.curves[0].quality = DataQuality::Demo,
             _ => {
-                content.quotes[0].image.as_mut().unwrap().state =
+                let quote = content.quotes[0].make_mut();
+                quote.image.as_mut().unwrap().state =
                     convex_ports::quote_event::DataState::Unauthorized;
-                content.quotes[0]
-                    .delivery_watermark
-                    .as_mut()
-                    .unwrap()
-                    .entitled = false;
+                quote.delivery_watermark.as_mut().unwrap().entitled = false;
             }
         }
         let snapshot = MarketSnapshot::new(content).unwrap();
@@ -140,6 +137,7 @@ fn unknown_later_known_resources_and_invalid_curves_are_rejected_before_publicat
             3 => content.curves[0].points[1].tenor_years = content.curves[0].points[0].tenor_years,
             4 => content.curves[0].recorded_at = fixture::time("2026-10-03T00:00:00Z"),
             _ => content.quotes[0]
+                .make_mut()
                 .requirement
                 .fields
                 .push(convex_ports::quote_event::QuoteField::MidPrice),
@@ -159,7 +157,14 @@ fn identity_is_the_hash_of_the_plain_content_bytes() {
     let id = first.id().clone();
 
     let mut quote = content.clone();
-    for field in quote.quotes[0].image.as_mut().unwrap().fields.values_mut() {
+    for field in quote.quotes[0]
+        .make_mut()
+        .image
+        .as_mut()
+        .unwrap()
+        .fields
+        .values_mut()
+    {
         field.source_time_ms -= 1;
     }
     let quote = MarketSnapshot::new(quote).unwrap();
@@ -230,7 +235,7 @@ fn snapshot_configuration_keeps_exact_decimals_under_workspace_feature_unificati
 fn instrument_lookups_find_each_reference_and_every_source_in_canonical_order() {
     let mut content = fixture::content();
     let reference = content.references[0].clone();
-    let quote = content.quotes[0].clone();
+    let quote = SnapshotQuote::clone(&content.quotes[0]);
     content.references.make_mut().clear();
     content.quotes.clear();
     // Supplied out of order; one instrument has two sources.
@@ -257,7 +262,7 @@ fn instrument_lookups_find_each_reference_and_every_source_in_canonical_order() 
             {
                 event.key = key.clone();
             }
-            content.quotes.push(quote);
+            content.quotes.push(quote.into());
         }
     }
     let snapshot = MarketSnapshot::new(content).unwrap();
@@ -400,14 +405,14 @@ fn an_instrument_reads_the_same_inputs_until_its_own_change() {
 
     // Another instrument's quote and a curve this valuation does not read.
     let mut others = base();
-    observe(&mut others.quotes[1]);
+    observe(others.quotes[1].make_mut());
     others.curves[1].version = fixture::version(2);
     assert_eq!(same(others.clone(), &["USD-FIXTURE"]), (true, true));
     assert_eq!(same(others, &["USD-FIXTURE", "USD-OTHER"]), (true, false));
 
     // Its own quote, its read curve and its reference.
     let mut quote = base();
-    observe(&mut quote.quotes[0]);
+    observe(quote.quotes[0].make_mut());
     assert_eq!(same(quote, &[]), (true, false));
     let mut curve = base();
     curve.curves[0].version = fixture::version(2);
@@ -460,7 +465,14 @@ fn schema_four_identity_is_the_sectioned_layout() {
     assert_ne!(frame.id(), &id);
 
     let mut quote = content.clone();
-    for field in quote.quotes[1].image.as_mut().unwrap().fields.values_mut() {
+    for field in quote.quotes[1]
+        .make_mut()
+        .image
+        .as_mut()
+        .unwrap()
+        .fields
+        .values_mut()
+    {
         field.source_time_ms -= 1;
     }
     let quote = MarketSnapshot::new(quote).unwrap();
@@ -511,4 +523,64 @@ fn with_schema_builds_the_same_content_under_another_schema() {
     assert_eq!(one.with_schema(SNAPSHOT_SCHEMA).unwrap(), four);
     // Schema 2 requires recipes, which the fixture does not hold.
     assert!(four.with_schema(2).is_err());
+}
+
+/// P13b-ii: snapshots of one content share its quote entries, and so the entries' digests
+/// and checks. A changed entry is checked and hashed again, even when it is changed in
+/// place after both were computed: a change that breaks a check is refused, and one that
+/// does not hashes to the independently written id. Fields supplied out of order are
+/// sorted in their own entry; the other entries stay shared. Equal snapshots that share
+/// an entry compare it by pointer, and the same quote in another entry is equal.
+#[test]
+fn quote_entries_are_shared_and_a_changed_entry_is_checked_and_hashed_again() {
+    let mut content = fixture::content();
+    fixture::add_bond(&mut content, "BOND-002", 0);
+    content.schema_version = SNAPSHOT_SCHEMA;
+    let first = MarketSnapshot::new(content.clone()).unwrap();
+    let second = MarketSnapshot::new(content.clone()).unwrap();
+    assert_eq!(second.id(), first.id());
+    let shared = |a: &MarketSnapshot, b: &MarketSnapshot| -> Vec<bool> {
+        let quotes = a.content().quotes.iter().zip(&b.content().quotes);
+        quotes.map(|(a, b)| a.ptr_eq(b)).collect()
+    };
+    assert_eq!(shared(&second, &first), [true, true]);
+    let id = first.id().clone();
+
+    // Only `content` holds the entries now, so each change is made in place.
+    drop((first, second));
+    let max_age_ms = content.quotes[1].requirement.max_age_ms;
+    content.quotes[1].make_mut().requirement.max_age_ms = 0;
+    assert!(MarketSnapshot::new(content.clone()).is_err());
+    content.quotes[1].make_mut().requirement.max_age_ms = max_age_ms;
+    assert_eq!(MarketSnapshot::new(content.clone()).unwrap().id(), &id);
+    let image = content.quotes[1].make_mut().image.as_mut().unwrap();
+    for field in image.fields.values_mut() {
+        field.source_time_ms -= 1;
+    }
+    let changed = MarketSnapshot::new(content.clone()).unwrap();
+    fixture::assert_sectioned_identity(&changed);
+    assert_ne!(changed.id(), &id);
+
+    let mut unsorted = changed.content().clone();
+    let fields = &mut unsorted.quotes[0].make_mut().requirement.fields;
+    fields.push(convex_ports::quote_event::QuoteField::BidPrice);
+    fields.sort();
+    fields.reverse();
+    let sorted = MarketSnapshot::new(unsorted).unwrap();
+    assert!(sorted.content().quotes[0].requirement.fields.is_sorted());
+    assert_eq!(shared(&sorted, &changed), [false, true]);
+    fixture::assert_sectioned_identity(&sorted);
+
+    let copied = MarketSnapshot::new(SnapshotContent {
+        quotes: changed
+            .content()
+            .quotes
+            .iter()
+            .map(|quote| SnapshotQuote::clone(quote).into())
+            .collect(),
+        ..changed.content().clone()
+    })
+    .unwrap();
+    assert_eq!(shared(&copied, &changed), [false, false]);
+    assert_eq!(copied, changed);
 }

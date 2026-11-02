@@ -160,7 +160,8 @@ pub fn content() -> SnapshotContent {
                 fields,
                 state: DataState::Live,
             }),
-        }],
+        }
+        .into()],
         fixings: vec![],
         required_curves: vec![curve().curve_id],
         curves: vec![curve()],
@@ -237,7 +238,7 @@ pub fn add_bond(content: &mut SnapshotContent, id: &str, age_ms: i64) {
     if let Some(bond) = &mut reference.record.bond {
         bond.instrument_id = reference.record.instrument_id.clone();
     }
-    let mut quote = content.quotes[0].clone();
+    let mut quote = SnapshotQuote::clone(&content.quotes[0]);
     quote.requirement.key.instrument_id = reference.record.instrument_id.clone();
     let key = quote.requirement.key.clone();
     let observed = content.as_of.datetime().timestamp_millis() - age_ms;
@@ -259,5 +260,5 @@ pub fn add_bond(content: &mut SnapshotContent, id: &str, age_ms: i64) {
         field.receive_time_ms = observed;
     }
     content.references.make_mut().push(reference);
-    content.quotes.push(quote);
+    content.quotes.push(quote.into());
 }
