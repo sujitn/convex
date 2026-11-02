@@ -94,6 +94,11 @@ tick copies a pointer for each unchanged quote. The entry's schema-4 digest and 
 checks that read no cutoff are computed once; each snapshot still checks its times
 against its own cutoffs and derives its quality. Replay and Captured build their
 entries from the trace for each snapshot.
+
+Because unchanged entries are shared, a Live tick finds the instruments whose quotes
+changed by comparing pointers (`MarketSnapshot::changed_quotes`, D81). `judge` returns
+an input set's quality together with the window of snapshot times it holds in, so an
+instrument whose entries are shared is judged again only once that window ends.
 See [complete recipe replay](../../docs/CURVE-SNAPSHOT-REPLAY.md). Unordered manifests are
 normalized; duplicates, conflicting resource revisions, unknown fields and
 out-of-scope inputs fail validation. Deserialization recomputes content identity
