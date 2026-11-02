@@ -396,7 +396,7 @@ impl Actor {
                 let snapshot = bounded(self.assembler.resolve_ingested(
                     &request,
                     &pinned,
-                    &live.quotes,
+                    &mut live.quotes,
                 ))
                 .await;
                 live.pinned = Some(pinned);

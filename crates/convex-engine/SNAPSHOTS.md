@@ -85,6 +85,15 @@ The references are one shared, immutable section (D68). Every snapshot of a Live
 selection shares the section it pinned. Its schema-4 digest, or its canonical JSON for
 schemas 1–3, is computed once, and its checks that read no cutoff run once. Each
 snapshot still checks it at its own cutoff.
+
+Each quote is a shared, immutable entry in the same way (P13b-ii). A Live process keeps
+one entry for each selected key, and every tick's snapshot shares it until that key
+ingests an event, its requirement changes or its state at the tick's cutoff changes
+(a day's staleness, a clock regression, or the transport gap of a full key set). So a
+tick copies a pointer for each unchanged quote. The entry's schema-4 digest and its
+checks that read no cutoff are computed once; each snapshot still checks its times
+against its own cutoffs and derives its quality. Replay and Captured build their
+entries from the trace for each snapshot.
 See [complete recipe replay](../../docs/CURVE-SNAPSHOT-REPLAY.md). Unordered manifests are
 normalized; duplicates, conflicting resource revisions, unknown fields and
 out-of-scope inputs fail validation. Deserialization recomputes content identity

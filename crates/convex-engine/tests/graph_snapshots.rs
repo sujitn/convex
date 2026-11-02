@@ -234,7 +234,7 @@ fn partial_invalid_and_failed_snapshot_measures_block_aggregation_and_keep_full_
         let graph = CalculationGraph::new();
         let mut content = fixture::content();
         if missing_quote {
-            content.quotes[0].image = None;
+            content.quotes[0].make_mut().image = None;
         }
         let snapshot = Arc::new(MarketSnapshot::new(content).unwrap());
         graph

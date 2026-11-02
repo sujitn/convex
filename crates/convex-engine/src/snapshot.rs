@@ -240,8 +240,8 @@ impl SnapshotAssembler {
             }
             quotes.ingest(event.clone(), capture);
         }
-        self.build(request, configuration, references, quotes.quotes(request))
-            .await
+        let quotes = quotes.quotes(&request.quotes, capture);
+        self.build(request, configuration, references, quotes).await
     }
     async fn references(
         &self,
@@ -317,12 +317,13 @@ impl SnapshotAssembler {
     }
     /// Resolve over quote state the caller already ingested and inputs it pinned, without
     /// publishing. Live mode keeps both in memory; market data is not stored. Fixings are
-    /// read at this request's cutoff.
+    /// read at this request's cutoff. The quote entries that did not change since the
+    /// last snapshot are shared with it.
     pub(crate) async fn resolve_ingested(
         &self,
         request: &SnapshotAssembly,
         pinned: &PinnedInputs,
-        quotes: &IngestedQuotes,
+        quotes: &mut IngestedQuotes,
     ) -> Result<MarketSnapshot, TraitError> {
         validate_request(request, &[])?;
         if !pinned.serves(request) {
@@ -334,7 +335,7 @@ impl SnapshotAssembler {
             request,
             pinned.configuration.clone(),
             pinned.references.clone(),
-            quotes.quotes(request),
+            quotes.quotes(&request.quotes, capture_ms(request)),
         )
         .await
     }
@@ -343,7 +344,7 @@ impl SnapshotAssembler {
         request: &SnapshotAssembly,
         configuration: convex_ports::storage::BondPricingConfig,
         references: SnapshotReferences,
-        quotes: Vec<SnapshotQuote>,
+        quotes: Vec<SharedQuote>,
     ) -> Result<MarketSnapshot, TraitError> {
         let keys = required_fixings(request, &references)?;
         let mut fixings = Vec::with_capacity(keys.len());
@@ -377,6 +378,9 @@ impl SnapshotAssembler {
 pub(crate) struct IngestedQuotes {
     assembler: MarketDataAssembler,
     delivered: HashMap<QuoteKey, QuoteEvent>,
+    /// The snapshot entry each selected key last resolved to, shared by every snapshot
+    /// until it changes (P13b-ii). At most one per requirement of the last request.
+    entries: HashMap<QuoteKey, SharedQuote>,
 }
 impl IngestedQuotes {
     pub(crate) fn new() -> Result<Self, TraitError> {
@@ -387,11 +391,18 @@ impl IngestedQuotes {
                 future_tolerance_ms: 0,
             })?,
             delivered: HashMap::new(),
+            entries: HashMap::new(),
         })
     }
-    /// Apply one event at the capture time it was accepted under.
+    /// Apply one event at the capture time it was accepted under. Its key's entry is
+    /// rebuilt at the next snapshot; a full key set's transport gap blocks every key, so
+    /// then every entry is.
     pub(crate) fn ingest(&mut self, event: QuoteEvent, capture_ms: i64) {
+        self.entries.remove(&event.key);
         let outcome = self.assembler.ingest(event.clone(), capture_ms);
+        if matches!(outcome.outcome, IngestionOutcome::CapacityExceeded) {
+            self.entries.clear();
+        }
         if !matches!(
             outcome.outcome,
             IngestionOutcome::Duplicate | IngestionOutcome::OutOfOrder
@@ -399,18 +410,41 @@ impl IngestedQuotes {
             self.delivered.insert(event.key.clone(), event);
         }
     }
-    /// Latest delivery and retained image for each requirement, aged at the request cutoff.
-    fn quotes(&self, request: &SnapshotAssembly) -> Vec<SnapshotQuote> {
-        let capture = capture_ms(request);
-        request
-            .quotes
-            .iter()
-            .map(|requirement| SnapshotQuote {
-                requirement: requirement.clone(),
-                delivery_watermark: self.delivered.get(&requirement.key).cloned(),
-                image: self.assembler.snapshot(&requirement.key, capture),
-            })
-            .collect()
+    /// Latest delivery and retained image for each requirement, aged at `capture_ms`. A
+    /// key's entry is shared with the last snapshot unless the key ingested an event since,
+    /// its requirement changed or its state at `capture_ms` differs (a day's staleness or
+    /// a clock regression); only then is it built again, unchecked and unhashed.
+    fn quotes(&mut self, requirements: &[QuoteRequirement], capture_ms: i64) -> Vec<SharedQuote> {
+        let mut quotes = Vec::with_capacity(requirements.len());
+        for requirement in requirements {
+            let key = &requirement.key;
+            let current = self.entries.get(key).filter(|entry| {
+                entry.requirement == *requirement
+                    && entry.image.as_ref().is_none_or(|image| {
+                        self.assembler.state(key, capture_ms) == Some(image.state)
+                    })
+            });
+            let entry = match current {
+                Some(entry) => entry.clone(),
+                None => {
+                    let entry = SharedQuote::new(SnapshotQuote {
+                        requirement: requirement.clone(),
+                        delivery_watermark: self.delivered.get(key).cloned(),
+                        image: self.assembler.snapshot(key, capture_ms),
+                    });
+                    self.entries.insert(key.clone(), entry.clone());
+                    entry
+                }
+            };
+            quotes.push(entry);
+        }
+        // Keys the selection no longer holds are dropped, so at most one entry is kept for
+        // each requirement.
+        if self.entries.len() > requirements.len() {
+            self.entries
+                .retain(|key, _| requirements.iter().any(|r| &r.key == key));
+        }
+        quotes
     }
 }
 
@@ -418,7 +452,7 @@ impl IngestedQuotes {
 /// the cutoff of its first snapshot (D56). Every record is an exact pinned version, so
 /// none changes while the selection holds; each snapshot still checks them at its own
 /// cutoff (`MarketSnapshot::new`). Every snapshot shares the one references section, so
-/// its checks that read no cutoff and its canonical JSON are done once (D68).
+/// its checks that read no cutoff and its digest are done once (D68).
 pub(crate) struct PinnedInputs {
     activation: Option<Version>,
     configuration_pin: ConfigurationPin,
@@ -1552,5 +1586,122 @@ fn snapshot_mid_value(
             }))
         }
         _ => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use convex_ports::quote_event::{
+        DataState, FieldUpdate, QuoteChange, QuoteEventKind, QuoteQuality, QuoteUnit, QuoteValue,
+    };
+
+    const START_MS: i64 = 1_790_000_000_000;
+    const DAY_MS: i64 = 86_400_000;
+
+    fn key(instrument: &str) -> QuoteKey {
+        QuoteKey {
+            instrument_id: convex_core::ids::InstrumentId::new(instrument),
+            source: "feed-a".into(),
+        }
+    }
+
+    fn requirement(instrument: &str) -> QuoteRequirement {
+        QuoteRequirement {
+            key: key(instrument),
+            fields: vec![QuoteField::MidPrice],
+            max_age_ms: 60_000,
+        }
+    }
+
+    fn image(instrument: &str, sequence: u64, at_ms: i64) -> QuoteEvent {
+        QuoteEvent {
+            schema_version: 1,
+            key: key(instrument),
+            session: "session-1".into(),
+            sequence,
+            source_time_ms: at_ms,
+            receive_time_ms: at_ms,
+            quality: QuoteQuality::Live,
+            entitled: true,
+            entitlement_tags: vec![],
+            evidence_reference: None,
+            event: QuoteEventKind::Image {
+                fields: vec![QuoteChange {
+                    field: QuoteField::MidPrice,
+                    update: FieldUpdate::Set(QuoteValue {
+                        value: rust_decimal::Decimal::new(9_925 + sequence as i64, 2),
+                        unit: QuoteUnit::PricePer100,
+                    }),
+                }],
+            },
+        }
+    }
+
+    /// The entries `quotes` returns, and whether each is the one the previous call
+    /// returned. Each must equal the quote built from the state without a cache.
+    fn resolve(
+        ingested: &mut IngestedQuotes,
+        requirements: &[QuoteRequirement],
+        capture_ms: i64,
+        previous: &[SharedQuote],
+    ) -> (Vec<SharedQuote>, Vec<bool>) {
+        let quotes = ingested.quotes(requirements, capture_ms);
+        for (quote, requirement) in quotes.iter().zip(requirements) {
+            let uncached = SnapshotQuote {
+                requirement: requirement.clone(),
+                delivery_watermark: ingested.delivered.get(&requirement.key).cloned(),
+                image: ingested.assembler.snapshot(&requirement.key, capture_ms),
+            };
+            assert_eq!(**quote, uncached);
+        }
+        let shared = quotes
+            .iter()
+            .map(|quote| previous.iter().any(|p| p.ptr_eq(quote)))
+            .collect();
+        (quotes, shared)
+    }
+
+    /// P13b-ii: a Live tick shares every quote entry that did not change, so its digest
+    /// and checks are kept. An entry is built again when its key ingests an event, its
+    /// requirement changes, its state at the cutoff changes, or a full key set's
+    /// transport gap blocks every key. Keys the selection drops are forgotten.
+    #[test]
+    fn ingested_quotes_rebuild_only_the_entries_that_changed() {
+        let mut ingested = IngestedQuotes::new().unwrap();
+        let mut requirements = vec![requirement("BOND-A"), requirement("BOND-B")];
+        ingested.ingest(image("BOND-A", 1, START_MS), START_MS);
+        ingested.ingest(image("BOND-B", 1, START_MS), START_MS);
+        let (first, _) = resolve(&mut ingested, &requirements, START_MS, &[]);
+        let (second, shared) = resolve(&mut ingested, &requirements, START_MS + 1, &first);
+        assert_eq!(shared, [true, true]);
+
+        // One key's event.
+        ingested.ingest(image("BOND-A", 2, START_MS + 2), START_MS + 2);
+        let (third, shared) = resolve(&mut ingested, &requirements, START_MS + 2, &second);
+        assert_eq!(shared, [false, true]);
+
+        // A day after B's observation, but not A's: B's state is stale.
+        let later = START_MS + DAY_MS + 1;
+        let (fourth, shared) = resolve(&mut ingested, &requirements, later, &third);
+        assert_eq!(shared, [true, false]);
+        assert_eq!(fourth[1].image.as_ref().unwrap().state, DataState::Stale);
+
+        // B's requirement.
+        requirements[1].max_age_ms = 30_000;
+        let (fifth, shared) = resolve(&mut ingested, &requirements, later, &fourth);
+        assert_eq!(shared, [true, false]);
+
+        // A selection without B forgets B's entry.
+        let (sixth, shared) = resolve(&mut ingested, &requirements[..1], later, &fifth);
+        assert_eq!((shared, ingested.entries.len()), (vec![true], 1));
+
+        // The key set is full: the next new key's gap blocks every key.
+        for i in 0..MAX_SNAPSHOT_INSTRUMENTS {
+            ingested.ingest(image(&format!("BOND-{i:03}"), 1, later), later);
+        }
+        let (gap, shared) = resolve(&mut ingested, &requirements[..1], later, &sixth);
+        assert_eq!(shared, [false]);
+        assert_eq!(gap[0].image.as_ref().unwrap().state, DataState::Gap);
     }
 }
