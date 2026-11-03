@@ -84,7 +84,7 @@ execution or regulatory/market calibration is claimed.
 The original generic `Nodes` route still rejects UFR policy selections.
 Other native source families require their own complete analytic join contracts;
 numerical derivatives, supplied slope overrides and sampled-node aliases are
-rejected. The complete MonotoneConvex source and [full supplied recipe snapshot replay](CURVE-SNAPSHOT-REPLAY.md) are implemented. Full original rate/Government/Repo product-price fitting, quote-risk and schema3 capture/replay use the separate [product UFR calibration contract](PRODUCT-UFR-CALIBRATION.md). Native-zero/forward and regulatory calibration remain separate requirements. See [route migration](ROUTE-MIGRATION.md).
+rejected. The complete MonotoneConvex source and [full supplied recipe snapshot replay](CURVE-SNAPSHOT-REPLAY.md) are implemented. Full original rate/Government/Repo product-price fitting, quote-risk and schema3 capture/replay use the separate [product UFR calibration contract](PRODUCT-UFR-CALIBRATION.md). Native-zero/forward and regulatory calibration remain separate requirements. See [route migration](internal/ROUTE-MIGRATION.md).
 
 Run the standalone consumer and frozen controls:
 

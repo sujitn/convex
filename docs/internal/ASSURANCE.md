@@ -10,7 +10,7 @@ Nested workflow modules are included in the same critical-source inventory.
 Direct contextual ICMA yield risk adds mandatory immutable reference/admission/
 failure/protocol, native/adapters, feature-consumer, schema and actual C parity
 commands. It preserves original mathematical owners, numeric evidence/defaults,
-dependency closure and existing checks; see [the contract](ICMA-YIELD-RISK.md).
+dependency closure and existing checks; see [the contract](../ICMA-YIELD-RISK.md).
 
 ## Scope and dependency direction
 
@@ -24,17 +24,17 @@ same denial. Test assertions remain available. FFI denies undocumented
 unsafe blocks, missing safety documentation, and implicit unsafe operations.
 Checked curve contracts and their analytics helper composition apply the
 same scoped denial and retain the pure dependency direction.
-Checked [supplied bond terms/projection/valuation](BOND-CONTRACTS.md) apply the
+Checked [supplied bond terms/projection/valuation](../BOND-CONTRACTS.md) apply the
 same denial over shared primitives. Their native checked adapters retain exact
 economic terms, eligible history and explicit unsupported model requirements.
-Checked [optional-bond models](OPTIONAL-BONDS.md) use the same scoped denial for
+Checked [optional-bond models](../OPTIONAL-BONDS.md) use the same scoped denial for
 HW1F, dated calibration/pricing, bounded OAS and resolved/converged factor risk.
 
-Checked [IRS/OIS contracts](RATES-CONTRACTS.md) apply the same denial at the
+Checked [IRS/OIS contracts](../RATES-CONTRACTS.md) apply the same denial at the
 entire new pure rates crate. Independent calendars reuse the existing core
 generator, and all required history is checked before projection.
 
-Checked [single-name CDS valuation and conversion](CDS-VALUATION.md) apply the
+Checked [single-name CDS valuation and conversion](../CDS-VALUATION.md) apply the
 same denial throughout the new pure credit crate. Exact supplied discount/credit
 roles and dates, complete premium/protection/default accrual, explicit initial
 cash state and native-unit root residuals are enforced. The original USD SOFR
@@ -163,7 +163,7 @@ were retired when PR #132 was replaced.
 
 CVX-040 adds eight pins for the offline runner, pure comparison adapter,
 catalog, retained pack, source/license record and pending ORE/ISDA/exchange
-templates. [The comparison contract](../reconciliation/COMPARISON.md) adds
+templates. [The comparison contract](../../reconciliation/COMPARISON.md) adds
 per-measure native units, complete contexts, future-known input rejection,
 evidence-scoped expiring mismatch records and a base guard that forbids wider
 absolute/relative bounds or removal of existing compared cases/measures.
@@ -182,7 +182,7 @@ tests and a pure standalone consumer with default, no-default and schema
 features. Metadata/source inspection cannot award `Verified`; LB0/LB1 remain
 explicitly incomplete. Existing quantitative pins and tolerances are unchanged.
 
-CVX-054 adds five new [shared-primitives](CASHFLOW-PRIMITIVES.md) artifact pins
+CVX-054 adds five new [shared-primitives](../CASHFLOW-PRIMITIVES.md) artifact pins
 while preserving all 55 previous rows, bytes and solver defaults. New fixtures
 state exact supplied contracts, reference identities, units and analytic Decimal
 bounds; no independent quantitative approval or market pack is inferred. CI
@@ -192,7 +192,7 @@ compatibility routes retain registered preconditions; full product/schema
 migration and LB0/LB1 certification remain owning tasks. Exception expirations
 remain 2026-12-31.
 
-CVX-056 adds five [checked-curve](CURVE-CONTRACTS.md) artifact pins while
+CVX-056 adds five [checked-curve](../CURVE-CONTRACTS.md) artifact pins while
 preserving all 60 earlier rows, bytes, expectations and solver defaults.
 The new native API supplies full helper economics, explicit query conventions
 and immutable dependencies. It implements direct DF/zero/survival curves,
@@ -206,7 +206,7 @@ Actual host/parser compatibility checks do not certify new schema dispatch.
 All library records remain Planned. The 105 failures at that revision remain
 historical evidence; the current retained replay is recorded below.
 
-CVX-060 adds [numerical fitting and transformation](CURVE-NUMERICS.md) candidates
+CVX-060 adds [numerical fitting and transformation](../CURVE-NUMERICS.md) candidates
 while preserving all 65 earlier quantitative rows/bytes/defaults. The new dense
 scaled solver admits at most 128 parameters/observations and 10,000 attempts;
 each SVD has a separate positive bounded iteration count. Native thresholds and
@@ -291,7 +291,7 @@ References: [Cargo metadata](https://doc.rust-lang.org/cargo/commands/cargo-meta
 [Rust FFI](https://doc.rust-lang.org/nomicon/ffi.html),
 [C string safety](https://doc.rust-lang.org/std/ffi/struct.CStr.html).
 
-CVX-059 adds [checked optional-bond model/calibration/pricing](OPTIONAL-BONDS.md)
+CVX-059 adds [checked optional-bond model/calibration/pricing](../OPTIONAL-BONDS.md)
 and five new engineering pins while preserving all 78 earlier artifact rows,
 bytes, expectations, tolerances and solver defaults. Actual-dated normal and
 shifted-lognormal swaption calibration holds mean reversion fixed and reports
@@ -317,13 +317,13 @@ external services in default/minimal/schemars profiles. The new rates package
 uses existing locked normal dependencies; all prior 83 quantitative artifact
 rows/bytes/defaults and 25 C exports remain unchanged. Three new engineering
 artifact pins bring the total to 86; critical sources are 104 and the library
-inventory has 121 source pins and 44 observations. [The guide](RATES-CONTRACTS.md)
+inventory has 121 source pins and 44 observations. [The guide](../RATES-CONTRACTS.md)
 states actual units, bounds, callback and unsupported-economics contracts.
 Discounted pricing, accrued, fair rates, multi-curve calibration/rebuild, risk,
 lifecycle, host dispatch and independent market/library/production/latency
 certificates remain owning work. All 2,154 mandatory records remain Planned.
 
-CVX-019 adds [native multi-curve swap valuation and full-contract fitting](SWAP-VALUATION.md).
+CVX-019 adds [native multi-curve swap valuation and full-contract fitting](../SWAP-VALUATION.md).
 Actual independent payment/reset/observation schedules, published fixes,
 amortizing and stepped coupons feed a single signed pricer. Product fitting
 composes exact dependencies through bounded Brent/least-squares kernels and
@@ -344,7 +344,7 @@ identities/checksums and all 25 C exports are preserved. Only local dependency
 edges are added. Host/schema, calibrated quote risk, lifecycle, market packs,
 independent quantitative approval and production/latency gates remain pending.
 
-CVX-021 adds [pure CDS calibration and risk inputs](CREDIT-CALIBRATION.md).
+CVX-021 adds [pure CDS calibration and risk inputs](../CREDIT-CALIBRATION.md).
 Piecewise and globally identified fits use the full native pricer with original
 native quote tolerances, exact helper/dependency/calendar versions and final
 repricing. Central rate, running quote, upfront and recovery risk retain distinct
@@ -372,7 +372,7 @@ latency certificate. Actual source/command/raw output evidence is engineering
 review, not independent human quantitative approval or a complete market/model,
 host, lifecycle, library, production or colocation certificate.
 
-CVX-022 adds [dated futures and cash reference inputs](FUTURES-REFERENCE.md),
+CVX-022 adds [dated futures and cash reference inputs](../FUTURES-REFERENCE.md),
 with strict disjoint bond/rate terms, exact contract/basket/security revisions,
 dated tick/multiplier units and explicit source-quality/freshness gates. Pure
 core futures code forbids unsafe and denies unwrap/expect/panic. Existing
@@ -392,7 +392,7 @@ futures domain, reference admission/backends and indicative advisor paths.
 All 2,154 mandatory library records remain Planned; dependencies and all
 25 C exports remain unchanged. CVX-023 owns full futures valuation/risk.
 
-CVX-023 adds [supplied futures/cash valuation and risk](FUTURES-VALUATION.md)
+CVX-023 adds [supplied futures/cash valuation and risk](../FUTURES-VALUATION.md)
 inside the existing pure analytics library. Full fixed-bond carry and independent
 CTD criteria retain actual security cash, published CF, explicit funding/haircut/
 coupon treatment and all alternatives. Weighted overnight/term rates retain due
@@ -413,7 +413,7 @@ records remain Planned; no human, market/model/host/library/production/latency
 certificate or complete optional-delivery model is inferred. Pure dependencies,
 manifests/lock and all25 C exports remain unchanged.
 
-CVX-057 adds [complete supplied mixed rate calibration](RATE-CALIBRATION.md),
+CVX-057 adds [complete supplied mixed rate calibration](../RATE-CALIBRATION.md),
 including full dated deposit/FRA/futures/IRS/OIS/basis helpers, independent exact
 discount/index versions and deterministic dependency rebuilds. The two-leg basis
 composition reuses the existing floating-leg engine. Curves retain original
@@ -434,7 +434,7 @@ quantitative/library/production/latency certificates pending. No dependency,
 manifest, Cargo lock or C export is added.
 
 
-CVX-058 adds [full supplied cash curves and dated repo carry](CASH-CURVES.md).
+CVX-058 adds [full supplied cash curves and dated repo carry](../CASH-CURVES.md).
 Original government cash/bill/par quotations, residual issuer basis and true
 repo loan factors reuse full BondContract economics and shared bounded solvers.
 Declared reference-only versus credit-survival/immediate-par-recovery models
@@ -453,7 +453,7 @@ critical sources and167 quantitative pins. No dependency, manifest, Cargo lock
 or C export is added; all2154 mandatory records remain Planned and independent
 human/market/model/host/library/production/latency certification remains open.
 
-CVX-024 adds [signed quote risk and portfolio coverage](QUOTE-RISK.md). Complete
+CVX-024 adds [signed quote risk and portfolio coverage](../QUOTE-RISK.md). Complete
 factor keys retain original helper or actual grid coordinates, native units,
 conventions/model revisions and held versus dependent-rebuilt response. The
 reference route keeps five actual currency PVs, exact signed quantity applied
@@ -473,7 +473,7 @@ consumers are mandatory CI checks. Seven new quantitative artifacts append to
 all167 prior rows/bytes/defaults. No dependency, manifest, lock or C export
 changes; all2154 mandatory records and independent certificates remain open.
 
-CVX-061 adds [standalone valuation, inverse and mixed-book workflows](STANDALONE-WORKFLOWS.md).
+CVX-061 adds [standalone valuation, inverse and mixed-book workflows](../STANDALONE-WORKFLOWS.md).
 The closed pure facade composes full native construction, resource/fixing
 requirements, cash projection, pricing, checked inverses, full scenarios and
 signed quote risk. Futures mark levels, economic PV and expected versus posted
@@ -491,9 +491,9 @@ nine pure roots remain provider/runtime/storage neutral. No new external
 dependency or C export is added. Mandatory library records and independent
 quantitative/market/model/host/production/latency gates remain open.
 
-CVX-062 adds scoped pure native lifecycle transitions and original earned/due cash selectors. [Lifecycle semantics](LIFECYCLE.md) distinguish proposed obligations, recorded receipts, pending auction/recovery and actual futures cash/security delivery. Exact new synthetic cash controls supplement every preserved prior numerical pin and mandatory Planned record; they award no independent quantitative, market/model/host/library/production or latency certificate.
+CVX-062 adds scoped pure native lifecycle transitions and original earned/due cash selectors. [Lifecycle semantics](../LIFECYCLE.md) distinguish proposed obligations, recorded receipts, pending auction/recovery and actual futures cash/security delivery. Exact new synthetic cash controls supplement every preserved prior numerical pin and mandatory Planned record; they award no independent quantitative, market/model/host/library/production or latency certificate.
 
-CVX-063 adds [full supplied-term JSON/C ABI and generic clients](LIBRARY-API.md).
+CVX-063 adds [full supplied-term JSON/C ABI and generic clients](../LIBRARY-API.md).
 Thirteen pure dispatcher modules and three schema modules enter critical review;
 the C export count becomes 26. Optional schema dependencies use existing locked
 packages; all nine pure roots retain the reviewed normal closure. Eleven new
@@ -539,7 +539,7 @@ price and an unavailable checkout conversion.
 
 Complete original product graph capture, fitted-output/solver/helper diagnostic
 comparison and original quote-risk replay are documented in
-[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+[the schema-3 replay contract](../CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
 Existing schema1/2 identities and original numerical controls remain; CVX-063
 and all mandatory library/market/model/host/production/latency certificates stay open.
 
@@ -549,11 +549,11 @@ ICMA cash/time/inverse/invoice and original legal enumeration owners. Every
 source/path is prepared before numerical evaluation, with explicit date, total
 reference-entry and original cash-work reservations. Independent full-path
 controls retain original failed answers and closed domains; see
-[ICMA workouts](ICMA-WORKOUTS.md). Actual-host and independent certificates stay
+[ICMA workouts](../ICMA-WORKOUTS.md). Actual-host and independent certificates stay
 open; pure bounds do not constitute latency or allocation qualification.
 
 
-Contextual ICMA observed/model cash helpers reuse the same checked original cash/time/inverse/invoice owner through complete native quote calibration, dependent five-PV risk and file snapshot replay. All contexts are admitted before fitting; explicit original reference/cash reservations precede numerical valuation, and original native quote plus inverse price residuals remain separate. New declared full financial controls retain raw failures and separate admission records. [The contract](ICMA-CASH-HELPERS.md) gives bounds and scope; actual hosts and independent certificates remain open.
+Contextual ICMA observed/model cash helpers reuse the same checked original cash/time/inverse/invoice owner through complete native quote calibration, dependent five-PV risk and file snapshot replay. All contexts are admitted before fitting; explicit original reference/cash reservations precede numerical valuation, and original native quote plus inverse price residuals remain separate. New declared full financial controls retain raw failures and separate admission records. [The contract](../ICMA-CASH-HELPERS.md) gives bounds and scope; actual hosts and independent certificates remain open.
 
 
 ## Complete common-factor hedge columns
@@ -561,21 +561,21 @@ Contextual ICMA observed/model cash helpers reuse the same checked original cash
 The distinct `graph_hedge_risk` operation composes the original full product and
 graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
 for the existing hedge aggregator and proposal solver. See
-[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
+[quantity binding, inputs, controls and remaining limits](../GRAPH-HEDGE-RISK.md).
 Own-security ICMA yield remains a separate factor. Optional models, credit-survival
 cash products and delivery-futures all-member risk remain owning work; actual
 managed/browser and production/latency qualification remain open.
 
 
 Credit-survival and issuer-basis cash now have a distinct full original-owner
-`cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
+`cash_basis_hedge_risk` route. See [cash basis hedge risk](../CASH-BASIS-HEDGE-RISK.md)
 for the complete security/mapping/factor contract, ICMA and rebuild controls,
 actual mixed-book scope and remaining recovery/host/production qualification.
 
 
 Mixed-book full revaluation and model P&L attribution compose the original pure
 product and graph owners, retaining every delivery CTD switch and separate cash
-PV/futures quote-level meanings. See [the supplied-input contract](MIXED-BOOK-SCENARIOS.md)
+PV/futures quote-level meanings. See [the supplied-input contract](../MIXED-BOOK-SCENARIOS.md)
 and run `cargo run --locked -p convex --example mixed_scenario`. Explicit path,
 quantity, FX and work admission, complete independent controls and dedicated
 CI supplement existing checks; CVX-063 remains partial and uncertified.
@@ -583,6 +583,6 @@ CI supplement existing checks; CVX-063 remains partial and uncertified.
 
 The additive `book_pnl` route reconstructs complete causal information sets,
 replays original lifecycle/cash facts and retains original nonlinear product
-values and all-member CTD switches. Read [CAUSAL-BOOK-PNL.md](CAUSAL-BOOK-PNL.md)
+values and all-member CTD switches. Read [CAUSAL-BOOK-PNL.md](../CAUSAL-BOOK-PNL.md)
 for full inputs, distinct quote/cash bases, actual fills/receipts, attribution,
 work bounds and explicit remaining limits. CVX-063 remains partial.

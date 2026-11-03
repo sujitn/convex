@@ -69,3 +69,8 @@ pub(crate) fn date(date: Date) -> Result<(), SwapError> {
     }
     Ok(())
 }
+
+// Compile and run the README examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;

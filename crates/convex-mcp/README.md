@@ -73,4 +73,4 @@ Options:
 See [the shared API, exact terms and capability limits](../../docs/LIBRARY-API.md).
 Generic JSON text calls preserve native diagnostics and decimal strings.
 Full mandatory operations and host certification remain open.
-See [removed convenience routes and migration](../../docs/ROUTE-MIGRATION.md).
+See [removed convenience routes and migration](../../docs/internal/ROUTE-MIGRATION.md).

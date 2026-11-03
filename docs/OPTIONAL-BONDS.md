@@ -216,6 +216,6 @@ tolerances. The existing library CDF's documented approximation error is include
 in the analytic option bounds. This is independent engineering calculation,
 not independent human quantitative approval or live market calibration.
 
-See [assurance](ASSURANCE.md), [coverage](LIBRARY-COVERAGE.md) and the private
+See [assurance](internal/ASSURANCE.md), [coverage](internal/LIBRARY-COVERAGE.md) and the private
 [CVX-059 evidence](../.ai/production-readiness/evidence/CVX-059/optional-bonds.md)
 for actual commands/results, requirement traceability and remaining support.

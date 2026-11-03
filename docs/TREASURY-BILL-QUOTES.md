@@ -54,7 +54,7 @@ nonpositive cash and Decimal overflow; its incorrect long-bill formula is remove
 The unused floating-point exports `convex_analytics::yields::bond_equivalent_yield_simple`
 and `convex_bonds::pricing::bond_equivalent_yield` are removed. Use the dated
 Treasury route for investment-rate quotation, including short bills with an
-issue-year basis of366. See [the migration guide](ROUTE-MIGRATION.md).
+issue-year basis of366. See [the migration guide](internal/ROUTE-MIGRATION.md).
 
 The remaining bill object methods now return checked `Result<Decimal>` and
 delegate to `convex::bill_yield`, with explicit 360/fixed-365 meanings. The old

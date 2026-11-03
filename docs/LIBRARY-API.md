@@ -446,7 +446,7 @@ complete FRN support from the addition of a generic route.
 
 Government zero-curve convenience routes, fields and controls have been removed;
 use actual supplied securities through `government_spread`. See the
-[removed routes and caller migration](ROUTE-MIGRATION.md), including Excel
+[removed routes and caller migration](internal/ROUTE-MIGRATION.md), including Excel
 positional arguments and WASM exports. Tenor-only bootstrap and indicative hedge
 conveniences remain `compatibility_unverified`; they cannot establish AC3 for
 complete multi-curve or hedge behavior. Earlier quantitative fixtures and bounds
@@ -546,7 +546,7 @@ and original dependent quote-risk rebuilding with complete model/helper/solver
 diagnostics. Credit/basis segment integration, remaining curve-risk/method
 combinations and market/host certificates retain their original owners.
 
-Complete [step-zero and flat-forward method contracts](CURVE-METHODS.md) retain original nodes/units/time basis, method/representation/role/currency/version and exact source/side/tail guards through the existing shared adapters. Native PiecewiseConstant linear and older raw FlatForward tail substitutions are removed; see [migration](ROUTE-MIGRATION.md). Product calibration, full quote-risk and actual unavailable-host qualification remain separate.
+Complete [step-zero and flat-forward method contracts](CURVE-METHODS.md) retain original nodes/units/time basis, method/representation/role/currency/version and exact source/side/tail guards through the existing shared adapters. Native PiecewiseConstant linear and older raw FlatForward tail substitutions are removed; see [migration](internal/ROUTE-MIGRATION.md). Product calibration, full quote-risk and actual unavailable-host qualification remain separate.
 
 The [explicit UFR convergence contract](CURVE-UFR.md) retains the full exact
 FlatForward or parametric base, supplied LLP, UFR and alpha. Native analytic left
@@ -807,7 +807,7 @@ product/convention/model/economic terms and surfaces; family examples do not fil
 unmapped records. Actual Java/C and wasm32 financial checks are recorded separately
 from strict WASM envelope drift and absent Windows/Excel/browser hosts. Passing
 engineering subsets does not accept CVX-063 or create an independent certificate.
-[The complete remaining-work guide](CVX-063-REMAINING.md) gives the execution order.
+[The complete remaining-work guide](internal/CVX-063-REMAINING.md) gives the execution order.
 
 
 Treasury bills have an explicit complete supplied-date `zero`/`treasury_bill`

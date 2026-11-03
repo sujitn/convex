@@ -166,5 +166,5 @@ checks before adding CVX-019 to the harness engineering completion set. Existing
 2,154 mandatory library records remain Planned. Do not replace mismatching
 captures, relabel manual oracles, remove cases or widen bounds. Existing pinned
 quantitative changes require independent review under the
-[assurance policy](ASSURANCE.md). Library, market/model, host, operational and
+[assurance policy](internal/ASSURANCE.md). Library, market/model, host, operational and
 latency release gates remain separate work.

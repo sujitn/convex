@@ -109,4 +109,4 @@ envelopes cannot replace these financial references.
 The existing generic C/Java/Excel/MCP/WASM dispatcher carries this additive request.
 Actual Windows/.NET/Excel, Java/JNI and wasm32/browser execution and independent
 financial/model/library/production certificates remain separate qualification.
-See [workout ownership](WORKOUT-QUOTATIONS.md) and [migration](ROUTE-MIGRATION.md).
+See [workout ownership](WORKOUT-QUOTATIONS.md) and [migration](internal/ROUTE-MIGRATION.md).

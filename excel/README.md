@@ -166,7 +166,7 @@ Use `CX.LIBRARY` / `CX.LIBRARY.RANGE` with the full `government_spread`
 request and original bond/bill quotes and calendars. `CX.SPREAD` has no argument
 for actual benchmark securities and cannot compute G-spread. Its error names
 `params.government`; a zero-rate curve is not an admitted government benchmark.
-See [removed routes and Excel argument migration](../docs/ROUTE-MIGRATION.md).
+See [removed routes and Excel argument migration](../docs/internal/ROUTE-MIGRATION.md).
 
 ### Bootstrap a curve from market instruments
 

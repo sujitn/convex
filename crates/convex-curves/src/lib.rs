@@ -281,3 +281,8 @@ mod tests {
         assert_eq!(InterpolationMethod::MonotoneConvex.continuity_class(), "C1");
     }
 }
+
+// Compile and run the README examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;

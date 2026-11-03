@@ -84,3 +84,8 @@ pub use instruments::{
     FloatingRateNote, FloatingRateNoteBuilder, SinkingFundBond, SinkingFundBondBuilder,
     SinkingFundPayment, SinkingFundSchedule,
 };
+
+// Compile and run the README examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;

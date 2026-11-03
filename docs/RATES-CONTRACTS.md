@@ -190,6 +190,6 @@ copied; no QuantLib/ORE runtime or actual market pack is certified here.
 
 Full shared-host price/inverse, risk, lifecycle, exact
 USD/EUR/GBP market-pack admission and independent LB1/production/colocation
-certification remain owning work. See [library coverage](LIBRARY-COVERAGE.md)
-and [assurance](ASSURANCE.md). Finish the CVX-019 external-engine comparison
+certification remain owning work. See [library coverage](internal/LIBRARY-COVERAGE.md)
+and [assurance](internal/ASSURANCE.md). Finish the CVX-019 external-engine comparison
 before accepting its native valuation/calibration implementation.

@@ -67,7 +67,7 @@ numeric through stream state. These changes do not certify the remaining bond,
 ETF, transport or execution client contracts.
 
 Complete contextual fixed workout paths use strict shared `icma_workout`; see
-[the contract](ICMA-WORKOUTS.md). Explicit single-path `icma_quotation` and
+[the contract](../ICMA-WORKOUTS.md). Explicit single-path `icma_quotation` and
 context-free dated `workout` remain valid distinct owners. Missing ICMA reference
 context cannot route through either as a proxy. Removed compact browser workout
 outputs remain absent; generic full requests retain every legal path and original
@@ -85,18 +85,18 @@ alias or approximate fallback.
 | C/JSON `YasRequest.govt_curve` and YAS G-spread marks | Use a supported price/yield/Z/I mark for the convenience analysis and calculate government spreads separately with actual supplied securities. YAS cannot price a G-spread mark. |
 | YAS `g_spread_bps`, `benchmark_spread_bps`, `benchmark_tenor` | These fields are absent from `YasResponse` and its schema. Update parsers and displays. |
 | Excel `CX.YAS` / `CX.YAS.LIVE` government-curve argument | Signature is now `(bond, settle, mark, curve, [quoteFreq], [swapCurve])`. Remove the old fifth argument and shift following arguments left. The grid omits government/benchmark spreads. |
-| WASM `price_from_g_spread`, `price_from_benchmark_spread` | These exports are absent. Rebuild the WASM package and consuming application together. Use generic `library` with the full supplied `government_spread_price` dated-cash operation; see [the inverse contract](GOVERNMENT-SPREAD-INVERSE.md). Street/market conventions and actual wasm32/browser qualification remain open. |
+| WASM `price_from_g_spread`, `price_from_benchmark_spread` | These exports are absent. Rebuild the WASM package and consuming application together. Use generic `library` with the full supplied `government_spread_price` dated-cash operation; see [the inverse contract](../GOVERNMENT-SPREAD-INVERSE.md). Street/market conventions and actual wasm32/browser qualification remain open. |
 | WASM `AnalysisResult.g_spread`, `benchmark_spread`, `benchmark_tenor` | These result fields are absent. Use `library(request_json)` for actual-security government-spread calculation. |
 | Browser G-spread editor and synthetic benchmark-bond panel | Removed with their callbacks. The remaining spread panel displays actual Z/ASW/OAS results; unavailable OAS is not replaced by Z-spread. |
 | Browser mock analytics after engine-load failure | Removed. Failure to load the engine displays an error and does not mount the analytics application. |
 
-The [full supplied-input API](LIBRARY-API.md) calculates government spreads from
+The [full supplied-input API](../LIBRARY-API.md) calculates government spreads from
 complete cash securities, actual quote/calendar/reference revisions, a common
 explicit dated-cash yield convention and exact or adjacent contractual maturity
 dates. It preserves fractional basis points. It does not assert Street/workout
 convention coverage. The separate full supplied dated-cash inverse is now
 available through generic `government_spread_price`; see
-[G-spread-to-price](GOVERNMENT-SPREAD-INVERSE.md).
+[G-spread-to-price](../GOVERNMENT-SPREAD-INVERSE.md).
 
 The C symbol set and pointer ownership contract are unchanged. JSON result
 shapes, Java source calls, WASM exports and Excel positional arguments above
@@ -124,7 +124,7 @@ Use the strict shared `workout` operation through `convex_wasm::library`,
 `convex_library` or other existing shared clients, with complete native bond
 terms, actual independent calendar revisions, original trade/purchase dates,
 explicit notice state and dated quotation/inverse controls. See
-[workout quotations](WORKOUT-QUOTATIONS.md). No compatibility result or proxy
+[workout quotations](../WORKOUT-QUOTATIONS.md). No compatibility result or proxy
 is substituted. Existing generic portfolio yield fields can carry separately
 supplied actual metrics; this removal does not waive the required native
 workout, floating/model/convention or actual browser qualification work.
@@ -137,10 +137,10 @@ advertises those ordinary yield sensitivities as workout risk.
 Bare `NelsonSiegel`/`Svensson` method tags on discrete nodes still fail rather
 than constructing a sampled substitute. Use complete `CurveSource::Parametric`
 or the shared `parametric_fit` operation for original zero observations. Complete
-product quotes use [Parametric mode in the existing full calibrators](PRODUCT-PARAMETRIC-CALIBRATION.md).
+product quotes use [Parametric mode in the existing full calibrators](../PRODUCT-PARAMETRIC-CALIBRATION.md).
 `Segmented`/`Delegated` tags require
 their complete native source contracts, exact dependencies, bounds/fallback and
-join rules. See [curve families](CURVE-FAMILIES.md). Older tenor-only bootstrap
+join rules. See [curve families](../CURVE-FAMILIES.md). Older tenor-only bootstrap
 and native compatibility methods retain their separate unqualified scope; this
 addition does not waive their full helper/convention/host qualification.
 
@@ -162,7 +162,7 @@ checked `Nodes` route retains its rejection constraints. An explicit
 Full recipe/units/time basis/roles/currency/versions remain required; there is
 no automatic migration, fallback field or sampled proxy. `FlatForwardRate`
 requires `Left`/`Right` and reports actual extension at boundary sides.
-See [curve methods](CURVE-METHODS.md). Full product-price calibration, quote-risk
+See [curve methods](../CURVE-METHODS.md). Full product-price calibration, quote-risk
 rebuilding, complete hazard integration and remaining method/host coverage
 retain their original owners and release requirements.
 
@@ -172,8 +172,8 @@ values and pricing assertions are unchanged. The engine `CurveBuilder` cache
 has been removed, and `BuiltCurve::from_snapshot`
 rejects a `ZeroExtrapolation::FlatForward` record. Such a snapshot must not be
 silently rewritten as flat zero: supply the complete checked flat-forward recipe
-to the shared library. Full direct recipes use [schema-2 replay](CURVE-SNAPSHOT-REPLAY.md); full original
-product/risk graphs use [schema-3 replay](CALIBRATION-SNAPSHOT-REPLAY.md). The fictional constant-zero snapshot fixture selects `FlatZero`;
+to the shared library. Full direct recipes use [schema-2 replay](../CURVE-SNAPSHOT-REPLAY.md); full original
+product/risk graphs use [schema-3 replay](../CALIBRATION-SNAPSHOT-REPLAY.md). The fictional constant-zero snapshot fixture selects `FlatZero`;
 previous captured snapshot bytes and historical evidence are preserved.
 
 The older infallible `DiscreteCurve` UFR tail no longer substitutes a zero
@@ -184,15 +184,15 @@ errors. The native UFR integral now uses stable `expm1` evaluation so small
 alpha/time changes retain their integrated forward. Original numerical controls
 and tolerances are unchanged.
 
-Use the [explicit UFR source](CURVE-UFR.md) for the full supplied LLP/exact-base
+Use the [explicit UFR source](../CURVE-UFR.md) for the full supplied LLP/exact-base
 contract and analytic `UfrForward` dispatch. Existing `Nodes` admission is not
 widened. Other base families, complete method/product calibration and quote-risk
 rebuilding need their owning contracts. Direct native recipes now use the
-[complete engine/snapshot replay contract](CURVE-SNAPSHOT-REPLAY.md).
+[complete engine/snapshot replay contract](../CURVE-SNAPSHOT-REPLAY.md).
 
 ## Complete MonotoneConvex source
 
-The original native MonotoneConvex owner now uses complete nonnegative Hagan–West regimes with one analytic forward/primitive. Query clipping, sampled zero derivatives and inconsistent flat-zero/flat-forward mathematics are removed. Exactly one zero endpoint-deviation axis uses the documented original quadratic; the native origin is derived analytically. `with_extrapolation()` now integrates the terminal instantaneous forward. Negative times and a negative first interval reject. Use `CurveSource::MonotoneConvex { nodes }`, continuous-zero rate representation and matching method for the complete dated contract; `MonotoneConvexForward { point, side }` exposes the actual native or declared terminal side. Original protected test sections remain unchanged. Bare Nodes/DF/hazard aliases, signed-forward or ameliorated variants, product calibration, other UFR joins and unqualified old host conveniences remain unsupported or have their original owner. See [full conventions and limits](CURVE-MONOTONE-CONVEX.md).
+The original native MonotoneConvex owner now uses complete nonnegative Hagan–West regimes with one analytic forward/primitive. Query clipping, sampled zero derivatives and inconsistent flat-zero/flat-forward mathematics are removed. Exactly one zero endpoint-deviation axis uses the documented original quadratic; the native origin is derived analytically. `with_extrapolation()` now integrates the terminal instantaneous forward. Negative times and a negative first interval reject. Use `CurveSource::MonotoneConvex { nodes }`, continuous-zero rate representation and matching method for the complete dated contract; `MonotoneConvexForward { point, side }` exposes the actual native or declared terminal side. Original protected test sections remain unchanged. Bare Nodes/DF/hazard aliases, signed-forward or ameliorated variants, product calibration, other UFR joins and unqualified old host conveniences remain unsupported or have their original owner. See [full conventions and limits](../CURVE-MONOTONE-CONVEX.md).
 
 ## Complete curve recipe snapshot replay
 
@@ -202,7 +202,7 @@ unit, role, time basis, model/LLP, helper/settings, method/tail and exact depend
 versions survive capture and reconstruction. Schema-1 omitted fields and content
 identities remain unchanged; its unsupported FlatForward policy is rejected.
 Migration needs a genuinely supplied complete recipe and new identity, without
-sampling or relabelling old economics. Read [the replay contract](CURVE-SNAPSHOT-REPLAY.md).
+sampling or relabelling old economics. Read [the replay contract](../CURVE-SNAPSHOT-REPLAY.md).
 
 The engine's changed-input rebuild now returns Result and clears an invalid
 representation. Failed builds never attach the previous model to new points,
@@ -212,7 +212,7 @@ fractional pillars and full recipe curves. Use immutable snapshots for those
 inputs; no partial grid or integer-day truncation survives that route. Existing
 exact whole-day zero inputs keep their declared path. Full product-helper
 calibration and original quote-risk graphs use
-[schema-3 replay](CALIBRATION-SNAPSHOT-REPLAY.md). Remaining raw-value/convenience
+[schema-3 replay](../CALIBRATION-SNAPSHOT-REPLAY.md). Remaining raw-value/convenience
 qualification retains its original owners.
 
 `POST /api/v1/curves` no longer accepts a points list. It stores a complete
@@ -225,16 +225,16 @@ server.
 
 Complete original product graph capture, fitted-output/solver/helper diagnostic
 comparison and original quote-risk replay are documented in
-[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
+[the schema-3 replay contract](../CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
 Existing schema1/2 identities and original numerical controls remain; CVX-063
 and all mandatory library/market/model/host/production/latency certificates stay open.
 
-Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
+Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](../PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
 
 ## Complete-factor proposals versus indicative advisor
 
 Shared `hedge` (`aggregate` / `solve`) is the real remaining owner for supplied
-complete-factor constrained proposals; see [its contract](CONSTRAINED-HEDGES.md).
+complete-factor constrained proposals; see [its contract](../CONSTRAINED-HEDGES.md).
 Existing `propose_hedges`, `propose_book_hedges`, scalar ratios and per-instrument
 round/roll math keep their explicitly indicative meanings. They do not implement
 common-factor constrained solving, legal credit coverage or authoritative pending
@@ -259,7 +259,7 @@ Fixed and floating native compositions now share `WorkoutProjection`. Replace
 imports of the removed `FixedWorkoutProjection` name; its full cash/date/amount
 layout is retained. There is one checked composition, without a compatibility
 type alias or duplicated floating financial formulas. No C symbol or generic
-Java/Excel/MCP/WASM call changes. See [fields and controls](FLOATING-WORKOUTS.md).
+Java/Excel/MCP/WASM call changes. See [fields and controls](../FLOATING-WORKOUTS.md).
 
 ## Explicit contextual ICMA cash quotation
 
@@ -274,25 +274,25 @@ helpers are not an alternative to this checked original-cash quotation owner.
 No existing correctly owned route is removed. Actual government benchmark
 selection, market Street and stochastic OAS require their distinct full owners;
 this contextual time composition grants none of those certificates.
-See [ICMA quotations](ICMA-QUOTATIONS.md).
+See [ICMA quotations](../ICMA-QUOTATIONS.md).
 
 Contextual ICMA actual-government-security spread and inverse now have the
 explicit `icma_government_spread` / `icma_government_price` shared operations.
 Supply every target/benchmark's own complete context, observed helper/source
 revisions and original quantity, plus an explicit common output policy and
-compounding. See [the full contract](ICMA-GOVERNMENT-SPREADS.md). The original
+compounding. See [the full contract](../ICMA-GOVERNMENT-SPREADS.md). The original
 context-free government operations and direct `icma_quotation` remain correctly
 owned; changing a context-free day-count tag cannot supply missing ICMA context.
 
 
-For contextual ICMA helper conversion/calibration/repricing, supply `CashQuoteKind::ContextualIcmaYield` with its complete original context and bind native `CashHelperResources::IcmaBond` or the existing shared independently resolved calendar pins. `CashflowYield` remains the correct context-free route. `CashQuoteKind` is now Clone rather than Copy; borrow matches or clone owned values. See [the full contract](ICMA-CASH-HELPERS.md).
+For contextual ICMA helper conversion/calibration/repricing, supply `CashQuoteKind::ContextualIcmaYield` with its complete original context and bind native `CashHelperResources::IcmaBond` or the existing shared independently resolved calendar pins. `CashflowYield` remains the correct context-free route. `CashQuoteKind` is now Clone rather than Copy; borrow matches or clone owned values. See [the full contract](../ICMA-CASH-HELPERS.md).
 
 For direct contextual ICMA own-yield risk, use `icma_yield_risk` actions
 `yield_sensitivity` / `hedge_vector` and their full observed-unit/snapshot/factor
 inputs. Context-free bond quote risk and recalibrated helper risk retain their
 correct distinct owners. An ICMA day-count tag cannot supply their missing
 context, and a conditional workout cannot become unconditional hedge risk.
-See [ICMA yield risk](ICMA-YIELD-RISK.md). No obsolete alias is introduced.
+See [ICMA yield risk](../ICMA-YIELD-RISK.md). No obsolete alias is introduced.
 
 
 ## Complete common-factor hedge columns
@@ -300,14 +300,14 @@ See [ICMA yield risk](ICMA-YIELD-RISK.md). No obsolete alias is introduced.
 The distinct `graph_hedge_risk` operation composes the original full product and
 graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
 for the existing hedge aggregator and proposal solver. See
-[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
+[quantity binding, inputs, controls and remaining limits](../GRAPH-HEDGE-RISK.md).
 Own-security ICMA yield remains a separate factor. Optional models, credit-survival
 cash products and delivery-futures all-member risk remain owning work; actual
 managed/browser and production/latency qualification remain open.
 
 
 Credit-survival and issuer-basis cash now have a distinct full original-owner
-`cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
+`cash_basis_hedge_risk` route. See [cash basis hedge risk](../CASH-BASIS-HEDGE-RISK.md)
 for the complete security/mapping/factor contract, ICMA and rebuild controls,
 actual mixed-book scope and remaining recovery/host/production qualification.
 
@@ -337,7 +337,7 @@ The calculation selects its365/366 basis from the original issue interval and
 returns decimal investment/bank-discount rates, inverse residual and signed risk.
 Never infer an issue date from remaining days or silently retain fixed365 for
 a leap-year Treasury investment-rate quote. See
-[the full contract and primary sources](TREASURY-BILL-QUOTES.md).
+[the full contract and primary sources](../TREASURY-BILL-QUOTES.md).
 
 Both `ShortDateCalculator` types now return `Result<Decimal>` from
 `money_market_yield` and `bond_equivalent_yield`. `ZeroCouponBond::discount_yield`
@@ -543,7 +543,7 @@ helpers, native Decimal-current wrappers and their from-bond variants now return
 successful zero. Analytics reexports the native `YieldEngineResult`. Existing
 fallible Decimal percentage APIs retain their units and now check arithmetic.
 From-bond per100 current yields no longer scale with original face. See
-[YIELD-SCALARS.md](YIELD-SCALARS.md). Raw solver and dated-convention qualification
+[YIELD-SCALARS.md](../YIELD-SCALARS.md). Raw solver and dated-convention qualification
 remain separate; no approximation is promoted to full instrument support.
 
 
@@ -552,7 +552,7 @@ now return Result; propagate errors with `?`. Analytics StandardYieldEngine is
 the native type with an analytics error adapter. Explicit supplied-cash pricing
 and unique nonnegative-cash inverses use `cash_yield`; unsupported convention
 enums cannot silently use a periodic approximation. See [supplied-cash yield
-pricing](YIELD-PRICING.md). Contextual date/ICMA/accrued/calendar methods still
+pricing](../YIELD-PRICING.md). Contextual date/ICMA/accrued/calendar methods still
 require their genuine complete migration and qualification.
 
 
@@ -564,7 +564,7 @@ ex-coupon requests consume an actual supplied calendar and revision. The strict
 shared `accrued_interest` route retains original face cash units and delegates
 to the same native owner. Unsupported entitlement/calendar context fails.
 Use `Act365Fixed` and `Thirty360US`; their ambiguous short aliases are removed.
-Read [the accrued-interest contract and migration](ACCRUED-METHODS.md).
+Read [the accrued-interest contract and migration](../ACCRUED-METHODS.md).
 Remaining general dated yield/reference and calendar methods, full product/model/
 calibration/claim/physical/mixed-book integration and mandatory mappings remain
 required. This increment supplies no independent approval or Windows/Excel check.
@@ -577,7 +577,7 @@ The ambiguous flat-model money-market yield helpers are now checked
 native terms, original cash units and explicit separate rates. Short-date policy
 construction/queries now return `Result` and consume the enabled flag. The
 unqualified YAS money-market row and fabricated calculator true yield are retired.
-Read [the supplied-cash projection and migration](REINVESTMENT.md).
+Read [the supplied-cash projection and migration](../REINVESTMENT.md).
 
 
 ## Stable periodic growth and retired supplied-value analysis
@@ -587,7 +587,7 @@ and rejects material nonzero Decimal conversion loss. Existing supplied terms
 and units remain. The unused `YasAnalysis` / `YasAnalysisBuilder` facade, which
 manufactured zero for missing measurements, is removed with its reexports. Use
 actual supported `YASCalculator` results and genuine absence in caller records.
-See [the projection migration](REINVESTMENT.md).
+See [the projection migration](../REINVESTMENT.md).
 
 ## Explicit dated discount context
 
@@ -598,7 +598,7 @@ to a date-only convention. Bind the actual `DiscountTimeBasis` using
 Missing ICMA, ACT365L or termination context now returns a typed error.
 The standard engine uses the supplied discount day count independently of accrual;
 callers must remove the workaround that overwrote the accrual role.
-Use [dated cash timing](DATED-YIELD.md) and shared `cash_yield/dated_price`,
+Use [dated cash timing](../DATED-YIELD.md) and shared `cash_yield/dated_price`,
 `dated_solve`, `dated_risk` for explicitly supplied entitled dated cash. Full
 contract schedules, entitlement, quotation policy and paid-claim state retain
 their actual instrument/workflow owners.
@@ -796,7 +796,7 @@ positive tenor identity; nearby tenors are separate factors.
 Scalar parametric VaR uses an actual inverse normal CDF under the explicit
 zero-mean Gaussian and IID square-root-of-time assumptions. Historical VaR uses
 the nearest-rank inverse empirical CDF of signed losses. Neither method clamps a
-negative loss quantile to zero. See [the scalar contracts](RISK-CONTRACTS.md) for
+negative loss quantile to zero. See [the scalar contracts](../RISK-CONTRACTS.md) for
 units, exact confidence/rank semantics, bounds and remaining portfolio scope.
 
 The four weekend-only Date methods `next_weekday`, `prev_weekday`,
@@ -832,7 +832,7 @@ requires the supplied full dirty market_price basis. Migrate nullable client fie
 and inspect per-factor coverage; never send a clean quote as a full dirty price.
 The native optional views delegate the checked aggregate_key_rate_exposure owner.
 Synthetic demo factor allocations, fallback risk and NAV-multiple VaR are removed.
-See [the contract](PORTFOLIO-KEY-RATE-RISK.md) for units, bounds and remaining scope.
+See [the contract](../PORTFOLIO-KEY-RATE-RISK.md) for units, bounds and remaining scope.
 
 
 ## Typed risk-decimal decoding

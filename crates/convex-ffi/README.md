@@ -15,7 +15,7 @@ cargo build --locked --profile excel -p convex-ffi
 ```
 
 The optimized host profile uses `panic=unwind`; abort builds are rejected.
-Artifacts are written under `target/excel`. See [assurance](../../docs/ASSURANCE.md)
+Artifacts are written under `target/excel`. See [assurance](../../docs/internal/ASSURANCE.md)
 for bounds, error contracts, review policy and additional checks.
 
 Produces:
@@ -175,7 +175,7 @@ terms, actual zero redemption, explicit missing-fixing/ICMA failures, curve role
 and the current convention/evidence matrix. FRN price/risk/DM/cash-flow calls
 fail with a `fixings` error until v1 can represent eligible history.
 Obsolete government zero-curve fields and YAS outputs have been removed;
-see [caller migration](../../docs/ROUTE-MIGRATION.md).
+see [caller migration](../../docs/internal/ROUTE-MIGRATION.md).
 
 ## C example
 

@@ -104,7 +104,7 @@ cargo run --locked -p convex --example library_workout --features schemars
 
 The shared JSON/C/Java/Excel/MCP/WASM dispatcher carries this request unchanged.
 Actual Windows/Excel and wasm32/browser execution still require those hosts.
-See [library API](LIBRARY-API.md) and [route migration](ROUTE-MIGRATION.md).
+See [library API](LIBRARY-API.md) and [route migration](internal/ROUTE-MIGRATION.md).
 
 Explicit contextual ACT/ACT ICMA price and same-cash yield inversion are now
 available over full original fixed/stepped/amortizing and legal workout cash.

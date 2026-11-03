@@ -1,129 +1,137 @@
 # convex-bonds
 
-Bond pricing and analytics for the Convex fixed income analytics library.
+Bond instruments for Rust: fixed-rate, zero-coupon, floating-rate, callable and
+sinking-fund bonds, with coupon schedules, accrued interest, cash flows and a
+yield solver. You describe the bond, ask for the cash flows after a settlement
+date, and price or solve a yield from them.
 
-## Overview
+Use it directly if you want the bond definitions and their dated cash without
+the wider analytics layer. Spreads, duration and other risk measures are in
+`convex-analytics`, which wraps these types.
 
-`convex-bonds` provides comprehensive bond analysis:
+## Where it fits
 
-- **Instruments**: Fixed coupon bonds, zero coupon bonds
-- **Pricing**: Present value, clean/dirty price, yield-to-maturity
-- **Cash Flows**: Schedule generation with business day adjustments
-- **Risk**: Duration, convexity, DV01, key rate durations
+`convex-bonds` builds on `convex-core` (dates, day counts, calendars, cash flow
+primitives), `convex-math` (solvers) and `convex-curves` (curves). The
+`convex-analytics` crate builds on it.
 
-## Features
-
-### Creating Bonds
-
-```rust
-use convex_bonds::prelude::*;
-use convex_core::types::{Date, Currency, Frequency};
-use rust_decimal_macros::dec;
-
-let bond = FixedBondBuilder::new()
-    .isin("US912828Z229")
-    .coupon_rate(dec!(0.025))  // 2.5%
-    .maturity(Date::from_ymd(2030, 5, 15).unwrap())
-    .frequency(Frequency::SemiAnnual)
-    .currency(Currency::USD)
-    .day_count("ACT/ACT")
-    .build()
-    .unwrap();
-```
-
-### Pricing
-
-```rust
-use convex_bonds::pricing::BondPricer;
-
-let settlement = Date::from_ymd(2025, 1, 15).unwrap();
-
-// Price from yield
-let result = BondPricer::price_from_yield(&bond, dec!(0.03), settlement).unwrap();
-println!("Clean Price: {}", result.clean_price);
-println!("Dirty Price: {}", result.dirty_price);
-println!("Accrued: {}", result.accrued_interest);
-
-// Calculate YTM from price
-let ytm = BondPricer::yield_to_maturity(&bond, result.clean_price, settlement).unwrap();
-```
-
-### Cash Flow Generation
-
-```rust
-use convex_bonds::cashflows::CashFlowGenerator;
-
-let schedule = CashFlowGenerator::generate(&bond, settlement).unwrap();
-
-for cf in schedule.iter() {
-    println!("{}: {} ({})", cf.date(), cf.amount(), cf.cf_type());
-}
-
-let accrued = CashFlowGenerator::accrued_interest(&bond, settlement).unwrap();
-```
-
-### Calendar Integration
-
-Use business day calendars for settlement and payment date adjustments:
-
-```rust
-use convex_core::calendars::{SIFMACalendar, Calendar, BusinessDayConvention};
-
-let cal = SIFMACalendar::new();
-
-// Calculate settlement date (T+1)
-let trade_date = Date::from_ymd(2025, 1, 15).unwrap();
-let settlement = cal.settlement_date(trade_date, 1);
-
-// Adjust payment dates
-let adjusted = cal.adjust(payment_date, BusinessDayConvention::ModifiedFollowing).unwrap();
-```
-
-### Risk Analytics
-
-```rust
-use convex_bonds::risk::RiskCalculator;
-
-let metrics = RiskCalculator::calculate(&bond, dec!(0.03), settlement).unwrap();
-
-println!("Macaulay Duration: {}", metrics.duration.macaulay);
-println!("Modified Duration: {}", metrics.duration.modified);
-println!("Convexity: {}", metrics.convexity);
-println!("DV01: {}", metrics.dv01);
-
-// Estimate price change for 50bp yield increase
-let price_change = RiskCalculator::estimate_price_change(
-    &metrics,
-    result.clean_price,
-    dec!(0.005),
-);
-```
-
-## Bond Types
-
-### FixedBond
-
-Standard fixed coupon bond with:
-- Periodic coupon payments
-- Principal at maturity
-- Configurable day count conventions
-
-### ZeroCouponBond
-
-Discount bond with:
-- No periodic coupons
-- Single payment at maturity
-- Issued below par
-
-## Installation
-
-Add to your `Cargo.toml`:
+## Install
 
 ```toml
 [dependencies]
-convex-bonds = { git = "https://github.com/sujitn/convex.git" }
+convex-bonds = "0.14"
+convex-core = "0.14"
+rust_decimal_macros = "1"
 ```
+
+## What's in it
+
+- `instruments`: `FixedRateBond`, `ZeroCouponBond`, `FloatingRateNote`,
+  `CallableBond`, `SinkingFundBond`, each with a builder.
+- `traits`: the `Bond` trait (cash flows, accrued interest, dates, identifiers)
+  that all instruments implement, plus `BondCashFlow`.
+- `cashflows`: `Schedule` and `ScheduleConfig` for coupon dates and stubs,
+  `AccruedInterestCalculator`, and the shared cash flow types from `convex-core`.
+- `contracts`: `BondTerms`, a complete serializable description of a bond that
+  can be rebuilt into an instrument, and projection of its cash flows.
+- `pricing`: `YieldSolver` and `YieldResult`, current yield, and helpers for
+  discounting dated cash.
+- `conventions`: day count, frequency and settlement presets for common
+  markets (US Treasury, US corporate, gilts, Bunds, JGBs, Eurobonds).
+- `options`: a binomial tree and a Hull-White short rate model for bonds with
+  embedded options.
+- `types`: identifiers (`Cusip`, `Isin`, `Figi`, `Sedol`), call and put
+  schedules, amortization schedules and price quote types.
+- `arrc` and `fixings`: compounded overnight rate coupons (SOFR style) and
+  fixing history.
+
+Several constructors return a `Result` (`build()`, `try_cash_flows`,
+`try_accrued_interest`). They refuse inconsistent input, such as a maturity
+before the issue date, instead of choosing a fallback.
+
+## Cash flows and accrued interest
+
+A 5% semi-annual bond maturing 15 May 2030, looked at on 20 June 2025:
+
+```rust
+use convex_bonds::instruments::FixedRateBond;
+use convex_core::types::{Date, Frequency};
+use rust_decimal_macros::dec;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // The coupon is a decimal, so 0.05 means 5%. Day count and calendar
+    // default to 30/360 US and SIFMA.
+    let bond = FixedRateBond::builder()
+        .cusip_unchecked("912828Z29")
+        .coupon_rate(dec!(0.05))
+        .issue_date(Date::from_ymd(2020, 5, 15)?)
+        .maturity(Date::from_ymd(2030, 5, 15)?)
+        .frequency(Frequency::SemiAnnual)
+        .build()?;
+
+    let settlement = Date::from_ymd(2025, 6, 20)?;
+
+    // 15 May to 20 June is 35 days on a 30/360 basis: 2.5 * 35 / 180.
+    let accrued = bond.try_accrued_interest(settlement)?;
+    println!("accrued per 100: {accrued}");
+    assert!(accrued > dec!(0.486) && accrued < dec!(0.487));
+
+    let flows = bond.try_cash_flows(settlement)?;
+    for cf in &flows {
+        println!("{}  {:>8}  {:?}", cf.date, cf.amount, cf.flow_type);
+    }
+    // Ten payments from November 2025 to May 2030; the last includes principal.
+    assert_eq!(flows.len(), 10);
+    Ok(())
+}
+```
+
+## Solving a yield
+
+`YieldSolver` takes the cash flows, a clean price per 100 and the accrued
+interest, and returns the yield that discounts the cash to the dirty price.
+
+```rust
+use convex_bonds::instruments::FixedRateBond;
+use convex_bonds::pricing::YieldSolver;
+use convex_core::types::{Date, Frequency};
+use rust_decimal_macros::dec;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let bond = FixedRateBond::builder()
+        .cusip_unchecked("912828Z29")
+        .coupon_rate(dec!(0.05))
+        .issue_date(Date::from_ymd(2020, 5, 15)?)
+        .maturity(Date::from_ymd(2030, 5, 15)?)
+        .frequency(Frequency::SemiAnnual)
+        .build()?;
+    let settlement = Date::from_ymd(2025, 5, 15)?;
+
+    let flows = bond.try_cash_flows(settlement)?;
+    let accrued = bond.try_accrued_interest(settlement)?;
+    let result = YieldSolver::new().solve(
+        &flows,
+        dec!(98.50),
+        accrued,
+        settlement,
+        bond.day_count(),
+        bond.frequency(),
+    )?;
+
+    println!("yield: {:.4}%", result.yield_percent()?);
+    Ok(())
+}
+```
+
+## Links
+
+- API documentation: <https://docs.rs/convex-bonds>
+- Bond terms and contracts: <https://github.com/sujitn/convex/blob/main/docs/BOND-CONTRACTS.md>
+- Cash flow primitives: <https://github.com/sujitn/convex/blob/main/docs/CASHFLOW-PRIMITIVES.md>
+- Accrued interest methods: <https://github.com/sujitn/convex/blob/main/docs/ACCRUED-METHODS.md>
+- Yield pricing: <https://github.com/sujitn/convex/blob/main/docs/YIELD-PRICING.md>
+- Repository: <https://github.com/sujitn/convex>
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+MIT. See LICENSE.

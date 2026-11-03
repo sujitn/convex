@@ -616,4 +616,4 @@ Node glue passes the complete original independent financial checks, but strict
 native-envelope parity exposes floating-point differences in full model/OIS
 outputs. These checks are distinct; exact WASM transport parity remains open.
 Windows/.NET/Excel/browser and other host/platform qualification remains separate.
-See [all remaining mandatory work](CVX-063-REMAINING.md).
+See [all remaining mandatory work](internal/CVX-063-REMAINING.md).

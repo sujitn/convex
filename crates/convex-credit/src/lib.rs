@@ -74,3 +74,8 @@ pub(crate) fn finite(value: f64) -> Result<f64, CdsError> {
     }
     Ok(value)
 }
+
+// Compile and run the README examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;

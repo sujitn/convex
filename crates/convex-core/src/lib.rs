@@ -60,3 +60,8 @@ pub mod prelude {
 pub use error::{ConvexError, ConvexResult};
 pub use types::{Currency, Date, Price, Yield};
 pub mod ids;
+
+// Compile and run the README examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;

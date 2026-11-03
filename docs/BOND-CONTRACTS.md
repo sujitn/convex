@@ -61,7 +61,7 @@ and original observation prefixes, including delayed claims and same-day
 scheduled principal reductions. Fixed and floating paths return the canonical
 `WorkoutProjection`; the former `FixedWorkoutProjection` name is removed.
 See [floating workout quotations](FLOATING-WORKOUTS.md) and
-[migration](ROUTE-MIGRATION.md).
+[migration](internal/ROUTE-MIGRATION.md).
 
 ## Coupon and principal meaning
 
@@ -215,8 +215,8 @@ construction/dispatch parity remain CVX-063/033. Service product admission still
 uses its reviewed fixed/zero scope. No new symbol, provider, storage or execution
 integration is introduced. All 30 mandatory areas, 174 combinations and 2,154
 Planned records remain; full model/market, LB0/LB1 and production certificates
-are pending. See [library coverage](LIBRARY-COVERAGE.md) and
-[assurance](ASSURANCE.md).
+are pending. See [library coverage](internal/LIBRARY-COVERAGE.md) and
+[assurance](internal/ASSURANCE.md).
 
 Explicit contextual ACT/ACT ICMA price and same-cash yield inversion are now
 available over full original fixed/stepped/amortizing and legal workout cash.

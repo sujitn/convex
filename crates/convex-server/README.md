@@ -240,7 +240,7 @@ its `runtime_id`, `revision` and result envelope. Seed the display from
 deduplicate by `(runtime_id, revision)`. REST calculators return their results in
 the response and send nothing on the WebSocket. The bond, ETF and portfolio
 subscriptions are retired and refused with `INVALID_MESSAGE`; see the
-[route migration](../../docs/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
+[route migration](../../docs/internal/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
 
 ## Migrating existing startup code
 

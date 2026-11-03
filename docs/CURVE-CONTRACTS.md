@@ -24,7 +24,7 @@ It constructs an exact dated deposit/FRA discount curve, adds a supplied
 continuous zero spread over that exact version, constructs a supplied survival
 curve and queries discount/forward/hazard/date conversion. It proves public
 reachability and analytic postconditions. It is not a library/model certificate.
-[The inventory](LIBRARY-COVERAGE.md) still retains all mandatory pending records.
+[The inventory](internal/LIBRARY-COVERAGE.md) still retains all mandatory pending records.
 
 ## Construction and separation of concerns
 

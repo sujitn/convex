@@ -223,7 +223,7 @@ No full bond/IRS/CDS/futures price, curve, lifecycle, host parity, market pack,
 performance or independent quantitative approval is inferred from these
 building-block checks. All 30 mandatory areas and 2,154 library records remain
 required; LB0/LB1 and production gates remain incomplete. See
-[library coverage](LIBRARY-COVERAGE.md) and [assurance](ASSURANCE.md).
+[library coverage](internal/LIBRARY-COVERAGE.md) and [assurance](internal/ASSURANCE.md).
 
 
 CVX-018 adds `CouponSchedule::generate_with_calendars` with distinct supplied

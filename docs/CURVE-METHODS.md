@@ -85,7 +85,7 @@ is disclosed; the discount origin identity is not extrapolated.
 The original checked `Nodes` route retains its method constraints. Use the
 new explicit source for these models. The older raw `DiscreteCurve` FlatForward
 tail no longer substitutes a flat raw value: checked queries reject it and
-its infallible compatibility query returns NaN. See [route migration](ROUTE-MIGRATION.md).
+its infallible compatibility query returns NaN. See [route migration](internal/ROUTE-MIGRATION.md).
 The older engine `CurveBuilder` cache has been removed; curves are stored as
 complete recipes in `CurveStore`. `BuiltCurve::from_snapshot` rejects `ZeroExtrapolation::FlatForward` rather than
 relabeling the supplied policy. Full checked flat-forward recipes are available

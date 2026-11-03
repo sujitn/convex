@@ -55,3 +55,8 @@ pub mod prelude {
 }
 
 pub use error::{MathError, MathResult};
+
+// Compile and run the README examples as doctests.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;

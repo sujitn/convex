@@ -1419,7 +1419,7 @@
     "crates/convex/tests/recovery_hedge.rs",
     "crates/convex/tests/residual_pnl.rs",
     "crates/convex/tests/standalone_book.rs",
-    "docs/ASSURANCE.md",
+    "docs/internal/ASSURANCE.md",
     "docs/BOND-CONTRACTS.md",
     "docs/BOND-QUOTES.md",
     "docs/CALIBRATION-SNAPSHOT-REPLAY.md",
@@ -1456,7 +1456,7 @@
     "docs/PRODUCT-UFR-CALIBRATION.md",
     "docs/QUOTE-RISK.md",
     "docs/RATE-CALIBRATION.md",
-    "docs/ROUTE-MIGRATION.md",
+    "docs/internal/ROUTE-MIGRATION.md",
     "docs/STANDALONE-WORKFLOWS.md",
     "docs/WORKOUT-QUOTATIONS.md",
     "excel/Convex.Excel.Tests/CashBasisHedgeTests.cs",
@@ -2705,10 +2705,10 @@
     "tests/scripts/settled_claims_pnl_schema.py",
     "tools/library/outstanding.py",
     "tools/library/test_outstanding.py",
-    "docs/CVX-063-REMAINING.md",
+    "docs/internal/CVX-063-REMAINING.md",
     "bindings/java/src/test/java/com/convex/LibraryCensusTest.java",
     "crates/convex/examples/library_host_census.rs",
-    "docs/JAVA-QUALIFICATION.md",
+    "docs/internal/JAVA-QUALIFICATION.md",
     "tests/scripts/library_host_census.py",
     "tests/scripts/test_library_host_census.py",
     "bindings/java/src/test/java/com/convex/TreasuryBillTest.java",
@@ -2812,7 +2812,7 @@
     "www/src/screens/Security.jsx",
     "crates/convex-wasm/src/checked_inputs_tests.rs",
     "tests/scripts/wasm_checked_inputs.cjs",
-    "docs/LIBRARY-COVERAGE.md",
+    "docs/internal/LIBRARY-COVERAGE.md",
     "crates/convex/tests/native_curves.rs",
     "crates/convex-ffi/tests/yas_output_retirement.rs",
     "tests/scripts/yas_output_retirement.cjs",
@@ -8840,7 +8840,7 @@
         "kind": "code"
       },
       {
-        "path": "docs/ROUTE-MIGRATION.md",
+        "path": "docs/internal/ROUTE-MIGRATION.md",
         "text": "# Removed government spread conveniences",
         "kind": "code"
       }
