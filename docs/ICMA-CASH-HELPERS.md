@@ -1,128 +1,138 @@
-# Contextual ACT/ACT ICMA cash helpers
+# ACT/ACT ICMA cash helpers
 
-`CashQuoteKind::ContextualIcmaYield { input }` admits an observed yield on a
-complete fixed `CashBondHelper`, using the same `PreparedIcmaQuotation` as
-[contextual quotations](ICMA-QUOTATIONS.md). Observation conversion, model
-repricing, native cash calibration, dependent quote risk and snapshot replay
-retain the full original helper. Coupon, schedule, nominal time, discount,
-inverse, consideration and curve mathematics have their existing owners.
+`CashQuoteKind::ContextualIcmaYield { input }` lets a fixed-rate `CashBondHelper`
+be quoted as an observed yield under the ACT/ACT ICMA convention. It uses the
+same `PreparedIcmaQuotation` as the [ICMA quotations](ICMA-QUOTATIONS.md). Yield
+conversion, model repricing, cash calibration, dependent quote risk and snapshot
+replay all keep the full helper. Coupon, schedule, nominal time, discount,
+inverse, consideration and curve mathematics are handled by the existing code.
 
-This is supplied-input engineering. CVX-063 remains partial, unaccepted and
-uncertified; all 2,154 mandatory records remain Planned. The controls establish
-the declared synthetic USD cases. They do not establish market Street yields,
-all conventions/models, external source freshness, an independent financial
-approval, actual unavailable hosts, production readiness or a latency SLA.
+The checks cover the synthetic USD cases declared in the tests. They do not
+cover market Street yields, other conventions and models, source freshness,
+independent review of the numerics, hosts that are not available here, or latency.
 
 ## Inputs and identity
 
-Use the existing `helper` operation with `cash_quote` or `cash_reprice`, or an
-existing complete `calibration` graph. A bond helper still supplies its full
-terms, trade/settlement, payment entitlement, quote revision, actual last-cash
-pillar, original native quote and absolute native-unit tolerance. The new tag
-requires every field below; there is no inferred context or default budget.
+Use the existing `helper` operation with `cash_quote` or `cash_reprice`, or a
+full `calibration` graph. A bond helper supplies its full terms, trade and
+settlement dates, payment entitlement, quote revision, last-cash pillar, quote
+and absolute tolerance in the quote's unit. The new tag requires every field
+below. There is no inferred context and no default budget.
 
 | `quote_kind.input` field | Contract |
 |---|---|
-| `sources` | Complete security, observed quote and quotation-policy pins; four actual independent payment/reset/observation/exercise calendar pins. |
-| `reference_context` | Exact revision, matching security revision, normal frequency and the full anchored contiguous nominal reference mesh covering original economic references and every consumed payment date. |
-| `convention` | Version1, exact reference-context and quotation-policy pins, explicit normal frequency, independent yield compounding and reference-entry work ceiling. |
-| `inverse` | Original closed decimal-yield lower/upper endpoints, dirty-price-per100 residual, annual parameter tolerance and 1..256 iterations. |
-| `position` | Original signed quantity, unit, currency and original-face reference quantity, for complete consideration diagnostics. It never scales the fit. |
-| `max_cash_evaluations` | Explicit positive cash-visit reservation ceiling across the observation and every model price/inverse in one build. |
+| `sources` | Security, observed quote and quotation-policy pins; four independent payment/reset/observation/exercise calendar pins. |
+| `reference_context` | Revision, matching security revision, normal frequency and the anchored contiguous nominal reference mesh. The mesh covers the economic reference periods and every consumed payment date. |
+| `convention` | Version1, reference-context and quotation-policy pins, explicit normal frequency, independent yield compounding and reference-entry work ceiling. |
+| `inverse` | Closed decimal-yield lower and upper endpoints, dirty-price-per100 residual, annual parameter tolerance and 1..256 iterations. |
+| `position` | Signed quantity, unit, currency and original-face reference quantity, for full consideration diagnostics. It never scales the fit. |
+| `max_cash_evaluations` | Positive ceiling on cash visits, shared by the observation and every model price and inverse in one build. |
 
-The security ID equals the helper ID; its context pin equals its source pin.
-The observed source version equals `helper.quote_version`. Changing both
-security pins consistently declares a different supplied revision. There is no
-registry in this pure library to assert that revision's freshness or approval.
-Snapshot capture must retain the source revisions in its actual provenance.
+The security ID equals the helper ID, and the context pin equals the source pin.
+The observed source version equals `helper.quote_version`. Changing both security
+pins consistently declares a different revision. This library has no registry to
+check that revision's freshness or approval. Snapshot capture must keep the
+source revisions in its provenance.
 
-Native callers bind `CashHelperResources::IcmaBond` with actual full calendars
-and independently declared pins. Those pins must equal the helper's sources.
-Shared callers use the existing calendar-pin resources, resolved against the
-actual supplied calendar tables. Unversioned `Bond` resources cannot admit this
-helper. Missing, conflicting, stale or incomplete bound references fail before
-fitting. Normal coupon frequency, contractual accrued basis, yield compounding
-and curve ACT365F time remain separate.
+Rust callers bind `CashHelperResources::IcmaBond` with full calendars and
+independently declared pins. Those pins must equal the helper's sources. Shared
+callers use the existing calendar-pin resources, resolved against the calendar
+tables they pass in. Unversioned `Bond` resources cannot be used with this
+helper. Missing, conflicting, stale or incomplete references fail before fitting.
+The normal coupon frequency, the accrued basis in the contract, yield compounding
+and the curve's ACT365F time stay separate.
 
-The quote unit is explicitly `DecimalRate`, `PercentRate` or `BasisPoints`.
-The original observation is retained exactly. `PricePer100` and inferred unit
-conversions are invalid here. The observation must lie in the original declared
-inverse domain. Decimal contractual steps, principal allocations and signed
-quantities retain the existing exact string serialization.
+The quote unit is explicitly `DecimalRate`, `PercentRate` or `BasisPoints`. The
+observation is kept exactly as given. `PricePer100` and inferred unit conversions
+are invalid here. The observation must lie in the declared inverse domain.
+Decimal contractual steps, principal allocations and signed quantities keep the
+existing string serialization.
 
 ## Conversion, fitting and diagnostics
 
-Observed yield conversion discounts every original entitled coupon and
-principal payment through the same checked contextual cash/time owner. Dirty
-price, actual accrued/rebate and clean price normalize by original face.
-Consideration uses original signed quantity and dirty price. Stepped coupons,
-amortization, split principal retirement/redemption, delayed claims, payment
-Include/Exclude and actual ex-coupon ownership are preserved without averaging.
-Accrued resets on the actual payment date even when same-day cash is included;
-other unpaid future-period accrued remains under its original contract.
+Converting an observed yield discounts every entitled coupon and principal
+payment with the same validated cash and time code. Dirty price, accrued or
+rebate, and clean price are normalized by original face. Consideration uses the
+signed quantity and dirty price.
 
-Model repricing first prices that same full cash using the existing government
-or explicit issuer-basis model. Its dirty price is then inverted by the same
-contextual closed-domain yield owner and converted to the helper's original
-native unit. The model yield and native quote residual are separate from the
-original dirty-price inverse residual. Inapplicable floating, optional,
-mixed-sign inverse or other model requirements retain their explicit failures.
+The following are preserved without averaging:
 
-Conversion includes an optional complete `icma` quotation and `icma_work`.
-Bond model valuations include the complete observed conversion, original model
-cash price, full contextual model inverse and cumulative reservation diagnostics.
-Old context-free results omit these optional fields. Direct `cash_reprice`
-reports original native residuals and `within_tolerance`; it does not fit or
-silently accept an off-market supplied curve.
+- stepped coupons and amortization;
+- split principal retirement and redemption;
+- delayed claims;
+- payment Include/Exclude;
+- ex-coupon ownership.
 
-All supplied cash recipes and original contexts are admitted before any graph
-family's fit. No difficult or unselected helper is removed. Piecewise fitting
-retains actual cash pillars and original endpoints/iteration limits; global
-fitting retains original scales, weights, numerical controls and identification.
-For contextual helpers the solve target additionally uses the supplied inverse
-parameter precision, converted to original native units for fit residuals.
-Piecewise parameter stopping also retains that precision in annual units.
-Final acceptance still requires every original native helper tolerance and
-original inverse price tolerance. No bracket expansion or retry is introduced.
+Accrued resets on the payment date even when same-day cash is included. Accrued
+for other unpaid future periods stays under the original contract.
 
-Quote scenarios retain original keys and hypothetical source revisions, bump
-the actual observed yield in its original units, then rebuild all declared
-dependencies. An ICMA quote factor's convention version must match the actual
-quotation policy. Tenor labels use the existing positive D/W/M/Y/parallel/spot
-contract; actual helper identity and revision select the observation. Signed
-risk retains the original five PVs and full/half-bump stability checks.
+Model repricing first prices the same cash with the existing government or
+issuer-basis model. Its dirty price is then inverted by the same closed-domain
+yield solver and converted to the helper's quote unit. The model yield and the
+quote residual are separate from the dirty-price inverse residual. Floating and
+optional bonds, mixed-sign inverses and other unmet model requirements keep
+their explicit failures.
 
-## Bounded work and reproducibility
+Conversion includes an optional `icma` quotation and `icma_work`. Bond model
+valuations include the observed conversion, the model cash price, the model
+inverse and cumulative reservation diagnostics. Results from the context-free
+quotes omit these optional fields. Direct `cash_reprice` reports residuals in the
+quote's unit and `within_tolerance`. It does not fit, and it does not silently
+accept an off-market curve.
 
-Reference preparation visits the complete nominal mesh once per prepared
-helper. Declared reference caps sum to at most16,777,216 entries; the mixed graph
-reserves two admission/preparation passes under that aggregate ceiling before
-any numerical fit. Actual per-helper prepared counts remain in diagnostics.
+All cash recipes and contexts are validated before any graph family is fitted.
+No helper is dropped for being difficult or unselected. Piecewise fitting keeps
+the cash pillars and the endpoints and iteration limits. Global fitting keeps its
+scales, weights, numerical controls and identification checks.
 
-Cash-visit caps sum to at most67,108,864 per build or reprice. Observation
-reserves one complete cash pass. Before each model price is evaluated, the owner
-reserves one full model-price pass plus the unchanged inverse upper reservation
-of `max_iterations + 8` full passes, each including the original cash count
-plus two boundary visits. Exhaustion fails before that valuation. Existing
-16,384 helper evaluations, 128 total helpers and 64-recipe graph limits also
-apply. Fixed five-PV risk makes at most five bounded graph valuations; rebuilding
-does not expand any helper's domain, precision or per-build reservation. These
-explicit arithmetic bounds are work limits, not latency measurements.
+For contextual helpers the solve target also uses the inverse parameter precision
+you supply, converted to the quote's unit for fit residuals. Piecewise parameter
+stopping also keeps that precision in annual units. Final acceptance still needs
+every helper tolerance and the dirty-price inverse tolerance. No bracket is
+expanded and nothing is retried.
 
-Complete serialized recipes retain all source/context/policy/calendar/quantity,
-native quotes and numerical controls. File snapshot capture/reopen rebuilds the
-actual graph and compares complete diagnostics; it does not substitute fitted
-nodes. Missing context, changed provenance or captured diagnostics fail replay.
-Native capture output is reproducibility evidence, never a financial oracle.
+Quote scenarios keep their keys and hypothetical source revisions. They bump the
+observed yield in its own unit, then rebuild all declared dependencies. An ICMA
+quote factor's convention version must match the quotation policy. Tenor labels
+use the existing positive D/W/M/Y/parallel/spot contract, and the helper identity
+and revision select the observation. Signed risk keeps the five PVs and the
+full-bump and half-bump stability checks.
 
-The existing context-free `CashflowYield` and explicitly dated output quotation
-routes remain valid with their own original conventions. Changing their day
-count tag to ICMA cannot supply this context. Rust users matching or copying
-`CashQuoteKind` must borrow or clone it; the new owned context makes the enum
-`Clone` rather than `Copy`. No provider, storage, MQ, runtime or ledger authority
-is introduced, and the C ABI retains its existing26 exports.
+## Bounded work
 
-## Reproduce the supplied engineering controls
+Reference preparation visits the nominal mesh once per prepared helper. The
+declared reference caps sum to at most 16,777,216 entries. The mixed graph
+reserves two validation and preparation passes under that ceiling before any
+fit. The prepared counts per helper stay in the diagnostics.
+
+Cash-visit caps sum to at most 67,108,864 per build or reprice. The observation
+reserves one full cash pass. Before each model price is evaluated, the code
+reserves one full model-price pass plus the inverse upper reservation of
+`max_iterations + 8` full passes, each including the cash count plus two
+boundary visits. If the budget is exhausted, the valuation fails before it runs.
+
+The existing limits of 16,384 helper evaluations, 128 helpers and 64 recipes per
+graph also apply. Fixed five-PV risk makes at most five bounded graph valuations.
+Rebuilding does not widen any helper's domain, precision or per-build
+reservation. These are work limits, not latency measurements.
+
+Serialized recipes keep all source, context, policy, calendar and quantity
+settings, along with quotes and numerical controls. File snapshot capture and
+reopen rebuilds the graph and compares the full diagnostics. It does not
+substitute the fitted nodes. Missing context, changed provenance or changed
+diagnostics fail the replay. Captured native output shows reproducibility only;
+it is not a financial reference.
+
+The existing context-free `CashflowYield` and the dated output quotation routes
+remain valid with their own conventions. Changing their day count tag to ICMA
+cannot supply this context.
+
+Rust users who match on or copy `CashQuoteKind` must borrow or clone it. The new
+owned context makes the enum `Clone` rather than `Copy`. No provider, storage,
+message queue, runtime or ledger is involved, and the C ABI keeps its existing 26
+exports.
+
+## Reproduce the checks
 
 ```sh
 python3 tests/scripts/icma_helpers_reference.py
@@ -140,22 +150,23 @@ cargo run --locked -p convex --example icma_helpers --no-default-features
 cargo run --locked -p convex --example icma_helpers --features schemars
 ```
 
-The predeclared Decimal60 controls retain the raw requests, complete independent
-cash/time/price/accrued/yield/invoice/fit/five-PV answers and every failed command.
-Separate admission records retain strict framing failures and correct the
-requests without changing financial answers, domains or bounds. Fresh native
-envelopes test actual C and adapter transport only. CI also validates the actual
-schema and prepares actual Java and Windows Excel transport tests; local
-availability is reported in private execution evidence.
+The Decimal60 controls were declared before the comparison. They keep the raw
+requests, the independent cash, time, price, accrued, yield, invoice, fit and
+five-PV answers, and every failed command. Separate validation records keep the
+strict framing failures and correct the requests without changing financial
+answers, domains or bounds. Freshly captured native outputs test the C and
+adapter transport only. CI also validates the schema and prepares the Java and
+Windows Excel transport tests.
 
 The nominal time context follows the need for frequency and schedule information
 described in [Strata's ACT/ACT ICMA documentation](https://strata.opengamma.io/day_counts/).
-Composition through the full original bond price is consistent with the
+Composing through the full bond price is consistent with the
 [QuantLib bond-helper implementation](https://github.com/lballabio/QuantLib/blob/master/ql/termstructures/yield/bondhelpers.cpp).
-These design references are not new independent executions or certificates.
+These references informed the design. They are not independent runs of the
+calculation.
 
-The existing cash-calibration test adds one explicit clone to reuse its quote
-tag. Its exact original complete source is retained as an immutable fixture,
-and a checked migration proves every input, formula, bound and assertion is
-unchanged. Its live source fingerprint requires an explicit refresh with
-independent reviewer approval under the repository assurance policy.
+The existing cash-calibration test adds one explicit clone to reuse the quote
+tag. Its original source is kept as an immutable fixture, and a checked migration
+shows that every input, formula, bound and assertion is unchanged. Refreshing its
+source fingerprint needs an explicit reviewer approval under the repository
+assurance policy.

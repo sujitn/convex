@@ -1,35 +1,36 @@
-# Checked yield scalar measures
+# Yield scalar measures
 
-Current yield, arithmetic simple-yield estimates and scalar yield reporting now
-use checked native operations in `convex_bonds::pricing::yield_scalars`. The native
-and analytics convenience functions delegate to that owner. Percentage/Decimal
-methods on `YieldResult` and `YieldEngineResult` return `Result`; propagate errors
-with `?`. Analytics reexports the native engine result instead of maintaining a
-second result definition. Existing solver/price/accrued conventions are separate.
+Current yield, arithmetic simple-yield estimates and scalar yield reporting live in
+`convex_bonds::pricing::yield_scalars`. The functions in `convex-bonds` and the
+convenience functions in `convex-analytics` delegate to that module. Each one
+validates its input and returns an error instead of guessing.
+
+Percentage and Decimal methods on `YieldResult` and `YieldEngineResult` return
+`Result`; propagate errors with `?`. Analytics reexports the `convex-bonds` engine
+result instead of keeping a second result definition. Solver, price and accrued
+conventions are separate.
 
 Nonfinite values, nonpositive price/time/face, overflow and loss of a nonzero value
 to zero fail. Signed coupon/yield values and true zeros remain valid. Decimal
-reporting retains binary64; it does not reconstruct an original decimal quote.
-Checked Decimal current/simple calculations preserve the original operator order,
-units and rounding on admitted inputs, and report arithmetic failure rather than
-panicking. The original independently tested financial cases and bounds remain.
+reporting retains binary64; it does not reconstruct the decimal quote. Checked
+Decimal current/simple calculations keep the same operator order, units and
+rounding as before on valid inputs, and report arithmetic failure rather than
+panicking.
 
-A price per100 must be paired with annual coupon cash per100. Both original
-from-bond helpers previously divided face-sized coupon cash by that quote: a5%
-bond with face5000 at price100 returned decimal2.5 or250%. The checked constant-
-coupon owners validate actual positive face and return decimal0.05 or5%, just as
-for face100. A current/simple scalar is not a complete stepped or floating bond
-valuation, instrument yield, market convention or executable hedge instruction.
+A price per 100 must be paired with annual coupon cash per 100. Both from-bond
+helpers used to divide face-sized coupon cash by that quote: a 5% bond with face
+5000 at price 100 returned decimal 2.5, or 250%. The constant-coupon functions now
+validate the positive face and return decimal 0.05, or 5%, just as for face 100.
+A current or simple yield is not a complete stepped or floating bond valuation, an
+instrument yield, a market convention or a hedge instruction.
 
-The strict shared `yield_scalar` operation exposes explicit coupon/price inputs,
-original face where applicable, and distinct decimal-rate/percentage outputs.
-Outputs retain `unit`, `representation` and `value`; Decimal inputs are strings.
-Use `cargo run --locked -p convex --example yield_scalars` for the independent
-scalar and failure corpus, or add `--features schemars -- --emit-schema` to emit
-the complete request schema. C/Java/Excel/MCP/WASM share the native JSON route;
-actual source-bound host qualification remains separate from capability claims.
+The strict shared `yield_scalar` operation takes explicit coupon and price inputs,
+the face where applicable, and returns distinct decimal-rate and percentage
+outputs. Outputs carry `unit`, `representation` and `value`; Decimal inputs are
+strings. Use `cargo run --locked -p convex --example yield_scalars` for the scalar
+and failure corpus, or add `--features schemars -- --emit-schema` to emit the
+request schema. The C, Java, Excel, MCP and WASM bindings share the Rust JSON route.
 
-The raw general yield engines, contextual ICMA time preparation, accrued/ex-coupon
-shortcuts and remaining infallible price helpers are still unqualified work.
-CVX-063 stays open. Windows/Excel and independentCVX064/065 require their own
-execution/approval; no market/model/library/production/latency certificate follows.
+Not yet covered: the general yield engines, contextual ICMA time preparation,
+accrued and ex-coupon shortcuts, and the remaining price helpers that cannot
+return an error. Testing in Windows and Excel is also pending.

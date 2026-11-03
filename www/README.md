@@ -2,26 +2,28 @@
 
 A browser workstation for bond analytics. Every analytic (price, yield, spread,
 risk, curve, schedule) comes from the Convex library, compiled to WebAssembly and
-called through its strict supplied-input API, `library(request_json)`. Market data
-comes straight from free public sources or from you, and is shown as supplied;
-holiday tables are generated in the browser. Nothing is fabricated when a source
-or calculation fails.
+called through its input-validating API, `library(request_json)`, which returns an
+error instead of guessing when an input is bad. The app lives in `www/`. Market
+data comes straight from free public sources or from you, and is shown as
+received; holiday tables are generated in the browser. Nothing is made up when a
+source or calculation fails.
 
-Live: <https://sujitn.github.io/convex/>
+Live: <https://sujitn.github.io/convex/>, deployed from `main` by
+`.github/workflows/pages.yml`.
 
 ## Functions
 
 | Code | Screen | Library operations |
 | --- | --- | --- |
 | `MKT` | Market data: Treasury par curve and bill rates, Treasury auction results, NY Fed reference rates and SOFR history, ECB euro-area spot curves and €STR, Bank of Canada benchmark yields and CORRA. Curve values are editable, tenors can be added and whole tables pasted; edits are marked and kept in this browser (rates and auction results are shown as published). **Your data** holds the curves and bonds you supply and exports/imports everything you entered. | `calibration.build` |
-| `CRV` | Curve workbench: native par-coupon calibration (UST, Canada, your par curves), OIS calibration from your swap rates, supplied spot nodes (ECB, your zero curves), zero/forward/discount sampling, point queries, calibration repricing table, cross-curve comparison. | `calibration.build`, `curves`, `curve_query` |
+| `CRV` | Curve workbench: par-coupon calibration (UST, Canada, your par curves), OIS calibration from your swap rates, spot nodes you pass in (ECB, your zero curves), zero/forward/discount sampling, point queries, calibration repricing table, cross-curve comparison. | `calibration.build`, `curves`, `curve_query` |
 | `SEC` | Security description: actual Treasuries from auction results, editable examples (callable, step-up, sinking fund, euro), bonds you import from a spreadsheet, full `BondTerms`, the engine-generated schedule. | `bond.cashflows` |
 | `YAS` | Yield and spread: quote by price (decimal or 32nds), yield, Z-spread or G-spread. Treasuries open on their curve-implied price. ICMA yield and four other conventions, current and simple yield, Z-spread over the government curve or a curve you choose (Z-spread to swaps over an OIS curve), G-spread against actual benchmark bonds (the on-the-run Treasuries or bonds you pick, in any currency you have bonds in), interpolated by maturity or the same-maturity bond, at curve-implied, imported or typed prices, duration, convexity, DV01, CS01, invoice, ±100bp ladder, workouts for callables. | `icma_quotation`, `bond.price`, `bond.yield_inverse`, `bond.spread_inverse`, `government_spread`, `government_spread_price`, `cash_security.invoice`, `yield_scalar`, `workout` |
-| `CFL` | Cash flows with native discount factors on the chosen curve; the PV column reconciles to the engine price. | `bond.cashflows`, `curve_query`, `bond.price` |
+| `CFL` | Cash flows with discount factors on the chosen curve; the PV column reconciles to the engine price. | `bond.cashflows`, `curve_query`, `bond.price` |
 | `SCN` | Thirteen government-curve scenarios and par-quote key-rate durations, each by full recalibration and repricing at constant Z-spread. | `calibration.build`, `bond.price` |
 | `OAS` | Callables on a Hull-White one-factor tree over the chosen discount curve: OAS, option value, effective duration and convexity, OAS by volatility, workouts, exercise schedule, tree convergence. | `optional_bond.*`, `workout` |
 | `FRN` | SOFR floating-rate notes, compounded in arrears (lookback, observation shift or lag, lockout, payment delay): quote by clean price or discount margin, accrued from the published NY Fed fixings, the current coupon's fixings and projected days, every coupon marked fixed, partly fixed or projected, DM01 and spread duration (DM ± 1bp), IR01 and rate duration (SOFR curve ± 1bp, coupons re-projected), a DM ladder, and the DM to each call date for callable notes. Your own notes from a terms form or a pasted table. | `bond.construct`, `bond.price`, `bond.spread_inverse`, `floating_workout` |
-| `CDS` | Credit default swaps: credit curves from par spreads you supply (entity, seniority, recovery, restructuring clause, 6M–10Y), natively calibrated to a survival curve on your SOFR/€STR swap curve or, labelled, the government curve; repricing table, survival, default probability and hazard by tenor; a standard contract (roll-date maturity, USD 100/500bp or EUR 25/100/300/500/750/1000bp coupon, buy or sell protection) with points upfront, cash amount, par spread, legs, RPV01, CS01 overall and by tenor, recovery and discount sensitivity, the premium leg, and spread ↔ upfront conversion. | `calibration.build`, `curve_query`, `cds.price`, `cds.convert`, `credit_risk.sensitivity`, `credit_risk.scenario` |
+| `CDS` | Credit default swaps: credit curves from par spreads you supply (entity, seniority, recovery, restructuring clause, 6M–10Y), calibrated to a survival curve on your SOFR/€STR swap curve or, labelled, the government curve; repricing table, survival, default probability and hazard by tenor; a standard contract (roll-date maturity, USD 100/500bp or EUR 25/100/300/500/750/1000bp coupon, buy or sell protection) with points upfront, cash amount, par spread, legs, RPV01, CS01 overall and by tenor, recovery and discount sensitivity, the premium leg, and spread ↔ upfront conversion. | `calibration.build`, `curve_query`, `cds.price`, `cds.convert`, `credit_risk.sensitivity`, `credit_risk.scenario` |
 | `BILL` | Treasury bills on the official convention: discount rate, investment rate and price from each other, and the daily bill curve. | `zero.treasury_bill` |
 | `CAL` | The rule-generated holiday tables each request carries, and a settlement calculator. | — |
 | `API` | A console for `library()` with templates built from the current security and curve, and a browser for the generated request schema. | any |
@@ -58,10 +60,10 @@ or a terminal export. Under `MKT` → Your data:
   - *OIS swap rates* for SOFR, €STR, SONIA or CORRA. Each tenor is one
     spot-starting par swap, annual fixed against compounded overnight, on the
     index's calendar, spot lag, payment delay and day count (all editable). The
-    native rate calibration fits a Discount-role curve with an explicitly
+    rate calibration fits a Discount-role curve with an explicitly
     declared zero-basis overnight projection; every swap reprices to about 1e-10.
     The request carries one publication record per overnight observation date,
-    and one request admits at most 4,096 items per array; the app stops at 4,000
+    and one request accepts at most 4,096 items per array; the app stops at 4,000
     to leave room, so a single fit reaches about 15 years. Supply longer points
     as a zero curve. The calendar follows the index.
   - *Par yields* in USD, EUR, GBP or CAD: the same par-coupon calibration as
@@ -90,7 +92,7 @@ or a terminal export. Under `MKT` → Your data:
   coupon date. A pasted price becomes the bond's opening quote on `YAS`.
   "Copy template" puts the header and the current on-the-run Treasuries on the
   clipboard as a starting sheet.
-- **Benchmark prices.** On `YAS`, type actual prices for the on-the-run
+- **Benchmark prices.** On `YAS`, type real prices for the on-the-run
   Treasuries; G-spread uses yours and labels them.
 - **Securities.** On `SEC`, copy any bond as a custom security and edit its terms.
 - **Export and import.** Everything above, and the spread curve chosen for
@@ -118,7 +120,7 @@ in business days; a table of floaters needs no Coupon column. Every request carr
   the end of the trade date must be there: if it is not, the engine reports it
   missing and the screen offers a reload. Published history is never projected.
 - **Publications**: one expected publication per observation date from the
-  first unpaid coupon to maturity; one request admits about 15 years of them.
+  first unpaid coupon to maturity; one request accepts about 15 years of them.
 - **Curves**: your SOFR OIS curve (`MKT` → Your data, or the example-rates
   button on `FRN`) as the collateral discount curve plus its zero-basis
   `OvernightProjection` view (`<curve>.ON`), the same view its calibration
@@ -172,8 +174,8 @@ set marked "Example spreads". Curves are kept in this browser.
   CS01 by tenor is the engine's signed central ±1bp per quote with the curve
   refitted; the overall CS01 moves every quote together. Recovery risk is shown
   with spreads held (hazard refitted) and with survival held.
-- **Not offered**: bond–CDS basis. The engine's `bond_cds_hedge` admits a
-  supplied bond/CDS mapping and residual basis but returns no basis or hedge
+- **Not offered**: bond–CDS basis. The engine's `bond_cds_hedge` accepts a
+  bond/CDS mapping you pass in and residual basis but returns no basis or hedge
   ratio, and bonds here carry no issuer identity to map.
 
 ## What the engine is given
@@ -238,7 +240,7 @@ npm start                 # http://localhost:3000
 Tests:
 
 ```sh
-npm test                  # startup admission, market parsers, paste and data import (offline)
+npm test                  # startup checks, market parsers, paste and data import (offline)
 npm run build:wasm:node   # wasm-pack --target nodejs → .engine-node/
 npm run test:engine       # every request builder against the real engine
 ```

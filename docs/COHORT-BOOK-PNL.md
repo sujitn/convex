@@ -1,9 +1,12 @@
-# Cohort-owned cash and actual physical delivery reconciliation
+# Cohort P&L: lots, cash entitlements and physical delivery
 
-`cohort_book_pnl` extends the pure causal reconciliation contract with explicit
-original lots, cash entitlements and actual physical asset/invoice handoff. Use
-`convex::library::execute`, shared JSON, `convex_library`, MCP or native WASM.
-The existing `book_pnl` contract remains available for its original scope.
+`cohort_book_pnl` extends the causal book P&L reconciliation with explicit lots,
+cash entitlements and physical delivery of securities and invoice cash. It runs
+through `convex::library::execute`, shared JSON, `convex_library`, MCP or WASM.
+The existing `book_pnl` operation is unchanged for its own scope.
+
+"Checked" below means the function validates its input and returns an error
+instead of guessing.
 
 ```sh
 cargo run --locked -p convex --example cohort_pnl
@@ -13,607 +16,668 @@ cargo test --locked --all-features -p convex -p convex-ffi -p convex-mcp -p conv
 cargo test --locked --all-features -p convex --test cohort_pnl_boundaries -- --test-threads=1
 ```
 
-The strict input contains the same complete `book` resources, products, markets,
+The input holds the same `book` resources, products, markets,
 before/ordered/standalone points and numerical policies described in
-[CAUSAL-BOOK-PNL.md](CAUSAL-BOOK-PNL.md), plus:
+[CAUSAL-BOOK-PNL.md](CAUSAL-BOOK-PNL.md). It adds these fields:
 
 | Field | Meaning |
 |---|---|
-| `cohorts` | One exact signed original lifecycle lot per expected holding, in the same order. |
-| `cohorts[].acquisition` | Already owned at opening, one full actual fill, or the checked physical delivery from one exact future. |
-| `cohorts[].disposal_fill` | Optional full actual disposal of a nonphysical acquired original lot. Physical stock uses exact `physical_disposals` facts. |
-| `cohorts[].entitlements` | Every actual replayed original cash key appears exactly once with an explicit owned/excluded decision and supplied immutable legal source. |
-| `cohorts[].entitlements[].residual` | Optional distinct legal residual ID, owned fraction and exact acquisition cutoff with the complete original prior receipt IDs. |
-| `physical_deliveries` | Exact original future, separate cash-bond cohort and actual delivered security revision. |
+| `cohorts` | One signed lot per expected holding, in the same order. |
+| `cohorts[].acquisition` | Already owned at opening, one full fill, or the checked physical delivery from one future. |
+| `cohorts[].disposal_fill` | Optional full disposal of an acquired lot that is not physical. Physical stock uses `physical_disposals` facts. |
+| `cohorts[].entitlements` | Every replayed cash key appears exactly once, with an explicit owned or excluded decision and an immutable legal source that you supply. |
+| `cohorts[].entitlements[].residual` | Optional distinct legal residual ID, owned fraction, and acquisition cutoff with the complete list of prior receipt IDs. |
+| `physical_deliveries` | The future, a separate cash-bond cohort and the delivered security revision. |
 
-No scalar price, invoice, delivered face, duration or Greek can replace a native
-owner. Current quantity conserves opening exposure plus actual fills plus exact
-checked security receipts. Partial fills use separate original cohorts. Original
-native lifecycle quantity stays fixed and determines its earned cash; hypothetical
-pending quantity, actual interval executions and remaining contractual fraction
-remain distinct. Disposal ends the lot's held future exposure while its declared
-earned entitlements and their actual receipts remain. An acquired lot explicitly
-includes or excludes prior outstanding claims. A `residual` excludes the exact
-previously received cash from its separately identified remaining claim. Legal entitlement is supplied, never
-inferred from trade date, a calendar-day shortcut or a model-selected CTD.
+## Lots and entitlements
 
-Every original obligation remains visible in the replayed state and mark, including
-excluded cash with its original exact key, dates, proposed/recorded/outstanding
-amounts and provenance. `entitled` explains whether its value and recorded cash
-belong to this cohort. Future claims use the exact same-currency collateral DF
-ratio; due arrears use explicit `nominal` policy or fail under `reject`. Unknown
-recovery and unavailable original conditional-cash models remain incomplete or
-unsupported. No credit, collection cost, penalty or funding model is invented.
+No scalar price, invoice, delivered face, duration or Greek can replace the Rust
+owner of a value. Current quantity is the opening exposure plus fills plus checked
+security receipts. Partial fills use separate cohorts. The lot's quantity stays
+fixed and determines the cash it earns. Hypothetical pending quantity, executions
+in the interval and the remaining contractual fraction are kept distinct.
 
-For active CDS, `price_cds_remaining_exposure` uses the same original integration,
-curves, premium/protection and fair quotation equations, while excluding initial
-cash for separate exact lifecycle claim valuation. Actual `Pending` remains
-pending after its original settlement date. Partial receipts reduce its exact
-outstanding claim; only full original actual receipt changes payment state to
-`Settled`. No fictitious paid flag is used to bypass the original pricer. The
-existing `price_cds` contract and its stricter initial-payment cutoff remain.
-Original delayed conditional premium guards also remain.
+Disposal ends the lot's exposure to the future, but its declared earned
+entitlements and their receipts remain. An acquired lot explicitly includes or
+excludes prior outstanding claims. A `residual` excludes the cash already received
+from its separately identified remaining claim. Legal entitlement is always
+supplied. It is never inferred from the trade date, a calendar-day shortcut or a
+model-selected CTD.
 
-Physical delivery uses the actual original checked delivery event, complete
-invoice-security terms, legal notice, official cleared points, conversion factor,
-accrued and contractual rounding. Its asset owner must contain those exact full
-bond terms, security revision, signed native face, currency and reference size.
-Projected asset and invoice effects are separate from actual security and cash
-receipts. Security can arrive before or after invoice cash; neither implies the
-other. A missing original cash-bond valuation is incomplete, never zero.
+Every obligation stays visible in the replayed state and the mark. That includes
+excluded cash, with its key, dates, proposed, recorded and outstanding amounts and
+provenance. `entitled` says whether its value and recorded cash belong to this
+cohort. Future claims use the same-currency collateral discount-factor ratio. Due
+arrears use the explicit `nominal` policy or fail under `reject`. Unknown recovery
+and unavailable conditional-cash models stay incomplete or unsupported. No credit,
+collection cost, penalty or funding model is invented.
 
-The future ends quote exposure but retains its explicit actual unrounded official
-quote anchor for model gain. Rounded variation obligations stay separate from
-that quote gain. The asset cohort values both received security and the exact
-remaining security receivable/delivery obligation through the original full cash
-owner. Its `physical_delivery` retains the checked proposal/receipt, exact face,
-invoice outstanding/PV and receipts. Invoice value and recorded invoice cash are
-assigned to this cash owner once; the future retains full invoice provenance
-without counting the invoice again as variation cash. Partial invoice receipts
-reduce the liability and increase actual cash by equal signed amounts.
+For an active CDS, `price_cds_remaining_exposure` uses the same integration,
+curves, premium and protection, and fair quotation equations. It excludes initial
+cash so that the cash can be valued as a lifecycle claim. A `Pending` payment stays
+pending after its settlement date. Partial receipts reduce its outstanding claim,
+and only a full receipt changes the payment state to `Settled`. No fictitious paid
+flag is used to bypass the pricer. The `price_cds` contract and its stricter
+initial-payment cutoff are unchanged, and so are the delayed conditional premium
+guards.
 
-Native-currency and reporting totals continue to separate cash PV from futures
-quote levels. Each point uses exact direct FX. Complete ordered, independently
-available standalone and nonlinear interaction effects and actual unclamped
-residuals remain. These are model and supplied-fact reconciliations, without
-ledger authentication, posting, risk reservations, fencing or execution authority.
+## Physical delivery
 
-Every active delivery mark revalues the full original basket and retains all
-independent selection/fair winners, ties and switches. `delivery_comparisons`
-records the actual selected security alongside the last complete model CTD state;
-an actual delivery outside a model winner set remains an explicit actual fact.
-There is no assumed CTD exercise or inferred delivery-option value.
+Physical delivery uses the checked delivery event, the full invoice-security
+terms, the legal notice, the official cleared points, the conversion factor, the
+accrued interest and the contractual rounding. The asset must contain those bond
+terms, the security revision, the signed face, the currency and the reference
+size. Projected asset and invoice effects are separate from actual security and
+cash receipts. Security can arrive before or after the invoice cash, and neither
+implies the other. A missing cash-bond valuation is incomplete, never zero.
 
-All previous numerical controls/bounds, correct routes, native product/curve/
-calibration/history/domain/solver/convergence owners and hard work limits remain.
-Complete replay and cohort/claim/link admission precedes financial marking.
-Failures return no partial accepted book. Each original lot has at most4096
-entitlements, with the existing128-holding/33-point/4224-mark ceilings and original
-2MiB wire, depth/node/string and16MiB response guards. The mathematical crates
-still read no provider, database, message queue, clock or operational runtime.
+The future ends quote exposure but keeps its unrounded official quote anchor for
+model gain. Rounded variation obligations stay separate from that quote gain. The
+asset cohort values both the security already received and the security still
+receivable, through the full cash owner. Its `physical_delivery` keeps the checked
+proposal and receipt, the face, the invoice outstanding amount and PV, and the
+receipts. Invoice value and recorded invoice cash are assigned to this cash owner
+once. The future keeps the invoice provenance without counting the invoice again
+as variation cash. Partial invoice receipts reduce the liability and raise actual
+cash by equal signed amounts.
 
-Broader legal amendments/novation, conditional claim transfers and further delivered asset models,
-delivery options and daily-margin financing remain separate work. Actual managed
-Java/Excel and wasm32/browser execution, broad scale/latency and independent
-quantitative/model/production certification remain unverified. CVX-063 is partial.
+Native-currency and reporting totals keep cash PV separate from futures quote
+levels. Each point uses direct FX. The ordered, independently available
+standalone and nonlinear interaction effects, and the unclamped residuals, are all
+kept. These are model reconciliations of the facts you supply. They do not
+authenticate a ledger, post cash, reserve risk or authorize execution.
 
-The complete independent engineering corpus is
-`tests/fixtures/library/cohort-pnl-calendars.json` plus
-`tests/fixtures/library/cohort-pnl-full-wire.json`: 14 financial books, 27 typed
-failures and 372 complete product marks. It covers overdue/partly received CDS
-initial cash, acquired/excluded coupons, earned cash after full disposal, partial
-and full IRS termination, full five-cause and USD/EUR mixed books, long/short physical delivery
-and either security/invoice receipt order. Exact original delayed calendar cash,
-all basket members, CTD ties/switches and actual-versus-model delivery choices
-are retained. Earlier independent preparations and failed trials remain separate;
-the Python writers check those immutable bytes without reading native answers.
-The original financial bounds and 37,943 independent regression comparisons
-remain required. Native parity envelopes validate transport only.
+Every active delivery mark revalues the full basket and keeps all independent
+selection and fair winners, ties and switches. `delivery_comparisons` records the
+security actually selected next to the last complete model CTD state. A delivery
+outside the model's winner set remains an explicit actual fact. No CTD exercise
+and no delivery-option value is inferred.
 
-The additional `residual-pnl-canonical.json` corpus contains 14 complete financial
-books, 27 typed failures and 550 full native product marks. It covers fractional
-coupon/recovery ownership, pre-acquisition cash, earned claims after disposal,
-full five-cause and USD/EUR books, and signed physical receipts in security-first,
-cash-first and interleaved sequences. Its independent writers retain the original
-financial bounds and all earlier preparations and failed trials. The same 77
-routes remain; 41 complete requests extend the mapped corpus to 4,595.
+## Bounds
 
-Residual owners declare `id`, `fraction` in (0,1], and `cutoff` with actual `date`,
-`known_at`, and `receipt_ids`. A fill owner's cutoff must equal the original
-acquisition fill. Opening owners use an available opening cutoff. Each excluded
-receipt must belong to this exact original obligation and actual acquisition
-prefix. All cash visible before acquisition retains its prior owner. Exact IDs
-and supplied legal source resolve receipts sharing a date; dates alone do not
-determine ownership. Duplicate, foreign, unavailable, omitted or fully exhausted
-residual facts fail before pricing. The complete original earned/recovery proposal
-must also be available at acquisition; later auction information cannot be
-retroactively transferred. The fraction's complement is explicitly
-excluded, independently of the lot's held security quantity. Variation margin
-and delivery invoice transfers retain their separate original owners.
+All earlier numerical controls and bounds, the routes, the product, curve,
+calibration, history, domain, solver and convergence owners, and the hard work
+limits are unchanged. Full replay and cohort, claim and link validation run before
+any financial marking, and a failure returns no partial book. The limits are:
 
-For original amount A, actual excluded receipts B, current recorded receipts C
-and legal fraction f, owned proposed cash is (A-B)*f, owned recorded cash is
-(C-B)*f, and owned outstanding cash is (A-C)*f. Exact checked Decimal facts
-determine these amounts. `residual_ownership` retains the legal source, original
-proposal, full prior receipt events and all four exact cash amounts. Original full
-obligations stay visible. Disposal retains earned residual cash. Each mark must
-use the same complete admitted original state and receipt provenance.
+- At most 4096 entitlements per lot.
+- 128 holdings, 33 points and 4224 marks.
+- 2MiB on the wire, with the depth, node and string limits.
+- 16MiB for the response.
 
-Actual security receipts may be partial. Each nonzero signed receipt targets the
-original delivery key/security revision, consumes a unique actual receipt ID and
-cannot exceed remaining face. `security_receipts` retains every complete event
-in replay order; `security_receipt` is the latest event. Native `delivery_pending`
-contains the exact remaining face until complete. Received face plus outstanding
-face equals the original proposal, for long and short positions and either
-invoice/security order. Current received face and remaining asset receivable use
-the same complete bond owner. Partial receipts change neither the actual invoice
-nor the model CTD choice. This allocating batch workflow has no latency certificate.
+The math crates still read no provider, database, message queue, clock or
+operational runtime.
 
-Boundary bond amendments and conserved lots are available through the same
-`cohort_book_pnl` operation. Run `cargo run --locked -p convex --example lot_pnl`.
-An actual `bond_amendment` lifecycle event supplies the prior and later legal
-versions, immutable agreement and complete successor terms. The original opening
-terms and event prefix remain. All due original steps/cash must be processed
-before the event, at an original accrual start. Native admission preserves the
-full schedule, actual calendars, historical profile values and principal cash,
-current principal, fixing mechanics, rounding and quotation units. Only future
-fixed-bond profiles may change. Earned obligations, proposal events and receipts
-remain exact; later earned cash uses the full checked amended contract. The
-point's security revision must match the admitted legal revision. Conditional,
-floating, mid-period, calendar/schedule/index or retroactive amendments fail.
+Not yet covered:
 
-Optional `lot_splits` supplies the actual legal identity, parent, distinct child
-cohorts, effective/known-at cutoffs, source revision and every applied point index.
-These indices refer to baseline, ordered endpoints and available standalone
-points in that order; index zero cannot apply a new interval split. A split
-belongs to the `position` cause. Every later ordered point retains it; unrelated
-standalone causes cannot acquire it. Children use `acquisition.kind=lot_split`
-and the exact `split_id`. Their declared signed quantities must sum exactly to
-the full original parent, in the same direction. A later partition must follow
-the original child's acquisition, with no cycles or repeated consumption.
+- Legal amendments, novation and conditional claim transfers beyond those below.
+- Other delivered asset models and delivery options.
+- Daily-margin financing.
+- Execution in managed Java/Excel and in wasm32/browser hosts.
+- Broad scale and latency testing.
+- Independent quantitative, model and production validation.
 
-The supported security partition has the same full fixed, unrounded, nonoptional
-bond, security revision, currency, reference face, entity and fixing history at
-each actual or independent acquisition. Earned original cash and historical
-receipts stay with the parent, including separately identified residual fractions;
-children explicitly exclude all pre-split earned keys. Future earned keys belong
-to the appropriate successors; the retired parent explicitly excludes them.
-Each original native lot and all excluded claims remain visible. Held parent
-face falls to zero, successor face is conserved, and no fill, consideration, fee,
-average cost or cash receipt is inferred. Later full disposal of a successor
-continues to use its actual original fill. The separate physical custody contract
-below owns checked delivery partitions. Other rounded/conditional instruments
-requires further complete owners and fails explicitly.
+## Test corpus
 
-The original 128-holding/33-point/4,224-mark limits and wire bounds remain. Complete
-current native terms, actual resolved coupon/principal dates and all original
-amendment/proposal/receipt facts are bound inside the prepared path. Every full
-mixed-book valuation, causal interaction,
-original CTD winner/tie/switch and actual partial delivery control remains.
-The active complete independent controls are `lot-pnl-chronology.json`, produced
-by `tests/scripts/lot_pnl_chronology.py`. Initial reference, forward and typed
-diagnostic declarations remain alongside it without replacing earlier trials.
-The original complete residual/cohort/causal suites remain required separately.
-CVX-063 remains partial; actual managed/browser hosts and production/latency
-qualification remain separate.
+The independent corpus is `tests/fixtures/library/cohort-pnl-calendars.json` plus
+`tests/fixtures/library/cohort-pnl-full-wire.json`. It has 14 books, 27 typed
+failures and 372 product marks. It covers:
 
-Explicit earned-cash transfers use the additive `claim_transfers` list on this
-same operation. Each record supplies a unique legal `id`, original `origin`
-cohort and cash `key`, actual `proposal_id`, exact `entitlement_source` and
-optional `residual_id`, current legal `from` and `to`, positive `fraction`,
-original cash `cutoff`, immutable legal `source` and `applied_points`. Fractions
-refer to the original entitled cash after its original residual fraction and
-excluded paid prefix. They are independent of the receiving lot's signed face.
+- Overdue and partly received CDS initial cash.
+- Acquired and excluded coupons.
+- Earned cash after a full disposal.
+- Partial and full IRS termination.
+- Five-cause and USD/EUR mixed books.
+- Long and short physical delivery, with security and invoice receipts in either
+  order.
 
-Only already-earned, available original claims can transfer. All parties must
-be complete acquired legal cohorts with the original currency, cash discount
-role and overdue convention. A split successor may receive an earned claim
-without replaying its parent's historic payments or acquiring security again.
-Legal transfers belong to the Position cause and persist on the ordered path;
-available independent Position points carry only their actual available transfer
-prefix. Partial, entire, sequential and returned ownership is conserved exactly.
-Duplicate, foreign, unavailable, retroactive, exhausted and overdrawn facts fail.
+Delayed calendar cash, all basket members, CTD ties and switches, and actual versus
+model delivery choices are kept. The earlier independent preparations and failed
+trials are kept separately. The Python writers check those fixed bytes without
+reading the Rust answers. The original financial bounds and 37,943 independent
+regression comparisons are still required. Parity checks between the Rust output
+and the client output validate transport only.
 
-The cutoff retains the complete ordered original receipt IDs for that claim.
-Earlier cash stays with its recipient. Every later actual receipt is allocated
-under the shares in force then; another transfer moves outstanding cash only.
-Native `claims[].transfer_ownership` retains the source's allocation and
-`transferred_claims` separately retains recipients' original cash/proposal,
-entitlement/residual, legal transfer prefix, exact share and full actual receipt
-allocations. Original obligations and receipt history remain visible. Recorded
-cash plus outstanding cash forms each recipient's allocated proposed cash.
-Checked Decimal partitioning conserves each original cash amount exactly; the
-last nonzero legal share retains the original Decimal representation's remainder.
-The original same-currency collateral ratio and point FX price every share.
+The `residual-pnl-canonical.json` corpus adds 14 books, 27 typed failures and 550
+product marks. It covers fractional coupon and recovery ownership, cash before
+acquisition, earned claims after disposal, five-cause and USD/EUR books, and
+signed physical receipts in security-first, cash-first and interleaved order. Its
+writers keep the financial bounds and all earlier preparations and failed trials.
+The same 77 routes remain, and 41 more requests bring the mapped corpus to 4,595.
 
-All original product values, future embedded-cash removal, current/pending/fill
-and physical receipt facts, full causal/standalone/interaction and unclamped
-reconciliation residuals and every CTD winner/tie/switch survive. The new bounded
-allocation admits128 legal transfers and4224 complete original-root/party/point
-allocations, alongside the original holding, point, pricing and wire ceilings.
-Margin and unearned/conditional claims retain their separate owners. Physical
-invoice transfers use the complete original delivery owner described below.
-No payment, consideration, fee, security fill or ledger posting is inferred.
+## Residual ownership
 
-The complete independent control is `claim-pnl-bound.json`, produced by
-`tests/scripts/claim_pnl_bound.py`. Initial and earned declarations, failed
-trials and separate complete plain-Decimal receipt facts remain. Run
-`cargo run --locked -p convex --example claim_pnl` or the four actual
-`--test claim_pnl` adapter tests. Native transport envelopes are not independent
-financial references. Original monetary bounds and37943 regression comparisons
-remain required. Actual managed/browser execution, release acceptance and
-production/latency certificates remain separate; CVX-063 is partial.
+A residual owner declares `id`, `fraction` in (0,1], and `cutoff` with `date`,
+`known_at` and `receipt_ids`.
 
-Delivered custody uses the additive `physical_partitions` list. Each record has
-`split` (the original asset parent, two or more full native children, unique legal
-ID, source, economic/knowledge cutoff and applied points), the linked `future`,
-exact original `delivery_id` and complete ordered security `receipt_ids` at that
-cutoff. Children use `lot_split` acquisition with this exact split ID. Their fixed
-signed native face sums exactly to the original delivered face. They retain the
-same complete security revision, terms, resolved calendars, entity, currency,
-units and history. The original actual delivery and every partial receipt remain
-with the future; a model CTD choice never creates custody.
+- A fill owner's cutoff must equal the acquisition fill.
+- An opening owner uses an available opening cutoff.
+- Each excluded receipt must belong to this obligation and to the acquisition
+  prefix.
+- All cash visible before acquisition keeps its prior owner.
+- Receipts that share a date are resolved by their IDs and the legal source you
+  supply, never by the date alone.
+- Duplicate, foreign, unavailable, omitted or fully exhausted residual facts fail
+  before pricing.
+- The earned or recovery proposal must be available at acquisition. Later auction
+  information cannot be transferred back.
+- The complement of the fraction is explicitly excluded, whatever quantity of the
+  security the lot holds.
+- Variation margin and delivery invoice transfers keep their own owners.
 
-At the Position partition, the original asset's security custody ends and its
-children acquire their exact allocated received and outstanding face. Custody
-includes already received assets as well as the remaining security receivable.
-Original earned cash stays with its declared owner. Every native security receipt
-is allocated with checked Decimal arithmetic; received face is the exact sum of
-those allocations, and outstanding face is proposed face minus received face.
-The children conserve all three totals. `physical_delivery.partition` retains
-the full legal facts, original total faces and each original receipt's allocated
-face. The consumed parent's custody share is zero; its invoice ownership remains
-independent. No fill, fee, payment, execution cost or consideration is created.
+For an original amount A, excluded receipts B, current recorded receipts C and
+legal fraction f, owned proposed cash is (A-B)*f, owned recorded cash is (C-B)*f,
+and owned outstanding cash is (A-C)*f. Checked Decimal facts determine these
+amounts. `residual_ownership` keeps the legal source, the original proposal, the
+prior receipt events and all four cash amounts. The full obligations stay visible.
+Disposal keeps the earned residual cash. Each mark must use the same validated
+state and receipt provenance.
 
-An earned `delivery_invoice` may also use `claim_transfers`. Its `origin` and
-proposal/receipt pins name the original future; the linked original asset is the
-initial legal cash owner. Transfer `from`/`to` names complete acquired cash cohorts,
-with the same currency, collateral discount and overdue convention. Security
-children acquire invoice cash only through explicit legal transfers. The same
-original receipt cutoff rules preserve earlier paid recipients; transfers of
-signed outstanding cash may be fractional, entire, successive or returned.
-`transferred_claims` reports full original invoice/proposal/entitlement and receipt
-allocations. `physical_delivery.invoice_excluded` means the full original invoice
-is retained as provenance and its cash is included through those allocations.
-The future retains invoice provenance without counting it as variation cash.
+## Partial security receipts
+
+Security receipts may be partial. Each nonzero signed receipt targets the delivery
+key and security revision, uses a unique receipt ID and cannot exceed the
+remaining face. `security_receipts` keeps every event in replay order, and
+`security_receipt` is the latest. `delivery_pending` holds the remaining face until
+delivery is complete. Received face plus outstanding face equals the original
+proposal, for long and short positions and for either invoice and security order.
+The face received so far and the remaining asset receivable use the same bond
+owner. Partial receipts change neither the invoice nor the model CTD choice. This
+allocating batch workflow has not been measured for latency.
+
+## Bond amendments and lot splits
+
+Boundary bond amendments and conserved lots use the same `cohort_book_pnl`
+operation. Run `cargo run --locked -p convex --example lot_pnl`.
+
+A `bond_amendment` lifecycle event supplies the prior and later legal versions, the
+agreement and the complete successor terms. The opening terms and the event prefix
+stay. All due steps and cash must be processed before the event, at an accrual
+start. Input validation keeps the full schedule, calendars, historical profile
+values and principal cash, the current principal, fixing mechanics, rounding and
+quotation units. Only future fixed-bond profiles may change. Earned obligations,
+proposal events and receipts are unchanged, and later earned cash uses the checked
+amended contract. The point's security revision must match the legal revision.
+Conditional, floating, mid-period, calendar, schedule, index and retroactive
+amendments fail.
+
+Optional `lot_splits` supplies the legal identity, parent, distinct child cohorts,
+effective and known-at cutoffs, source revision and every point index it applies
+to. The indices refer to the baseline, the ordered endpoints and the available
+standalone points, in that order. Index zero cannot apply a new interval split. A
+split belongs to the `position` cause. Every later ordered point keeps it, and
+unrelated standalone causes cannot acquire it. Children use
+`acquisition.kind=lot_split` and the `split_id`. Their signed quantities must sum
+exactly to the parent in the same direction. A later partition must follow the
+child's acquisition, with no cycles and no repeated consumption.
+
+A supported security partition needs the same fixed, unrounded, nonoptional bond,
+security revision, currency, reference face, entity and fixing history at each
+acquisition. Earned cash and historical receipts stay with the parent, including
+separately identified residual fractions, and the children explicitly exclude all
+pre-split earned keys. Future earned keys belong to the successors, and the retired
+parent explicitly excludes them. Each lot and every excluded claim stays visible.
+The parent's held face falls to zero and the successor face is conserved. No fill,
+consideration, fee, average cost or cash receipt is inferred. A later full disposal
+of a successor uses its own fill. Delivered-security partitions are covered under
+"Physical custody partitions" below. Other rounded or conditional instruments need
+complete owners and fail explicitly.
+
+The limits stay at 128 holdings, 33 points and 4,224 marks, with the wire bounds.
+The prepared path binds the current terms, the resolved coupon and principal dates
+and all amendment, proposal and receipt facts. Mixed-book valuation, causal
+interaction, CTD winner, tie and switch, and partial delivery controls remain. The
+active independent controls are `lot-pnl-chronology.json`, produced by
+`tests/scripts/lot_pnl_chronology.py`. Reference, forward and typed diagnostic
+declarations stay next to it, and earlier trials are kept. The earlier residual,
+cohort and causal suites are still required separately. Not yet covered: managed
+and browser hosts, and production and latency testing.
+
+## Claim transfers
+
+Earned-cash transfers use the `claim_transfers` list on the same operation. Each
+record supplies:
+
+- A unique legal `id`.
+- The `origin` cohort and cash `key`.
+- The `proposal_id`.
+- The `entitlement_source` and an optional `residual_id`.
+- The current legal `from` and `to`.
+- A positive `fraction`.
+- The cash `cutoff`.
+- An immutable legal `source`.
+- The `applied_points`.
+
+Fractions refer to the entitled cash after its residual fraction and excluded paid
+prefix. They are independent of the receiving lot's signed face.
+
+Only earned, available claims can transfer. All parties must be acquired legal
+cohorts with the same currency, cash discount role and overdue convention. A split
+successor may receive an earned claim without replaying the parent's payments or
+acquiring the security again. Legal transfers belong to the Position cause and
+persist on the ordered path. Independent Position points carry only the transfer
+prefix available to them. Partial, entire, sequential and returned ownership is
+conserved exactly. Duplicate, foreign, unavailable, retroactive, exhausted and
+overdrawn facts fail.
+
+The cutoff keeps the ordered receipt IDs for that claim, and earlier cash stays
+with its recipient. Every later receipt is allocated by the shares in force at that
+time, and another transfer moves outstanding cash only. `claims[].transfer_ownership`
+keeps the source's allocation. `transferred_claims` separately keeps each
+recipient's cash and proposal, entitlement and residual, transfer prefix, share and
+receipt allocations. The obligations and receipt history stay visible. Recorded
+cash plus outstanding cash is each recipient's allocated proposed cash. Checked
+Decimal partitioning conserves each cash amount exactly, and the last nonzero legal
+share receives the remainder of the Decimal representation. The same-currency
+collateral ratio and the point's FX price every share.
+
+All product values, the removal of embedded cash from futures, current, pending and
+fill and physical receipt facts, the causal, standalone and interaction
+reconciliation, the unclamped residuals and every CTD winner, tie and switch are
+kept. The allocation limits are 128 legal transfers and 4224 allocations (origin,
+party and point), alongside the holding, point, pricing and wire limits. Margin and
+unearned or conditional claims keep their own owners. Physical invoice transfers
+are described under "Physical custody partitions". No payment, consideration, fee,
+security fill or ledger posting is inferred.
+
+The independent control is `claim-pnl-bound.json`, produced by
+`tests/scripts/claim_pnl_bound.py`. Initial and earned declarations, failed trials
+and separate plain-Decimal receipt facts are kept. Run
+`cargo run --locked -p convex --example claim_pnl`, or the four `--test claim_pnl`
+adapter tests. Parity envelopes between the Rust and client outputs are not
+independent financial references. The financial bounds and 37943 regression
+comparisons are still required. Not yet covered: managed and browser execution and
+production and latency testing.
+
+## Physical custody partitions
+
+Delivered custody uses the `physical_partitions` list. Each record has:
+
+- `split`: the parent asset, two or more child cohorts, a unique legal ID, a source,
+  an economic and knowledge cutoff, and the applied points.
+- The linked `future`.
+- The `delivery_id`.
+- The ordered security `receipt_ids` at that cutoff.
+
+Children use a `lot_split` acquisition with this split ID. Their signed face sums
+exactly to the delivered face. They keep the security revision, terms, resolved
+calendars, entity, currency, units and history. The delivery and every partial
+receipt stay with the future. A model CTD choice never creates custody.
+
+At the Position partition, the parent's security custody ends and its children
+acquire the allocated received and outstanding face. Custody covers the assets
+already received as well as the security still receivable. Earned cash stays with
+its declared owner. Every security receipt is allocated with checked Decimal
+arithmetic. Received face is the exact sum of those allocations, and outstanding
+face is proposed face minus received face. The children conserve all three totals.
+`physical_delivery.partition` keeps the legal facts, the total faces and each
+receipt's allocated face. The consumed parent's custody share is zero, and its
+invoice ownership is independent. No fill, fee, payment, execution cost or
+consideration is created.
+
+An earned `delivery_invoice` may also use `claim_transfers`. Its `origin` and the
+proposal and receipt pins name the future, and the linked asset is the initial
+legal cash owner. Transfer `from` and `to` name acquired cash cohorts with the same
+currency, collateral discount and overdue convention. Security children acquire
+invoice cash only through explicit legal transfers. The receipt cutoff rules keep
+earlier paid recipients, and transfers of signed outstanding cash may be
+fractional, entire, successive or returned. `transferred_claims` reports the
+invoice, proposal, entitlement and receipt allocations.
+`physical_delivery.invoice_excluded` means the full invoice is kept as provenance
+and its cash is included through those allocations. The future keeps invoice
+provenance without counting it as variation cash.
 
 Partitions persist on the ordered path and apply only to available independent
-Position experiments. Foreign/missing delivery, omitted/reordered receipt prefix,
-unavailable knowledge, duplicate custody, incomplete/overdrawn face, mismatched
-security and unsupported conditional custody facts fail explicitly. At most
-128 holdings and partitions, 33 points and 4,224 full product marks remain; each
-cutoff has at most4,096 receipts. Shares must be exactly representable under the
-original Decimal face owner. Conditional delivery models require their complete
-owners. The native preparation signatures
-delegate with empty partitions; JSON omission defaults to empty. Rust
-`CohortBookPnlInput` literals must supply `physical_partitions: Vec::new()` or a
-complete list, and `physical_disposals: Vec::new()` or complete actual disposal facts.
+Position experiments. These fail explicitly:
 
-Run `cargo run --locked -p convex --example physical_partition_pnl`. The active
-independent corpus is `physical-partition-pnl-final.json`; all preceding
-financial/wire/chronology trials remain immutable. Its nine full books include
-long/short partial receipts, custody before/between/after ingress, distinct cash
-recipients and entire invoice transfers, plus the original complete mixed cash
-books and CTD switches. Thirty-five full malformed controls and direct native
-conservation tests remain separate from transport parity. Actual managed/browser
-hosts, broader delivery models and production/latency qualification remain open.
+- A foreign or missing delivery.
+- An omitted or reordered receipt prefix.
+- Unavailable knowledge.
+- Duplicate custody.
+- Incomplete or overdrawn face.
+- A mismatched security.
+- Unsupported conditional custody facts.
 
-Successors may be partitioned again after their own actual acquisition. Each
-partition binds the same original `future` and `delivery_id`; the parent must be
-an acquired live custody cohort. Children conserve the parent's remaining signed
-stock plus delivery receivable. Actual acquisition precedes later partitions in
-the ordered path and every independently supplied information set includes its
-complete available ancestry. Cycles, double acquisition or consumption, foreign
-security revisions and missing ancestry fail explicitly. All original delivery,
-notice, security, basket, CF, accrual, rounding and receipt events remain visible.
-`physical_delivery.lineage` records the complete successive legal ancestry.
+At most 128 holdings and partitions, 33 points and 4,224 product marks apply, and
+each cutoff has at most 4,096 receipts. Shares must be exactly representable in the
+Decimal face. Conditional delivery models need their own complete owners. The Rust
+preparation signatures delegate with empty partitions, and omitting the field in
+JSON defaults to empty. Rust `CohortBookPnlInput` literals must supply
+`physical_partitions: Vec::new()` or a complete list, and
+`physical_disposals: Vec::new()` or complete disposal facts.
 
-The additive `physical_disposals` list binds each actual stock disposal to:
+Run `cargo run --locked -p convex --example physical_partition_pnl`. The independent
+corpus is `physical-partition-pnl-final.json`, and the earlier financial, wire and
+chronology trials are kept unchanged. Its nine books include long and short partial
+receipts, custody before, between and after ingress, distinct cash recipients and
+entire invoice transfers, and the earlier mixed cash books and CTD switches. Thirty-five
+malformed controls and Rust conservation tests are separate from transport parity.
+Not yet covered: managed and browser hosts, other delivery models, and production
+and latency testing.
 
-- Unique legal `id`, acquired `asset`, original `future` and `delivery_id`.
-- An existing actual `fill_id` with full original quantity, consideration and fees.
-- Exact `effective_date` and `known_at` matching that fill, an immutable `source`,
-  the complete original security `receipt_ids` cutoff, and `applied_points`.
-- Nonempty `receipts`, each naming an original `receipt_id` and the exact signed
-  received `face` disposed from this legal owner.
+Successors may be partitioned again after their own acquisition. Each partition
+binds the same `future` and `delivery_id`, and the parent must be an acquired live
+custody cohort. Children conserve the parent's remaining signed stock plus the
+delivery receivable. Acquisition precedes later partitions in the ordered path, and
+every independently supplied information set includes its available ancestry.
+Cycles, double acquisition or consumption, foreign security revisions and missing
+ancestry fail. The delivery, notice, security, basket, CF, accrual, rounding and
+receipt events stay visible. `physical_delivery.lineage` records the ancestry.
+
+## Physical disposals
+
+The `physical_disposals` list binds each disposal of delivered stock to:
+
+- A unique legal `id`, the acquired `asset`, the `future` and the `delivery_id`.
+- An existing `fill_id` with its full quantity, consideration and fees.
+- The `effective_date` and `known_at` that match that fill, an immutable `source`,
+  the ordered security `receipt_ids` cutoff, and `applied_points`.
+- Nonempty `receipts`, each naming a `receipt_id` and the signed received `face`
+  disposed from this owner.
 
 Receipt allocations must be distinct, already available and within this cohort's
-remaining stock. Their signed sum must exactly oppose the actual fill quantity.
-Disposal subtracts received stock; the remaining security receivable is unchanged.
-It creates no fill, consideration, fee, payment or invoice ownership. Subsequent
-partitions conserve the remaining custody after disposal. At every point,
-remaining proposed face plus actual disposed face equals the original full
-delivery; remaining received face plus disposed face equals original actual
-receipts. `proposed_face = received_face + outstanding_face` still holds for each
-legal owner. `partition.receipts` shows remaining owned receipt face, and
-`physical_delivery.disposals` retains full legal facts, actual fills, original
-checked receipt events and exact removed face with the disposing cohort.
+remaining stock. Their signed sum must exactly oppose the fill quantity. Disposal
+subtracts received stock, and the security receivable is unchanged. It creates no
+fill, consideration, fee, payment or invoice ownership. Later partitions conserve
+the custody remaining after disposal. At every point, remaining proposed face plus
+disposed face equals the full delivery, and remaining received face plus disposed
+face equals the receipts. `proposed_face = received_face + outstanding_face` still
+holds for each legal owner. `partition.receipts` shows the remaining owned receipt
+face. `physical_delivery.disposals` keeps the legal facts, the fills, the checked
+receipt events and the removed face, with the disposing cohort.
 
-For example, an original 200,000 face delivery is split into 80,000 and 120,000.
-After 50,000 face arrives, the first child holds 20,000 with 60,000 still due. An
-actual 10,000 stock sale leaves 10,000 received plus 60,000 due. Its later partition
-into 17,500 and 52,500 allocates 2,500/7,500 received and 15,000/45,000 outstanding.
-The disposing parent retains its actual sale cash and fees. Paid invoice recipients
-and outstanding invoice shares remain governed by the original separate cash
-facts, even after the entire received stock has been sold or custody consumed.
+For example, a delivery of 200,000 face is split into 80,000 and 120,000. After
+50,000 face arrives, the first child holds 20,000 with 60,000 still due. A sale of
+10,000 of stock leaves 10,000 received plus 60,000 due. Splitting that into 17,500
+and 52,500 allocates 2,500 and 7,500 received and 15,000 and 45,000 outstanding.
+The disposing parent keeps its sale cash and fees. Paid invoice recipients and
+outstanding invoice shares stay with their own cash facts, even after all received
+stock has been sold or custody consumed.
 
-Up to 128 actual disposal facts and 4,096 receipt allocations per fact are admitted
-within the existing holding/point/product limits. Historical receipts and cash,
-native quantities, legal sources, independent information sets and exact Decimal
-conservation remain checked before pricing. Actual disposal after consumption,
-overdrawn stock, unmatched/competing fills, omitted receipt prefixes, unavailable
-knowledge, changed history and unused facts produce typed failures.
+Up to 128 disposal facts and 4,096 receipt allocations per fact are accepted,
+within the holding, point and product limits. Historical receipts and cash, native
+quantities, legal sources, independent information sets and exact Decimal
+conservation are checked before pricing. These cases produce typed failures:
 
-Run `cargo run --locked -p convex --example custody_lineage_pnl`. The complete
-independent controls are `custody-lineage-pnl-admitted.json`; all preceding
-declarations and failures remain retained. The native entry point is
-`prepare_cohort_pnl_with_disposals`; earlier signatures delegate with an empty
-disposal list. JSON omission defaults empty. Native Rust/C/MCP/WASM tests,
-independent full model controls and transport parity are distinct evidence;
-managed/browser execution and production/latency certificates remain open.
+- Disposal after consumption.
+- Overdrawn stock.
+- Unmatched or competing fills.
+- Omitted receipt prefixes.
+- Unavailable knowledge.
+- Changed history.
+- Unused facts.
+
+Run `cargo run --locked -p convex --example custody_lineage_pnl`. The independent
+controls are `custody-lineage-pnl-admitted.json`, and all earlier declarations and
+failures are kept. The Rust entry point is `prepare_cohort_pnl_with_disposals`, and
+earlier signatures delegate with an empty disposal list. Omitting the field in JSON
+defaults to empty. The Rust, C, MCP and WASM tests, the independent model controls
+and the transport parity checks are different kinds of evidence. Not yet covered:
+managed and browser execution, and production and latency testing.
 
 ## Dated earned coupon and principal ownership
 
-The same `cohort_book_pnl` input accepts optional `dated_entitlements` (default
-empty). Each `CohortDatedEntitlement` names the complete native `origin` and
-obligation `key`, original `proposal_id`, exact `entitlement_source`, an existing
-`CohortResidualClaim` (`id`, positive `fraction <= 1`, and `cutoff`), the actual
-legal `source` revision and complete `applied_points`. Its original cohort
-entitlement must be owned and have no competing legacy residual. This applies
-only to an already earned nonconditional fixed-bond coupon or principal, with
-complete native terms, calendars, profiles and replayed boundaries. Floating,
-optional and credit-dependent cash need their separately qualified claim owners.
+The `cohort_book_pnl` input accepts optional `dated_entitlements` (default empty).
+Each `CohortDatedEntitlement` names:
+
+- The `origin` and obligation `key`.
+- The `proposal_id`.
+- The `entitlement_source`.
+- An existing `CohortResidualClaim` (`id`, positive `fraction <= 1`, and `cutoff`).
+- The legal `source` revision.
+- The `applied_points`.
+
+The cohort's entitlement must be owned and must have no competing legacy residual.
+This applies only to an already earned, nonconditional fixed-bond coupon or
+principal, with complete terms, calendars, profiles and replayed boundaries.
+Floating, optional and credit-dependent cash need their own qualified claim owners.
 
 Cash acquisition is independent of security acquisition or disposal. Before its
-explicit Position point, the dated cash is excluded from this book; afterward,
-the supplied fraction owns the original residual after the exact prior receipt
-prefix. Every earlier payment remains visible and excluded, with its original
-identity, amount, economic date, knowledge cutoff and proposal. A security split
-may retire the source's custody while that source retains its explicitly supplied
-later earned cash. A later actual security disposal does not move earned cash.
-The supplied fraction is never derived from held face, outstanding delivery face,
-a fill timestamp, a price or a synthetic payment. Excluded shares and prior cash
-are explicit scope exclusions, not invented recipients.
+Position point, the dated cash is excluded from this book. Afterward, the fraction
+you supply owns the residual after the prior receipt prefix. Every earlier payment
+stays visible and excluded, with its identity, amount, economic date, knowledge
+cutoff and proposal. A security split may retire the source's custody while the
+source keeps the later earned cash you assigned to it. A later disposal of the
+security does not move earned cash. The fraction is never derived from held face,
+outstanding delivery face, a fill timestamp, a price or a synthetic payment.
+Excluded shares and prior cash are explicit scope exclusions, not invented
+recipients.
 
-For example, an original native coupon of100 with10 paid before cash acquisition
-and a legal fraction0.6 gives owned residual54. An actual subsequent payment20
-gives owned received12 and outstanding42. A later explicit claim transfer of0.25
-moves10.5 of that outstanding residual; the previously received12 stays with its
-recipient. Subsequent original payments follow the then-current explicit legal
-shares. Use `residual_id` equal to the dated residual ID in each
-`claim_transfers` fact; all original proposal, source and paid-prefix pins remain
-mandatory. Receipt and outstanding allocations conserve exact native Decimal
-cash, including the existing final representational remainder owner.
+For example, a coupon of 100 with 10 paid before the cash acquisition and a legal
+fraction of 0.6 gives an owned residual of 54. A later payment of 20 gives owned
+received cash of 12 and outstanding cash of 42. A later claim transfer of 0.25
+moves 10.5 of that outstanding residual, and the 12 already received stays with
+its recipient. Later payments follow the legal shares in force at the time. Use a
+`residual_id` equal to the dated residual ID in each `claim_transfers` fact, and
+keep the proposal, source and paid-prefix pins. Receipt and outstanding allocations
+conserve the Decimal cash, including the final representational remainder owner.
 
-An actual dated entitlement starts on a Position cause and persists at every
-subsequent ordered point. Independent Position experiments need the complete
-available original earned proposal, acquired cash party and receipt prefix;
-unrelated experiments cannot acquire it. Duplicate/foreign facts, source or
-proposal revisions, fractions outside(0,1], unavailable/retroactive cutoffs,
-missing or changing paid prefixes, competing residuals and exhausted claims fail
-before valuation. Bounds remain128 facts,33 point indices,4096 receipt IDs and
-the original4224 full product evaluations; wire resource bounds are unchanged.
+A dated entitlement starts on a Position cause and persists at every later ordered
+point. An independent Position experiment needs the available earned proposal,
+acquired cash party and receipt prefix, and unrelated experiments cannot acquire
+it. These fail before valuation:
 
-Existing received-security custody and actual disposal provenance survives
-original contractual coupon and bullet redemption boundaries. Separately held
-original native cash-bond cohorts also support contractual amortization. The
-original physical delivery invoice still requires a fixed nominal bullet;
-pre-amortizing deliverables fail with its existing Unsupported outcome. Current quantities remain the
-original face units used by native lifecycle; the original full profile and
-ended status determine remaining economic exposure. Maturity ends model exposure
-and retains separately owned coupon/principal receivables. New custody partitions
-or actual disposals require active security at their actual transition. Invoice
-cash, delivery/notice/security/basket/CF/accrual/rounding and every original
-partial receipt remain independent and unchanged.
+- Duplicate or foreign facts.
+- Source or proposal revisions.
+- Fractions outside (0,1].
+- Unavailable or retroactive cutoffs.
+- Missing or changing paid prefixes.
+- Competing residuals.
+- Exhausted claims.
 
-Run `cargo run --locked -p convex --example dated_cash_pnl`. Additive native
-`prepare_cohort_pnl_with_dated_entitlements` accepts the separate dated facts; all
-previous preparation signatures delegate with an empty vector. JSON callers may
-omit the field; Rust `CohortBookPnlInput` literals add `dated_entitlements`. No
-operation, wire version or C export changes. The full original financial checkers
-and all CTD ties/switches remain required.
+The limits are 128 facts, 33 point indices, 4096 receipt IDs and 4224 product
+evaluations, and the wire limits are unchanged.
 
-The scoped controls cover signed coupon, amortization and redemption, successive
-custody, actual partial security receipt provenance, pre/post-entitlement disposal,
-prior and subsequent real cash receipts, independent custody Position sets and
-separate invoice recipients. Broader conditional/novation/amendment claims, fresh
-custody after maturity, delivery options/margin financing, actual managed/browser
-host execution and full scale/latency/production certificates remain open.
-Authoritative cash/fill/FX postings, limits, reservations, fencing and execution
-belong to CVX-025/031; this pure input API creates none of those authorities.
+Custody of received security and the disposal provenance survive coupon and bullet
+redemption boundaries. Separately held cash-bond cohorts also support contractual
+amortization. The physical delivery invoice still requires a fixed nominal bullet,
+and pre-amortizing deliverables fail with the existing Unsupported outcome. Current
+quantities stay in the face units of the lifecycle, and the profile and ended status
+determine the remaining exposure. Maturity ends model exposure and keeps the
+separately owned coupon and principal receivables. New custody partitions and
+disposals need the security to be active at the transition. Invoice cash, delivery,
+notice, security, basket, CF, accrual, rounding and partial receipts are independent
+and unchanged.
+
+Run `cargo run --locked -p convex --example dated_cash_pnl`. The new Rust function
+`prepare_cohort_pnl_with_dated_entitlements` accepts the dated facts, and all earlier
+preparation signatures delegate with an empty vector. JSON callers may omit the
+field. Rust `CohortBookPnlInput` literals must add `dated_entitlements`. No
+operation, wire version or C export changes. The financial checkers and all CTD ties
+and switches are still required.
+
+The controls cover signed coupon, amortization and redemption, successive custody,
+partial security receipts, disposal before and after the entitlement, prior and later
+cash receipts, independent custody Position sets and separate invoice recipients.
+Not yet covered: conditional, novation and amendment claims, fresh custody after
+maturity, delivery options and margin financing, managed and browser execution, and
+scale, latency and production testing. Authoritative cash, fill and FX postings,
+limits, reservations, fencing and execution are outside this input API, which creates
+none of them.
 
 ## Cash rights while physical delivery is pending
 
-An explicit dated entitlement can own an original earned coupon or bullet
-principal while the original delivery has no security receipts or only partial
-receipts. The full proposed security face remains visible as received face plus
-the outstanding delivery receivable. Cash rights use their own supplied legal
-fraction and paid-prefix cutoff. Later receipt ingress, successive custody
-partitions and actual disposal of received stock do not move that cash right or
-the original invoice. An actual disposal can consume received allocations only.
+A dated entitlement can own an earned coupon or bullet principal while the delivery
+has no security receipts or only partial receipts. The full proposed face stays
+visible as received face plus the outstanding delivery receivable. Cash rights use
+their own legal fraction and paid-prefix cutoff. Later receipts, successive custody
+partitions and disposal of received stock do not move that cash right or the
+invoice. A disposal can consume received allocations only.
 
-Independent Position experiments supply a complete information set and include
-its point index in the dated entitlement's `applied_points`. The original party,
-earned proposal, legal source, economic/knowledge cutoff and every excluded
-prior receipt must already be available in that independent set. The ordered
-path's later receipts or legal prerequisites cannot be borrowed into it. Before
-the acquisition, the claim is excluded; both the actual acquisition and an
-independently available acquisition apply the same explicitly supplied residual.
+An independent Position experiment supplies a complete information set and includes
+its point index in the entitlement's `applied_points`. The party, earned proposal,
+legal source, economic and knowledge cutoff and every excluded prior receipt must be
+available in that set. It cannot borrow later receipts or legal prerequisites from
+the ordered path. Before acquisition the claim is excluded, and both an actual and
+an independently available acquisition apply the same residual.
 
-For earned cash with a future payment date, the original full pricing curve and
-spread remove embedded cash from held and receivable model exposure. Separately
-owned cash uses its supplied collateral discount curve's payment-date ratio.
-Actual payments require the native due-date check. A Time roll precedes cash
-received on that later payment date; new ingress retains its actual economic and
-knowledge clocks. Overdue cash requires the existing explicit policy. Cash and
-security receipt histories remain immutable ordered prefixes, and a later legal
-cash transfer preserves already paid recipients.
+For earned cash with a future payment date, the pricing curve and spread remove
+embedded cash from held and receivable model exposure. Separately owned cash uses
+the payment-date ratio of its collateral discount curve. Actual payments need the
+due-date check. A Time roll comes before cash received on the later payment date,
+and new ingress keeps its economic and knowledge clocks. Overdue cash needs the
+explicit policy. Cash and security receipt histories are immutable ordered
+prefixes, and a later legal cash transfer keeps recipients that were already paid.
 
-Bullet maturity ends the original native security model exposure. Its remaining
-delivery face and subsequent actual security receipts stay visible, with
-separately supplied coupon/principal and original invoice ownership. No post-
-maturity partition or disposal is admitted. Pending redemption does not imply
-a market price or a new cash right. Amortizing delivery invoices and post-delivery
-amendments remain unsupported by this scoped qualification.
+Bullet maturity ends the security's model exposure. The remaining delivery face and
+later security receipts stay visible, with separately supplied coupon, principal and
+invoice ownership. No partition or disposal is accepted after maturity. Pending
+redemption does not imply a market price or a new cash right. Amortizing delivery
+invoices and post-delivery amendments are unsupported.
 
-Run `cargo run --locked -p convex --example pending_cash_pnl`. The full independent
-controls cover long/short acquisition before and after partial security ingress,
-independent cash Position experiments, delayed coupons with distinct discount
-roles, successive custody and disposal, outstanding delivery through bullet
-maturity, real cash receipts and full mixed-book models/CTD switches. This uses
-the existing native preparation and JSON operation without an API migration.
-Managed/browser execution and production/latency certificates remain open.
-## Earned cash on physical custody children
+Run `cargo run --locked -p convex --example pending_cash_pnl`. The controls cover
+long and short acquisition before and after partial security ingress, independent
+cash Position experiments, delayed coupons with distinct discount roles, successive
+custody and disposal, outstanding delivery through bullet maturity, cash receipts
+and mixed-book models with CTD switches. This uses the existing preparation and JSON
+operation, with no API migration. Not yet covered: managed and browser execution,
+and production and latency testing.
 
-An acquired custody child can own an original fixed-bond coupon or principal
-claim through an explicit `dated_entitlements` record. Supply its complete native
-earned proposal, exact entitlement source, legal residual fraction and ordered
-receipt cutoff. Earlier actual receipts remain excluded with their original
-recipients, including receipts supplied in the child's historical replay before
-security custody. Native admission verifies that the child is acquired at every
-applied cash point. Security face never establishes a cash right.
+## Earned cash on custody children
 
-An earned-claim transfer uses the same original proposal and residual identity.
-Later receipts are allocated to the legal shares effective when each receipt
-occurred. Consumed custody parents and children with an actual received-stock
-disposal retain their separately owned cash. The delivery invoice and pending
-security receivable keep their original owners and provenance.
+An acquired custody child can own a fixed-bond coupon or principal claim through a
+`dated_entitlements` record. Supply the earned proposal, entitlement source, legal
+residual fraction and ordered receipt cutoff. Earlier receipts stay excluded with
+their recipients, including receipts in the child's historical replay before
+security custody. Input validation checks that the child is acquired at every applied
+cash point. Security face never establishes a cash right.
 
-An available independent Position experiment must supply its own complete
-baseline proposal, paid prefix, custody facts and legal parties. It cannot import
-later actual payments or other Event changes. Declare it unavailable when those
-prerequisites cannot be supplied independently. Delayed earned cash retains the
-distinct original pricing discount/spread removal and collateral cash discount,
-payment due-date, overdue and FX rules.
+A claim transfer uses the same proposal and residual identity. Later receipts are
+allocated to the legal shares in effect when each receipt occurred. Consumed custody
+parents, and children with a disposal of received stock, keep their separately owned
+cash. The delivery invoice and the pending security receivable keep their owners and
+provenance.
 
-Run `cargo run --locked -p convex --example child_cash_pnl`. The full controls
-cover signed first and successive custody children, excluded historical receipts,
-independent cash acquisition and transfers, subsequent actual cash, custody
-consumption/disposal and pending delivery. They also retain all preceding coupon,
-bullet principal and complete causal mixed-model/CTD books. Native amortizing
-physical invoices, conditional/floating/credit cash and post-delivery amendments
-still require their separate complete owners. This increment changes admission
-of existing fields; no type, schema, operation or C ABI migration is required.
+An available independent Position experiment must supply its own baseline proposal,
+paid prefix, custody facts and legal parties. It cannot import later payments or
+other Event changes. Declare it unavailable when it cannot supply those
+prerequisites on its own. Delayed earned cash keeps the separate pricing
+discount-and-spread removal and the collateral cash discount, due-date, overdue and
+FX rules.
 
-## Principal and final coupon on acquired custody children through maturity
+Run `cargo run --locked -p convex --example child_cash_pnl`. The controls cover
+signed first and successive custody children, excluded historical receipts,
+independent cash acquisition and transfers, later cash, custody consumption and
+disposal, and pending delivery. They also keep the earlier coupon, bullet principal
+and mixed causal books with CTD. Amortizing physical invoices, conditional, floating
+and credit cash, and post-delivery amendments still need their own complete owners.
+This change affects input validation of existing fields only. No type, schema,
+operation or C ABI migration is needed.
 
-Run `cargo run --locked -p convex --example child_maturity_pnl` for full supplied
-long/short books. Earlier custody partitions and received-stock disposal occur
-while the original fixed bullet security is active. Its native maturity step
-ends security model exposure and emits the original full principal proposal;
-the final contractual coupon has its own original proposal. Previously acquired
-children retain exact nominal custody and pending delivery rights, including
-later partial receipts, while their security model value is zero. Earned cash
-and the original invoice keep their separate legal ownership and paid recipients.
-No new custody or disposal is admitted after maturity.
+## Principal and final coupon on custody children through maturity
 
-The delayed controls explicitly supply two calendar days of payment delay in
-all complete copies of the original bond terms. Cash is discounted with the
-supplied collateral curve until its native due date, independently of the
-original pricing curve/spread. Actual payments remain subject to native due-date,
-overdue and FX rules. A child can acquire an explicitly dated residual principal
-or final coupon claim, exclude an exact already-paid prefix, and transfer an
-outstanding legal share while earlier paid cash retains its original recipient.
-Those cash shares are independent of consumed custody parents, disposed received
-stock, pending delivery face and the delivery invoice.
+Run `cargo run --locked -p convex --example child_maturity_pnl` for long and short
+books. Earlier custody partitions and disposals of received stock happen while the
+fixed bullet security is active. Its maturity step ends the security's model exposure
+and emits the full principal proposal, and the final coupon has its own proposal.
+Children acquired earlier keep their nominal custody and pending delivery rights,
+including later partial receipts, while their security model value is zero. Earned
+cash and the invoice keep their own legal ownership and paid recipients. No new
+custody or disposal is accepted after maturity.
 
-Maturity cash acquisition and later transfers depend on actual Time/Event
-history absent at the original active baseline. Their independent Position
-experiments are explicitly `Unavailable`; the library does not borrow later
-maturity proposals or payment events. Earlier custody and disposal experiments
-supply their own complete available baseline facts. Existing full native,
-causal/ordered/standalone/interaction P&L, mixed-model/history/credit/OIS and CTD
-tie/switch checks remain in the full controls. No type, schema, operation or
-wire change is required. Full market/model/managed-host/production/scale/latency
-qualification and authoritative posting/execution remain separate.
+The delayed controls set two calendar days of payment delay in every copy of the bond
+terms. Cash is discounted with the collateral curve you supply until its due date,
+independently of the pricing curve and spread. Actual payments are subject to the
+due-date, overdue and FX rules. A child can acquire a dated residual principal or
+final coupon claim, exclude an already-paid prefix, and transfer an outstanding legal
+share while earlier paid cash stays with its recipient. Those cash shares are
+independent of consumed custody parents, disposed received stock, pending delivery
+face and the invoice.
+
+Maturity cash acquisition and later transfers depend on Time and Event history that
+the active baseline does not have. Their independent Position experiments are
+explicitly `Unavailable`, and the library does not borrow later maturity proposals
+or payment events. Earlier custody and disposal experiments supply their own
+baseline facts. The controls keep the causal, ordered, standalone and interaction
+P&L, mixed-model, history, credit and OIS checks, and the CTD tie and switch checks.
+No type, schema, operation or wire change is needed. Not yet covered: full market,
+model, managed-host, production, scale and latency testing, and authoritative
+posting and execution.
 
 ## Concurrent principal and final coupon with returned cash shares
 
-The original cohort route accepts simultaneous independently acquired principal
-and final-coupon claims on first and successive custody children. Every claim is
-identified by its original cohort and complete obligation key, original native
-proposal, entitlement revision, positive legal residual and ordered paid prefix.
-Several claims can share a recipient without combining their legal ownership.
-Each subsequent transfer spends the sender's currently available share of that
-original residual. Returned shares keep the same proposal and identity.
+The cohort route accepts principal and final-coupon claims acquired independently at
+the same time on first and successive custody children. Each claim is identified by
+its cohort and obligation key, proposal, entitlement revision, positive legal
+residual and ordered paid prefix. Several claims can share a recipient without
+merging their legal ownership. Each transfer spends the sender's currently available
+share of that residual. Returned shares keep the same proposal and identity.
 
-Cash already paid stays with its original recipients. A party may return all of
-its outstanding share and still retain its recorded cash; zero current ownership
-does not erase that receipt. Different principal/coupon prefixes and different
-child origins cannot be exchanged. Custody consumption, earlier received-stock
-disposal and later nominal delivery receipts do not choose cash recipients.
-Original invoice ownership remains independently bound to the delivered asset.
-Native maturity ends security model exposure while earned cash and nominal
-pending delivery/invoice rights remain. Fresh custody/disposal still requires an
-Active security. Future cash uses its supplied collateral discount role and exact
-due date; overdue policy and reporting FX remain explicit.
+Cash already paid stays with its recipients. A party may return all of its
+outstanding share and keep its recorded cash, because a zero current ownership does
+not erase a receipt. Principal and coupon claims with different prefixes, and claims
+from different child origins, cannot be exchanged. Custody consumption, earlier
+disposals of received stock and later nominal delivery receipts do not choose cash
+recipients. Invoice ownership stays bound to the delivered asset. Maturity ends the
+security's model exposure, while earned cash and nominal pending delivery and invoice
+rights remain. Fresh custody or disposal still needs an Active security. Future cash
+uses its collateral discount role and due date, and the overdue policy and reporting
+FX stay explicit.
 
-Decimal cash partitioning uses the finest common scale representable by the
-original complete total. Bounded integer long division truncates earlier
-allocations toward zero; the final nonzero legal holder receives the remainder.
-This prevents finer-scale partial amounts from losing cash when the remainder is
-subtracted, including signed96-bit/28-decimal boundaries. The mathematical share,
-original native cash amount and pricing model are unchanged. No tolerance accepts
-a conservation error, and no monetary rounding or external posting is inferred.
+Decimal cash partitioning uses the finest common scale the total can represent.
+Bounded integer long division truncates earlier allocations toward zero, and the
+final nonzero legal holder receives the remainder. This keeps finer-scale partial
+amounts from losing cash when the remainder is subtracted, including at the signed
+96-bit/28-decimal boundaries. The mathematical share, the cash amount and the pricing
+model are unchanged. No tolerance accepts a conservation error, and no monetary
+rounding or external posting is inferred.
 
-Run `cargo run --locked -p convex --example concurrent_claims_pnl`. Six new signed
-books exercise four concurrent principal/coupon claims on two child origins,
-delayed/prefix/staggered acquisition and12 sequential/returned share transfers
-per book. Twenty-two whole preceding maturity/child/pending/mixed model/history/
-credit/OIS/CTD books remain;56 complete requests execute2645 original product
-revaluations and28 typed failures. The original full financial checker chain is
-called once per request. Direct checked native reconstruction covers every claim,
-received/disposed/outstanding face and separate invoice cash; signed Decimal
-boundary controls prove exact cash conservation. Earlier custody/disposal have
-complete independently available baseline experiments. Later maturity/cash/
-transfer experiments are explicitly Unavailable and cannot borrow Time/Event
-history. Full Rust/C/MCP/native-WASM, strict schema and separate C parity controls
-are supplied; actual managed/browser hosts and production/scale/latency remain
-separate qualification work.
+Run `cargo run --locked -p convex --example concurrent_claims_pnl`. Six signed books
+exercise four concurrent principal and coupon claims on two child origins, with
+delayed, prefix and staggered acquisition and 12 sequential or returned share
+transfers per book. Twenty-two earlier books (maturity, child, pending and mixed
+model, history, credit, OIS and CTD) remain. The 56 requests run 2645 product
+revaluations and 28 typed failures. The financial checker chain runs once per
+request. A checked Rust reconstruction covers every claim, the received, disposed
+and outstanding face, and the invoice cash. Signed Decimal boundary controls show
+exact cash conservation. Earlier custody and disposal have independently available
+baseline experiments. Later maturity, cash and transfer experiments are explicitly
+Unavailable and cannot borrow Time or Event history. Rust, C, MCP and WASM tests, a
+strict schema, and separate C parity controls are included.
 
-The immutable independent writers retain initial full trials and separately
-supplied invoice ownership and baseline replay repairs. Financial declarations
-use Decimal60 original full product/cash/curve/history/custody owners before
-native execution. Native envelopes prove transport only. Broader conditional/
-floating/credit/novation/amendment claims, amortizing physical invoices and
-post-delivery amendments remain unsupported by this scoped route. Authoritative
-postings, authenticated cash/fills/FX, limits and execution remain CVX025/031.
+The independent writers keep the initial trials and the separately supplied invoice
+ownership and baseline replay repairs. The financial declarations use Decimal60 for
+the product, cash, curve, history and custody values before the Rust code runs.
+Parity envelopes show transport only. Conditional, floating, credit, novation and
+amendment claims, amortizing physical invoices and post-delivery amendments are
+unsupported in this route. Not yet covered: managed and browser hosts, production,
+scale and latency testing, and authoritative postings, authenticated cash, fills and
+FX, limits and execution.
 
-## Complete original cash settlement and closure
+## Cash settlement and closure
 
 Run `cargo run --locked -p convex --example settled_claims_pnl` for six signed
-full delayed/prefix/staggered books plus all28 complete preceding positive books.
-The four concurrent child principal/final-coupon claims settle after the original
-returned-recipient payments in their ordered actual Event. Their outstanding cash
-becomes exactly zero while nominal physical delivery can still be pending. Every
-prior paid recipient and zero current-share recipient retains its actual cash.
-Original legal share fractions remain historical ownership proportions; a zero
-outstanding amount cannot be freshly acquired or transferred.
+delayed, prefix and staggered books, plus all 28 earlier positive books. The four
+concurrent child principal and final-coupon claims settle after the returned-recipient
+payments in their ordered Event. Their outstanding cash becomes exactly zero, while
+nominal physical delivery can still be pending. Every earlier paid recipient and every
+recipient with a zero current share keeps its cash. The legal share fractions remain
+historical ownership proportions, and a zero outstanding amount cannot be freshly
+acquired or transferred.
 
-Selected claims becoming fully paid leaves the original bond state `Matured`.
-The final Event records complete original nominal/invoice ingress and all remaining
-original cash, including past coupon claims explicitly excluded from current legal
-ownership. Only then does the original native lifecycle become `Closed`. Actual
-receipts use the original bounded Decimal cash and outstanding amount, never a
-model PV. Original lifecycle proposals, exact receipt prefixes, legal sources,
-full calendar/profile/security/delivery/invoice terms and native precision remain.
-Later receipts of explicitly excluded original cash are admitted after custody;
-they remain excluded from current cash/P&L ownership. Earlier paid history still
-requires its original dated prefix. Fresh custody/disposal still requires Active
-security. No posting, cash authentication, collection, order or ledger is supplied.
+When the selected claims are fully paid, the bond state stays `Matured`. The final
+Event records the nominal and invoice ingress and all remaining cash, including past
+coupon claims that are explicitly excluded from current legal ownership. Only then
+does the lifecycle become `Closed`. Receipts use the bounded Decimal cash and
+outstanding amount, never a model PV. The lifecycle proposals, receipt prefixes, legal
+sources, calendar, profile, security, delivery and invoice terms and precision are
+kept. Later receipts of explicitly excluded cash are accepted after custody, and they
+stay excluded from current cash and P&L ownership. Earlier paid history still needs
+its dated prefix, and fresh custody or disposal still needs an Active security. No
+posting, cash authentication, collection, order or ledger is supplied.
 
-The independent controls replay original Decimal operations at each96-bit/28-place
-cash boundary. They retain all full mixed/history/credit/OIS/model/CTD regressions
-and original financial bounds. Three full declared input trials remain separately
-pinned; the active corpus is `settled-claims-pnl-complete.json`. Only absent optional
-event attachments are omitted from the wire, with exact full-input reconstruction
-proved before execution. Sixteen ordered causes and original wire limits remain.
-Independent later Position remains explicitly Unavailable where its own baseline
-maturity/paid-prefix/legal/custody prerequisites do not exist.
+The independent controls replay Decimal operations at each 96-bit/28-place cash
+boundary. They keep the mixed, history, credit, OIS, model and CTD regressions and
+the financial bounds. Three input trials stay separately pinned, and the active
+corpus is `settled-claims-pnl-complete.json`. Only absent optional event attachments
+are omitted from the wire, and the full input is shown to be reconstructed exactly
+before execution. There are sixteen ordered causes, and the wire limits are
+unchanged. A later independent Position stays Unavailable where its own baseline
+maturity, paid prefix, legal and custody prerequisites do not exist.
 
-Actual Java FFM/C parity has executed on the installed macOS JDK. Actual wasm32
-Node glue passes the complete original independent financial checks, but strict
-native-envelope parity exposes floating-point differences in full model/OIS
-outputs. These checks are distinct; exact WASM transport parity remains open.
-Windows/.NET/Excel/browser and other host/platform qualification remains separate.
-See [all remaining mandatory work](internal/CVX-063-REMAINING.md).
+Java FFM and C parity has run on the installed macOS JDK. The wasm32 Node glue passes
+the independent financial checks, but a strict comparison against the Rust output
+shows floating-point differences in the model and OIS outputs. These checks are
+distinct, and exact WASM transport parity is still open. Windows, .NET, Excel,
+browser and other host and platform testing are separate. See
+[remaining work](internal/CVX-063-REMAINING.md).

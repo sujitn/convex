@@ -1,11 +1,11 @@
 # Signed quote risk and portfolio coverage
 
-CVX-024 exposes `convex::quote_risk` and
-`convex_portfolio::signed_risk`. Both are pure libraries. They use the existing
-complete bond, IRS/OIS, CDS, futures and curve workflows over caller-supplied
-immutable data, with no database, broker, provider, server or clock.
-
-Run the standalone full stepped/amortizing bond consumer:
+This document covers quote-level risk (PV change per market quote) for bonds,
+IRS/OIS, CDS and futures, and how it is aggregated across a portfolio. The code
+is in `convex::quote_risk` and `convex_portfolio::signed_risk`. Both are pure
+libraries. They use the existing bond, IRS/OIS, CDS, futures and curve
+workflows over immutable data you pass in, with no database, broker, provider,
+server or clock.
 
 ```sh
 cargo run --locked -p convex --example quote_risk
@@ -15,202 +15,238 @@ cargo test --locked -p convex-portfolio --test signed_risk
 python3 tests/scripts/quote_risk_reference.py check
 ```
 
-## Monetary signs, units and quantity
+The first example is a stepped, amortizing bond.
 
-For an annualized rate/spread coordinate, the reference calculation reports
-`(PV(q+h)-PV(q-h))/(2*h)*0.0001` in currency per **+1bp**. The actual positive
-canonical bump `h`, native units, Central method, five actual PVs, half-bump
-result and numerical policy revision remain in `QuoteSensitivity`. Applying a
-move already measured in bp means multiplying this value directly by that move.
-`dv01_loss()` is the explicit negative of interest-rate signed PV01.
+## Signs, units and quantity
 
-CDS upfront and recovery return a monetary derivative per **+1 fraction**;
-hazard returns a derivative per **+1 annualized decimal rate**. Cash/futures
-price delta is currency per **+1 price point**. A futures calibration-rate
-+1bp move decreases its native `100-100*rate` quote by0.01 points. This is
-distinct from positive futures-price delta. Clean and dirty cash/upfront inputs
-remain separate types. No additional multiplier or bp conversion is inferred.
+For an annualized rate or spread coordinate, the reference calculation reports
+`(PV(q+h)-PV(q-h))/(2*h)*0.0001` in currency per **+1bp**. `QuoteSensitivity`
+keeps the positive canonical bump `h`, the units, the Central method, the five
+PVs, the half-bump result and the numerical policy revision. To apply a move
+already measured in bp, multiply this value directly by that move.
+`dv01_loss()` is the negative of the signed interest-rate PV01.
 
-`RiskPosition` specifies exact signed quantity, the positive reference size
-already contained in the native PV, currency and Notional/Contracts/TradeCopies
-units. The engine scales once by their Decimal ratio. Native economic side
-remains inside the reference trade; quantity is relative to that reference
-side. Negative quantity reverses it. Futures counts must be integers. A per100
-price must first become absolute native currency PV using original face; it
-cannot be returned as currency PV. Reference callbacks return checked
-`ModelMoney` and a wrong monetary currency fails.
+Other coordinates:
 
-## Complete keys and original coordinates
+- CDS upfront and recovery return a monetary derivative per **+1 fraction**.
+- Hazard returns a derivative per **+1 annualized decimal rate**.
+- Cash and futures price delta is currency per **+1 price point**.
+- A futures calibration-rate +1bp move decreases its `100-100*rate` quote by
+  0.01 points. This differs from the positive futures price delta.
 
-`QuoteRiskKey::new` checks an existing `RiskFactorKey` plus exact curve/quote
-revisions, helper or actual grid coordinate, native unit, monetary normalization
-and FrozenCurves/RebuildDependents response. Every dimension participates in
-equality/hash. Market-quote and node risk, yield and bank-discount yield, deposit,
-FRA, swap/OIS par, basis-swap spread, bond par coupon, repo, rate-future implied
-rate, Z spread, OAS, residual basis, CDS running/clean-upfront/dirty-upfront,
-hazard and recovery cannot silently share an aggregate key.
+Clean and dirty cash and upfront inputs are separate types. No extra multiplier
+or bp conversion is inferred.
 
-Convention, model/bump semantics and snapshot pins come from the caller's actual
-admitted inputs. A tenor label is descriptive; helper IDs and exact original
-grid indices identify the real bumped economics. No interpolation to a tenor
-proxy or provider-name mapping is performed. Parallel quote coordinates retain
-the exact sorted original ID/version/native-unit set; rate quotes in mixed
-decimal/percent/bp units receive the same canonical annualized move through
-their own original-unit conversions.
+`RiskPosition` specifies:
 
-The core taxonomy adds variants; existing serialized variants and DV01/KRD
-numerical meanings are retained. Rust consumers matching those enums
-exhaustively need to handle the added variants. New risk JSON is a separate
-native contract; it does not add v1 C/Excel/Java/MCP/WASM dispatch or generated
-host schemas. CVX-063 owns those surfaces.
+- a signed quantity;
+- the positive reference size already contained in the PV;
+- the currency;
+- the units: Notional, Contracts or TradeCopies.
 
-## Full rebuilding and reference pricing
+The engine scales once by their Decimal ratio. The economic side stays inside
+the reference trade, and the quantity is relative to that side. A negative
+quantity reverses it. Futures counts must be integers. A per100 price must
+first become an absolute currency PV using the face. It cannot be returned as a
+currency PV. Reference callbacks return checked `ModelMoney`, and a wrong
+currency fails.
 
-`prepare_quote_risk_graph` composes actual `RateRiskCurveInput`,
-`CdsCurveBuildInput` and `CashCurveBuildInput`, exact supplied curves, original
-history and existing numerical controls. Rate helper revisions are explicit
-additional snapshot pins because the older rate recipes lack that field.
-Topology, duplicate identities, output overwrites and missing exact dependencies
-are checked before fitting. All original helpers build through their existing
-complete native builders; piecewise and global controls stay unchanged.
-Administrator publication decisions are frozen during preparation and reused
-for every shock. New requirements outside that set fail.
+## Keys and coordinates
 
-`evaluate_quote_graph` changes original native quotes, including uniform quoted
-swap/basis/par-bond economics, and rebuilds the full supplied graph in dependency
-order. All helpers must reprice at their unchanged native tolerances. Its result
-retains build order, actual repricing, helper evaluation counts and consumed
-publications. Government shocks rebuild issuer basis; CDS shocks rebuild credit
-and credit-linked cash basis. Recovery is separate, updating original CDS legal
-assumptions and the named par-recovery basis model when dependencies rebuild.
+`QuoteRiskKey::new` checks a `RiskFactorKey` plus:
 
-Scenario curves retain original keys **inside the hypothetical calculation**.
-Their changed values are not published observation revisions or new live
-snapshots. Source revisions and changed diagnostic quotes remain visible.
-Ingestion must assign fresh immutable market/curve pins before publication.
-Original inputs and last-good sets remain unchanged when any shock fails.
+- the curve and quote revisions;
+- the helper or grid coordinate, and the native unit;
+- the monetary normalization;
+- the FrozenCurves or RebuildDependents response.
 
-`curve_quote_sensitivity` invokes the same complete native reference trade
-against each actual rebuilt curve set. The caller's pure pricing function must
-retain economic terms, settlement/history/state, model parameters, actual
-reference size and monetary units. Trade-specific recovery must bind to the
-scenario's actual credit assumption. Calculation does not infer eligible
-fixings, models, calendars or reference mappings. Full native scenarios are
-available separately for diagnostics and reusable trade repricing.
+Every dimension takes part in equality and hashing. These cannot silently share
+an aggregate key:
 
-Frozen node risk uses the actual continuous-zero or DF grid; DF shocks multiply
-each selected value by `exp(-move*time)`. Residual basis uses its raw basis grid.
-Hazard shocks alter actual forward intervals of a log-linear survival grid,
-holding recovery separate and refusing negative intensity. Frozen recovery
-holds survival probabilities fixed. Such diagnostics have no original quote
-repricing claim. Supplied-node shocks can rebuild dependent full recipes;
-calibrated-node shocks requesting dependent rebuilding fail explicitly. Use
+- market-quote and node risk;
+- yield and bank-discount yield;
+- deposit, FRA, swap/OIS par, basis-swap spread and bond par coupon;
+- repo, rate-future implied rate, Z spread, OAS and residual basis;
+- CDS running, clean-upfront and dirty-upfront;
+- hazard and recovery.
+
+Convention, model and bump semantics and snapshot pins come from the inputs you
+pass in. A tenor label is descriptive. Helper IDs and grid indices identify the
+bumped economics. No interpolation to a tenor proxy and no provider-name
+mapping is done. Parallel quote coordinates keep the sorted ID, version and
+unit set. Rate quotes in mixed decimal, percent and bp units get the same
+annualized move through their own unit conversions.
+
+The core taxonomy adds variants, and existing serialized variants and DV01/KRD
+meanings are kept. Rust code that matches those enums exhaustively must handle
+the new variants. The new risk JSON is a separate Rust contract. It adds no v1
+C, Excel, Java, MCP or WASM dispatch and no generated host schemas yet.
+
+## Rebuilding and reference pricing
+
+`prepare_quote_risk_graph` combines `RateRiskCurveInput`, `CdsCurveBuildInput`
+and `CashCurveBuildInput`, curves you supply, the history and the numerical
+controls. Rate helper revisions are extra snapshot pins, because the older rate
+recipes lack that field. Topology, duplicate identities, output overwrites and
+missing dependencies are checked before fitting. All helpers build through
+their complete builders, and the piecewise and global controls are unchanged.
+Administrator publication decisions are frozen during preparation and reused for
+every shock. New requirements outside that set fail.
+
+`evaluate_quote_graph` changes the native quotes, including uniform quoted
+swap, basis and par-bond economics, and rebuilds the graph in dependency order.
+All helpers must reprice within their tolerances. The result keeps the build
+order, repricing, helper evaluation counts and consumed publications.
+
+- Government shocks rebuild issuer basis.
+- CDS shocks rebuild credit and credit-linked cash basis.
+- Recovery is separate. It updates the CDS legal assumptions and the named
+  par-recovery basis model when dependencies rebuild.
+
+Scenario curves keep their keys **inside the hypothetical calculation**. Their
+changed values are not published observation revisions or new live snapshots.
+Source revisions and changed diagnostic quotes stay visible. Ingestion must
+assign fresh immutable market and curve pins before publication. Inputs and
+last good sets are unchanged when a shock fails.
+
+`curve_quote_sensitivity` runs the same reference trade against each rebuilt
+curve set. Your pricing function must keep the economic terms, the
+settlement, history and state, the model parameters, the reference size and the
+monetary units. Trade-specific recovery must bind to the scenario's credit
+assumption. The calculation does not infer fixings, models, calendars or
+reference mappings. Full scenarios are also available for diagnostics and
+reusable trade repricing.
+
+Frozen node risk uses the continuous-zero or DF grid. DF shocks multiply each
+selected value by `exp(-move*time)`. Residual basis uses its raw basis grid.
+Hazard shocks change the forward intervals of a log-linear survival grid, hold
+recovery separate, and refuse negative intensity. Frozen recovery holds survival
+probabilities fixed. These diagnostics do not reprice the original quotes.
+
+Shocks to nodes you supplied can rebuild dependent recipes. Shocks to
+calibrated nodes that ask for dependent rebuilding fail, and you should use
 market-quote recalibration for those risks. No representation is resampled or
-silently replaced with a different interpolation/model.
+silently replaced with another interpolation or model.
 
-`reference_quote_sensitivity` is the lower-level full-pricer callback route for
-raw yield/Z/cash/futures quotations and already explicit native reference
-scenarios. Every valuation failure and half-step stability failure aborts an
-accepted result. Optional OAS must use `optional_oas_quote_sensitivity`: it
-requires native HW1F resolution and separate duration/convexity refinement at
-both h and h/2, preserving existing rejection of undersampled bumps. Generic
-price-only OAS callbacks are refused. Other optional model/curve scenarios must
-also satisfy their original model-specific risk controls in the owning pricer.
+`reference_quote_sensitivity` is the lower-level callback route for yield, Z,
+cash and futures quotations and explicit reference scenarios. Any valuation
+failure or half-step stability failure aborts the result.
 
-`reconcile_quote_buckets` requires the complete declared original quote set and
-an actually simultaneous parallel repricing. `reconcile_curve_node_buckets`
-additionally checks every informative node against the prepared actual grid;
-missing/duplicate indices fail even if their sensitivity happens to be zero.
-Both use explicit caller-admitted monetary discrepancy tolerances. A failed
-reconciliation remains failed and must not qualify an additive approximation.
+Optional OAS must use `optional_oas_quote_sensitivity`. It needs HW1F
+resolution and separate duration and convexity refinement at both h and h/2,
+and it still rejects undersampled bumps. Generic price-only OAS callbacks are
+refused. Other optional model and curve scenarios must also pass the risk
+checks of their own pricer.
+
+`reconcile_quote_buckets` needs the complete declared quote set and a truly
+simultaneous parallel repricing. `reconcile_curve_node_buckets` also checks
+every informative node against the prepared grid. Missing or duplicate indices
+fail even if their sensitivity is zero. Both use monetary discrepancy
+tolerances that the caller supplies. A failed reconciliation stays failed and
+must not be treated as a valid additive approximation.
 
 ## Portfolio and FX
 
-`aggregate_signed_quote_risk` takes the **complete expected trade manifest**,
-required full factor keys and Present/Missing outcomes. An absent required
-outcome is Missing. It cannot discover trades omitted from the caller manifest.
-Duplicate/unrequested factors, mixed snapshots, positions or original PVs,
-invalid numerical records and unauthorized entity scope fail. One entity is
-explicit; multi-entity reporting requires the caller's explicit permitted list
-and authorization/configuration revision. Calculation does not grant authority.
+`aggregate_signed_quote_risk` takes the complete expected trade manifest, the
+required factor keys and Present/Missing outcomes. An absent required outcome
+is Missing. It cannot discover trades missing from your manifest. These fail:
 
-Per-currency coverage retains expected/covered trades and factor pairs, known
-gross exposure, covered known gross exposure and the count of unknown exposures.
-Unknown exposure stays unknown. Local and reporting sums retain partial values
-as `known_value`; all-missing contributions remain None. Incomplete rows identify
-their missing trades. Gross exposure is a nonnegative caller-defined currency
-metric, not absolute net PV or a hidden duration weight.
+- duplicate or unrequested factors;
+- mixed snapshots, positions or PVs;
+- invalid numerical records;
+- unauthorized entity scope.
+
+One entity is explicit. Multi-entity reporting needs your permitted list and
+the authorization and configuration revision. The calculation does not grant
+authority.
+
+Per-currency coverage keeps the expected and covered trades and factor pairs,
+the known gross exposure, the covered known gross exposure and the count of
+unknown exposures. Unknown exposure stays unknown. Local and reporting sums
+keep partial values as `known_value`, and all-missing contributions stay None.
+Incomplete rows name their missing trades. Gross exposure is a nonnegative
+currency metric that the caller defines. It is not absolute net PV or a hidden
+duration weight.
 
 Positive same-snapshot `RiskFxPin` observations convert monetary values once.
 Local values survive missing FX while the reporting result is Incomplete.
-`RiskFxConversionExposure` retains each actual FX pin and
-`d(reporting sensitivity)/d(FX)=local sensitivity`. This is induced conversion
-exposure of a risk result; it is **not** the full portfolio's FX delta or a
-cross-currency hedge/execution model. Quote-factor currency remains in its key.
+`RiskFxConversionExposure` keeps each FX pin and
+`d(reporting sensitivity)/d(FX)=local sensitivity`. This is the conversion
+exposure induced on a risk result. It is **not** the portfolio's full FX delta
+or a cross-currency hedge or execution model. Quote-factor currency stays in its
+key.
 
-## Bounded engineering scope
+## Limits and tests
 
-Risk graphs admit at most64 full recipes,128 original helpers and256 total curve
-outputs/supplied identities, within existing family calibration/grid/history/
-cash/solver bounds. Publication manifests admit32,768 unique decisions. Each
-central result requires baseline, +/-h and +/-h/2 valuations; each scenario has
-bounded native calibration work. This is a reference batch calculation, with
-no latency or memory certificate and no AAD/cache/live execution inference.
-Portfolio bounds are4,096 trades,128 required factors per trade,65,536 total
-required trade-factor pairs and256 FX observations. Numeric overflow fails.
+Limits:
 
-Independent Decimal(60) full stepped/amortizing cash references and native
-cross-product, quote/node, recovery, bucket/parallel, quantity, fixing and
-failure checks provide scoped engineering evidence. Existing price/risk
-expectations, captures and solver defaults remain unchanged. Model-specific
-unsupported inputs and conservative resolution limits remain errors.
-All2,154 mandatory library records stay Planned; quantitative, market/model,
-host, lifecycle/P&L, deployment and latency certificates remain separate work.
+- Risk graphs take at most 64 full recipes, 128 helpers and 256 curve outputs
+  and supplied identities, within the existing family calibration, grid,
+  history, cash and solver bounds.
+- Publication manifests take 32,768 unique decisions.
+- Each central result needs a baseline, +/-h and +/-h/2 valuations. Each
+  scenario has bounded calibration work.
+- Portfolios take 4,096 trades, 128 required factors per trade, 65,536 total
+  trade-factor pairs and 256 FX observations.
+- Numeric overflow fails.
+
+This is a reference batch calculation. There is no latency or memory claim, and
+nothing here implies AAD, caching or live execution.
+
+Decimal(60) references for stepped and amortizing cash, plus Rust checks for
+cross-product, quote and node, recovery, bucket and parallel, quantity, fixing
+and failure cases, back this. Existing price and risk expectations, captures
+and solver defaults are unchanged. Unsupported model inputs and conservative
+resolution limits remain errors.
+
+Not yet covered: independent quantitative and market/model validation, host
+coverage, lifecycle and P&L, deployment and latency.
 
 ORE separates sensitivity scenario generation by market-factor type and runs
-valuation through an explicit analysis workflow. These primary source reads
-informed the separation of factors and scenario composition here; this task
-does not claim an ORE runtime comparison or reproduce every ORE model.
+valuation through an explicit analysis workflow. Reading these ORE sources
+informed how factors and scenario composition are separated here. We have not
+run a comparison against ORE and do not reproduce every ORE model.
 [ORE sensitivity workflow](https://github.com/OpenSourceRisk/Engine/blob/master/OREAnalytics/orea/engine/sensitivityanalysis.cpp),
 [ORE factor scenario generation](https://github.com/OpenSourceRisk/Engine/blob/master/OREAnalytics/orea/scenario/sensitivityscenariogenerator.cpp).
 
+## Related documents
 
-Complete original product graph capture, fitted-output/solver/helper diagnostic
-comparison and original quote-risk replay are documented in
-[the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
-Existing schema1/2 identities and original numerical controls remain; CVX-063
-and all mandatory library/market/model/host/production/latency certificates stay open.
+- Product graph capture, comparison of fitted output, solver and helper
+  diagnostics, and quote-risk replay are in
+  [the schema-3 replay contract](CALIBRATION-SNAPSHOT-REPLAY.md). The
+  calculations here stay independent of providers, storage, message queues and
+  clocks. Schema 1 and 2 identities and numerical controls are unchanged.
+- Exponential UFR and speed fitting over exact analytic bases, required
+  one-sided joined forwards, quote risk and schema 3 replay are described in
+  [the UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete `Helpers`
+  recipes and mixed-unit parameters and diagnostics are kept. No sampled
+  objective, regulatory procedure or unsupported base is substituted.
+- Risk vectors compose through the pure
+  [constrained hedge proposal operation](CONSTRAINED-HEDGES.md). It keeps the
+  key, bump, model and reference semantics and the central and half-step PVs,
+  with current and pending exposure, native quantity and legal credit and FX
+  checks. Bounded constrained and lot searches return the measured residual and
+  cost, constraint, rank and work diagnostics. They carry no execution
+  authority.
+- ICMA yield cash helpers compose through the full graph and five-PV risk code.
+  Units, policy version, bound calendars, cash and dependent recipes survive each
+  rebuild. Per-build work ceilings and full and half-bump stability are still
+  enforced. See [the helper contract](ICMA-CASH-HELPERS.md).
+- Own-security ICMA yield sensitivity and positive reference hedge columns use
+  one prepared cash and time context and the five-PV code. See
+  [ICMA yield risk](ICMA-YIELD-RISK.md). Raw yield keeps its own axis.
 
-Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
+## Common-factor hedge columns
 
-Complete checked original risk vectors compose through the pure
-[constrained hedge proposal operation](CONSTRAINED-HEDGES.md). It preserves
-original full key/bump/model/reference semantics and central/half PVs, with
-complete current/pending exposure, exact native quantity and legal credit/FX
-admission. Explicit bounded constrained/lot searches return measured residual,
-cost/constraint/rank/work diagnostics without execution authority. Original
-pricing/risk owners and every existing financial reference remain unchanged.
+The `graph_hedge_risk` operation composes the product and graph revaluation
+code into columns for bonds, CDS, IRS/OIS and rates futures, for the existing
+hedge aggregator and proposal solver. See
+[quantity binding, inputs, controls and limits](GRAPH-HEDGE-RISK.md).
+Own-security ICMA yield is a separate factor. Optional bonds are covered in
+[OPTIONAL-GRAPH-HEDGE-RISK.md](OPTIONAL-GRAPH-HEDGE-RISK.md). Credit-survival
+cash products and all-member delivery-futures risk are not covered.
 
-
-Complete contextual ICMA yield cash helpers now compose through the original full graph and five-PV risk owner. Original native units, policy version, actual bound calendars, full cash and dependent recipes survive each rebuild. Per-build original work ceilings and full/half-bump stability stay enforced; see [the helper contract](ICMA-CASH-HELPERS.md).
-
-Direct own-security contextual ICMA yield sensitivity and positive reference
-hedge columns use one prepared cash/time context and the original five-PV owner;
-see [ICMA yield risk](ICMA-YIELD-RISK.md). Raw yield retains its distinct axis.
-
-
-## Complete common-factor hedge columns
-
-The distinct `graph_hedge_risk` operation composes the original full product and
-graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
-for the existing hedge aggregator and proposal solver. See
-[quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
-Own-security ICMA yield remains a separate factor. Optional models, credit-survival
-cash products and delivery-futures all-member risk remain owning work; actual
-managed/browser and production/latency qualification remain open.
-
-
-Credit-survival and issuer-basis cash now have a distinct full original-owner
-`cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
-for the complete security/mapping/factor contract, ICMA and rebuild controls,
-actual mixed-book scope and remaining recovery/host/production qualification.
+Credit-survival and issuer-basis cash use the separate `cash_basis_hedge_risk`
+route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md) for the security
+and mapping contract, the ICMA and rebuild controls, the mixed-book scope and
+what remains.

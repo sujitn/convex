@@ -1,31 +1,36 @@
 # CDS recovery scenarios and a five-factor mixed hedge book
 
-The existing `graph_hedge_risk`, `cash_basis_hedge_risk`, calibration scenario and
-`hedge` operations now compose full CDS recovery risk with issuer cash, IRS and
-rates-futures risk. No additional wire operation or financial pricer is introduced.
+The `graph_hedge_risk`, `cash_basis_hedge_risk`, calibration scenario and `hedge`
+operations can now include CDS recovery risk alongside issuer cash, IRS and
+rates-futures risk. This adds no new wire operation and no new pricer.
 
-A CDS scenario resolves the exact survival-curve key and its explicit `Credit`
-recovery assumption. `CdsContract::with_recovery_fraction` clones the complete
-checked contract and changes that assumption only; the original premium periods,
-calendar revisions, legal entity/seniority/document/restructuring identities,
-notional, protection side, coupon, dates and initial-cash state survive. The same
-original CDS pricer values the clone. The baseline is admitted and priced first;
-a mismatched baseline recovery or legal reference cannot be repaired by a scenario.
-A hypothetical assumption is distinct from a trade amendment or realized recovery.
+A CDS scenario looks up the exact survival-curve key and its explicit `Credit`
+recovery assumption. `CdsContract::with_recovery_fraction` clones the validated
+contract and changes only that assumption. The premium periods, calendar
+revisions, legal entity, seniority, document and restructuring identities,
+notional, protection side, coupon, dates and initial-cash state are kept. The
+same CDS pricer values the clone.
 
-`FrozenCurves` holds the actual survival probabilities and changes recovery in
-[0,1]. `RebuildDependents` also supports supplied survival nodes: it changes the
-credit role before rebuilding every dependent original helper. For a fitted CDS
-curve, the full recipe role and every actual CDS helper receive the same changed
-recovery before the original fit. Every dependent par-recovery cash recipe uses
-that actual scenario recovery. Original native quote residuals and helper-domain
-checks remain. Recovery one is valid with held survival; fitting a CDS survival
-curve at full recovery remains rejected because the original fitted model cannot
-identify it. Wrong entity, role, seniority, curve version, baseline/helper/model
-recovery or calendar pins fail through the original owners.
+The baseline is validated and priced first. A scenario cannot repair a baseline
+whose recovery or legal reference does not match. A hypothetical assumption is
+different from a trade amendment or a realized recovery.
 
-The runnable consumer builds complete original cash-bond, buyer CDS, stepped IRS
-and term-rates-futures columns for five common coordinates:
+`FrozenCurves` holds the survival probabilities and changes recovery in [0,1].
+`RebuildDependents` also supports survival nodes you pass in. It changes the
+credit role before rebuilding every dependent helper.
+
+For a fitted CDS curve, the recipe role and every CDS helper get the same changed
+recovery before the fit. Every dependent par-recovery cash recipe uses that
+scenario recovery. Residuals in each quote's own unit and the helper-domain
+checks still apply.
+
+Recovery of one is valid with held survival. Fitting a CDS survival curve at full
+recovery is rejected, because the fitted model cannot identify it. A wrong
+entity, role, seniority, curve version, or baseline, helper, model or calendar
+pin fails in the code that owns that check.
+
+The runnable example builds cash-bond, buyer CDS, stepped IRS and term
+rates-futures columns for five common coordinates:
 
 | Coordinate | Signed output unit |
 | --- | --- |
@@ -35,33 +40,42 @@ and term-rates-futures columns for five common coordinates:
 | Term projection zero | Currency per basis point |
 | Issuer recovery | Currency per recovery fraction |
 
-Every column evaluates baseline, +h, -h, +h/2 and -h/2 through the complete original
-product owners; even zero exposures are actually repriced. Curve keys, factor
-identities, policies, snapshots and positive native reference quantities remain
-explicit. Full coupon/principal profiles, known fixing revisions, actual calendar
-holidays, CDS premium/default accrual and pending upfront cash enter the controls.
-Independent Decimal60 controls compare complete CDS scenario diagnostics as well
-as sensitivities; native output captures supply transport expectations only.
+Every column evaluates the baseline, +h, -h, +h/2 and -h/2 through the full
+product pricers. Even zero exposures are repriced. Curve keys, factor
+identities, policies, snapshots and positive reference quantities in native
+units stay explicit. The controls include full coupon and principal profiles,
+known fixing revisions, calendar holidays, CDS premium and default accrual, and
+pending upfront cash.
 
-The book preserves separate current and pending quantities, native trade/holding/
-liquidity intervals, exact contract lots, side costs and supplied same-snapshot
-USD/EUR conversion. It requests four candidate trades against all five factors.
-The independent synthetic target corresponds to cash -3,000 original face, CDS
-+80,000 notional, IRS -200,000 notional and +2 futures contracts. The expected
-cost is USD 7.84 or EUR 7.056. The solver retains proposal-only authority, complete
-final constraint checks and bounded-work failure; it does not submit orders.
+Independent Decimal60 controls compare the full CDS scenario diagnostics as well
+as the sensitivities. The captured native outputs check transport only.
 
-The solver reuses its original complete-pivot LU decomposition for at most three
-residual corrections. Every correction is checked against the same original KKT
-system and unchanged backward-error bound. Unresolved decomposition, nonfinite
-values or remaining error still return `numerical_failure`; the original final
-native quantity, factor and cost checks remain mandatory. This resolves roundoff
-from independent hazard/recovery constraint rows without a pseudoinverse, ridge
-or tolerance change. Original targets, factor scales/bands, solver defaults and
-active-set/lot work counters remain. The extra correction work is bounded by
-three small solves per active set. Raw failures and the unsuccessful separate
-application-limit/rank-policy trials remain in private evidence. This bounded book
-does not qualify every financial constraint scale or certify solver latency.
+The book keeps current and pending quantities separate, with trade, holding and
+liquidity intervals, exact contract lots, side costs and a same-snapshot USD/EUR
+conversion you pass in. It requests four candidate trades against all five
+factors. The independent synthetic target is:
+
+- cash: -3,000 original face;
+- CDS: +80,000 notional;
+- IRS: -200,000 notional;
+- futures: +2 contracts.
+
+The expected cost is USD 7.84 or EUR 7.056. The solver only proposes trades. It
+checks all constraints on the final result, fails when its work bound is
+exceeded, and does not submit orders.
+
+The solver reuses its complete-pivot LU decomposition for at most three residual
+corrections. Each correction is checked against the same KKT system and the same
+backward-error bound. An unresolved decomposition, non-finite values or remaining
+error still return `numerical_failure`. The final checks on quantity, factor and
+cost still apply.
+
+This resolves roundoff from independent hazard and recovery constraint rows
+without a pseudoinverse, ridge or tolerance change. Targets, factor scales and
+bands, solver defaults and the active-set and lot work counters are unchanged.
+The extra correction work is bounded by three small solves per active set. This
+bounded book does not qualify every constraint scale and does not measure solver
+latency.
 
 ```bash
 cargo run --locked -p convex --example recovery_hedge
@@ -72,13 +86,14 @@ python3 tests/scripts/recovery_hedge_admission.py
 python3 tests/scripts/recovery_hedge_boundaries.py
 ```
 
-Existing [graph columns](GRAPH-HEDGE-RISK.md), [issuer cash columns](CASH-BASIS-HEDGE-RISK.md)
-and [constrained proposals](CONSTRAINED-HEDGES.md) retain their complete contracts.
-The shared Rust/JSON/C/MCP/native-compiled WASM paths reuse the same implementation.
-Java/JNI and Windows/.NET/Excel parity tests are wired into CI; actual execution
-on those hosts and wasm32/browser remains unverified on the current macOS host.
-CVX-063 remains partial and uncertified. Optional-model and all-member delivery
-futures risk, the complete market/convention matrix and independent production/
-latency qualification remain owning work. CVX-025/031 own authoritative server
-limits, pending-state fencing and orders. Detailed local evidence and the next
-coding-harness prompt are in `.ai/production-readiness/evidence/CVX-063-Recovery-Hedges`.
+The [graph columns](GRAPH-HEDGE-RISK.md), [issuer cash columns](CASH-BASIS-HEDGE-RISK.md)
+and [constrained proposals](CONSTRAINED-HEDGES.md) are documented separately.
+The Rust, JSON, C, MCP and WASM paths share the same implementation.
+
+Parity tests for Java/JNI and Windows/.NET/Excel are wired into CI. They have
+not been run on those hosts, nor on wasm32/browser, from the current macOS
+development host.
+
+Not yet covered: optional-model and all-member delivery futures risk, the full
+market and convention matrix, server limits, pending-state fencing and orders,
+and independent latency measurement.

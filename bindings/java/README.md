@@ -1,21 +1,23 @@
 # Convex Java
 
-JVM bindings for the [Convex](../../README.md) fixed-income analytics library.
+JVM bindings for the [Convex](../../README.md) fixed-income analytics library, in `bindings/java`.
+Maven coordinates are `io.github.sujitn:convex-java:0.14.0`, but the artifact is
+**not yet on Maven Central**; for now, build it from this repository (see Building).
 
 Java users get the same analytics as the Rust API — bonds, curves, pricing,
 risk, spreads, and the hedge advisor — through an idiomatic typed API
 (builders, `BigDecimal`/`LocalDate`, immutable result records, `AutoCloseable`
-handles). The JSON-RPC boundary to the native library is fully hidden.
+handles). The JSON boundary to the Rust library is hidden.
 
 ## How it works
 
 ```
 com.convex            ← typed public API (builders, ConvexAnalytics, HedgeAdvisor)
 com.convex.internal   ← Panama FFM binding + Jackson envelope codec (hidden)
-crates/convex-ffi     ← the native cdylib (C ABI), built from the Rust workspace
+crates/convex-ffi     ← the Rust cdylib (C ABI), built from the Rust workspace
 ```
 
-The binding calls the native library through Java's **Foreign Function & Memory
+The binding calls the Rust library through Java's **Foreign Function & Memory
 API** (Project Panama). There is **no hand-written JNI / C shim** — Java binds
 directly to the cdylib's `char*`-in / `char*`-out C functions by symbol name.
 
@@ -24,7 +26,7 @@ directly to the cdylib's `char*`-in / `char*`-out C functions by symbol name.
 - **JDK 22 or newer** (the FFM API is finalized in 22).
 - At runtime, native access must be granted:
   `--enable-native-access=ALL-UNNAMED` (the Maven build sets this for tests).
-- The native `convex-ffi` cdylib for your platform, bundled under
+- The `convex-ffi` cdylib for your platform, bundled under
   `src/main/resources/native/<classifier>/` (see below). Versions track the Rust
   workspace (currently `0.14.0`).
 
@@ -43,7 +45,8 @@ mvn -f bindings/java/pom.xml verify
 ```
 
 `NativeLoader` extracts the cdylib matching the running OS/arch from the jar at
-startup, so one published artifact carries every platform.
+startup, so a release jar carries every platform. A local build carries only the
+platform you staged.
 
 ## Usage
 
@@ -91,14 +94,14 @@ try (Bond bond = FixedRateBond.builder()
 
 ## Thread-safety
 
-The native registry and analytics are safe for concurrent use, and the FFM
+The Rust registry and analytics are safe for concurrent use, and the FFM
 method handles are immutable, so the API may be called from multiple threads.
 (The `convex-ffi` registry clones objects out under the lock before running
 analytics, so concurrent calls never deadlock.)
 
 ## Status / not yet wired
 
-The native FFI does not yet expose every Rust capability. Currently missing
+The FFI does not yet expose every Rust capability. Currently missing
 (same DTO + dispatch pattern when added — see
 `crates/convex-analytics/src/dto.rs`):
 
@@ -112,7 +115,7 @@ consumers should grant `--enable-native-access` to the unnamed module.
 
 ## Releasing to Maven Central
 
-Publishing is driven by the `release` Maven profile (sources + javadoc jars,
+Nothing has been published yet. Publishing is driven by the `release` Maven profile (sources + javadoc jars,
 GPG signing, and the Sonatype Central Portal plugin) and the
 `.github/workflows/java-release.yml` workflow, triggered by a `java-v*` tag.
 
@@ -130,8 +133,8 @@ Required repository secrets:
 
 To cut a release: `git tag java-v0.14.0 && git push origin java-v0.14.0`.
 
-## Full supplied-input library API
+## Library API
 
-See [the shared API, exact terms and capability limits](../../docs/LIBRARY-API.md).
-Generic JSON text calls preserve native diagnostics and decimal strings.
-Full mandatory operations and host certification remain open.
+See the [library API](../../docs/LIBRARY-API.md) for the complete request shapes
+and limits. The generic JSON call returns the result envelope unchanged, with
+decimal strings and error diagnostics intact.

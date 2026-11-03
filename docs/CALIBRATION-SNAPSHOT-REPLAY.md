@@ -1,101 +1,145 @@
-# Complete product calibration and quote-risk snapshot replay
+# Calibration snapshots and replay
 
-`SnapshotAssembly.calibration` captures one complete original rate/CDS/cash
-product graph. `convex::library::CalibrationReplay` reuses the existing native
-resource resolution, checked full builders and original quote-risk operations.
-`convex_engine::calibration_replay` owns capture-time admission, immutable output
-comparison and application integration. Ports retain bounded JSON and metadata;
-they do not depend on financial crates. The engine adds one dependency on the
-existing pure facade; no external package, backend or provider enters pricing.
+A snapshot can store a complete rate, CDS and cash calibration: the inputs, the
+fitted curves and every diagnostic. Replay rebuilds the curves from the inputs
+and checks that the result matches what was stored. This document covers that
+capture format and the replay workflow.
 
-The record retains complete original `LibraryInputs`: actual calendar tables and
-revisions, fixing revisions/publication decisions, independently supplied native
-curves, full original helper/product/legal terms, quote units/revisions,
-calibration controls and exact dependencies. Every supplied, fitted and view
-curve has an explicit `CalibrationCurvePin` with its original opaque definition
-version and a separately supplied positive numeric capture revision. Missing,
-extra or mismatched pins fail. No numeric revision is parsed from a string.
+`SnapshotAssembly.calibration` holds the capture. `convex::library::CalibrationReplay`
+reuses the existing Rust resource resolution, the validating product builders
+and the quote-risk operations. `convex_engine::calibration_replay` validates a
+capture when it is taken, compares replay output against the stored output, and
+connects replay to the application. The ports crate keeps bounded JSON and
+metadata and does not depend on the financial crates. The engine adds one
+dependency on the existing pure facade, and no external package, backend or
+provider enters pricing.
 
-Original native graph output now retains full rate, CDS and cash family fits.
-The capture's `expected` contains actual fitted recipes/grids, complete original
-helper valuations, native residuals, piecewise roots or global rank/conditioning/
-work diagnostics, build order and consumed publications. Replay reconstructs the
-original graph and reprices every source through its original builder before
-comparing the entire canonical output. Stored fitted nodes and `Helpers` IDs
-are never decoded as a product graph or installed as a replay cache.
+## What a capture holds
 
-An exact diagnostic mismatch fails; a platform/build that computes different
-canonical diagnostics cannot silently bless the earlier capture. This strict
-replay contract is engineering reproducibility evidence, with no cross-platform
-bitwise, independent financial or latency certificate. New captures require
-actual original inputs and explicitly supplied metadata. `capture_calibration`
-only seals an empty `expected` object; it cannot replace an existing capture.
+The record keeps the complete `LibraryInputs`:
+
+- calendar tables and their revisions;
+- fixing revisions and publication decisions;
+- curves you supply;
+- helper, product and legal terms;
+- quote units and revisions;
+- calibration controls and exact dependencies.
+
+Every supplied, fitted and view curve has a `CalibrationCurvePin`. The pin
+holds the curve's opaque definition version and a separately supplied positive
+numeric capture revision. Missing, extra or mismatched pins fail. No numeric
+revision is parsed from a string.
+
+The capture's `expected` field holds the output of the original build:
+
+- the fitted recipes and grids;
+- the helper valuations and residuals;
+- the piecewise roots, or the global rank, conditioning and work diagnostics;
+- the build order;
+- the publications consumed.
+
+Replay rebuilds the graph from the inputs, reprices every source through its
+original builder, and compares the whole canonical output. Stored fitted nodes
+and `Helpers` IDs are never decoded as a product graph or installed as a replay
+cache.
+
+A diagnostic mismatch fails. If a platform or build computes different
+canonical diagnostics, replay cannot silently accept the earlier capture.
+Replay is a reproducibility check. It does not show bitwise equality across
+platforms, financial correctness or latency.
+
+New captures need the real inputs and explicit metadata. `capture_calibration`
+only seals an empty `expected` object, and it cannot replace an existing
+capture.
+
+## Schema versions
 
 | Content | Schema | Hash domain |
 |---|---|---|
-| Original zero records | 1 | `convex.snapshot.v1\0` |
-| Complete direct recipes | 2 | `convex.snapshot.v2\0` |
-| Complete product-calibration capture | 3 | `convex.snapshot.v3\0` |
+| Zero records | 1 | `convex.snapshot.v1\0` |
+| Direct recipes | 2 | `convex.snapshot.v2\0` |
+| Product-calibration capture | 3 | `convex.snapshot.v3\0` |
 | Any of these, as assembly writes every new snapshot | 4 | `convex.snapshot.v4\0`, by section ([identity](../crates/convex-engine/SNAPSHOTS.md#identity-quality-and-bounds)) |
 
-An omitted `calibration` field preserves both older canonical identities. Schema
-3 requires a capture, schemas 1 and 2 reject one, and schema 4 holds one or none. Migration
-creates a new content-addressed snapshot with the full original graph. Historical
-snapshots are never overwritten, relabelled or completed using current providers.
-Separate direct recipe graphs can coexist only with disjoint identities; they
-cannot supply omitted inputs to the embedded calibration graph. Its independent
-dependencies remain inside its original inputs. Older zero records cannot supply
-missing native calibration dependencies.
+Leaving out `calibration` keeps both older canonical identities. Schema 3
+requires a capture, schemas 1 and 2 reject one, and schema 4 holds one or none.
 
-A standalone product/risk graph snapshot (schema 3, or schema 4 with a
-calibration) can omit unrelated bond references and market marks. Original
-schema-1/2 reference requirements remain unchanged. The runtime's fixed-bullet
-pricing use case still requires its actual instrument references and quotes. An original supplied-node risk graph retains its complete
-independent curves and full product action even when no product fit is needed.
+Migration creates a new content-addressed snapshot with the full graph.
+Historical snapshots are never overwritten, relabelled or completed from
+current providers. Separate direct-recipe graphs can coexist only with disjoint
+identities. They cannot supply inputs that the embedded calibration graph
+omitted. Its dependencies stay inside its own inputs, and older zero records
+cannot supply missing calibration dependencies.
 
-All original valuation dates must match the snapshot economic date; an original
-rate calibration instant must match `as_of`. Native input publication/known-at
-times cannot exceed the snapshot cutoff. Restated captures can retain later
-known revisions while keeping the original native calculation's earlier fixing
-cutoff. Replay preserves that cutoff and its revision-selection policy. Missing
-due history, unknown/discarded product fields, incorrect resource versions,
-unidentified fits, exhausted work or original residual failures return no accepted
-curve set or risk result. Original financial tolerances and solver defaults remain.
+A standalone product and risk snapshot (schema 3, or schema 4 with a
+calibration) can omit unrelated bond references and market marks. The schema 1
+and 2 reference requirements are unchanged. The fixed-bullet pricing use case
+in the runtime still needs its instrument references and quotes. A risk graph
+built from node values you supply keeps its complete curves and product action
+even when no product fit is needed.
 
-The actual assembler validates before repository reads/publication. Configuration
-dry-run, stage/activation, exact snapshot selection, runtime graph activation,
-valuation and recovery consume the complete capture. Existing fixed-bullet
-observed-mid pricing can use its checked rate curves without resampling or losing
-their original time basis/roles. Result lineage includes the graph capture,
-every native curve's numeric capture revision and explicitly supplied definition
-pins. Full original quote/legal/calendar/history provenance remains inside the
-captured inputs and native fit output. Other server product/job/risk endpoints
-remain their owning work; the offline operation does not add a server route.
+## Time and validation rules
 
-Native `Build`, full product `Price`, quote/node/recovery `Scenario`,
-`ProductScenario`, `ProductRisk` and bucket reconciliation reuse the original
-calibration action. Exact quote keys/units, frozen versus rebuilt response,
-five-PV/half-step stability and original product/model restrictions still apply.
-Risk/scenario/bucket actions must claim this exact snapshot ID. Their product
-time/cutoffs receive the same capture-time checks. Original inputs and last-good
-results remain unchanged when an action fails. Data quality and provenance are
-returned with the result; the calculation grants no execution authorization.
+- All valuation dates must match the snapshot's economic date.
+- A rate calibration instant must match `as_of`.
+- Input publication and known-at times cannot exceed the snapshot cutoff.
+- Restated captures can keep later known revisions while the original
+  calculation keeps its earlier fixing cutoff. Replay preserves that cutoff and
+  its revision-selection policy.
+- Missing history, unknown or discarded product fields, wrong resource
+  versions, unidentified fits, exhausted work and residual failures return no
+  curve set or risk result.
+- Financial tolerances and solver defaults are unchanged.
 
-The capture's source timestamp and age budget conservatively apply to every
-retained curve/dependency. Runtime expiry uses that deadline and original quote/
-override deadlines. It does not refresh inputs on replay. Source-specific graph
-assembly and managed provider/fixing services remain application work; callers
-must supply actual conservative source metadata.
+## Engine integration
 
-Snapshots retain the shared 16 MiB, 64 total curve and 4,096 original input
-node/helper/observation/segment limits. Inputs keep the original strict library
-2 MiB/32,768 JSON value, 64-level, 4,096-entry, 8,192-byte text bounds. Full output
-diagnostics admit 262,144 JSON values within the snapshot byte limit. Original
-64-recipe/128-helper graph and family/grid/history/solver bounds remain. Numeric
-result lineage keeps its original 256-record limit. This is bounded setup/batch
-work, with normal allocations and no hot-loop or colocation claim.
+The assembler validates before it reads or publishes from the repository.
+Configuration dry-run, stage and activation, snapshot selection, runtime graph
+activation, valuation and recovery all use the complete capture.
 
-Run the real file reopen and original full rate quote-risk consumer:
+Fixed-bullet observed-mid pricing can use the checked rate curves without
+resampling them or losing their time basis and roles. Result lineage includes
+the graph capture, each curve's numeric capture revision and the definition
+pins you supplied. Quote, legal, calendar and history provenance stays inside
+the captured inputs and the fit output.
+
+The offline operation adds no server route. Other server product, job and risk
+endpoints are not covered.
+
+Rust `Build`, full product `Price`, the quote, node and recovery `Scenario`,
+`ProductScenario`, `ProductRisk` and bucket reconciliation all reuse the
+calibration action. Exact quote keys and units, frozen versus rebuilt
+response, five-PV and half-step stability, and product and model restrictions
+still apply. Risk, scenario and bucket actions must name this exact snapshot
+ID, and their product time and cutoffs get the same capture-time checks.
+
+If an action fails, the inputs and last good results are unchanged. Data
+quality and provenance are returned with the result. The calculation does not
+authorize execution.
+
+The capture's source timestamp and age budget are applied conservatively to
+every retained curve and dependency. Runtime expiry uses that deadline and the
+quote and override deadlines. Replay does not refresh inputs. Source-specific
+graph assembly and managed provider and fixing services are application work,
+and callers must supply conservative source metadata.
+
+## Limits
+
+- Snapshots keep the shared 16 MiB limit, 64 curves in total, and 4,096 input
+  nodes, helpers, observations and segments.
+- Inputs keep the library's 2 MiB and 32,768 JSON values, 64 levels, 4,096
+  entries and 8,192-byte text bounds.
+- Output diagnostics allow 262,144 JSON values within the snapshot byte limit.
+- The 64-recipe and 128-helper graph limits and the family, grid, history and
+  solver bounds are unchanged.
+- Result lineage keeps its 256-record limit.
+
+This is bounded setup and batch work with ordinary allocations. There is no
+hot-loop or colocation latency claim.
+
+## Running it
+
+Run the file reopen and the full rate quote-risk consumer:
 
 ```sh
 cargo run --locked -p convex-engine --example calibration_snapshot_replay -- demo /tmp/convex-calibration-snapshot-replay
@@ -105,8 +149,8 @@ cargo test --locked -p convex --all-features --test calibration_replay -p convex
 python3 tests/scripts/calibration_replay_inputs.py --check
 ```
 
-The demo prints the actual snapshot ID and its complete original `risk_action`.
-Save that action as a JSON file, then execute the separately reopened snapshot:
+The demo prints the snapshot ID and its `risk_action`. Save that action as a
+JSON file, then run it against the reopened snapshot:
 
 ```sh
 cargo run --locked -p convex-engine --example snapshot_replay -- verify DIRECTORY SNAPSHOT_ID
@@ -114,24 +158,37 @@ cargo run --locked -p convex-engine --example snapshot_replay -- calibration DIR
 cargo run --locked -p convex-engine --example snapshot_replay -- query-curves DIRECTORY SNAPSHOT_ID QUERIES_JSON
 ```
 
-The parent directory must already exist. Action ingress rejects duplicate or
-discarded economic fields and numeric Decimal precision loss through the original
-strict decoder. Any failure exits unsuccessfully with no successful stdout result.
-The published operator schema describes the capture envelope; the original pure
-request schema and native decoder own financial admission. Actual exported schemas
-are exercised by `tests/scripts/calibration_replay_schema.py`.
+The parent directory must already exist. Action input rejects duplicate or
+discarded economic fields and any loss of Decimal precision, using the strict
+decoder. A failure exits with a nonzero status and no result on stdout. The
+published operator schema describes the capture envelope. The request schema
+and the Rust decoder own the financial input rules. The exported schemas are
+exercised by `tests/scripts/calibration_replay_schema.py`.
 
-Thirty-two unchanged original calibration/risk requests and two independent
-Decimal(60) dated-deposit controls provide scoped evidence. They do not qualify
-all market/method combinations. CVX-063 and all 2,154 mandatory library records
-remain partial/Planned. [Full product-price parametric fits](PRODUCT-PARAMETRIC-CALIBRATION.md)
-now retain exact models and full graph diagnostics through this replay owner.
-Other method/model/hedge/workout operations, actual Windows/Excel/wasm32/browser execution and independent
-financial/library/production/latency certificates remain open.
+## Evidence and related contracts
 
-Full-product exponential UFR/speed fitting over exact immutable analytic bases, required one-sided joined forwards, original quote-risk and schema3 replay use [the explicit UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete Helpers recipes and actual mixed-unit parameters/diagnostics are retained. No sampled objective, regulatory procedure or unsupported base is substituted.
+Thirty-two calibration and risk requests and two independent Decimal(60)
+dated-deposit controls back this. They do not cover all market and method
+combinations. [Product parametric fits](PRODUCT-PARAMETRIC-CALIBRATION.md) keep
+their exact models and graph diagnostics through this replay path.
 
-Reconstruction installs every original supplied dependency and product output in bounded dependency order. Curve identity sorting cannot place a fitted tail before its own base. Identity collisions with independent captured records still reject before installation; missing or invalid native dependencies retain their original errors.
+Not yet covered: other method, model, hedge and workout operations, and runs on
+Windows, Excel, wasm32 and browsers.
 
+Exponential UFR and speed fitting over exact analytic bases, required one-sided
+joined forwards, quote risk and schema 3 replay are described in
+[the UFR product contract](PRODUCT-UFR-CALIBRATION.md). Complete `Helpers`
+recipes and mixed-unit parameters and diagnostics are kept. No sampled
+objective, regulatory procedure or unsupported base is substituted.
 
-Contextual ICMA cash-helper recipes retain complete original source, nominal mesh, independent calendars, quotation policy, compounding, quantity and inverse/work controls. Actual file publish/reopen rebuilds the full government/issuer-reference graph and signed quote risk, comparing complete captured diagnostics and provenance; tampering fails. See [the helper contract](ICMA-CASH-HELPERS.md).
+Reconstruction installs each supplied dependency and product output in
+dependency order. Sorting curves by identity cannot place a fitted tail before
+its own base. An identity collision with another captured record is rejected
+before installation. Missing or invalid dependencies keep their original
+errors.
+
+ICMA cash-helper recipes keep their source, nominal mesh, calendars, quotation
+policy, compounding, quantity and inverse and work controls. Publishing a file
+and reopening it rebuilds the full government and issuer-reference graph and
+the signed quote risk, and compares the captured diagnostics and provenance.
+Tampering fails. See [the helper contract](ICMA-CASH-HELPERS.md).

@@ -1,6 +1,6 @@
 # Configuration activation and operator workflow
 
-CVX-010 adds immutable application settings, numerical validation, staging,
+Configuration covers immutable application settings, numerical validation, staging,
 atomic activation, retained rollback and expiring policy exceptions to the
 [owned pricing runtime](RUNTIME.md). The current supported calculation is a
 reference-admitted fixed bullet priced from its observed mid, with explicitly

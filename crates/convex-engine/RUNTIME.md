@@ -39,7 +39,7 @@ execution gate. Each snapshot is verified once, when it is made (D67),
 its curves are built once, at graph activation, and every bond's valuation reads that
 build. Graph mutation, mutable
 curve-builder reads and current reference/configuration lookups do not occur in
-CPU workers. CVX-010 adds [validated configuration activation](CONFIGURATION.md):
+CPU workers. The runtime also supports [validated configuration activation](CONFIGURATION.md):
 quote freshness/skew and approved scoped exceptions can change within the same
 process footprint. Accepted work freezes its activation before acknowledgment;
 in-flight calculations retain their original version. Reference/curve/model,
@@ -389,4 +389,3 @@ fault adapters in engine tests. Configuration activation and expiry now use the
 shared control use cases and retained lineage. Complete calibration/products/risk,
 durable managed publication, distributed ownership, v2 API/security, full operational
 runbooks, dedicated CPU isolation and measured latency remain separate work.
-No LB0/LB1 or R0/R1/R2/R3 certificate is complete.
