@@ -34,6 +34,7 @@ pub mod error;
 pub mod fixing;
 pub mod futures_reference;
 pub mod issuer_reference;
+pub mod limits;
 pub mod market_data;
 pub mod output;
 pub mod quote_event;
