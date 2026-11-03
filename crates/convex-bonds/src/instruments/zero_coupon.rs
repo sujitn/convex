@@ -1,6 +1,6 @@
 //! Zero coupon bond implementation.
 //!
-//! Provides a comprehensive zero coupon bond implementation with:
+//! Provides a zero coupon bond implementation with:
 //! - Multiple compounding conventions
 //! - Price-yield conversions
 //! - Yield conversion between compounding conventions

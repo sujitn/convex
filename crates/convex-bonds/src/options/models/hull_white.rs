@@ -23,7 +23,7 @@ use convex_math::portable;
 
 /// Hull-White one-factor short rate model.
 ///
-/// This is the industry-standard model for pricing callable bonds and
+/// This is a widely used model for pricing callable bonds and
 /// calculating OAS. It provides exact fit to the initial yield curve
 /// while modeling mean-reverting rate dynamics.
 ///

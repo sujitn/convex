@@ -3,7 +3,7 @@
 Versions before 1.0 can break the API in any minor release. Each entry lists
 the changes that matter when you upgrade.
 
-## 0.14.0 (unreleased)
+## 0.14.0
 
 This is the first crates.io release since 0.11.1. The v0.12.0 and v0.13.0 tags
 exist on GitHub, but their crates were never published, so this entry covers

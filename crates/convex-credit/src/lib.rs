@@ -1,13 +1,6 @@
-//! Pure single-name CDS economics over supplied calendars and checked curves.
-//!
-//! No clock, market provider, database, MQ, application runtime or external
-//! pricing engine enters this crate. Native economics rebuild through checked
-//! construction; projected premium cash is conditional on survival, not paid cash.
-//!
-//! This application is based on the ISDA CDS Standard Model (version 1.8.3),
-//! developed and supported in collaboration with Markit Group Ltd.
-//! See the separately retained public license and `docs/CDS-VALUATION.md`.
-
+// The crate documentation is the README, so docs.rs and crates.io show the
+// same text and its examples run as doctests.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
@@ -74,8 +67,3 @@ pub(crate) fn finite(value: f64) -> Result<f64, CdsError> {
     }
     Ok(value)
 }
-
-// Compile and run the README examples as doctests.
-#[cfg(doctest)]
-#[doc = include_str!("../README.md")]
-pub struct ReadmeDoctests;

@@ -1,78 +1,6 @@
-//! Convex Term Structure Framework
-//!
-//! A comprehensive curve framework for fixed income pricing, supporting:
-//!
-//! - Multiple curve types (rate, credit, inflation, FX)
-//! - Segmented interpolation with different methods per tenor range
-//! - Curve composition through delegation, derivation, and spreading
-//! - Global calibration from market instruments
-//! - Curve bumping for sensitivity analysis
-//!
-//! # Quick Start
-//!
-//! ```rust,ignore
-//! use convex_curves::{CurveBuilder, RateCurve, InterpolationMethod};
-//! use convex_core::types::{Date, Compounding};
-//!
-//! // Build a SOFR curve from market data
-//! let sofr_curve = CurveBuilder::rate_curve(today)
-//!     .segment(0.0..2.0)
-//!         .discrete_zeros(short_tenors, short_rates, Compounding::Continuous)
-//!         .interpolate(InterpolationMethod::Linear)
-//!     .segment(2.0..10.0)
-//!         .calibrate(swap_instruments)
-//!         .interpolate(InterpolationMethod::MonotoneConvex)
-//!     .build()?;
-//!
-//! let sofr = RateCurve::new(sofr_curve)?;
-//! let df_5y = sofr.discount_factor(today.add_years(5))?;
-//! ```
-//!
-//! # Architecture
-//!
-//! ## Core Trait: `TermStructure`
-//!
-//! The fundamental abstraction for any curve. Provides:
-//! - `value_at(t)`: Raw curve value at tenor t
-//! - `value_type()`: What the values represent (DF, zero rate, etc.)
-//! - `derivative_at(t)`: Optional derivative for forward calculations
-//!
-//! ## Domain Wrappers
-//!
-//! Provide semantic operations on top of any `TermStructure`:
-//!
-//! - [`RateCurve<T>`]: `discount_factor()`, `zero_rate()`, `forward_rate()`
-//! - [`CreditCurve<T>`]: `survival_probability()`, `hazard_rate()`
-//! - `InflationCurve<T>`: `index_ratio()`, `real_rate()` (planned)
-//! - `FxCurve<T>`: `forward_rate()`, `forward_points()` (planned)
-//!
-//! ## Curve Types
-//!
-//! - [`DiscreteCurve`]: Curve from point data with interpolation
-//! - [`SegmentedCurve`]: Different sources/interpolation per tenor range
-//! - [`DelegatedCurve`]: Wraps another curve with fallback handling
-//! - [`DerivedCurve`]: Transforms a base curve (shift, spread, etc.)
-//!
-//! ## Builder Pattern
-//!
-//! Fluent API for constructing complex curves:
-//!
-//! ```rust,ignore
-//! let curve = CurveBuilder::rate_curve(today)
-//!     .segment(0.0..2.0)
-//!         .discrete_zeros(tenors, rates, Compounding::Continuous)
-//!         .interpolate(InterpolationMethod::Linear)
-//!     .segment(2.0..)
-//!         .delegate(swap_curve)
-//!         .extrapolate_with(ExtrapolationMethod::Flat)
-//!     .build()?;
-//! ```
-//!
-//! # Thread Safety
-//!
-//! All term structures implement `Send + Sync`, enabling safe use in
-//! parallel pricing scenarios.
-
+// The crate documentation is the README, so docs.rs and crates.io show the
+// same text and its examples run as doctests.
+#![doc = include_str!("../README.md")]
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
 #![warn(missing_docs)]
@@ -281,8 +209,3 @@ mod tests {
         assert_eq!(InterpolationMethod::MonotoneConvex.continuity_class(), "C1");
     }
 }
-
-// Compile and run the README examples as doctests.
-#[cfg(doctest)]
-#[doc = include_str!("../README.md")]
-pub struct ReadmeDoctests;
