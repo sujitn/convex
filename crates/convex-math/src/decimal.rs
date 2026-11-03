@@ -10,6 +10,8 @@
 use crate::{MathError, MathResult};
 use num_bigint::{BigInt, Sign};
 use rust_decimal::Decimal;
+use std::borrow::Cow;
+use std::sync::LazyLock;
 
 const SCALE: u32 = 184;
 const MAX_BITS: u64 = 1536;
@@ -18,8 +20,24 @@ fn error() -> MathError {
     MathError::invalid_input("supplied risk arithmetic exceeds the admitted Decimal range")
 }
 
-fn power(exponent: u32) -> BigInt {
-    BigInt::from(10u8).pow(exponent)
+/// Ten to each exponent from 0 to `SCALE`, built once on first use.
+static POWERS: LazyLock<Vec<BigInt>> = LazyLock::new(|| {
+    let mut powers = Vec::with_capacity(SCALE as usize + 1);
+    let mut value = BigInt::from(1u8);
+    for _ in 0..=SCALE {
+        powers.push(value.clone());
+        value *= 10u8;
+    }
+    powers
+});
+
+/// Ten to `exponent`. Every exponent used here is at most `SCALE` and is read from the
+/// table; a larger one would be computed, never clamped.
+fn power(exponent: u32) -> Cow<'static, BigInt> {
+    POWERS.get(exponent as usize).map_or_else(
+        || Cow::Owned(BigInt::from(10u8).pow(exponent)),
+        Cow::Borrowed,
+    )
 }
 
 /// Bounded exact decimal state. Callers enforce their own row/factor work limits.
@@ -34,7 +52,7 @@ impl BoundedDecimal {
 
     /// Lift an exact native Decimal without rounding.
     pub fn decimal(value: Decimal) -> Self {
-        Self(BigInt::from(value.mantissa()) * power(SCALE - value.scale()))
+        Self(BigInt::from(value.mantissa()) * &*power(SCALE - value.scale()))
     }
 
     fn checked(coefficient: BigInt) -> MathResult<Self> {
@@ -64,10 +82,10 @@ impl BoundedDecimal {
     pub fn multiply(&self, value: Decimal) -> MathResult<Self> {
         let coefficient = &self.0 * BigInt::from(value.mantissa());
         let divisor = power(value.scale());
-        if &coefficient % &divisor != BigInt::from(0) {
+        if &coefficient % &*divisor != BigInt::from(0) {
             return Err(error());
         }
-        Self::checked(coefficient / divisor)
+        Self::checked(coefficient / &*divisor)
     }
 
     /// Divide by 10 to an exponent at most eight, without losing any digit.
@@ -76,10 +94,10 @@ impl BoundedDecimal {
             return Err(error());
         }
         let divisor = power(exponent);
-        if &self.0 % &divisor != BigInt::from(0) {
+        if &self.0 % &*divisor != BigInt::from(0) {
             return Err(error());
         }
-        Self::checked(&self.0 / divisor)
+        Self::checked(&self.0 / &*divisor)
     }
 
     /// Round only the final Decimal using nearest/even; reject range and nonzero erasure.
@@ -95,10 +113,10 @@ impl BoundedDecimal {
         let failure =
             || MathError::invalid_input("exact result exceeds Decimal range or precision");
         let divisor = power(SCALE - 28);
-        if &self.0 % &divisor != BigInt::from(0) {
+        if &self.0 % &*divisor != BigInt::from(0) {
             return Err(failure());
         }
-        let mut coefficient = &self.0 / divisor;
+        let mut coefficient = &self.0 / &*divisor;
         let mut scale = 28;
         while coefficient.bits() > 96 && scale > 0 {
             if &coefficient % 10u8 != BigInt::from(0) {
@@ -197,7 +215,7 @@ impl BoundedDecimal {
             return Err(error());
         }
         for scale in (0..=28).rev() {
-            let scaled = &magnitude * power(scale);
+            let scaled = &magnitude * &*power(scale);
             let mut coefficient = &scaled / denominator;
             let twice_remainder = (&scaled % denominator) * 2u8;
             if twice_remainder > *denominator
@@ -220,5 +238,25 @@ impl BoundedDecimal {
             return Decimal::try_from_i128_with_scale(signed, scale).map_err(|_| error());
         }
         Err(error())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{power, BigInt, Cow, SCALE};
+
+    #[test]
+    fn every_power_of_ten_equals_its_computed_value() {
+        for exponent in 0..=SCALE + 2 {
+            let expected = BigInt::from(10u8).pow(exponent);
+            assert_eq!(*power(exponent), expected, "10^{exponent}");
+        }
+    }
+
+    #[test]
+    fn the_table_holds_every_power_to_the_scale_and_no_further() {
+        assert!(matches!(power(0), Cow::Borrowed(_)));
+        assert!(matches!(power(SCALE), Cow::Borrowed(_)));
+        assert!(matches!(power(SCALE + 1), Cow::Owned(_)));
     }
 }
