@@ -39,7 +39,7 @@ execution gate. Each snapshot is verified once, when it is made (D67),
 its curves are built once, at graph activation, and every bond's valuation reads that
 build. Graph mutation, mutable
 curve-builder reads and current reference/configuration lookups do not occur in
-CPU workers. CVX-010 adds [validated configuration activation](CONFIGURATION.md):
+CPU workers. The runtime also supports [validated configuration activation](CONFIGURATION.md):
 quote freshness/skew and approved scoped exceptions can change within the same
 process footprint. Accepted work freezes its activation before acknowledgment;
 in-flight calculations retain their original version. Reference/curve/model,
@@ -301,7 +301,7 @@ snapshots and published results are stored in the `storage_path` redb database.
 The plan must select `mode=replay`, empty `seed_events` and this executable's build
 identity. Compile a release with `CONVEX_BUILD_ID` set to the pinned artifact ID;
 it is a compile-time variable, not a server runtime setting. The default local
-build ID is `convex-server-0.13.0-local-unverified`. SIGINT/SIGTERM joins and drains.
+build ID is `convex-server-0.14.0-local-unverified`. SIGINT/SIGTERM joins and drains.
 Empty providers still require explicit demo mode. Unconfigured production and
 non-loopback HTTP upstreams remain rejected. [The access guide](../convex-server/ACCESS.md)
 documents required identity verification, role/data/book scopes, TLS proxy ingress
@@ -389,4 +389,3 @@ fault adapters in engine tests. Configuration activation and expiry now use the
 shared control use cases and retained lineage. Complete calibration/products/risk,
 durable managed publication, distributed ownership, v2 API/security, full operational
 runbooks, dedicated CPU isolation and measured latency remain separate work.
-No LB0/LB1 or R0/R1/R2/R3 certificate is complete.

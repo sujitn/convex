@@ -1,43 +1,6 @@
-//! # Convex Analytics
-//!
-//! Unified analytics engine for fixed income securities.
-//!
-//! This crate consolidates all calculation logic from the Convex library:
-//! - **Yields**: Yield-to-maturity, current yield, simple yield, money market yields
-//! - **Pricing**: Bond pricing from curves, present value calculations
-//! - **Spreads**: Z-spread, G-spread, I-spread, OAS, ASW, discount margin
-//! - **Risk**: Duration, convexity, DV01, VaR, hedging
-//! - **Options**: Binomial trees, Hull-White model for callable/putable bonds
-//! - **YAS**: Supplied fixed-bond yield, spread, risk and invoice diagnostics
-//! - **Cash Flows**: Cash flow generation, accrued interest, schedules
-//!
-//! ## Architecture
-//!
-//! `convex-analytics` depends on `convex-bonds` for instrument definitions,
-//! but `convex-bonds` does NOT depend on this crate. This separation ensures
-//! that bond types remain lightweight and calculation-free.
-//!
-//! ## Usage
-//!
-//! ```rust,ignore
-//! use convex_bonds::prelude::*;
-//! use convex_analytics::prelude::*;
-//!
-//! // Create a bond
-//! let bond = FixedRateBondBuilder::new()
-//!     .coupon_rate(dec!(0.05))
-//!     .maturity(date!(2030-01-15))
-//!     .build()?;
-//!
-//! // Calculate analytics using standalone functions
-//! let ytm = yield_to_maturity(&bond, settlement, clean_price, Frequency::SemiAnnual)?;
-//! let duration = modified_duration(&bond, settlement, ytm.yield_value, Frequency::SemiAnnual)?;
-//!
-//! // Or use calculators
-//! let yas = YASCalculator::new(&govt_curve, &swap_curve, &spot_curve);
-//! let result = yas.analyze(&bond, settlement, clean_price)?;
-//! ```
-
+// The crate documentation is the README, so docs.rs and crates.io show the
+// same text and its examples run as doctests.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 // Module declarations - will be populated as we migrate

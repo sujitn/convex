@@ -1,6 +1,6 @@
 //! Bitmap-based holiday calendar for O(1) lookups.
 //!
-//! This module provides a high-performance holiday calendar implementation
+//! This module provides a bitmap holiday calendar implementation
 //! using bitmap storage for constant-time holiday checks.
 
 use crate::types::Date;

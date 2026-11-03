@@ -1,9 +1,6 @@
-//! Pure checked single-currency fixed/term IRS and fixed/overnight OIS contracts.
-//!
-//! Supply immutable calendars, publication times, fixing history and forecasts.
-//! Generated cash is expected contractual cash, never a recorded payment or a
-//! discounted swap valuation. No market convention is inferred from an index.
-
+// The crate documentation is the README, so docs.rs and crates.io show the
+// same text and its examples run as doctests.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]

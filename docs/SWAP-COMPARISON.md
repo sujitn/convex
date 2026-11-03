@@ -1,22 +1,25 @@
-# CVX-019 external swap comparison
+# Swap comparison against QuantLib
 
-CVX-019 AC2 passed on 6 October 2026 using an actually executed QuantLib
-1.40 runtime verified against its publisher wheel and installed payloads. All
-ten supplied contracts and 973 numeric values match within the original
-predeclared bounds, with exact coupon, payment, quotation and fixing lineage.
-The largest absolute cash difference is `2.375200289316311e-9` USD. The
-[complete pinned capture](../tests/fixtures/comparisons/swap-quantlib-1.40/manifest.json)
-retains raw outputs, commands, timestamps, build records and source/runtime
-hashes. Earlier download and capture failures remain historical evidence.
+This document describes how the swap pricer in `convex` is compared with
+QuantLib 1.40, and how to rerun the comparison. The inputs, scripts and captured
+outputs are under `tests/fixtures/comparisons/` and `tests/scripts/`.
 
-CVX-019 is accepted as scoped engineering work. Market/model approval,
-complete library/host coverage, lifecycle, risk, operations and latency
-certificates remain separate requirements. The earlier
-[twenty manual references](SWAP-VALUATION.md) remain separately qualified.
+The comparison passed on 6 October 2026 using a QuantLib 1.40 runtime that was
+verified against its publisher wheel and installed payloads. All ten contracts
+and 973 numeric values match within bounds declared beforehand, with exact
+coupon, payment, quotation and fixing lineage. The largest absolute cash
+difference is `2.375200289316311e-9` USD. The
+[pinned capture](../tests/fixtures/comparisons/swap-quantlib-1.40/manifest.json)
+keeps the raw outputs, commands, timestamps, build records and source/runtime
+hashes. Earlier download and capture failures are kept as history.
 
-## Start locally
+This covers the ten contracts only. It does not cover market/model validation,
+lifecycle, risk, operations or latency. The earlier
+[twenty manual references](SWAP-VALUATION.md) are a separate check.
 
-From the repository root on `codex/production-readiness`:
+## Run it locally
+
+From the repository root:
 
 ```sh
 python3 tests/scripts/swap_quantlib_compare.py check
@@ -24,8 +27,8 @@ python3 -m unittest discover -s tests/scripts -p test_swap_quantlib_compare.py -
 cargo run --locked -p convex --example swap_comparison
 ```
 
-Build a current native candidate and compare it against the independently
-captured reference without installing QuantLib or using the network:
+Build the current Rust example and compare it against the captured reference,
+without installing QuantLib or using the network:
 
 ```sh
 cargo build --locked -p convex --example swap_comparison
@@ -34,25 +37,24 @@ python3 tests/scripts/swap_quantlib_compare.py offline \
   --report /private/tmp/convex-swap-comparison-report.json
 ```
 
-`offline` checks every captured artifact against its unchanged numerical-policy
-pin, validates the original successful execution, then runs the supplied native
-binary against the fixed QuantLib outputs. It records that binary's hash,
-current source hashes, actual command, clocks and raw outputs. Build the binary
-first: this mode does not attest that an arbitrary supplied executable was built
-from the current checkout. CI runs the build and comparison in sequence and
-uploads the report and raw candidate outputs. It uses no comparator runtime.
+`offline` checks every captured artifact against its numerical-policy pin,
+validates the original successful execution, then runs the binary you pass in
+against the fixed QuantLib outputs. It records that binary's hash, the current
+source hashes, the command, clocks and raw outputs. Build the binary first: this
+mode does not attest that an arbitrary executable was built from the current
+checkout. CI runs the build and the comparison in sequence and uploads the
+report and raw candidate outputs. It does not need QuantLib.
 
-The native exporter also runs with `--no-default-features` and
-`--features schemars`. There is no new production dependency, server route or
-adapter requirement. `replay` checks a captured run against its exact original
-calculation/protocol sources; it refuses source changes. Future development
-should use `offline` to compare a new native candidate with the unchanged
-independent reference.
+The Rust example also runs with `--no-default-features` and
+`--features schemars`. It adds no production dependency, server route or adapter
+requirement. `replay` checks a captured run against the exact calculation and
+protocol sources it was made with, and refuses source changes. To compare a new
+Rust build with the unchanged reference, use `offline`.
 
-## Obtain the comparator and capture
+## Install QuantLib and capture
 
-This initial runtime pin targets the current macOS ARM64 development host. Use
-Python 3.11+ in an isolated environment. Download this exact publisher file
+The runtime pin targets a macOS ARM64 development host. Use Python 3.11+ in an
+isolated environment. Download this exact publisher file
 from the [official QuantLib 1.40 release](https://pypi.org/project/QuantLib/1.40/#files):
 
 ```text
@@ -61,10 +63,10 @@ SHA256 fefb04e34a4f6a529e8d3a0506de6cd443d52ba85fbc13b4c30b7865ce5fa4ce
 ```
 
 Its [publisher build identity](https://github.com/lballabio/quantlib-wheels/tree/fa275d5ea06e13d0dd2f475a3ceb857b8f388443)
-is pinned in the input fixture. For another OS/architecture, add its verified
-publisher artifact as a separately reviewed protocol change; a version string
-or arbitrary package is insufficient. This test runtime pin does not limit
-Convex's production deployment platforms.
+is pinned in the input fixture. For another OS or architecture, add its
+verified publisher artifact as a separately reviewed protocol change; a version
+string or arbitrary package is not enough. This pin applies to the test runtime
+only and does not limit where Convex runs.
 
 After placing the checksum-verified wheel at `/private/tmp/cvx019-wheel/`:
 
@@ -80,91 +82,95 @@ python3 tests/scripts/swap_quantlib_compare.py replay /private/tmp/cvx019-quantl
 ```
 
 Compare the `shasum` output with the declared SHA256 before installing. The
-runner performs the hash check again and verifies installed publisher payloads,
-including the Python wrapper, native extension, metadata and relocated publisher
-license under the supplied virtual environment, **before
-importing QuantLib**. It checks the actual native engine version. It never
-downloads or installs packages. A missing/wrong runtime returns a failure.
+runner repeats the hash check and verifies the installed publisher payloads
+(the Python wrapper, native extension, metadata and relocated publisher license
+in your virtual environment) **before importing QuantLib**. It also checks the
+QuantLib engine version. It never downloads or installs packages. A missing or
+wrong runtime is a failure.
 
-Use a fresh output directory for every attempt. Existing evidence directories
-are never overwritten. A failed engine run retains its command, timestamps,
-exit status and raw stdout/stderr; it cannot replay successfully. QuantLib runs
-in the supplied separate Python process, so its evaluation-date state does not
-enter the Convex library or server. The runner restores settings between cases.
+Use a fresh output directory for every attempt; existing output directories are
+never overwritten. A failed engine run keeps its command, timestamps, exit
+status and raw stdout/stderr, and cannot replay successfully. QuantLib runs in a
+separate Python process, so its evaluation-date state never enters the Convex
+library or server. The runner restores settings between cases.
 
 ## Matched input scope
 
-The [full supplied-input fixture](../tests/fixtures/comparisons/swap-quantlib-inputs.json)
-contains complete terms and no expected outputs. Its SHA256 is
+The [input fixture](../tests/fixtures/comparisons/swap-quantlib-inputs.json)
+contains the full terms and no expected outputs. Its SHA256 is
 `ba61375e251884208f70585cb0aeac034324016cc91623ec7abd0e0020b2211a`.
 
 | Cases | Economics exercised |
 |---|---|
-| IRS seasoned, receiver and forward | Three-month indexed coupons, independent coupon/payment calendars, actual eligible resets, separate discount/projection curves and trade direction. |
+| IRS seasoned, receiver and forward | Three-month indexed coupons, independent coupon/payment calendars, eligible resets, separate discount/projection curves and trade direction. |
 | IRS amortizing/stepped | Coupon-boundary notional, fixed-rate, spread and gearing changes with published and projected observations. |
-| IRS negative | Actual negative history, projection and discount rates; negative coupons remain allowed. |
-| OIS seasoned and amortizing/stepped | Actual holiday/day weights, current coupon accrued, future compounding and coupon-boundary economic changes. |
+| IRS negative | Negative history, projection and discount rates; negative coupons remain allowed. |
+| OIS seasoned and amortizing/stepped | Holiday/day weights, current coupon accrued, future compounding and coupon-boundary economic changes. |
 | OIS lookback, observation shift and lockout | Explicit two-business-day lookback, shifted weights and three-business-day reuse, on the pinned observation calendar. |
 
-All ten use ACT/360 coupons, unrounded cash, quarterly aligned dates and
-two-business-day payment delay. The calendars are independently supplied
-synthetic resources at version 1, with Saturday/Sunday weekends and explicit
-holiday dates. Final, varying fixing observations include publication/known-at
-timestamps and revision 1. Publication is declared at 08:00 UTC; valuations use
-an explicit end-of-day information cutoff. Future records are not loaded as
-known fixings into QuantLib.
+All ten use ACT/360 coupons, unrounded cash, quarterly aligned dates and a
+two-business-day payment delay. The calendars are synthetic resources at version
+1, with Saturday/Sunday weekends and explicit holiday dates. Final, varying
+fixing observations include publication/known-at timestamps and revision 1.
+Publication is declared at 08:00 UTC; valuations use an end-of-day information
+cutoff. Future records are not loaded into QuantLib as known fixings.
 
-Separate discount and index curves use their original exact versions, actual
-dates, ACT/365F linear continuous zeros and disabled extrapolation. Their
-reference date precedes valuation, so payment discount ratios must normalize
-at valuation. There are no principal exchanges. Rates are annualized decimals;
-cash/PV/accrued are absolute USD units at initial notional 1,000,000.
+The discount and index curves are separate, with exact versions and dates,
+ACT/365F linear continuous zeros and extrapolation disabled. Their reference
+date precedes valuation, so payment discount ratios must normalize at valuation.
+There are no principal exchanges. Rates are annualized decimals; cash, PV and
+accrued are absolute USD amounts at an initial notional of 1,000,000.
 
-The IRS quotation interval is explicitly `IndexTenor` with three months. This
-does not reinterpret the earlier monthly `ResetInterval` fixture as a standard
-three-month index coupon. Stubs, independent multiple resets within a coupon,
-intracoupon profile changes, rounding, contextual day counts, calendars outside
-this supplied suite and other host/model routes are outside this comparator
-scope. The broader native/manual tests remain relevant but do not supply their
-missing external comparisons.
+The IRS quotation interval is `IndexTenor` with three months. This does not
+reinterpret the earlier monthly `ResetInterval` fixture as a standard three-month
+index coupon.
 
-The QuantLib path builds its schedules from original terms and its bespoke
-calendars, then constructs real `FixedRateCoupon`, indexed `IborCoupon` and
+Outside the scope of this comparison:
+
+- stubs;
+- multiple resets within a coupon;
+- profile changes inside a coupon;
+- rounding;
+- contextual day counts;
+- calendars other than those in this suite;
+- other host and model routes.
+
+The broader Rust and manual tests still apply but have no external comparison.
+
+The QuantLib side builds its schedules from the terms and its own calendars, then
+constructs real `FixedRateCoupon`, indexed `IborCoupon` and
 `OvernightIndexedCoupon` objects. It uses QuantLib index forecasts, historical
 fixings, coupon accrued and `DiscountingSwapEngine`. It reads no Convex or
-manual expected output to calculate its reference. The original full cash and
-par results are compared only after both engine runs succeed.
+manual expected output to compute its reference. The full cash and par results
+are compared only after both engine runs succeed.
 
-API mapping is based on the pinned primary
+The API mapping is based on the pinned
 [coupon bindings](https://github.com/lballabio/QuantLib-SWIG/blob/v1.40/SWIG/cashflows.i),
 [swap engine bindings](https://github.com/lballabio/QuantLib-SWIG/blob/v1.40/SWIG/swap.i)
 and [zero-curve bindings](https://github.com/lballabio/QuantLib-SWIG/blob/v1.40/SWIG/zerocurve.i).
-The actual pinned runtime executed these bindings successfully. Recaptures must
+The pinned runtime executed these bindings successfully. When recapturing,
 resolve API or economic differences without changing the declared bounds.
 
-## Evidence and closure
+## Evidence and tolerances
 
-Before any comparison run, this suite declares absolute currency tolerance
+The bounds were declared before any comparison run: absolute currency tolerance
 `1e-7`, annualized rate tolerance `1e-12`, discount-ratio and year-fraction
 tolerance `1e-13`, zero relative tolerance and exact date/identity matches.
-There is no percentage or scale-based relaxation. The saved report includes
-every mismatch and maximum error by unit. Existing numerical artifacts,
-tolerances and solver defaults remain unchanged.
+There is no percentage or scale-based relaxation. The saved report lists every
+mismatch and the maximum error by unit. Existing numerical artifacts, tolerances
+and solver defaults are unchanged.
 
-A run preserves the exact inputs, QuantLib/native raw stdout/stderr, actual
-commands and clocks, Rust/Cargo version outputs, Cargo build record, executable
-SHA256, build features/profile/flags, reviewed calculation-source hashes,
-installed QuantLib payload hashes and artifact manifest. Replay checks those
-bytes and bindings against the unchanged source/protocol, rejects incomplete
+A run keeps the inputs, the QuantLib and Rust raw stdout/stderr, the commands
+and clocks, Rust/Cargo version outputs, the Cargo build record, the executable
+SHA256, build features/profile/flags, the reviewed calculation-source hashes, the
+installed QuantLib payload hashes and the artifact manifest. Replay checks those
+bytes and bindings against the unchanged source and protocol, rejects incomplete
 execution, and recomputes the comparisons offline. SHA256 bindings detect
-changes; they are not independent human authentication of execution records.
+changes; they do not authenticate who produced the execution records.
 
-The comparison tool always states `accepted_task: false` and `certified: false`;
-it does not award acceptance. The reviewed task outcome combines the successful
-external capture/offline replay with the preserved native AC1/AC3 and required
-checks before adding CVX-019 to the harness engineering completion set. Existing
-2,154 mandatory library records remain Planned. Do not replace mismatching
-captures, relabel manual oracles, remove cases or widen bounds. Existing pinned
-quantitative changes require independent review under the
-[assurance policy](ASSURANCE.md). Library, market/model, host, operational and
-latency release gates remain separate work.
+The comparison tool always reports `accepted_task: false` and `certified: false`;
+those fields are fixed and do not record a review outcome. Do not replace
+mismatching captures, relabel manual references, remove cases or widen bounds.
+Changes to pinned numerical results need independent review under the
+[assurance policy](internal/ASSURANCE.md). Not yet covered: other hosts,
+market/model validation, operations and latency.

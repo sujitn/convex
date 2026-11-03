@@ -3202,7 +3202,6 @@ jobs:
   package-check:
     name: Package Check
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v6
 
@@ -3214,8 +3213,14 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
-      - name: Check convex-core can be packaged
-        run: cargo package --locked -p convex-core --list
+      # Same check the release workflow runs: build each published crate from
+      # its .crate file. Catches path-only dependencies and missing files
+      # before a tag is cut, not after.
+      - name: Package and verify the crates.io library crates
+        run: |
+          cargo package --locked \
+            -p convex-math -p convex-core -p convex-curves -p convex-rates \
+            -p convex-credit -p convex-bonds -p convex-analytics
 
   excel-addin:
     name: Excel Add-in (Windows)

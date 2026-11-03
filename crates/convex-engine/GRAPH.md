@@ -121,7 +121,7 @@ API adoption remain later work.
 
 ## Immutable snapshot use
 
-`activate_snapshot(nodes, Arc<MarketSnapshot>)` builds the curves of the CVX-008
+`activate_snapshot(nodes, Arc<MarketSnapshot>)` builds the curves of the snapshot's
 information set and requires its positive generation to advance beyond the current
 graph counter. The snapshot itself was verified when it was made or deserialized and
 is not re-verified. `activate_built(nodes, &BuiltSnapshot)` does the same for a

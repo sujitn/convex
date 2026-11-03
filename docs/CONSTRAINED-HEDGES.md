@@ -1,71 +1,85 @@
-# Supplied complete-factor hedge proposals
+# Constrained hedge proposals
 
-`convex::constrained_hedge` and shared `hedge` actions `aggregate` / `solve`
-compose original checked `QuoteSensitivity` vectors. They retain the actual
-five central/half-step PVs, keys, native quotation, normalization, bump/stability
-policy, reference sizes, economic sides and source revisions. There is no
-provider, database, MQ, clock, ledger, order or live-limit dependency.
+`convex::constrained_hedge` and the shared `hedge` actions `aggregate` and `solve`
+combine `QuoteSensitivity` vectors you pass in. They keep the five central and
+half-step PVs, keys, quotation, normalization, bump and stability policy,
+reference sizes, economic sides and source revisions. There is no provider,
+database, message queue, clock, ledger, order or live-limit dependency.
 
-This is the original LC-027 supplied-risk mathematics. It does not reprice
-instruments, resolve the pinned economics/calculation manifests or certify their
-contents. The original bond/CDS/IRS/futures pricing and risk owners must produce
-those records. A product tag, an instrument pin or a supplied matrix cannot
-certify full financial calculations. Scalar DV01/duration, guessed futures CTD,
-CDS-to-bond aliases and heuristic costs cannot replace missing original factors.
-The existing scalar advisor remains an explicitly indicative diagnostic.
+This is the risk-aggregation and optimization mathematics only. It does not
+reprice instruments, resolve the pinned economics and calculation manifests, or
+check their contents. The bond, CDS, IRS and futures pricing and risk code must
+produce the risk records. A product tag, an instrument pin or a matrix you pass in
+cannot stand in for a full financial calculation. Scalar DV01 or duration, a
+guessed cheapest-to-deliver, CDS-to-bond aliases and heuristic costs cannot
+replace missing factors. The scalar advisor remains an indicative diagnostic.
 
-## Inputs and admission
+## Inputs and validation
 
-The strict `HedgeProblem` owns every original input. Nullable credit/FX/lot
-fields must be present explicitly as a value or null; their omission fails. It supplies a common actual
-snapshot, legal entity, settlement, reporting currency and current/pending state
-revision, the complete expected holding manifest, full current and pending
-quantities, factor policies and original candidate constraints. An omitted or
-unrequested holding fails; a missing factor is missing input, never zero risk.
-An explicit zero retains a checked original five-PV result.
+The strict `HedgeProblem` holds every input. Nullable credit, FX and lot fields
+must be present explicitly as a value or null; leaving one out fails. The problem
+supplies:
 
-Every `HedgeRiskVector` supplies the actual product, instrument/reference
-revision, complete economics/state/market manifest pin and original calculation
-pin, owning entity, settlement, legal credit scopes and positive native
-`RiskPosition` reference size. All factor results must share its position and
-original base PV. Keys and `QuoteRiskSettings` match the problem's complete
-factor order exactly. Curve/helper/quote/model/convention versions, raw versus
-node versus recalibrated basis, frozen/rebuilt response and monetary units
-cannot be merged by tenor or label. Source manifests are explicit integration
-points; the application resolves them without entering pure mathematics.
+- a common snapshot, legal entity, settlement, reporting currency and
+  current/pending state revision;
+- the complete expected holding manifest and the full current and pending
+  quantities;
+- factor policies and candidate constraints.
 
-Current and pending quantities retain signed original units and reference side.
-They are separately aggregated, then added once. A matching held candidate
-requires exact vector and identity equality. Its final holding limits apply to
-current + pending + proposed trade. Futures use exact integer contract inputs
-and integer trade lots. Cash, CDS and IRS use original notional units; no per100,
-face-to-contract or unsigned-notional conversion is inferred.
+An omitted or unrequested holding fails. A missing factor is missing input, never
+zero risk. An explicit zero keeps a validated five-PV result.
 
-Credit, hazard, recovery and residual-basis factors supply exact original legal
-entity, seniority, document, restructuring and recovery scope. A nonzero vector
-must explicitly include that scope. CDS requires one actual credit identity;
-IRS cannot carry an issuer-credit scope. Basis, credit and recovery remain
-separate keys. These checks validate supplied identity consistency, without
-qualifying a market/legal mapping or treating credit-spread exposure as bond basis.
+Every `HedgeRiskVector` supplies:
 
-Foreign native monetary risk and costs require a positive exact same-snapshot
-FX observation. All records for a native currency use the identical original
-observation. Conversion is applied once. Identity FX must be absent; missing,
-wrong-currency or mixed-snapshot observations fail. Converted risk is not a
-portfolio FX delta, cross-currency pricing model or FX hedge.
+- the product, instrument/reference revision, complete economics/state/market
+  manifest pin and calculation pin;
+- the owning entity, settlement and legal credit scopes;
+- a positive `RiskPosition` reference size in native units.
 
-Candidate eligibility is a separate supplied decision revision and explanation.
-False decisions fail. Buy/sell available size, signed trade and final holding
-intervals, zero-anchored native trade lots and separate buy/sell costs are
-explicit. Costs are nonnegative exact money per original reference size and
-retain an independent observation pin. Zero is a supplied value. No execution
-price, freshness, borrow availability or authoritative order check is inferred.
+All factor results must share its position and base PV. Keys and `QuoteRiskSettings`
+must match the problem's factor order exactly. Curve, helper, quote, model and
+convention versions, raw versus node versus recalibrated basis, frozen versus
+rebuilt response, and monetary units cannot be merged by tenor or label. The
+source manifests are integration points: the application resolves them outside
+the pure mathematics.
+
+Current and pending quantities keep their signed units and reference side. They
+are aggregated separately, then added once. A matching held candidate requires
+exact vector and identity equality. Its final holding limits apply to current plus
+pending plus the proposed trade. Futures use integer contract inputs and integer
+trade lots. Cash, CDS and IRS use original notional units; no per-100, face-to-contract or
+unsigned-notional conversion is inferred.
+
+Credit, hazard, recovery and residual-basis factors supply the legal entity,
+seniority, document, restructuring and recovery scope. A nonzero vector must
+include that scope explicitly. CDS requires one credit identity; IRS cannot carry
+an issuer-credit scope. Basis, credit and recovery remain separate keys. These
+checks confirm that the identities you pass in are consistent. They do not
+validate a market or legal mapping, or treat credit-spread exposure as bond basis.
+
+Foreign-currency risk and costs require a positive FX observation from the same
+snapshot. All records for a currency use the same observation, and conversion is
+applied once. Identity FX must be absent; missing, wrong-currency or
+mixed-snapshot observations fail. Converted risk is not a portfolio FX delta, a
+cross-currency pricing model or an FX hedge.
+
+Candidate eligibility is a separate decision with its own revision and
+explanation. A false decision fails. These are explicit inputs:
+
+- buy and sell available size;
+- signed trade and final holding intervals;
+- zero-anchored trade lots;
+- separate buy and sell costs.
+
+Costs are nonnegative money per original reference size and carry an independent
+observation pin. Zero is a value you supply. No execution price, freshness,
+borrow availability or order check is inferred.
 
 ## Objective, constraints and numerical policy
 
-Let `x_j` be a signed trade divided by its original reference quantity; `A_ij`
-is its full reference risk converted once into reporting money, and `b_i` is
-current plus pending exposure. The supplied-model objective is
+Let `x_j` be a signed trade divided by its original reference quantity. `A_ij` is its full
+reference risk converted once into reporting money, and `b_i` is current plus
+pending exposure. The objective is
 
 ```text
 0.5 * sum_i weight_i * ((b_i + sum_j A_ij*x_j - target_i)/scale_i)^2
@@ -73,92 +87,107 @@ current plus pending exposure. The supplied-model objective is
 ```
 
 `side_cost` is `buy_per_reference*x` for positive x and
-`-sell_per_reference*x` for negative x, with the original explicit FX conversion.
-The positive factor scales and weights retain unlike factor normalization units;
-there is no implicit comparison of currency-per-bp, fraction or price-point risk.
+`-sell_per_reference*x` for negative x, with the explicit FX conversion. The
+positive factor scales and weights carry the normalization units of unlike
+factors; there is no implicit comparison of currency-per-bp, fraction or
+price-point risk.
 
-Every factor has closed lower/upper final exposure bounds. Every candidate has
-original trade/holding/side-liquidity constraints. A reporting-money cost budget
-is hard even when `cost_weight` is zero. Lot constraints apply to trades; existing
-holdings need not themselves be on the new-trade lot lattice.
+Every factor has closed lower and upper bounds on final exposure. Every candidate
+has trade, holding and side-liquidity constraints. A cost budget in reporting
+money is a hard limit even when `cost_weight` is zero. Lot constraints apply to
+trades; existing holdings need not be on the new-trade lot lattice.
 
-The operation admits 1..16 factors, 1..4 solve candidates, at most256 expected
-holdings, native quantities/reference sizes bounded by1e15, and 1..100000 work
-units. An empty candidate list is aggregate-only. The complete weighted/scaled
-factor matrix must have full column rank; singular candidates fail explicitly.
-Relative rank cutoff is in(0,1e-3], maximum design condition is in[1,1e4], and
-solver backward/primal/dual tolerance is in(0,1e-6]. These settings have no
-inferred defaults, ridge, retry or pseudoinverse fallback.
+The operation accepts:
 
-Independent final factor and cost tolerances are in[0,1e-6] in their ORIGINAL
-monetary units. They do not inherit factor/quantity scales or solver stopping
-precision. Native quantity, holding, liquidity and lot constraints are exact
-Decimal checks with zero tolerance. Continuous model quantities are converted
-once to Decimal; closed endpoints within the declared dimensionless solve bound
-are restored to their exact original values. Every constraint is then rechecked
-on the emitted quantities. Nonzero native/model quantity or reference-ratio
-underflow fails; it cannot become a zero trade or exposure. A failed
-postcondition remains unresolved.
+- 1..16 factors and 1..4 solve candidates;
+- at most 256 expected holdings;
+- quantities and reference sizes bounded by 1e15;
+- 1..100000 work units.
 
-The native search separates signed cost regions, enumerates independent active
-constraints up to the free dimension and checks each strictly convex region's
-KKT system with complete pivoting and original-system backward error. At most
-three residual corrections reuse that same factorization and must satisfy the
-unchanged original backward-error bound; unresolved solves still fail. Bounded
-SVD checks the original scaled design and active-constraint independence; each
-call has an explicit1..1000 iteration bound. A decomposition failure is an
-unresolved numerical outcome, never proof of infeasibility.
+An empty candidate list means aggregate only. The weighted, scaled factor matrix
+must have full column rank; singular candidates fail explicitly. The relative rank
+cutoff is in (0,1e-3], the maximum design condition is in [1,1e4], and the solver
+backward, primal and dual tolerance is in (0,1e-6]. These settings have no
+defaults, ridge, retry or pseudoinverse fallback.
 
-The continuous relaxation is a separate diagnostic, including fractional
-contract quantities before trade-lot admission. Then every admitted native lot
-combination is enumerated in original candidate order and ascending lot order.
-Remaining continuous quantities are optimized conditionally at each point.
-An empty later lattice axis is checked before outer enumeration, preserving
-termination even for huge earlier ranges. Native lattice bounds use the exact Decimal remainder before integer-index
-rounding; a lower-bound remainder cannot disappear in quotient precision.
-Every active-set attempt and complete
-lattice point spends the same original work budget. SVD call counts are also
-reported; these counts are not inner FLOPs, elapsed time or a latency SLA.
+Final factor and cost tolerances are in [0,1e-6], in their own monetary units.
+They do not inherit the factor or quantity scales or the solver stopping
+precision. Quantity, holding, liquidity and lot constraints are exact Decimal
+checks with zero tolerance. Continuous quantities are converted once to Decimal;
+closed endpoints within the declared dimensionless solve bound are restored to
+their exact values. Every constraint is then rechecked on the emitted quantities.
+A nonzero quantity or reference ratio that underflows to zero fails; it cannot
+become a zero trade or exposure. A failed postcondition stays unresolved.
 
-The final proposal minimizes the supplied objective within the declared numeric
-search policy over the completely searched lattice and conditional continuous
-problems. Exact objective ties retain the first original-order lattice point.
-There is no nearest-lot shortcut, guessed feasibility, automatic work extension
-or promotion of an unfinished incumbent. Large baskets need a separate qualified
-solver/operation; this small bounded operation is not a universal optimizer.
+The search separates signed cost regions, enumerates independent active
+constraints up to the free dimension, and checks each strictly convex region's KKT
+system with complete pivoting and backward error on the original system. At most
+three residual corrections reuse the same factorization and must satisfy the
+unchanged backward-error bound; unresolved solves still fail. A bounded SVD checks
+the scaled design and the independence of the active constraints; each call has an
+explicit 1..1000 iteration bound. A decomposition failure is an unresolved
+numerical outcome, never proof of infeasibility.
 
-This design applies the convex quadratic/KKT framework described by
-[Boyd and Vandenberghe](https://web.stanford.edu/~boyd/cvxbook/) to this explicitly
-small supplied problem. [nalgebra's decomposition guide](https://www.nalgebra.rs/docs/user_guide/decompositions_and_lapack/)
-documents bounded SVD availability. Those primary sources inform the design;
-they are not executed financial comparators or independent certification.
+The continuous relaxation is a separate diagnostic, including fractional contract
+quantities before trade-lot checks. Then every allowed lot combination is
+enumerated in candidate order and ascending lot order, and the remaining
+continuous quantities are optimized at each point. An empty later lattice axis is
+detected before the outer enumeration, so the search terminates even when earlier
+ranges are huge. Lattice bounds use the exact Decimal remainder before rounding to
+an integer index, so a lower-bound remainder cannot vanish in quotient precision.
+
+Every active-set attempt and every lattice point spends the same work budget. SVD
+call counts are also reported. These counts are not inner FLOPs, elapsed time or
+a latency guarantee.
+
+The final proposal minimizes the objective within the declared numeric search
+policy, over the completely searched lattice and the conditional continuous
+problems. Exact ties keep the first lattice point in candidate order. There is no
+nearest-lot shortcut, guessed feasibility, automatic work extension or promotion
+of an unfinished incumbent. Large baskets need a different solver; this small
+bounded operation is not a general optimizer.
+
+The design applies the convex quadratic and KKT framework in
+[Boyd and Vandenberghe](https://web.stanford.edu/~boyd/cvxbook/) to this small
+problem. [nalgebra's decomposition guide](https://www.nalgebra.rs/docs/user_guide/decompositions_and_lapack/)
+documents the bounded SVD. These sources informed the design; they have not been
+used as financial comparators.
 
 ## Results and failures
 
-`aggregate_hedge_risk` retains the complete problem, separate current and pending
-factor sums and full before exposure. `solve_hedge_proposal` additionally retains
-rank/singular values/condition, actual work, continuous relaxation and final
-proposal. Solutions contain exact emitted native trades/final holdings, original
-reference multiples, all after exposures and target residuals, side costs,
-tracking/total objective and every original indexed constraint measurement.
+`aggregate_hedge_risk` returns the problem, the separate current and pending
+factor sums and the full exposure before trading. `solve_hedge_proposal` also
+returns the rank, singular values and condition number, the work used, the
+continuous relaxation and the final proposal. A solution contains:
 
-Only `feasible` carries `proposal`. `infeasible` means the completed continuous
-search has no admitted feasible point under its explicit numerical policy;
-`discrete_infeasible` means a continuous point exists but the complete admitted
-lot lattice has none. `rank_deficient`, `ill_conditioned`, `work_exhausted` and
-`numerical_failure` remain distinct. A failed report may retain its completed
-continuous diagnostic; it never carries a final proposal. The success envelope
-means a diagnostic was calculated, so consumers MUST inspect `status` and
-`proposal`. Every report says `authority: proposal_only`.
+- the emitted trades and final holdings in native units, and the trades as
+  multiples of the reference size;
+- all exposures after trading and the target residuals;
+- side costs, the tracking and total objective, and every indexed constraint
+  measurement.
 
-Malformed or incompatible risk/units/quantity/provenance/eligibility fails with
-`invalid_input`; absent expected risk or FX is `missing_input`; dimension bounds
-are `resource_limit`. A numerical diagnostic does not authorize an order.
-Authoritative pending state, position/credit/execution limits, reference/legal
+Only `feasible` carries `proposal`. The other statuses mean:
+
+- `infeasible`: the completed continuous search has no feasible point under the
+  numerical policy.
+- `discrete_infeasible`: a continuous point exists but no point of the lot lattice
+  is feasible.
+- `rank_deficient`, `ill_conditioned`, `work_exhausted` and `numerical_failure`
+  are reported separately.
+
+A failed report may keep its completed continuous diagnostic; it never carries a
+final proposal. The success envelope means a diagnostic was calculated, so
+consumers MUST inspect `status` and `proposal`. Every report says
+`authority: proposal_only`.
+
+Malformed or incompatible risk, units, quantity, provenance or eligibility fails
+with `invalid_input`; absent expected risk or FX is `missing_input`; dimension
+bounds are `resource_limit`. A numerical diagnostic does not authorize an order.
+Pending state, position, credit and execution limits, reference and legal
 validation, source freshness, expiry, fencing, durable orders, fills and posting
-remain application work under CVX-025/031 and related tasks.
+are application work outside this library.
 
-## Consumer and evidence
+## Example and tests
 
 ```sh
 cargo run --locked -p convex --example constrained_hedge
@@ -168,43 +197,44 @@ python3 tests/scripts/constrained_hedge_reference.py
 cargo test --locked --all-features -p convex --test constrained_hedge -p convex-ffi --test constrained_hedge -p convex-mcp --test constrained_hedge -p convex-wasm --test constrained_hedge -- --test-threads=1
 ```
 
-Select the request object in
-[the frozen original corpus](../tests/fixtures/library/constrained-hedge-admitted.json)
-and use `convex::library::execute_json`, the existing `convex_library` C export,
-or generic advertised library clients. No C symbol or client-specific solver
-is added. Actual Java/.NET/Excel/wasm32/browser qualification remains separate.
+Pick the request object from
+[the frozen test corpus](../tests/fixtures/library/constrained-hedge-admitted.json)
+and run it with `convex::library::execute_json`, the existing `convex_library` C
+export, or any generic library client. No C symbol or client-specific solver is
+added. Testing in Java, .NET, Excel and a wasm32 browser is separate and not yet
+done.
 
-The original raw corpus retains the failed integer CurveKey-version spelling.
-A separate admitted corpus uses the existing opaque string revision without
-changing financial values, answers or tolerances. Interacting/conditional-lot
-controls were separately declared before their own first execution.
+The raw corpus keeps the rejected integer `CurveKey` version spelling. A separate
+corpus uses the opaque string revision without changing financial values, answers
+or tolerances. The interacting and conditional-lot controls were declared before
+their first run.
 
-The independently declared Decimal60 analytic/finite-lattice controls use
-fictional supplied full five-PV risk. They test solver mathematics and admission;
-they do not qualify original instrument pricing or legal/market suitability.
-Existing numerical references, solver defaults and mandatory library records
-remain unchanged. CVX-063 and all market/model/library/production/latency
-certificates remain partial/unaccepted/unverified.
+The independent Decimal60 analytic and finite-lattice controls use fictional full
+five-PV risk. They test the solver mathematics and input validation; they do not
+test instrument pricing or legal and market suitability. Existing numerical
+references, solver defaults and library records are unchanged.
 
-The [direct contextual ICMA bridge](ICMA-YIELD-RISK.md) computes all five full
-fixed-cash quotations and emits a positive original-face reference column.
-Its consumer verifies same-security current/pending/lot/cost/reporting-FX
-composition with actual calculated columns. Other instruments still need
-their complete common-factor calculations.
-
+The [direct contextual ICMA bridge](ICMA-YIELD-RISK.md) computes all five
+full fixed-cash quotations and emits a positive face-reference column. Its
+consumer checks same-security current/pending/lot/cost/reporting-FX composition
+with calculated columns. Other instruments still need their complete common-factor
+calculations.
 
 ## Complete common-factor hedge columns
 
-The distinct `graph_hedge_risk` operation composes the original full product and
-graph revaluation owners into complete bond/CDS/IRS/OIS/rates-futures columns
-for the existing hedge aggregator and proposal solver. See
+The `graph_hedge_risk` operation builds complete bond, CDS, IRS/OIS and
+rates-futures columns for the aggregator and proposal solver, using the full
+product and graph revaluation code. See
 [quantity binding, inputs, controls and remaining limits](GRAPH-HEDGE-RISK.md).
-Own-security ICMA yield remains a separate factor. Optional models, credit-survival
-cash products and delivery-futures all-member risk remain owning work; actual
-managed/browser and production/latency qualification remain open.
+Own-security ICMA yield remains a separate factor.
 
+Not yet covered here: optional models, credit-survival cash products and
+all-member delivery-futures risk (the last has its own page, linked from the graph
+hedge page). Managed-runtime and browser execution and production and latency
+qualification are also open. The solver checks are not executed financial
+comparisons or independent certification. This work is partial and has not been certified for production use.
 
-Credit-survival and issuer-basis cash now have a distinct full original-owner
-`cash_basis_hedge_risk` route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md)
-for the complete security/mapping/factor contract, ICMA and rebuild controls,
-actual mixed-book scope and remaining recovery/host/production qualification.
+Credit-survival and issuer-basis cash have their own `cash_basis_hedge_risk`
+route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md) for the
+security, mapping and factor contract, the ICMA and rebuild controls, the
+mixed-book scope and what remains.

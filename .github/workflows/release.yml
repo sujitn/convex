@@ -1,5 +1,13 @@
 name: Release
 
+# Cut a release from main after its CI run is green:
+#
+#   git tag v0.14.0 <commit-on-main> && git push origin v0.14.0
+#
+# The tag must match `workspace.package.version` in Cargo.toml. Every artifact
+# is built before anything is uploaded, so a failed build never leaves a
+# half-published release behind. crates.io versions are permanent.
+
 on:
   push:
     tags:
@@ -7,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g., v0.1.0)'
+        description: 'Tag to release (e.g., v0.14.0)'
         required: true
         type: string
 
@@ -19,6 +27,10 @@ jobs:
   validate:
     name: Validate Release
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
     outputs:
       version: ${{ steps.tag.outputs.VERSION }}
       tag: ${{ steps.tag.outputs.TAG }}
@@ -26,11 +38,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          toolchain: '1.97.1'
+          components: rustfmt
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
@@ -56,22 +70,47 @@ jobs:
           fi
           echo "Version verified: $CARGO_VERSION"
 
-      - name: Run tests
-        run: cargo test --all-features --workspace
+      - name: Verify the tagged commit is on main
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "Error: $(git rev-parse HEAD) is not on main. Tag a commit that has been merged."
+            exit 1
+          fi
+
+      # The full CI run takes hours (it materializes fixtures and runs every
+      # workflow script). Re-running it here is what made the v0.13.0 release
+      # time out, so the release requires that CI already passed on this exact
+      # commit instead.
+      - name: Require a green CI run for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(git rev-parse HEAD)
+          CONCLUSION=$(gh run list --repo "${{ github.repository }}" --workflow ci.yml \
+            --commit "$SHA" --status success --limit 1 --json conclusion --jq '.[0].conclusion // ""')
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "Error: no successful CI run for $SHA. Wait for CI on main to pass, then re-run this release."
+            exit 1
+          fi
+          echo "CI passed on $SHA"
 
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-      - name: Run Clippy
-        run: cargo clippy --all-features --workspace -- -D warnings
-
-      - name: Build documentation
-        run: cargo doc --no-deps --all-features --workspace
+      # Builds each crate from the exact .crate file that would be uploaded,
+      # resolving unpublished sibling crates from a local overlay registry.
+      - name: Package and verify the library crates
+        run: |
+          cargo package --locked \
+            -p convex-math -p convex-core -p convex-curves -p convex-rates \
+            -p convex-credit -p convex-bonds -p convex-analytics
 
   build-excel-addin:
     name: Build Excel Add-in
     runs-on: windows-latest
     needs: validate
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
         with:
@@ -80,6 +119,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: '1.97.1'
           targets: x86_64-pc-windows-msvc
 
       - name: Cache cargo registry
@@ -87,7 +127,7 @@ jobs:
 
       # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build convex-ffi
-        run: cargo build --profile excel -p convex-ffi
+        run: cargo build --locked --profile excel -p convex-ffi
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -120,10 +160,14 @@ jobs:
           path: convex-excel-addin-v*.zip
           retention-days: 5
 
-  publish-crates:
-    name: Publish to crates.io
+  # The WebAssembly engine is not on crates.io (it depends on the unpublished
+  # `convex` facade) or npm. Each release attaches two npm-installable
+  # tarballs instead: `web` for browsers and bundlers, `nodejs` for Node.
+  build-wasm:
+    name: Build WASM packages
     runs-on: ubuntu-latest
     needs: validate
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
         with:
@@ -131,14 +175,69 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+          targets: wasm32-unknown-unknown
 
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
-      # Publish the seven library crates in dependency order. cargo publish
-      # waits for each version to land in the index before returning, so the
-      # next crate can resolve it. The remaining workspace crates are
-      # publish = false and are skipped automatically.
+      # A fixed crates.io release, not a remote install script.
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked --version 0.13.1
+
+      - name: Build and pack
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for target in web nodejs; do
+            wasm-pack build crates/convex-wasm --release --target "$target" --out-dir "pkg-$target" -- --locked
+            # The engine must report the release version, not a stale one.
+            test "$(jq -r .version "crates/convex-wasm/pkg-$target/package.json")" = "$VERSION"
+            # wasm-pack only copies a LICENSE that sits in the crate directory.
+            cp LICENSE "crates/convex-wasm/pkg-$target/"
+            # The engine includes convex-credit, so the ISDA license ships too. npm
+            # packs only the files listed in package.json, so list it there.
+            cp crates/convex-credit/LICENSE-ISDA-CDS-STANDARD-MODEL.txt "crates/convex-wasm/pkg-$target/"
+            jq '.files += ["LICENSE-ISDA-CDS-STANDARD-MODEL.txt"]' "crates/convex-wasm/pkg-$target/package.json" > package.tmp
+            mv package.tmp "crates/convex-wasm/pkg-$target/package.json"
+            (cd "crates/convex-wasm/pkg-$target" && npm pack --pack-destination ../../../dist)
+            mv "dist/convex-wasm-$VERSION.tgz" "dist/convex-wasm-$target-v$VERSION.tgz"
+          done
+          ls -l dist
+
+      - name: Upload WASM Artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: convex-wasm
+          path: dist/*.tgz
+          retention-days: 5
+
+  publish-crates:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    needs: [validate, build-excel-addin, build-wasm]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.97.1'
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      # Publish the seven library crates in dependency order: convex-core
+      # depends on convex-math, curves on core, rates/credit/bonds on curves,
+      # analytics on all of them. cargo publish waits for each version to
+      # appear in the index before returning, so the next crate resolves it.
+      # Every other workspace crate is publish = false.
       #
       # crates.io versions are immutable, so a crate already at this version is
       # skipped (HTTP 200 from the per-version API) rather than erroring. This
@@ -150,7 +249,7 @@ jobs:
         run: |
           set -euo pipefail
           ua="convex-release (https://github.com/sujitn/convex)"
-          for crate in convex-core convex-math convex-curves convex-rates convex-credit convex-bonds convex-analytics; do
+          for crate in convex-math convex-core convex-curves convex-rates convex-credit convex-bonds convex-analytics; do
             status=$(curl -s -o /dev/null -w '%{http_code}' \
               -H "User-Agent: $ua" \
               "https://crates.io/api/v1/crates/$crate/$VERSION")
@@ -162,14 +261,14 @@ jobs:
               exit 1
             fi
             echo "::group::cargo publish -p $crate ($VERSION)"
-            cargo publish -p "$crate"
+            cargo publish --locked -p "$crate"
             echo "::endgroup::"
           done
 
   github-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [validate, build-excel-addin, publish-crates]
+    needs: [validate, build-excel-addin, build-wasm, publish-crates]
     permissions:
       contents: write
     steps:
@@ -184,32 +283,48 @@ jobs:
           name: convex-excel-addin
           path: ./artifacts
 
+      - name: Download WASM packages
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: convex-wasm
+          path: ./artifacts
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.validate.outputs.tag }}
           name: v${{ needs.validate.outputs.version }}
           body: |
-            ## Installation
+            See [CHANGELOG.md](https://github.com/sujitn/convex/blob/${{ needs.validate.outputs.tag }}/CHANGELOG.md) for what changed.
 
-            The core library crates are published to crates.io. Depend on the
-            unified analytics crate (it pulls in core, math, curves, rates,
-            credit and bonds):
+            ## Rust
+
+            Seven library crates are on crates.io. `convex-analytics` depends on
+            the rest but does not re-export them, so also add each crate you
+            import directly:
 
             ```toml
             convex-analytics = "${{ needs.validate.outputs.version }}"
             ```
 
-            Individually published crates: `convex-core`, `convex-math`,
-            `convex-curves`, `convex-rates`, `convex-credit`, `convex-bonds`,
-            `convex-analytics`. The `convex`
-            umbrella plus the FFI / WASM / MCP / server crates are internal —
-            consume them via a git or path dependency.
+            The others are `convex-math`, `convex-core`, `convex-curves`,
+            `convex-rates`, `convex-credit` and `convex-bonds`. The `convex`
+            facade crate (with the JSON `library()` API) is not on crates.io;
+            use a git dependency pinned to this tag.
 
-            ### Excel Add-in
-            Download the `convex-excel-addin` zip from assets below, extract,
-            and load `Convex.Excel64.xll` in Excel.
-          files: ./artifacts/*.zip
+            ## WebAssembly
+
+            `convex-wasm-web-v${{ needs.validate.outputs.version }}.tgz` (browsers and bundlers) and
+            `convex-wasm-nodejs-v${{ needs.validate.outputs.version }}.tgz` (Node.js) are npm tarballs.
+            Install one directly, e.g. `npm install ./convex-wasm-web-v${{ needs.validate.outputs.version }}.tgz`.
+
+            ## Excel
+
+            Download `convex-excel-addin-v${{ needs.validate.outputs.version }}.zip`, extract it, and
+            load `Convex.Excel64.xll` in 64-bit Excel.
+          files: |
+            ./artifacts/*.zip
+            ./artifacts/*.tgz
           draft: false
           prerelease: false
           generate_release_notes: true

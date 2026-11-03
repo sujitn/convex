@@ -1,67 +1,89 @@
-# Supplied portfolio key-rate exposure
+# Portfolio key-rate exposure
 
-`aggregate_key_rate_exposure` is the checked native owner of supplied holding
-aggregation. It does not price instruments or build curves. Supply each actual
-holding, its full dirty valuation basis, explicit FX to one common base currency,
-and independently calculated factor durations. Keep source revisions with the
-caller’s immutable valuation inputs. A tenor identifies an exact finite positive
-binary64 factor; nearby factors are distinct and no milliyear bucket is used.
+`aggregate_key_rate_exposure` aggregates key-rate risk across the holdings of a
+portfolio. It does not price instruments or build curves. You pass in each
+holding, its full dirty valuation basis, FX to one common base currency, and
+durations per factor calculated elsewhere. The REST endpoint
+`/api/v1/portfolio/key-rate-duration` uses it.
 
-For each requested factor, the result preserves original order, covered and total
-holding counts, covered dirty market value, optional known weighted duration and
-optional known currency DV01. Missing input stays unavailable. A supplied zero
-sensitivity is an actual zero and counts as covered. A zero dirty valuation cannot normalize relative duration and is rejected when
-relative factors are supplied. Use the existing absolute-sensitivity workflow for
-zero-value instruments; no zero absolute risk is inferred. Empty books
-and missing profiles never receive invented zero duration or contributions.
+Keep source revisions with your own immutable valuation inputs. A tenor
+identifies an exact finite positive binary64 factor. Nearby factors are
+distinct, and no milliyear bucket is used.
 
-Currency DV01 is the sum of each covered holding’s dirty value times its supplied
-factor duration divided by10,000. Dirty value uses actual par times(clean price+
-supplied accrued interest)times explicit FX divided by100. Positive DV01 denotes
-loss for an upward1bp move; signed factor sensitivities are retained. MarketValue
-presentation uses dirty value; ParValue and EqualWeight change the presentation
-ratio only. They never change actual currency exposure. Negative supplied accrual
-is allowed when the full dirty value remains nonnegative. No missing accrual or
-FX is forecast here. The existing positive-par Holding view does not replace the
-separate signed mixed-instrument risk and hedge owner.
+For each requested factor, the result keeps the original order, the covered and
+total holding counts, the covered dirty market value, and, when known, the
+weighted duration and the currency DV01. Missing input stays unavailable. A zero
+sensitivity you supply is a real zero and counts as covered.
 
-The original optional profile and partial-DV01 views delegate the checked owner.
-The optional profile lists known weighted factors only; inspect requested tenors
-and coverage before using it as a full-book profile. The partial-DV01 view returns
-known supplied exposures only. Use the full result for diagnostics and per-factor
-coverage. Incorrect, duplicate or oversized whole inputs fail without silently
-dropping a holding. Arithmetic is checked for Decimal range and nonzero underflow.
-Bounds are65,536holdings,4,096requested or per-holding factors,1,048,576holding/factor
-work or supplied factor rows, and unique nonempty identities of at most8,192bytes.
-Aggregation is deterministic across configuration parallel flags.
+A zero dirty valuation cannot normalize relative duration, so it is rejected
+when relative factors are supplied. Use the existing absolute-sensitivity
+workflow for zero-value instruments. No zero absolute risk is inferred. Empty
+books and missing profiles never get an invented zero duration or contribution.
 
-The REST endpoint `/api/v1/portfolio/key-rate-duration` consumes supplied same-base
-positions and full dirty prices in `market_price`. Supply notional and price as
-checked plain decimal strings; numeric cash, exponent notation and decimal
-rounding are rejected by the existing exact-money owner. Do not send a clean quote as
-that full-price input. Duration, contribution and bucket metrics are nullable;
-unknown factors are retained as unavailable points, and zero-sum contribution
-ratios are null. `known_partial_dv01` reports covered exposure; `partial_dv01` is
-available only when every supplied holding declares that factor. Explicit
-`coverage_complete` and `duration_available` report separate facts. The portfolio
-name and identity are echoed; `weighting` is optional and defaults to MarketValue.
-Unrecognized input fields and invalid complete sets are rejected. The shared
-pure core JSON owner rejects erased nonzero model numbers before typed extraction
-and retains the existing byte, node, depth, item, text and duplicate-field bounds. The demo cannot
-infer key-rate sensitivities by distributing duration around maturity, and cannot
-infer VaR by multiplying NAV by a constant. Those fabricated results are removed.
+Currency DV01 is the sum, over covered holdings, of dirty value times the
+factor duration divided by 10,000. Dirty value is par times (clean price +
+accrued interest) times FX divided by 100. Positive DV01 means a loss for an
+upward 1bp move, and signed factor sensitivities are kept.
 
-The basis is consistent with QuantLib1.40’s distinction between cash-flow PV/dirty
-price and clean price after accrued subtraction, and its use of PV when converting
-normalized duration to currency change. See the primary
+`MarketValue` weighting uses dirty value. `ParValue` and `EqualWeight` change
+only the presentation ratio and never the currency exposure. Negative accrued
+interest is allowed when the full dirty value is still nonnegative. Missing
+accrued interest and FX are not forecast. The positive-par Holding view does
+not replace the signed mixed-instrument risk and hedge code.
+
+The optional profile and partial-DV01 views call the same function. The profile
+lists only the factors with known weighted duration, so check the requested
+tenors and coverage before using it as a full-book profile. The partial-DV01
+view returns only the known exposures. Use the full result for diagnostics and
+per-factor coverage.
+
+Incorrect, duplicate or oversized inputs fail, and no holding is silently
+dropped. Arithmetic is checked for Decimal range and for nonzero underflow.
+Bounds:
+
+- 65,536 holdings;
+- 4,096 requested or per-holding factors;
+- 1,048,576 holding/factor work items or factor rows;
+- unique nonempty identities of at most 8,192 bytes.
+
+Aggregation gives the same result regardless of the configuration's parallel
+flags.
+
+## REST endpoint
+
+`/api/v1/portfolio/key-rate-duration` takes positions in one base currency, with
+full dirty prices in `market_price`. Send notional and price as plain decimal
+strings. Numeric cash, exponent notation and decimal rounding are rejected by
+the exact-money parser. Do not send a clean quote as the full-price input.
+
+- Duration, contribution and bucket metrics can be null. Unknown factors are
+  kept as unavailable points, and zero-sum contribution ratios are null.
+- `known_partial_dv01` reports the covered exposure. `partial_dv01` is
+  available only when every holding declares that factor.
+- `coverage_complete` and `duration_available` report separate facts.
+- The portfolio name and identity are echoed. `weighting` is optional and
+  defaults to MarketValue.
+- Unrecognized input fields and invalid sets are rejected.
+
+The shared core JSON parser rejects erased nonzero model numbers before typed
+extraction. The byte, node, depth, item, text and duplicate-field bounds are
+unchanged. The demo cannot infer key-rate sensitivities by distributing
+duration around maturity, and cannot infer VaR by multiplying NAV by a
+constant. Those invented results have been removed.
+
+## Basis
+
+The basis matches QuantLib 1.40's distinction between cash-flow PV (dirty
+price) and clean price after subtracting accrued interest, and its use of PV
+when converting normalized duration to a currency change. See the
 [bond source](https://github.com/lballabio/QuantLib/blob/v1.40/ql/pricingengines/bond/bondfunctions.cpp)
 and [cash-flow risk source](https://github.com/lballabio/QuantLib/blob/v1.40/ql/cashflows/cashflows.cpp).
-This is a model-basis inference, not an external convention pack or independent
-market/model certificate. New synthetic reference cases use exact standard-library
-Fraction arithmetic and Decimal90 formatting, independently of candidate output.
+This is our reading of that basis. It is not an external convention pack or an
+independent market or model validation, and no production, latency, library or
+market certification is implied. The reference cases use exact
+standard-library Fraction arithmetic and Decimal90 formatting, independent of
+the implementation's output.
 
-Full key-rate stress percentage/P&L, scenario interpolation and all other original
-native/model/host/claim/physical/causal requirements remain owning work unless
-separately qualified. Preserve CTD alternatives, switches and actual cash/security
-ownership. Only unavailable actual platform execution may defer; no production,
-latency, library or market/model certification is inferred.
+Not covered: key-rate stress percentages and P&L, scenario interpolation, and
+the broader model, host, claim and lifecycle requirements. CTD alternatives,
+switches and actual cash and security ownership are not modeled here.

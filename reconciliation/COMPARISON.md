@@ -1,16 +1,15 @@
 # Offline quantitative comparison
 
-CVX-040 adds comparison infrastructure over the existing pure library. It
-preserves the existing `reconcile.py`, `ql_bench.py`, bond book, QuantLib
-reference JSON, captured CSVs and reconciliation workflow. Their original
-thresholds are unchanged. No comparator is a production pricing dependency.
+This directory compares Convex results with stored outputs from other
+libraries, offline. It sits alongside the older `reconcile.py`, `ql_bench.py`,
+bond book, QuantLib reference JSON and captured CSVs, whose thresholds are
+unchanged. No comparator is a dependency of the pricing code.
 
-The retained pack runs 70 day-count cases and 42 fixed-rate bonds: 392
-measures in total. The current replay passes 287 and fails 105, across 21
-30/360 bonds. Those differences remain enforced failures. They require a
-bond discount-time/convention study and repair in the owning construction,
-analytics and bond certification tasks. Matching retained values is not an
-independent model approval.
+The QuantLib 1.40 pack runs 70 day-count cases and 42 fixed-rate bonds: 392
+measures in total. All 392 pass. An earlier replay missed 105 measures on 21
+30/360 bonds; a payment-time correction fixed them (see
+[docs/BOND-QUOTES.md](../docs/BOND-QUOTES.md)). Matching stored values is not
+an independent model review.
 
 ## Run locally
 
@@ -34,7 +33,7 @@ a trusted, reviewed local test tool; the runner is not an executable sandbox.
 
 Exit 0 means every requested measure matched; exit 1 means a comparison
 failed; exit 2 means invalid provenance/input/output or a process failure.
-The full retained replay currently exits **1**. CI uploads the report on
+The full retained replay currently exits 0. CI uploads the report on
 failure and does not ignore this exit. The existing live QuantLib rebuild
 workflow remains separately enabled.
 
@@ -164,9 +163,8 @@ Use the [ORE](comparison_templates/ore.json),
 [ISDA](comparison_templates/isda.json) or
 [exchange](comparison_templates/exchange.json) admission template. These
 templates are pending requirements, contain no invented expected values,
-and cannot run as fixtures. IRS/OIS tasks CVX-018/019, CDS tasks CVX-020/021
-and futures task CVX-022 supply their cases; library coverage/certification
-tasks decide required completeness.
+and cannot run as fixtures. Swap, CDS and futures cases are added with the
+features they test.
 
 1. Capture the exact upstream source/archive and dependency/submodule versions,
    license/attribution, compiled binary hash, compiler/platform, build/run
@@ -185,7 +183,7 @@ tasks decide required completeness.
    promote a retained/not-executed reference.
 5. Implement standalone candidate operations and negative cases. Compare,
    investigate discrepancies and retain all actual outcomes. Admission and
-   matching do not grant an LB0/LB1/R0/R1 certificate.
+   matching are not a certification.
 
 ## External output integration
 
@@ -238,12 +236,13 @@ approval. Repository declarations cannot authenticate human reviewers or configu
 GitHub branch protection. Administrators must require the checks and reviews
 on protected branches.
 
-The initial CVX-040 additions preserve all 47 existing quantitative pins;
-their source-tree engineering review does not attest an external numerical
-approval. Before a whole-extension PR, review against its actual base.
-CI runs schema checks, mutation tests, the pure adapter build and the
-full offline replay. The 105 current misses and G04's synthetic spread
-outputs continue to block production/library release readiness.
+The comparison tooling keeps all 47 earlier quantitative pins. Before a
+large change, review it against its actual base. CI runs schema checks,
+mutation tests, the adapter build and the full offline replay. Passing it is
+not a numerical approval: the v1 synthetic-curve spread outputs are still an
+enforced production failure (see the
+[runtime guide](../crates/convex-engine/RUNTIME.md)), so no production or library
+release gate is met.
 
 Bounds: 8 MiB JSON/CSV, 512 MiB per referenced source/binary artifact, 16 comparator identities, 64 packs, 2,048 cases per pack, 64 measures
 per case, 128 source artifacts per pack, 4,096 observations per data list,

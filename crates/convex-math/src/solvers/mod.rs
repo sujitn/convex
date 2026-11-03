@@ -20,11 +20,8 @@
 //!
 //! *When bounds are provided or can be found automatically.
 //!
-//! # Performance
-//!
-//! For typical financial calculations:
-//! - YTM calculation: < 1μs (Newton, ~5-8 iterations)
-//! - Z-spread calculation: < 50μs (Brent with 50 points)
+//! A yield-to-maturity solve with Newton typically converges in 5 to 8
+//! iterations.
 //!
 //! # Example: YTM Calculation
 //!

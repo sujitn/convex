@@ -28,8 +28,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_extrapolation()
         .build()?;
 
-    // Z-spread that reprices the bond to a dirty price of 102.50.
-    let spread = z_spread(&bond, dec!(102.50), &curve, settlement)?;
+    // Z-spread that reprices the bond to a dirty price of 97.50.
+    let spread = z_spread(&bond, dec!(97.50), &curve, settlement)?;
     println!("Z-Spread: {:.2} bps", spread.as_bps());
 
     Ok(())

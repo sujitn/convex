@@ -29,7 +29,7 @@ exclude = ["tools/reconcile_bench"]
 resolver = "2"
 
 [workspace.package]
-version = "0.13.0"
+version = "0.14.0"
 edition = "2021"
 rust-version = "1.95"
 authors = ["Sujit Nair"]
@@ -51,13 +51,13 @@ categories = ["finance", "mathematics", "science"]
 # path-only — the facade `convex` name is taken on crates.io by an unrelated
 # project, and the engine/server/bindings crates are applications, not libraries.
 convex = { path = "crates/convex" }
-convex-core = { path = "crates/convex-core", version = "0.13.0" }
-convex-math = { path = "crates/convex-math", version = "0.13.0" }
-convex-curves = { path = "crates/convex-curves", version = "0.13.0" }
-convex-bonds = { path = "crates/convex-bonds", version = "0.13.0" }
-convex-rates = { path = "crates/convex-rates", version = "0.13.0" }
-convex-credit = { path = "crates/convex-credit", version = "0.13.0" }
-convex-analytics = { path = "crates/convex-analytics", version = "0.13.0" }
+convex-core = { path = "crates/convex-core", version = "0.14.0" }
+convex-math = { path = "crates/convex-math", version = "0.14.0" }
+convex-curves = { path = "crates/convex-curves", version = "0.14.0" }
+convex-bonds = { path = "crates/convex-bonds", version = "0.14.0" }
+convex-rates = { path = "crates/convex-rates", version = "0.14.0" }
+convex-credit = { path = "crates/convex-credit", version = "0.14.0" }
+convex-analytics = { path = "crates/convex-analytics", version = "0.14.0" }
 convex-portfolio = { path = "crates/convex-portfolio" }
 convex-ffi = { path = "crates/convex-ffi" }
 convex-wasm = { path = "crates/convex-wasm" }

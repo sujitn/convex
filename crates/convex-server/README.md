@@ -1,10 +1,12 @@
 # Convex server configuration
 
+`convex-server` (`crates/convex-server`, binary `convex-server`) is the Convex pricing server: an HTTP and WebSocket service over the library, the engine and local redb storage. This page covers how to run and configure it and what its routes do. The crate is not published to crates.io; build it from this repository.
+
 The [issuer-default workflow](../../tools/ISSUER-EVENTS.md) reuses this server's
 reference, curve, fixing, snapshot and result ports for bonds/CDS, risk, hedges
 and P&L, including atomic book updates and restart recovery.
 
-The server supports an explicit demo profile and loopback-only historical replay with an immutable plan and canonical quote file. Production is the default. It runs the Live runtime of a stored activated configuration, and starts only with required access (policy file and introspection) behind the `proxy` TLS boundary; otherwise it names the first missing setting and fails before opening storage. Live valuations stay display-only; official durable results are core-workflow snapshot runs. Demo responses contain demonstration inputs; they do not establish production readiness. The [runtime guide](../convex-engine/RUNTIME.md) covers replay, readiness, canonical results and joined recovery.
+The server has an explicit demo profile and a loopback-only historical replay mode, which takes an immutable plan and a canonical quote file. Production is the default profile. It runs the Live runtime of a stored, activated configuration. It starts only with access control configured (policy file and introspection) behind the `proxy` TLS boundary. Otherwise it names the first missing setting and fails before opening storage. Live valuations are display-only; the official durable results are the core-workflow snapshot runs. Demo responses contain demonstration inputs and are not production data. The [runtime guide](../convex-engine/RUNTIME.md) covers replay, readiness, canonical results and joined recovery.
 
 Authentication defaults to required verification. The [access guide](ACCESS.md) documents authenticated replay, exact role/book/data grants, identity/secret rotation, TLS proxy boundaries, quotas and distinct health states. For a local demonstration, run from the repository root:
 
@@ -45,19 +47,19 @@ runs the book, stops it, restarts against the same temporary storage, checks an
 identical same-snapshot P&L response, and stops it again. It needs no Python
 packages, external feed, account or manually started service. Use
 `--binary /absolute/path/to/convex-server` to reuse a build, or
-`--pnl-output /tmp/core-pnl.json` to retain the complete native P&L envelope.
+`--pnl-output /tmp/core-pnl.json` to retain the complete P&L envelope.
 
-The six supplied trades are a cash bond, stepped/amortizing IRS, seasoned OIS,
+The six trades are a cash bond, stepped/amortizing IRS, seasoned OIS,
 single-name CDS, overnight rate future and term rate future. The example selects
 complete terms, calendars, history, curves, positions, FX and cash events from
-the existing synthetic causal-book fixture. It sends every financial calculation
-through the server: native prices; discount, term-projection, overnight-projection,
+the synthetic causal-book fixture. It sends every financial calculation
+through the server: prices; discount, term-projection, overnight-projection,
 hazard and recovery risk; a constrained bond/IRS/CDS/futures hedge proposal; and
 causal P&L split into market, FX, position and event changes. It also removes a
-required discount curve and checks the native `missing_input` error.
+required discount curve and checks the `missing_input` error.
 
 Output includes the input fingerprint, quantity/reference units, ordered factor
-keys, before/after risk, proposed trade quantities and native P&L reconciliation
+keys, before/after risk, proposed trade quantities and P&L reconciliation
 residuals. Futures monetary quote levels and currency present values retain
 separate reporting groups. A feasible hedge can retain residual exposure. The
 example's eligibility, liquidity limits and zero costs are explicit synthetic
@@ -69,33 +71,32 @@ paper assumptions; its proposal does not execute orders or post cash.
 [`LibraryRequest`](../convex/src/library/requests.rs) JSON and returns the
 unchanged `convex::library::execute_json` envelope. Product construction, curve
 validation/calibration, pricing, risk, hedging and P&L stay in their existing pure
-owners. The request supplies immutable inputs; this endpoint performs no provider
+owners. The request carries all of its inputs; this endpoint performs no provider
 or repository lookup and saves no calculation state.
 
 Native success is `{"ok":"true","result":...}`. Native calculation or input
 failure is `{"ok":"false","error":...}` at HTTP 200; always inspect `ok`.
 Transport/authentication failures use HTTP error statuses. The existing HTTP
 boundary limits requests to 2 MiB and results to 4 MiB; an oversized result
-returns HTTP 413 with `ANALYTICS_RESPONSE_TOO_LARGE`. Work uses the blocking
-pool with immediate admission bounded by the engine's `max_concurrent_calcs`
-setting (default 4, maximum 64) per router. Exhausted capacity returns HTTP 429.
-Cancellation retains calculation and access admissions until the worker exits.
+returns HTTP 413 with `ANALYTICS_RESPONSE_TOO_LARGE`. Work runs on the blocking
+pool, and a request is rejected at once when the engine's `max_concurrent_calcs`
+limit (default 4, maximum 64 per router) is reached; that returns HTTP 429.
+A cancelled request keeps its calculation and access slots until the worker exits.
 
 The default router denies access. An authenticated deployment requires the
 `Analyst` calculate role, all four `Reference`, `Market`, `Books`, `Results` data
 scopes, and explicit `*` resource grants for instruments, curves, sources and
-books. Named-only grants cannot use this complete supplied-input endpoint;
-per-operation entitlement discovery is not implemented. Current grants are
+books. Named-only grants cannot use this endpoint, because a request can touch any
+instrument, curve, source or book; per-operation entitlement discovery is not implemented. Current grants are
 checked before dispatch and again before returning the result. Existing origin,
 identity and request quotas also apply. Only the isolated demo command selects
 `local_development` access.
 
-This extends the supplied-input HTTP workflow. The managed replay runtime still
-has its documented fixed-bullet scope, and the production profile runs only a
-stored activated configuration behind required access. The example uses rate futures; full
-delivery-basket/CTD operations remain available through the native library
-contract and this same endpoint. Live provider admission, distributed ownership,
-measured latency and production release qualification remain separate work.
+The managed replay runtime still covers fixed-bullet bonds only, and the production
+profile runs only a stored, activated configuration behind required access. The
+example uses rate futures; delivery-basket and cheapest-to-deliver operations are
+available through the same endpoint. Not yet covered: live provider feeds,
+distributed ownership and measured latency.
 
 ## Core snapshots, input updates and restart recovery
 
@@ -107,25 +108,25 @@ PYTHONDONTWRITEBYTECODE=1 python3 tools/core_snapshot_workflow.py
 
 It imports captured synthetic reference revisions, whole curve recipes and fixing
 history through the existing ports, then uses the server to assemble immutable
-snapshots and persist 20 native results. It verifies exact parity with the original
-supplied-input endpoint, selects updated reference/curve revisions, and publishes
+snapshots and persist 20 results. It verifies that they match the results from the
+`/api/v1/analytics` endpoint, selects updated reference/curve revisions, and publishes
 a SOFR correction. OIS consumes the eligible correction; the overnight future
-retains its actual FirstPublished revision. After stopping and restarting the
-server, it reads every original result and recomputes pricing, P&L and the hedge
+retains its FirstPublished revision. After stopping and restarting the
+server, it reads every stored result and recomputes pricing, P&L and the hedge
 from saved inputs with identical outputs. Both processes stop automatically.
 
 The [core persistence contract](../convex-engine/CORE-WORKFLOW.md) describes the
 input definitions, endpoint shapes, backend responsibilities and recovery rules.
-The original `core_workflow.py` remains the smaller supplied-input example.
+`core_workflow.py` remains the smaller example.
 
 | Endpoint | Behavior |
 |---|---|
 | POST /api/v1/analytics/curves | Store one immutable complete `SnapshotCurveRecipe` |
 | POST /api/v1/analytics/fixings | Atomically store a batch of immutable `PublishedFixing` revisions |
 | POST /api/v1/analytics/snapshots | Resolve a `CoreSnapshotPlan` through reference/curve/fixing ports and publish the complete captured record |
-| GET /api/v1/analytics/snapshots/{snapshot_id} | Read the saved native definition, full recipes, history and lineage |
+| GET /api/v1/analytics/snapshots/{snapshot_id} | Read the saved definition, full recipes, history and lineage |
 | POST /api/v1/analytics/snapshots/{snapshot_id}/run/{calculation} | Run a saved named calculation; `{}` permits reuse, `{"recompute":true}` uses saved inputs again |
-| GET /api/v1/analytics/results/{result_id} | Return the exact stored native envelope without recalculation |
+| GET /api/v1/analytics/results/{result_id} | Return the exact stored result envelope without recalculation |
 
 Reference definitions use the existing reference transaction/history contract's
 `calculation` master resource. Input publishers need `ReferenceWriter`, market
@@ -147,8 +148,8 @@ server; interrupted imports recover by retrying the identical captured records.
 
 This is a synthetic, persisted core workflow. Under the production profile its
 snapshot runs are the official durable results, while live valuations stay
-display-only. Vendor feed certification, distributed ownership and measured
-latency remain open.
+display-only. Not yet covered: vendor feeds, distributed ownership and measured
+latency.
 
 The [provider-neutral market-data adapter](../../tools/MARKET-DATA-ADAPTER.md)
 publishes normalized JSONL curve/fixing captures through these existing write
@@ -165,7 +166,7 @@ requires a complete subscribed image before confirmation resumes. Run
 the core book with gaps, reconnects and adapter/server restart recovery.
 
 The [automatic core worker](../../tools/STREAMING-ANALYTICS.md) triggers stored
-native pricing/risk, constrained hedge proposals and causal P&L on confirmed
+pricing/risk, constrained hedge proposals and causal P&L on confirmed
 stream frames. It uses exact configured input bindings and the existing ports,
 with freshness gating and restart recovery. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_live_workflow.py` for the complete
@@ -177,21 +178,21 @@ current risk and hedge inputs to one complete native P&L closing point. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_book_workflow.py` for fill/reference
 updates, consistency rejection, commit faults and restart recovery.
 
-The [event adapter](../../tools/BOOK-EVENTS.md) admits actual fills, lifecycle and
+The [event adapter](../../tools/BOOK-EVENTS.md) accepts fills, lifecycle and
 cash facts through those same ports and publishes the existing book record after
-native P&L validation. Run
+P&L validation. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_event_workflow.py` for an IRS fill,
 official futures settlement, partial/completing cash receipts and restart recovery.
 
 The [lifecycle risk binding](../../tools/LIFECYCLE-RISK.md) adds remaining
-exposure and outstanding owned cash claims to those same native snapshots.
+exposure and outstanding owned cash claims to those same snapshots.
 Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_lifecycle_workflow.py` for a
 50% OIS termination, partial/completing receipts, five-factor hedges, causal P&L
 and recovery after an interrupted hedge result. New hedge trades retain fresh
-instrument risk; actual current claims stay with their original owner.
+instrument risk; current claims stay with their owner.
 
 Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_cds_workflow.py` for
-[CDS default and actual recovery](../../tools/CDS-EVENTS.md). It verifies unpriced
+[CDS default and recovery](../../tools/CDS-EVENTS.md). It verifies unpriced
 default blocking across restart, recovery claim risk, defaulted-entity candidate
 exclusion, cash/P&L reconciliation and interrupted-result recovery.
 
@@ -199,7 +200,7 @@ exclusion, cash/P&L reconciliation and interrupted-result recovery.
 
 Configuration precedence is compiled defaults, selected TOML file, then environment overrides. With no explicit path, the server checks `config/convex.toml`; an absent default file permits environment-only startup. A missing explicit path, unreadable file, invalid setting, unknown TOML key or unknown `CONVEX_` environment variable fails startup. Each supplied file must itself be valid before overrides apply. TOML input is limited to 64 KiB.
 
-These process settings require a restart. Versioned quantitative/integration/policy settings use the separate [configuration lifecycle](../convex-engine/CONFIGURATION.md), including strict schema, actual numerical validation, staging, CAS activation, expiring freshness exceptions and retained rollback. No inline secret-valued setting is supported. Startup inspection redacts paths, and configuration errors omit submitted values and file contents.
+These process settings require a restart. Versioned quantitative/integration/policy settings use the separate [configuration lifecycle](../convex-engine/CONFIGURATION.md), including strict schema, numerical validation, staging, compare-and-swap activation, expiring freshness exceptions and retained rollback. No inline secret-valued setting is supported. Startup inspection redacts paths, and configuration errors omit submitted values and file contents.
 
 | TOML key | Environment variable | Behavior |
 |---|---|---|
@@ -222,13 +223,13 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | access.cors_origins | CONVEX_CORS_ORIGINS | JSON array of exact origins; empty denies cross-origin browser requests |
 | access.introspection | TOML only | Explicit endpoint/issuer/API audience/client and secret reference; see the access guide |
 
-Startup logs the effective redacted configuration and, after a successful bind, the actual listener address. A disabled WebSocket setting removes `/ws`, `/api/v1/ws` and `/api/v1/ws/status`.
+Startup logs the effective redacted configuration and, after a successful bind, the listener address. A disabled WebSocket setting removes `/ws`, `/api/v1/ws` and `/api/v1/ws/status`.
 
 ## Demo output labels
 
-Demo HTTP responses, including WebSocket upgrades, carry `x-convex-profile: demo` and `x-convex-data-quality: demo`. These headers are exposed to browser clients through CORS. Every demo WebSocket JSON message additionally carries `profile: "demo"` and `data_quality: "demo"`; existing economic fields retain their semantics. The numeric `quality` field is not a certification label.
+Demo HTTP responses, including WebSocket upgrades, carry `x-convex-profile: demo` and `x-convex-data-quality: demo`. These headers are exposed to browser clients through CORS. Every demo WebSocket JSON message additionally carries `profile: "demo"` and `data_quality: "demo"`; existing economic fields retain their semantics. The numeric `quality` field is not a data-quality label.
 
-Router construction uses the engine’s configured reference repository. Provider capability validation occurs on the server startup path. The replay runtime calculates actual fixed-bullet results with per-measure quality and immutable lineage; complete products, live certification and production release gates remain open.
+Router construction uses the engine’s configured reference repository. Provider capability validation occurs on the server startup path. The replay runtime calculates fixed-bullet results with per-measure quality and immutable lineage. Not yet covered: other products and live provider feeds.
 
 ## WebSocket streaming
 
@@ -240,7 +241,7 @@ its `runtime_id`, `revision` and result envelope. Seed the display from
 deduplicate by `(runtime_id, revision)`. REST calculators return their results in
 the response and send nothing on the WebSocket. The bond, ETF and portfolio
 subscriptions are retired and refused with `INVALID_MESSAGE`; see the
-[route migration](../../docs/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
+[route migration](../../docs/internal/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
 
 ## Migrating existing startup code
 
@@ -368,7 +369,7 @@ Curve and quote errors share one body, `{"error", "code", "retryable"}`
 
 Bond CRUD and pricing reads use the same `ReferenceRepository` configured in the engine's `StorageAdapter`. The executable uses redb. Creating another router for the same engine shares its references; it does not allocate another bond store. `MemoryReferenceRepository` is available for volatile fixtures and explicit embedded demonstrations.
 
-Each mutation atomically retains current state, immutable versions and a command/receipt for retry recovery. Versions start at 1. Updates and deletion increment the version; deletion retains a tombstone. A deleted internal identity cannot be recreated with a reset version. Exact historical lookup returns the requested version or absence. The receipt records the reference change and its commit time; authenticated actor audit, financial events and outbox transport remain separate work.
+Each mutation atomically retains current state, immutable versions and a command/receipt for retry recovery. Versions start at 1. Updates and deletion increment the version; deletion retains a tombstone. A deleted internal identity cannot be recreated with a reset version. Exact historical lookup returns the requested version or absence. The receipt records the reference change and its commit time; authenticated actor audit, financial events and outbox transport are not covered.
 
 All bond write requests require one `Idempotency-Key` header. PUT and DELETE additionally require `If-Match` containing the positive version returned by a read, for example `"1"`. Wildcards, weak ETags, duplicate headers and unspecified versions fail. The path identity must equal the supplied body identity.
 
@@ -476,11 +477,11 @@ Implement `ReferenceRepository` to slot in another backend and run both shared r
 
 `create_test_storage` names the file-backed redb test helper accurately. Prefer `create_redb_storage` with an owned temporary directory when deterministic file cleanup is required. The validated analytics risk wrapper is now `ValidatedRiskResponse`; the former name has no compatibility alias. Pure pricing formulas, units and signs are unchanged.
 
-The [local redb storage guide](../convex-ext-redb/README.md) documents immutable configuration history, atomic active selection, schema migration and the `convex-redb` offline backup/restore commands. Pricing saves require the next version, deletion explicitly fails and audit queries apply their filters. Managed rollback selects retained content through a new activation. Shared persistence and distributed ownership remain separate work.
+The [local redb storage guide](../convex-ext-redb/README.md) documents immutable configuration history, atomic active selection, schema migration and the `convex-redb` offline backup/restore commands. Pricing saves require the next version, deletion explicitly fails and audit queries apply their filters. Managed rollback selects retained content through a new activation. Shared persistence and distributed ownership are not covered.
 
 ## Market replay and file inputs
 
-[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears and bounds. Run its standalone trace example before wiring an ingestion adapter. The owned runtime uses snapshot-consistent pricing; existing v1 synthetic-curve behavior remains the enforced G04 production gap.
+[The file adapter contract](../convex-ext-file/README.md) documents sequenced quote replay, image/delta recovery, exact units/timestamps, field clears and bounds. Run its standalone trace example before wiring an ingestion adapter. The owned runtime uses snapshot-consistent pricing; the v1 synthetic-curve behavior is still a gap for production use.
 
 ## Configuration operator
 
@@ -507,15 +508,15 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 | `convex_request_context_seconds` | One request-time valuation context: the activation read. Each product reads its curves later, at first use, and their build is `convex_curve_build_seconds{path="request"}` |
 | `convex_quote_seconds` | One `POST /api/v1/quote` |
 
-On-demand nominal fixed/zero quotes now use the [shared pure bond route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from exact supplied discount/swap/government inputs for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures have structured errors. Full historical contexts, live admission and complete product/model certificates retain their separate gates.
+On-demand fixed and zero-coupon quotes use the [shared bond quote route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from discount, swap and government inputs you pass in for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures return structured errors. Not yet covered: full historical contexts and live provider feeds.
 
 
 The [bond default/recovery example](../../tools/BOND-EVENTS.md) reuses these ports
 for principal-only recovery, separately earned cash, lifecycle risk, hedge
 proposals, complete causal P&L and restart recovery. Run
 `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_bond_workflow.py`.
-Unknown actual recovery withdraws readiness; actual recovery and receipts retain
-the original native claim owners. No additional route or persistence schema is used.
+Unknown recovery withdraws readiness; recovery and receipts stay
+with the owners of the original claims. No additional route or persistence schema is used.
 
 
 The [valuation-date roll example](../../tools/DATE-ROLLS.md) reuses the existing
@@ -523,6 +524,6 @@ reference, curve, fixing, snapshot and result ports for scheduled coupons,
 amortization, maturity, outstanding claim risk, hedge proposals and causal P&L.
 Run `PYTHONDONTWRITEBYTECODE=1 python3 tools/core_roll_workflow.py`. Captured
 fixings respect each historical point's knowledge cutoff; matured securities
-leave fresh hedge candidates while actual payments remain separate events.
-The example checks missing-input admission, source refresh, exact retry and
+leave fresh hedge candidates while payments remain separate events.
+The example checks missing-input handling, source refresh, exact retry and
 restart after a committed hedge loses its acknowledgement.

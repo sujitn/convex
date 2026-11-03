@@ -1,31 +1,6 @@
-//! # Convex Core
-//!
-//! Core types, traits, and abstractions for the Convex fixed income analytics library.
-//!
-//! This crate provides the foundational building blocks used throughout Convex:
-//!
-//! - **Types**: Domain-specific types like `Date`, `Price`, `Yield`, `Currency`
-//! - **Day Count Conventions**: Industry-standard day count fraction calculations
-//! - **Business Day Calendars**: Holiday calendars for different markets
-//! - **Traits**: Core abstractions for curves, pricing engines, and risk calculators
-//!
-//! ## Design Philosophy
-//!
-//! - **Type Safety**: Newtypes prevent mixing incompatible values
-//! - **Zero-Cost Abstractions**: Trait-based design with no runtime overhead
-//! - **Explicit Over Implicit**: Clear, self-documenting APIs
-//!
-//! ## Example
-//!
-//! ```rust
-//! use convex_core::prelude::*;
-//! use rust_decimal_macros::dec;
-//!
-//! // Create domain types with compile-time safety
-//! let price = Price::new(dec!(98.50), Currency::USD);
-//! let yield_val = Yield::new(dec!(0.05), Compounding::SemiAnnual);
-//! ```
-
+// The crate documentation is the README, so docs.rs and crates.io show the
+// same text and its examples run as doctests.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![forbid(unsafe_code)]

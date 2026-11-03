@@ -1,112 +1,132 @@
-# Full product-price Nelson–Siegel and Svensson calibration
+# Nelson-Siegel and Svensson calibration to product prices
 
-The existing pure rate and cash calibrators accept
-`CalibrationMode::Parametric(Box<ProductParametricSettings>)`. The source remains
-`CurveSource::Helpers` with every original full product in source order. Each
-trial uses the original analytic NS/Svensson continuous-zero model and the
-original full product pricer. Actual bond prices, loan rates, futures price
-points and swap/FRA/basis rates drive the objective. Neither supplied zero
-observations nor a sampled interpolation grid replace those products.
+The rate and cash calibrators accept
+`CalibrationMode::Parametric(Box<ProductParametricSettings>)`. The source stays
+`CurveSource::Helpers`, with every full product in source order. Each trial uses
+the analytic Nelson-Siegel (NS) or Svensson continuous-zero model and the full
+product pricer. Bond prices, loan rates, futures price points and swap, FRA and
+basis rates drive the objective. Zero observations and sampled interpolation
+grids do not replace those products.
+
+"Checked" below means the function validates its input and returns an error
+instead of guessing.
 
 The [BIS technical documentation](https://www.bis.org/publications/paper-25-zero-coupon-yield-curves-technical-documentation.pdf)
-describes these parametric families and product-price fitting. Convex retains
-its existing native formulas; the new code composes those formulas with existing
-full product callbacks and the existing bounded least-squares solver.
+describes these parametric families and product-price fitting. Convex keeps its
+formulas. The calibration composes them with the full product callbacks and the
+bounded least-squares solver.
 
 ## Inputs and ownership
 
-`ProductParametricSettings` requires all of the following; no numerical choice
-is inferred from currency, provider, instrument name or model family:
+`ProductParametricSettings` requires all of the fields below. No numerical choice
+is inferred from currency, provider, instrument name or model family.
 
 | Field | Meaning |
 | --- | --- |
-| `initial` | Complete `ParametricModel`, with original loadings and decay years |
-| `lower`, `upper` | Finite closed native bounds containing every start |
-| `parameter_scales` | Positive native parameter scales, in exact model order |
-| `quote_scales` | Positive native quote scales, in original helper order |
-| `weights` | Nonnegative original helper weights |
-| `max_iterations` | 1–256 original LM attempts, within existing family work bounds |
+| `initial` | Complete `ParametricModel`, with loadings and decay years |
+| `lower`, `upper` | Finite closed bounds in native units that contain every start |
+| `parameter_scales` | Positive native parameter scales, in model order |
+| `quote_scales` | Positive native quote scales, in helper order |
+| `weights` | Nonnegative helper weights |
+| `max_iterations` | 1-256 Levenberg-Marquardt (LM) attempts, within the work bounds of the family |
 | `objective_tolerance` | Positive weighted scaled RMS target, at most one |
 
-NS order is `[beta0, beta1, beta2, tau]`; Svensson order is
-`[beta0, beta1, beta2, beta3, tau1, tau2]`. Loadings are decimal continuous rates.
-Decays are positive years of the curve's actual time axis. The solver works in
-coordinates `native_parameter / parameter_scale`; the enclosing graph's
-explicit Jacobian step and measured condition estimate use those coordinates.
-Returned model parameters are always restored to their original native units.
-An endpoint clamp removes multiplication rounding at a supplied closed bound;
-it does not widen that bound.
+NS order is `[beta0, beta1, beta2, tau]`. Svensson order is
+`[beta0, beta1, beta2, beta3, tau1, tau2]`. Loadings are decimal continuous
+rates. Decays are positive years on the curve's time axis.
 
-The original graph controls remain the only finite-difference/SVD/rank policy.
-The original solver, damping policy and defaults remain unchanged. Scaling can
-change the effect of absolute damping even when it preserves native finite
-differences. Quote residuals alone do not certify parameter accuracy or global
-uniqueness; the undamped local rank/condition diagnostics describe the actual
-supplied coordinate policy. There is one local solve, without automatic retries,
-start selection, work expansion or hidden objective changes.
+The solver works in coordinates `native_parameter / parameter_scale`. The graph's
+Jacobian step and its measured condition estimate use those coordinates. Returned
+model parameters are always restored to native units. An endpoint clamp removes
+multiplication rounding at a supplied closed bound. It does not widen the bound.
 
-The complete `RateCurveRecipe` or `CashCurveRecipe` still requires actual dated
-terms, quote units/revisions, calendars, exact output/dependency pins, settlement,
-cash steps, publication/history and role/model policy. `bootstrap` must be absent.
-The matching method is `NelsonSiegel` or `Svensson`; tail policy is `None` or
-explicit raw-zero `Flat`. Coverage dates are strictly increasing future dates;
-their last date is the exact native model horizon, not a grid parameter. Every
-actual helper query and delayed payment must fit that horizon.
+The graph controls are the only finite-difference, SVD and rank policy. The
+solver, damping policy and defaults are unchanged. Scaling can change the effect
+of absolute damping even when it preserves native finite differences. Small quote
+residuals do not show that the parameters are accurate or globally unique. The
+undamped local rank and condition diagnostics describe the coordinate policy you
+supplied. There is one local solve, with no automatic retries, start selection,
+work expansion or hidden change to the objective.
 
-## Admitted product composition
+A `RateCurveRecipe` or `CashCurveRecipe` still needs:
 
-The rate owner supports its existing complete dated deposits/FRAs, IRS/OIS,
-exchange rate futures and basis swaps. Separate collateral discount, index
-projection and explicit overnight zero-basis views retain their original exact
-bindings. Full publication/due-history and resource admission precedes trials.
-Dependency ordering remains atomic; this is not a simultaneous cyclic solver.
+- Dated terms, quote units and revisions, and calendars.
+- Output and dependency pins.
+- Settlement and cash steps.
+- Publication and history.
+- A role and model policy.
 
-The cash owner supports its existing full plain fixed/stepped/amortizing/zero
-government securities and dated collateral repo loans on ACT365F continuous
-zeros. Existing clean/dirty, cashflow-yield, bank-discount and par-coupon quote
-conversion remains native-owned. Signed issuer residual basis and credit recovery
-models have different financial meanings and reject this zero-model mode.
-Floating or optional cash calibration helpers remain outside the admitted owner.
-The original cash quote inverse conventions and their own work/tolerances remain
-required when those quotation kinds are used.
+`bootstrap` must be absent. The method is `NelsonSiegel` or `Svensson`. The tail
+policy is `None` or an explicit raw-zero `Flat`. Coverage dates are strictly
+increasing future dates, and the last one is the model horizon, not a grid
+parameter. Every helper query and delayed payment must fit inside that horizon.
 
-At least four NS or six Svensson positive-weight informative observations are
-required, with at most 128 original helpers. All original native quote tolerances
-remain mandatory, including zero-weight quotes. The existing 16,384 actual helper
-valuation ceiling includes trial/preflight/final work. Rank failure, inconsistent
-quotes, missing history/pins, domain/horizon errors and work/convergence failures
-return typed errors with available original diagnostics and no accepted curve.
-Supplied snapshots and last-good curves remain immutable.
+## Supported products
+
+The rate owner supports deposits, FRAs, IRS and OIS, exchange rate futures and
+basis swaps with complete dated terms. Collateral discount, index projection and
+the explicit overnight zero-basis views keep their bindings. Publication and
+due-history checks and resource checks run before any trial. Dependencies are
+built in order, one after another; this is not a simultaneous cyclic solver.
+
+The cash owner supports plain fixed, stepped, amortizing and zero government
+securities, and dated collateral repo loans, on ACT365F continuous zeros. Clean
+and dirty price, cashflow-yield, bank-discount and par-coupon quote conversions
+are unchanged. Two kinds of model have a different financial meaning and are
+rejected in this zero-model mode: signed issuer residual basis, and credit
+recovery. Floating and optional cash helpers are not supported. When one of the
+cash quotation kinds is used, its quote inverse conventions, work limits and
+tolerances still apply.
+
+At least four NS or six Svensson positive-weight observations that carry
+information are required, with at most 128 helpers. Every native quote tolerance
+must still hold, including for zero-weight quotes. The 16,384 helper valuation
+ceiling counts trial, preflight and final work. These cases return typed errors
+with whatever diagnostics are available, and no curve:
+
+- Rank failure.
+- Inconsistent quotes.
+- Missing history or pins.
+- Domain or horizon errors.
+- Work or convergence failures.
+
+Supplied snapshots and last-good curves are not modified.
 
 ## Output, risk and snapshot replay
 
-The fitted `BuiltCurve` retains the complete original Helpers recipe while its
-native query owner contains the actual solved model, exact horizon and analytic
-forward formula. `interpolation_grid()` rejects this family. Rate and cash solver
-diagnostics return the complete native model, attempt/evaluation counts, scaled
-objective, every original residual, undamped rank/conditioning and active bounds.
-Full source-order product valuations also survive shared JSON output. The old
-cash `annualized_parameters` grid field is empty for this mixed-unit mode; decay
-years are never labelled as annualized rates.
+The fitted `BuiltCurve` keeps the full Helpers recipe. Its query owner holds the
+solved model, the horizon and the analytic forward formula. `interpolation_grid()`
+rejects this family. Rate and cash solver diagnostics return:
 
-Use the existing shared `calibration` operation for builds, prices, scenarios,
-original product quote risk and dependent rebuilding. The existing separate
-`parametric_fit` operation remains the native-zero-observation owner. No new
-server route, C symbol, package, provider/storage/MQ integration or order authority
-is added. Actual C JSON, MCP and native WASM exports use the same strict decoder
-and native dispatch. Schema admission checks payload shape; the native financial
-owner still checks economics and numerical postconditions.
+- The native model.
+- The attempt and evaluation counts.
+- The scaled objective.
+- Every residual.
+- The undamped rank and conditioning.
+- The active bounds.
 
-[Schema3 capture/replay](CALIBRATION-SNAPSHOT-REPLAY.md) preserves the complete
-original parametric product input, separately supplied numeric capture revisions,
-exact model and full fitted/helper/solver diagnostics. File reopen and actual
-runtime/recovery rebuild through the native owner and compare the complete output
-before use. Original quote risk rebuilds the full product graph for each of the
-five PVs, with original half-step stability rules. Tampered parameters, helper
-outputs, quote revisions or capture identity reject atomically. Existing schema1,
-schema2 and nonparametric schema3 identities remain unchanged.
+The shared JSON output also keeps the product valuations in source order. The
+cash `annualized_parameters` grid field is empty for this mixed-unit mode, so
+decay years are never labelled as annualized rates.
 
-## Executable engineering controls and limits
+Use the shared `calibration` operation for builds, prices, scenarios, product
+quote risk and dependent rebuilding. The separate `parametric_fit` operation
+still fits zero observations. This mode adds no server route, C symbol, package,
+provider, storage or MQ integration, and no order handling. The C JSON, MCP and
+native WASM exports share one strict decoder and one dispatch. Schema validation
+checks the payload shape. The financial code still checks the economics and the
+numerical postconditions.
+
+[Schema3 capture and replay](CALIBRATION-SNAPSHOT-REPLAY.md) keeps the parametric
+product input, the numeric capture revisions you supply, the model, and the
+fitted, helper and solver diagnostics. Reopening a file and a runtime or recovery
+rebuild both rebuild through the same code and compare the full output before
+use. Quote risk rebuilds the full product graph for each of the five PVs, with
+the half-step stability rules. Tampered parameters, helper outputs, quote
+revisions or capture identity are rejected as a whole. Schema1, schema2 and
+nonparametric schema3 identities are unchanged.
+
+## Running the checks
 
 ```sh
 cargo run --locked -p convex --example product_parametric
@@ -122,20 +142,22 @@ python3 tests/scripts/product_parametric_conditioned_reference.py --check
 python3 tests/scripts/product_parametric_starts_reference.py --check
 ```
 
-The fixtures contain 12 explicitly fictional NS/Svensson × positive/negative ×
-deposit/government/repo graphs and 60 independent Decimal(60) dated quote/model
-controls. Full government cash includes coupon and notional steps, redemption
-premiums and actual following payment dates. Financial answer/tolerance controls
-were frozen before native execution. Separate declarations preserve the first
-invalid short-stub input, unscaled/looser-objective and exhausted-work attempts.
-The final input explicitly supplies stricter objective/coordinates and two closer,
-nonzero local Svensson bond starts. Those caller choices are not universal defaults
-or a global convergence promise. None of the independent financial answer bounds
-is loosened. Native-generated full mixed-rate quotes check composition only and
-are not an independent financial oracle.
+The fixtures contain 12 fictional graphs, covering NS and Svensson, positive and
+negative rates, and deposit, government and repo products. They also contain 60
+independent Decimal(60) dated quote and model controls. Government cash includes
+coupon and notional steps, redemption premiums and the following payment dates.
+The expected answers and tolerances were fixed before the Rust code was run.
 
-CVX-063 remains partial, unaccepted and uncertified. All mandatory instrument/
-market/method records and independent financial/library/production/latency gates
-remain open. Actual Windows/.NET/Excel and wasm32/browser execution is unverified
-in this local slice. Remaining required curve methods, optional bond models,
-workout conventions and constrained cross-instrument hedging are separate scope.
+Separate declarations keep three earlier attempts: the first invalid short-stub
+input, an unscaled or looser-objective input, and an input that exhausted its
+work. The final input supplies a stricter objective and coordinates, and two
+closer, nonzero local Svensson bond starts. These are choices made for the test.
+They are not defaults and do not promise global convergence. None of the answer
+bounds was loosened. Mixed-rate quotes generated by the Rust code check only that
+the pieces compose. They are not an independent financial reference.
+
+Not yet covered: Windows/.NET/Excel and wasm32/browser execution, the full
+required set of instrument, market and method combinations, optional bond
+models, workout conventions and constrained cross-instrument hedging. This work
+is partial and not certified; independent financial review and library,
+production and latency sign-off are still open.

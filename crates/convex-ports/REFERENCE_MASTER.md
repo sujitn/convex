@@ -128,7 +128,7 @@ returns `Unsupported`. Older binaries reject the new kind. Conformance:
 `books_page_in_order_and_version_with_compare_and_set`. HTTP surface: see the
 server README, "Books and portfolios".
 
-CVX-022 adds closed `futures`, `basket` and `cash_universe` master definitions
+The master also defines closed `futures`, `basket` and `cash_universe` master definitions
 and a futures mapping target. Exact reciprocal contract/basket revisions,
 published factors, actual security versions, calendar coverage and source
 availability are checked atomically. Both backends reuse these tables and

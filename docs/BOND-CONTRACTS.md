@@ -1,11 +1,14 @@
-# Supplied bond terms and cash
+# Bond terms and cash
 
-CVX-055 adds `convex::bond_contracts` and `convex::bond_contract` over the shared
-core schedule, dated profile, principal and fixing primitives. One immutable
-`BondContract` composes fixed/stepped/amortizing, plain term/overnight floating
-and fixed-price call/put terms. Its expected cash is separate from realized
-payments and from contingent option valuation. No provider, database, broker,
-server, global evaluation date or system clock participates.
+This document covers `convex::bond_contracts` and `convex::bond_contract`, which
+build on the shared core schedule, dated profile, principal and fixing
+primitives. One immutable `BondContract` describes a fixed, stepped or
+amortizing bond, a plain term or overnight floating bond, and fixed-price
+call/put terms.
+
+Its expected cash is kept separate from realized payments and from contingent
+option valuation. Nothing here uses a provider, database, broker, server, global
+evaluation date or system clock.
 
 ```sh
 cargo run --locked -p convex --example bond_contracts
@@ -17,8 +20,9 @@ cargo test --locked -p convex-analytics --test bond_contracts
 
 The example prepares stepped coupon/principal cash, constructs distinct
 immutable discount/projection curves, prices fixed and floating cash, and
-checks that a missing published fixing fails. These supplied contracts are
-engineering evidence, **not independent quantitative or market certification**.
+checks that a missing published fixing fails. "Checked" in this document means
+the code validates its input and returns an error instead of guessing. These
+contracts have not been independently validated against a vendor system.
 
 ## Construction and reconstruction
 
@@ -31,14 +35,14 @@ and ex-coupon choices, and complete supported exercise terms.
 
 Serialize `bond.terms()` using Serde. Deserialize `BondTerms`, then call
 `terms.build()` or `terms.build_with_calendars(&resources)` to reconstruct a
-checked native object. Unknown terms/styles/versions fail. Precomputed schedules
-and projected cash cannot be deserialized into a checked bond. Native/JSON
-roundtrip preserves supplied economics; it does not certify a host binding.
-The `schemars` feature consumer proves feature compatibility, not generated
-schema coverage for these new types.
+checked Rust object. Unknown terms/styles/versions fail. Precomputed schedules
+and projected cash cannot be deserialized into a checked bond. A Rust/JSON
+roundtrip preserves the economics you pass in. It says nothing about host
+bindings. The `schemars` feature example shows the feature compiles, not that
+generated schemas cover these types.
 
 `build` resolves checked compiled calendar names, including bounded joint
-calendars. `build_with_calendars` consumes actual separate payment/accrual,
+calendars. `build_with_calendars` takes separate payment/accrual,
 reset, observation and exercise calendars, without lookup or storage. The
 embedding caller must bind these values and identities to exact calendar
 versions in its immutable information set. Calendar-name JSON alone does not
@@ -49,19 +53,19 @@ carry a dynamic calendar's holiday data/version or establish historical replay.
 `try_contract`, `CallableBond::contract_terms` and
 `CallableFloatingRateNote::contract_terms` reach this same composition. The
 floating adapter requires explicit index/reset or observation mechanics and
-checks conflicts with its native fixing/overnight fields. An application maps
-the native index to its internal IndexId; no vendor identifier is inferred.
-Older infallible flat-rate/workout helpers retain their compatibility
-preconditions and qualification; they are not publication-aware valuation.
+checks for conflicts with its own fixing/overnight fields. An application maps
+the Rust index to its internal IndexId; no vendor identifier is inferred.
+Older infallible flat-rate/workout helpers keep their compatibility
+preconditions; they are not publication-aware valuation.
 
-`BondContract::floating_workouts` resolves complete eligible original term/
+`BondContract::floating_workouts` resolves complete eligible term/
 overnight cash once into private checked `PreparedFloatingWorkout` state.
-`exercise` composes the actual legal path using original reset/profile slices
-and original observation prefixes, including delayed claims and same-day
+`exercise` composes the legal path using the reset/profile slices
+and observation prefixes, including delayed claims and same-day
 scheduled principal reductions. Fixed and floating paths return the canonical
 `WorkoutProjection`; the former `FixedWorkoutProjection` name is removed.
 See [floating workout quotations](FLOATING-WORKOUTS.md) and
-[migration](ROUTE-MIGRATION.md).
+[migration](internal/ROUTE-MIGRATION.md).
 
 ## Coupon and principal meaning
 
@@ -70,7 +74,7 @@ gearing and notional step independently. Fixed coupons require zero gearing.
 Term effective rate is deterministic coupon + gearing × resolved index +
 annualized decimal spread. A calculation splits at economic/reset boundaries
 and uses each actual coupon's day count/reference periods; it never substitutes
-an averaged coupon, index or factor. Native cash uses checked Decimal arithmetic.
+an averaged coupon, index or factor. Cash uses checked Decimal arithmetic.
 
 Original face and initial outstanding principal must agree. Principal is
 nonincreasing in this initial bond contract; advances/prepayment models are
@@ -78,7 +82,7 @@ unsupported. `outstanding_principal(date, Before/After)` makes same-date
 reduction inclusion explicit. After full redemption it is zero; a delayed
 payment remains an outstanding entitled receivable in the cash projection.
 Profile coverage equals actual accrual coverage. Its independently specified
-principal effective boundaries use the supplied payment date rule; these do
+principal effective boundaries use the payment date rule you pass in; these do
 not assert cash was paid.
 
 Coupon principal is explicitly `AccrualProfile`, `BeforeCouponBoundary` or
@@ -90,12 +94,12 @@ Internal reductions pay at par unless explicitly listed in `principal_prices`.
 The final residual uses the explicit 0..10 redemption multiplier. A priced
 allocation retires its absolute amount at its own multiplier and returns the
 remaining cash as a separate component at par/final residual price. There is no
-averaged redemption price. The original sinking schedule's percentages are
+averaged redemption price. The sinking schedule's percentages are
 converted against original face, with dates, totals and prices validated;
 delivery, acceleration and optional sinks fail this deterministic cash route.
 
-`AmortizationSchedule::notional_profile` admits actual deterministic entries
-without sorting or clipping. Supplied remaining factors must reconcile within
+`AmortizationSchedule::notional_profile` accepts deterministic entries
+without sorting or clipping. Remaining factors you pass in must reconcile within
 1e-12 (the old input type stores f64). Pass-through/prepayment is unsupported.
 Use Decimal `BondTerms` profiles/prices for full contractual precision; the
 older f64 construction helpers cannot recover precision already lost on input.
@@ -103,21 +107,21 @@ older f64 construction helpers cannot recover precision already lost on input.
 Cash rounding is explicit and occurs once after coupon/reset segments sum, once
 per principal allocation, and once per coupon accrued/rebate. Unrounded Decimal
 has finite precision (28 fractional places, 96-bit coefficient). The reference
-fixtures retain 50-digit expectations; the native reader representation differs
+fixtures retain 50-digit expectations; the Rust reader representation differs
 by less than the declared 1e-22 absolute cash comparison bound. Existing
 quantitative values/tolerances and solver defaults remain unchanged.
 
 ## Fixings and overnight coupons
 
-`fixing_requirements` returns the actual unpaid reset/observation dates and
-requires caller-supplied administrator publication instants. Term reset grids
+`fixing_requirements` returns the unpaid reset/observation dates and
+requires caller-provided administrator publication instants. Term reset grids
 are independent of coupon/payment frequency. Their complete actual intervals
 must cover coupon accrual; the forecast receives the actual reset interval,
 index and output day count even when the coupon uses only part of that reset.
 ICMA term projection quotation needs an independent reference convention and
 fails the current default curve policy; coupon ICMA references remain supported.
 
-`project` consumes a supplied `BondProjectionContext`, immutable `FixingSeries`,
+`project` takes a caller-provided `BondProjectionContext`, immutable `FixingSeries`,
 publication callback and explicit `BondProjectionPolicy`. It resolves the
 **entire missing published history list before any forecast callback**. Core
 resolution uses batches of at most 4,096; an already-due missing fixing cannot
@@ -127,7 +131,7 @@ AwaitingPublication origins remain visible. Future projections never rewrite
 known coupon amounts or accrued cash.
 
 `RequirePublished` refuses future/permitted unpublished observations.
-`Supplied` calls only the permitted pure projection policy; errors propagate.
+The `Supplied` policy calls only the permitted pure projection policy; errors propagate.
 `project_from_curve` provides an explicit simple-forward policy on a checked
 immutable curve. It verifies currency/index/projection role and queries the
 actual reset/overnight interval/day count. A discount curve cannot substitute
@@ -153,7 +157,7 @@ accrual requires an explicit `OvernightAccrualCutoff` in prepared weight dates;
 there is no universal inverse mapping for nonbusiness settlement. Missing,
 unused, duplicate or out-of-range cutoffs fail. Full accrued during payment
 lag uses the full actual product. Ex-coupon treatment then subtracts the full
-unrounded coupon or returns zero according to the supplied contract.
+unrounded coupon or returns zero according to the contract.
 
 ## Entitlement and valuation
 
@@ -175,53 +179,53 @@ Bermudan dates or inclusive American windows, price per 100 outstanding
 principal, protection end, notice offset, exercise date, settlement lag/rule
 and accrued-price treatment. Same-right provisions must be sorted and
 nonoverlapping; call and put rights can coexist. American windows are not
-collapsed to coupon dates. `ExerciseTerms::dates` computes supplied exercise
+collapsed to coupon dates. `ExerciseTerms::dates` computes the exercise
 consequences without asserting exercise occurred or choosing it optimally.
 
 Cash projections with options are labelled `conditional_on_no_exercise`.
 Plain valuation rejects optional terms instead of pricing them as a bullet.
 Make-whole/mandatory/change-of-control/death triggers require additional complete
 terms/state/model; unknown styles or unsupported existing provisions fail.
-[CVX-059 optional-bond models](OPTIONAL-BONDS.md) provide separate checked
-HW1F calibration, fixed-price notice exercise and restricted aligned joint
-term-FRN pricing, fractional OAS and resolved/converged factor risk. General
-caps/floors, American/make-whole/triggered/overnight option models, small-bump
-accuracy and full market/lifecycle/client certificates remain owning work.
+[Optional-bond models](OPTIONAL-BONDS.md) provide separate checked
+HW1F calibration, fixed-price notice exercise, restricted aligned joint
+term-FRN pricing, fractional OAS and resolved/converged factor risk.
+Not yet covered: general caps/floors, American, make-whole, triggered and
+overnight option models. The supplied contracts are engineering checks, not
+independent quantitative or market certification, and model, market and
+production sign-off is still pending.
 
-## Bounds and qualification
+## Bounds and coverage
 
 Core limits remain: 4,096 schedule/profile entries, ±366-day offsets, ≤150×366
 contract days, principal 0..1e18, annualized rate/spread ±10, gearing ±1e6 and
-65,536 supplied fixing revisions. One bond has at most 65,536 reset slices or
+65,536 fixing revisions you pass in. One bond has at most 65,536 reset slices or
 overnight observations, and at most 65,536 unique required rates; core history
 resolution remains batched at 4,096. Coupon and principal grids retain their
 separate core bounds. All arithmetic/curve errors propagate. Bounds are resource
 ceilings, not measured latency, allocation or capacity guarantees. Caller
 calendar/publication/projection implementations must terminate and stay pure.
 
-Ten new independent supplied Decimal(50) fixtures and native/analytics tests
+Ten independent Decimal(50) fixtures and Rust/analytics tests
 cover dated steps, partial/priced redemption, long ICMA/leap references, monthly
 anchor drift, joint holiday/ex-coupon entitlement, delayed payment state,
 negative cash, eligible term revisions, missing history, overnight products and
 exercise reconstruction. A 128-case seeded step campaign checks exact analytic
 cash/principal conservation. Research references are the [NY Fed methodology](https://www.newyorkfed.org/markets/reference-rates/additional-information-about-reference-rates)
 and [ARRC 2019 FRN convention matrix](https://www.newyorkfed.org/medialibrary/Microsites/arrc/files/2019/ARRC_SOFR_FRN_Conventions_Matrix.pdf),
-inspected 2026-10-06. These inform declared choices; fixtures use synthetic
-inputs and do not claim administrator/market convention certification.
+inspected 2026-10-06. These inform the declared choices. The fixtures use synthetic
+inputs and have not been checked against administrator or market conventions.
 
-The v1 C ABI/clients and production service do not acquire these new fixing
-inputs automatically. Complete schemas/generated schemas and native-to-host
-construction/dispatch parity remain CVX-063/033. Service product admission still
-uses its reviewed fixed/zero scope. No new symbol, provider, storage or execution
-integration is introduced. All 30 mandatory areas, 174 combinations and 2,154
-Planned records remain; full model/market, LB0/LB1 and production certificates
-are pending. See [library coverage](LIBRARY-COVERAGE.md) and
-[assurance](ASSURANCE.md).
+The v1 C ABI/clients and the server do not acquire these fixing inputs
+automatically. Complete generated schemas and Rust-to-host construction and
+dispatch parity are not yet done. The server still accepts only its reviewed
+fixed/zero scope. No new symbol, provider, storage or execution integration is
+introduced. See [library coverage](internal/LIBRARY-COVERAGE.md) and
+[assurance](internal/ASSURANCE.md) for the remaining work.
 
-Explicit contextual ACT/ACT ICMA price and same-cash yield inversion are now
-available over full original fixed/stepped/amortizing and legal workout cash.
-The checked owner requires an independently versioned complete nominal reference
-mesh, exact original policy/security/quote/calendar pins, payment coverage and
-signed original-face quantities. See [the full contract](ICMA-QUOTATIONS.md).
-Contractual accrual, quotation compounding and actual cash dates stay separate;
-Street/model/market and unavailable host qualification remains open.
+Contextual ACT/ACT ICMA price and same-cash yield inversion are available
+over fixed, stepped and amortizing cash and legal workout cash. The checked
+owner requires an independently versioned, complete nominal reference mesh,
+exact policy/security/quote/calendar pins, payment coverage and signed
+face quantities. See [the full contract](ICMA-QUOTATIONS.md).
+Contractual accrual, quotation compounding and actual cash dates stay separate.
+Street conventions and host bindings are not yet validated.

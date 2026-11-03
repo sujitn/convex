@@ -1,9 +1,6 @@
-//! # Convex Bonds
-//!
-//! Bond types, cashflow / schedule primitives, yield solving, and short-rate
-//! option models. Pricing / risk analytics live on the `Bond` and
-//! `BondAnalytics` traits (see `convex-analytics` for the functional wrappers).
-
+// The crate documentation is the README, so docs.rs and crates.io show the
+// same text and its examples run as doctests.
+#![doc = include_str!("../README.md")]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::module_name_repetitions)]

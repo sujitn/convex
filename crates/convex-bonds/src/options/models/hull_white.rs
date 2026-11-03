@@ -16,14 +16,14 @@
 //! - Analytically tractable
 //! - Fits the initial yield curve exactly
 //! - Can produce negative rates (use Black-Karasinski if this is a concern)
-//! - Industry standard for callable bond pricing
+//! - Widely used for callable bond pricing
 
 use super::{BinomialTree, ShortRateModel};
 use convex_math::portable;
 
 /// Hull-White one-factor short rate model.
 ///
-/// This is the industry-standard model for pricing callable bonds and
+/// This is a widely used model for pricing callable bonds and
 /// calculating OAS. It provides exact fit to the initial yield curve
 /// while modeling mean-reverting rate dynamics.
 ///

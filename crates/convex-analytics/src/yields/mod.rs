@@ -1,6 +1,6 @@
 //! Yield calculation methods.
 //!
-//! This module provides comprehensive yield calculations for fixed income securities,
+//! This module provides yield calculations for fixed income securities,
 //! consolidating all yield-related logic from the Convex library.
 //!
 //! The approximate date-free floating-point bill helper is removed. Treasury
@@ -55,7 +55,7 @@
 //!
 //! # Unified Yield Engine
 //!
-//! For comprehensive yield calculations with full convention support,
+//! For yield calculations with full convention support,
 //! use the [`YieldEngine`] trait and [`StandardYieldEngine`]:
 //!
 //! ```rust,ignore
