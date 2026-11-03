@@ -30,7 +30,7 @@ ownership, ex-coupon rebate, completed unpaid accrued, economic steps, separate
 principal allocations and delayed cash are handled by the same code as before.
 
 Each `IcmaSecurityContext` carries a signed Notional position with its currency
-and a face reference quantity. Output quote pins use the helper identity and
+and an **original face** reference quantity. Output quote pins use the helper identity and
 version pair; the reverse target keeps its own identity and a separate spread
 quote version. No quantity or revision is generated. Rust callers bind the
 calendar data and versions; the shared dispatcher resolves exact pins against the
@@ -39,7 +39,7 @@ calendars you pass in before pricing.
 Government membership, unique securities and maturities, common currency,
 settlement and entitlement are checked. There are 1..128 benchmarks; exact
 selection requires one. Linear selection accepts only the closed interval of
-contractual maturities. Order, indices, maturity dates and calendar-day weights
+contractual maturities. Order, indices, actual maturity dates and calendar-day weights
 are kept, and delayed payment dates never replace maturity.
 
 Each source keeps its [ICMA work reservation](ICMA-QUOTATIONS.md) and its own
@@ -89,4 +89,4 @@ and [QuantLib's schedule-based ActualActual](https://github.com/lballabio/QuantL
 support the existing time code. The composition and the maturity selection are API
 choices. No new market comparison has been run, and no Street convention is
 assumed. Execution on Java/JNI, Windows/.NET/Excel and wasm32/browser has not been
-tested.
+tested. This work is partial and has not been accepted or certified.

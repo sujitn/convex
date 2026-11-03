@@ -11,8 +11,9 @@ The implementation has been compared with QuantLib 1.40 on ten cases. All 973
 numeric checks passed at unchanged, predeclared tolerances. [The capture and
 offline guide](SWAP-COMPARISON.md) records the scope and explains how to run the
 comparison against current code. The manual reference remains a separate check.
-Independent market, model, library, host and release
-sign-off is still outstanding.
+This work is partial. Independent market, model, library, host and release
+sign-off is still outstanding, and it is not certified for production or
+low-latency use.
 
 ## Start and integration
 

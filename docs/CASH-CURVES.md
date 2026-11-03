@@ -126,7 +126,7 @@ Linear extension. Building a raw grid does not price a bond.
 
 The credit model deliberately leaves out coupon recovery and accrued recovery.
 It uses the credit engine's discounted default-mass moment over log-linear
-DF/survival segments, split at principal profile changes and at both curves'
+DF/survival segments, split at actual principal profile changes and at both curves'
 knots. Recovery does not include the residual basis factor.
 
 The discount and survival curves must have:
@@ -274,7 +274,9 @@ focused tests and example were added alongside them.
 
 Not yet covered: independent review of the numerics, complete market,
 convention and model packs, canonical risk, lifecycle and P&L, host and schema
-dispatch, distributed publication, and latency measurement.
+dispatch, distributed publication, production and library approval, and latency
+measurement. The cash-curve work is partial and not certified, and the
+synthetic bond model is not an independently certified market implementation.
 
 The [snapshot replay contract](CALIBRATION-SNAPSHOT-REPLAY.md) describes how to
 capture a complete product graph, compare fitted outputs, solver and helper

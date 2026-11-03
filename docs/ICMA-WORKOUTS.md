@@ -76,7 +76,7 @@ histories or quotation policy are inferred.
 
 ## Units and bounded work
 
-Yield is an annual decimal. Clean, dirty and accrued are per100 of face. The
+Yield is an annual decimal. Clean, dirty and accrued are per 100 of original face. The
 signed invoice consideration uses the face quantity and the exact currency.
 
 Price paths use the computed dirty price. Every inverse targets the observed
@@ -124,10 +124,12 @@ python3 tests/scripts/icma_workout_parity.py --binary target/debug/examples/icma
 Decimal60 controls, declared in advance, cover cash, contextual times, accrued
 interest, clean/dirty, PV, the yield of every path, the signed invoice, legal
 ordering and selection. The original answers and controls are unchanged. The
-transport check only compares Rust output across hosts.
+transport check only compares native Rust envelopes with C ABI output from a
+separate process.
 
 Not yet covered: an independently run Street comparator and quantitative
-review, and complete market, model and host coverage.
+review, and complete market, model and host coverage. The workout work is
+partial and has not been accepted or certified.
 
 [ICMA Appendix A5](https://www.icmagroup.org/assets/ICMA-PMH-Circular-2022-01-FINAL.pdf)
 supports explicit nominal-period interest fractions.

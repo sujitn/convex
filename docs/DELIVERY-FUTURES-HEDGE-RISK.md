@@ -168,7 +168,8 @@ bucket risk is not supported; use the dedicated basket API described here.
 Not yet covered: additional factor mappings, stochastic delivery optionality,
 lifecycle and P&L, solver behavior on large books, measured latency on
 multiserver or colocated setups, and server-side limits, pending orders and
-execution authority.
+execution authority. This work is partial, and there is no independent
+financial, model or production certification.
 
 The adapter outputs only prove that every host returns the same text as Rust.
 They do not validate the financial results. Java, JNI, Windows, .NET, Excel,

@@ -165,7 +165,8 @@ as described in [CDS valuation](CDS-VALUATION.md).
 
 Not yet covered: full market and convention packs, RFR discount curve
 calibration, lifecycle handling, and most host bindings. None of this has had an
-independent quantitative review.
+independent quantitative review, and production, library and latency
+certification are still open.
 
 Capture of a full product graph, comparison of fitted outputs, solver and helper
 diagnostics, and replay of quote risk are described in

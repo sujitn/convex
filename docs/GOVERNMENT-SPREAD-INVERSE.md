@@ -105,7 +105,8 @@ Independent Decimal60 controls were written before the Rust code was run against
 them. Their fixture bytes, price/rate/currency bounds and negative-input controls
 are preserved. Results from the Rust and client paths show only that the
 transports agree. Not yet covered: Windows/.NET/Excel/Java/JNI/wasm32/browser
-execution, and independent market, model and production validation.
+execution, and independent market, model and production validation. This work
+is partial and not certified.
 
 The ACT/ACT ICMA version of this calculation is available as
 `icma_government_spread` / `icma_government_price`; see

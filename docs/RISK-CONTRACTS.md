@@ -5,7 +5,8 @@ convexity, DV01, portfolio aggregation, hedge units, VaR), the stress helpers in
 `convex-portfolio`, and the weekend-only date operations. They work on numeric
 exposures that you pass in. Instrument valuation, curve calibration, FX
 conversion, scenario construction and execution live elsewhere. A scalar result
-does not amount to a full book valuation.
+does not amount to a full book valuation, or to a model, market, latency or
+production certification.
 
 "Checked" below means the code validates its input and returns an error instead
 of guessing.
@@ -147,7 +148,7 @@ interpolation and portfolio measures need their own contracts and tests.
 
 `convex_portfolio::stress::run_stress_scenario` returns a checked, instantaneous
 Taylor estimate for bond holdings. It is separate from the full-revaluation
-mixed-book scenario and causal P&L APIs. You pass in the valuation date,
+mixed-book scenario and causal P&L APIs. You pass in the actual valuation date,
 reporting currency, positions, compatible sensitivities and explicit FX. No
 market data, clock, database or provider is accessed.
 

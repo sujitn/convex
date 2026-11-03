@@ -182,8 +182,9 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
+      # A fixed crates.io release, not a remote install script.
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: cargo install wasm-pack --locked --version 0.13.1
 
       - name: Build and pack
         env:
@@ -192,11 +193,16 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           for target in web nodejs; do
-            wasm-pack build crates/convex-wasm --release --target "$target" --out-dir "pkg-$target"
+            wasm-pack build crates/convex-wasm --release --target "$target" --out-dir "pkg-$target" -- --locked
             # The engine must report the release version, not a stale one.
             test "$(jq -r .version "crates/convex-wasm/pkg-$target/package.json")" = "$VERSION"
             # wasm-pack only copies a LICENSE that sits in the crate directory.
             cp LICENSE "crates/convex-wasm/pkg-$target/"
+            # The engine includes convex-credit, so the ISDA license ships too. npm
+            # packs only the files listed in package.json, so list it there.
+            cp crates/convex-credit/LICENSE-ISDA-CDS-STANDARD-MODEL.txt "crates/convex-wasm/pkg-$target/"
+            jq '.files += ["LICENSE-ISDA-CDS-STANDARD-MODEL.txt"]' "crates/convex-wasm/pkg-$target/package.json" > package.tmp
+            mv package.tmp "crates/convex-wasm/pkg-$target/package.json"
             (cd "crates/convex-wasm/pkg-$target" && npm pack --pack-destination ../../../dist)
             mv "dist/convex-wasm-$VERSION.tgz" "dist/convex-wasm-$target-v$VERSION.tgz"
           done
@@ -293,8 +299,9 @@ jobs:
 
             ## Rust
 
-            Seven library crates are on crates.io. Most projects need only
-            `convex-analytics`, which depends on the rest:
+            Seven library crates are on crates.io. `convex-analytics` depends on
+            the rest but does not re-export them, so also add each crate you
+            import directly:
 
             ```toml
             convex-analytics = "${{ needs.validate.outputs.version }}"

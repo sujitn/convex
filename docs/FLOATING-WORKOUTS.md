@@ -37,7 +37,7 @@ context and one action:
 | `paths` | Common `target`, `WorkoutSolveSettings`, exact `shifted_prefixes` | Every eligible maturity/European/Bermudan/American path, including puts |
 
 `selection` is `{"path":{"kind":"exercise","provision":0,
-"date":"2024-09-29"},"weight_end":null}` or a maturity path.
+"date":"2024-09-29"},"weight_end":null}` or an original maturity path.
 
 `weight_end` must always be present, either as a date or as an explicit null.
 
@@ -64,7 +64,7 @@ Completed unpaid coupons and effective principal claims keep their cash dates,
 including dates after redemption. Later cash is removed. `PayAccrued` pays the
 partial coupon; `IncludedInPrice` adds none. Partial coupon rounding comes first,
 then the combined redemption settlement cash is rounded once, with the rounding
-allocation in principal. Purchase accrued, rebate and the face denominator are
+allocation in principal. Purchase accrued, rebate and the original face denominator are
 unchanged. Ambiguous ex-coupon ownership, overlapping
 partial periods, unmodeled cap/floor, trigger and make-whole terms fail.
 
@@ -97,7 +97,7 @@ latency guarantee.
 
 The output keeps the reference, quote and quotation-policy revisions, all calendar
 pins, and the source terms, context, cash and dependencies. Price consideration
-uses the computed dirty price per unit of face. Inverse consideration uses the
+uses the computed original-face dirty price. Inverse consideration uses the
 observed dirty target (or clean plus purchase accrued), separately from the
 approximate final inverse repricing. Signed quantities scale once. This unrounded
 model consideration is not a fee, ledger posting or receipt, and it grants no
@@ -126,5 +126,6 @@ carry their own controls. The generated envelopes cannot replace these
 independent references.
 
 The existing C, Java, Excel, MCP and WASM dispatcher carries this request.
-Not yet covered: execution under Windows/.NET/Excel, Java/JNI and wasm32/browser.
+Not yet covered: execution under Windows/.NET/Excel, Java/JNI and wasm32/browser,
+and independent financial, model, library and production certification.
 See [fixed-rate workout quotations](WORKOUT-QUOTATIONS.md) and [migration](internal/ROUTE-MIGRATION.md).

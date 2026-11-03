@@ -20,6 +20,7 @@ and `convex-curves` (the curves used to project rates and discount cash).
 [dependencies]
 convex-rates = "0.14"
 convex-core = "0.14"
+convex-curves = "0.14"  # for the CurveSet that price_swap takes
 serde_json = "1"   # only for the example below, which reads the terms from JSON
 ```
 

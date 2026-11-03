@@ -1,8 +1,8 @@
 # Portable numerical kernels
 
 Rust and WebAssembly builds use the same locked, pure Rust `libm` kernels for
-exponentials, logarithms, powers and stable two-component norms, so a given
-input gives the same result on both. The workspace enables `libm`'s
+exponentials, logarithms, powers and stable two-component norms. The workspace
+enables `libm`'s
 `force-soft-floats` and nalgebra's `libm-force` feature. That includes the scalar
 operations inside the bounded SVD calibration and hedge solves. It adds no
 external package or version to the locked dependency graph.
@@ -32,7 +32,7 @@ independent financial controls remain the reference for the values themselves.
 
 This addresses platform-dependent numerical drift on the hosts available so far.
 Not yet covered: Windows/Excel checks, full instrument and convention coverage,
-and any latency target.
+any latency target, and independent certification.
 
 Rust documents platform-dependent transcendental precision in its
 [floating-point API](https://doc.rust-lang.org/std/primitive.f64.html#method.exp).

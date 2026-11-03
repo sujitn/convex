@@ -42,7 +42,7 @@ versions before building `IcmaQuotationInputs`.
 
 Plain selection supplies settlement and same-day payment ownership. Workout
 selection supplies the purchase, information and notice state and an exact
-maturity or provision date. The notice, protection, settlement and model guards
+original maturity or provision date. The notice, protection, settlement and model guards
 apply. Completed unpaid coupons and principal keep their dates, and scheduled
 principal reductions come before early retirement.
 
@@ -109,7 +109,7 @@ outputs validate transport only.
 Not yet covered: Street, model and market conventions, benchmark selection, the
 full helper and risk coverage, the full operation matrix, and host and release
 validation. This pure composition adds no package, service, provider, storage,
-message queue, clock or runtime state.
+message queue, clock or runtime state. This work is partial and not certified.
 
 ## Sources and convention limits
 

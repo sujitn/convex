@@ -13,10 +13,10 @@ Pass a `DiscountTimeBasis` explicitly:
 
 | Basis | Required context |
 | --- | --- |
-| `Calendar` | A date-only day count, evaluated from settlement to each payment |
-| `Icma` | The `ScheduleSpec` and complete anchored nominal reference periods, including explicit payment tails |
-| `Act365L` | Coupon frequency and contiguous coupon periods covering settlement through every payment |
-| `Thirty360EIsda` | Termination date for the February maturity exception |
+| `Calendar` | A date-only day count, evaluated from settlement to each actual payment |
+| `Icma` | The original `ScheduleSpec` and complete anchored nominal reference periods, including explicit payment tails |
+| `Act365L` | Actual coupon frequency and contiguous actual coupon periods covering settlement through every payment |
+| `Thirty360EIsda` | Original termination date for the February maturity exception |
 
 `Calendar` rejects ICMA, ACT/365L and 30E/360 ISDA. These cases fail:
 
@@ -68,7 +68,8 @@ cargo run --locked -p convex --example dated_yield
 
 The controls keep three recorded failures and independently declared
 Fraction/Decimal110 timing, prices, inverses and derivatives. They do not
-validate a market convention, model, host platform or latency target.
+validate a market convention, model, host platform or latency target, and they
+are not a model certification.
 
 # Discount accuracy
 

@@ -18,14 +18,14 @@ their identities, and a `WorkoutContext`. The shared `workout` request contains:
 | `action.kind` | Required action inputs | Result |
 |---|---|---|
 | `price` | `selection`, annual decimal `decimal_yield` | Full workout cash and price |
-| `yield` | `selection`, clean/dirty `target` per unit of face, `BondInverseSettings` | Same-pricer yield, work and final price residual |
+| `yield` | `selection`, original-face clean/dirty `target`, `BondInverseSettings` | Same-pricer yield, work and final price residual |
 | `worst` | One clean/dirty `target`, `WorkoutSolveSettings` | Every eligible maturity/call/put yield and the selected full quotation |
 
 `selection` is `{"kind":"maturity"}` or
 `{"kind":"exercise","provision":0,"date":"2027-06-15"}`. The provision
 index refers to the full exercise array of the contract; an arbitrary date cannot
 create a call or put. Exercise is strictly after purchase settlement and before
-contractual maturity. Maturity keeps its redemption multiplier.
+contractual maturity. Maturity keeps its original redemption multiplier.
 
 The context holds `reference_date`, `trade_date`, `settlement`, `on_payment` and
 `notice`. The purchase lag, payment calendar and settlement adjustment must
@@ -50,7 +50,7 @@ path, identified by `forced_by_notice`.
 
 Early exercise retires outstanding principal **after** same-day scheduled
 reductions, matching the lifecycle ordering. Every completed unpaid coupon and
-effective principal repayment remains a claim on its payment date,
+effective principal repayment remains a claim on its original payment date,
 including cash arriving after early redemption. Future coupons and later principal
 reductions are removed. `PayAccrued` uses the segmented partial coupon; `IncludedInPrice` adds no partial
 coupon. Face denominators and purchase accrual/rebates stay. Redemption plus the
@@ -87,7 +87,7 @@ trigger terms, ambiguous ex-coupon partial ownership and overlapping partial
 accrual intervals fail with an explicit error. Contextual ICMA yield is covered
 below.
 
-Not yet covered: validation against market conventions and models.
+Not yet covered: validation against market conventions, models and hosts.
 
 [MSRB Rule G-15](https://www.msrb.org/Rules-and-Interpretations/MSRB-Rules/General/Rule-G-15)
 distinguishes issuer call/maturity quotations from agreed put-date quotations and

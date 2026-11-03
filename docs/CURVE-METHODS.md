@@ -112,4 +112,6 @@ cargo run --locked -p convex --example library_curve_methods --features schemars
 The Rust, shared JSON, C, Java, MCP and compiled WASM paths are tested for
 reachability only. Windows/Excel and wasm32/browser execution is not yet
 verified, and the results have not been independently validated against a vendor
-system.
+system. Every required convention, model and operation is still planned work,
+and financial approval and library, production and latency certification are
+still open.

@@ -9,7 +9,8 @@ inverse, consideration and curve mathematics are handled by the existing code.
 
 The checks cover the synthetic USD cases declared in the tests. They do not
 cover market Street yields, other conventions and models, source freshness,
-independent review of the numerics, hosts that are not available here, or latency.
+independent review of the numerics, hosts that are not available here, production
+readiness or latency. This work is partial and not certified.
 
 ## Inputs and identity
 
@@ -168,5 +169,5 @@ calculation.
 The existing cash-calibration test adds one explicit clone to reuse the quote
 tag. Its original source is kept as an immutable fixture, and a checked migration
 shows that every input, formula, bound and assertion is unchanged. Refreshing its
-source fingerprint needs an explicit reviewer approval under the repository
+source fingerprint needs an explicit independent reviewer approval under the repository
 assurance policy.

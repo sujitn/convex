@@ -225,3 +225,4 @@ Futures carry, CTD and all-deliverable repricing, and rate-futures averaging,
 fixings, valuation and risk, are covered in [futures valuation](FUTURES-VALUATION.md).
 Not yet covered: margin, roll and delivery lifecycle, executable cross-product
 hedging, host dispatch, provider validation and latency measurement.
+This work is partial and has not been certified for production use.

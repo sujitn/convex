@@ -47,7 +47,7 @@ or bp conversion is inferred.
 The engine scales once by their Decimal ratio. The economic side stays inside
 the reference trade, and the quantity is relative to that side. A negative
 quantity reverses it. Futures counts must be integers. A per100 price must
-first become an absolute currency PV using the face. It cannot be returned as a
+first become an absolute currency PV using the original face. It cannot be returned as a
 currency PV. Reference callbacks return checked `ModelMoney`, and a wrong
 currency fails.
 
@@ -200,7 +200,7 @@ and solver defaults are unchanged. Unsupported model inputs and conservative
 resolution limits remain errors.
 
 Not yet covered: independent quantitative and market/model validation, host
-coverage, lifecycle and P&L, deployment and latency.
+coverage, lifecycle and P&L, deployment and latency. This work is partial and has not been certified for production use.
 
 ORE separates sensitivity scenario generation by market-factor type and runs
 valuation through an explicit analysis workflow. Reading these ORE sources

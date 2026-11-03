@@ -137,4 +137,5 @@ To cut a release: `git tag java-v0.14.0 && git push origin java-v0.14.0`.
 
 See the [library API](../../docs/LIBRARY-API.md) for the complete request shapes
 and limits. The generic JSON call returns the result envelope unchanged, with
-decimal strings and error diagnostics intact.
+decimal strings and error diagnostics intact. Coverage of the required
+operations and host certification are still open.

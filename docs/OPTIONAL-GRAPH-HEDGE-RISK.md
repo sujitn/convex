@@ -12,8 +12,9 @@ resources you supply and proposes hedge quantities. Server authorization,
 providers, storage, message queues, live orders and cash posting are outside it.
 
 Not yet covered: shaped-node optional risk, recalibrated market quote and
-volatility risk, optional graph bucket reconciliation, and all-member
-bond-delivery-futures hedge columns.
+volatility risk, optional graph bucket reconciliation, all-member
+bond-delivery-futures hedge columns, unavailable hosts, and independent model,
+library and production certification. This work is partial.
 
 ## Running it
 
@@ -88,8 +89,8 @@ model revisions do not net as equal keys. The HW1F diffusion parameter is not a
 swaption market-volatility quote. A model-semantics version you supply is part
 of every key.
 
-The hedge reference uses a positive face and `quantity_unit = "notional"`. The
-graph price and currency PV use that face. They are not rebuilt from a per100
+The hedge reference uses a positive original face and `quantity_unit = "notional"`. The
+graph price and currency PV use that original face. They are not rebuilt from a per100
 invoice or an outstanding amortized balance. Direct product risk also accepts
 signed full trade copies with a unit reference. Scaling happens once, in the
 five-PV normalizer. Model-risk diagnostics report derivatives of dirty price
@@ -166,7 +167,7 @@ are kept:
 - side liquidity and costs, and lots;
 - USD/EUR FX for the same snapshot.
 
-The controlled close-out is -350 face and -3 futures contracts, with zero final
+The controlled close-out is -350 original face and -3 futures contracts, with zero final
 holdings and supplied costs of 10.375 USD or 9.3375 EUR. The result has
 `proposal_only` authority.
 

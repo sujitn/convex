@@ -261,8 +261,7 @@ The [helper tests](../crates/convex-analytics/tests/curve_inputs.rs) use a
 pinned synthetic pack to check term conservation, schedules, observation
 eligibility and explicit Unsupported dispatch. Analytic f64 checks use absolute
 1e-11 plus relative 1e-11. Exact contractual data uses exact checks. Existing
-quantitative pins and tolerances are unchanged. The 105 retained comparison
-failures remain enforced.
+quantitative pins and tolerances are unchanged.
 
 This API split is our own design. It was informed by the explicit dates,
 implied quotes and pillars in
@@ -284,4 +283,5 @@ product-calibration snapshots and quote-risk graphs are in
 Not covered here: OIS and projection bootstrapping and global calibration,
 credit calibration, cash/basis/repo curves, optional models, schemas, C ABI and
 client parity, and independent validation of the library. No production, model,
-external data or latency gate is complete.
+external data or latency gate is complete, and no library or model
+certification is implied.

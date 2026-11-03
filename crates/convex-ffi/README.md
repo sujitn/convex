@@ -97,7 +97,8 @@ void        convex_string_free(const char* s);
 `convex_schema` accepts: `"Mark"`, `"BondSpec"`, `"CurveSpec"`,
 `"PricingRequest"`, `"PricingResponse"`, `"RiskRequest"`, `"RiskResponse"`,
 `"SpreadRequest"`, `"SpreadResponse"`, `"CashflowRequest"`,
-`"CashflowResponse"`, `"CurveQueryRequest"`, `"CurveQueryResponse"`.
+`"CashflowResponse"`, `"CurveQueryRequest"`, `"CurveQueryResponse"`,
+`"LibraryRequest"`.
 
 ## DTOs
 

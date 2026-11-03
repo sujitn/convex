@@ -215,7 +215,8 @@ CI runs the dedicated tests and Clippy, and the default, minimal and schema
 facade builds. Not yet covered: shared signed factor integration, key-rate and
 market-quote calibration, full market, convention, convexity and optional-delivery
 test packs, lifecycle and P&L, bindings for other hosts, hedge optimization, an
-independent quantitative review, and measured multiserver performance.
+independent quantitative review, and measured multiserver performance. No
+library or production certification is implied.
 
 [Delivery futures basket risk](DELIVERY-FUTURES-HEDGE-RISK.md) covers all-member
 graph and scenario risk and delivery-futures hedge columns, including exact ties

@@ -7,8 +7,9 @@ price, OAS inversion and fixed-model factor risk. It takes a validated
 that you pass in. No provider, database, broker, engine, server or system clock
 is involved.
 
-The combinations listed below are supported. Not yet covered: market data packs,
-independent review of the numerics, host schemas and dispatch, and lifecycle. The
+The combinations listed below are an engineering candidate, not a certified
+model. Not yet covered: market data packs, independent review of the numerics,
+host schemas and dispatch, lifecycle, and library certification. The
 existing compatibility OAS and tree APIs keep their behavior and their
 quantitative artifacts, and they do not use this contract.
 

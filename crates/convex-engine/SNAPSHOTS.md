@@ -424,4 +424,5 @@ remain unresolved production work.
 Complete original product graph capture, fitted-output/solver/helper diagnostic
 comparison and original quote-risk replay are documented in
 [the schema-3 replay contract](../../docs/CALIBRATION-SNAPSHOT-REPLAY.md). Pure native calculations remain provider/storage/MQ/clock neutral.
-Existing schema 1/2 identities and numerical controls are unchanged.
+Existing schema 1/2 identities and numerical controls are unchanged. Library,
+market, model, host, production and latency certification are all still open.

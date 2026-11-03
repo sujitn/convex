@@ -25,7 +25,7 @@ fixing history.
 - Swap and CDS IDs and versions must match the contract exactly.
 - Bonds also receive their internal trade identity.
 - Zero-coupon and bill input is rechecked for positive, bounded face and
-  redemption and for the issue and maturity dates, because the older convenience
+  redemption and for the actual issue and maturity dates, because the older convenience
   constructors cannot fail.
 - All calendar, reference, curve and exercise terms stay reachable through
   `instrument()`.
@@ -65,21 +65,21 @@ steps do not invent a principal exchange.
 
 `ContractualCash` records earned bond, IRS and OIS coupons at their accrual end,
 including delayed payment. The `completed_cashflows` selectors reuse the
-contract's amount, rounding and observation math. They require published rates
-for the selected coupons. Future coupons are not selected, so no forecasts are
+contract's original amount, rounding and observation math. They require actual eligible published
+rates for the selected coupons. Future coupons are not selected, so no forecasts are
 needed. `due_cashflows` gives the cash due on a date.
 
 For a CDS:
 
 - The upfront amount is recorded at trade inception, and any remainder is due on
   the original cash settlement date.
-- Premium is recorded at its scheduled survival boundary.
+- Premium is recorded at its original scheduled survival boundary.
 - Cash rounding must be set explicitly, because the pricing precision is not an
   accounting convention.
 - On default, every premium already earned is kept.
 
 An obligation is a proposed receivable or payable, never a recorded payment. Its
-amount and due date survive partial receipts. A `Payment` consumes an external
+original amount and due date survive partial receipts. A `Payment` consumes an external
 receipt ID, a source, the obligation key, signed `Money` and a value date.
 Currency and direction must agree. Early cash, overpayment and a receipt ID
 already used locally all fail. `settled` is explicit: even a zero-cash claim
@@ -106,9 +106,9 @@ A call or put `ExerciseNotice` validates the exercise style and provision, the
 protection period, the notice deadline and the separately bound exercise
 calendar. `Exercise` requires:
 
-- That notice.
-- The permitted date.
-- The redemption price per 100 of outstanding principal.
+- That actual notice.
+- The original permitted date.
+- The original redemption price per 100 of outstanding principal.
 - The settlement lag and adjustment.
 - The PayAccrued or Included convention.
 
@@ -200,7 +200,8 @@ Existing numerical policies, captures, schemas and the 25 C exports are
 unchanged. Lifecycle event JSON does not add generated shared schemas or
 FFI, Java, Excel, MCP or WASM dispatch. Not yet covered: ledger, outbox and
 recovery, P&L, market and convention validation, and independent validation of
-the quantitative models.
+the quantitative models. No passing subset of these checks amounts to
+production, multiple-server or latency certification.
 
 Fixed-bond boundary amendments keep the opening replay and earned cash. Pass the
 complete successor contract, with the same calendars, in

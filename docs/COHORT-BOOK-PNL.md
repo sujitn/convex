@@ -55,7 +55,7 @@ collection cost, penalty or funding model is invented.
 For an active CDS, `price_cds_remaining_exposure` uses the same integration,
 curves, premium and protection, and fair quotation equations. It excludes initial
 cash so that the cash can be valued as a lifecycle claim. A `Pending` payment stays
-pending after its settlement date. Partial receipts reduce its outstanding claim,
+pending after its original settlement date. Partial receipts reduce its outstanding claim,
 and only a full receipt changes the payment state to `Settled`. No fictitious paid
 flag is used to bypass the pricer. The `price_cds` contract and its stricter
 initial-payment cutoff are unchanged, and so are the delayed conditional premium
@@ -369,7 +369,7 @@ receipt events stay visible. `physical_delivery.lineage` records the ancestry.
 The `physical_disposals` list binds each disposal of delivered stock to:
 
 - A unique legal `id`, the acquired `asset`, the `future` and the `delivery_id`.
-- An existing `fill_id` with its full quantity, consideration and fees.
+- An existing `fill_id` with its full original quantity, consideration and fees.
 - The `effective_date` and `known_at` that match that fill, an immutable `source`,
   the ordered security `receipt_ids` cutoff, and `applied_points`.
 - Nonempty `receipts`, each naming a `receipt_id` and the signed received `face`
@@ -447,7 +447,7 @@ For example, a coupon of 100 with 10 paid before the cash acquisition and a lega
 fraction of 0.6 gives an owned residual of 54. A later payment of 20 gives owned
 received cash of 12 and outstanding cash of 42. A later claim transfer of 0.25
 moves 10.5 of that outstanding residual, and the 12 already received stays with
-its recipient. Later payments follow the legal shares in force at the time. Use a
+its recipient. Later original payments follow the legal shares in force at the time. Use a
 `residual_id` equal to the dated residual ID in each `claim_transfers` fact, and
 keep the proposal, source and paid-prefix pins. Receipt and outstanding allocations
 conserve the Decimal cash, including the final representational remainder owner.
@@ -472,7 +472,7 @@ Custody of received security and the disposal provenance survive coupon and bull
 redemption boundaries. Separately held cash-bond cohorts also support contractual
 amortization. The physical delivery invoice still requires a fixed nominal bullet,
 and pre-amortizing deliverables fail with the existing Unsupported outcome. Current
-quantities stay in the face units of the lifecycle, and the profile and ended status
+quantities stay in the original face units of the lifecycle, and the profile and ended status
 determine the remaining exposure. Maturity ends model exposure and keeps the
 separately owned coupon and principal receivables. New custody partitions and
 disposals need the security to be active at the transition. Invoice cash, delivery,
@@ -642,7 +642,8 @@ Parity envelopes show transport only. Conditional, floating, credit, novation an
 amendment claims, amortizing physical invoices and post-delivery amendments are
 unsupported in this route. Not yet covered: managed and browser hosts, production,
 scale and latency testing, and authoritative postings, authenticated cash, fills and
-FX, limits and execution.
+FX, limits and execution. None of this work has independent quantitative, model
+or production certification.
 
 ## Cash settlement and closure
 

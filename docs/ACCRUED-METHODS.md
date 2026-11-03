@@ -5,7 +5,7 @@ for constant-coupon bonds. Its `standard`, `ex_dividend`, `irregular_period`
 and `using_year_fraction` methods validate their input and return
 `BondResult<Decimal>` instead of guessing, so propagate errors with `?`.
 
-The result is in the cash units of the face amount you pass in. The helpers do
+The result is in the cash units of the original face amount you pass in. The helpers do
 not normalize to per-100, and they do not infer recorded payments or
 entitlement. Signed and zero annual coupon rates are valid. Face must be
 positive. Dates must be ordered within the period and within the supported date

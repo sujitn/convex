@@ -80,7 +80,7 @@ even when no product fit is needed.
 
 ## Time and validation rules
 
-- All valuation dates must match the snapshot's economic date.
+- All original valuation dates must match the snapshot's economic date.
 - A rate calibration instant must match `as_of`.
 - Input publication and known-at times cannot exceed the snapshot cutoff.
 - Restated captures can keep later known revisions while the original
@@ -173,7 +173,8 @@ combinations. [Product parametric fits](PRODUCT-PARAMETRIC-CALIBRATION.md) keep
 their exact models and graph diagnostics through this replay path.
 
 Not yet covered: other method, model, hedge and workout operations, and runs on
-Windows, Excel, wasm32 and browsers.
+Windows, Excel, wasm32 and browsers. Replay shows reproducibility only: it is not
+a cross-platform bitwise, independent financial or latency certification. This work is partial and has not been certified for production use.
 
 Exponential UFR and speed fitting over exact analytic bases, required one-sided
 joined forwards, quote risk and schema 3 replay are described in

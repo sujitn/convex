@@ -188,4 +188,6 @@ runtime restart and the server envelope add to the schema-1 capture taken before
 the change.
 
 Not yet covered: snapshots of full products and quote risk, the remaining library
-operations, and testing on Windows, Excel and in a browser.
+operations, and testing on Windows, Excel and in a browser. This work is partial
+and not certified, and no throughput, hot-loop allocation or latency guarantee
+is claimed.

@@ -95,7 +95,8 @@ everything since 0.11.1.
   CI run on the tagged commit, and builds every artifact before uploading
   anything.
 - Each GitHub release now carries npm tarballs of the WebAssembly engine
-  (`web` and `nodejs` targets) next to the Excel add-in zip.
+  (`web` and `nodejs` targets) next to the Excel add-in zip. Each tarball
+  includes the MIT license and the ISDA CDS Standard Model Public License.
 
 ## 0.11.1 and earlier
 

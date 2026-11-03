@@ -128,4 +128,4 @@ They test that the pieces compose and are not independent financial references.
 Not yet covered: Windows/.NET/Excel/Java/JNI and wasm32/browser execution, some
 market, model and operation combinations, and independent validation. Providers,
 storage, MQ, clocks and order handling stay outside the analytics. No new package,
-dependency, route or C export is needed.
+dependency, route or C export is needed. This work is partial and not certified.

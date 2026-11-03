@@ -96,4 +96,5 @@ development host.
 
 Not yet covered: optional-model and all-member delivery futures risk, the full
 market and convention matrix, server limits, pending-state fencing and orders,
-and independent latency measurement.
+and independent latency measurement. The bounded book does not cover every
+financial constraint scale. This work is partial and has not been certified for production use.

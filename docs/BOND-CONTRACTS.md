@@ -76,7 +76,7 @@ annualized decimal spread. A calculation splits at economic/reset boundaries
 and uses each actual coupon's day count/reference periods; it never substitutes
 an averaged coupon, index or factor. Cash uses checked Decimal arithmetic.
 
-Face and initial outstanding principal must agree. Principal is
+Original face and initial outstanding principal must agree. Principal is
 nonincreasing in this initial bond contract; advances/prepayment models are
 unsupported. `outstanding_principal(date, Before/After)` makes same-date
 reduction inclusion explicit. After full redemption it is zero; a delayed
@@ -95,7 +95,7 @@ The final residual uses the explicit 0..10 redemption multiplier. A priced
 allocation retires its absolute amount at its own multiplier and returns the
 remaining cash as a separate component at par/final residual price. There is no
 averaged redemption price. The sinking schedule's percentages are
-converted against face, with dates, totals and prices validated;
+converted against original face, with dates, totals and prices validated;
 delivery, acceleration and optional sinks fail this deterministic cash route.
 
 `AmortizationSchedule::notional_profile` accepts deterministic entries
@@ -190,7 +190,9 @@ terms/state/model; unknown styles or unsupported existing provisions fail.
 HW1F calibration, fixed-price notice exercise, restricted aligned joint
 term-FRN pricing, fractional OAS and resolved/converged factor risk.
 Not yet covered: general caps/floors, American, make-whole, triggered and
-overnight option models.
+overnight option models. The supplied contracts are engineering checks, not
+independent quantitative or market certification, and model, market and
+production sign-off is still pending.
 
 ## Bounds and coverage
 

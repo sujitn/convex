@@ -118,7 +118,7 @@ quantity, the unit, and a positive reference quantity.
 - Swaps use full trade copies, or the first fixed-leg notional as a scaling
   reference for the stepped trade.
 - Futures use integer contracts and a one-contract reference.
-- Optional bonds use face or full trade copies.
+- Optional bonds use original face or full trade copies.
 
 Security revisions must match where the product owns that identity. Plain bond
 terms rely on the caller's security and economics manifest.
@@ -196,7 +196,8 @@ Windows/.NET/Excel test paths exist, but they, and wasm32 and browser
 execution, have not been run locally.
 
 Not yet covered: full market, model and convention coverage, independent
-quantitative review, causal lifecycle P&L, and server authority.
+quantitative review, production and latency certification, causal lifecycle P&L,
+and server authority. This work is partial and not certified.
 
 [ORE's analytics guide](https://opensourcerisk.org/content/uploads/2026/04/userguide.pdf)
 gives context for full revaluation and P&L explanation. Nothing here claims

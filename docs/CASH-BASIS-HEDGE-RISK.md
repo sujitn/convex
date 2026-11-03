@@ -32,9 +32,9 @@ and exact calendar pins), and `input`:
 | `model` | `ReferenceZeroSpread` or `CreditParRecovery` model. |
 | `credit` | Optional full `BondCdsHedgeInput`, validated by the legal mapping step. Required for the credit model. |
 | `basis_tolerance` | Explicit decimal-rate comparison bound in `(0, 1e-10]` for mapped baseline basis observations. |
-| `hedge` | Complete identity, positive face reference in the bond's currency, ordered factors, snapshot and factor-work bound. |
+| `hedge` | Complete identity, positive original-face reference in the bond's currency, ordered factors, snapshot and factor-work bound. |
 
-The reference quantity must equal the positive face in the bond's currency.
+The reference quantity must equal the positive original face in the bond's currency.
 Current, pending and proposed signed positions belong to the downstream hedge
 book. A signed observed ICMA quotation stays signed in its quotation and invoice;
 it does not replace the positive risk reference.
@@ -62,7 +62,7 @@ mapping or calendar pins.
 
 `CreditParRecovery` uses the promised-cash and par-recovery model. The issuer
 basis applies to promised cash. Recovery follows the existing discount and survival
-integration over the principal profile.
+integration over the actual principal profile.
 
 These guards stay in place: ACT365F, log-linear discount-factor and survival
 grids, a common origin, no extrapolation, immediate principal payment and the
@@ -143,5 +143,6 @@ Not yet covered: full optional-model risk, all-member delivery-futures risk,
 execution on JVM/JNI, Windows/.NET/Excel and wasm32/browser, and independent
 model, market and latency validation. Compiling the WASM build does not show that
 it runs in a browser. Server limits and order authority are outside this library.
+This work is partial and has not been certified for production use.
 [CDS recovery scenarios and the full five-factor mixed book](CDS-RECOVERY-HEDGE-RISK.md)
 extend this work.

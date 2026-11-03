@@ -85,4 +85,5 @@ The `library` tool takes the same request as the Rust `convex::library` module.
 It returns the JSON envelope unchanged, with decimal strings and error
 diagnostics intact. See the [library API](../../docs/LIBRARY-API.md) for the
 request shapes and limits, and [removed convenience routes](../../docs/internal/ROUTE-MIGRATION.md)
-for migration notes.
+for migration notes. Coverage of the required operations and host certification
+are still open.

@@ -24,7 +24,7 @@ tag.
 `QuoteRiskSettings` and `max_cash_evaluations`. Observations use DecimalRate,
 PercentRate or BasisPoints. The value is kept exactly, including the baseline
 observation. Bumps are annual decimals; scenario quotes use the original unit.
-Prices are per 100 face; callback PV is absolute money. Sensitivity is signed
+Prices are per 100 original face; callback PV is absolute money. Sensitivity is signed
 currency per +1bp, with quantity applied once by the existing reference code.
 
 The key must be InterestRate/Yield/RawQuote/FrozenCurves/CurrencyPerBp, target
@@ -79,7 +79,7 @@ result or a successful zero fallback:
 
 `hedge_vector` also requires `IcmaHedgeIdentity`: TradeId, entity, the
 economics/state/market manifest pin and the calculation manifest pin. It
-requires `quantity == reference_quantity` at positive face. The vector keeps the
+requires `quantity == reference_quantity` at positive original face. The vector keeps the
 security revision, settlement and the unchanged sensitivity. Current, pending
 and proposed signed quantities remain explicit inputs to the existing hedge
 code, which scales the reference column once. Signed trade risk cannot be scaled
@@ -138,4 +138,5 @@ existing hedge aggregator and proposal solver. See
 Own-security ICMA yield remains a separate factor.
 
 Not yet covered: optional models, credit-survival cash products, delivery-futures
-all-member risk, managed and browser hosts.
+all-member risk, managed and browser hosts, and production and latency
+qualification. This work is partial and not certified.

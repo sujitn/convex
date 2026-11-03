@@ -143,7 +143,8 @@ expected values were fixed before the Rust results were generated. The generated
 envelopes only check that every host returns the same text as Rust.
 
 Not yet covered: execution under Windows/Excel and under wasm32/browser, and
-validation against market data.
+validation against market data. This work is partial, and no model, market,
+library, production or latency certification is implied.
 
 Remaining grid methods are in [explicit curve methods](CURVE-METHODS.md). Full product fitting uses the separate [parametric calibration](PRODUCT-PARAMETRIC-CALIBRATION.md) contract.
 

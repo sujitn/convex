@@ -79,7 +79,8 @@ when converting normalized duration to a currency change. See the
 [bond source](https://github.com/lballabio/QuantLib/blob/v1.40/ql/pricingengines/bond/bondfunctions.cpp)
 and [cash-flow risk source](https://github.com/lballabio/QuantLib/blob/v1.40/ql/cashflows/cashflows.cpp).
 This is our reading of that basis. It is not an external convention pack or an
-independent market or model validation. The reference cases use exact
+independent market or model validation, and no production, latency, library or
+market certification is implied. The reference cases use exact
 standard-library Fraction arithmetic and Decimal90 formatting, independent of
 the implementation's output.
 

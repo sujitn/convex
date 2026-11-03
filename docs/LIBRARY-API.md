@@ -6,8 +6,9 @@ and one operation. It returns one JSON envelope with either a result or an error
 The Rust implementation is `convex::library`, in the `convex` facade crate. It is
 not on crates.io, so use a git dependency.
 
-Every host calls the same dispatcher, so the same request gives the same answer
-everywhere:
+Every host calls the same dispatcher, so the same request has the same meaning
+everywhere. Floating-point results can still differ slightly between hosts (see
+[cohort book P&L](COHORT-BOOK-PNL.md) for wasm32):
 
 | Host | Entry point |
 | --- | --- |
@@ -22,6 +23,11 @@ Each operation validates its input and returns an error instead of guessing. The
 dispatcher reads nothing from a database, a data provider, a message queue or a
 clock, and it does not submit orders or update a ledger. For repeated
 calculations, use the typed Rust product APIs, which let you prepare inputs once.
+
+The API is partial. Required convention, model and operation coverage is still
+being built (see [library coverage](internal/LIBRARY-COVERAGE.md)), and nothing
+here has independent financial approval or host, production or latency
+certification. Each section's "Not yet covered" list says what is missing.
 
 To try one request, run the example and read the request it prints:
 

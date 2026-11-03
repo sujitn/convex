@@ -171,3 +171,5 @@ separates the objective from the stopping criteria. The rank, residual and
 immutable-view policies here are our own design. The pinned nalgebra SVD source
 confirms that `try_new` takes positive iteration limits and can return None or
 solve failures. No external model binary or new numerical dependency is used.
+These engineering checks are not an independent quantitative approval, an
+admitted market pack or a product certification.

@@ -177,8 +177,9 @@ trips, quantities and failures.
 
 The example is a bounded batch calculation. Not yet covered: convention, model
 and market packs, independent quantitative review, lifecycle, cash posting and
-P&L, full host and schema dispatch, and latency under colocation or multiple
-servers.
+P&L, full host and schema dispatch, library and production certification, and
+latency under colocation or multiple servers. This work is partial and not
+certified.
 
 Mixed-book revaluation and model P&L attribution use the same product and graph
 code, and they keep every delivery CTD switch and the separate meanings of cash PV

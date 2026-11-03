@@ -94,7 +94,8 @@ rates are decimals (0.04 is 4%).
 `library_schema()` returns the JSON Schema for requests. Operations and their
 fields are listed in
 [docs/LIBRARY-API.md](https://github.com/sujitn/convex/blob/main/docs/LIBRARY-API.md),
-and `tests/fixtures/library/cases.json` has about a hundred working requests.
+and `tests/fixtures/library/cases.json.xz` has about a hundred working requests
+(`python3 tools/fixtures.py materialize` unpacks it).
 
 ## Convenience functions
 
@@ -113,6 +114,8 @@ as one params object. Failures come back in an `error` field instead of throwing
 | `get_default_conventions(market, instrument_type)` | Default day count, compounding and settlement days for a market. |
 
 ```js
+import { price_from_yield } from "convex-wasm";
+
 const bond = {
   coupon_rate: 5.0, // percent
   maturity_date: "2035-06-15", issue_date: "2025-06-15", settlement_date: "2026-11-02",
@@ -135,4 +138,7 @@ worker and start a new one.
 
 ## License
 
-MIT
+MIT. The engine includes CDS code based on the ISDA CDS Standard Model, whose
+public license ships in the package as LICENSE-ISDA-CDS-STANDARD-MODEL.txt.
+
+This application is based on the ISDA CDS Standard Model (version 1.8.3), developed and supported in collaboration with Markit Group Ltd.

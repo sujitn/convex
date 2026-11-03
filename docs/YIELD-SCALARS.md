@@ -25,7 +25,7 @@ A current or simple yield is not a complete stepped or floating bond valuation, 
 instrument yield, a market convention or a hedge instruction.
 
 The strict shared `yield_scalar` operation takes explicit coupon and price inputs,
-the face where applicable, and returns distinct decimal-rate and percentage
+the original face where applicable, and returns distinct decimal-rate and percentage
 outputs. Outputs carry `unit`, `representation` and `value`; Decimal inputs are
 strings. Use `cargo run --locked -p convex --example yield_scalars` for the scalar
 and failure corpus, or add `--features schemars -- --emit-schema` to emit the
@@ -33,4 +33,5 @@ request schema. The C, Java, Excel, MCP and WASM bindings share the Rust JSON ro
 
 Not yet covered: the general yield engines, contextual ICMA time preparation,
 accrued and ex-coupon shortcuts, and the remaining price helpers that cannot
-return an error. Testing in Windows and Excel is also pending.
+return an error. Testing in Windows and Excel is also pending, and no market,
+model, library, production or latency certification follows from these checks.

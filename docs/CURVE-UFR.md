@@ -103,8 +103,11 @@ cargo test --locked -p convex-math --test ufr_tail -p convex-curves --test ufr_c
 cargo run --locked -p convex --example library_ufr --features schemars
 ```
 
-The shared JSON, C, Java and MCP routes and the WASM build are exercised by tests.
-Windows, .NET, Excel and browser execution have not been tested.
+The shared JSON, C, Java and MCP routes are exercised by tests, and native
+compiled WASM checks show the route is reachable. Windows, .NET, Excel and
+wasm32/browser execution have not been tested. This work is partial, and
+independent financial, library, production and latency certification are
+still open.
 
 Tails fitted to full products, and the explicit Left/Right `UfrJoinedForward`, are
 covered in the [product UFR contract](PRODUCT-UFR-CALIBRATION.md). The boundary

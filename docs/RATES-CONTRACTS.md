@@ -211,6 +211,6 @@ weights; it is not a SOFR Index interpolation. The
 was a design reference for anchored stubs and EOM. No external code is copied.
 No QuantLib or ORE runtime and no market data pack is validated here.
 
-Not yet covered: shared-host price and inverse, risk, lifecycle, and market packs
-for USD, EUR and GBP. See [library coverage](internal/LIBRARY-COVERAGE.md) and
+Not yet covered: shared-host price and inverse, risk, lifecycle, market packs for
+USD, EUR and GBP, and independent production and latency certification. See [library coverage](internal/LIBRARY-COVERAGE.md) and
 [assurance](internal/ASSURANCE.md).

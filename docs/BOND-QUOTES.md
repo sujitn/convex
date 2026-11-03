@@ -263,7 +263,7 @@ code is used in pricing.
 ```sh
 cargo test --locked -p convex-bonds -p convex-analytics -p convex-server -p convex-ffi
 cargo test --locked -p convex-engine
-cargo test --locked -p convex-server --test api_integration_tests test_post_single_bond_quote
+cargo test --locked -p convex-server --test api_integration_tests cvx017_
 ```
 
 Not yet covered elsewhere: complete bond-family contracts and dispatch,

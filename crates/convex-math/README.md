@@ -29,7 +29,9 @@ convex-math = "0.14"
   the `NelsonSiegel` and `Svensson` parametric curves.
 - `extrapolation`: `FlatExtrapolator`, `LinearExtrapolator` and
   `UfrConvergence` (forward rates that move toward an ultimate forward rate).
-- `optimization`: `golden_section` and `bounded_least_squares`.
+- `optimization`: `golden_section_checked` (returns a `MathResult`; use it for
+  external input) and `bounded_least_squares`. The older `golden_section`
+  returns `NaN` when it fails.
 - `linear_algebra`: `solve_tridiagonal`, `lu_decomposition` and
   `solve_linear_system`.
 - `stats`: `standard_normal_cdf` and `standard_normal_inverse`.
@@ -42,7 +44,8 @@ convex-math = "0.14"
 
 Functions that can fail return `MathResult`, with `MathError` as the error type.
 Bad input (non-finite numbers, unsorted points, too many points) is reported as
-an error rather than a panic.
+an error rather than a panic. The exception is the older `golden_section`, which
+returns `NaN` instead; use `golden_section_checked` for external input.
 
 ## Examples
 

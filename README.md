@@ -26,11 +26,13 @@ rate bonds and swaps) and the ISDA CDS Standard Model 1.8.3 (CDS). The bond
 pack, 392 measures over 70 day-count cases and 42 bonds, currently passes in
 full. [reconciliation/COMPARISON.md](reconciliation/COMPARISON.md) lists the
 cases and tolerances. Nothing here has been reviewed by a vendor or regulator,
-so check results against your own systems before relying on them.
+so check results against your own systems before relying on them. Coverage is
+still partial and no part of the library is certified for production use; each
+guide in [docs/](docs/README.md) says what it does not yet cover.
 
 ## Rust crates
 
-Seven crates are on crates.io:
+From 0.14.0, seven crates are published to crates.io:
 
 | Crate | What it holds |
 |---|---|

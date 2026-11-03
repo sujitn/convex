@@ -33,7 +33,7 @@ a trusted, reviewed local test tool; the runner is not an executable sandbox.
 
 Exit 0 means every requested measure matched; exit 1 means a comparison
 failed; exit 2 means invalid provenance/input/output or a process failure.
-The full retained replay currently exits **1**. CI uploads the report on
+The full retained replay currently exits 0. CI uploads the report on
 failure and does not ignore this exit. The existing live QuantLib rebuild
 workflow remains separately enabled.
 
@@ -238,7 +238,11 @@ on protected branches.
 
 The comparison tooling keeps all 47 earlier quantitative pins. Before a
 large change, review it against its actual base. CI runs schema checks,
-mutation tests, the adapter build and the full offline replay.
+mutation tests, the adapter build and the full offline replay. Passing it is
+not a numerical approval: the v1 synthetic-curve spread outputs are still an
+enforced production failure (see the
+[runtime guide](../crates/convex-engine/RUNTIME.md)), so no production or library
+release gate is met.
 
 Bounds: 8 MiB JSON/CSV, 512 MiB per referenced source/binary artifact, 16 comparator identities, 64 packs, 2,048 cases per pack, 64 measures
 per case, 128 source artifacts per pack, 4,096 observations per data list,

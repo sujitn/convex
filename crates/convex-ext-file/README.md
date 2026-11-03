@@ -16,7 +16,7 @@ Each output line contains the source/instrument key, session, sequence, validati
 cargo run --locked -p convex-engine --example quote_replay -- crates/convex-ext-file/tests/fixtures/sequenced-quotes.jsonl 1 5000
 ```
 
-That second run refuses the second supplier with `capacity_exceeded` and marks retained data `gap`. The cursor reads one event per call with no background producer or timing sleeps. A production arrival-rate or latency benchmark must supply its own open-loop schedule; this example does not measure latency.
+That second run refuses the second supplier with `capacity_exceeded` and marks retained data `gap`. The cursor reads one event per call with no background producer or timing sleeps. A production arrival-rate or latency benchmark must supply its own open-loop schedule; this example does not measure latency or certify trading.
 
 ## Quote event schema and recovery
 

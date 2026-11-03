@@ -119,4 +119,5 @@ they are not the financial reference. No external MonotoneConvex engine is
 compared, and the numerics have not had an independent review.
 
 Not yet covered: product and helper calibration, quote-risk rebuilding,
-product-calibration snapshot graphs, other models, and host support.
+product-calibration snapshot graphs, other models, host support, and library,
+production and latency certification. This work is partial.

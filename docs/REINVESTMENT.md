@@ -76,5 +76,7 @@ vendor "true yield".
 Independent 110-digit Decimal references cover separate rates, unit scaling,
 signed and zero terminal cash, same-day components, horizon clamping and negative
 rates. QuantLib compound-factor comparisons are engineering checks. They do not
-approve any instrument convention. Not yet covered: dated yield conventions
-across all instruments, Windows/Excel execution, and independent validation.
+approve any instrument convention or show production readiness. Not yet
+covered: dated yield conventions across all instruments; model, calibration,
+optional, claim, physical and mixed-book coverage; Windows/Excel execution; and
+independent validation.

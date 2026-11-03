@@ -53,7 +53,8 @@ an explicit caller policy.
 ## Dates, cash and quote units
 
 The only supported convention is `CdsModel::Standard183`. Trade is end of day
-and step-in is T+1 **calendar** day, including weekends. Settlement must equal
+and the original step-in is T+1 **calendar** day, including weekends. The
+original settlement must equal
 the 0..366 business-day lag you pass in, under the separately bound settlement
 calendar.
 
@@ -201,9 +202,9 @@ run the ISDA engine.
 
 [Multi-pillar credit calibration, signed quote risk, immediate default
 scenarios and bond/CDS mapping](CREDIT-CALIBRATION.md) are documented
-separately, as is RFR curve calibration.
+separately.
 
-Not yet covered: CDS indices, convention packs, default/auction/successor and
+Not yet covered: native RFR discount curve calibration, CDS indices, convention packs, default/auction/successor and
 paid-cash lifecycle, common result and host dispatch, and independent
 validation for USD, EUR and GBP. This document covers single-name valuation and
 conversion, checked against the ISDA grid above.

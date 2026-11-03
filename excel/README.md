@@ -338,4 +338,5 @@ For a manual cell-side checklist see `excel/SMOKE_TEST.md`.
 
 See the [library API](../docs/LIBRARY-API.md) for request shapes and limits.
 `CX.LIBRARY` returns the result envelope unchanged, with decimal strings and
-error diagnostics intact.
+error diagnostics intact. Coverage of the required operations and host
+certification are still open.

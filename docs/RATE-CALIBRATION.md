@@ -214,7 +214,8 @@ Not yet covered: government/issuer/repo/bond basis, canonical portfolio and
 quote risk aggregation, stochastic convexity, full convention packs,
 lifecycle/P&L, strict host construction and schema dispatch, and independent
 validation against a vendor system. Existing legacy helper routes keep their
-earlier behavior; this document covers only the route above.
+earlier behavior; this document covers only the route above. Library,
+production and latency certification are still open.
 
 Product graph capture, comparison of fitted output, solver and helper
 diagnostics, and quote-risk replay are documented in

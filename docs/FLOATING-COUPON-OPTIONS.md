@@ -31,8 +31,8 @@ an implicit zero floor. Uncertainty about a pending publication needs an
 additional conditional model and fails explicitly.
 
 The result keeps the terms, context, options, rate lineage, segment dates, expected
-currency cash and model derivatives. PV includes principal repayments and entitled
-coupon cash. Dirty price and model accrued use the face amount; clean price
+currency cash and model derivatives. PV includes actual principal repayments and entitled
+coupon cash. Dirty price and model accrued use the original face amount; clean price
 subtracts the same model accrued. Model expectations and accrued are not payment
 records or ledger entries.
 
@@ -278,7 +278,7 @@ operations retain their original contracts.
 ## Signed directional parameter risk
 
 `term_coupon_directional_parameter_sensitivity` binds the canonical coupon
-parameter key to the face, signed quantity, currency and snapshot.
+parameter key to the exact original face, signed quantity, currency and snapshot.
 `CouponDirectionalRiskSettings` supplies the directional precision and separate
 signed first and second `RiskTolerance` policies with a policy version. The shared
 operation is `term_coupon_directional_parameter_risk`.

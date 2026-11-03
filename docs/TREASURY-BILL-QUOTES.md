@@ -2,7 +2,7 @@
 
 Use `convex::treasury_bill::quote_treasury_bill` with complete intrinsic terms,
 an active settlement date and exactly one `TreasuryBillQuote`: absolute
-face cash, annual decimal bank discount, or annual decimal investment rate.
+original face cash, annual decimal bank discount, or annual decimal investment rate.
 `0.05` means 5 percent. The shared `zero` operation exposes the same calculation:
 
 ```json
@@ -14,14 +14,14 @@ face cash, annual decimal bank discount, or annual decimal investment rate.
 ```
 
 Put this action inside the existing complete `ZeroInput` request. Supply the
-issue and maturity dates, currency, face and redemption, identifiers, issue
+original issue and maturity dates, currency, face and redemption, identifiers, issue
 price, day count, compounding, settlement lag and calendar revision. The
 response keeps those terms and the quote. The named Treasury convention, not the
 generic zero quotation settings, determines this calculation. The calendar must
 resolve, but an explicit quote settlement is not moved forward by its
 business-day lag. All cash and rates are exact decimal strings.
 
-Let `r` be actual remaining days, `y` the days from issue to the same
+Let `r` be actual remaining days, `y` the days from original issue to the same
 date one year later, `F` face, `P` unrounded absolute purchase cash and `i` the
 investment rate. `y` remains fixed at 365 or366 when settlement changes. Through
 half a year, `P=F/(1+r*i/y)`. Beyond half a year,
@@ -72,5 +72,6 @@ PYTHONDONTWRITEBYTECODE=1 python3 tests/scripts/treasury_bill_check.py \
   --binary target/debug/examples/treasury_bill
 ```
 
-These controls are limited in scope. Not yet covered: full convention test packs
-and execution on Windows/Excel.
+These controls are limited in scope. Not yet covered: full convention test
+packs, independent approval of the bill conventions, the full required library
+scope, host and platform qualification, and execution on Windows/Excel.

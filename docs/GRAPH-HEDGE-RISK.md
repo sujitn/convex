@@ -63,7 +63,8 @@ unchanged vectors to `hedge` `aggregate` or `solve`. The hedge code checks facto
 coverage and order, identical policy, base PV and reference quantities, credit
 scope, current and pending state, signed lots, side costs, eligibility and all hard
 constraints. A missing factor is missing input. A proposal has `proposal_only`
-authority; application limits and orders are outside this library.
+authority; application limits and orders are separate work that is not done
+yet.
 
 ## Controls and example
 
@@ -109,7 +110,7 @@ reliable for every constraint scale.
 The shared JSON, C and MCP routes and the WASM build use the same code. The Java
 and Excel test sources use freshly generated transport expectations. Execution in
 managed runtimes and browsers, and independent market, model and latency
-validation, are not covered.
+validation, are not covered. This work is partial and has not been certified for production use.
 
 [Strata's parameter-sensitivity contract](https://strata.opengamma.io/apidocs/com/opengamma/strata/market/param/CurrencyParameterSensitivities.html)
 describes distinct curve and currency entries and compatible metadata when merging.

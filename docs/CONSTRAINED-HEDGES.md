@@ -47,7 +47,7 @@ Current and pending quantities keep their signed units and reference side. They
 are aggregated separately, then added once. A matching held candidate requires
 exact vector and identity equality. Its final holding limits apply to current plus
 pending plus the proposed trade. Futures use integer contract inputs and integer
-trade lots. Cash, CDS and IRS use notional units; no per-100, face-to-contract or
+trade lots. Cash, CDS and IRS use original notional units; no per-100, face-to-contract or
 unsigned-notional conversion is inferred.
 
 Credit, hazard, recovery and residual-basis factors supply the legal entity,
@@ -71,13 +71,13 @@ explanation. A false decision fails. These are explicit inputs:
 - zero-anchored trade lots;
 - separate buy and sell costs.
 
-Costs are nonnegative money per reference size and carry an independent
+Costs are nonnegative money per original reference size and carry an independent
 observation pin. Zero is a value you supply. No execution price, freshness,
 borrow availability or order check is inferred.
 
 ## Objective, constraints and numerical policy
 
-Let `x_j` be a signed trade divided by its reference quantity. `A_ij` is its full
+Let `x_j` be a signed trade divided by its original reference quantity. `A_ij` is its full
 reference risk converted once into reporting money, and `b_i` is current plus
 pending exposure. The objective is
 
@@ -231,7 +231,8 @@ Own-security ICMA yield remains a separate factor.
 Not yet covered here: optional models, credit-survival cash products and
 all-member delivery-futures risk (the last has its own page, linked from the graph
 hedge page). Managed-runtime and browser execution and production and latency
-qualification are also open.
+qualification are also open. The solver checks are not executed financial
+comparisons or independent certification. This work is partial and has not been certified for production use.
 
 Credit-survival and issuer-basis cash have their own `cash_basis_hedge_risk`
 route. See [cash basis hedge risk](CASH-BASIS-HEDGE-RISK.md) for the
