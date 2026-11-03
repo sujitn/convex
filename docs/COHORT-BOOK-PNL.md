@@ -37,7 +37,7 @@ security receipts. Partial fills use separate cohorts. The lot's quantity stays
 fixed and determines the cash it earns. Hypothetical pending quantity, executions
 in the interval and the remaining contractual fraction are kept distinct.
 
-Disposal ends the lot's exposure to the future, but its declared earned
+Disposal ends the lot's held future exposure (from that date on), but its declared earned
 entitlements and their receipts remain. An acquired lot explicitly includes or
 excludes prior outstanding claims. A `residual` excludes the cash already received
 from its separately identified remaining claim. Legal entitlement is always

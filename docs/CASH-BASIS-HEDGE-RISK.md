@@ -136,7 +136,7 @@ with cash, CDS, IRS and term-futures candidates. It checks current and pending
 positions, exact contract lots, side costs, constraints and explicit same-snapshot
 USD/EUR FX. Recovery is covered separately by the cash controls. The CDS graph
 code still needs its own recovery-coordinate binding before recovery can be added
-to this common book. The solver fails numerically on the original broad exposure
+to this common book. The solver fails numerically on the original broad
 limits; the proposals shown use explicitly declared financial limits and scales.
 
 Not yet covered: full optional-model risk, all-member delivery-futures risk,

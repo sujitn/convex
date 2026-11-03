@@ -11,8 +11,8 @@ The implementation has been compared with QuantLib 1.40 on ten cases. All 973
 numeric checks passed at unchanged, predeclared tolerances. [The capture and
 offline guide](SWAP-COMPARISON.md) records the scope and explains how to run the
 comparison against current code. The manual reference remains a separate check.
-This has not been validated against a vendor system, and market, model and release
-sign-off are still outstanding.
+Independent market, model, library, host and release
+sign-off is still outstanding.
 
 ## Start and integration
 
@@ -211,4 +211,4 @@ fixtures and the retained bond pack. Follow the
 without QuantLib or network access. The positive, boundary and failure checks and
 the full-contract calibration checks remain required. Stubs, intracoupon resets,
 rounding and other convention and model combinations outside the external suite
-need more comparison coverage. All 2,154 mandatory library records remain Planned.
+need more comparison coverage.

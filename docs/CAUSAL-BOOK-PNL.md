@@ -102,7 +102,7 @@ them. Partial receipts reduce the outstanding claim. Completed claims are
 removed from active product cash only through the coupon/principal/PV code that
 owns it. Future claims use the same-currency collateral DF ratio you pass in. Overdue cash requires an explicit `nominal` policy or an
 incomplete result under `reject`; credit/funding/recovery of arrears is not
-invented. A notified fixed-price, fixed-coupon exercise uses the checked workout cash
+invented. A notified supported fixed-price, fixed-coupon exercise uses the checked workout cash
 code. Matured, exercised, terminated and observed-default
 states retain outstanding claims after future exposure ends.
 
@@ -145,7 +145,7 @@ settlement is not a model-selected CTD exercise.
 These cases return typed or incomplete outcomes:
 
 - unknown recovery or auction terms;
-- forced floating or multiple notices;
+- unsupported forced floating or multiple notices;
 - conditional earned-cash decompositions that the optional, issuer or credit
   model does not provide;
 - rolling curve-model or domain transitions;
@@ -167,4 +167,4 @@ silently simplified during valuation.
 Not yet covered: daily-margin financing, delivery options, ledger and FX cash
 posting, position reservations and execution (server work). Java/JNI,
 Windows/.NET/Excel and wasm32/browser execution need their own hosts. None of
-this has been independently reviewed against a vendor system.
+this has had independent quantitative review or production certification.

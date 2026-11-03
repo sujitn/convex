@@ -46,15 +46,15 @@ cutoff. Skipping a contractual boundary that has not been processed fails.
 
 `view()` exposes pending boundaries, notices, local event and receipt IDs, units,
 status, fixings, obligations and the clearing mark. Ordering within a day is
-explicit, and the bond's pre- or post-principal coupon convention determines the
+explicit, and the pre- or post-principal coupon convention determines the
 cash. Lifecycle does not regenerate simplified schedules.
 
 Normal state, effect, history, receipt and event work is limited to 65,536
 records. The schedule, profile and history limits of the underlying contracts
 also apply, as do 128 members and 1,024 sources for futures. Decimal operations
 and revision increments are checked. If a limit is reached, no partial
-transition is accepted. The implementation allocates memory and has not been
-measured for colocation or tail latency.
+transition is accepted. The implementation allocates memory, and it makes no colocation
+or tail-latency claim.
 
 ## Cash and position meaning
 
