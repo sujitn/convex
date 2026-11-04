@@ -238,7 +238,17 @@ pub struct PricingEngine {
     configurations: Option<Arc<configuration::ConfigurationUseCases>>,
     /// Request-time valuation through the composed runtime (D57); none without one.
     request: Option<request_valuation::RequestValuer>,
+    /// The master keys of each committed reference command, for observers such as the
+    /// limit monitor.
+    commits: tokio::sync::broadcast::Sender<ReferenceCommitNotice>,
 }
+
+/// The master keys one reference commit wrote. A transient notice: a receiver that lags
+/// rereads what it watches.
+pub type ReferenceCommitNotice = Arc<[ports::reference_master::MasterKey]>;
+
+/// Notices a slow observer may fall behind by before it must reread.
+const COMMIT_NOTICES: usize = 64;
 
 impl PricingEngine {
     /// Create a new pricing engine.
@@ -259,6 +269,7 @@ impl PricingEngine {
             runtime: runtime::RuntimeController::new(None, false, concurrency),
             configurations: None,
             request: None,
+            commits: tokio::sync::broadcast::channel(COMMIT_NOTICES).0,
         }
     }
 
@@ -612,7 +623,9 @@ impl PricingEngine {
         Ok(())
     }
 
-    /// Commit a reference use case through the authoritative repository.
+    /// Commit a reference use case through the authoritative repository, then notify
+    /// [`Self::subscribe_reference_commits`] of the master keys it wrote. A retried command
+    /// notifies again.
     pub async fn commit_reference(
         &self,
         command: &ports::reference_repository::ReferenceCommand,
@@ -621,7 +634,25 @@ impl PricingEngine {
         ports::reference_repository::ReferenceCommit,
         ports::reference_repository::ReferenceError,
     > {
-        self.storage.bonds.commit(command, recorded_at).await
+        let receipt = self.storage.bonds.commit(command, recorded_at).await?;
+        if !receipt.master_records.is_empty() {
+            let keys: ReferenceCommitNotice = receipt
+                .master_records
+                .iter()
+                .map(|record| record.definition.key())
+                .collect();
+            // No receiver is not an error: nothing observes commits.
+            let _ = self.commits.send(keys);
+        }
+        Ok(receipt)
+    }
+
+    /// Master keys of each reference command committed through
+    /// [`Self::commit_reference`] from now on. Lag is explicit: a lagging receiver rereads.
+    pub fn subscribe_reference_commits(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<ReferenceCommitNotice> {
+        self.commits.subscribe()
     }
 }
 

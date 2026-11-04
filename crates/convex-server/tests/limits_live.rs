@@ -506,3 +506,526 @@ async fn status_route_time_at_the_bounds() {
     );
     server.stop().await;
 }
+
+// =============================================================================
+// THE MONITOR (P14c)
+// =============================================================================
+
+type Socket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// The next frame of type `kind`, skipping heartbeats and any other frame.
+async fn frame(socket: &mut Socket, kind: &str) -> Value {
+    use futures_util::StreamExt;
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            match socket.next().await {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                    let value: Value = serde_json::from_str(&text).unwrap();
+                    if value["type"] == kind {
+                        return value;
+                    }
+                }
+                Some(Ok(_)) => {}
+                other => panic!("socket ended: {other:?}"),
+            }
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("no {kind} frame"))
+}
+
+/// A session subscribed to the limit status changes of `books`.
+async fn limit_session(server: &Running, books: &[&str]) -> Socket {
+    use futures_util::SinkExt;
+    let (mut socket, _) = tokio_tungstenite::connect_async(server.ws_url())
+        .await
+        .unwrap();
+    frame(&mut socket, "connected").await;
+    let subscribe = json!({"type": "subscribe_limits", "book_ids": books});
+    socket
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            subscribe.to_string().into(),
+        ))
+        .await
+        .unwrap();
+    let ack = frame(&mut socket, "subscribed").await;
+    assert_eq!(ack["subscription_type"], "limits", "{ack}");
+    socket
+}
+
+/// `PUT` over the version `if_match` names; local development commits a limit set at once.
+async fn put_over(server: &Running, path: &str, key: &str, if_match: &str, body: Value) {
+    let response = server
+        .client
+        .put(format!("{}{path}", server.base))
+        .header("idempotency-key", key)
+        .header("if-match", if_match)
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    let status = response.status();
+    assert_eq!(status, StatusCode::OK, "{}", response.text().await.unwrap());
+}
+
+/// Post one image of the fixture bond at `price`.
+async fn tick(server: &Running, dir: &tempfile::TempDir, sequence: u64, price: &str) {
+    let images: Vec<QuoteEvent> =
+        serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap()).unwrap();
+    let mut event = image(sequence, price);
+    event.key = images[0].key.clone();
+    let posted = server.post_quotes(vec![event]).await;
+    assert!(posted.status().is_success(), "{}", posted.status());
+}
+
+/// Every recorded status change, oldest first, read from the stopped server's database.
+async fn records(live: &ServerConfig) -> Vec<(u64, Value)> {
+    use convex_engine::ports::storage::{AuditFilter, Pagination};
+    let storage = convex_ext_redb::open_redb_storage(&live.storage_path).unwrap();
+    let filter = AuditFilter {
+        event_type: Some("limit_status".into()),
+        ..Default::default()
+    };
+    let mut items = Vec::new();
+    loop {
+        let page = storage
+            .storage
+            .audit
+            .query(&filter, &Pagination::new(items.len(), 1000))
+            .await
+            .unwrap();
+        let done = page.items.len() < 1000;
+        items.extend(page.items);
+        if done {
+            break;
+        }
+    }
+    items
+        .into_iter()
+        .map(|entry| {
+            assert_eq!(entry.entity_type, "book");
+            let details: Value = serde_json::from_str(entry.details.as_deref().unwrap()).unwrap();
+            assert_eq!(details["record_id"], entry.id);
+            assert_eq!(details["book_id"], entry.entity_id);
+            assert_eq!(details["status"], entry.action);
+            (entry.id, details)
+        })
+        .collect()
+}
+
+/// Wait until `/metrics` shows `line`: the gauges follow each book's records.
+async fn metric(server: &Running, line: &str) {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let text = server
+                .client
+                .get(format!("{}/metrics", server.base))
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap();
+            if text.lines().any(|l| l == line) {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("/metrics never showed {line}"))
+}
+
+/// The monitor records a change when a limit set commits, when a tick moves a value past
+/// a bound, and when the book changes; it publishes each one after recording it; and a
+/// restart records each status afresh, from `unevaluated`, naming its start. A cleared
+/// set is no longer watched.
+#[tokio::test]
+async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_at_a_restart() {
+    let (dir, live, _) = live(1, 0, &[]).await;
+    let server = started(&dir, live.clone()).await;
+    put(
+        &server,
+        "/api/v1/books/WATCHED",
+        "book-watched",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "1000000"},
+        ]}),
+    )
+    .await;
+    let mut socket = limit_session(&server, &["WATCHED"]).await;
+
+    // The first set: both limits are recorded from `unevaluated`.
+    let first = json!({"limits": [
+        limit("net", json!({"kind": "market_value"})),
+        json!({"limit_id": "face", "measure": {"kind": "face", "instrument": {"one": "BOND-001"}},
+               "upper": "2000000"}),
+    ]});
+    put(&server, "/api/v1/books/WATCHED/limits", "set-1", first).await;
+    let mut seen = BTreeMap::new();
+    for _ in 0..2 {
+        let change = frame(&mut socket, "limit_status").await;
+        assert_eq!(change["previous"], "unevaluated", "{change}");
+        assert_eq!(change["status"], "within", "{change}");
+        assert_eq!(change["book_id"], "WATCHED");
+        assert_eq!(change["limit_set_version"], 1);
+        seen.insert(change["limit_id"].as_str().unwrap().to_owned(), change);
+    }
+    assert_eq!(
+        seen.keys().cloned().collect::<Vec<_>>(),
+        ["face", "net"],
+        "{seen:?}"
+    );
+    let net = number(&seen["net"]["value"]);
+    assert!(!seen["net"]["snapshot_ids"].as_array().unwrap().is_empty());
+
+    // A tighter bound that the current value is within: no change, nothing recorded.
+    let upper = format!("{:.2}", net * 1.005);
+    let second = json!({"limits": [
+        {"limit_id": "net", "measure": {"kind": "market_value"}, "upper": upper},
+        {"limit_id": "face", "measure": {"kind": "face", "instrument": {"one": "BOND-001"}},
+         "upper": "2000000"},
+    ]});
+    put_over(
+        &server,
+        "/api/v1/books/WATCHED/limits",
+        "set-2",
+        "1",
+        second,
+    )
+    .await;
+
+    // A tick 1.5 points up moves the value past it.
+    tick(&server, &dir, 2, "100.75").await;
+    let change = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&change["limit_id"], &change["previous"], &change["status"]),
+        (&json!("net"), &json!("within"), &json!("breach")),
+        "{change}"
+    );
+    assert_eq!(change["limit_set_version"], 2);
+    assert!(number(&change["value"]) > net, "{change}");
+    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 1").await;
+
+    // A book commit is evaluated too: a larger position breaches the face limit.
+    put_over(
+        &server,
+        "/api/v1/books/WATCHED",
+        "book-watched-2",
+        "1",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "3000000"},
+        ]}),
+    )
+    .await;
+    let change = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&change["limit_id"], &change["previous"], &change["status"]),
+        (&json!("face"), &json!("within"), &json!("breach")),
+        "{change}"
+    );
+    assert_eq!(change["book_version"], 2);
+    let started_first = change["monitor_started_at"].clone();
+    drop(socket);
+    server.stop().await;
+
+    let before = records(&live).await;
+    assert_eq!(before.len(), 4, "{before:?}");
+    assert!(before.windows(2).all(|w| w[0].0 < w[1].0), "{before:?}");
+    let last_id = before.last().unwrap().0;
+
+    // A restart records every status again, from `unevaluated`, naming the new start.
+    // The session subscribes before any result exists. Both limits are in breach: the
+    // position is three times the face the net bound was set for.
+    let server = Running::start(live.clone()).await;
+    let mut socket = limit_session(&server, &["WATCHED"]).await;
+    let images: Vec<QuoteEvent> =
+        serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap()).unwrap();
+    // Ingress answers 503 across a backward clock step (WSL2 steps under load); retry.
+    let mut attempts = 0;
+    loop {
+        let posted = server.post_quotes(images.clone()).await;
+        let status = posted.status();
+        if status.is_success() {
+            break;
+        }
+        attempts += 1;
+        assert!(
+            status == StatusCode::SERVICE_UNAVAILABLE && attempts < 10,
+            "{status}: {}",
+            posted.text().await.unwrap()
+        );
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    server.wait_ready().await;
+    // The net limit reaches `breach` from `unevaluated`, or through `unknown` if the
+    // monitor's first evaluation found no result yet.
+    loop {
+        let change = frame(&mut socket, "limit_status").await;
+        if change["limit_id"] == "net" && change["status"] == "breach" {
+            assert_ne!(change["monitor_started_at"], started_first, "{change}");
+            break;
+        }
+    }
+    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 2").await;
+
+    // Cleared, the set is no longer watched: the book returning within both bounds
+    // records nothing.
+    put_over(
+        &server,
+        "/api/v1/books/WATCHED/limits",
+        "set-3",
+        "2",
+        json!({"limits": []}),
+    )
+    .await;
+    metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 0").await;
+    put_over(
+        &server,
+        "/api/v1/books/WATCHED",
+        "book-watched-3",
+        "2",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "1000000"},
+        ]}),
+    )
+    .await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    drop(socket);
+    server.stop().await;
+
+    let after = records(&live).await;
+    let restated: Vec<&Value> = after
+        .iter()
+        .filter(|(id, _)| *id > last_id)
+        .map(|(_, details)| details)
+        .collect();
+    assert!(restated
+        .iter()
+        .all(|d| d["monitor_started_at"] != started_first));
+    for limit in ["net", "face"] {
+        let of: Vec<&&Value> = restated.iter().filter(|d| d["limit_id"] == limit).collect();
+        assert_eq!(of[0]["previous"], "unevaluated", "{limit}: {of:?}");
+    }
+    let face: Vec<&&Value> = restated
+        .iter()
+        .filter(|d| d["limit_id"] == "face")
+        .collect();
+    assert_eq!(face.len(), 1, "{face:?}");
+    assert_eq!(face[0]["status"], "breach");
+    let net: Vec<&&Value> = restated.iter().filter(|d| d["limit_id"] == "net").collect();
+    assert_eq!(net.last().unwrap()["status"], "breach", "{net:?}");
+    assert!(
+        restated.iter().all(|d| d["status"] != "within"),
+        "a cleared set is not watched: {restated:?}"
+    );
+}
+
+/// An image stamped no earlier than any before it. WSL2's clock can step back a second or
+/// more under load; ingestion refuses a quote whose times go backwards, which would value
+/// that bond `unknown` and record changes this measurement does not intend.
+fn steady_image(sequence: u64, price: &str) -> QuoteEvent {
+    use std::sync::atomic::{AtomicI64, Ordering};
+    static LAST: AtomicI64 = AtomicI64::new(i64::MIN);
+    let now = chrono::Utc::now().timestamp_millis();
+    let stamp = LAST.fetch_max(now, Ordering::SeqCst).max(now);
+    support::fixture::event(sequence, stamp, 0, price)
+}
+
+/// Post one quote for `key`'s instrument and time it to its `valuation` frame on
+/// `socket`, a session subscribed to that instrument.
+async fn valuation_hop(
+    server: &Running,
+    socket: &mut Socket,
+    key: &QuoteEvent,
+    sequence: u64,
+    price: &str,
+) -> Duration {
+    let mut event = steady_image(sequence, price);
+    event.key = key.key.clone();
+    let started = Instant::now();
+    let posted = server.post_quotes(vec![event]).await;
+    assert!(posted.status().is_success(), "{}", posted.status());
+    frame(socket, "valuation").await;
+    started.elapsed()
+}
+
+/// Valuation hops paced `pace` apart, prices alternating; their summary.
+async fn hops(
+    server: &Running,
+    socket: &mut Socket,
+    key: &QuoteEvent,
+    sequence: &mut u64,
+    pace: Duration,
+) -> String {
+    let mut times = Vec::new();
+    for round in 0..40u64 {
+        *sequence += 1;
+        let price = if round % 2 == 0 { "99.30" } else { "99.25" };
+        let time = valuation_hop(server, socket, key, *sequence, price).await;
+        if round >= 5 {
+            times.push(time);
+        }
+        tokio::time::sleep(pace).await;
+    }
+    summary(times)
+}
+
+/// The monitor's counts so far: seconds evaluating, passes, and changes recorded.
+async fn monitor_counts(server: &Running) -> (f64, u64, u64) {
+    let text = server
+        .client
+        .get(format!("{}/metrics", server.base))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let read = |name: &str| {
+        text.lines()
+            .find_map(|line| line.strip_prefix(name))
+            .map(|value| value.trim().parse::<f64>().unwrap())
+            .unwrap_or(0.0)
+    };
+    (
+        read("convex_limit_monitor_seconds_sum "),
+        read("convex_limit_monitor_seconds_count ") as u64,
+        read("convex_limit_status_changes_total ") as u64,
+    )
+}
+
+/// Wait until the monitor has finished more than `after` passes and neither its passes nor
+/// its records have moved for 300 ms. A pass recording many changes is long, so passes
+/// alone can look still while it runs.
+async fn monitor_settled(server: &Running, after: u64) -> (f64, u64, u64) {
+    tokio::time::timeout(Duration::from_secs(120), async {
+        let mut last = monitor_counts(server).await;
+        loop {
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            let now = monitor_counts(server).await;
+            if now.1 > after && (now.1, now.2) == (last.1, last.2) {
+                return now;
+            }
+            last = now;
+        }
+    })
+    .await
+    .expect("the monitor settles")
+}
+
+/// P14c's measurement, at the bounds: 64 watched books, each holding all 256 priced
+/// instruments with 64 limits over every measure.
+/// - The first evaluation of every set records 4,096 changes, as a restart does.
+/// - One instrument's valuation hop: before any book is watched, while the monitor
+///   records those first changes, and while it evaluates every book after each quote.
+/// - The monitor's time per tick with 1, 64 and 256 instruments revalued. Every book
+///   holds every instrument, so even a tick of one evaluates all 64 books. Prices move
+///   within every bound, so nothing is recorded: this is evaluation time alone.
+// Multi-threaded, as the server runs.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn monitor_time_per_tick_at_the_bounds() {
+    const ROUNDS: u64 = 20;
+    let (dir, live, instruments) = live(256, 0, &MEASURES).await;
+    let server = started(&dir, live).await;
+    let images: Vec<QuoteEvent> =
+        serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap()).unwrap();
+    let mut sequence = 1;
+
+    let (mut session, _) = tokio_tungstenite::connect_async(server.ws_url())
+        .await
+        .unwrap();
+    {
+        use futures_util::SinkExt;
+        frame(&mut session, "connected").await;
+        let subscribe = json!({"type": "subscribe_valuations",
+                               "instrument_ids": [images[0].key.instrument_id.as_str()]});
+        session
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                subscribe.to_string().into(),
+            ))
+            .await
+            .unwrap();
+        frame(&mut session, "subscribed").await;
+    }
+    let pace = Duration::from_millis(50);
+    let idle = hops(&server, &mut session, &images[0], &mut sequence, pace).await;
+
+    let (_, before, recorded_before) = monitor_counts(&server).await;
+    let positions = book(&instruments[..256]);
+    let mut committed = Instant::now();
+    for i in 0..64 {
+        let id = format!("MON-{i:02}");
+        put(
+            &server,
+            &format!("/api/v1/books/{id}"),
+            &format!("book-{id}"),
+            positions.clone(),
+        )
+        .await;
+        put(
+            &server,
+            &format!("/api/v1/books/{id}/limits"),
+            &format!("limits-{id}"),
+            every_measure(),
+        )
+        .await;
+        committed = Instant::now();
+    }
+    // The same hop while the monitor records those first statuses: each record is one
+    // database commit, and the runtime's checkpoints share the database's one writer.
+    let recording = hops(&server, &mut session, &images[0], &mut sequence, pace).await;
+    // Every limit's first status is a change from `unevaluated`.
+    let behind = tokio::time::timeout(Duration::from_secs(120), async {
+        loop {
+            let (_, _, recorded) = monitor_counts(&server).await;
+            if recorded - recorded_before >= 64 * 64 {
+                return committed.elapsed();
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("every first status is recorded");
+    let (_, mut passes, recorded) = monitor_settled(&server, before).await;
+    assert_eq!(recorded - recorded_before, 64 * 64);
+
+    let busy = hops(&server, &mut session, &images[0], &mut sequence, pace).await;
+    drop(session);
+    passes = monitor_settled(&server, passes).await.1;
+    println!(
+        "first evaluation of 64 sets x 64 limits: 4,096 changes recorded, the last {:.2} s after the last set committed",
+        behind.as_secs_f64()
+    );
+    println!("valuation hop, 1 instrument, quotes 50 ms apart, no watched book: {idle}");
+    println!("valuation hop, same, while the monitor records those 4,096 changes: {recording}");
+    println!("valuation hop, same, monitor evaluating 64 books after each quote: {busy}");
+
+    for revalued in [1usize, 64, 256] {
+        let (before_sum, before_count, _) = monitor_counts(&server).await;
+        for round in 0..ROUNDS {
+            sequence += 1;
+            let price = if round % 2 == 0 { "99.30" } else { "99.25" };
+            let events: Vec<QuoteEvent> = images[..revalued]
+                .iter()
+                .map(|image_event| {
+                    let mut event = steady_image(sequence, price);
+                    event.key = image_event.key.clone();
+                    event
+                })
+                .collect();
+            let posted = server.post_quotes(events).await;
+            assert!(posted.status().is_success(), "{}", posted.status());
+            passes = monitor_settled(&server, passes).await.1;
+        }
+        let (sum, count, _) = monitor_counts(&server).await;
+        let per_pass = (sum - before_sum) / (count - before_count) as f64 * 1e3;
+        println!(
+            "monitor, {revalued:>3} revalued, 64 books x 256 positions x 64 limits: {per_pass:.2} ms a pass, {} passes for {ROUNDS} ticks",
+            count - before_count
+        );
+    }
+    server.stop().await;
+}

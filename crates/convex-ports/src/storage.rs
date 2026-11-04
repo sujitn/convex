@@ -861,6 +861,24 @@ pub trait AuditStore: Send + Sync {
         filter: &AuditFilter,
         pagination: &Pagination,
     ) -> Result<Page<AuditEntry>, TraitError>;
+
+    /// The largest entry ID, or `None` when the log is empty: a writer that assigns IDs
+    /// takes the next one from it at start. The default reads it through `query`; a store
+    /// ordered by ID should read its last key instead.
+    async fn last_id(&self) -> Result<Option<u64>, TraitError> {
+        let all = AuditFilter::default();
+        let total = self.query(&all, &Pagination::new(0, 0)).await?.total;
+        let Some(offset) = total.checked_sub(1) else {
+            return Ok(None);
+        };
+        let offset = usize::try_from(offset).map_err(|_| TraitError::CapacityExceeded)?;
+        Ok(self
+            .query(&all, &Pagination::new(offset, 1))
+            .await?
+            .items
+            .last()
+            .map(|entry| entry.id))
+    }
 }
 
 // =============================================================================

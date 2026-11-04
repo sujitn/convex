@@ -233,12 +233,21 @@ Router construction uses the engine’s configured reference repository. Provide
 
 ## WebSocket streaming
 
-`/ws` and `/api/v1/ws` stream canonical runtime results and nothing else. Send
+`/ws` and `/api/v1/ws` stream canonical runtime results and recorded limit status
+changes, and nothing else. Send
 `{"type":"subscribe_valuations","instrument_ids":[...]}` (at most 256 instruments);
 each published result for those instruments arrives as a `valuation` message with
 its `runtime_id`, `revision` and result envelope. Seed the display from
 `GET /api/v1/runtime/results`. After `RESYNC_REQUIRED`, read it again and
-deduplicate by `(runtime_id, revision)`. REST calculators return their results in
+deduplicate by `(runtime_id, revision)`.
+
+Send `{"type":"subscribe_limits","book_ids":[...]}` (at most 64 books) to receive a
+`limit_status` message for each change the limit monitor records for those books (see
+[book limits](#book-limits)). Seed the display from
+`GET /api/v1/books/{book_id}/limits/status`; after `RESYNC_REQUIRED`, read it again.
+`unsubscribe_limits` takes the same shape. A session receives a book's changes only while
+it could read that book's status (see [access](ACCESS.md)); otherwise each change arrives
+as a `FORBIDDEN` error naming the book, without the change. REST calculators return their results in
 the response and send nothing on the WebSocket. The bond, ETF and portfolio
 subscriptions are retired and refused with `INVALID_MESSAGE`; see the
 [route migration](../../docs/internal/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
@@ -520,6 +529,39 @@ against 3.8 ms for analytics by book (median, `ci` profile, WSL2 loopback). A ru
 at most 256 instruments, so a 1,000-position book has results for at most 256 of its
 positions.
 
+#### The monitor
+
+While the server serves, a monitor watches every book with a non-empty limit set (at most
+64). It evaluates them as status does, on its own thread, off the tick path:
+- after each published tick, every watched book that holds a revalued instrument;
+- when a watched book, or any book's limit set, commits;
+- every watched book once, on the latest results, when it falls behind either stream. It
+  never queues.
+
+It records each status *change* in the audit store, then publishes it (D86): one audit
+entry per limit whose status differs from its last recorded one, then one `limit_status`
+WebSocket message. An evaluation that changes nothing records nothing. Each entry has
+`event_type` `limit_status`, `entity_type` `book`, the book id as `entity_id`, the new status
+as `action`, Unix milliseconds as `timestamp`, and the message's JSON as `details`. The
+message carries `record_id` (the entry's id), the book and set versions, `evaluated_at`,
+`previous` (the last recorded status, or `unevaluated`), the limit's measure and bounds, its
+evaluation (`limit_id`, `status`, `value`, `member`, `utilisation`, `reason`), the snapshot
+ids read and `monitor_started_at`. A failed append keeps the last recorded status, so the
+change is recorded by a later evaluation; a book with a failed append is evaluated again
+within a second. Nothing reads these entries over HTTP yet.
+
+A restart records each limit's status again, as a change from `unevaluated`, with the new
+`monitor_started_at`: a standing breach is restated, not reported as a new one. Each entry
+is its own database commit, so at the bounds (64 books with 64 limits each) the first
+evaluation after a start records its 4,096 entries over 13 to 42 s here (`ci` profile,
+WSL2). Valuations are not slowed meanwhile, but changes in that window are recorded late.
+
+At the bounds (64 books, each holding all 256 priced instruments with 64 limits over every
+measure), one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or 256
+instruments, since each holds every instrument: about 1.4 ms a book. Above about 11 ticks a
+second the monitor coalesces ticks. One instrument's valuation hop (quote in to WebSocket
+frame) stays at about 1.4 ms with the monitor busy.
+
 ## Reference schema and Rust migration
 
 The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. A complete earlier three-table repository adds the master tables atomically while retaining exact prior content and receipts. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
@@ -546,7 +588,7 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 
 ## Metrics
 
-`GET /metrics` renders stage latency histograms in the Prometheus text format. It needs the operator role and the operations grant, like `/api/v1/runtime`, so a scraper sends a bearer token. The server installs one recorder per process at composition, with a thread that drains recorded observations every 5 s so an unscraped process stays bounded; the exporter opens no listener of its own. Every histogram is in seconds, with buckets from 1 µs to 10 s, and no label carries an instrument, curve or request id:
+`GET /metrics` renders stage latency histograms and the limit monitor's counts in the Prometheus text format. It needs the operator role and the operations grant, like `/api/v1/runtime`, so a scraper sends a bearer token. The server installs one recorder per process at composition, with a thread that drains recorded observations every 5 s so an unscraped process stays bounded; the exporter opens no listener of its own. Every histogram is in seconds, with buckets from 1 µs to 10 s, and no label carries an instrument, curve or request id:
 
 | Histogram | One observation |
 |---|---|
@@ -558,6 +600,17 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 | `convex_publish_seconds` | One result record handed to the publisher |
 | `convex_request_context_seconds` | One request-time valuation context: the activation read. Each product reads its curves later, at first use, and their build is `convex_curve_build_seconds{path="request"}` |
 | `convex_quote_seconds` | One `POST /api/v1/quote` |
+| `convex_limit_monitor_seconds` | One limit monitor pass: evaluating the books a trigger names, then recording and publishing their changes |
+
+The limit monitor also keeps these. The two gauges are labelled `book_id`, one series per
+watched book, so a scraper sees the ids of watched books; a book no longer watched reads 0.
+
+| Metric | Meaning |
+|---|---|
+| `convex_limit_breaches{book_id}` | Limits whose last recorded status is `breach` |
+| `convex_limit_unknown{book_id}` | Limits whose last recorded status is `unknown` |
+| `convex_limit_status_changes_total` | Status changes recorded |
+| `convex_limit_status_append_failures_total` | Status changes that could not be recorded, and so were not published |
 
 On-demand fixed and zero-coupon quotes use the [shared bond quote route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from discount, swap and government inputs you pass in for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures return structured errors. Not yet covered: full historical contexts and live provider feeds.
 

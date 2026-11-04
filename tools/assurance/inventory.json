@@ -6788,14 +6788,16 @@
     },
     {
       "path": "crates/convex-ports/src/storage.rs",
-      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence. AuditStore::last_id returns the largest entry ID, or none for an empty log; the default reads it through query, and redb reads its last key. A writer that assigns IDs takes the next from it at start (the limit monitor).",
       "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
       "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
       "tests": [
         "crates/convex-engine/tests/core_workflow.rs",
         "crates/convex-engine/tests/support/core_fixture.rs",
         "crates/convex-server/tests/core_workflow.rs",
-        "tools/core_snapshot_workflow.py"
+        "tools/core_snapshot_workflow.py",
+        "crates/convex-ports/tests/support/storage_conformance.rs",
+        "crates/convex-ext-redb/tests/storage_conformance.rs"
       ],
       "exceptions": []
     },
@@ -6827,14 +6829,16 @@
     },
     {
       "path": "crates/convex-server/src/lib.rs",
-      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence.",
+      "invariants": "Reuse existing reference, curve, fixing, snapshot and runtime ports. Resolve exact revisions and original known/economic cutoffs; retain whole native curves/history, source identity and entitlement. Native financial owners remain unchanged. Snapshot/build/calculation-bound exact JSON results acknowledge only after durable commit. Broad current core grants protect all entry points and retained reference receipts. Caller cancellation retains admission through owned calculation/persistence. The limit monitor (P14c) runs only while serve_until serves, on a blocking-pool thread so its evaluations and audit commits never hold a worker; it is stopped and joined before serve_until returns.",
       "bounds": "Definitions1MiB,32named calculations,65536JSONnodes/depth64; existing2MiB HTTP ingress/4MiB native output and16MiB snapshot limits. At most64 curve sets/256 total selected recipes,1024 selected fixing keys/100000 eligible revisions. Existing per-router calculation admission and backend history limits remain bounded.",
       "failure_contract": "Missing/invalid/future/stale/unentitled/unsupported records fail explicitly before snapshot publication. Native failure envelopes are retained unchanged. Immutable conflicts and corruption never reset values. Unknown acknowledgements expose deterministic recovery identities. No fabricated values or partial financial success.",
       "tests": [
         "crates/convex-engine/tests/core_workflow.rs",
         "crates/convex-engine/tests/support/core_fixture.rs",
         "crates/convex-server/tests/core_workflow.rs",
-        "tools/core_snapshot_workflow.py"
+        "tools/core_snapshot_workflow.py",
+        "crates/convex-server/tests/limits_live.rs",
+        "crates/convex-server/tests/limits.rs"
       ],
       "exceptions": []
     },

@@ -84,6 +84,7 @@ impl AuditStore for RedbAuditStore {
             return Err(TraitError::CapacityExceeded);
         }
         for result in table.iter().map_err(database_error)? {
+            // Entries are keyed by ID, so this scan is in ID order.
             let (_, data) = result.map_err(database_error)?;
             let entry: AuditEntry = decode(data.value())?;
             if !filter.matches(&entry) {
@@ -95,5 +96,16 @@ impl AuditStore for RedbAuditStore {
             page.total += 1;
         }
         Ok(page)
+    }
+
+    async fn last_id(&self) -> Result<Option<u64>, TraitError> {
+        let read = self.db.begin_read().map_err(database_error)?;
+        let table = match read.open_table(AUDIT) {
+            Ok(t) => t,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(None),
+            Err(e) => return Err(database_error(e)),
+        };
+        let last = table.last().map_err(database_error)?;
+        Ok(last.map(|(id, _)| id.value()))
     }
 }

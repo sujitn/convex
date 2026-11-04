@@ -1317,3 +1317,229 @@ async fn a_reference_writer_cannot_write_limits_through_the_generic_routes() {
     assert_eq!(code, StatusCode::FORBIDDEN, "{body}");
     assert_eq!(body["code"], "LIMITS_ROUTE_REQUIRED", "{body}");
 }
+
+// =============================================================================
+// THE MONITOR UNDER REQUIRED ACCESS (P14c)
+// =============================================================================
+
+type Socket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+async fn next_frame(socket: &mut Socket) -> Value {
+    use futures_util::StreamExt;
+    use tokio_tungstenite::tungstenite::Message;
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            match socket.next().await {
+                Some(Ok(Message::Text(text))) => {
+                    let value: Value = serde_json::from_str(&text).unwrap();
+                    if value["type"] != "heartbeat" {
+                        return value;
+                    }
+                }
+                Some(Ok(_)) => {}
+                other => panic!("socket ended: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("a frame")
+}
+
+async fn socket(address: std::net::SocketAddr, token: &str) -> Socket {
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    let mut request = format!("ws://{address}/ws").into_client_request().unwrap();
+    request
+        .headers_mut()
+        .insert("authorization", format!("Bearer {token}").parse().unwrap());
+    let (mut socket, _) = tokio_tungstenite::connect_async(request).await.unwrap();
+    assert_eq!(next_frame(&mut socket).await["type"], "connected");
+    socket
+}
+
+async fn subscribe_limits(socket: &mut Socket, books: &[&str]) -> Value {
+    use futures_util::SinkExt;
+    let message = json!({"type": "subscribe_limits", "book_ids": books});
+    socket
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            message.to_string().into(),
+        ))
+        .await
+        .unwrap();
+    next_frame(socket).await
+}
+
+/// A `limit_status` frame reaches a subscriber only with what the status route would show
+/// it: `BookRead` on the book and on each instrument it holds or a limit names. A book
+/// outside the caller's grant cannot be subscribed to, and a change is recorded before it
+/// is published.
+#[tokio::test]
+async fn a_limit_status_frame_needs_what_the_status_route_needs() {
+    use convex_server::access::identity::{AccessMode, AccessSettings, TlsBoundary};
+    use convex_server::{Server, ServerConfig, ServerProfile};
+    let issuer = IssuerFixture::start().await;
+    for (token, subject) in [
+        (RISK_A, "risk-a"),
+        (RISK_B, "risk-b"),
+        (OUTSIDER, "outsider"),
+    ] {
+        issuer.change(token, claims(subject));
+    }
+    let mut document = policy();
+    document.grants = vec![
+        grant(
+            "alice",
+            vec![Role::Reader, Role::ReferenceWriter, Role::BookWriter],
+            "*",
+        ),
+        grant("risk-a", vec![Role::Reader, Role::RiskManager], BOND),
+        grant("risk-b", vec![Role::Reader, Role::RiskManager], BOND),
+        grant(
+            "outsider",
+            vec![Role::Reader, Role::RiskManager],
+            "BOND-999",
+        ),
+    ];
+    // The server rereads its policy file each second; it holds the same document.
+    let policy_file = issuer.directory.path().join("policy.json");
+    std::fs::write(&policy_file, serde_json::to_vec(&document).unwrap()).unwrap();
+    let access = AccessControl::new(issuer.verifier.clone(), document).unwrap();
+    let setup = support::setup().await;
+    let audit = setup.storage.audit.clone();
+    let engine = Arc::new(
+        PricingEngineBuilder::new()
+            .with_storage(setup.storage.clone())
+            .build()
+            .unwrap(),
+    );
+    let config = ServerConfig {
+        profile: ServerProfile::Demo,
+        host: "127.0.0.1".into(),
+        access: AccessSettings {
+            mode: AccessMode::Required,
+            policy_file: Some(policy_file.to_str().unwrap().into()),
+            introspection: Some(issuer.settings.clone()),
+            cors_origins: vec![],
+            tls_boundary: TlsBoundary::LocalOnly,
+        },
+        ..Default::default()
+    };
+    let server =
+        Server::with_access_control(config, engine, access).with_limit_monitor(audit.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let serving = tokio::spawn(async move {
+        server
+            .serve_until(listener, async {
+                let _ = stopped.await;
+            })
+            .await
+    });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let base = format!("http://{address}");
+    let send = |method: reqwest::Method,
+                path: &str,
+                token: &str,
+                key: &str,
+                version: Option<&str>,
+                body: Option<Value>| {
+        let mut request = client
+            .request(method, format!("{base}{path}"))
+            .bearer_auth(token)
+            .header("idempotency-key", key);
+        if let Some(version) = version {
+            request = request.header("if-match", version);
+        }
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        async move {
+            let response = request.send().await.unwrap();
+            let status = response.status().as_u16();
+            (
+                status,
+                response.json::<Value>().await.unwrap_or(Value::Null),
+            )
+        }
+    };
+
+    let (code, body) = send(
+        reqwest::Method::PUT,
+        "/api/v1/books/BOOK-A",
+        HUMAN_TOKEN,
+        "book-a",
+        None,
+        Some(json!({"currency": "USD", "positions": [position("1000000")]})),
+    )
+    .await;
+    assert_eq!(code, 201, "{body}");
+
+    // Each may subscribe to a book in its grant, and none to one outside it.
+    let mut holder = socket(address, RISK_A).await;
+    let mut outsider = socket(address, OUTSIDER).await;
+    let refused = subscribe_limits(&mut outsider, &["BOOK-B"]).await;
+    assert_eq!(
+        (&refused["type"], &refused["code"]),
+        (&json!("error"), &json!("FORBIDDEN")),
+        "{refused}"
+    );
+    for session in [&mut holder, &mut outsider] {
+        let ack = subscribe_limits(session, &["BOOK-A"]).await;
+        assert_eq!(ack["type"], "subscribed", "{ack}");
+    }
+
+    // Two subjects commit a breached face limit; the monitor records it, then publishes.
+    let (code, proposal) = send(
+        reqwest::Method::PUT,
+        "/api/v1/books/BOOK-A/limits",
+        RISK_A,
+        "p1",
+        None,
+        Some(set(vec![face("face", None, Some("500000"), None)])),
+    )
+    .await;
+    assert_eq!(code, 202, "{proposal}");
+    let (code, body) = send(
+        reqwest::Method::POST,
+        "/api/v1/books/BOOK-A/limits/proposal/approve",
+        RISK_B,
+        "a1",
+        Some(&proposal["version"].to_string()),
+        None,
+    )
+    .await;
+    assert_eq!(code, 201, "{body}");
+
+    let change = next_frame(&mut holder).await;
+    assert_eq!(change["type"], "limit_status", "{change}");
+    assert_eq!(
+        (&change["limit_id"], &change["previous"], &change["status"]),
+        (&json!("face"), &json!("unevaluated"), &json!("breach")),
+        "{change}"
+    );
+    let recorded = audit
+        .query(
+            &convex_engine::ports::storage::AuditFilter::default(),
+            &convex_engine::ports::storage::Pagination::new(0, 10),
+        )
+        .await
+        .unwrap();
+    assert_eq!(recorded.items.len(), 1, "{:?}", recorded.items);
+    assert_eq!(change["record_id"], recorded.items[0].id);
+    assert_eq!(recorded.items[0].entity_id, "BOOK-A");
+
+    // The outsider holds the book but not BOND-001, which the book holds and the limit
+    // names: it is told, and shown nothing of the change.
+    let denied = next_frame(&mut outsider).await;
+    assert_eq!(
+        (&denied["type"], &denied["code"]),
+        (&json!("error"), &json!("FORBIDDEN")),
+        "{denied}"
+    );
+    assert!(!denied.to_string().contains("breach"), "{denied}");
+
+    drop((holder, outsider));
+    stop.send(()).unwrap();
+    serving.await.unwrap().unwrap();
+}
