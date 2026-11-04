@@ -7005,6 +7005,28 @@
         "tools/core_roll_workflow.py"
       ],
       "exceptions": []
+    },
+    {
+      "path": "crates/convex-ports/src/limits.rs",
+      "invariants": "P14 (D82-D84): a limit names one measure (face, net or gross value, DV01, CS01, dated key-rate DV01, modified duration, group value or share by issuer/country/sector/rating), one member or each where the measure has members, and an inclusive lower and/or upper bound in the measure's unit and book currency. A warning fraction lies strictly between 0 and 1 and applies only to bounds facing away from zero. Statuses order within < warning < unknown < breach; unknown always carries a typed reason and never counts as within. Wire types deny unknown fields.",
+      "bounds": "64 limits per set, unique ids; group keys 1-128 bytes without control characters or outer spaces; key-rate tenors dated (not spot/parallel); reasons list at most 16 instruments with a complete count; analyzer detail at most 256 bytes. Exact decimal bounds use the existing 96-bit plain-string contract.",
+      "failure_contract": "Validation returns ReferenceError::InvalidInput with a fixed reason for a missing bound, crossed bounds, a fraction outside (0,1), a band on a bound at or across zero, an undated tenor, a malformed group key, more than 64 limits or a duplicate id. No default bound, fraction or member is inferred.",
+      "tests": [
+        "crates/convex-ports/tests/limit_contracts.rs",
+        "crates/convex-engine/tests/limits.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-engine/src/limits.rs",
+      "invariants": "P14a (D83-D84): a pure function of borrowed positions, accepted analyzer quotes, priced-bond classifications and a validated limit set; no clock, store or runtime. Market values are admitted by the analyzer's shared per-row rule, so net value, DV01 and modified duration equal analytics by book. Each aggregate is computed at most once per evaluation. Status is decided on exact BoundedDecimal state (ratios as numerator against bound x denominator), so a value at a bound is within it; only reported values and utilisation are rounded. Book-level unknown reasons precede measure reasons in D84's order; face limits evaluate without market data.",
+      "bounds": "At most MAX_BOOK_POSITIONS (1,000) unique positions and 64 limits; key rates matched by exact label; a limit on each member judges only its largest and smallest member; BoundedDecimal's fixed 1536-bit state bounds every sum, and overflow is the arithmetic_bound reason. These limits do not certify latency.",
+      "failure_contract": "An invalid limit set, more than 1,000 positions or an instrument held twice is an EngineError. Every missing or refused input is an unknown status with its reason: no reporting currency, units, missing result, foreign currency, analyzer refusal, measure not computed, missing classification, zero net or gross value, arithmetic bound. No partial book is valued as whole and no unknown reads as within.",
+      "tests": [
+        "crates/convex-engine/tests/limits.rs",
+        "crates/convex-engine/tests/portfolio_aggregation.rs"
+      ],
+      "exceptions": []
     }
   ],
   "c_exports": [

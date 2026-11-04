@@ -245,6 +245,55 @@ fn envelope_quote(
         quality: 100,
     })
 }
+/// Admit one position's quote as analytics by book do, and return its dirty market value
+/// (`(clean + accrued) × notional / 100`). The quote must be in `currency`, at the
+/// settlement date of the quotes before it, non-stale with a bounded lineage, and carry a
+/// non-negative clean and dirty price. `date` and `timestamp` carry the book's settlement
+/// date and latest quote time from row to row.
+pub(crate) fn admit_quote(
+    id: &str,
+    notional: Decimal,
+    quote: &BondQuoteOutput,
+    currency: Currency,
+    date: &mut Option<Date>,
+    timestamp: &mut Option<i64>,
+) -> Result<BoundedDecimal, EngineError> {
+    if quote.currency != currency {
+        return Err(failure(id, "foreign quote requires explicitly bound FX"));
+    }
+    if date.is_some_and(|d| d != quote.settlement_date) {
+        return Err(failure(id, "mixed settlement dates"));
+    }
+    if quote.is_stale
+        || quote.timestamp < 0
+        || quote.quality > 100
+        || !identity(&quote.source)
+        || !identity(&quote.pricing_spec)
+    {
+        return Err(failure(
+            id,
+            "valid supplied quote lineage and non-stale status required",
+        ));
+    }
+    *date = Some(quote.settlement_date);
+    *timestamp = Some(timestamp.map_or(quote.timestamp, |t: i64| t.max(quote.timestamp)));
+    let clean = required(quote.clean_price_mid, id, "clean mid price is absent")?;
+    let accrued = required(quote.accrued_interest, id, "accrued per100 is absent")?;
+    if clean < Decimal::ZERO {
+        return Err(failure(id, "clean price cannot be negative"));
+    }
+    let mut dirty = BoundedDecimal::decimal(clean);
+    dirty
+        .add(&BoundedDecimal::decimal(accrued))
+        .map_err(arithmetic)?;
+    if dirty.is_negative() {
+        return Err(failure(id, "dirty price cannot be negative"));
+    }
+    dirty
+        .multiply(notional)
+        .and_then(|v| v.divide_power_of_ten(2))
+        .map_err(arithmetic)
+}
 fn ratio(value: &BoundedDecimal, total: &BoundedDecimal) -> Result<Decimal, EngineError> {
     if total.is_zero() {
         return Err(failure(
@@ -314,41 +363,14 @@ impl<'a> QuoteBook<'a> {
             let quote = *lookup
                 .get(&position.instrument_id)
                 .ok_or_else(|| failure(id, "required quote is absent"))?;
-            if quote.currency != portfolio.currency {
-                return Err(failure(id, "foreign quote requires explicitly bound FX"));
-            }
-            if date.is_some_and(|d| d != quote.settlement_date) {
-                return Err(failure(id, "mixed settlement dates"));
-            }
-            if quote.is_stale
-                || quote.timestamp < 0
-                || quote.quality > 100
-                || !identity(&quote.source)
-                || !identity(&quote.pricing_spec)
-            {
-                return Err(failure(
-                    id,
-                    "valid supplied quote lineage and non-stale status required",
-                ));
-            }
-            date = Some(quote.settlement_date);
-            timestamp = Some(timestamp.map_or(quote.timestamp, |t: i64| t.max(quote.timestamp)));
-            let clean = required(quote.clean_price_mid, id, "clean mid price is absent")?;
-            let accrued = required(quote.accrued_interest, id, "accrued per100 is absent")?;
-            if clean < Decimal::ZERO {
-                return Err(failure(id, "clean price cannot be negative"));
-            }
-            let mut dirty = BoundedDecimal::decimal(clean);
-            dirty
-                .add(&BoundedDecimal::decimal(accrued))
-                .map_err(arithmetic)?;
-            if dirty.is_negative() {
-                return Err(failure(id, "dirty price cannot be negative"));
-            }
-            let value = dirty
-                .multiply(position.notional)
-                .and_then(|v| v.divide_power_of_ten(2))
-                .map_err(arithmetic)?;
+            let value = admit_quote(
+                id,
+                position.notional,
+                quote,
+                portfolio.currency,
+                &mut date,
+                &mut timestamp,
+            )?;
             total.add(&value).map_err(arithmetic)?;
             rows.push(Admitted {
                 position,

@@ -23,7 +23,10 @@ fn power(exponent: u32) -> BigInt {
 }
 
 /// Bounded exact decimal state. Callers enforce their own row/factor work limits.
-#[derive(Debug, Clone)]
+///
+/// Every state holds its coefficient at the same fixed scale, so the derived order is
+/// exact numeric order.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BoundedDecimal(BigInt);
 
 impl BoundedDecimal {
