@@ -1197,6 +1197,99 @@ async fn replacing_an_open_proposal_needs_each_instrument_it_names() {
 }
 
 #[tokio::test]
+async fn dropping_a_limit_needs_write_rights_on_its_instrument() {
+    let (_issuer, _setup, router) = two_subjects().await;
+    let path = "/api/v1/books/BOOK-A/limits";
+    let approve = "/api/v1/books/BOOK-A/limits/proposal/approve";
+    let (code, _, body) = call(
+        &router,
+        "PUT",
+        path,
+        Some(RISK_A),
+        Some("p1"),
+        None,
+        Some(set(vec![face("face", None, Some("2000000"), None)])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{body}");
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        approve,
+        Some(RISK_B),
+        Some("a1"),
+        Some("1"),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{body}");
+
+    // The outsider cannot propose a set that drops the limit on BOND-001, whether it
+    // clears the set or replaces the limit with one on its own instrument.
+    let mut other = face("other", None, Some("1"), None);
+    other["measure"]["instrument"] = json!({"one": "BOND-999"});
+    for (key, limits) in [("o1", vec![]), ("o2", vec![other])] {
+        let (code, _, body) = call(
+            &router,
+            "PUT",
+            path,
+            Some(OUTSIDER),
+            Some(key),
+            Some("1"),
+            Some(set(limits)),
+        )
+        .await;
+        assert_eq!(code, StatusCode::FORBIDDEN, "{key}: {body}");
+    }
+
+    // Nor can it approve another subject's proposal to drop it.
+    let (code, _, proposal) = call(
+        &router,
+        "PUT",
+        path,
+        Some(RISK_A),
+        Some("p2"),
+        Some("1"),
+        Some(set(vec![])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{proposal}");
+    let version = proposal["version"].to_string();
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        approve,
+        Some(OUTSIDER),
+        Some("a2"),
+        Some(&version),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{body}");
+    let (code, etag, current) = call(&router, "GET", path, Some(RISK_A), None, None, None).await;
+    assert_eq!(
+        (code, etag.as_deref()),
+        (StatusCode::OK, Some("\"1\"")),
+        "{current}"
+    );
+    assert_eq!(current["limits"][0]["limit_id"], "face");
+
+    // A subject holding BOND-001 approves it.
+    let (code, _, cleared) = call(
+        &router,
+        "POST",
+        approve,
+        Some(RISK_B),
+        Some("a3"),
+        Some(&version),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{cleared}");
+    assert_eq!(cleared["limits"], json!([]));
+}
+
+#[tokio::test]
 async fn a_reference_writer_cannot_write_limits_through_the_generic_routes() {
     let (_issuer, _setup, router) = two_subjects().await;
     let command = json!({

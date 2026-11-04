@@ -489,9 +489,11 @@ statuses are described in [the engine's limits guide](../convex-engine/LIMITS.md
 
 Every write needs `Idempotency-Key`, and the `risk_manager` role (see [access](ACCESS.md)).
 On `PUT`, `If-Match` names the limit set version the change replaces, and is absent only for
-a book's first set; the book must exist. A new proposal replaces an open one, so the caller
-must also hold each instrument the open one names, as for withdraw. The proposal's history
-keeps every version. Approve and withdraw take the proposal version in
+a book's first set; the book must exist. The proposer and the approver each hold every
+instrument the new limits and the current set name, since a change drops any limit it
+leaves out. A new proposal replaces an open one, so the caller must also hold each
+instrument the open one names, as for withdraw. The proposal's history keeps every
+version. Approve and withdraw take the proposal version in
 `If-Match`. Approval commits the set and closes the proposal in one transaction. The set
 records who proposed and who approved it, as configuration records an actor: `access:` and
 the credential's digest. Under `access.mode = local_development` requests carry no subject,

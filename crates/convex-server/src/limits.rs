@@ -182,6 +182,25 @@ fn authorize_write(
     )
 }
 
+/// A change replaces the current set, dropping each limit it leaves out, so the caller
+/// must hold each instrument the current set names as well as those the change names.
+fn authorize_replaced(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    book: &BookId,
+    set: Option<&MasterRecord>,
+) -> Result<(), Response> {
+    match set {
+        Some(record) => authorize_write(
+            state,
+            ctx,
+            book,
+            &set_of(record).map_err(reference_error)?.limits,
+        ),
+        None => Ok(()),
+    }
+}
+
 /// One microsecond after `time`: a closed proposal's end must follow its start.
 fn after(time: UtcTimestamp) -> Result<UtcTimestamp, ReferenceError> {
     UtcTimestamp::from_datetime(time.datetime() + chrono::Duration::microseconds(1))
@@ -391,9 +410,10 @@ pub(crate) struct LimitSetRequest {
 ///
 /// `If-Match` names the limit set version the change replaces; absent proposes the book's
 /// first set. `Idempotency-Key` is required. Under required access the change is a
-/// proposal, returned with `202 Accepted`, that a different subject approves. A new
-/// proposal replaces an open one, which withdraws it, so the caller must also hold each
-/// instrument the open one names. Under local development it commits at once (`201` or
+/// proposal, returned with `202 Accepted`, that a different subject approves. The caller
+/// holds each instrument the new limits and the current set name, since the change drops
+/// any limit it leaves out. A new proposal replaces an open one, which withdraws it, so
+/// the caller must also hold each instrument the open one names. Under local development it commits at once (`201` or
 /// `200`), recorded as `local-development`.
 pub(crate) async fn put_limits(
     State(state): State<Arc<AppState>>,
@@ -491,6 +511,7 @@ async fn propose(
     let set = current(repo, MasterKey::LimitSet(id.clone()))
         .await
         .map_err(reference_error)?;
+    authorize_replaced(state, ctx, &id, set.as_ref())?;
     if set.as_ref().map(|r| r.version) != base {
         return Err(conflict(
             "VERSION_CONFLICT",
@@ -602,8 +623,9 @@ async fn open_proposal(
 /// `POST /api/v1/books/{book_id}/limits/proposal/approve`: commit the open proposal.
 ///
 /// `If-Match` names the proposal version approved and `Idempotency-Key` is required. The
-/// approver must be a different subject from the proposer, and the limit set must still be
-/// the version the proposal replaces. The set and the closed proposal commit in one
+/// approver must be a different subject from the proposer and hold each instrument the
+/// proposal and the current set name, and the limit set must still be the version the
+/// proposal replaces. The set and the closed proposal commit in one
 /// transaction.
 pub(crate) async fn approve_limits(
     State(state): State<Arc<AppState>>,
@@ -656,6 +678,7 @@ async fn approve(
     let set = current(repo, MasterKey::LimitSet(id.clone()))
         .await
         .map_err(reference_error)?;
+    authorize_replaced(state, ctx, &id, set.as_ref())?;
     if set.as_ref().map(|r| r.version) != proposal.base_version {
         return Err(conflict(
             "LIMIT_SET_CHANGED",
