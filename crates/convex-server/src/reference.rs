@@ -11,7 +11,9 @@ use convex_core::contracts::{RequestId, UtcTimestamp, Version};
 use convex_core::ids::InstrumentId;
 use convex_core::Currency;
 use convex_engine::ports::reference_data::{BondReferenceData, BondType, IssuerType};
-use convex_engine::ports::reference_master::{ExternalIdentifier, MasterKind, ReferenceLookup};
+use convex_engine::ports::reference_master::{
+    ExternalIdentifier, MasterDefinition, MasterKind, ReferenceLookup,
+};
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::storage::{BondFilter, Pagination};
 use convex_ext_file::{parse_reference_import, preflight_reference_import, ReferenceImportError};
@@ -470,6 +472,17 @@ pub(crate) async fn get_reference_commit(
         Err(_) => return reference_error(ReferenceError::InvalidInput("invalid idempotency key")),
     };
     match state.engine.reference_repository().get_commit(&key).await {
+        // A limit commit is read through its book's limit routes, which check instruments.
+        Ok(Some(receipt))
+            if receipt.master_records.iter().any(|record| {
+                matches!(
+                    record.definition,
+                    MasterDefinition::LimitSet(_) | MasterDefinition::LimitProposal(_)
+                )
+            }) =>
+        {
+            crate::limits::limits_route_required()
+        }
         Ok(Some(receipt)) => Json(receipt).into_response(),
         Ok(None) => reference_error(ReferenceError::NotFound),
         Err(error) => reference_error(error),

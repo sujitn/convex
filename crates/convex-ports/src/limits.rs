@@ -216,7 +216,7 @@ fn subject(text: &str) -> Result<(), ReferenceError> {
         || !text.bytes().all(|b| b.is_ascii_graphic())
     {
         return Err(invalid(
-            "a recorded subject is 1 to 128 printable ASCII bytes",
+            "a recorded subject is 1 to 128 visible ASCII bytes, without spaces",
         ));
     }
     Ok(())
@@ -247,7 +247,9 @@ pub struct LimitSetDefinition {
 }
 
 impl LimitSetDefinition {
-    /// Validate the set on its own: its limits and its recorded subjects.
+    /// Validate the set on its own: its limits, its recorded subjects, and who approved
+    /// it. A set approved from a proposal names a different subject from its proposer
+    /// (D85); one committed in one step names the same subject twice.
     pub fn validate(&self) -> Result<(), ReferenceError> {
         validate_limits(&self.limits)?;
         subject(&self.proposed_by)?;
@@ -257,7 +259,16 @@ impl LimitSetDefinition {
                 "a limit set is not retired; an empty set clears it",
             ));
         }
-        Ok(())
+        let same = self.approved_by == self.proposed_by;
+        match self.proposal_version {
+            Some(_) if same => Err(invalid(
+                "a proposal is approved by a different subject from its proposer",
+            )),
+            None if !same => Err(invalid(
+                "a limit set committed in one step is approved by its proposer",
+            )),
+            _ => Ok(()),
+        }
     }
 }
 
@@ -303,14 +314,21 @@ pub struct LimitProposalDefinition {
 }
 
 impl LimitProposalDefinition {
-    /// Validate the proposal on its own: its limits, its subjects, and that it ends
-    /// exactly when it is closed.
+    /// Validate the proposal on its own: its limits, its subjects, that a different
+    /// subject approved it (D85), and that it ends exactly when it is closed.
     pub fn validate(&self) -> Result<(), ReferenceError> {
         validate_limits(&self.limits)?;
         subject(&self.proposed_by)?;
         match &self.closed {
-            Some(LimitProposalClosure::Approved { by, .. })
-            | Some(LimitProposalClosure::Withdrawn { by }) => subject(by)?,
+            Some(LimitProposalClosure::Approved { by, .. }) => {
+                subject(by)?;
+                if *by == self.proposed_by {
+                    return Err(invalid(
+                        "a proposal is approved by a different subject from its proposer",
+                    ));
+                }
+            }
+            Some(LimitProposalClosure::Withdrawn { by }) => subject(by)?,
             None => {}
         }
         if self.closed.is_some() != self.effective.until.is_some() {

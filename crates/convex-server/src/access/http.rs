@@ -360,10 +360,11 @@ fn requirement(
             req.data = vec![D::Books];
             req.body_required = false;
         }
+        // Status reads the book, its results and priced terms, and returns market values.
         "/api/v1/books/:book_id/limits/status" => {
             exact(R::Book, "book_id")?;
             req.action = BookRead;
-            req.data = vec![D::Books, D::Results];
+            req.data = vec![D::Books, D::Results, D::Reference, D::Market];
         }
         "/api/v1/portfolios" | "/api/v1/portfolios/batch" => {
             req.action = if read { BookRead } else { BookWrite };

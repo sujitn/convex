@@ -484,6 +484,31 @@ async fn a_limit_set_is_compare_and_set_and_a_retry_never_applies_twice() {
     let (code, _, retried) = call(&router, "PUT", path, None, Some("k1"), None, Some(first)).await;
     assert_eq!(code, StatusCode::CREATED, "{retried}");
     assert_eq!(retried["version"], 1);
+    // The same key with another If-Match is another request.
+    let (code, _, body) = call(
+        &router,
+        "PUT",
+        path,
+        None,
+        Some("k2"),
+        Some("\"2\""),
+        Some(second.clone()),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT, "{body}");
+    // The generic commit route does not return a limit commit.
+    let (code, _, body) = call(
+        &router,
+        "GET",
+        "/api/v1/reference/commits/k1",
+        None,
+        None,
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{body}");
+    assert_eq!(body["code"], "LIMITS_ROUTE_REQUIRED", "{body}");
 
     let (code, _, old) = call(
         &router,
@@ -1032,6 +1057,40 @@ async fn reading_limits_needs_every_instrument_the_book_holds() {
         let (code, _, body) = call(&router, "GET", &path, Some(RISK_A), None, None, None).await;
         assert_eq!(code, StatusCode::OK, "{path}: {body}");
     }
+    // History summaries name no instrument, so they need the book only.
+    let history = format!("{path}/history");
+    let (code, _, body) = call(
+        &router,
+        "GET",
+        &history,
+        Some(SERVICE_TOKEN),
+        None,
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "no grant: {body}");
+    let (code, _, body) = call(&router, "GET", &history, Some(OUTSIDER), None, None, None).await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    let mut keys: Vec<&str> = body["versions"][0]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    assert_eq!(
+        keys,
+        [
+            "approved_by",
+            "limit_count",
+            "proposal_version",
+            "proposed_by",
+            "recorded_at",
+            "version"
+        ],
+        "{body}"
+    );
     let status = status(&router, Some(RISK_A), "BOOK-A").await;
     assert_eq!(by_id(&status)["face"]["status"], "within", "{status}");
 
@@ -1147,7 +1206,7 @@ async fn a_reference_writer_cannot_write_limits_through_the_generic_routes() {
             "book_id": "BOOK-A",
             "limits": [],
             "proposed_by": "access:x",
-            "approved_by": "access:y",
+            "approved_by": "access:x",
             "effective": {"from": "2026-01-01T00:00:00Z", "until": null},
             "provenance": {"source": "elsewhere", "evidence_reference": "elsewhere"},
         }}}],

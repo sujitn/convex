@@ -86,13 +86,13 @@ pub(crate) fn writes_limits(changes: &[MasterChange]) -> bool {
     })
 }
 
-/// The refusal of a generic reference write that names a limit set or proposal: D85's
-/// two subjects are enforced only on the book limit routes.
+/// The refusal of a generic reference write, or commit read, that names a limit set or
+/// proposal: D85's two subjects and the limit routes' instrument checks hold only there.
 pub(crate) fn limits_route_required() -> Response {
     typed_error(
         StatusCode::FORBIDDEN,
         "LIMITS_ROUTE_REQUIRED",
-        "limit sets and proposals are written only through /api/v1/books/{book_id}/limits",
+        "limit sets and proposals are read and written only through /api/v1/books/{book_id}/limits",
     )
 }
 
@@ -459,7 +459,10 @@ async fn propose(
     {
         let same = match &record.definition {
             MasterDefinition::LimitSet(set) => {
-                set.limits == limits && set.proposed_by == subject && set.proposal_version.is_none()
+                set.limits == limits
+                    && set.proposed_by == subject
+                    && set.proposal_version.is_none()
+                    && record.version.get() == base.map_or(1, |v| v.get() + 1)
             }
             MasterDefinition::LimitProposal(proposal) => {
                 proposal.is_open()
@@ -643,7 +646,7 @@ async fn approve(
         return Ok(set_response(&record, written(&record)));
     }
     let (record, proposal) = open_proposal(state, ctx, &id, expected).await?;
-    if !state.access.is_local_development() && proposal.proposed_by == subject {
+    if proposal.proposed_by == subject {
         return Err(typed_error(
             StatusCode::FORBIDDEN,
             "LIMIT_SELF_APPROVAL",
@@ -973,8 +976,8 @@ struct Read {
 ///
 /// A position without an accepted result (by analytics by book's rule) makes each limit
 /// that reads market data `unknown`, and so does one whose result cannot be read as an
-/// analyzer quote. The response carries the book and set versions, the time and the
-/// snapshots read.
+/// analyzer quote or whose priced terms cannot be read. The response carries the book and
+/// set versions, the time and the snapshots read.
 pub(crate) async fn get_limit_status(
     State(state): State<Arc<AppState>>,
     ctx: Option<Extension<AccessContext>>,
@@ -996,7 +999,12 @@ async fn status(
     let book_record = authorize_read(
         state,
         ctx,
-        &[DataScope::Books, DataScope::Results],
+        &[
+            DataScope::Books,
+            DataScope::Results,
+            DataScope::Reference,
+            DataScope::Market,
+        ],
         &id,
         &set.limits,
     )
@@ -1025,13 +1033,20 @@ async fn status(
             reads.push(None);
             continue;
         };
-        let priced = repo
+        let priced = match repo
             .get_version(
                 &convex_core::ids::InstrumentId::new(position.instrument_id.as_str()),
                 *version,
             )
             .await
-            .map_err(reference_error)?;
+        {
+            Ok(priced) => priced,
+            Err(error) => {
+                tracing::warn!(instrument = %position.instrument_id, %error, "limit status: priced terms are unreadable");
+                reads.push(None);
+                continue;
+            }
+        };
         let Some(bond) = priced.and_then(|record| record.bond) else {
             reads.push(None);
             continue;

@@ -504,7 +504,7 @@ so a change commits in one step, recorded as `local-development`.
 | 409 `LIMIT_PROPOSAL_CLOSED` | The proposal was already approved or withdrawn |
 | 409 `LIMIT_SET_CHANGED` | The set moved after the proposal was made |
 | 409 `LIMITED_BOOKS_EXCEEDED` | 64 other books already hold a non-empty set (the monitor's bound, D87); an empty set takes no place |
-| 403 `LIMITS_ROUTE_REQUIRED` | A reference transaction or import names a limit set or proposal: only these routes write them |
+| 403 `LIMITS_ROUTE_REQUIRED` | A reference transaction or import names a limit set or proposal, or a commit receipt read holds one: only these routes write and read them |
 
 Status names the book and set versions, the time and the snapshots whose results it read.
 Each item carries the limit's measure and bounds beside its `status`, `value`, `member`,

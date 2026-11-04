@@ -180,16 +180,23 @@ use conformance::reference_terms;
 async fn limit_sets_and_proposals_commit_together_and_survive_reopen() {
     let (dir, repo) = repository();
     conformance::limit_sets_and_proposals_commit_together_and_list_by_kind(repo.clone()).await;
-    let key = convex_ports::reference_master::MasterKey::LimitSet(
-        convex_core::contracts::ReferenceDataId::new("B-L1").unwrap(),
-    );
-    let before = repo.get_master(&key).await.unwrap().unwrap();
+    let book = convex_core::contracts::ReferenceDataId::new("B-L1").unwrap();
+    let keys = [
+        convex_ports::reference_master::MasterKey::LimitSet(book.clone()),
+        convex_ports::reference_master::MasterKey::LimitProposal(book),
+    ];
+    let mut before = Vec::new();
+    for key in &keys {
+        before.push(repo.get_master(key).await.unwrap().unwrap());
+    }
     drop(repo);
     let reopened = RedbReferenceRepository::new(Arc::new(
         redb::Database::open(dir.path().join("master.redb")).unwrap(),
     ))
     .unwrap();
-    assert_eq!(reopened.get_master(&key).await.unwrap(), Some(before));
+    for (key, before) in keys.iter().zip(before) {
+        assert_eq!(reopened.get_master(key).await.unwrap(), Some(before));
+    }
 }
 
 #[tokio::test]

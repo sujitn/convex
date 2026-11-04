@@ -235,6 +235,19 @@ fn limit_sets_and_proposals_have_their_own_keys_and_wire_forms() {
     set_refused(&|v| v["approved_by"] = json!("a".repeat(129)));
     set_refused(&|v| v["effective"]["until"] = json!("2026-11-05T00:00:00Z"));
     set_refused(&|v| v["limits"][0]["upper"] = json!(null));
+    // D85: a set approved from a proposal names two subjects; one committed in one step
+    // names one.
+    set_refused(&|v| v["approved_by"] = json!("access:aaaa"));
+    set_refused(&|v| {
+        v.as_object_mut().unwrap().remove("proposal_version");
+    });
+    let mut one_step = set.clone();
+    one_step.as_object_mut().unwrap().remove("proposal_version");
+    one_step["approved_by"] = json!("access:aaaa");
+    serde_json::from_value::<LimitSetDefinition>(one_step)
+        .unwrap()
+        .validate()
+        .unwrap();
 
     let proposal = json!({
         "book_id": "BOOK-A",
@@ -264,6 +277,14 @@ fn limit_sets_and_proposals_have_their_own_keys_and_wire_forms() {
         v.as_object_mut().unwrap().remove("closed");
     });
     proposal_refused(&|v| v["closed"] = json!({"outcome": "withdrawn", "by": ""}));
+    // Its proposer cannot approve it (D85), though it may withdraw it.
+    proposal_refused(&|v| v["closed"]["by"] = json!("access:aaaa"));
+    let mut withdrawn = proposal.clone();
+    withdrawn["closed"] = json!({"outcome": "withdrawn", "by": "access:aaaa"});
+    serde_json::from_value::<LimitProposalDefinition>(withdrawn)
+        .unwrap()
+        .validate()
+        .unwrap();
     let mut open = proposal.clone();
     open.as_object_mut().unwrap().remove("closed");
     open["effective"]["until"] = json!(null);
