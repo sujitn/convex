@@ -391,8 +391,9 @@ pub(crate) struct LimitSetRequest {
 ///
 /// `If-Match` names the limit set version the change replaces; absent proposes the book's
 /// first set. `Idempotency-Key` is required. Under required access the change is a
-/// proposal, returned with `202 Accepted`, that a different subject approves; a new
-/// proposal replaces an open one. Under local development it commits at once (`201` or
+/// proposal, returned with `202 Accepted`, that a different subject approves. A new
+/// proposal replaces an open one, which withdraws it, so the caller must also hold each
+/// instrument the open one names. Under local development it commits at once (`201` or
 /// `200`), recorded as `local-development`.
 pub(crate) async fn put_limits(
     State(state): State<Arc<AppState>>,
@@ -419,7 +420,17 @@ pub(crate) async fn put_limits(
     }
     let subject = recorded_subject(&ctx);
     let _writes = state.limit_writes.lock().await;
-    match propose(&state, id, idempotency_key, base, request.limits, subject).await {
+    match propose(
+        &state,
+        &ctx,
+        id,
+        idempotency_key,
+        base,
+        request.limits,
+        subject,
+    )
+    .await
+    {
         Ok(response) => response,
         Err(response) => response,
     }
@@ -427,6 +438,7 @@ pub(crate) async fn put_limits(
 
 async fn propose(
     state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
     id: BookId,
     idempotency_key: RequestId,
     base: Option<Version>,
@@ -518,6 +530,13 @@ async fn propose(
     let open = current(repo, MasterKey::LimitProposal(id.clone()))
         .await
         .map_err(reference_error)?;
+    // Replacing an open proposal withdraws it, so the caller must hold its instruments too.
+    if let Some(record) = &open {
+        let existing = proposal_of(record).map_err(reference_error)?;
+        if existing.is_open() {
+            authorize_write(state, ctx, &id, &existing.limits)?;
+        }
+    }
     let at = commit_time(open.iter().map(|r| r.recorded_at)).map_err(reference_error)?;
     let definition = LimitProposalDefinition {
         book_id: id,

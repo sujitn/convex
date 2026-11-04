@@ -1051,6 +1051,93 @@ async fn reading_limits_needs_every_instrument_the_book_holds() {
 }
 
 #[tokio::test]
+async fn replacing_an_open_proposal_needs_each_instrument_it_names() {
+    let (_issuer, _setup, router) = two_subjects().await;
+    let path = "/api/v1/books/BOOK-A/limits";
+    let (code, _, proposal) = call(
+        &router,
+        "PUT",
+        path,
+        Some(RISK_A),
+        Some("p1"),
+        None,
+        Some(set(vec![face("face", None, Some("2000000"), None)])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{proposal}");
+
+    // The outsider may write limits on its own instrument, but replacing the open proposal
+    // would withdraw a limit on one it cannot see.
+    let mut other = face("other", None, Some("1"), None);
+    other["measure"]["instrument"] = json!({"one": "BOND-999"});
+    let (code, _, body) = call(
+        &router,
+        "PUT",
+        path,
+        Some(OUTSIDER),
+        Some("o1"),
+        None,
+        Some(set(vec![other.clone()])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{body}");
+    let (code, etag, open) = call(
+        &router,
+        "GET",
+        &format!("{path}/proposal"),
+        Some(RISK_A),
+        None,
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(
+        (code, etag.as_deref()),
+        (StatusCode::OK, Some("\"1\"")),
+        "{open}"
+    );
+    assert_eq!((&open, &open["open"]), (&proposal, &json!(true)));
+
+    // A subject holding the open proposal's instruments replaces it.
+    let (code, _, next) = call(
+        &router,
+        "PUT",
+        path,
+        Some(RISK_B),
+        Some("b1"),
+        None,
+        Some(set(vec![face("face", None, Some("3000000"), None)])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{next}");
+    assert_eq!(next["version"], 2, "{next}");
+
+    // Once the proposal is closed, nothing open is replaced and its instruments are not needed.
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BOOK-A/limits/proposal/withdraw",
+        Some(RISK_A),
+        Some("w1"),
+        Some("2"),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    let (code, _, body) = call(
+        &router,
+        "PUT",
+        path,
+        Some(OUTSIDER),
+        Some("o2"),
+        None,
+        Some(set(vec![other])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{body}");
+}
+
+#[tokio::test]
 async fn a_reference_writer_cannot_write_limits_through_the_generic_routes() {
     let (_issuer, _setup, router) = two_subjects().await;
     let command = json!({
