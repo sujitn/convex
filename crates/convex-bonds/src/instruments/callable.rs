@@ -8,6 +8,7 @@
 //! - Make-whole call price calculation
 
 use convex_core::types::{Currency, Date, Frequency};
+use convex_math::portable;
 use convex_math::solvers::{newton_raphson, SolverConfig};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -112,6 +113,35 @@ impl CallableBond {
     #[must_use]
     pub fn base_bond(&self) -> &FixedRateBond {
         &self.base
+    }
+
+    /// Complete checked fixed-price call/put terms. Unsupported triggers or
+    /// make-whole inputs fail instead of becoming ordinary fixed-price calls.
+    pub fn contract_terms(
+        &self,
+    ) -> Result<crate::contracts::BondTerms, crate::contracts::BondContractError> {
+        let mut terms = self.base.contract_terms()?;
+        if let Some(schedule) = &self.call_schedule {
+            terms.exercise.extend(crate::contracts::call_terms(
+                schedule,
+                terms.schedule.end_date,
+            )?);
+        }
+        if let Some(schedule) = &self.put_schedule {
+            terms.exercise.extend(crate::contracts::put_terms(
+                schedule,
+                terms.schedule.end_date,
+            )?);
+        }
+        if terms.exercise.is_empty() {
+            return Err(crate::contracts::invalid(
+                "exercise",
+                "optional bond needs exercise terms",
+            ));
+        }
+        // Validate before exporting terms; reconstruction runs these checks again.
+        terms.clone().build()?;
+        Ok(terms)
     }
 
     /// Returns the call type, or `None` for put-only bonds.
@@ -296,7 +326,7 @@ impl CallableBond {
                 .year_fraction(call_date, flow.date)
                 .to_f64()
                 .unwrap_or(0.0);
-            let df = 1.0 / (1.0 + discount_rate / freq).powf(freq * t);
+            let df = 1.0 / portable::pow(1.0 + discount_rate / freq, freq * t);
             let amount = flow.amount.to_string().parse::<f64>().unwrap_or(0.0);
             pv += amount * df;
         }
@@ -455,7 +485,7 @@ impl CallableBond {
         let objective = |y: f64| {
             let mut pv = 0.0;
             for &(t, amount) in &flow_data {
-                let df = 1.0 / (1.0 + y / freq).powf(freq * t);
+                let df = 1.0 / portable::pow(1.0 + y / freq, freq * t);
                 pv += amount * df;
             }
             pv - target
@@ -464,7 +494,7 @@ impl CallableBond {
         let derivative = |y: f64| {
             let mut dpv = 0.0;
             for &(t, amount) in &flow_data {
-                let df = 1.0 / (1.0 + y / freq).powf(freq * t);
+                let df = 1.0 / portable::pow(1.0 + y / freq, freq * t);
                 dpv += amount * (-t) * df / (1.0 + y / freq);
             }
             dpv
@@ -509,10 +539,6 @@ impl Bond for CallableBond {
 
     fn issue_date(&self) -> Date {
         self.base.issue_date()
-    }
-
-    fn first_settlement_date(&self) -> Date {
-        self.base.first_settlement_date()
     }
 
     fn dated_date(&self) -> Date {

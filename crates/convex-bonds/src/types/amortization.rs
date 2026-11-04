@@ -119,6 +119,105 @@ impl AmortizationSchedule {
         Self::new(AmortizationType::Bullet)
     }
 
+    /// Checked conversion of explicit deterministic repayments into the shared
+    /// absolute notional profile. No sorting, factor clipping or inferred
+    /// prepayment model. Optional f64 factors must agree within 1e-12.
+    pub fn notional_profile(
+        &self,
+        start: Date,
+        maturity: Date,
+        face: rust_decimal::Decimal,
+    ) -> Result<convex_core::cashflows::DatedProfile, crate::contracts::BondContractError> {
+        use crate::contracts::{invalid, unsupported};
+        use convex_core::cashflows::{
+            CashflowError, DatedProfile, DatedValue, ProfileKind, MAX_SCHEDULE_PERIODS,
+        };
+        use rust_decimal::Decimal;
+        if self.amort_type == AmortizationType::PassThrough {
+            return Err(unsupported(
+                "prepayment",
+                "requires supplied realized/model principal state",
+            ));
+        }
+        if self.entries.len() > MAX_SCHEDULE_PERIODS
+            || self.entries.windows(2).any(|p| p[0].date >= p[1].date)
+            || face <= Decimal::ZERO
+            || face > Decimal::from(1_000_000_000_000_000_000_i64)
+            || (self.amort_type == AmortizationType::Bullet && !self.entries.is_empty())
+        {
+            return Err(invalid(
+                "amortization",
+                "invalid face, bounded sorted unique dates or bullet terms",
+            ));
+        }
+        if let Some(original) = self.original_face {
+            if Decimal::try_from(original)
+                .map_err(|_| invalid("original_face", "not finite Decimal"))?
+                != face
+            {
+                return Err(invalid("original_face", "differs from supplied face"));
+            }
+        }
+        let mut left = start;
+        let mut outstanding = face;
+        let mut entries = Vec::new();
+        for entry in &self.entries {
+            if entry.date <= left
+                || entry.date > maturity
+                || !entry.principal_pct.is_finite()
+                || entry.principal_pct <= 0.0
+                || entry.principal_pct > 100.0
+            {
+                return Err(invalid(
+                    "amortization",
+                    "invalid date or positive original-face repayment percent",
+                ));
+            }
+            let percent = Decimal::try_from(entry.principal_pct)
+                .map_err(|_| invalid("principal_pct", "not Decimal"))?;
+            let retired = face
+                .checked_mul(percent)
+                .and_then(|v| v.checked_div(Decimal::ONE_HUNDRED))
+                .ok_or(CashflowError::Arithmetic("amortization amount"))?;
+            if retired > outstanding {
+                return Err(invalid("amortization", "repayments exceed face"));
+            }
+            entries.push(DatedValue {
+                start: left,
+                end: entry.date,
+                value: outstanding,
+            });
+            outstanding = outstanding
+                .checked_sub(retired)
+                .ok_or(CashflowError::Arithmetic("amortization remaining"))?;
+            if let Some(factor) = entry.remaining_factor {
+                let factor = Decimal::try_from(factor)
+                    .map_err(|_| invalid("remaining_factor", "not finite Decimal"))?;
+                let expected = outstanding
+                    .checked_div(face)
+                    .ok_or(CashflowError::Arithmetic("amortization factor"))?;
+                if factor < Decimal::ZERO
+                    || factor > Decimal::ONE
+                    || (factor - expected).abs() > Decimal::new(1, 12)
+                {
+                    return Err(invalid(
+                        "remaining_factor",
+                        "does not agree with actual repayments",
+                    ));
+                }
+            }
+            left = entry.date;
+        }
+        if left < maturity {
+            entries.push(DatedValue {
+                start: left,
+                end: maturity,
+                value: outstanding,
+            });
+        }
+        Ok(DatedProfile::new(ProfileKind::Notional, entries)?)
+    }
+
     /// Creates a level principal schedule with given number of payments.
     #[must_use]
     pub fn level_principal(dates: Vec<Date>) -> Self {

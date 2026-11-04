@@ -55,6 +55,10 @@ impl Calendar for Target2Calendar {
         "TARGET2"
     }
 
+    fn validate_date(&self, date: Date) -> crate::ConvexResult<()> {
+        self.bitmap.validate_date(date)
+    }
+
     fn is_business_day(&self, date: Date) -> bool {
         self.bitmap.is_business_day(date.as_naive_date())
     }

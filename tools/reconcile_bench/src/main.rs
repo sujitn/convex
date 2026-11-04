@@ -505,7 +505,7 @@ fn price_corporate_frn(
 
     let arrc = ArrcConfig::usd_corporate_sofr();
     let calendar = CalendarId::us_government();
-    let calendar_obj = calendar.to_calendar();
+    let calendar_obj = calendar.try_to_calendar()?;
     let dc360 = DayCountConvention::Act360.to_day_count();
 
     // Daily forward callback: derives an annualized 1-business-day SOFR rate
@@ -652,7 +652,8 @@ fn arrc_in_progress_coupon<'a>(
     face: f64,
 ) -> impl Fn(Date, Date) -> f64 + 'a {
     let arrc = ArrcConfig::usd_corporate_sofr();
-    let calendar = CalendarId::us_government().to_calendar();
+    let calendar: Box<dyn convex_core::calendars::Calendar> =
+        Box::new(convex_core::calendars::SIFMACalendar::new());
     let dc360 = DayCountConvention::Act360.to_day_count();
 
     move |start, end| {

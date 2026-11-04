@@ -35,8 +35,13 @@ pub fn spread_duration(
         ));
     }
 
-    let sd = (price_spread_down - price_spread_up) / (2.0 * price_base * spread_bump);
-    Ok(Duration::from(sd))
+    let value = convex_bonds::pricing::risk_math::duration_stencil(
+        price_spread_up,
+        price_spread_down,
+        price_base,
+        spread_bump,
+    )?;
+    Ok(Duration::new(crate::risk::cash::decimal(value)?))
 }
 
 #[cfg(test)]

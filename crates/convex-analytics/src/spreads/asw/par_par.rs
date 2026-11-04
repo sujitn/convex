@@ -5,30 +5,23 @@ use rust_decimal::Decimal;
 
 use convex_bonds::traits::{Bond, FixedCouponBond};
 use convex_core::types::{Date, Price, Spread, SpreadType};
+#[cfg(test)]
 use convex_curves::curves::ZeroCurve;
+use convex_curves::RateCurveDyn;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
-
-/// Converts coupon frequency to months between payments.
-fn frequency_to_months(frequency: u32) -> i32 {
-    match frequency {
-        1 => 12,
-        4 => 3,
-        12 => 1,
-        _ => 6,
-    }
-}
+use crate::spreads::asw::{coupon_year_fraction, day_counter};
 
 /// Par-par asset swap spread calculator.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ParParAssetSwap<'a> {
-    swap_curve: &'a ZeroCurve,
+    swap_curve: &'a dyn RateCurveDyn,
 }
 
 impl<'a> ParParAssetSwap<'a> {
     /// Creates a new par-par asset swap calculator.
     #[must_use]
-    pub fn new(swap_curve: &'a ZeroCurve) -> Self {
+    pub fn new(swap_curve: &'a dyn RateCurveDyn) -> Self {
         Self { swap_curve }
     }
 
@@ -57,20 +50,12 @@ impl<'a> ParParAssetSwap<'a> {
             });
         }
 
-        let accrued = bond.accrued_interest(settlement);
+        let accrued = bond.try_accrued_interest(settlement)?;
         let dirty_price = clean_price.as_percentage() + accrued;
 
         let upfront = Decimal::ONE_HUNDRED - dirty_price;
 
-        let months_between = frequency_to_months(bond.coupon_frequency());
-
-        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(
-            settlement,
-            maturity,
-            months_between,
-            bond.coupon_frequency(),
-            bond.coupon_rate(),
-        )?;
+        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(bond, settlement)?;
 
         if annuity.is_zero() {
             return Err(AnalyticsError::InvalidInput(
@@ -103,7 +88,7 @@ impl<'a> ParParAssetSwap<'a> {
     ) -> AnalyticsResult<Spread> {
         let gross = self.calculate(bond, clean_price, settlement)?;
 
-        let accrued = bond.accrued_interest(settlement);
+        let accrued = bond.try_accrued_interest(settlement)?;
         let dirty_price = clean_price.as_percentage() + accrued;
 
         let funding_adjustment = (dirty_price / Decimal::ONE_HUNDRED - Decimal::ONE) * repo_rate;
@@ -116,86 +101,102 @@ impl<'a> ParParAssetSwap<'a> {
     /// Walks the schedule and returns `(annuity, coupon_mismatch_pct)` where
     /// `coupon_mismatch_pct = Σ DFᵢ · τᵢ · (c − Lᵢ) · 100` in price units.
     /// `Lᵢ` is the simple-compounded forward over [tᵢ₋₁, tᵢ].
-    fn annuity_and_mismatch_pct(
+    fn annuity_and_mismatch_pct<B: Bond + FixedCouponBond>(
         &self,
+        bond: &B,
         settlement: Date,
-        maturity: Date,
-        months_between: i32,
-        payments_per_year: u32,
-        coupon_rate: Decimal,
     ) -> AnalyticsResult<(Decimal, Decimal)> {
-        if payments_per_year == 0 {
-            return Err(AnalyticsError::InvalidInput(
-                "Invalid payment frequency".to_string(),
-            ));
-        }
-
-        let mut payment_dates: Vec<Date> = Vec::new();
-        let mut current_date = maturity;
-        while current_date > settlement {
-            payment_dates.push(current_date);
-            current_date = current_date
-                .add_months(-months_between)
-                .map_err(|e| AnalyticsError::InvalidInput(e.to_string()))?;
-        }
-        if payment_dates.is_empty() {
+        let cash_flows = bond.try_cash_flows(settlement)?;
+        if cash_flows.is_empty() || cash_flows.len() > 4096 {
             return Err(AnalyticsError::InvalidInput(
                 "No payment dates after settlement".to_string(),
             ));
         }
-        payment_dates.reverse();
 
-        let tau = 1.0 / payments_per_year as f64;
-        let coupon = coupon_rate.to_f64().unwrap();
-
-        let mut annuity = 0.0;
-        let mut mismatch = 0.0;
-        let mut prev_df = self
-            .swap_curve
-            .discount_factor(settlement)
-            .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
-
-        for date in &payment_dates {
-            let df = self
-                .swap_curve
-                .discount_factor(*date)
-                .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
-            let fwd = (prev_df / df - 1.0) / tau;
-            annuity += tau * df;
-            mismatch += df * tau * (coupon - fwd) * 100.0;
-            prev_df = df;
-        }
-
-        Ok((
-            Decimal::from_f64_retain(annuity).unwrap_or_default(),
-            Decimal::from_f64_retain(mismatch).unwrap_or_default(),
-        ))
-    }
-
-    fn calculate_annuity(
-        &self,
-        settlement: Date,
-        maturity: Date,
-        months_between: i32,
-        payments_per_year: u32,
-    ) -> AnalyticsResult<Decimal> {
+        let payments_per_year = bond.coupon_frequency();
         if payments_per_year == 0 {
             return Err(AnalyticsError::InvalidInput(
                 "Invalid payment frequency".to_string(),
             ));
         }
 
-        let mut payment_dates = Vec::new();
-        let mut current_date = maturity;
+        let coupon = bond
+            .coupon_rate()
+            .to_f64()
+            .ok_or_else(|| AnalyticsError::InvalidInput("coupon conversion".into()))?;
+        let day_count = day_counter(bond.day_count_convention());
 
-        while current_date > settlement {
-            payment_dates.push(current_date);
-            current_date = current_date
-                .add_months(-months_between)
-                .map_err(|e| AnalyticsError::InvalidInput(e.to_string()))?;
+        let mut annuity = 0.0;
+        let mut mismatch = 0.0;
+        let settle_df = self
+            .swap_curve
+            .discount_factor(
+                self.swap_curve
+                    .date_to_tenor(settlement)
+                    .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+            )
+            .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+        if !settle_df.is_finite() || settle_df <= 0.0 {
+            return Err(AnalyticsError::InvalidInput("invalid settlement DF".into()));
+        }
+        let mut prev_df = self
+            .swap_curve
+            .discount_factor(
+                self.swap_curve
+                    .date_to_tenor(settlement)
+                    .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+            )
+            .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+
+        for cf in &cash_flows {
+            if !cf.is_coupon() {
+                continue;
+            }
+
+            let df = self
+                .swap_curve
+                .discount_factor(
+                    self.swap_curve
+                        .date_to_tenor(cf.date)
+                        .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+                )
+                .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
+
+            let tau = coupon_year_fraction(day_count.as_deref(), cf, payments_per_year);
+
+            let fwd = (prev_df / df - 1.0) / tau;
+            if !df.is_finite() || df <= 0.0 || !tau.is_finite() || tau <= 0.0 || !fwd.is_finite() {
+                return Err(AnalyticsError::InvalidInput("invalid ASW period/DF".into()));
+            }
+            annuity += tau * df / settle_df;
+            mismatch += df / settle_df * tau * (coupon - fwd) * 100.0;
+            prev_df = df;
         }
 
-        if payment_dates.is_empty() {
+        Ok((
+            Decimal::from_f64_retain(annuity).ok_or_else(|| {
+                AnalyticsError::InvalidInput("ASW annuity outside decimal domain".into())
+            })?,
+            Decimal::from_f64_retain(mismatch).ok_or_else(|| {
+                AnalyticsError::InvalidInput("ASW mismatch outside decimal domain".into())
+            })?,
+        ))
+    }
+
+    fn calculate_annuity<B: Bond + FixedCouponBond>(
+        &self,
+        bond: &B,
+        settlement: Date,
+    ) -> AnalyticsResult<Decimal> {
+        let payments_per_year = bond.coupon_frequency();
+        if payments_per_year == 0 {
+            return Err(AnalyticsError::InvalidInput(
+                "Invalid payment frequency".to_string(),
+            ));
+        }
+
+        let cash_flows = bond.try_cash_flows(settlement)?;
+        if cash_flows.is_empty() || cash_flows.len() > 4096 {
             return Err(AnalyticsError::InvalidInput(
                 "No payment dates after settlement".to_string(),
             ));
@@ -204,10 +205,18 @@ impl<'a> ParParAssetSwap<'a> {
         let year_fraction = Decimal::ONE / Decimal::from(payments_per_year);
         let mut annuity = Decimal::ZERO;
 
-        for payment_date in &payment_dates {
+        for cf in &cash_flows {
+            if !cf.is_coupon() {
+                continue;
+            }
+
             let df_f64 = self
                 .swap_curve
-                .discount_factor(*payment_date)
+                .discount_factor(
+                    self.swap_curve
+                        .date_to_tenor(cf.date)
+                        .map_err(|error| AnalyticsError::CurveError(error.to_string()))?,
+                )
                 .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
             let df = Decimal::from_f64_retain(df_f64).unwrap_or(Decimal::ZERO);
             annuity += df * year_fraction;
@@ -222,17 +231,12 @@ impl<'a> ParParAssetSwap<'a> {
         bond: &B,
         settlement: Date,
     ) -> AnalyticsResult<Decimal> {
-        let maturity = bond.maturity().ok_or_else(|| {
+        // Reject perpetuals up front; the value itself is unused.
+        bond.maturity().ok_or_else(|| {
             AnalyticsError::InvalidInput("Bond has no maturity (perpetual)".to_string())
         })?;
 
-        let months_between = frequency_to_months(bond.coupon_frequency());
-        self.calculate_annuity(
-            settlement,
-            maturity,
-            months_between,
-            bond.coupon_frequency(),
-        )
+        self.calculate_annuity(bond, settlement)
     }
 
     /// Calculates the implied bond price from a given ASW spread.
@@ -257,19 +261,12 @@ impl<'a> ParParAssetSwap<'a> {
         //   spread_bps = ((100 − dirty) + mismatch_pct) / annuity · 100
         // (the `× 100` converts %-per-year to bps), so the inverse is
         //   dirty = 100 + mismatch_pct − (spread_bps / 100) · annuity.
-        let months_between = frequency_to_months(bond.coupon_frequency());
-        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(
-            settlement,
-            maturity,
-            months_between,
-            bond.coupon_frequency(),
-            bond.coupon_rate(),
-        )?;
+        let (annuity, mismatch_pct) = self.annuity_and_mismatch_pct(bond, settlement)?;
 
         let spread_pct = asw_spread.as_bps() / Decimal::from(100);
         let dirty_price = Decimal::ONE_HUNDRED + mismatch_pct - spread_pct * annuity;
 
-        let clean_price = dirty_price - bond.accrued_interest(settlement);
+        let clean_price = dirty_price - bond.try_accrued_interest(settlement)?;
         Ok(Price::new(clean_price, bond.currency()))
     }
 }
@@ -335,10 +332,6 @@ mod tests {
             date(2020, 1, 15)
         }
 
-        fn first_settlement_date(&self) -> Date {
-            date(2020, 1, 15)
-        }
-
         fn dated_date(&self) -> Date {
             date(2020, 1, 15)
         }
@@ -351,8 +344,34 @@ mod tests {
             convex_core::types::Frequency::SemiAnnual
         }
 
-        fn cash_flows(&self, _from: Date) -> Vec<convex_bonds::traits::BondCashFlow> {
-            Vec::new()
+        fn cash_flows(&self, from: Date) -> Vec<convex_bonds::traits::BondCashFlow> {
+            let mut payment_dates = Vec::new();
+            let months_between = match self.frequency {
+                1 => 12,
+                4 => 3,
+                12 => 1,
+                _ => 6,
+            };
+
+            let mut current_date = self.maturity;
+            while current_date > from {
+                payment_dates.push(current_date);
+                current_date = current_date.add_months(-months_between).unwrap();
+            }
+            payment_dates.reverse();
+
+            payment_dates
+                .into_iter()
+                .map(|d| convex_bonds::traits::BondCashFlow {
+                    date: d,
+                    amount: Decimal::ONE,
+                    flow_type: convex_bonds::traits::CashFlowType::Coupon,
+                    accrual_start: None,
+                    accrual_end: None,
+                    factor: Decimal::ONE,
+                    reference_rate: None,
+                })
+                .collect()
         }
 
         fn next_coupon_date(&self, _after: Date) -> Option<Date> {

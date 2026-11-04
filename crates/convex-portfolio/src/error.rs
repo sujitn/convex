@@ -73,6 +73,15 @@ impl PortfolioError {
     }
 }
 
+impl From<convex_math::MathError> for PortfolioError {
+    fn from(value: convex_math::MathError) -> Self {
+        match value {
+            convex_math::MathError::InvalidInput { reason } => Self::invalid_portfolio(reason),
+            other => Self::invalid_portfolio(other.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

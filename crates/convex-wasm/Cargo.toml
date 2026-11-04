@@ -1,10 +1,14 @@
 [package]
 name = "convex-wasm"
-version = "0.1.0"
-edition = "2021"
+publish = false  # internal; not published to crates.io
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
 description = "WebAssembly bindings for Convex fixed income analytics"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/sujitn/convex"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = false
@@ -21,6 +25,7 @@ convex-math = { path = "../convex-math" }
 convex-curves = { path = "../convex-curves" }
 convex-bonds = { path = "../convex-bonds" }
 convex-analytics = { path = "../convex-analytics" }
+convex = { workspace = true, features = ["schemars"] }
 
 wasm-bindgen = "0.2"
 serde = { version = "1.0", features = ["derive"] }
@@ -33,4 +38,5 @@ getrandom = { version = "0.2", features = ["js"] }
 uuid = { version = "1.23", features = ["serde", "v4", "js"] }
 
 [dev-dependencies]
+serde_json = { workspace = true }
 wasm-bindgen-test = "0.3"

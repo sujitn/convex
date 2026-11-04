@@ -1,5 +1,6 @@
 //! Brent's root-finding algorithm.
 
+use crate::bounds::{finite, interval, opposite_signs};
 use crate::error::{MathError, MathResult};
 use crate::solvers::{SolverConfig, SolverResult};
 
@@ -38,13 +39,15 @@ pub fn brent<F>(f: F, a: f64, b: f64, config: &SolverConfig) -> MathResult<Solve
 where
     F: Fn(f64) -> f64,
 {
+    config.validate()?;
+    interval(a, b)?;
     let mut a = a;
     let mut b = b;
-    let mut fa = f(a);
-    let mut fb = f(b);
+    let mut fa = finite(f(a), "function evaluation")?;
+    let mut fb = finite(f(b), "function evaluation")?;
 
     // Check that root is bracketed
-    if fa * fb > 0.0 {
+    if !opposite_signs(fa, fb) && fa != 0.0 && fb != 0.0 {
         return Err(MathError::InvalidBracket { a, b, fa, fb });
     }
 
@@ -69,12 +72,8 @@ where
             });
         }
 
-        if (b - a).abs() < config.tolerance {
-            return Ok(SolverResult {
-                root: b,
-                iterations: iteration,
-                residual: fb,
-            });
+        if a == b {
+            return Err(MathError::convergence_failed(iteration, fb.abs()));
         }
 
         // Try inverse quadratic interpolation
@@ -92,7 +91,7 @@ where
                     / ((q - 1.0) * (r - 1.0) * (p_val - 1.0));
 
             // Check if interpolation is acceptable
-            let m = (a + b) / 2.0;
+            let m = a * 0.5 + b * 0.5;
             if s > m.min(b) && s < m.max(b) && (s - b).abs() < e.abs() / 2.0 {
                 use_bisection = false;
             }
@@ -100,14 +99,14 @@ where
             // Secant method
             s = b - fb * (b - a) / (fb - fa);
 
-            let m = (a + b) / 2.0;
+            let m = a * 0.5 + b * 0.5;
             if s > m.min(b) && s < m.max(b) && (s - b).abs() < e.abs() / 2.0 {
                 use_bisection = false;
             }
         }
 
         if use_bisection {
-            s = (a + b) / 2.0;
+            s = a * 0.5 + b * 0.5;
             e = b - a;
             d = e;
         } else {
@@ -120,9 +119,9 @@ where
         fc = fb;
 
         // Evaluate new point
-        let fs = f(s);
+        let fs = finite(f(finite(s, "Brent step")?), "function evaluation")?;
 
-        if fa * fs < 0.0 {
+        if opposite_signs(fa, fs) {
             b = s;
             fb = fs;
         } else {

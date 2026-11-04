@@ -1,0 +1,30 @@
+{
+  "recorded_at": "2026-10-15T21:55:59.790373+00:00",
+  "status": "predeclared_following_owner_references_not_native_qualification",
+  "source_url": "https://www.gov.uk/bank-holidays",
+  "source_scope": "Official England and Wales table lists2026January1Thursday as New Year holiday. This is an explicit UK-calendar check, not a generic convention/provider certificate.",
+  "weekend": [
+    "Saturday",
+    "Sunday"
+  ],
+  "explicit_holidays": [
+    "2026-01-01"
+  ],
+  "cases": [
+    {
+      "calendar": "UK",
+      "reset_date": "2026-01-02",
+      "reset_lag": -1,
+      "expected_fixing_date": "2025-12-31"
+    },
+    {
+      "calendar": "UK",
+      "reset_date": "2025-12-31",
+      "reset_lag": 1,
+      "expected_fixing_date": "2026-01-02"
+    }
+  ],
+  "exact_calendar_day_bound": 0,
+  "native_execution": false,
+  "certified": false
+}

@@ -1,0 +1,661 @@
+{
+  "schema_version": "2.0",
+  "qualification": "Archived published reference snapshot. Not a live market, price, borrow/funding feed, calendar or model certificate. Calendar and schedule terms below are explicit engineering registration assumptions.",
+  "source": {
+    "url": "https://www.cmegroup.com/trading/interest-rates/files/TCF.xlsx?lastUpdated-2026-09-24=",
+    "sha256": "97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d",
+    "published_on": "2026-09-24",
+    "sheet": "Conversion Factors",
+    "contract_header": "I156",
+    "eligible_count_cell": "I178",
+    "eligible_count": 10
+  },
+  "contract": {
+    "instrument_id": "CME-ZNZ6",
+    "stamp": {
+      "id": "CME-ZNZ6",
+      "version": 1,
+      "source": "CME",
+      "source_at": "2026-09-24T00:00:00Z",
+      "available_at": "2026-10-07T05:31:43Z",
+      "valid_until": "2026-10-08T00:00:00Z",
+      "quality": "historical",
+      "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+    },
+    "exchange": "CBOT",
+    "product_code": "ZN",
+    "contract_code": "ZNZ6",
+    "contract_month": {
+      "year": 2026,
+      "month": 12
+    },
+    "currency": "USD",
+    "listed_from": "2026-09-24",
+    "last_trade": "2026-12-21",
+    "expiry": "2026-12-21",
+    "currency_per_price_point": "1000",
+    "ticks": [
+      {
+        "until": null,
+        "increment": "0.015625",
+        "from": "2026-09-24"
+      }
+    ],
+    "daily_settlement": {
+      "calendar": {
+        "id": "CME-calendar-reference",
+        "version": 1
+      },
+      "time_zone": "America/Chicago",
+      "cash_decimal_places": 2
+    },
+    "settlement": {
+      "kind": "bond",
+      "contract_face": "100000",
+      "delivery": {
+        "calendar": {
+          "id": "CME-calendar-reference",
+          "version": 1
+        },
+        "first_notice": "2026-11-27",
+        "first_delivery": "2026-12-01",
+        "last_delivery": "2026-12-31",
+        "basket": {
+          "id": "CME-ZNZ6-basket",
+          "version": 1
+        }
+      }
+    }
+  },
+  "basket": {
+    "stamp": {
+      "id": "CME-ZNZ6-basket",
+      "version": 1,
+      "source": "CME",
+      "source_at": "2026-09-24T00:00:00Z",
+      "available_at": "2026-10-07T05:31:43Z",
+      "valid_until": "2026-10-08T00:00:00Z",
+      "quality": "historical",
+      "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+    },
+    "contract": {
+      "id": "CME-ZNZ6",
+      "version": 1
+    },
+    "contract_month": {
+      "year": 2026,
+      "month": 12
+    },
+    "currency": "USD",
+    "complete": true,
+    "bonds": [
+      {
+        "instrument": {
+          "id": "UST-91282CQW4",
+          "version": 1
+        },
+        "conversion_factor": "0.9069"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CRC7",
+          "version": 1
+        },
+        "conversion_factor": "0.9136"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CHT1",
+          "version": 1
+        },
+        "conversion_factor": "0.8870"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CRJ2",
+          "version": 1
+        },
+        "conversion_factor": "0.9202"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CRM5",
+          "version": 1
+        },
+        "conversion_factor": "0.9451"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CJJ1",
+          "version": 1
+        },
+        "conversion_factor": "0.9177"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CJZ5",
+          "version": 1
+        },
+        "conversion_factor": "0.8870"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CKQ3",
+          "version": 1
+        },
+        "conversion_factor": "0.9055"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CLF6",
+          "version": 1
+        },
+        "conversion_factor": "0.8732"
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CLW9",
+          "version": 1
+        },
+        "conversion_factor": "0.8927"
+      }
+    ]
+  },
+  "rate_contract": {
+    "instrument_id": "CME-SR3U6",
+    "stamp": {
+      "id": "CME-SR3U6",
+      "version": 1,
+      "source": "CME",
+      "source_at": "2026-09-24T00:00:00Z",
+      "available_at": "2026-10-07T05:31:43Z",
+      "valid_until": "2026-10-08T00:00:00Z",
+      "quality": "historical",
+      "evidence": "https://www.cmegroup.com/education/articles-and-reports/understanding-sofr-futures"
+    },
+    "exchange": "CME",
+    "product_code": "SR3",
+    "contract_code": "SR3U6",
+    "contract_month": {
+      "year": 2026,
+      "month": 9
+    },
+    "currency": "USD",
+    "listed_from": "2026-07-01",
+    "last_trade": "2026-12-15",
+    "expiry": "2026-12-16",
+    "currency_per_price_point": "2500",
+    "ticks": [
+      {
+        "from": "2026-07-01",
+        "until": "2026-08-15",
+        "increment": "0.005"
+      },
+      {
+        "from": "2026-08-15",
+        "until": null,
+        "increment": "0.0025"
+      }
+    ],
+    "daily_settlement": {
+      "calendar": {
+        "id": "CME-calendar-reference",
+        "version": 1
+      },
+      "time_zone": "America/Chicago",
+      "cash_decimal_places": 2
+    },
+    "settlement": {
+      "kind": "rate",
+      "final_settlement": "2026-12-16",
+      "accrual": {
+        "kind": "overnight",
+        "index": "USD.SOFR",
+        "start": "2026-09-16",
+        "end": "2026-12-16",
+        "calendar": {
+          "id": "CME-calendar-reference",
+          "version": 1
+        },
+        "averaging": "compounded",
+        "day_count": "Act360"
+      },
+      "convexity": {
+        "kind": "not_admitted"
+      }
+    }
+  },
+  "cash_universe": {
+    "stamp": {
+      "id": "CME-cash-hedges",
+      "version": 1,
+      "source": "CME",
+      "source_at": "2026-09-24T00:00:00Z",
+      "available_at": "2026-10-07T05:31:43Z",
+      "valid_until": "2026-10-08T00:00:00Z",
+      "quality": "historical",
+      "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+    },
+    "currency": "USD",
+    "candidates": [
+      {
+        "instrument": {
+          "id": "UST-91282CQW4",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CQW4",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CRC7",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CRC7",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CHT1",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CHT1",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CRJ2",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CRJ2",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CRM5",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CRM5",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CJJ1",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CJJ1",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CJZ5",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CJZ5",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CKQ3",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CKQ3",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CLF6",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CLF6",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      },
+      {
+        "instrument": {
+          "id": "UST-91282CLW9",
+          "version": 1
+        },
+        "quote": {
+          "id": "quote-UST-91282CLW9",
+          "version": 1,
+          "source": "CME",
+          "source_at": "2026-09-24T00:00:00Z",
+          "available_at": "2026-10-07T05:31:43Z",
+          "valid_until": "2026-10-08T00:00:00Z",
+          "quality": "historical",
+          "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+        },
+        "currency": "USD",
+        "settlement": "2026-10-08",
+        "lot_face": "1000",
+        "bid_per100": null,
+        "ask_per100": null,
+        "bid_size_face": null,
+        "ask_size_face": null,
+        "financing": null,
+        "borrow": null,
+        "costs": null
+      }
+    ]
+  },
+  "securities": [
+    {
+      "row": 161,
+      "cusip": "91282CQW4",
+      "coupon_percent": "4.25",
+      "issue": "2026-06-30",
+      "maturity": "2033-06-30",
+      "conversion_factor": "0.9069",
+      "cells": {
+        "C": "4.25",
+        "D": "2026-06-30 00:00:00",
+        "E": "2033-06-30 00:00:00",
+        "F": "91282CQW4",
+        "I": "0.9069"
+      }
+    },
+    {
+      "row": 162,
+      "cusip": "91282CRC7",
+      "coupon_percent": "4.375",
+      "issue": "2026-07-31",
+      "maturity": "2033-07-31",
+      "conversion_factor": "0.9136",
+      "cells": {
+        "C": "4.375",
+        "D": "2026-07-31 00:00:00",
+        "E": "2033-07-31 00:00:00",
+        "F": "91282CRC7",
+        "I": "0.9136"
+      }
+    },
+    {
+      "row": 163,
+      "cusip": "91282CHT1",
+      "coupon_percent": "3.875",
+      "issue": "2023-08-15",
+      "maturity": "2033-08-15",
+      "conversion_factor": "0.8870",
+      "cells": {
+        "C": "3.875",
+        "D": "2023-08-15 00:00:00",
+        "E": "2033-08-15 00:00:00",
+        "F": "91282CHT1",
+        "I": "0.887"
+      }
+    },
+    {
+      "row": 164,
+      "cusip": "91282CRJ2",
+      "coupon_percent": "4.5",
+      "issue": "2026-08-31",
+      "maturity": "2033-08-31",
+      "conversion_factor": "0.9202",
+      "cells": {
+        "C": "4.5",
+        "D": "2026-08-31 00:00:00",
+        "E": "2033-08-31 00:00:00",
+        "F": "91282CRJ2",
+        "I": "0.9202"
+      }
+    },
+    {
+      "row": 165,
+      "cusip": "91282CRM5",
+      "coupon_percent": "5",
+      "issue": "2026-09-30",
+      "maturity": "2033-09-30",
+      "conversion_factor": "0.9451",
+      "cells": {
+        "C": "5",
+        "D": "2026-09-30 00:00:00",
+        "E": "2033-09-30 00:00:00",
+        "F": "91282CRM5",
+        "I": "0.9451"
+      }
+    },
+    {
+      "row": 166,
+      "cusip": "91282CJJ1",
+      "coupon_percent": "4.5",
+      "issue": "2023-11-15",
+      "maturity": "2033-11-15",
+      "conversion_factor": "0.9177",
+      "cells": {
+        "C": "4.5",
+        "D": "2023-11-15 00:00:00",
+        "E": "2033-11-15 00:00:00",
+        "F": "91282CJJ1",
+        "I": "0.9177"
+      }
+    },
+    {
+      "row": 167,
+      "cusip": "91282CJZ5",
+      "coupon_percent": "4",
+      "issue": "2024-02-15",
+      "maturity": "2034-02-15",
+      "conversion_factor": "0.8870",
+      "cells": {
+        "C": "4",
+        "D": "2024-02-15 00:00:00",
+        "E": "2034-02-15 00:00:00",
+        "F": "91282CJZ5",
+        "I": "0.887"
+      }
+    },
+    {
+      "row": 168,
+      "cusip": "91282CKQ3",
+      "coupon_percent": "4.375",
+      "issue": "2024-05-15",
+      "maturity": "2034-05-15",
+      "conversion_factor": "0.9055",
+      "cells": {
+        "C": "4.375",
+        "D": "2024-05-15 00:00:00",
+        "E": "2034-05-15 00:00:00",
+        "F": "91282CKQ3",
+        "I": "0.9055"
+      }
+    },
+    {
+      "row": 169,
+      "cusip": "91282CLF6",
+      "coupon_percent": "3.875",
+      "issue": "2024-08-15",
+      "maturity": "2034-08-15",
+      "conversion_factor": "0.8732",
+      "cells": {
+        "C": "3.875",
+        "D": "2024-08-15 00:00:00",
+        "E": "2034-08-15 00:00:00",
+        "F": "91282CLF6",
+        "I": "0.8732"
+      }
+    },
+    {
+      "row": 170,
+      "cusip": "91282CLW9",
+      "coupon_percent": "4.25",
+      "issue": "2024-11-15",
+      "maturity": "2034-11-15",
+      "conversion_factor": "0.8927",
+      "cells": {
+        "C": "4.25",
+        "D": "2024-11-15 00:00:00",
+        "E": "2034-11-15 00:00:00",
+        "F": "91282CLW9",
+        "I": "0.8927"
+      }
+    }
+  ],
+  "critical_date_evidence": {
+    "ZN": "https://www.cmegroup.com/rulebook/CBOT/II/19.pdf",
+    "SR3": "https://www.cmegroup.com/education/articles-and-reports/understanding-sofr-futures",
+    "ZN_date_method": "Chapter19 rules applied to December2026 US business days, including Christmas closure; not a captured exchange calendar feed.",
+    "SR3_date_method": "Explicit September2026 example in CME article; named month09, reference09-16 to12-16, last trading12-15. Ticks switch at four calendar months before12-15."
+  }
+}

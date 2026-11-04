@@ -1,0 +1,2992 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "reference": "Python Decimal160 (520 for cancellation), exact input bits; no candidate input",
+  "bounds": "Four ULP; exact classification, signed infinity/zero and nonzero sign",
+  "cases": [
+    {
+      "id": "exp.0",
+      "operation": "exp",
+      "x_bits": "13873145138068324352",
+      "y_bits": null,
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.1",
+      "operation": "exp",
+      "x_bits": "13873136341975302144",
+      "y_bits": null,
+      "expected_bits": "1",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.2",
+      "operation": "exp",
+      "x_bits": "13873127545882279936",
+      "y_bits": null,
+      "expected_bits": "2",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.3",
+      "operation": "exp",
+      "x_bits": "13872828478719524864",
+      "y_bits": null,
+      "expected_bits": "906010418525123",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.4",
+      "operation": "exp",
+      "x_bits": "13872819682626502656",
+      "y_bits": null,
+      "expected_bits": "2462791657071416",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.5",
+      "operation": "exp",
+      "x_bits": "13862853709232340992",
+      "y_bits": null,
+      "expected_bits": "3632203772174753477",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.6",
+      "operation": "exp",
+      "x_bits": "13858701953325858816",
+      "y_bits": null,
+      "expected_bits": "4087014013139365445",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.7",
+      "operation": "exp",
+      "x_bits": "13849694754071117824",
+      "y_bits": null,
+      "expected_bits": "4477057993643618919",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.8",
+      "operation": "exp",
+      "x_bits": "13839561654909534208",
+      "y_bits": null,
+      "expected_bits": "4580936344894782708",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.9",
+      "operation": "exp",
+      "x_bits": "13830554455654793216",
+      "y_bits": null,
+      "expected_bits": "4600298746774613816",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.10",
+      "operation": "exp",
+      "x_bits": "13826050856027422720",
+      "y_bits": null,
+      "expected_bits": "4603638362051417610",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.11",
+      "operation": "exp",
+      "x_bits": "13810738617294363034",
+      "y_bits": null,
+      "expected_bits": "4606743132508726950",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.12",
+      "operation": "exp",
+      "x_bits": "13650858631089744401",
+      "y_bits": null,
+      "expected_bits": "4607182418800008401",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.13",
+      "operation": "exp",
+      "x_bits": "12334232581352326448",
+      "y_bits": null,
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.14",
+      "operation": "exp",
+      "x_bits": "9341994084744098649",
+      "y_bits": null,
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.15",
+      "operation": "exp",
+      "x_bits": "0",
+      "y_bits": null,
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.16",
+      "operation": "exp",
+      "x_bits": "118622047889322841",
+      "y_bits": null,
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.17",
+      "operation": "exp",
+      "x_bits": "3110860544497550640",
+      "y_bits": null,
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.18",
+      "operation": "exp",
+      "x_bits": "4427486594234968593",
+      "y_bits": null,
+      "expected_bits": "4607182418800021912",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.19",
+      "operation": "exp",
+      "x_bits": "4587366580439587226",
+      "y_bits": null,
+      "expected_bits": "4607413323290551347",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.20",
+      "operation": "exp",
+      "x_bits": "4602678819172646912",
+      "y_bits": null,
+      "expected_bits": "4610103999673009820",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.21",
+      "operation": "exp",
+      "x_bits": "4607182418800017408",
+      "y_bits": null,
+      "expected_bits": "4613303445314885481",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.22",
+      "operation": "exp",
+      "x_bits": "4616189618054758400",
+      "y_bits": null,
+      "expected_bits": "4632880823814011480",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.23",
+      "operation": "exp",
+      "x_bits": "4626322717216342016",
+      "y_bits": null,
+      "expected_bits": "4736919330018093060",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.24",
+      "operation": "exp",
+      "x_bits": "4635329916471083008",
+      "y_bits": null,
+      "expected_bits": "5126599931146335211",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.25",
+      "operation": "exp",
+      "x_bits": "4639481672377565184",
+      "y_bits": null,
+      "expected_bits": "5581416431137990035",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.26",
+      "operation": "exp",
+      "x_bits": "4649368480934526976",
+      "y_bits": null,
+      "expected_bits": "9155136748776909966",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.27",
+      "operation": "exp",
+      "x_bits": "4649447645771726848",
+      "y_bits": null,
+      "expected_bits": "9213593174447348891",
+      "max_ulps": 4
+    },
+    {
+      "id": "exp.28",
+      "operation": "exp",
+      "x_bits": "4649456441864749056",
+      "y_bits": null,
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.29",
+      "operation": "log",
+      "x_bits": "1",
+      "y_bits": null,
+      "expected_bits": "13873131416795836867",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.30",
+      "operation": "log",
+      "x_bits": "2024",
+      "y_bits": null,
+      "expected_bits": "13873064453625931053",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.31",
+      "operation": "log",
+      "x_bits": "118622047889322841",
+      "y_bits": null,
+      "expected_bits": "13872659378474614709",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.32",
+      "operation": "log",
+      "x_bits": "3110860544497550640",
+      "y_bits": null,
+      "expected_bits": "13865677554486826226",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.33",
+      "operation": "log",
+      "x_bits": "4307583784117748259",
+      "y_bits": null,
+      "expected_bits": "13855050055018523227",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.34",
+      "operation": "log",
+      "x_bits": "4427486594234968593",
+      "y_bits": null,
+      "expected_bits": "13851842695562002336",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.35",
+      "operation": "log",
+      "x_bits": "4562254508917369340",
+      "y_bits": null,
+      "expected_bits": "13842835496307261344",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.36",
+      "operation": "log",
+      "x_bits": "4587366580439587226",
+      "y_bits": null,
+      "expected_bits": "13837300245030232977",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.37",
+      "operation": "log",
+      "x_bits": "4591870180066957722",
+      "y_bits": null,
+      "expected_bits": "13835739416338191637",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.38",
+      "operation": "log",
+      "x_bits": "4602678819172646912",
+      "y_bits": null,
+      "expected_bits": "13827790571168217583",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.39",
+      "operation": "log",
+      "x_bits": "4606281698874543309",
+      "y_bits": null,
+      "expected_bits": "13815628482782839132",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.40",
+      "operation": "log",
+      "x_bits": "4607182418800017407",
+      "y_bits": null,
+      "expected_bits": "13591863675404156928",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.41",
+      "operation": "log",
+      "x_bits": "4607182418800017408",
+      "y_bits": null,
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.42",
+      "operation": "log",
+      "x_bits": "4607182418800017409",
+      "y_bits": null,
+      "expected_bits": "4372995238176751615",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.43",
+      "operation": "log",
+      "x_bits": "4607227454796291113",
+      "y_bits": null,
+      "expected_bits": "4576889596990338684",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.44",
+      "operation": "log",
+      "x_bits": "4607407598781385933",
+      "y_bits": null,
+      "expected_bits": "4587192224721324016",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.45",
+      "operation": "log",
+      "x_bits": "4608083138725491507",
+      "y_bits": null,
+      "expected_bits": "4595736846652446325",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.46",
+      "operation": "log",
+      "x_bits": "4611686018427387904",
+      "y_bits": null,
+      "expected_bits": "4604418534313441775",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.47",
+      "operation": "log",
+      "x_bits": "4621819117588971520",
+      "y_bits": null,
+      "expected_bits": "4612367379483415830",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.48",
+      "operation": "log",
+      "x_bits": "4636737291354636288",
+      "y_bits": null,
+      "expected_bits": "4616870979110786326",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.49",
+      "operation": "log",
+      "x_bits": "4906019910204099648",
+      "y_bits": null,
+      "expected_bits": "4631678018163747419",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.50",
+      "operation": "log",
+      "x_bits": "6103021453049119613",
+      "y_bits": null,
+      "expected_bits": "4642305517632050418",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.51",
+      "operation": "log",
+      "x_bits": "9094988921128908188",
+      "y_bits": null,
+      "expected_bits": "4649287341619838901",
+      "max_ulps": 4
+    },
+    {
+      "id": "log.52",
+      "operation": "log",
+      "x_bits": "9218868437227405311",
+      "y_bits": null,
+      "expected_bits": "4649454530587146735",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.53",
+      "operation": "log1p",
+      "x_bits": "13830554455654793215",
+      "y_bits": null,
+      "expected_bits": "13853739099206662138",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.54",
+      "operation": "log1p",
+      "x_bits": "13830545448455538475",
+      "y_bits": null,
+      "expected_bits": "13842835496307261343",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.55",
+      "operation": "log1p",
+      "x_bits": "13829653735729319117",
+      "y_bits": null,
+      "expected_bits": "13835739416338191638",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.56",
+      "operation": "log1p",
+      "x_bits": "13826050856027422720",
+      "y_bits": null,
+      "expected_bits": "13827790571168217583",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.57",
+      "operation": "log1p",
+      "x_bits": "13810738617294363034",
+      "y_bits": null,
+      "expected_bits": "13810925000658262328",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.58",
+      "operation": "log1p",
+      "x_bits": "13680665593942359483",
+      "y_bits": null,
+      "expected_bits": "13680665593942746339",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.59",
+      "operation": "log1p",
+      "x_bits": "12334232581352326448",
+      "y_bits": null,
+      "expected_bits": "12334232581352326448",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.60",
+      "operation": "log1p",
+      "x_bits": "9341994084744098649",
+      "y_bits": null,
+      "expected_bits": "9341994084744098649",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.61",
+      "operation": "log1p",
+      "x_bits": "0",
+      "y_bits": null,
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.62",
+      "operation": "log1p",
+      "x_bits": "118622047889322841",
+      "y_bits": null,
+      "expected_bits": "118622047889322841",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.63",
+      "operation": "log1p",
+      "x_bits": "3110860544497550640",
+      "y_bits": null,
+      "expected_bits": "3110860544497550640",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.64",
+      "operation": "log1p",
+      "x_bits": "4457293557087583675",
+      "y_bits": null,
+      "expected_bits": "4457293557087196819",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.65",
+      "operation": "log1p",
+      "x_bits": "4562254508917369340",
+      "y_bits": null,
+      "expected_bits": "4562252204610436799",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.66",
+      "operation": "log1p",
+      "x_bits": "4587366580439587226",
+      "y_bits": null,
+      "expected_bits": "4587192224721324010",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.67",
+      "operation": "log1p",
+      "x_bits": "4602678819172646912",
+      "y_bits": null,
+      "expected_bits": "4600975829957056588",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.68",
+      "operation": "log1p",
+      "x_bits": "4607182418800017408",
+      "y_bits": null,
+      "expected_bits": "4604418534313441775",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.69",
+      "operation": "log1p",
+      "x_bits": "4621819117588971520",
+      "y_bits": null,
+      "expected_bits": "4612581998928541516",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.70",
+      "operation": "log1p",
+      "x_bits": "4906019910204099648",
+      "y_bits": null,
+      "expected_bits": "4631678018163747419",
+      "max_ulps": 4
+    },
+    {
+      "id": "log1p.71",
+      "operation": "log1p",
+      "x_bits": "9094988921128908188",
+      "y_bits": null,
+      "expected_bits": "4649287341619838901",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.72",
+      "operation": "expm1",
+      "x_bits": "13873145138068324352",
+      "y_bits": null,
+      "expected_bits": "13830554455654793216",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.73",
+      "operation": "expm1",
+      "x_bits": "13854198353698488320",
+      "y_bits": null,
+      "expected_bits": "13830554455654793216",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.74",
+      "operation": "expm1",
+      "x_bits": "13845191154443747328",
+      "y_bits": null,
+      "expected_bits": "13830554046728579694",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.75",
+      "operation": "expm1",
+      "x_bits": "13830554455654793216",
+      "y_bits": null,
+      "expected_bits": "13827240892226439268",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.76",
+      "operation": "expm1",
+      "x_bits": "13826050856027422720",
+      "y_bits": null,
+      "expected_bits": "13824131770269881324",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.77",
+      "operation": "expm1",
+      "x_bits": "13810738617294363034",
+      "y_bits": null,
+      "expected_bits": "13810561438551217569",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.78",
+      "operation": "expm1",
+      "x_bits": "13680665593942359483",
+      "y_bits": null,
+      "expected_bits": "13680665593941972627",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.79",
+      "operation": "expm1",
+      "x_bits": "12334232581352326448",
+      "y_bits": null,
+      "expected_bits": "12334232581352326448",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.80",
+      "operation": "expm1",
+      "x_bits": "9341994084744098649",
+      "y_bits": null,
+      "expected_bits": "9341994084744098649",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.81",
+      "operation": "expm1",
+      "x_bits": "0",
+      "y_bits": null,
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.82",
+      "operation": "expm1",
+      "x_bits": "118622047889322841",
+      "y_bits": null,
+      "expected_bits": "118622047889322841",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.83",
+      "operation": "expm1",
+      "x_bits": "3110860544497550640",
+      "y_bits": null,
+      "expected_bits": "3110860544497550640",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.84",
+      "operation": "expm1",
+      "x_bits": "4457293557087583675",
+      "y_bits": null,
+      "expected_bits": "4457293557087970531",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.85",
+      "operation": "expm1",
+      "x_bits": "4562254508917369340",
+      "y_bits": null,
+      "expected_bits": "4562256815529185082",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.86",
+      "operation": "expm1",
+      "x_bits": "4587366580439587226",
+      "y_bits": null,
+      "expected_bits": "4587549764732880469",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.87",
+      "operation": "expm1",
+      "x_bits": "4602678819172646912",
+      "y_bits": null,
+      "expected_bits": "4604018381291261240",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.88",
+      "operation": "expm1",
+      "x_bits": "4607182418800017408",
+      "y_bits": null,
+      "expected_bits": "4610417272575012563",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.89",
+      "operation": "expm1",
+      "x_bits": "4621819117588971520",
+      "y_bits": null,
+      "expected_bits": "4671783527892976992",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.90",
+      "operation": "expm1",
+      "x_bits": "4630826316843712512",
+      "y_bits": null,
+      "expected_bits": "4866739787521422059",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.91",
+      "operation": "expm1",
+      "x_bits": "4649368480934526976",
+      "y_bits": null,
+      "expected_bits": "9155136748776909966",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.92",
+      "operation": "expm1",
+      "x_bits": "4649447645771726848",
+      "y_bits": null,
+      "expected_bits": "9213593174447348891",
+      "max_ulps": 4
+    },
+    {
+      "id": "expm1.93",
+      "operation": "expm1",
+      "x_bits": "4649456441864749056",
+      "y_bits": null,
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.94",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.95",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.96",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.97",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "9094988921128908187",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.98",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "6850974717710472879",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.99",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418803128384",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.100",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.101",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418793795455",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.102",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "2362753625475748981",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.103",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "118622047889322841",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.104",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.105",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.106",
+      "operation": "pow",
+      "x_bits": "118622047889322841",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.107",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.108",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.109",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "7598952565167317594",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.110",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "6103021453049119613",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.111",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "5355091182177117338",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.112",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418801054400",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.113",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.114",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418797943424",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.115",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "3859002664735258655",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.116",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "3110860544497550640",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.117",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "1614679632300144556",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.118",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.119",
+      "operation": "pow",
+      "x_bits": "3110860544497550640",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.120",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.121",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.122",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "5205425776111082662",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.123",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4906019910204099648",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.124",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4756540486875873280",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.125",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800224806",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.126",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.127",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418799602611",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.128",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4457293557087583675",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.129",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4307583784117748259",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.130",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4008604054463141788",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.131",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.132",
+      "operation": "pow",
+      "x_bits": "4307583784117748259",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.133",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.134",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "5504500338876674882",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.135",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4696837146684686336",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.136",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4652007308841189376",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.137",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4629594237989614119",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.138",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800048518",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.139",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.140",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418799955188",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.141",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4584718143433226866",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.142",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4562254508917369340",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.143",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4517329193108106637",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.144",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "3709195899275879977",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.145",
+      "operation": "pow",
+      "x_bits": "4562254508917369340",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.146",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "6850974717710472833",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.147",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4906019910204099641",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.148",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4636737291354636287",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.149",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4621819117588971520",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.150",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4614303235046005586",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.151",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800027778",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.152",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.153",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418799996668",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.154",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4599368272914696463",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.155",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4591870180066957722",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.156",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4576918229304087676",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.157",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4307583784117748267",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.158",
+      "operation": "pow",
+      "x_bits": "4591870180066957722",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "2362753625475749042",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.159",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "5282722362905591808",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.160",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4697254411347427328",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.161",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4616189618054758400",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.162",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4611686018427387904",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.163",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4609047870845172685",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.164",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800020530",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.165",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.166",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800011165",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.167",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4604544271217802189",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.168",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4602678819172646912",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.169",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4598175219545276416",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.170",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4517110426252607488",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.171",
+      "operation": "pow",
+      "x_bits": "4602678819172646912",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "3931642474694443008",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.172",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "4709601755752662659",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.173",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4620820029668872511",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.174",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4608238818712610487",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.175",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4607682818758614130",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.176",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4607426030003305698",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.177",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800017883",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.178",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.179",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800016459",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.180",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4606720199040462230",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.181",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4606281698874543309",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.182",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4605471050941616620",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.183",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4593424941884141562",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.184",
+      "operation": "pow",
+      "x_bits": "4606281698874543309",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "4504267641603099361",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.185",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "4607182418800017483",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.186",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4607182418800017418",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.187",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4607182418800017409",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.188",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4607182418800017409",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.189",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.190",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.191",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.192",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.193",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4607182418800017407",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.194",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4607182418800017407",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.195",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4607182418800017406",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.196",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4607182418800017388",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.197",
+      "operation": "pow",
+      "x_bits": "4607182418800017407",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "4607182418800017258",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.198",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.199",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.200",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.201",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.202",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.203",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.204",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.205",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.206",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.207",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.208",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.209",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.210",
+      "operation": "pow",
+      "x_bits": "4607182418800017408",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.211",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "4607182418800017108",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.212",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4607182418800017368",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.213",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4607182418800017404",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.214",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4607182418800017406",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.215",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4607182418800017407",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.216",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.217",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.218",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.219",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.220",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4607182418800017409",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.221",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4607182418800017410",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.222",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4607182418800017428",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.223",
+      "operation": "pow",
+      "x_bits": "4607182418800017409",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "4607182418800017558",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.224",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "4605928368866137916",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.225",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4607004152535056748",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.226",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4607164431387121877",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.227",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4607173420598963722",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.228",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4607177918575277469",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.229",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800017399",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.230",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.231",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800017413",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.232",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4607184670037162439",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.233",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4607186922399644778",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.234",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4607191430502871775",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.235",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4607273351632487522",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.236",
+      "operation": "pow",
+      "x_bits": "4607186922399644778",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "4607910863278666521",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.237",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "4597267249581688800",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.238",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4605557019887725604",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.239",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4607004941390919972",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.240",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4607093238609376408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.241",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4607137717783375401",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.242",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800017318",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.243",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.244",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800017453",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.245",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4607204880782886899",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.246",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4607227454796291113",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.247",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4607272941152527555",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.248",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4608174066581877767",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.249",
+      "operation": "pow",
+      "x_bits": "4607227454796291113",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "4616694497351624741",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.250",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "4559255609000798750",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.251",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4600461057256412734",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.252",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4606345014787671873",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.253",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4606753504549791646",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.254",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4606965345955040124",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.255",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800016969",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.256",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.257",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800017628",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.258",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4607293635537772859",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.259",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4607407598781385933",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.260",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4607644037761822884",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.261",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4613157114078113114",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.262",
+      "operation": "pow",
+      "x_bits": "4607407598781385933",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "4654346970611691329",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.263",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "4429104944881907188",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.264",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4583175437903966879",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.265",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4604430219027735439",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.266",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4605681218924227243",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.267",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4606397629898218687",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.268",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800015766",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.269",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.270",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800018229",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.271",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4607612265384412274",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.272",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4608083138725491507",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.273",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4609164002636060426",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.274",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4630592354832441377",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.275",
+      "operation": "pow",
+      "x_bits": "4608083138725491507",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "4784493350010995041",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.276",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "3931642474694443008",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.277",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4517110426252607488",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.278",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4598175219545276416",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.279",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4602678819172646912",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.280",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4604544271217802189",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.281",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418800011165",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.282",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.283",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800020530",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.284",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4609047870845172685",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.285",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4611686018427387904",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.286",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4616189618054758400",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.287",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4697254411347427328",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.288",
+      "operation": "pow",
+      "x_bits": "4611686018427387904",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "5282722362905591808",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.289",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "2362753625475748981",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.290",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4307583784117748259",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.291",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4576918229304087675",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.292",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4591870180066957722",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.293",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4599368272914696463",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.294",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418799996668",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.295",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.296",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800027778",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.297",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4614303235046005587",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.298",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4621819117588971520",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.299",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "4636737291354636288",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.300",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4906019910204099648",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.301",
+      "operation": "pow",
+      "x_bits": "4621819117588971520",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "6850974717710472879",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.302",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.303",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.304",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "4008604054463141788",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.305",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "4307583784117748259",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.306",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "4457293557087583675",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.307",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418799602611",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.308",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.309",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418800224806",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.310",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "4756540486875873280",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.311",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4906019910204099648",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.312",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "5205425776111082661",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.313",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.314",
+      "operation": "pow",
+      "x_bits": "4906019910204099648",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.315",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.316",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.317",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "1614679632300144556",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.318",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "3110860544497550640",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.319",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "3859002664735258655",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.320",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418797943424",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.321",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.322",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418801054400",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.323",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "5355091182177117338",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.324",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "6103021453049119613",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.325",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "7598952565167317594",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.326",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.327",
+      "operation": "pow",
+      "x_bits": "6103021453049119613",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.328",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "13862853709232340992",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.329",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.330",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "13835058055282163712",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.331",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "118622047889322841",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.332",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "13826050856027422720",
+      "expected_bits": "2362753625475748981",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.333",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "13650858631089744401",
+      "expected_bits": "4607182418793795455",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.334",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.335",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "4427486594234968593",
+      "expected_bits": "4607182418803128384",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.336",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "4602678819172646912",
+      "expected_bits": "6850974717710472879",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.337",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "9094988921128908188",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.338",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "4611686018427387904",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.339",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.340",
+      "operation": "pow",
+      "x_bits": "9094988921128908188",
+      "y_bits": "4639481672377565184",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.341",
+      "operation": "pow",
+      "x_bits": "13835058055282163712",
+      "y_bits": "13849976229047828480",
+      "expected_bits": "13735978863480012800",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.342",
+      "operation": "pow",
+      "x_bits": "13835058055282163712",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4517110426252607488",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.343",
+      "operation": "pow",
+      "x_bits": "13835058055282163712",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "13826050856027422720",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.344",
+      "operation": "pow",
+      "x_bits": "13835058055282163712",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.345",
+      "operation": "pow",
+      "x_bits": "13835058055282163712",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "13835058055282163712",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.346",
+      "operation": "pow",
+      "x_bits": "13835058055282163712",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4697254411347427328",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.347",
+      "operation": "pow",
+      "x_bits": "13835058055282163712",
+      "y_bits": "4626604192193052672",
+      "expected_bits": "13925130047829573632",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.348",
+      "operation": "pow",
+      "x_bits": "13830554455654793216",
+      "y_bits": "13849976229047828480",
+      "expected_bits": "13830554455654793216",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.349",
+      "operation": "pow",
+      "x_bits": "13830554455654793216",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.350",
+      "operation": "pow",
+      "x_bits": "13830554455654793216",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "13830554455654793216",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.351",
+      "operation": "pow",
+      "x_bits": "13830554455654793216",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.352",
+      "operation": "pow",
+      "x_bits": "13830554455654793216",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "13830554455654793216",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.353",
+      "operation": "pow",
+      "x_bits": "13830554455654793216",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.354",
+      "operation": "pow",
+      "x_bits": "13830554455654793216",
+      "y_bits": "4626604192193052672",
+      "expected_bits": "13830554455654793216",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.355",
+      "operation": "pow",
+      "x_bits": "13826050856027422720",
+      "y_bits": "13849976229047828480",
+      "expected_bits": "13925130047829573632",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.356",
+      "operation": "pow",
+      "x_bits": "13826050856027422720",
+      "y_bits": "13849694754071117824",
+      "expected_bits": "4697254411347427328",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.357",
+      "operation": "pow",
+      "x_bits": "13826050856027422720",
+      "y_bits": "13830554455654793216",
+      "expected_bits": "13835058055282163712",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.358",
+      "operation": "pow",
+      "x_bits": "13826050856027422720",
+      "y_bits": "0",
+      "expected_bits": "4607182418800017408",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.359",
+      "operation": "pow",
+      "x_bits": "13826050856027422720",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "13826050856027422720",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.360",
+      "operation": "pow",
+      "x_bits": "13826050856027422720",
+      "y_bits": "4626322717216342016",
+      "expected_bits": "4517110426252607488",
+      "max_ulps": 4
+    },
+    {
+      "id": "pow.361",
+      "operation": "pow",
+      "x_bits": "13826050856027422720",
+      "y_bits": "4626604192193052672",
+      "expected_bits": "13735978863480012800",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.362",
+      "operation": "hypot",
+      "x_bits": "0",
+      "y_bits": "0",
+      "expected_bits": "0",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.363",
+      "operation": "hypot",
+      "x_bits": "4613937818241073152",
+      "y_bits": "4616189618054758400",
+      "expected_bits": "4617315517961601024",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.364",
+      "operation": "hypot",
+      "x_bits": "13837309855095848960",
+      "y_bits": "4616189618054758400",
+      "expected_bits": "4617315517961601024",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.365",
+      "operation": "hypot",
+      "x_bits": "4607182418800017408",
+      "y_bits": "4607182418800017408",
+      "expected_bits": "4609047870845172685",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.366",
+      "operation": "hypot",
+      "x_bits": "118622047889322841",
+      "y_bits": "118622047889322841",
+      "expected_bits": "121120607792669221",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.367",
+      "operation": "hypot",
+      "x_bits": "2024",
+      "y_bits": "2024",
+      "expected_bits": "2862",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.368",
+      "operation": "hypot",
+      "x_bits": "9094988921128908188",
+      "y_bits": "9094988921128908188",
+      "expected_bits": "9097522851029299729",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.369",
+      "operation": "hypot",
+      "x_bits": "9214871658872686752",
+      "y_bits": "9214871658872686752",
+      "expected_bits": "9216947043162673653",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.370",
+      "operation": "hypot",
+      "x_bits": "9214871658872686752",
+      "y_bits": "2024022533073106",
+      "expected_bits": "9214871658872686752",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.371",
+      "operation": "hypot",
+      "x_bits": "3110860544497550640",
+      "y_bits": "6103021453049119613",
+      "expected_bits": "6103021453049119613",
+      "max_ulps": 4
+    },
+    {
+      "id": "hypot.372",
+      "operation": "hypot",
+      "x_bits": "9218868437227405311",
+      "y_bits": "9218868437227405311",
+      "expected_bits": "9218868437227405312",
+      "max_ulps": 4
+    }
+  ]
+}

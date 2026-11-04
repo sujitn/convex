@@ -1,226 +1,76 @@
-//! Money Market Yield Calculations.
-//!
-//! Provides:
-//! - T-Bill discount yield
-//! - T-Bill bond equivalent yield
-//! - CD equivalent yield
-//! - Money Market Equivalent Yield for coupon bonds
-
-use convex_bonds::traits::BondCashFlow;
-use convex_core::types::Date;
-use rust_decimal::prelude::ToPrimitive;
+//! Explicit constant-rate cash-account projection and checked bill measures.
+//! Projection rates/basis are supplied; no market/YAS convention is inferred.
+use crate::error::{AnalyticsError, AnalyticsResult};
+use convex_bonds::{
+    pricing::reinvestment::{self, ProjectionCash, ProjectionTerms},
+    traits::BondCashFlow,
+};
+use convex_core::{contracts::ExactDecimal, types::Date};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
-use crate::error::{AnalyticsError, AnalyticsResult};
-
-// ============================================================================
-// Money Market Equivalent Yield (Roll-Forward)
-// ============================================================================
-
-/// Calculate money market equivalent yield using roll-forward method.
-///
-/// This converts a bond's YTM to a money market equivalent yield by simulating
-/// the investment over a horizon period, accounting for coupon reinvestment.
-///
-/// # Formula
-///
-/// ```text
-/// MMY = (Total Value at Horizon / Initial Investment - 1) / (Days / Days per Year)
-/// ```
-///
-/// # Arguments
-///
-/// * `cash_flows` - Bond cash flows from settlement date forward
-/// * `dirty_price` - Dirty price (clean + accrued) as percentage of par
-/// * `ytm` - Yield to maturity as decimal (e.g., 0.05 for 5%)
-/// * `settlement` - Settlement date
-/// * `maturity` - Bond maturity date
-/// * `frequency` - Coupon frequency (1=annual, 2=semi-annual, 4=quarterly)
-/// * `days_per_year` - Day count basis (360 for USD/EUR, 365 for GBP/AUD)
-///
-/// # Returns
-///
-/// Money market yield as decimal (e.g., 0.048 for 4.8%)
-///
-/// # Example
-///
-/// ```ignore
-/// let mmy = money_market_yield(
-///     &cash_flows,
-///     dec!(110.5),  // dirty price
-///     dec!(0.05),   // 5% YTM
-///     settlement,
-///     maturity,
-///     2,            // semi-annual
-///     360,          // USD convention
-/// )?;
-/// ```
-pub fn money_market_yield(
-    cash_flows: &[BondCashFlow],
-    dirty_price: Decimal,
-    ytm: Decimal,
+/// Annualized model return. The default CALENDAR horizon equals the explicitly
+/// supplied reporting-year day count; it is not a market calendar-year roll.
+pub fn constant_rate_return(
+    cash: &[BondCashFlow],
+    initial: Decimal,
+    model_rate: Decimal,
     settlement: Date,
     maturity: Date,
     frequency: u32,
-    days_per_year: u32,
+    reporting_days_per_year: u32,
 ) -> AnalyticsResult<Decimal> {
-    money_market_yield_with_horizon(
-        cash_flows,
-        dirty_price,
-        ytm,
+    constant_rate_return_with_horizon(
+        cash,
+        initial,
+        model_rate,
         settlement,
         maturity,
         frequency,
-        days_per_year,
-        days_per_year, // Default horizon = 1 year in the relevant convention
+        reporting_days_per_year,
+        reporting_days_per_year,
     )
 }
-
-/// Calculate money market yield with custom horizon.
-///
-/// Same as `money_market_yield` but allows specifying a custom horizon in days.
+/// Checked original account projection with the SAME explicitly supplied model
+/// rate for residual valuation and reinvestment. For distinct rates/full output,
+/// use the native reinvestment::project operation. Cash and initial value must
+/// have matching absolute units. Original terminal cash is required at maturity.
 #[allow(clippy::too_many_arguments)]
-pub fn money_market_yield_with_horizon(
-    cash_flows: &[BondCashFlow],
-    dirty_price: Decimal,
-    ytm: Decimal,
+pub fn constant_rate_return_with_horizon(
+    cash: &[BondCashFlow],
+    initial: Decimal,
+    model_rate: Decimal,
     settlement: Date,
     maturity: Date,
     frequency: u32,
-    days_per_year: u32,
+    reporting_days_per_year: u32,
     max_horizon_days: u32,
 ) -> AnalyticsResult<Decimal> {
-    // Validate inputs
-    if cash_flows.is_empty() {
+    if cash.is_empty() || cash.len() > 4096 {
         return Err(AnalyticsError::InvalidInput(
-            "no cash flows provided".to_string(),
+            "1..4096 projection transfers required".into(),
         ));
     }
-
-    if dirty_price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "dirty price must be positive".to_string(),
-        ));
-    }
-
-    // Calculate horizon date (earlier of max_horizon or maturity)
-    let max_horizon = settlement.add_days(max_horizon_days as i64);
-    let horizon = if maturity < max_horizon {
-        maturity
-    } else {
-        max_horizon
-    };
-
-    let days_to_horizon = settlement.days_between(&horizon);
-    if days_to_horizon <= 0 {
-        return Err(AnalyticsError::InvalidInput(
-            "horizon must be after settlement".to_string(),
-        ));
-    }
-
-    // Roll forward to calculate total value at horizon
-    let total_value = roll_forward(
-        dirty_price,
-        cash_flows,
-        ytm,
-        ytm, // reinvestment rate = YTM
-        settlement,
-        horizon,
-        maturity,
-        frequency,
-    );
-
-    // MMY = (FV/PV - 1) / t where t = days / days_per_year
-    let t = Decimal::from(days_to_horizon) / Decimal::from(days_per_year);
-
-    if t <= Decimal::ZERO {
-        return Ok(Decimal::ZERO);
-    }
-
-    let mmy = (total_value / dirty_price - Decimal::ONE) / t;
-    Ok(mmy)
-}
-
-/// Perform roll-forward calculation to get total value at horizon.
-#[allow(clippy::too_many_arguments)]
-fn roll_forward(
-    initial: Decimal,
-    cash_flows: &[BondCashFlow],
-    ytm: Decimal,
-    reinvest_rate: Decimal,
-    settlement: Date,
-    horizon: Date,
-    maturity: Date,
-    frequency: u32,
-) -> Decimal {
-    let ppy = if frequency == 0 {
-        Decimal::ONE
-    } else {
-        Decimal::from(frequency)
-    };
-
-    let ytm_per_period = ytm / ppy;
-    let reinvest_per_period = reinvest_rate / ppy;
-
-    let mut bond_value = initial;
-    let mut reinvested = Decimal::ZERO;
-    let mut current_date = settlement;
-
-    // Process cash flows between settlement and horizon
-    for cf in cash_flows
+    let cash: Vec<_> = cash
         .iter()
-        .filter(|c| c.date > settlement && c.date <= horizon)
-    {
-        let periods = periods_between(current_date, cf.date, frequency);
-
-        // Compound bond value at YTM
-        let growth = pow_decimal(Decimal::ONE + ytm_per_period, periods);
-        let bond_at_cf = bond_value * growth;
-
-        // Compound reinvested coupons
-        let reinvest_growth = pow_decimal(Decimal::ONE + reinvest_per_period, periods);
-        reinvested *= reinvest_growth;
-
-        // Update state: subtract CF from bond, add to reinvested
-        bond_value = bond_at_cf - cf.amount;
-        reinvested += cf.amount;
-        current_date = cf.date;
-    }
-
-    // Compound to horizon if needed
-    if current_date < horizon {
-        let periods = periods_between(current_date, horizon, frequency);
-
-        bond_value *= pow_decimal(Decimal::ONE + ytm_per_period, periods);
-        reinvested *= pow_decimal(Decimal::ONE + reinvest_per_period, periods);
-    }
-
-    // Residual bond value is zero if matured
-    let residual = if horizon >= maturity {
-        Decimal::ZERO
-    } else {
-        bond_value
+        .map(|c| ProjectionCash {
+            date: c.date,
+            amount: ExactDecimal::new(c.amount),
+        })
+        .collect();
+    let terms = ProjectionTerms {
+        settlement,
+        maturity,
+        initial_cash_value: ExactDecimal::new(initial),
+        valuation_rate: ExactDecimal::new(model_rate),
+        reinvestment_rate: ExactDecimal::new(model_rate),
+        frequency,
+        reporting_days_per_year,
+        max_horizon_days,
     };
-
-    residual + reinvested
-}
-
-/// Calculate periods between two dates.
-#[inline]
-fn periods_between(from: Date, to: Date, frequency: u32) -> Decimal {
-    let days = from.days_between(&to) as f64;
-    let years = days / 365.0;
-    let periods = years * frequency as f64;
-    Decimal::from_f64_retain(periods).unwrap_or(Decimal::ZERO)
-}
-
-/// Decimal exponentiation via f64.
-#[inline]
-fn pow_decimal(base: Decimal, exp: Decimal) -> Decimal {
-    let b = base.to_f64().unwrap_or(1.0);
-    let e = exp.to_f64().unwrap_or(0.0);
-    Decimal::from_f64_retain(b.powf(e)).unwrap_or(Decimal::ONE)
+    reinvestment::project(&cash, &terms)
+        .map(|v| v.annualized_return.decimal())
+        .map_err(Into::into)
 }
 
 // ============================================================================
@@ -245,27 +95,19 @@ pub fn discount_yield(
     face_value: Decimal,
     days_to_maturity: u32,
 ) -> AnalyticsResult<Decimal> {
-    if days_to_maturity == 0 {
-        return Err(AnalyticsError::InvalidInput(
-            "days to maturity must be positive".to_string(),
-        ));
-    }
-
-    if face_value <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "face value must be positive".to_string(),
-        ));
-    }
-
-    let discount = face_value - price;
-    let days = Decimal::from(days_to_maturity);
-    let dy = discount / face_value * (dec!(360) / days) * dec!(100);
-    Ok(dy)
+    bill_percent(convex_bonds::pricing::bill::bank_discount_yield(
+        price,
+        face_value,
+        i64::from(days_to_maturity),
+    ))
 }
 
-/// Calculate bond equivalent yield (BEY).
+/// Calculate a fixed-365 simple yield for instruments of at most 182 days.
 ///
-/// Converts discount yield to a yield comparable with coupon bonds.
+/// This date-free helper returns a percent rate. Treasury investment-rate
+/// quotation requires original issue, settlement and maturity dates; use
+/// [`super::treasury_bill::quote_treasury_bill`] for that convention, including
+/// short bills whose issue-year basis is 366 and all long bills.
 ///
 /// # Formula (for instruments ≤ 182 days)
 ///
@@ -275,50 +117,18 @@ pub fn discount_yield(
 ///
 /// # Returns
 ///
-/// Bond equivalent yield as percentage
+/// Simple yield as percentage, or an error for invalid cash, unsupported term
+/// or Decimal overflow. No approximate long-bill calculation is performed.
 pub fn bond_equivalent_yield(
     price: Decimal,
     face_value: Decimal,
     days_to_maturity: u32,
 ) -> AnalyticsResult<Decimal> {
-    if days_to_maturity == 0 {
-        return Err(AnalyticsError::InvalidInput(
-            "days to maturity must be positive".to_string(),
-        ));
-    }
-
-    if price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "price must be positive".to_string(),
-        ));
-    }
-
-    let discount = face_value - price;
-    let days = Decimal::from(days_to_maturity);
-
-    if days_to_maturity <= 182 {
-        // Simple formula for short-dated instruments
-        let bey = discount / price * (dec!(365) / days) * dec!(100);
-        Ok(bey)
-    } else {
-        // Complex formula for longer instruments
-        let d = days_to_maturity as f64;
-        let p = price.to_f64().unwrap_or(100.0);
-        let f = face_value.to_f64().unwrap_or(100.0);
-
-        let term = d / 365.0;
-        let price_factor = 1.0 - f / p;
-        let discriminant = term * term + (2.0 * term - 1.0) * price_factor;
-
-        if discriminant < 0.0 {
-            return Err(AnalyticsError::CalculationFailed(
-                "negative discriminant in BEY calculation".to_string(),
-            ));
-        }
-
-        let bey = (-2.0 * term + 2.0 * discriminant.sqrt()) / (2.0 * term - 1.0);
-        Ok(Decimal::from_f64_retain(bey * 100.0).unwrap_or(Decimal::ZERO))
-    }
+    bill_percent(convex_bonds::pricing::bill::simple_bill_yield(
+        price,
+        face_value,
+        i64::from(days_to_maturity),
+    ))
 }
 
 /// Calculate CD equivalent yield.
@@ -335,22 +145,32 @@ pub fn cd_equivalent_yield(
     face_value: Decimal,
     days_to_maturity: u32,
 ) -> AnalyticsResult<Decimal> {
-    if days_to_maturity == 0 {
-        return Err(AnalyticsError::InvalidInput(
-            "days to maturity must be positive".to_string(),
-        ));
-    }
+    bill_percent(convex_bonds::pricing::bill::money_market_yield(
+        price,
+        face_value,
+        i64::from(days_to_maturity),
+    ))
+}
 
-    if price <= Decimal::ZERO {
-        return Err(AnalyticsError::InvalidInput(
-            "price must be positive".to_string(),
-        ));
+pub(super) fn bill_error(error: convex_bonds::BondError) -> AnalyticsError {
+    match error {
+        convex_bonds::BondError::InvalidSpec { reason }
+        | convex_bonds::BondError::InvalidPrice { reason } => AnalyticsError::InvalidInput(reason),
+        convex_bonds::BondError::PricingFailed { reason } => {
+            AnalyticsError::CalculationFailed(reason)
+        }
+        other => AnalyticsError::BondError(other.to_string()),
     }
+}
 
-    let discount = face_value - price;
-    let days = Decimal::from(days_to_maturity);
-    let cd = discount / price * (dec!(360) / days) * dec!(100);
-    Ok(cd)
+fn bill_percent(rate: convex_bonds::BondResult<Decimal>) -> AnalyticsResult<Decimal> {
+    rate.map_err(bill_error)?
+        .checked_mul(dec!(100))
+        .ok_or_else(|| {
+            AnalyticsError::CalculationFailed(
+                "bill percent rate exceeds Decimal arithmetic domain".into(),
+            )
+        })
 }
 
 // ============================================================================
@@ -360,7 +180,12 @@ pub fn cd_equivalent_yield(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::{
+        constant_rate_return as money_market_yield,
+        constant_rate_return_with_horizon as money_market_yield_with_horizon,
+    };
     use approx::assert_relative_eq;
+    use rust_decimal::prelude::ToPrimitive;
 
     fn date(y: i32, m: u32, d: u32) -> Date {
         Date::from_ymd(y, m, d).unwrap()

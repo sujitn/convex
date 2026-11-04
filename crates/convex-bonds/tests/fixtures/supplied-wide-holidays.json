@@ -1,0 +1,19 @@
+{
+  "status": "predeclared_supplied_exact_holiday_set_before_native_execution",
+  "input_holidays": [
+    "1969-12-31",
+    "2101-01-03"
+  ],
+  "expected_holiday_count": 2,
+  "expected_business_day": false,
+  "expected_roundtrip_holidays": [
+    "1969-12-31",
+    "2101-01-03"
+  ],
+  "expected_merged_holiday_count": 2,
+  "source": "Explicit original supplied data equality and set-union invariants; no real-market holiday claim.",
+  "exact_date_or_boolean_bound": 0,
+  "source_sha256": "dfdcb6df26869ec38ceb83c755405162963af3771225f934b0cfdf2622aa522a",
+  "accepted_task": false,
+  "certified": false
+}

@@ -7,6 +7,7 @@ use convex_core::Date;
 use rust_decimal::Decimal;
 
 use super::Bond;
+use crate::error::BondResult;
 use crate::types::{
     AmortizationSchedule, CallSchedule, InflationIndexType, PutSchedule, RateIndex,
 };
@@ -109,8 +110,9 @@ pub trait FloatingCouponBond: Bond {
     /// Returns the next reset date after the given date.
     fn next_reset_date(&self, after: Date) -> Option<Date>;
 
-    /// Returns the fixing date for a given reset date.
-    fn fixing_date(&self, reset_date: Date) -> Date;
+    /// Resolve the original reset lag against the actual supplied calendar.
+    /// Calendar, work-bound and date failures propagate.
+    fn fixing_date(&self, reset_date: Date) -> BondResult<Date>;
 }
 
 /// Extension trait for bonds with embedded options (callable/puttable).

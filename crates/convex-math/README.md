@@ -1,88 +1,91 @@
 # convex-math
 
-Mathematical utilities for the Convex fixed income analytics library.
+Numerical routines used by the rest of Convex: root finders, interpolation,
+extrapolation, a few linear algebra helpers and a small amount of statistics.
 
-## Overview
+Use it directly if you want these pieces without the bond and curve types, for
+example to solve for a yield or to interpolate a set of zero rates.
 
-`convex-math` provides numerical algorithms commonly used in fixed income calculations:
+## Where it sits
 
-- **Solvers**: Root-finding algorithms for yield calculations
-- **Interpolation**: Methods for yield curve interpolation
-- **Optimization**: Function optimization for curve fitting
-- **Linear Algebra**: Matrix operations for financial calculations
+`convex-math` has no dependencies on other Convex crates. `convex-core` depends
+on it, and the curve, rates, credit, bonds and analytics crates build on top of
+that.
 
-## Features
-
-### Root-Finding Algorithms
-
-```rust
-use convex_math::solvers::{newton_raphson, brent, bisection, SolverConfig};
-
-// Newton-Raphson (requires derivative)
-let f = |x: f64| x * x - 2.0;
-let df = |x: f64| 2.0 * x;
-let result = newton_raphson(f, df, 1.5, &SolverConfig::default()).unwrap();
-// result.root ≈ √2
-
-// Brent's method (bracketing, no derivative needed)
-let result = brent(f, 1.0, 2.0, &SolverConfig::default()).unwrap();
-
-// Bisection (simple but reliable)
-let result = bisection(f, 1.0, 2.0, &SolverConfig::default()).unwrap();
-```
-
-### Interpolation
-
-```rust
-use convex_math::interpolation::{LinearInterpolator, CubicSpline, Interpolator};
-
-// Linear interpolation
-let xs = vec![0.0, 1.0, 2.0, 3.0];
-let ys = vec![0.0, 1.0, 4.0, 9.0];
-
-let linear = LinearInterpolator::new(xs.clone(), ys.clone()).unwrap();
-let y = linear.interpolate(1.5).unwrap();
-
-// Cubic spline (smoother)
-let spline = CubicSpline::new(xs, ys).unwrap();
-let y = spline.interpolate(1.5).unwrap();
-```
-
-### Linear Algebra
-
-```rust
-use convex_math::linear_algebra::{solve_tridiagonal, solve_linear_system};
-use nalgebra::{DMatrix, DVector};
-
-// Efficient tridiagonal solver (common in spline fitting)
-let a = vec![1.0, 1.0];       // Lower diagonal
-let b = vec![2.0, 2.0, 2.0];  // Main diagonal
-let c = vec![1.0, 1.0];       // Upper diagonal
-let d = vec![1.0, 2.0, 3.0];  // RHS
-
-let x = solve_tridiagonal(&a, &b, &c, &d).unwrap();
-
-// General linear system
-let a = DMatrix::from_row_slice(2, 2, &[2.0, 1.0, 1.0, 3.0]);
-let b = DVector::from_vec(vec![5.0, 5.0]);
-let x = solve_linear_system(&a, &b).unwrap();
-```
-
-## Performance
-
-- Root-finding: Typically converges in < 10 iterations
-- Interpolation: O(log n) lookup with binary search
-- Tridiagonal solver: O(n) complexity
-
-## Installation
-
-Add to your `Cargo.toml`:
+## Install
 
 ```toml
 [dependencies]
-convex-math = { git = "https://github.com/sujitn/convex.git" }
+convex-math = "0.14"
 ```
+
+## What's in it
+
+- `solvers`: root finding with `newton_raphson`, `brent`, `bisection`, `secant`
+  and `hybrid` (Newton with a Brent fallback). Settings go in `SolverConfig`,
+  results come back as `SolverResult`.
+- `interpolation`: the `Interpolator` trait with `LinearInterpolator`,
+  `LogLinearInterpolator`, `CubicSpline`, `MonotoneConvex`, `FlatForward`, `PiecewiseConstant`, plus
+  the `NelsonSiegel` and `Svensson` parametric curves.
+- `extrapolation`: `FlatExtrapolator`, `LinearExtrapolator` and
+  `UfrConvergence` (forward rates that move toward an ultimate forward rate).
+- `optimization`: `golden_section_checked` (returns a `MathResult`; use it for
+  external input) and `bounded_least_squares`. The older `golden_section`
+  returns `NaN` when it fails.
+- `linear_algebra`: `solve_tridiagonal`, `lu_decomposition` and
+  `solve_linear_system`.
+- `stats`: `standard_normal_cdf` and `standard_normal_inverse`.
+- `decimal`: `BoundedDecimal`, exact decimal accumulation with a fixed size
+  limit and a single rounding step at the end.
+- `portable`: `exp`, `log`, `pow` and related functions taken from the `libm`
+  crate, so results do not depend on the platform's math library.
+- `bounds`: the size limits the other modules enforce, such as
+  `MAX_SOLVER_ITERATIONS` and `MAX_DATA_POINTS`.
+
+Functions that can fail return `MathResult`, with `MathError` as the error type.
+Bad input (non-finite numbers, unsorted points, too many points) is reported as
+an error rather than a panic. The exception is the older `golden_section`, which
+returns `NaN` instead; use `golden_section_checked` for external input.
+
+## Examples
+
+Solve for the yield that prices a 5-year bond with a 5% annual coupon at 95:
+
+```rust
+use convex_math::solvers::{brent, SolverConfig};
+
+let price_error = |y: f64| {
+    let coupons: f64 = (1..=5).map(|t| 5.0 / (1.0 + y).powi(t)).sum();
+    coupons + 100.0 / (1.0 + y).powi(5) - 95.0
+};
+
+let result = brent(price_error, 0.0, 0.20, &SolverConfig::default()).unwrap();
+// A bond priced below par yields more than its coupon.
+assert!(result.root > 0.05 && result.root < 0.07);
+assert!(price_error(result.root).abs() < 1e-6);
+```
+
+Interpolate a zero curve between pillars:
+
+```rust
+use convex_math::interpolation::{Interpolator, LinearInterpolator};
+
+let years = vec![1.0, 2.0, 5.0, 10.0];
+let zeros = vec![0.040, 0.042, 0.045, 0.047];
+
+let curve = LinearInterpolator::new(years, zeros).unwrap();
+let zero_3y = curve.interpolate(3.0).unwrap();
+assert!((zero_3y - 0.043).abs() < 1e-12);
+
+// Outside the pillar range is an error unless extrapolation is switched on.
+assert!(curve.interpolate(15.0).is_err());
+```
+
+## Links
+
+- API documentation: <https://docs.rs/convex-math>
+- Portable math kernels: <https://github.com/sujitn/convex/blob/main/docs/PORTABLE-NUMERICS.md>
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+MIT. See LICENSE.

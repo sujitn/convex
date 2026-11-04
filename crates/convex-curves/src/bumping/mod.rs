@@ -58,3 +58,46 @@ pub use key_rate::{
 };
 pub use parallel::{ArcBumpedCurve, BumpedCurve, ParallelBump};
 pub use scenario::{presets, ArcScenarioCurve, Scenario, ScenarioBump, ScenarioCurve};
+
+// Borrowed and Arc-owned views apply exactly the same raw transformation.
+fn shift_value(kind: &crate::value_type::ValueType, value: f64, shift: f64, tenor: f64) -> f64 {
+    use crate::value_type::ValueType;
+    match kind {
+        ValueType::DiscountFactor | ValueType::SurvivalProbability => {
+            value * convex_math::portable::exp(-shift * tenor)
+        }
+        ValueType::ZeroRate { .. }
+        | ValueType::ForwardRate { .. }
+        | ValueType::InstantaneousForward
+        | ValueType::HazardRate
+        | ValueType::ParSwapRate { .. }
+        | ValueType::CreditSpread { .. }
+        | ValueType::InflationIndexRatio
+        | ValueType::FxForwardPoints => value + shift,
+    }
+}
+
+fn checked_shift_value(
+    kind: &crate::value_type::ValueType,
+    value: f64,
+    shift: f64,
+    tenor: f64,
+) -> crate::error::CurveResult<f64> {
+    if !value.is_finite() || !shift.is_finite() || !tenor.is_finite() || tenor < 0.0 {
+        return Err(crate::error::CurveError::invalid_value(
+            "bumped query requires finite values and a nonnegative tenor",
+        ));
+    }
+    let multiplicative = matches!(
+        kind,
+        crate::value_type::ValueType::DiscountFactor
+            | crate::value_type::ValueType::SurvivalProbability
+    );
+    let result = shift_value(kind, value, shift, tenor);
+    if !result.is_finite() || (multiplicative && value != 0.0 && result == 0.0) {
+        return Err(crate::error::CurveError::invalid_value(
+            "bumped query overflow or nonzero underflow",
+        ));
+    }
+    Ok(result)
+}

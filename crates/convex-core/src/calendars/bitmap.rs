@@ -1,6 +1,6 @@
 //! Bitmap-based holiday calendar for O(1) lookups.
 //!
-//! This module provides a high-performance holiday calendar implementation
+//! This module provides a bitmap holiday calendar implementation
 //! using bitmap storage for constant-time holiday checks.
 
 use crate::types::Date;
@@ -138,6 +138,19 @@ impl HolidayBitmap {
         if let Some((word_idx, bit_idx)) = Self::date_to_indices(date) {
             self.bits[word_idx] &= !(1u64 << bit_idx);
         }
+    }
+
+    /// Check that this date has actual storage in the holiday bitmap.
+    pub fn validate_date(&self, date: Date) -> crate::ConvexResult<()> {
+        if !(MIN_YEAR..=MAX_YEAR).contains(&date.year()) {
+            return Err(crate::ConvexError::CalendarError {
+                reason: format!(
+                    "{} holiday data does not cover {}; stored years {}..={}",
+                    self.name, date, MIN_YEAR, MAX_YEAR
+                ),
+            });
+        }
+        Ok(())
     }
 
     /// Check if a date is a holiday (excluding weekends).

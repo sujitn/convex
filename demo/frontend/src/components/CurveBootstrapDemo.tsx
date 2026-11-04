@@ -54,6 +54,11 @@ import {
 type ViewMode = 'zero' | 'forward' | 'discount';
 type BootstrapMethod = 'both' | 'global' | 'piecewise';
 
+/** Instruments the server calibrator accepts; bond helpers are not supported yet. */
+const isCalibratable = (
+  inst: CalibrationInstrument
+): inst is Exclude<CalibrationInstrument, { type: 'Bond' }> => inst.type !== 'Bond';
+
 export function CurveBootstrapDemo() {
   // State
   const [instruments, setInstruments] = useState<CalibrationInstrument[]>(
@@ -118,33 +123,41 @@ export function CurveBootstrapDemo() {
   }, []);
 
   // Convert frontend instruments to API format
+  // The server rejects instrument types it cannot calibrate; bond helpers are not supported yet.
   const toApiInstruments = (insts: CalibrationInstrument[]): BootstrapInstrumentInput[] => {
-    return insts.map(inst => {
-      const base = {
-        type: inst.type,
-        quote: inst.type === 'Bond' ? 0 : inst.quote, // Bond uses price, not quote
-        description: inst.description,
-      };
+    return insts
+      .filter(isCalibratable)
+      .map(inst => {
+        const base = {
+          type: inst.type,
+          quote: inst.quote,
+          description: inst.description,
+        };
 
-      if (inst.type === 'FRA') {
-        return { ...base, start_tenor: inst.startTenor, end_tenor: inst.endTenor };
-      } else if (inst.type === 'Bond') {
-        // Bond pricing not fully supported yet - skip
-        return { ...base, tenor: inst.maturity };
-      } else {
-        return { ...base, tenor: inst.tenor };
-      }
-    });
+        if (inst.type === 'FRA') {
+          return { ...base, start_tenor: inst.startTenor, end_tenor: inst.endTenor };
+        } else {
+          return { ...base, tenor: inst.tenor };
+        }
+      });
   };
 
   // Convert API response to frontend CalibrationResult format
   const apiToCalibrationResult = (
     response: Awaited<ReturnType<typeof bootstrapCurveApi>>,
     method: 'GlobalFit' | 'Piecewise',
-    durationMs: number
+    durationMs: number,
+    rows: CalibrationInstrument[]
   ): CalibrationResult => {
     // Build curve from response points
     const curvePoints = response.points.map(([tenor, rate]) => ({ tenor, rate }));
+    // Residuals come back for the sent rows only; re-index them to the table.
+    // Bond rows are not sent, so their slots stay empty and render as '-'.
+    const residualsBps: number[] = new Array(rows.length);
+    let sent = 0;
+    rows.forEach((inst, i) => {
+      if (isCalibratable(inst)) residualsBps[i] = response.calibration.residuals_bps[sent++];
+    });
 
     return {
       curve: {
@@ -154,8 +167,8 @@ export function CurveBootstrapDemo() {
         interpolation,
         valueType: 'ZeroRate',
       },
-      residuals: response.calibration.residuals_bps.map(bps => bps / 10000),
-      residualsBps: response.calibration.residuals_bps,
+      residuals: residualsBps.map(bps => bps / 10000),
+      residualsBps,
       iterations: response.calibration.iterations,
       rmsError: response.calibration.rms_error,
       maxError: response.calibration.max_error_bps / 10000,
@@ -167,7 +180,7 @@ export function CurveBootstrapDemo() {
 
   // Run calibration using Convex server API
   const handleCalibrate = useCallback(async () => {
-    if (instruments.length === 0) return;
+    if (!instruments.some(isCalibratable)) return;
 
     setIsCalibrating(true);
 
@@ -185,7 +198,7 @@ export function CurveBootstrapDemo() {
           method: 'GlobalFit',
         });
         const durationMs = performance.now() - startTime;
-        setGlobalResult(apiToCalibrationResult(response, 'GlobalFit', durationMs));
+        setGlobalResult(apiToCalibrationResult(response, 'GlobalFit', durationMs, instruments));
       } else {
         setGlobalResult(null);
       }
@@ -200,7 +213,7 @@ export function CurveBootstrapDemo() {
           method: 'Piecewise',
         });
         const durationMs = performance.now() - startTime;
-        setPiecewiseResult(apiToCalibrationResult(response, 'Piecewise', durationMs));
+        setPiecewiseResult(apiToCalibrationResult(response, 'Piecewise', durationMs, instruments));
       } else {
         setPiecewiseResult(null);
       }
@@ -438,7 +451,7 @@ export function CurveBootstrapDemo() {
           {/* Calibrate Button */}
           <button
             onClick={handleCalibrate}
-            disabled={isCalibrating || instruments.length === 0}
+            disabled={isCalibrating || !instruments.some(isCalibratable)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {isCalibrating ? (

@@ -1,0 +1,1871 @@
+{
+  "certified": false,
+  "precision": 60,
+  "provenance": "Independent analytic continuous solutions and original finite-lattice arithmetic; no candidate output consumed.",
+  "cases": [
+    {
+      "id": "hedge.mixed",
+      "expected": {
+        "current": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-8000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-8",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-8000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-8000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-8",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-8000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.aggregate",
+      "expected": {
+        "current": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-8000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-8",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-8000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-8000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-8",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-8000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.signed",
+      "expected": {
+        "current": [
+          "-4.0",
+          "3.0",
+          "-2.0",
+          "-1.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "-4.0",
+          "3.0",
+          "-2.0",
+          "-1.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "4000",
+            "-3000",
+            "2000",
+            "1"
+          ],
+          "reference_multiples": [
+            "4",
+            "-3",
+            "2",
+            "1"
+          ],
+          "final_holdings": [
+            "4000",
+            "-3000",
+            "2000",
+            "1"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "4000",
+            "-3000",
+            "2000",
+            "1"
+          ],
+          "reference_multiples": [
+            "4",
+            "-3",
+            "2",
+            "1"
+          ],
+          "final_holdings": [
+            "4000",
+            "-3000",
+            "2000",
+            "1"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.zero",
+      "expected": {
+        "current": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "reference_multiples": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "final_holdings": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "reference_multiples": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "final_holdings": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.pending",
+      "expected": {
+        "current": [
+          "-4.0",
+          "3.0",
+          "-2.0",
+          "-1.0"
+        ],
+        "pending": [
+          "2.0",
+          "-1.5",
+          "1.0",
+          "0.5"
+        ],
+        "before": [
+          "-2.0",
+          "1.5",
+          "-1.0",
+          "-0.5"
+        ],
+        "continuous": {
+          "quantities": [
+            "2000",
+            "-1500.0",
+            "1000",
+            "0.5"
+          ],
+          "reference_multiples": [
+            "2",
+            "-1.5",
+            "1",
+            "0.5"
+          ],
+          "final_holdings": [
+            "2000",
+            "-1500.0",
+            "1000",
+            "0.5"
+          ],
+          "after": [
+            "0.00",
+            "0.00",
+            "0.00",
+            "0.00"
+          ],
+          "residual": [
+            "0.00",
+            "0.00",
+            "0.00",
+            "0.00"
+          ],
+          "candidate_costs": [
+            "0",
+            "0.0",
+            "0",
+            "0.0"
+          ],
+          "total_cost": "0.0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "2000",
+            "-1500.0",
+            "1000",
+            "0"
+          ],
+          "reference_multiples": [
+            "2",
+            "-1.5",
+            "1",
+            "0"
+          ],
+          "final_holdings": [
+            "2000",
+            "-1500.0",
+            "1000",
+            "0"
+          ],
+          "after": [
+            "0.00",
+            "0.00",
+            "0.00",
+            "-0.50"
+          ],
+          "residual": [
+            "0.00",
+            "0.00",
+            "0.00",
+            "-0.50"
+          ],
+          "candidate_costs": [
+            "0",
+            "0.0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0.0",
+          "tracking_objective": "0.1250",
+          "objective": "0.1250"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.side_costs",
+      "expected": {
+        "current": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-7000",
+            "5500.0",
+            "-3000",
+            "-1"
+          ],
+          "reference_multiples": [
+            "-7",
+            "5.5",
+            "-3",
+            "-1"
+          ],
+          "final_holdings": [
+            "-7000",
+            "5500.0",
+            "-3000",
+            "-1"
+          ],
+          "after": [
+            "1.00",
+            "-0.50",
+            "1.00",
+            "1.00"
+          ],
+          "residual": [
+            "1.00",
+            "-0.50",
+            "1.00",
+            "1.00"
+          ],
+          "candidate_costs": [
+            "7",
+            "2.75",
+            "3",
+            "1"
+          ],
+          "total_cost": "13.75",
+          "tracking_objective": "1.6250",
+          "objective": "15.3750"
+        },
+        "proposal": {
+          "quantities": [
+            "-7000",
+            "5500.0",
+            "-3000",
+            "-1"
+          ],
+          "reference_multiples": [
+            "-7",
+            "5.5",
+            "-3",
+            "-1"
+          ],
+          "final_holdings": [
+            "-7000",
+            "5500.0",
+            "-3000",
+            "-1"
+          ],
+          "after": [
+            "1.00",
+            "-0.50",
+            "1.00",
+            "1.00"
+          ],
+          "residual": [
+            "1.00",
+            "-0.50",
+            "1.00",
+            "1.00"
+          ],
+          "candidate_costs": [
+            "7",
+            "2.75",
+            "3",
+            "1"
+          ],
+          "total_cost": "13.75",
+          "tracking_objective": "1.6250",
+          "objective": "15.3750"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.liquidity",
+      "expected": {
+        "current": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-2000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-2",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-2000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "6.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "6.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "18.00",
+          "objective": "18.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-2000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-2",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-2000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "6.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "6.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "18.00",
+          "objective": "18.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.short_bound",
+      "expected": {
+        "current": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-1000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-1",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-1000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "7.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "7.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "24.50",
+          "objective": "24.50"
+        },
+        "proposal": {
+          "quantities": [
+            "-1000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-1",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-1000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "7.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "7.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "24.50",
+          "objective": "24.50"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.factor_boundary",
+      "expected": {
+        "current": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-5000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-5",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-5000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "3.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "-2.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "2.00",
+          "objective": "2.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-5000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "reference_multiples": [
+            "-5",
+            "6",
+            "-4",
+            "-2"
+          ],
+          "final_holdings": [
+            "-5000",
+            "6000",
+            "-4000",
+            "-2"
+          ],
+          "after": [
+            "3.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "-2.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "2.00",
+          "objective": "2.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.scales",
+      "expected": {
+        "current": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "4.0",
+          "-3.0",
+          "2.0",
+          "1.0"
+        ],
+        "before": [
+          "12.0",
+          "-9.0",
+          "6.0",
+          "3.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-12000",
+            "9000",
+            "-6000",
+            "-3"
+          ],
+          "reference_multiples": [
+            "-12",
+            "9",
+            "-6",
+            "-3"
+          ],
+          "final_holdings": [
+            "-12000",
+            "9000",
+            "-6000",
+            "-3"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-12000",
+            "9000",
+            "-6000",
+            "-3"
+          ],
+          "reference_multiples": [
+            "-12",
+            "9",
+            "-6",
+            "-3"
+          ],
+          "final_holdings": [
+            "-12000",
+            "9000",
+            "-6000",
+            "-3"
+          ],
+          "after": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0",
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0",
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.cost_budget",
+      "expected": {
+        "current": [
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "4.0",
+          "2.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-2500.0",
+            "-500.0"
+          ],
+          "reference_multiples": [
+            "-2.5",
+            "-0.5"
+          ],
+          "final_holdings": [
+            "-2500.0",
+            "-500.0"
+          ],
+          "after": [
+            "1.50",
+            "1.50"
+          ],
+          "residual": [
+            "1.50",
+            "1.50"
+          ],
+          "candidate_costs": [
+            "2.5",
+            "0.5"
+          ],
+          "total_cost": "3.0",
+          "tracking_objective": "2.2500",
+          "objective": "2.2500"
+        },
+        "proposal": {
+          "quantities": [
+            "-2500.0",
+            "-500.0"
+          ],
+          "reference_multiples": [
+            "-2.5",
+            "-0.5"
+          ],
+          "final_holdings": [
+            "-2500.0",
+            "-500.0"
+          ],
+          "after": [
+            "1.50",
+            "1.50"
+          ],
+          "residual": [
+            "1.50",
+            "1.50"
+          ],
+          "candidate_costs": [
+            "2.5",
+            "0.5"
+          ],
+          "total_cost": "3.0",
+          "tracking_objective": "2.2500",
+          "objective": "2.2500"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.coupled",
+      "expected": {
+        "current": [
+          "3.0",
+          "5.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "3.0",
+          "5.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-4000",
+            "1000"
+          ],
+          "reference_multiples": [
+            "-4",
+            "1"
+          ],
+          "final_holdings": [
+            "-4000",
+            "1000"
+          ],
+          "after": [
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-4000",
+            "1000"
+          ],
+          "reference_multiples": [
+            "-4",
+            "1"
+          ],
+          "final_holdings": [
+            "-4000",
+            "1000"
+          ],
+          "after": [
+            "0.0",
+            "0.0"
+          ],
+          "residual": [
+            "0.0",
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.coupled_bound",
+      "expected": {
+        "current": [
+          "3.0",
+          "5.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "3.0",
+          "5.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-2000",
+            "1000"
+          ],
+          "reference_multiples": [
+            "-2",
+            "1"
+          ],
+          "final_holdings": [
+            "-2000",
+            "1000"
+          ],
+          "after": [
+            "2.0",
+            "2.0"
+          ],
+          "residual": [
+            "2.0",
+            "2.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "4.00",
+          "objective": "4.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-2000",
+            "1000"
+          ],
+          "reference_multiples": [
+            "-2",
+            "1"
+          ],
+          "final_holdings": [
+            "-2000",
+            "1000"
+          ],
+          "after": [
+            "2.0",
+            "2.0"
+          ],
+          "residual": [
+            "2.0",
+            "2.0"
+          ],
+          "candidate_costs": [
+            "0",
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "4.00",
+          "objective": "4.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.lot_tie",
+      "expected": {
+        "current": [
+          "2.5"
+        ],
+        "pending": [
+          "0.0"
+        ],
+        "before": [
+          "2.5"
+        ],
+        "continuous": {
+          "quantities": [
+            "-2.5"
+          ],
+          "reference_multiples": [
+            "-2.5"
+          ],
+          "final_holdings": [
+            "-2.5"
+          ],
+          "after": [
+            "0.00"
+          ],
+          "residual": [
+            "0.00"
+          ],
+          "candidate_costs": [
+            "0.0"
+          ],
+          "total_cost": "0.0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-3"
+          ],
+          "reference_multiples": [
+            "-3"
+          ],
+          "final_holdings": [
+            "-3"
+          ],
+          "after": [
+            "-0.5"
+          ],
+          "residual": [
+            "-0.5"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.1250",
+          "objective": "0.1250"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.notional_lot",
+      "expected": {
+        "current": [
+          "0.24000000000000002"
+        ],
+        "pending": [
+          "0E-17"
+        ],
+        "before": [
+          "0.24000000000000002"
+        ],
+        "continuous": {
+          "quantities": [
+            "-240.00"
+          ],
+          "reference_multiples": [
+            "-0.24"
+          ],
+          "final_holdings": [
+            "-240.00"
+          ],
+          "after": [
+            "2E-17"
+          ],
+          "residual": [
+            "2E-17"
+          ],
+          "candidate_costs": [
+            "0.00"
+          ],
+          "total_cost": "0.00",
+          "tracking_objective": "2.00E-34",
+          "objective": "2.00E-34"
+        },
+        "proposal": {
+          "quantities": [
+            "-200.0"
+          ],
+          "reference_multiples": [
+            "-0.2"
+          ],
+          "final_holdings": [
+            "-200.0"
+          ],
+          "after": [
+            "0.04000000000000002"
+          ],
+          "residual": [
+            "0.04000000000000002"
+          ],
+          "candidate_costs": [
+            "0.0"
+          ],
+          "total_cost": "0.0",
+          "tracking_objective": "0.000800000000000000800000000000000200",
+          "objective": "0.000800000000000000800000000000000200"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.fixed_trade",
+      "expected": {
+        "current": [
+          "3.0"
+        ],
+        "pending": [
+          "0.0"
+        ],
+        "before": [
+          "3.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-1000"
+          ],
+          "reference_multiples": [
+            "-1"
+          ],
+          "final_holdings": [
+            "-1000"
+          ],
+          "after": [
+            "2.0"
+          ],
+          "residual": [
+            "2.0"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "2.00",
+          "objective": "2.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-1000"
+          ],
+          "reference_multiples": [
+            "-1"
+          ],
+          "final_holdings": [
+            "-1000"
+          ],
+          "after": [
+            "2.0"
+          ],
+          "residual": [
+            "2.0"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "2.00",
+          "objective": "2.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.held_candidate",
+      "expected": {
+        "current": [
+          "2.0"
+        ],
+        "pending": [
+          "1.0"
+        ],
+        "before": [
+          "3.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "-1000"
+          ],
+          "reference_multiples": [
+            "-1"
+          ],
+          "final_holdings": [
+            "2000"
+          ],
+          "after": [
+            "2.0"
+          ],
+          "residual": [
+            "2.0"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "2.00",
+          "objective": "2.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-1000"
+          ],
+          "reference_multiples": [
+            "-1"
+          ],
+          "final_holdings": [
+            "2000"
+          ],
+          "after": [
+            "2.0"
+          ],
+          "residual": [
+            "2.0"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "2.00",
+          "objective": "2.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.fx",
+      "expected": {
+        "current": [
+          "3.750"
+        ],
+        "pending": [
+          "0.000"
+        ],
+        "before": [
+          "3.750"
+        ],
+        "continuous": {
+          "quantities": [
+            "-3000"
+          ],
+          "reference_multiples": [
+            "-3"
+          ],
+          "final_holdings": [
+            "-3000"
+          ],
+          "after": [
+            "0.000"
+          ],
+          "residual": [
+            "0.000"
+          ],
+          "candidate_costs": [
+            "7.50"
+          ],
+          "total_cost": "7.50",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "-3000"
+          ],
+          "reference_multiples": [
+            "-3"
+          ],
+          "final_holdings": [
+            "-3000"
+          ],
+          "after": [
+            "0.000"
+          ],
+          "residual": [
+            "0.000"
+          ],
+          "candidate_costs": [
+            "7.50"
+          ],
+          "total_cost": "7.50",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.zero_budget",
+      "expected": {
+        "current": [
+          "0.0"
+        ],
+        "pending": [
+          "0.0"
+        ],
+        "before": [
+          "0.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "0"
+          ],
+          "reference_multiples": [
+            "0"
+          ],
+          "final_holdings": [
+            "0"
+          ],
+          "after": [
+            "0.0"
+          ],
+          "residual": [
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": {
+          "quantities": [
+            "0"
+          ],
+          "reference_multiples": [
+            "0"
+          ],
+          "final_holdings": [
+            "0"
+          ],
+          "after": [
+            "0.0"
+          ],
+          "residual": [
+            "0.0"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.zero_liquidity",
+      "expected": {
+        "current": [
+          "3.0"
+        ],
+        "pending": [
+          "0.0"
+        ],
+        "before": [
+          "3.0"
+        ],
+        "continuous": {
+          "quantities": [
+            "0"
+          ],
+          "reference_multiples": [
+            "0"
+          ],
+          "final_holdings": [
+            "0"
+          ],
+          "after": [
+            "3.0"
+          ],
+          "residual": [
+            "3.0"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "4.50",
+          "objective": "4.50"
+        },
+        "proposal": {
+          "quantities": [
+            "0"
+          ],
+          "reference_multiples": [
+            "0"
+          ],
+          "final_holdings": [
+            "0"
+          ],
+          "after": [
+            "3.0"
+          ],
+          "residual": [
+            "3.0"
+          ],
+          "candidate_costs": [
+            "0"
+          ],
+          "total_cost": "0",
+          "tracking_objective": "4.50",
+          "objective": "4.50"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.aggregate_without_candidates",
+      "expected": {
+        "current": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "pending": [
+          "0.0",
+          "0.0",
+          "0.0",
+          "0.0"
+        ],
+        "before": [
+          "8.0",
+          "-6.0",
+          "4.0",
+          "2.0"
+        ],
+        "continuous": {
+          "quantities": [],
+          "reference_multiples": [],
+          "final_holdings": [],
+          "after": [
+            "8.0",
+            "-6.0",
+            "4.0",
+            "2.0"
+          ],
+          "residual": [
+            "8.0",
+            "-6.0",
+            "4.0",
+            "2.0"
+          ],
+          "candidate_costs": [],
+          "total_cost": "0",
+          "tracking_objective": "60.00",
+          "objective": "60.00"
+        },
+        "proposal": {
+          "quantities": [],
+          "reference_multiples": [],
+          "final_holdings": [],
+          "after": [
+            "8.0",
+            "-6.0",
+            "4.0",
+            "2.0"
+          ],
+          "residual": [
+            "8.0",
+            "-6.0",
+            "4.0",
+            "2.0"
+          ],
+          "candidate_costs": [],
+          "total_cost": "0",
+          "tracking_objective": "60.00",
+          "objective": "60.00"
+        }
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    },
+    {
+      "id": "hedge.discrete_infeasible",
+      "expected": {
+        "current": [
+          "0.5"
+        ],
+        "pending": [
+          "0.0"
+        ],
+        "before": [
+          "0.5"
+        ],
+        "continuous": {
+          "quantities": [
+            "-0.5"
+          ],
+          "reference_multiples": [
+            "-0.5"
+          ],
+          "final_holdings": [
+            "-0.5"
+          ],
+          "after": [
+            "0.00"
+          ],
+          "residual": [
+            "0.00"
+          ],
+          "candidate_costs": [
+            "0.0"
+          ],
+          "total_cost": "0.0",
+          "tracking_objective": "0.00",
+          "objective": "0.00"
+        },
+        "proposal": null
+      },
+      "absolute": 1e-08,
+      "quantity_absolute": 1e-07,
+      "relative": 0.0
+    }
+  ]
+}

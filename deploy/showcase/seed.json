@@ -1,0 +1,559 @@
+{
+ "schema_version": 1,
+ "references": [
+  {
+   "recorded_at": "2026-10-07T12:00:00Z",
+   "command": {
+    "idempotency_key": "master-example-initial",
+    "changes": [
+     {
+      "kind": "create",
+      "bond": {
+       "instrument_id": "INSTRUMENT-001",
+       "isin": "OLD-ISIN",
+       "cusip": null,
+       "sedol": null,
+       "bbgid": null,
+       "description": "Fictional reference bond",
+       "currency": "USD",
+       "issue_date": "2020-01-15",
+       "maturity_date": "2030-01-15",
+       "coupon_rate": "0.05375",
+       "frequency": 2,
+       "day_count": "ACT/ACT",
+       "face_value": "100",
+       "bond_type": "FixedBullet",
+       "issuer_type": "CorporateIG",
+       "issuer_id": "ENTITY-001",
+       "issuer_name": "Fictional master issuer",
+       "seniority": "Senior",
+       "is_callable": false,
+       "call_schedule": [],
+       "is_putable": false,
+       "is_sinkable": false,
+       "floating_terms": null,
+       "inflation_index": null,
+       "inflation_base_index": null,
+       "has_deflation_floor": false,
+       "country_of_risk": "US",
+       "sector": "Technology",
+       "amount_outstanding": "100000000",
+       "first_coupon_date": null,
+       "last_updated": 0,
+       "source": "fictional-fixture",
+       "contractual_terms": {
+        "effective": {
+         "from": "2000-01-01T00:00:00Z",
+         "until": null
+        },
+        "dated_date": "2020-01-15",
+        "penultimate_coupon_date": null,
+        "redemption_value": "100",
+        "issuer": {
+         "entity_id": "ENTITY-001",
+         "version": 1
+        },
+        "calendar": {
+         "id": "calendar-example",
+         "version": 1
+        },
+        "calendar_code": "weekends_only",
+        "convention": {
+         "id": "convention-example",
+         "version": 1
+        },
+        "settings": {
+         "day_count": "ActActIsda",
+         "business_day_convention": "Unadjusted",
+         "end_of_month": false,
+         "settlement_days": 2,
+         "ex_coupon_days": 0
+        },
+        "provenance": {
+         "source": "fictional-fixture",
+         "evidence_reference": "fixture/master-v1"
+        },
+        "stub": "none",
+        "payment_lag": 0
+       }
+      }
+     }
+    ],
+    "master_changes": [
+     {
+      "expected_version": null,
+      "definition": {
+       "kind": "entity",
+       "definition": {
+        "entity_id": "ENTITY-001",
+        "legal_name": "Fictional master issuer",
+        "parent": null,
+        "country": "US",
+        "effective": {
+         "from": "2000-01-01T00:00:00Z",
+         "until": null
+        },
+        "provenance": {
+         "source": "fictional-fixture",
+         "evidence_reference": "fixture/master-v1"
+        }
+       }
+      }
+     },
+     {
+      "expected_version": null,
+      "definition": {
+       "kind": "calendar",
+       "definition": {
+        "calendar_id": "calendar-example",
+        "code": "weekends_only",
+        "rule_version": "convex-calendar-v1",
+        "coverage_from": "1900-01-01",
+        "coverage_until": "2100-12-31",
+        "effective": {
+         "from": "2000-01-01T00:00:00Z",
+         "until": null
+        },
+        "provenance": {
+         "source": "fictional-fixture",
+         "evidence_reference": "fixture/master-v1"
+        }
+       }
+      }
+     },
+     {
+      "expected_version": null,
+      "definition": {
+       "kind": "convention",
+       "definition": {
+        "convention_id": "convention-example",
+        "settings": {
+         "day_count": "ActActIsda",
+         "business_day_convention": "Unadjusted",
+         "end_of_month": false,
+         "settlement_days": 2,
+         "ex_coupon_days": 0
+        },
+        "effective": {
+         "from": "2000-01-01T00:00:00Z",
+         "until": null
+        },
+        "provenance": {
+         "source": "fictional-fixture",
+         "evidence_reference": "fixture/master-v1"
+        }
+       }
+      }
+     },
+     {
+      "expected_version": null,
+      "definition": {
+       "kind": "identifier",
+       "definition": {
+        "mapping_id": "isin-old",
+        "identifier": {
+         "kind": "isin",
+         "value": "OLD-ISIN"
+        },
+        "target": {
+         "kind": "instrument",
+         "instrument_id": "INSTRUMENT-001"
+        },
+        "effective": {
+         "from": "2000-01-01T00:00:00Z",
+         "until": null
+        },
+        "provenance": {
+         "source": "fictional-fixture",
+         "evidence_reference": "fixture/master-v1"
+        }
+       }
+      }
+     },
+     {
+      "expected_version": null,
+      "definition": {
+       "kind": "identifier",
+       "definition": {
+        "mapping_id": "provider-old",
+        "identifier": {
+         "kind": "provider",
+         "namespace": "provider-a",
+         "value": "OLD.SYMBOL"
+        },
+        "target": {
+         "kind": "instrument",
+         "instrument_id": "INSTRUMENT-001"
+        },
+        "effective": {
+         "from": "2000-01-01T00:00:00Z",
+         "until": null
+        },
+        "provenance": {
+         "source": "fictional-fixture",
+         "evidence_reference": "fixture/master-v1"
+        }
+       }
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "curves": [
+  {
+   "schema_version": 1,
+   "curve_id": "D.OIS",
+   "version": 1,
+   "source_time": "2026-10-07T12:00:00Z",
+   "recorded_at": "2026-10-07T12:00:00Z",
+   "source": "core.synthetic.curves",
+   "model_id": "native.supplied.recipes",
+   "input_versions": [],
+   "quality": "Demo",
+   "max_age_ms": 86400000,
+   "recipe": {
+    "key": {
+     "id": "D.OIS",
+     "version": "1"
+    },
+    "role": {
+     "kind": "Discount",
+     "collateral_currency": "USD"
+    },
+    "currency": "USD",
+    "reference_date": "2026-10-07",
+    "time_basis": "Act365Fixed",
+    "representation": "DiscountFactors",
+    "interpolation": "LogLinear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+     "Nodes": [
+      {
+       "pillar": {
+        "Tenor": 0
+       },
+       "quote": {
+        "value": 1.0,
+        "unit": "DiscountFactor"
+       }
+      },
+      {
+       "pillar": {
+        "Tenor": 50
+       },
+       "quote": {
+        "value": 0.2018965179946554,
+        "unit": "DiscountFactor"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "schema_version": 1,
+   "curve_id": "P.3M",
+   "version": 1,
+   "source_time": "2026-10-07T12:00:00Z",
+   "recorded_at": "2026-10-07T12:00:00Z",
+   "source": "core.synthetic.curves",
+   "model_id": "native.supplied.recipes",
+   "input_versions": [],
+   "quality": "Demo",
+   "max_age_ms": 86400000,
+   "recipe": {
+    "key": {
+     "id": "P.3M",
+     "version": "1"
+    },
+    "role": {
+     "kind": "Projection",
+     "index_id": "USD.TERM3M"
+    },
+    "currency": "USD",
+    "reference_date": "2026-10-07",
+    "time_basis": "Act365Fixed",
+    "representation": {
+     "ZeroRates": {
+      "compounding": "Continuous"
+     }
+    },
+    "interpolation": "Linear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+     "Nodes": [
+      {
+       "pillar": {
+        "Tenor": 0
+       },
+       "quote": {
+        "value": 0.041,
+        "unit": "DecimalRate"
+       }
+      },
+      {
+       "pillar": {
+        "Tenor": 50
+       },
+       "quote": {
+        "value": 0.041,
+        "unit": "DecimalRate"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "schema_version": 1,
+   "curve_id": "P.SOFR",
+   "version": 1,
+   "source_time": "2026-10-07T12:00:00Z",
+   "recorded_at": "2026-10-07T12:00:00Z",
+   "source": "core.synthetic.curves",
+   "model_id": "native.supplied.recipes",
+   "input_versions": [],
+   "quality": "Demo",
+   "max_age_ms": 86400000,
+   "recipe": {
+    "key": {
+     "id": "P.SOFR",
+     "version": "1"
+    },
+    "role": {
+     "kind": "Projection",
+     "index_id": "USD.SOFR"
+    },
+    "currency": "USD",
+    "reference_date": "2026-10-07",
+    "time_basis": "Act365Fixed",
+    "representation": {
+     "ZeroRates": {
+      "compounding": "Continuous"
+     }
+    },
+    "interpolation": "Linear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+     "Nodes": [
+      {
+       "pillar": {
+        "Tenor": 0
+       },
+       "quote": {
+        "value": 0.037,
+        "unit": "DecimalRate"
+       }
+      },
+      {
+       "pillar": {
+        "Tenor": 50
+       },
+       "quote": {
+        "value": 0.037,
+        "unit": "DecimalRate"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "schema_version": 1,
+   "curve_id": "H.ACME",
+   "version": 1,
+   "source_time": "2026-10-07T12:00:00Z",
+   "recorded_at": "2026-10-07T12:00:00Z",
+   "source": "core.synthetic.curves",
+   "model_id": "native.supplied.recipes",
+   "input_versions": [],
+   "quality": "Demo",
+   "max_age_ms": 86400000,
+   "recipe": {
+    "key": {
+     "id": "H.ACME",
+     "version": "1"
+    },
+    "role": {
+     "kind": "Credit",
+     "entity_id": "ACME",
+     "seniority": "senior_unsecured",
+     "recovery": 0.4
+    },
+    "currency": "USD",
+    "reference_date": "2026-10-07",
+    "time_basis": "Act365Fixed",
+    "representation": "SurvivalProbabilities",
+    "interpolation": "LogLinear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+     "Nodes": [
+      {
+       "pillar": {
+        "Tenor": 0
+       },
+       "quote": {
+        "value": 1.0,
+        "unit": "SurvivalProbability"
+       }
+      },
+      {
+       "pillar": {
+        "Tenor": 50
+       },
+       "quote": {
+        "value": 0.36787944117144233,
+        "unit": "SurvivalProbability"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "schema_version": 1,
+   "curve_id": "B.ACME",
+   "version": 1,
+   "source_time": "2026-10-07T12:00:00Z",
+   "recorded_at": "2026-10-07T12:00:00Z",
+   "source": "core.synthetic.curves",
+   "model_id": "native.supplied.recipes",
+   "input_versions": [],
+   "quality": "Demo",
+   "max_age_ms": 86400000,
+   "recipe": {
+    "key": {
+     "id": "B.ACME",
+     "version": "1"
+    },
+    "role": {
+     "kind": "IssuerSpread",
+     "entity_id": "ACME",
+     "model_id": "credit_par_recovery_promised_basis_v1"
+    },
+    "currency": "USD",
+    "reference_date": "2026-10-07",
+    "time_basis": "Act365Fixed",
+    "representation": "IssuerSpreads",
+    "interpolation": "Linear",
+    "extrapolation": "None",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+     "Nodes": [
+      {
+       "pillar": {
+        "Tenor": 0
+       },
+       "quote": {
+        "value": 0.0025,
+        "unit": "DecimalRate"
+       }
+      },
+      {
+       "pillar": {
+        "Tenor": 50
+       },
+       "quote": {
+        "value": 0.0025,
+        "unit": "DecimalRate"
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "schema_version": 1,
+   "curve_id": "P.OPTIONAL",
+   "version": 1,
+   "source_time": "2026-10-07T12:00:00Z",
+   "recorded_at": "2026-10-07T12:00:00Z",
+   "source": "core.synthetic.curves",
+   "model_id": "native.supplied.recipes",
+   "input_versions": [],
+   "quality": "Demo",
+   "max_age_ms": 86400000,
+   "recipe": {
+    "key": {
+     "id": "P.OPTIONAL",
+     "version": "1"
+    },
+    "role": {
+     "kind": "Projection",
+     "index_id": "USD.SCENARIO.TERM6M"
+    },
+    "currency": "USD",
+    "reference_date": "2026-01-01",
+    "time_basis": "Act365Fixed",
+    "representation": {
+     "ZeroRates": {
+      "compounding": "Continuous"
+     }
+    },
+    "interpolation": "Linear",
+    "extrapolation": "Flat",
+    "dependencies": [],
+    "calibration": "Direct",
+    "source": {
+     "Nodes": [
+      {
+       "pillar": {
+        "Tenor": 0.0
+       },
+       "quote": {
+        "unit": "DecimalRate",
+        "value": 0.05
+       }
+      },
+      {
+       "pillar": {
+        "Tenor": 50.0
+       },
+       "quote": {
+        "unit": "DecimalRate",
+        "value": 0.05
+       }
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "fixings": [],
+ "pricing_configs": [
+  {
+   "config_id": "SHOWCASE-USD",
+   "description": "Showcase: USD bonds use the demo D.OIS discount and P.SOFR swap curves",
+   "applies_to": {
+    "currency": "USD"
+   },
+   "pricing_spec": {
+    "MarketQuote": {
+     "side": "Mid"
+    }
+   },
+   "bid_ask_spread": null,
+   "analytics_curves": {
+    "discount_curve": "D.OIS",
+    "government_curve": null,
+    "swap_curve": "P.SOFR",
+    "frn_reference_curve": null
+   },
+   "priority": null,
+   "active": true,
+   "version": 1,
+   "created_at": 1791374400000,
+   "updated_at": 1791374400000
+  }
+ ]
+}

@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "provenance": "Supplementary structural domains declared after using existing ExactDecimal and before the first boundary comparison; no financial oracle or pre-edit claim.",
+  "rejected_cases": [
+    {
+      "field": "face_value",
+      "value": "1e-3"
+    },
+    {
+      "field": "face_value",
+      "value": " 100"
+    },
+    {
+      "field": "face_value",
+      "value": "100 "
+    },
+    {
+      "field": "face_value",
+      "value": "+100"
+    },
+    {
+      "field": "face_value",
+      "value": "1,000"
+    },
+    {
+      "field": "face_value",
+      "value": "0.00000000000000000000000000001"
+    },
+    {
+      "field": "face_value",
+      "value": "79228162514264337593543950336"
+    },
+    {
+      "field": "face_value",
+      "value": 97.125
+    },
+    {
+      "field": "redemption_value",
+      "value": "1e-3"
+    },
+    {
+      "field": "redemption_value",
+      "value": " 100"
+    },
+    {
+      "field": "redemption_value",
+      "value": "100 "
+    },
+    {
+      "field": "redemption_value",
+      "value": "+100"
+    },
+    {
+      "field": "redemption_value",
+      "value": "1,000"
+    },
+    {
+      "field": "redemption_value",
+      "value": "0.00000000000000000000000000001"
+    },
+    {
+      "field": "redemption_value",
+      "value": "79228162514264337593543950336"
+    },
+    {
+      "field": "redemption_value",
+      "value": 97.125
+    },
+    {
+      "field": "issue_price",
+      "value": "1e-3"
+    },
+    {
+      "field": "issue_price",
+      "value": " 100"
+    },
+    {
+      "field": "issue_price",
+      "value": "100 "
+    },
+    {
+      "field": "issue_price",
+      "value": "+100"
+    },
+    {
+      "field": "issue_price",
+      "value": "1,000"
+    },
+    {
+      "field": "issue_price",
+      "value": "0.00000000000000000000000000001"
+    },
+    {
+      "field": "issue_price",
+      "value": "79228162514264337593543950336"
+    },
+    {
+      "field": "issue_price",
+      "value": 97.125
+    }
+  ],
+  "certified": false
+}

@@ -1,0 +1,2729 @@
+{
+  "schema_version": 1,
+  "qualification": "pinned_inputs_external_capture_pending",
+  "certified": false,
+  "comparator": {
+    "project": "QuantLib",
+    "version": "1.40",
+    "wheel": "quantlib-1.40-cp38-abi3-macosx_11_0_arm64.whl",
+    "sha256": "fefb04e34a4f6a529e8d3a0506de6cd443d52ba85fbc13b4c30b7865ce5fa4ce",
+    "url": "https://files.pythonhosted.org/packages/96/d7/9ca8c914e27d2f37a2c4441a879f0929d476adf0c136e232d3e700ab925d/quantlib-1.40-cp38-abi3-macosx_11_0_arm64.whl",
+    "publisher_build": "https://github.com/lballabio/quantlib-wheels/tree/fa275d5ea06e13d0dd2f475a3ceb857b8f388443"
+  },
+  "tolerances": {
+    "currency_abs": "0.0000001",
+    "rate_abs": "0.000000000001",
+    "discount_ratio_abs": "0.0000000000001",
+    "year_fraction_abs": "0.0000000000001",
+    "relative": "0"
+  },
+  "scope": "Synthetic actual-dated full supplied terms; quarterly aligned boundary profiles, ACT/360 coupons, separate linear continuous-zero ACT/365F grids, declared administrator publication 08:00 UTC and final history. No market pack, library certificate or external outputs are present. Not a translation of the earlier monthly ResetInterval IRS into a 3M indexed coupon. Stubs, intracoupon steps and rounding remain outside this fixed comparator suite.",
+  "calendar_holidays": {
+    "ACCRUAL": [
+      "2024-01-01",
+      "2024-03-29",
+      "2024-04-01",
+      "2024-07-04",
+      "2024-09-02",
+      "2024-12-25"
+    ],
+    "PAYMENT": [
+      "2024-07-04",
+      "2024-12-25"
+    ],
+    "RESET": [
+      "2024-01-01",
+      "2024-03-29",
+      "2024-04-01",
+      "2024-07-04",
+      "2024-09-02",
+      "2024-12-25"
+    ],
+    "FIXING": [
+      "2024-01-01",
+      "2024-03-29",
+      "2024-04-01",
+      "2024-07-04",
+      "2024-09-02",
+      "2024-12-25"
+    ],
+    "OBSERVATION": [
+      "2024-03-29",
+      "2024-04-01",
+      "2024-07-04",
+      "2024-09-02"
+    ]
+  },
+  "curve_sets": {
+    "positive": [
+      {
+        "key": {
+          "id": "USD.CVX.TEST.DISCOUNT",
+          "version": "ac2-v1"
+        },
+        "role": {
+          "kind": "Discount",
+          "collateral_currency": "USD"
+        },
+        "currency": "USD",
+        "reference_date": "2023-11-01",
+        "time_basis": "Act365Fixed",
+        "representation": {
+          "ZeroRates": {
+            "compounding": "Continuous"
+          }
+        },
+        "interpolation": "Linear",
+        "extrapolation": "None",
+        "dependencies": [],
+        "calibration": "Direct",
+        "source": {
+          "Nodes": [
+            {
+              "pillar": {
+                "Date": "2023-11-01"
+              },
+              "quote": {
+                "value": 0.02,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2025-01-02"
+              },
+              "quote": {
+                "value": 0.025,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2026-01-02"
+              },
+              "quote": {
+                "value": 0.027,
+                "unit": "DecimalRate"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "key": {
+          "id": "USD.CVX.TEST.3M.PROJ",
+          "version": "ac2-v1"
+        },
+        "role": {
+          "kind": "Projection",
+          "index_id": "USD.CVX.TEST.3M"
+        },
+        "currency": "USD",
+        "reference_date": "2023-11-01",
+        "time_basis": "Act365Fixed",
+        "representation": {
+          "ZeroRates": {
+            "compounding": "Continuous"
+          }
+        },
+        "interpolation": "Linear",
+        "extrapolation": "None",
+        "dependencies": [],
+        "calibration": "Direct",
+        "source": {
+          "Nodes": [
+            {
+              "pillar": {
+                "Date": "2023-11-01"
+              },
+              "quote": {
+                "value": 0.035,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2025-01-02"
+              },
+              "quote": {
+                "value": 0.039,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2026-01-02"
+              },
+              "quote": {
+                "value": 0.041,
+                "unit": "DecimalRate"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "key": {
+          "id": "USD.CVX.TEST.ON.PROJ",
+          "version": "ac2-v1"
+        },
+        "role": {
+          "kind": "Projection",
+          "index_id": "USD.CVX.TEST.ON"
+        },
+        "currency": "USD",
+        "reference_date": "2023-11-01",
+        "time_basis": "Act365Fixed",
+        "representation": {
+          "ZeroRates": {
+            "compounding": "Continuous"
+          }
+        },
+        "interpolation": "Linear",
+        "extrapolation": "None",
+        "dependencies": [],
+        "calibration": "Direct",
+        "source": {
+          "Nodes": [
+            {
+              "pillar": {
+                "Date": "2023-11-01"
+              },
+              "quote": {
+                "value": 0.035,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2025-01-02"
+              },
+              "quote": {
+                "value": 0.039,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2026-01-02"
+              },
+              "quote": {
+                "value": 0.041,
+                "unit": "DecimalRate"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "negative": [
+      {
+        "key": {
+          "id": "USD.CVX.TEST.DISCOUNT",
+          "version": "ac2-v1"
+        },
+        "role": {
+          "kind": "Discount",
+          "collateral_currency": "USD"
+        },
+        "currency": "USD",
+        "reference_date": "2023-11-01",
+        "time_basis": "Act365Fixed",
+        "representation": {
+          "ZeroRates": {
+            "compounding": "Continuous"
+          }
+        },
+        "interpolation": "Linear",
+        "extrapolation": "None",
+        "dependencies": [],
+        "calibration": "Direct",
+        "source": {
+          "Nodes": [
+            {
+              "pillar": {
+                "Date": "2023-11-01"
+              },
+              "quote": {
+                "value": -0.002,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2025-01-02"
+              },
+              "quote": {
+                "value": -0.001,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2026-01-02"
+              },
+              "quote": {
+                "value": -0.0005,
+                "unit": "DecimalRate"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "key": {
+          "id": "USD.CVX.TEST.3M.PROJ",
+          "version": "ac2-v1"
+        },
+        "role": {
+          "kind": "Projection",
+          "index_id": "USD.CVX.TEST.3M"
+        },
+        "currency": "USD",
+        "reference_date": "2023-11-01",
+        "time_basis": "Act365Fixed",
+        "representation": {
+          "ZeroRates": {
+            "compounding": "Continuous"
+          }
+        },
+        "interpolation": "Linear",
+        "extrapolation": "None",
+        "dependencies": [],
+        "calibration": "Direct",
+        "source": {
+          "Nodes": [
+            {
+              "pillar": {
+                "Date": "2023-11-01"
+              },
+              "quote": {
+                "value": -0.004,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2025-01-02"
+              },
+              "quote": {
+                "value": -0.003,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2026-01-02"
+              },
+              "quote": {
+                "value": -0.002,
+                "unit": "DecimalRate"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "key": {
+          "id": "USD.CVX.TEST.ON.PROJ",
+          "version": "ac2-v1"
+        },
+        "role": {
+          "kind": "Projection",
+          "index_id": "USD.CVX.TEST.ON"
+        },
+        "currency": "USD",
+        "reference_date": "2023-11-01",
+        "time_basis": "Act365Fixed",
+        "representation": {
+          "ZeroRates": {
+            "compounding": "Continuous"
+          }
+        },
+        "interpolation": "Linear",
+        "extrapolation": "None",
+        "dependencies": [],
+        "calibration": "Direct",
+        "source": {
+          "Nodes": [
+            {
+              "pillar": {
+                "Date": "2023-11-01"
+              },
+              "quote": {
+                "value": -0.004,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2025-01-02"
+              },
+              "quote": {
+                "value": -0.003,
+                "unit": "DecimalRate"
+              }
+            },
+            {
+              "pillar": {
+                "Date": "2026-01-02"
+              },
+              "quote": {
+                "value": -0.002,
+                "unit": "DecimalRate"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "fixing_sets": {
+    "positive": [
+      {
+        "index_id": "USD.CVX.TEST.3M",
+        "observation_date": "2023-12-28",
+        "rate": "0.042",
+        "published_at": "2023-12-28T08:00:00Z",
+        "known_at": "2023-12-28T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.3M",
+        "observation_date": "2024-03-27",
+        "rate": "0.043",
+        "published_at": "2024-03-27T08:00:00Z",
+        "known_at": "2024-03-27T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-03-27",
+        "rate": "0.0375",
+        "published_at": "2024-03-27T08:00:00Z",
+        "known_at": "2024-03-27T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-03-28",
+        "rate": "0.0376",
+        "published_at": "2024-03-28T08:00:00Z",
+        "known_at": "2024-03-28T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-02",
+        "rate": "0.0381",
+        "published_at": "2024-04-02T08:00:00Z",
+        "known_at": "2024-04-02T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-03",
+        "rate": "0.0375",
+        "published_at": "2024-04-03T08:00:00Z",
+        "known_at": "2024-04-03T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-04",
+        "rate": "0.0376",
+        "published_at": "2024-04-04T08:00:00Z",
+        "known_at": "2024-04-04T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-05",
+        "rate": "0.0377",
+        "published_at": "2024-04-05T08:00:00Z",
+        "known_at": "2024-04-05T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-08",
+        "rate": "0.0380",
+        "published_at": "2024-04-08T08:00:00Z",
+        "known_at": "2024-04-08T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-09",
+        "rate": "0.0381",
+        "published_at": "2024-04-09T08:00:00Z",
+        "known_at": "2024-04-09T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-10",
+        "rate": "0.0375",
+        "published_at": "2024-04-10T08:00:00Z",
+        "known_at": "2024-04-10T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-11",
+        "rate": "0.0376",
+        "published_at": "2024-04-11T08:00:00Z",
+        "known_at": "2024-04-11T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-12",
+        "rate": "0.0377",
+        "published_at": "2024-04-12T08:00:00Z",
+        "known_at": "2024-04-12T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-15",
+        "rate": "0.0380",
+        "published_at": "2024-04-15T08:00:00Z",
+        "known_at": "2024-04-15T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-16",
+        "rate": "0.0381",
+        "published_at": "2024-04-16T08:00:00Z",
+        "known_at": "2024-04-16T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-17",
+        "rate": "0.0375",
+        "published_at": "2024-04-17T08:00:00Z",
+        "known_at": "2024-04-17T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-18",
+        "rate": "0.0376",
+        "published_at": "2024-04-18T08:00:00Z",
+        "known_at": "2024-04-18T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-19",
+        "rate": "0.0377",
+        "published_at": "2024-04-19T08:00:00Z",
+        "known_at": "2024-04-19T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-22",
+        "rate": "0.0380",
+        "published_at": "2024-04-22T08:00:00Z",
+        "known_at": "2024-04-22T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-23",
+        "rate": "0.0381",
+        "published_at": "2024-04-23T08:00:00Z",
+        "known_at": "2024-04-23T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-24",
+        "rate": "0.0375",
+        "published_at": "2024-04-24T08:00:00Z",
+        "known_at": "2024-04-24T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-25",
+        "rate": "0.0376",
+        "published_at": "2024-04-25T08:00:00Z",
+        "known_at": "2024-04-25T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-26",
+        "rate": "0.0377",
+        "published_at": "2024-04-26T08:00:00Z",
+        "known_at": "2024-04-26T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-29",
+        "rate": "0.0380",
+        "published_at": "2024-04-29T08:00:00Z",
+        "known_at": "2024-04-29T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-04-30",
+        "rate": "0.0381",
+        "published_at": "2024-04-30T08:00:00Z",
+        "known_at": "2024-04-30T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-01",
+        "rate": "0.0375",
+        "published_at": "2024-05-01T08:00:00Z",
+        "known_at": "2024-05-01T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-02",
+        "rate": "0.0376",
+        "published_at": "2024-05-02T08:00:00Z",
+        "known_at": "2024-05-02T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-03",
+        "rate": "0.0377",
+        "published_at": "2024-05-03T08:00:00Z",
+        "known_at": "2024-05-03T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-06",
+        "rate": "0.0380",
+        "published_at": "2024-05-06T08:00:00Z",
+        "known_at": "2024-05-06T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-07",
+        "rate": "0.0381",
+        "published_at": "2024-05-07T08:00:00Z",
+        "known_at": "2024-05-07T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-08",
+        "rate": "0.0375",
+        "published_at": "2024-05-08T08:00:00Z",
+        "known_at": "2024-05-08T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-09",
+        "rate": "0.0376",
+        "published_at": "2024-05-09T08:00:00Z",
+        "known_at": "2024-05-09T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-10",
+        "rate": "0.0377",
+        "published_at": "2024-05-10T08:00:00Z",
+        "known_at": "2024-05-10T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-13",
+        "rate": "0.0380",
+        "published_at": "2024-05-13T08:00:00Z",
+        "known_at": "2024-05-13T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-14",
+        "rate": "0.0381",
+        "published_at": "2024-05-14T08:00:00Z",
+        "known_at": "2024-05-14T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-15",
+        "rate": "0.0375",
+        "published_at": "2024-05-15T08:00:00Z",
+        "known_at": "2024-05-15T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-16",
+        "rate": "0.0376",
+        "published_at": "2024-05-16T08:00:00Z",
+        "known_at": "2024-05-16T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-17",
+        "rate": "0.0377",
+        "published_at": "2024-05-17T08:00:00Z",
+        "known_at": "2024-05-17T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-20",
+        "rate": "0.0380",
+        "published_at": "2024-05-20T08:00:00Z",
+        "known_at": "2024-05-20T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-21",
+        "rate": "0.0381",
+        "published_at": "2024-05-21T08:00:00Z",
+        "known_at": "2024-05-21T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-22",
+        "rate": "0.0375",
+        "published_at": "2024-05-22T08:00:00Z",
+        "known_at": "2024-05-22T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-23",
+        "rate": "0.0376",
+        "published_at": "2024-05-23T08:00:00Z",
+        "known_at": "2024-05-23T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-24",
+        "rate": "0.0377",
+        "published_at": "2024-05-24T08:00:00Z",
+        "known_at": "2024-05-24T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-27",
+        "rate": "0.0380",
+        "published_at": "2024-05-27T08:00:00Z",
+        "known_at": "2024-05-27T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-28",
+        "rate": "0.0381",
+        "published_at": "2024-05-28T08:00:00Z",
+        "known_at": "2024-05-28T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-29",
+        "rate": "0.0375",
+        "published_at": "2024-05-29T08:00:00Z",
+        "known_at": "2024-05-29T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-30",
+        "rate": "0.0376",
+        "published_at": "2024-05-30T08:00:00Z",
+        "known_at": "2024-05-30T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-05-31",
+        "rate": "0.0377",
+        "published_at": "2024-05-31T08:00:00Z",
+        "known_at": "2024-05-31T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-03",
+        "rate": "0.0380",
+        "published_at": "2024-06-03T08:00:00Z",
+        "known_at": "2024-06-03T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-04",
+        "rate": "0.0381",
+        "published_at": "2024-06-04T08:00:00Z",
+        "known_at": "2024-06-04T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-05",
+        "rate": "0.0375",
+        "published_at": "2024-06-05T08:00:00Z",
+        "known_at": "2024-06-05T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-06",
+        "rate": "0.0376",
+        "published_at": "2024-06-06T08:00:00Z",
+        "known_at": "2024-06-06T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-07",
+        "rate": "0.0377",
+        "published_at": "2024-06-07T08:00:00Z",
+        "known_at": "2024-06-07T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-10",
+        "rate": "0.0380",
+        "published_at": "2024-06-10T08:00:00Z",
+        "known_at": "2024-06-10T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-11",
+        "rate": "0.0381",
+        "published_at": "2024-06-11T08:00:00Z",
+        "known_at": "2024-06-11T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-12",
+        "rate": "0.0375",
+        "published_at": "2024-06-12T08:00:00Z",
+        "known_at": "2024-06-12T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-13",
+        "rate": "0.0376",
+        "published_at": "2024-06-13T08:00:00Z",
+        "known_at": "2024-06-13T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-14",
+        "rate": "0.0377",
+        "published_at": "2024-06-14T08:00:00Z",
+        "known_at": "2024-06-14T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.ON",
+        "observation_date": "2024-06-17",
+        "rate": "0.0380",
+        "published_at": "2024-06-17T08:00:00Z",
+        "known_at": "2024-06-17T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      }
+    ],
+    "negative": [
+      {
+        "index_id": "USD.CVX.TEST.3M",
+        "observation_date": "2023-12-28",
+        "rate": "-0.0045",
+        "published_at": "2023-12-28T08:00:00Z",
+        "known_at": "2023-12-28T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      },
+      {
+        "index_id": "USD.CVX.TEST.3M",
+        "observation_date": "2024-03-27",
+        "rate": "-0.004",
+        "published_at": "2024-03-27T08:00:00Z",
+        "known_at": "2024-03-27T08:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "independently_declared_ac2_inputs"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "irs-seasoned",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "irs-seasoned",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-02",
+        "maturity_date": "2025-01-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-02",
+              "end": "2025-01-02",
+              "value": "0.041"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.CVX.TEST.3M",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "IndexTenor",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1.0"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.3M.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "irs-amortizing-stepped",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "irs-amortizing-stepped",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-02",
+        "maturity_date": "2025-01-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2024-04-02",
+                "value": "1000000"
+              },
+              {
+                "start": "2024-04-02",
+                "end": "2024-07-02",
+                "value": "850000"
+              },
+              {
+                "start": "2024-07-02",
+                "end": "2024-10-02",
+                "value": "700000"
+              },
+              {
+                "start": "2024-10-02",
+                "end": "2025-01-02",
+                "value": "550000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-02",
+              "end": "2024-07-02",
+              "value": "0.041"
+            },
+            {
+              "start": "2024-07-02",
+              "end": "2025-01-02",
+              "value": "0.038"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2024-04-02",
+                "value": "1000000"
+              },
+              {
+                "start": "2024-04-02",
+                "end": "2024-07-02",
+                "value": "850000"
+              },
+              {
+                "start": "2024-07-02",
+                "end": "2024-10-02",
+                "value": "700000"
+              },
+              {
+                "start": "2024-10-02",
+                "end": "2025-01-02",
+                "value": "550000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.CVX.TEST.3M",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "IndexTenor",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-02",
+                "end": "2024-07-02",
+                "value": "0.001"
+              },
+              {
+                "start": "2024-07-02",
+                "end": "2025-01-02",
+                "value": "0.0015"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-02",
+                "end": "2024-07-02",
+                "value": "1.0"
+              },
+              {
+                "start": "2024-07-02",
+                "end": "2025-01-02",
+                "value": "1.25"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.3M.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "irs-negative",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "negative",
+      "fixing_set": "negative",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "irs-negative",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-02",
+        "maturity_date": "2025-01-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-02",
+              "end": "2025-01-02",
+              "value": "-0.003"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.CVX.TEST.3M",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "IndexTenor",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "0.0002"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1.2"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.3M.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "irs-forward",
+      "valuation_date": "2023-12-12",
+      "known_at": "2023-12-12T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "irs-forward",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-01-02",
+        "maturity_date": "2025-01-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-02",
+              "end": "2025-01-02",
+              "value": "0.041"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.CVX.TEST.3M",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "IndexTenor",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1.0"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.3M.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "irs-receiver",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "irs-receiver",
+        "version": 1,
+        "currency": "USD",
+        "side": "ReceiveFixed",
+        "effective_date": "2024-01-02",
+        "maturity_date": "2025-01-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-01-02",
+              "end": "2025-01-02",
+              "value": "0.041"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "term",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "resets": {
+            "index_id": "USD.CVX.TEST.3M",
+            "tenor_months": 3,
+            "schedule": {
+              "start_date": "2024-01-02",
+              "end_date": "2025-01-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "reset_calendar": {
+              "id": "RESET",
+              "version": 1
+            },
+            "reset_adjustment": "Unadjusted",
+            "fixing_calendar": {
+              "id": "FIXING",
+              "version": 1
+            },
+            "fixing_offset": {
+              "BusinessDays": -2
+            },
+            "fixing_adjustment": "Preceding",
+            "rate_period": "IndexTenor",
+            "index_end_of_month": false,
+            "index_end_adjustment": "Unadjusted",
+            "projection_day_count": "Act360"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-01-02",
+                "end": "2025-01-02",
+                "value": "1.0"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.3M.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "ois-seasoned",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-seasoned",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-02",
+        "maturity_date": "2024-10-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-02",
+              "end": "2024-10-02",
+              "value": "0.041"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1.0"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.ON.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.CVX.TEST.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 0,
+            "observation_shift": false,
+            "lockout_business_days": 0
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "ois-amortizing-stepped",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-amortizing-stepped",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-02",
+        "maturity_date": "2024-10-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-07-02",
+                "value": "1000000"
+              },
+              {
+                "start": "2024-07-02",
+                "end": "2024-10-02",
+                "value": "650000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-02",
+              "end": "2024-07-02",
+              "value": "0.041"
+            },
+            {
+              "start": "2024-07-02",
+              "end": "2024-10-02",
+              "value": "0.04"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-07-02",
+                "value": "1000000"
+              },
+              {
+                "start": "2024-07-02",
+                "end": "2024-10-02",
+                "value": "650000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-07-02",
+                "value": "0.001"
+              },
+              {
+                "start": "2024-07-02",
+                "end": "2024-10-02",
+                "value": "0.0015"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-07-02",
+                "value": "1.0"
+              },
+              {
+                "start": "2024-07-02",
+                "end": "2024-10-02",
+                "value": "1.15"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.ON.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.CVX.TEST.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 0,
+            "observation_shift": false,
+            "lockout_business_days": 0
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "ois-lookback",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-lookback",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-02",
+        "maturity_date": "2024-10-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-02",
+              "end": "2024-10-02",
+              "value": "0.041"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1.0"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.ON.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.CVX.TEST.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 2,
+            "observation_shift": false,
+            "lockout_business_days": 0
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "ois-shift",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-shift",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-02",
+        "maturity_date": "2024-10-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-02",
+              "end": "2024-10-02",
+              "value": "0.041"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1.0"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.ON.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.CVX.TEST.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 2,
+            "observation_shift": true,
+            "lockout_business_days": 0
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    },
+    {
+      "id": "ois-lockout",
+      "valuation_date": "2024-06-17",
+      "known_at": "2024-06-17T23:59:59Z",
+      "on_payment": "Include",
+      "curve_set": "positive",
+      "fixing_set": "positive",
+      "terms": {
+        "schema_version": 1,
+        "trade_id": "ois-lockout",
+        "version": 1,
+        "currency": "USD",
+        "side": "PayFixed",
+        "effective_date": "2024-04-02",
+        "maturity_date": "2024-10-02",
+        "fixed": {
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "rates": [
+            {
+              "start": "2024-04-02",
+              "end": "2024-10-02",
+              "value": "0.041"
+            }
+          ]
+        },
+        "floating": {
+          "kind": "overnight",
+          "leg": {
+            "schedule": {
+              "start_date": "2024-04-02",
+              "end_date": "2024-10-02",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Following",
+              "payment_delay": {
+                "BusinessDays": 2
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "accrual": {
+                "id": "ACCRUAL",
+                "version": 1
+              },
+              "payment": {
+                "id": "PAYMENT",
+                "version": 1
+              }
+            },
+            "day_count": "Act360",
+            "notionals": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1000000"
+              }
+            ],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow"
+          },
+          "profiles": {
+            "spreads": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "0.001"
+              }
+            ],
+            "gearings": [
+              {
+                "start": "2024-04-02",
+                "end": "2024-10-02",
+                "value": "1.0"
+              }
+            ]
+          },
+          "projection_curve": {
+            "id": "USD.CVX.TEST.ON.PROJ",
+            "version": "ac2-v1"
+          },
+          "fixing_policy": {
+            "unpublished": "Forecast",
+            "final_only": true
+          },
+          "index_id": "USD.CVX.TEST.ON",
+          "observation_calendar": {
+            "id": "OBSERVATION",
+            "version": 1
+          },
+          "convention": {
+            "lookback_business_days": 0,
+            "observation_shift": false,
+            "lockout_business_days": 3
+          }
+        },
+        "collateral": {
+          "agreement": {
+            "id": "CSA.USD",
+            "version": 1
+          },
+          "currency": "USD",
+          "discount_curve": {
+            "id": "USD.CVX.TEST.DISCOUNT",
+            "version": "ac2-v1"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "fixture_id": "CVX-060-analytic-numerics-v1",
+  "schema_version": 1,
+  "source": "Synthetic caller-supplied analytic curve, independent Python Decimal exp at precision 50; no admitted market pack",
+  "reference_date": "2024-01-01",
+  "time_basis": "Act365Fixed",
+  "continuous_rate_decimal": -0.02,
+  "discount_queries": [
+    {
+      "date": "2024-02-29",
+      "actual_days": 59,
+      "discount": 1.003238108094199
+    },
+    {
+      "date": "2024-07-01",
+      "actual_days": 182,
+      "discount": 1.010022494855924
+    },
+    {
+      "date": "2025-01-01",
+      "actual_days": 366,
+      "discount": 1.0202572430016192
+    },
+    {
+      "date": "2026-12-31",
+      "actual_days": 1095,
+      "discount": 1.0618365465453596
+    }
+  ],
+  "comparison_policy": {
+    "absolute": 1e-11,
+    "relative": 1e-11,
+    "unit": "dimensionless discount factor or annualized decimal rate, as identified by operation",
+    "justification": "Analytic double-precision engineering checks preserving CVX-056 bounds; no independent quantitative approval"
+  },
+  "roll_policy": "StickyForward P_new(d)=P_old(d)/P_old(new_reference); StickyZero preserves model-tenor discount function",
+  "limits": {
+    "parameters": 128,
+    "quotes": 128,
+    "lm_attempts": 10000,
+    "svd_iterations": 10000,
+    "derived_depth": 32,
+    "time_years": 150,
+    "minimum_pillar_separation": 1e-10
+  }
+}

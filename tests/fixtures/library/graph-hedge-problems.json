@@ -1,0 +1,582 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "qualification": "Complete actual product columns replace independently calculated reference columns only in execution. Known identified target uses explicit original trades; no native answer read. All original solver policies remain unchanged.",
+  "source_reads": {
+    "tests/fixtures/library/graph-hedge-reference.json": "db42093c6ea35d1f901057dc9ffed12a76f5d390f6d324db0bff9c1776adf604",
+    "tests/fixtures/library/graph-hedge.json": "010f1a29594e8bcda42ac8bc25fcaa3620225e6a3f80695ffd8f453934f22526",
+    "tests/scripts/constrained_hedge_reference.py": "d829c6f4673b1e23328dc57bbb2828a5c58a40fa03f889727366248090aa91e4"
+  },
+  "tolerances": {
+    "pv_absolute": 1e-07,
+    "rate_risk_absolute": 1e-07,
+    "hazard_risk_absolute": 0.001,
+    "quantity_absolute": 0.02,
+    "cost_absolute": 1e-06
+  },
+  "cases": [
+    {
+      "id": "graph_hedge.mixed.USD",
+      "column_ids": [
+        "graph_hedge.positive.bond.base",
+        "graph_hedge.positive.cds.base",
+        "graph_hedge.positive.irs.base",
+        "graph_hedge.positive.term_future.base"
+      ],
+      "reporting_currency": "USD",
+      "snapshot_id": "graph-hedge.synthetic.snapshot.1",
+      "entity": "DESK.A",
+      "settlement": "2026-10-07",
+      "factors": [
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "D.OIS"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "graph-hedge.synthetic.full-model.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "D.OIS",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 1.0,
+          "weight": 1.0,
+          "target": -0.4387334946569088,
+          "lower": -1000000000.0,
+          "upper": 1000000000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "P.3M"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "graph-hedge.synthetic.full-model.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "P.3M",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 1.0,
+          "weight": 1.0,
+          "target": -52.61143577472488,
+          "lower": -1000000000.0,
+          "upper": 1000000000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "P.SOFR"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "graph-hedge.synthetic.full-model.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "P.SOFR",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 1.0,
+          "weight": 1.0,
+          "target": 0.0,
+          "lower": -1000000000.0,
+          "upper": 1000000000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "hazard",
+              "target": {
+                "kind": "curve",
+                "curve_id": "H.ACME"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "hazard_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "graph-hedge.synthetic.full-model.1"
+            },
+            "coordinate": {
+              "kind": "hazard",
+              "curve": {
+                "id": "H.ACME",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_annual_rate"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 1.0,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": {
+            "document": {
+              "id": "CDS.Standard.Supplied.Confirmation",
+              "version": 1
+            },
+            "entity_id": "ACME",
+            "recovery_fraction": 0.4,
+            "restructuring_clause": {
+              "id": "Supplied.NoRestructuring",
+              "version": 1
+            },
+            "seniority": "SeniorUnsecured"
+          },
+          "scale": 100000.0,
+          "weight": 1.0,
+          "target": 311476.5444212941,
+          "lower": -1000000000.0,
+          "upper": 1000000000.0
+        }
+      ],
+      "holdings": [
+        {
+          "column": "graph_hedge.positive.bond.base",
+          "current": "5000",
+          "pending": "-1000"
+        },
+        {
+          "column": "graph_hedge.positive.cds.base",
+          "current": "200000",
+          "pending": "50000"
+        },
+        {
+          "column": "graph_hedge.positive.irs.base",
+          "current": "100000",
+          "pending": "50000"
+        }
+      ],
+      "candidates": [
+        {
+          "column": "graph_hedge.positive.irs.base",
+          "lot": null,
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "1000000"
+        },
+        {
+          "column": "graph_hedge.positive.term_future.base",
+          "lot": "1",
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "5"
+        }
+      ],
+      "fx": null,
+      "settings": {
+        "policy_version": 9,
+        "rank_relative_tolerance": 1e-10,
+        "max_condition": 10000.0,
+        "solver_tolerance": 1e-10,
+        "factor_tolerance": 1e-09,
+        "cost_tolerance": 1e-09,
+        "cost_scale": 1.0,
+        "cost_weight": 0.0,
+        "max_work": 100000,
+        "svd_iterations": 1000
+      },
+      "max_cost": 10.0,
+      "expected": {
+        "current": [
+          "-0.268710082250162138054455030700774857681676810496914556716",
+          "6.070644519027736261290796689180933231898665794690475792035",
+          "0E-56",
+          "249181.2355370353032785331051347007572310278081716208458111"
+        ],
+        "pending": [
+          "0.1531687329993423739425785924557972520178694755962098574515",
+          "3.0353222595138681306453983445904666159493328973452378960175",
+          "0E-56",
+          "62295.308884258825819633276283675189307756952042905211452775"
+        ],
+        "before": [
+          "-0.1155413492508197641118764382449776056638073349007046992645",
+          "9.1059667785416043919361950337713998478479986920357136880525",
+          "0E-56",
+          "311476.544421294129098166381418375946538784760214526057263875"
+        ],
+        "quantities": [
+          "-200000",
+          "2"
+        ],
+        "final_holdings": [
+          "-50000",
+          "2"
+        ],
+        "after": [
+          "-0.4387334946569087984778015690059474343277294833274861145125",
+          "-52.6114357747248790062654812512877389689237628939108589040175",
+          "0E-57",
+          "311476.544421294129098166381418375946538784760214526057263875"
+        ],
+        "total_cost": "6.4"
+      }
+    },
+    {
+      "id": "graph_hedge.mixed.EUR",
+      "column_ids": [
+        "graph_hedge.positive.bond.base",
+        "graph_hedge.positive.cds.base",
+        "graph_hedge.positive.irs.base",
+        "graph_hedge.positive.term_future.base"
+      ],
+      "reporting_currency": "EUR",
+      "snapshot_id": "graph-hedge.synthetic.snapshot.1",
+      "entity": "DESK.A",
+      "settlement": "2026-10-07",
+      "factors": [
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "D.OIS"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "graph-hedge.synthetic.full-model.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "D.OIS",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 1.0,
+          "weight": 1.0,
+          "target": -0.3948601451912179,
+          "lower": -1000000000.0,
+          "upper": 1000000000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "P.3M"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "graph-hedge.synthetic.full-model.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "P.3M",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 1.0,
+          "weight": 1.0,
+          "target": -47.350292197252394,
+          "lower": -1000000000.0,
+          "upper": 1000000000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "interest_rate",
+              "target": {
+                "kind": "curve",
+                "curve_id": "P.SOFR"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "zero_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "graph-hedge.synthetic.full-model.1"
+            },
+            "coordinate": {
+              "kind": "zero",
+              "curve": {
+                "id": "P.SOFR",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_bp"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 0.05,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": null,
+          "scale": 1.0,
+          "weight": 1.0,
+          "target": 0.0,
+          "lower": -1000000000.0,
+          "upper": 1000000000.0
+        },
+        {
+          "key": {
+            "factor": {
+              "family": "hazard",
+              "target": {
+                "kind": "curve",
+                "curve_id": "H.ACME"
+              },
+              "currency": "USD",
+              "tenor": "parallel",
+              "quote_type": "hazard_rate",
+              "basis": "zero_node",
+              "convention_version": 1,
+              "model_version": "graph-hedge.synthetic.full-model.1"
+            },
+            "coordinate": {
+              "kind": "hazard",
+              "curve": {
+                "id": "H.ACME",
+                "version": "1"
+              },
+              "node": null
+            },
+            "native_unit": "DecimalRate",
+            "response": "frozen_curves",
+            "unit": "currency_per_annual_rate"
+          },
+          "risk_settings": {
+            "bump": 0.0001,
+            "stability": {
+              "absolute": 1.0,
+              "relative": 0.0001
+            },
+            "policy_version": 1
+          },
+          "credit": {
+            "document": {
+              "id": "CDS.Standard.Supplied.Confirmation",
+              "version": 1
+            },
+            "entity_id": "ACME",
+            "recovery_fraction": 0.4,
+            "restructuring_clause": {
+              "id": "Supplied.NoRestructuring",
+              "version": 1
+            },
+            "seniority": "SeniorUnsecured"
+          },
+          "scale": 100000.0,
+          "weight": 1.0,
+          "target": 280328.8899791647,
+          "lower": -1000000000.0,
+          "upper": 1000000000.0
+        }
+      ],
+      "holdings": [
+        {
+          "column": "graph_hedge.positive.bond.base",
+          "current": "5000",
+          "pending": "-1000"
+        },
+        {
+          "column": "graph_hedge.positive.cds.base",
+          "current": "200000",
+          "pending": "50000"
+        },
+        {
+          "column": "graph_hedge.positive.irs.base",
+          "current": "100000",
+          "pending": "50000"
+        }
+      ],
+      "candidates": [
+        {
+          "column": "graph_hedge.positive.irs.base",
+          "lot": null,
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "1000000"
+        },
+        {
+          "column": "graph_hedge.positive.term_future.base",
+          "lot": "1",
+          "buy_per_reference": "3",
+          "sell_per_reference": "2",
+          "limit": "5"
+        }
+      ],
+      "fx": {
+        "from_": "USD",
+        "to": "EUR",
+        "rate": "0.9",
+        "observation": {
+          "id": "FULL.REPORTING.FX",
+          "version": 1
+        },
+        "snapshot_id": "graph-hedge.synthetic.snapshot.1"
+      },
+      "settings": {
+        "policy_version": 9,
+        "rank_relative_tolerance": 1e-10,
+        "max_condition": 10000.0,
+        "solver_tolerance": 1e-10,
+        "factor_tolerance": 1e-09,
+        "cost_tolerance": 1e-09,
+        "cost_scale": 1.0,
+        "cost_weight": 0.0,
+        "max_work": 100000,
+        "svd_iterations": 1000
+      },
+      "max_cost": 10.0,
+      "expected": {
+        "current": [
+          "-0.2418390740251459242490095276306973719135091294472231010444",
+          "5.4635800671249626351617170202628399087087992152214282128315",
+          "0E-57",
+          "224263.11198333177295067979462123068150792502735445876122999"
+        ],
+        "pending": [
+          "0.13785185969940813654832073321021752681608252803658887170635",
+          "2.73179003356248131758085851013141995435439960761071410641575",
+          "0E-57",
+          "56065.7779958329432376699486553076703769812568386146903074975"
+        ],
+        "before": [
+          "-0.10398721432573778770068879442047984509742660141063422933805",
+          "8.19537010068744395274257553039425986306319882283214231924725",
+          "0E-57",
+          "280328.889979164716188349743276538351884906284193073451537488"
+        ],
+        "quantities": [
+          "-200000",
+          "2"
+        ],
+        "final_holdings": [
+          "-50000",
+          "2"
+        ],
+        "after": [
+          "-0.39486014519121791863002141210535269089495653499473750306125",
+          "-47.3502921972523911056389331261589650720313866045197730136158",
+          "0E-58",
+          "280328.889979164716188349743276538351884906284193073451537488"
+        ],
+        "total_cost": "5.76"
+      }
+    }
+  ]
+}

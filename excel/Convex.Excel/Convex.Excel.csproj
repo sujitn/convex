@@ -4,6 +4,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <LangVersion>11.0</LangVersion>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AssemblyName>Convex.Excel</AssemblyName>
     <RootNamespace>Convex.Excel</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -11,12 +12,14 @@
 
   <PropertyGroup>
     <ExcelDnaPackPath>$(NuGetPackageRoot)exceldna.addin\1.7.0\tools\ExcelDnaPack.exe</ExcelDnaPackPath>
-    <NativeLibPath>..\..\target\release\convex_ffi.dll</NativeLibPath>
+    <!-- Built with the `excel` cargo profile; see [profile.excel] in Cargo.toml. -->
+    <NativeLibPath>..\..\target\excel\convex_ffi.dll</NativeLibPath>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ExcelDna.AddIn" Version="1.7.0" />
     <PackageReference Include="ExcelDna.Integration" Version="1.7.0" />
+    <PackageReference Include="ExcelDna.IntelliSense" Version="1.7.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
@@ -33,8 +36,17 @@
     </None>
   </ItemGroup>
 
-  <!-- Copy native library to output -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Convex.Excel.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- Copy native library next to both the loose and the packed .xll —
+       ExcelDna 1.7 cannot pack native DLLs, so convex_ffi.dll must ship
+       side-by-side (NativeLoader binds it by absolute path at AutoOpen). -->
   <Target Name="CopyNativeLib" AfterTargets="Build" Condition="Exists('$(NativeLibPath)')">
     <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(OutputPath)" />
+    <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(OutputPath)publish" />
   </Target>
 </Project>

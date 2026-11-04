@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Windows.Forms;
 using Convex.Excel.Helpers;
+using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
@@ -13,8 +14,9 @@ namespace Convex.Excel.Forms
     // through convex_price exactly like =CX.PRICE, so the ticket and the cell
     // always agree.
     //
-    // "Stamp to sheet" writes both the result grid and the equivalent
-    // =CX.PRICE(...) formula so the user can audit and edit from cells.
+    // "Stamp to sheet" writes the equivalent live =CX.PRICE(..., "grid")
+    // formula at the selection so the result stays auditable and recalculates
+    // with the workbook (rather than pasting dead values).
     internal sealed class PricingTicketForm : Form
     {
         private readonly ComboBox _bond = NewBondCombo();
@@ -119,9 +121,8 @@ namespace Convex.Excel.Forms
                 var entries = Cx.ListObjects();
                 var bonds = entries.Where(e => e.Kind != "curve").OrderBy(e => e.Handle).ToList();
                 var curves = entries.Where(e => e.Kind == "curve").OrderBy(e => e.Handle).ToList();
-                Reload(_bond, bonds.Select(e => DescribeEntry(e)).ToArray());
-                Reload(_curve, new[] { "(none)" }.Concat(curves.Select(e => DescribeEntry(e))).ToArray());
-                _curve.SelectedIndex = 0;
+                ComboReload.Reload(_bond, bonds.Select(e => DescribeEntry(e)).ToArray());
+                ComboReload.Reload(_curve, new[] { "(none)" }.Concat(curves.Select(e => DescribeEntry(e))).ToArray());
                 _status.Text = $"{bonds.Count} bond(s), {curves.Count} curve(s)";
             }
             catch (Exception ex)
@@ -130,29 +131,10 @@ namespace Convex.Excel.Forms
             }
         }
 
-        private static void Reload(ComboBox combo, object[] items)
-        {
-            int prevIndex = combo.SelectedIndex;
-            combo.BeginUpdate();
-            combo.Items.Clear();
-            combo.Items.AddRange(items);
-            if (combo.Items.Count > 0)
-                combo.SelectedIndex = Math.Min(Math.Max(prevIndex, 0), combo.Items.Count - 1);
-            combo.EndUpdate();
-        }
-
         private static string DescribeEntry(Cx.ObjectEntry e) =>
             (e.Name is { Length: > 0 })
                 ? $"{CxParse.FormatHandle(e.Handle)}  ·  {e.Kind}  ·  {e.Name}"
                 : $"{CxParse.FormatHandle(e.Handle)}  ·  {e.Kind}";
-
-        private static ulong HandleFromCombo(ComboBox combo, string field)
-        {
-            var text = combo.SelectedItem?.ToString() ?? "";
-            int sep = text.IndexOf(' ');
-            var token = sep < 0 ? text : text.Substring(0, sep);
-            return CxParse.AsHandle(token, field);
-        }
 
         private void Compute()
         {
@@ -176,13 +158,13 @@ namespace Convex.Excel.Forms
                 throw new ConvexException("select a bond");
             var req = new JObject
             {
-                ["bond"] = HandleFromCombo(_bond, "bond"),
+                ["bond"] = ComboReload.HandleOf(_bond, "bond"),
                 ["settlement"] = CxParse.AsIsoDate(_settle.Value.Date),
                 ["mark"] = new JValue(_mark.Text.Trim()),
                 ["quote_frequency"] = (string)_frequency.SelectedItem!,
             };
             if (_curve.SelectedIndex > 0)
-                req["curve"] = HandleFromCombo(_curve, "curve");
+                req["curve"] = ComboReload.HandleOf(_curve, "curve");
             return req;
         }
 
@@ -204,18 +186,11 @@ namespace Convex.Excel.Forms
         {
             try
             {
-                var req = BuildRequest();
-                var result = Cx.Price(req);
-                var grid = new object[5, 2]
-                {
-                    { "Clean",   (double?)result["clean_price"] ?? double.NaN },
-                    { "Dirty",   (double?)result["dirty_price"] ?? double.NaN },
-                    { "Accrued", (double?)result["accrued"]     ?? double.NaN },
-                    { "YTM (%)", ((double?)result["ytm_decimal"] ?? 0.0) * 100.0 },
-                    { "Z (bps)", (double?)result["z_spread_bps"] ?? (object)"" },
-                };
-                var addr = SheetHelpers.WriteGridAtSelection(grid);
-                _status.Text = $"Stamped grid at {addr}";
+                // Validate the inputs by pricing once before stamping.
+                Cx.Price(BuildRequest());
+                // The "grid" field always spills 5×2.
+                var addr = SheetHelpers.WriteFormulaAtSelection(BuildFormula(), 5, 2);
+                _status.Text = $"Stamped =CX.PRICE grid at {addr}";
             }
             catch (Exception ex)
             {
@@ -223,11 +198,25 @@ namespace Convex.Excel.Forms
             }
         }
 
-        private static Button NewButton(string text, EventHandler onClick)
+        // US-format formula text (COM .Formula/.Formula2 always take en-US
+        // separators regardless of the machine locale).
+        private string BuildFormula()
         {
-            var b = new Button { Text = text, AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
-            b.Click += onClick;
-            return b;
+            var d = _settle.Value.Date;
+            var mark = _mark.Text.Trim().Replace("\"", "\"\"");
+            var freq = (string)_frequency.SelectedItem!;
+            var curve = _curve.SelectedIndex > 0 ? "\"" + StampRef(_curve, "curve") + "\"" : "";
+            return $"=CX.PRICE(\"{StampRef(_bond, "bond")}\", DATE({d.Year},{d.Month},{d.Day}), " +
+                   $"\"{mark}\", {curve}, \"{freq}\", \"grid\")";
+        }
+
+        // Prefer the name: it re-resolves after a rebuild; a raw #CX# handle
+        // dies with the next edit to its builder.
+        private static string StampRef(ComboBox combo, string field)
+        {
+            var name = ComboReload.NameOf(combo.SelectedItem);
+            var r = name ?? CxParse.FormatHandle(ComboReload.HandleOf(combo, field));
+            return r.Replace("\"", "\"\"");
         }
     }
 }

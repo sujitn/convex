@@ -1,5 +1,6 @@
 //! Secant root-finding algorithm.
 
+use crate::bounds::{finite, interval};
 use crate::error::{MathError, MathResult};
 use crate::solvers::{SolverConfig, SolverResult};
 
@@ -37,10 +38,12 @@ pub fn secant<F>(f: F, x0: f64, x1: f64, config: &SolverConfig) -> MathResult<So
 where
     F: Fn(f64) -> f64,
 {
+    config.validate()?;
+    interval(x0, x1)?;
     let mut x_prev = x0;
     let mut x_curr = x1;
-    let mut f_prev = f(x_prev);
-    let mut f_curr = f(x_curr);
+    let mut f_prev = finite(f(x_prev), "function evaluation")?;
+    let mut f_curr = finite(f(x_curr), "function evaluation")?;
 
     for iteration in 0..config.max_iterations {
         // Check for convergence
@@ -53,17 +56,20 @@ where
         }
 
         // Check for very small denominator (parallel secant line)
-        let denom = f_curr - f_prev;
+        let denom = finite(f_curr - f_prev, "secant denominator")?;
         if denom.abs() < 1e-15 {
             return Err(MathError::DivisionByZero { value: denom });
         }
 
         // Secant step: x_next = x_curr - f(x_curr) * (x_curr - x_prev) / (f(x_curr) - f(x_prev))
-        let x_next = x_curr - f_curr * (x_curr - x_prev) / denom;
+        let x_next = finite(x_curr - f_curr * (x_curr - x_prev) / denom, "secant step")?;
 
         // Check for step convergence
         if (x_next - x_curr).abs() < config.tolerance {
-            let f_next = f(x_next);
+            let f_next = finite(f(x_next), "function evaluation")?;
+            if f_next.abs() >= config.tolerance {
+                return Err(MathError::convergence_failed(iteration + 1, f_next.abs()));
+            }
             return Ok(SolverResult {
                 root: x_next,
                 iterations: iteration + 1,
@@ -75,7 +81,7 @@ where
         x_prev = x_curr;
         f_prev = f_curr;
         x_curr = x_next;
-        f_curr = f(x_curr);
+        f_curr = finite(f(x_curr), "function evaluation")?;
     }
 
     Err(MathError::convergence_failed(

@@ -16,6 +16,8 @@ convex-core = { workspace = true }
 convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
+convex-rates = { workspace = true }
+convex-credit = { workspace = true }
 
 # Date/time handling
 chrono = { workspace = true }
@@ -51,7 +53,7 @@ criterion = { workspace = true }
 [features]
 default = []
 parallel = ["rayon"]
-schemars = ["dep:schemars", "convex-core/schemars"]
+schemars = ["dep:schemars", "convex-core/schemars", "convex-curves/schemars", "convex-bonds/schemars", "convex-rates/schemars", "convex-credit/schemars"]
 
 [[bench]]
 name = "spread_pv_kernel"
@@ -60,4 +62,3 @@ harness = false
 [[bench]]
 name = "hedge_advisor"
 harness = false
-

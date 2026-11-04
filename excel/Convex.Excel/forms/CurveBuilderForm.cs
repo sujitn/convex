@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using System.Windows.Forms;
 using Convex.Excel.Helpers;
 using static Convex.Excel.Helpers.CurveSpecs;
+using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
@@ -70,13 +71,6 @@ namespace Convex.Excel.Forms
                 _status.Text = $"Pasted {fmt} at {addr}";
             }
             catch (Exception ex) { _status.Text = "ERROR: " + ex.Message; }
-        }
-
-        private static Button NewButton(string text, EventHandler onClick)
-        {
-            var b = new Button { Text = text, AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
-            b.Click += onClick;
-            return b;
         }
 
         // ============================================================

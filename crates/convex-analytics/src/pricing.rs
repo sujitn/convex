@@ -63,14 +63,14 @@ where
     let maturity = bond
         .maturity()
         .ok_or_else(|| AnalyticsError::InvalidInput("bond has no maturity (perpetual)".into()))?;
-    if settlement >= maturity {
+    if settlement < bond.issue_date() || settlement >= maturity {
         return Err(AnalyticsError::InvalidSettlement {
             settlement: settlement.to_string(),
             maturity: maturity.to_string(),
         });
     }
 
-    let accrued = dec_to_f64(bond.accrued_interest(settlement), "accrued")?;
+    let accrued = dec_to_f64(bond.try_accrued_interest(settlement)?, "accrued")?;
 
     // Reduce every variant to a dirty price; everything else is derived from it.
     let (dirty, z_spread_bps) = match mark {
@@ -94,9 +94,9 @@ where
             })?;
             match value.spread_type() {
                 SpreadType::ZSpread => {
-                    let z_decimal = dec_to_f64(value.as_decimal(), "z-spread")?;
+                    let z_decimal = value.as_decimal_f64()?;
                     let dirty = ZSpreadCalculator::new(curve)
-                        .price_with_spread(bond, z_decimal, settlement);
+                        .try_price_with_spread(bond, z_decimal, settlement)?;
                     let z_bps = dec_to_f64(value.as_bps(), "z-spread bps")?;
                     (dirty, Some(z_bps))
                 }
@@ -106,11 +106,13 @@ where
                 // then yield → dirty price. z_spread_bps left None — call
                 // the Z-spread tool directly if you want the equivalent.
                 SpreadType::ISpread | SpreadType::GSpread => {
-                    let t_maturity = curve.date_to_tenor(maturity);
+                    let t_maturity = curve
+                        .date_to_tenor(maturity)
+                        .map_err(|error| AnalyticsError::CurveError(error.to_string()))?;
                     let curve_rate = curve
                         .par_swap_rate(t_maturity, quote_frequency.periods_per_year())
                         .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
-                    let spread_decimal = dec_to_f64(value.as_decimal(), "spread")?;
+                    let spread_decimal = value.as_decimal_f64()?;
                     let target_yield = curve_rate + spread_decimal;
                     (
                         dirty_price_from_yield(bond, settlement, target_yield, quote_frequency)?,
@@ -208,7 +210,7 @@ pub fn price_callable_from_mark(
     let calculator = OASCalculator::default_hull_white(vol);
     let dirty = calculator.price_with_oas(bond, curve, oas_decimal, settlement)?;
 
-    let accrued = dec_to_f64(bond.accrued_interest(settlement), "accrued")?;
+    let accrued = dec_to_f64(bond.try_accrued_interest(settlement)?, "accrued")?;
     let clean = dirty - accrued;
     let ytm_decimal = yield_to_maturity(
         bond,

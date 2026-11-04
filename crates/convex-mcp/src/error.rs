@@ -1,8 +1,9 @@
 //! Typed errors for MCP tools.
 //!
-//! Three categories worth distinguishing on the wire:
+//! Categories worth distinguishing on the wire:
 //!
 //! - `InvalidInput`        → JSON-RPC -32602. Client retry after fixing the call.
+//! - `Unsupported`         → JSON-RPC -32602. Full requested economics unavailable.
 //! - `ConvergenceFailure`  → JSON-RPC -32603. Math diverged; client may retry with different inputs.
 //! - `CalculationFailed`   → JSON-RPC -32603. Other math/curve errors.
 //!
@@ -22,6 +23,10 @@ pub enum McpToolError {
     #[error("invalid input: {0}")]
     InvalidInput(String),
 
+    /// The interface cannot supply the full native requested economics.
+    #[error("unsupported: {0}")]
+    Unsupported(String),
+
     /// A numerical solver did not converge.
     #[error("solver did not converge: {0}")]
     ConvergenceFailure(String),
@@ -35,6 +40,7 @@ impl From<McpToolError> for McpError {
     fn from(err: McpToolError) -> Self {
         let (code, is_caller) = match &err {
             McpToolError::InvalidInput(_) => ("invalid_input", true),
+            McpToolError::Unsupported(_) => ("unsupported", true),
             McpToolError::ConvergenceFailure(_) => ("convergence_failure", false),
             McpToolError::CalculationFailed(_) => ("calculation_failed", false),
         };

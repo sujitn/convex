@@ -1,0 +1,4603 @@
+{
+  "schema_version": 1,
+  "provenance": "Explicit structural inputs declared before decoder edits. No price, yield or native-generated financial reference.",
+  "positive_cases": [
+    {
+      "id": "USD.Act360.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act360.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act360.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act360.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act360.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Fixed.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Fixed.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Fixed.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Fixed.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Fixed.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Leap.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Leap.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Leap.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Leap.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Act365Leap.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIsda.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIsda.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIsda.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIsda.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIsda.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIcma.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIcma.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIcma.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIcma.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActIcma.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActAfb.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActAfb.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActAfb.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActAfb.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.ActActAfb.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360US.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360US.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360US.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360US.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360US.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360E.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360E.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360E.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360E.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360E.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360EIsda.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360EIsda.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360EIsda.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360EIsda.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360EIsda.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360German.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360German.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360German.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360German.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "USD.Thirty360German.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act360.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act360.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act360.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act360.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act360.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Fixed.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Fixed.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Fixed.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Fixed.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Fixed.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Leap.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Leap.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Leap.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Leap.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Act365Leap.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIsda.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIsda.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIsda.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIsda.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIsda.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIcma.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIcma.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIcma.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIcma.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActIcma.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActAfb.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActAfb.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActAfb.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActAfb.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.ActActAfb.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360US.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360US.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360US.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360US.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360US.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360E.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360E.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360E.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360E.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360E.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360EIsda.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360EIsda.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360EIsda.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360EIsda.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360EIsda.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360German.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360German.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360German.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360German.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "EUR.Thirty360German.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "EUR",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act360.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act360.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act360.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act360.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act360.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Fixed.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Fixed.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Fixed.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Fixed.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Fixed.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Leap.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Leap.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Leap.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Leap.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Act365Leap.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Leap",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIsda.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIsda.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIsda.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIsda.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIsda.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsda",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIcma.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIcma.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIcma.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIcma.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActIcma.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIcma",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActAfb.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActAfb.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActAfb.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActAfb.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.ActActAfb.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActAfb",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360US.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360US.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360US.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360US.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360US.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360US",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360E.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360E.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360E.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360E.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360E.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360E",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360EIsda.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360EIsda.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360EIsda.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360EIsda.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360EIsda.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360EIsda",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360German.Annual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Annual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360German.SemiAnnual",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360German.Quarterly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Quarterly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360German.Monthly",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Monthly",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "GBP.Thirty360German.Continuous",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Thirty360German",
+        "compounding": "Continuous",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "GBP",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "explicit_null_issue_price",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": null,
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    }
+  ],
+  "negative_cases": [
+    {
+      "id": "unknown_day_count.0",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "unknown_day_count.1",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Unknown",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "unknown_day_count.2",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActISDA",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "unknown_day_count.3",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ACT/360",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "unknown_day_count.4",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act360 ",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "unknown_day_count.5",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "ActActIsdaWithReference",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "unknown_day_count.6",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "UnknownVendorBasis",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "ignored_outer.coupon",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "coupon": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_outer.cap",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "cap": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_outer.floor",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "floor": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_outer.principal_steps",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "principal_steps": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_outer.exercise",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "exercise": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_outer.redemption_rule",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "redemption_rule": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_outer.reference_periods",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "reference_periods": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_outer.projection_curve",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "projection_curve": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_outer.provider_payload",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007",
+        "provider_payload": {
+          "supplied": "must not vanish"
+        }
+      }
+    },
+    {
+      "id": "ignored_identifier.rating",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue",
+          "rating": "must not vanish"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "ignored_identifier.seniority",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue",
+          "seniority": "must not vanish"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "ignored_identifier.provider_payload",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue",
+          "provider_payload": "must not vanish"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "ignored_identifier.issuer_reference_revision",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue",
+          "issuer_reference_revision": "must not vanish"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.identifiers",
+      "terms": {
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.maturity",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.issue_date",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.day_count",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.compounding",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.settlement_days",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.calendar",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.currency",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.face_value",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "missing_required.redemption_value",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001"
+      }
+    },
+    {
+      "id": "invalid_type.day_count",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": 360,
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "invalid_type.compounding",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "Simple",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "invalid_type.calendar",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": {},
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "invalid_type.currency",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "NOT-A-CURRENCY",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "invalid_type.face_value",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "not-a-decimal",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "invalid_type.redemption_value",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "NaN"
+      }
+    },
+    {
+      "id": "invalid_type.settlement_days",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": -1,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "invalid_type.issue_date",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-08-21",
+        "issue_date": "not-a-date",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    },
+    {
+      "id": "invalid_type.maturity",
+      "terms": {
+        "identifiers": {
+          "cusip": "037833100",
+          "isin": "US0378331005",
+          "figi": "BBG000B9XRY4",
+          "sedol": "2046251",
+          "ticker": "EXPLICIT.ZERO",
+          "issuer_name": "Supplied issuer",
+          "issue_name": "Supplied original issue"
+        },
+        "maturity": "2027-02-30",
+        "issue_date": "2020-01-15",
+        "issue_price": "97.1234567890123456789",
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "settlement_days": 3,
+        "calendar": "SUPPLIED.CALENDAR@VERSION-7",
+        "currency": "USD",
+        "face_value": "1000.000001",
+        "redemption_value": "1032.500007"
+      }
+    }
+  ],
+  "duplicate_field_json": "{\"identifiers\":{\"cusip\":\"037833100\",\"isin\":\"US0378331005\",\"figi\":\"BBG000B9XRY4\",\"sedol\":\"2046251\",\"ticker\":\"EXPLICIT.ZERO\",\"issuer_name\":\"Supplied issuer\",\"issue_name\":\"Supplied original issue\"},\"maturity\":\"2027-08-21\",\"issue_date\":\"2020-01-15\",\"issue_price\":\"97.1234567890123456789\",\"day_count\":\"Act365Fixed\",\"compounding\":\"SemiAnnual\",\"settlement_days\":3,\"calendar\":\"SUPPLIED.CALENDAR@VERSION-7\",\"currency\":\"USD\",\"face_value\":\"1000.000001\",\"redemption_value\":\"1032.500007\",\"day_count\":\"Act360\"}",
+  "known_day_counts": [
+    "Act360",
+    "Act365Fixed",
+    "Act365Leap",
+    "ActActIsda",
+    "ActActIcma",
+    "ActActAfb",
+    "Thirty360US",
+    "Thirty360E",
+    "Thirty360EIsda",
+    "Thirty360German"
+  ],
+  "compounding_variants": [
+    "Annual",
+    "SemiAnnual",
+    "Quarterly",
+    "Monthly",
+    "Continuous"
+  ],
+  "units": "Lossless exact original metadata and Decimal strings; economic admission remains in checked pricing/terms owners.",
+  "certified": false
+}

@@ -16,13 +16,14 @@
 //! - Analytically tractable
 //! - Fits the initial yield curve exactly
 //! - Can produce negative rates (use Black-Karasinski if this is a concern)
-//! - Industry standard for callable bond pricing
+//! - Widely used for callable bond pricing
 
 use super::{BinomialTree, ShortRateModel};
+use convex_math::portable;
 
 /// Hull-White one-factor short rate model.
 ///
-/// This is the industry-standard model for pricing callable bonds and
+/// This is a widely used model for pricing callable bonds and
 /// calculating OAS. It provides exact fit to the initial yield curve
 /// while modeling mean-reverting rate dynamics.
 ///
@@ -123,7 +124,7 @@ impl HullWhite {
         if tau <= 0.0 {
             return 0.0;
         }
-        (1.0 - (-a * tau).exp()) / a
+        (1.0 - portable::exp(-a * tau)) / a
     }
 
     /// Calculates θ(t) to fit the initial zero curve.
@@ -170,7 +171,7 @@ impl HullWhite {
         let df_dt = (forward_plus - forward_minus) / (2.0 * epsilon);
 
         // θ(t) = df/dt + a*f + σ²*(1-exp(-2at))/(2a)
-        df_dt + a * forward + sigma * sigma * (1.0 - (-2.0 * a * t_safe).exp()) / (2.0 * a)
+        df_dt + a * forward + sigma * sigma * (1.0 - portable::exp(-2.0 * a * t_safe)) / (2.0 * a)
     }
 }
 

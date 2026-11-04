@@ -1,8 +1,6 @@
-//! Parametric (variance-covariance) VaR calculation.
-
+//! Zero-mean Gaussian scalar loss quantiles under explicit IID time scaling.
 use super::{VaRMethod, VaRResult};
 use crate::error::{AnalyticsError, AnalyticsResult};
-use rust_decimal::Decimal;
 
 /// Z-score for 90% confidence level (one-tailed).
 pub const Z_SCORE_90: f64 = 1.282;
@@ -11,94 +9,55 @@ pub const Z_SCORE_95: f64 = 1.645;
 /// Z-score for 99% confidence level (one-tailed).
 pub const Z_SCORE_99: f64 = 2.326;
 
-/// Calculate parametric VaR using the variance-covariance method.
-///
-/// # Arguments
-///
-/// * `portfolio_value` - Current portfolio value
-/// * `daily_volatility` - Daily portfolio volatility (standard deviation)
-/// * `confidence_level` - Confidence level (e.g., 0.95 for 95%)
-/// * `horizon_days` - Time horizon in days
-///
-/// # Returns
-///
-/// VaR result
+/// Gaussian loss quantile: inverse_normal(confidence)*abs(value)*volatility*sqrt(days).
+/// Volatility is a finite nonnegative daily fractional standard deviation.
+/// Negative lower-than-median quantiles are retained; inputs are never clamped.
+/// This scalar model does not infer covariance, drift or multi-day scenarios.
 pub fn parametric_var(
     portfolio_value: f64,
     daily_volatility: f64,
     confidence_level: f64,
     horizon_days: u32,
 ) -> AnalyticsResult<VaRResult> {
-    if daily_volatility < 0.0 {
+    super::admit(portfolio_value, confidence_level, horizon_days)?;
+    if !daily_volatility.is_finite() || daily_volatility < 0.0 {
         return Err(AnalyticsError::InvalidInput(
-            "volatility cannot be negative".to_string(),
+            "finite nonnegative daily volatility required".into(),
         ));
     }
-
-    if confidence_level <= 0.0 || confidence_level >= 1.0 {
-        return Err(AnalyticsError::InvalidInput(
-            "confidence level must be between 0 and 1".to_string(),
-        ));
-    }
-
-    // Get z-score for confidence level (using common approximations)
-    let z_score = z_score_for_confidence(confidence_level);
-
-    // VaR = z × σ × √t × V
-    let var = z_score * daily_volatility * (horizon_days as f64).sqrt() * portfolio_value;
-
+    let z = z_score_for_confidence(confidence_level)?;
+    let loss = super::product(&[
+        z,
+        daily_volatility,
+        f64::from(horizon_days).sqrt(),
+        portfolio_value.abs(),
+    ])?;
     Ok(VaRResult {
-        var: Decimal::from_f64_retain(var).unwrap_or(Decimal::ZERO),
+        var: crate::risk::cash::decimal(loss)?,
         confidence_level,
         horizon_days,
         method: VaRMethod::Parametric,
     })
 }
 
-/// Get z-score for a given confidence level.
-///
-/// Uses linear interpolation for non-standard confidence levels.
-fn z_score_for_confidence(confidence: f64) -> f64 {
-    match confidence {
-        c if (c - 0.90).abs() < 0.001 => Z_SCORE_90,
-        c if (c - 0.95).abs() < 0.001 => Z_SCORE_95,
-        c if (c - 0.99).abs() < 0.001 => Z_SCORE_99,
-        _ => {
-            // Simple interpolation for other values
-            if confidence < 0.95 {
-                Z_SCORE_90 + (confidence - 0.90) / (0.95 - 0.90) * (Z_SCORE_95 - Z_SCORE_90)
-            } else {
-                Z_SCORE_95 + (confidence - 0.95) / (0.99 - 0.95) * (Z_SCORE_99 - Z_SCORE_95)
-            }
-        }
-    }
+fn z_score_for_confidence(confidence: f64) -> AnalyticsResult<f64> {
+    convex_math::stats::standard_normal_inverse(confidence).map_err(Into::into)
 }
 
-/// Calculate parametric VaR using DV01 for interest rate risk.
-///
-/// # Arguments
-///
-/// * `dv01` - Portfolio DV01
-/// * `daily_yield_volatility` - Daily yield volatility in basis points
-/// * `confidence_level` - Confidence level
-/// * `horizon_days` - Time horizon in days
+/// Gaussian loss quantile using actual signed currency-per-bp DV01 and finite
+/// nonnegative daily yield volatility in bp. The distribution scale uses abs(DV01).
 pub fn parametric_var_from_dv01(
     dv01: f64,
     daily_yield_volatility_bps: f64,
     confidence_level: f64,
     horizon_days: u32,
 ) -> AnalyticsResult<VaRResult> {
-    let z_score = z_score_for_confidence(confidence_level);
-
-    // VaR = z × σ_yield × √t × DV01
-    let var = z_score * daily_yield_volatility_bps * (horizon_days as f64).sqrt() * dv01;
-
-    Ok(VaRResult {
-        var: Decimal::from_f64_retain(var).unwrap_or(Decimal::ZERO),
+    parametric_var(
+        dv01,
+        daily_yield_volatility_bps,
         confidence_level,
         horizon_days,
-        method: VaRMethod::Parametric,
-    })
+    )
 }
 
 #[cfg(test)]
@@ -138,8 +97,20 @@ mod tests {
 
     #[test]
     fn test_z_score_standard_values() {
-        assert_relative_eq!(z_score_for_confidence(0.90), Z_SCORE_90, epsilon = 0.001);
-        assert_relative_eq!(z_score_for_confidence(0.95), Z_SCORE_95, epsilon = 0.001);
-        assert_relative_eq!(z_score_for_confidence(0.99), Z_SCORE_99, epsilon = 0.001);
+        assert_relative_eq!(
+            z_score_for_confidence(0.90).unwrap(),
+            Z_SCORE_90,
+            epsilon = 0.001
+        );
+        assert_relative_eq!(
+            z_score_for_confidence(0.95).unwrap(),
+            Z_SCORE_95,
+            epsilon = 0.001
+        );
+        assert_relative_eq!(
+            z_score_for_confidence(0.99).unwrap(),
+            Z_SCORE_99,
+            epsilon = 0.001
+        );
     }
 }

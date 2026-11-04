@@ -1,0 +1,35 @@
+# Public edge for the read-only showcase. Fail-closed allowlist: anything not
+# explicitly allowed below gets 403. This is the only write guard in front of
+# convex-server (which runs local_development on loopback).
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:8080 {
+	# Reads and WebSocket upgrades (/ws) pass through.
+	@reads method GET HEAD OPTIONS
+
+	# Stateless calculators only. `path` is exact unless it contains `*`.
+	# POST /api/v1/curves writes the durable recipe store and stays private, as does
+	# POST /api/v1/market/quotes, the live quote ingress;
+	# /api/v1/curves/bootstrap calibrates and returns a curve without storing it.
+	@calculators {
+		method POST
+		path /api/v1/quote /api/v1/batch/price /api/v1/analytics /api/v1/runtime/valuation /api/v1/reference/resolve /api/v1/curves/bootstrap /api/v1/etf/* /api/v1/portfolio/* /api/v1/benchmark/* /api/v1/liquidity/* /api/v1/credit/*
+	}
+
+	handle @reads {
+		reverse_proxy 127.0.0.1:8081
+	}
+
+	handle @calculators {
+		reverse_proxy 127.0.0.1:8081
+	}
+
+	handle {
+		header Content-Type application/json
+		respond `{"error":"read_only_showcase","code":"read_only_showcase"}` 403
+	}
+}

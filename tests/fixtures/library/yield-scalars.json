@@ -1,0 +1,4877 @@
+{
+  "schema_version": 1,
+  "qualification": "Checked explicit scalar arithmetic and reporting, not dated market-convention or raw solver qualification.",
+  "cases": [
+    {
+      "id": "yield_scalar.current_binary64.000",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 5.0,
+            "clean_price": 100.0
+          }
+        }
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.001",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "5",
+            "clean_price": "100"
+          }
+        }
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.002",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.05",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.003",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "5",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.current_binary64.004",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 5.0,
+            "clean_price": 110.503
+          }
+        }
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.005",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "5",
+            "clean_price": "110.503"
+          }
+        }
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.006",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.05",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.007",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "5",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.current_binary64.008",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 5.0,
+            "clean_price": 95.25
+          }
+        }
+      },
+      "expected": "0.052493438320209973753280839895013123359580052493438320209973753280839895013123359580052493438320209973753280840",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.009",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "5",
+            "clean_price": "95.25"
+          }
+        }
+      },
+      "expected": "0.052493438320209973753280839895013123359580052493438320209973753280839895013123359580052493438320209973753280840",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.010",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.05",
+            "clean_price_per100": "95.25"
+          }
+        }
+      },
+      "expected": "5.2493438320209973753280839895013123359580052493438320209973753280839895013123359580052493438320209973753280840",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5.249343832020997375328084"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.011",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "5",
+            "clean_price_per100": "95.25"
+          }
+        }
+      },
+      "expected": "5.2493438320209973753280839895013123359580052493438320209973753280839895013123359580052493438320209973753280840",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5.249343832020997375328084"
+    },
+    {
+      "id": "yield_scalar.current_binary64.012",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 7.5,
+            "clean_price": 100.0
+          }
+        }
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.013",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "7.5",
+            "clean_price": "100"
+          }
+        }
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.014",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.075",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.015",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "7.5",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.current_binary64.016",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 7.5,
+            "clean_price": 110.503
+          }
+        }
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.017",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "7.5",
+            "clean_price": "110.503"
+          }
+        }
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.018",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.075",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.019",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "7.5",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.current_binary64.020",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 7.5,
+            "clean_price": 95.25
+          }
+        }
+      },
+      "expected": "0.078740157480314960629921259842519685039370078740157480314960629921259842519685039370078740157480314960629921260",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.021",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "7.5",
+            "clean_price": "95.25"
+          }
+        }
+      },
+      "expected": "0.078740157480314960629921259842519685039370078740157480314960629921259842519685039370078740157480314960629921260",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.022",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.075",
+            "clean_price_per100": "95.25"
+          }
+        }
+      },
+      "expected": "7.8740157480314960629921259842519685039370078740157480314960629921259842519685039370078740157480314960629921260",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.874015748031496062992126"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.023",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "7.5",
+            "clean_price_per100": "95.25"
+          }
+        }
+      },
+      "expected": "7.8740157480314960629921259842519685039370078740157480314960629921259842519685039370078740157480314960629921260",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.874015748031496062992126"
+    },
+    {
+      "id": "yield_scalar.current_binary64.024",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 0.0,
+            "clean_price": 100.0
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.025",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "0",
+            "clean_price": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.026",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.027",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "0",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_binary64.028",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 0.0,
+            "clean_price": 110.503
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.029",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "0",
+            "clean_price": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.030",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.031",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "0",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_binary64.032",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 0.0,
+            "clean_price": 95.25
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.033",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "0",
+            "clean_price": "95.25"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.034",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0",
+            "clean_price_per100": "95.25"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.035",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "0",
+            "clean_price_per100": "95.25"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_binary64.036",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": -1.0,
+            "clean_price": 100.0
+          }
+        }
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.037",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "-1",
+            "clean_price": "100"
+          }
+        }
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.038",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "-0.01",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.039",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "-1",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.current_binary64.040",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": -1.0,
+            "clean_price": 110.503
+          }
+        }
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.041",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "-1",
+            "clean_price": "110.503"
+          }
+        }
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.042",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "-0.01",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.043",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "-1",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.current_binary64.044",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": -1.0,
+            "clean_price": 95.25
+          }
+        }
+      },
+      "expected": "-0.010498687664041994750656167979002624671916010498687664041994750656167979002624671916010498687664041994750656168",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.045",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "-1",
+            "clean_price": "95.25"
+          }
+        }
+      },
+      "expected": "-0.010498687664041994750656167979002624671916010498687664041994750656167979002624671916010498687664041994750656168",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.046",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "-0.01",
+            "clean_price_per100": "95.25"
+          }
+        }
+      },
+      "expected": "-1.0498687664041994750656167979002624671916010498687664041994750656167979002624671916010498687664041994750656168",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1.0498687664041994750656168"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.047",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "-1",
+            "clean_price_per100": "95.25"
+          }
+        }
+      },
+      "expected": "-1.0498687664041994750656167979002624671916010498687664041994750656167979002624671916010498687664041994750656168",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1.0498687664041994750656168"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.048",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5.0,
+            "clean_price": 100.0,
+            "years_to_maturity": 5.0
+          }
+        }
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.049",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "clean_price": "100",
+            "par_value": "100",
+            "years_to_maturity": "5"
+          }
+        }
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.050",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5.0,
+            "clean_price": 95.0,
+            "years_to_maturity": 5.0
+          }
+        }
+      },
+      "expected": "0.063157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.051",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "clean_price": "95",
+            "par_value": "100",
+            "years_to_maturity": "5"
+          }
+        }
+      },
+      "expected": "6.3157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.3157894736842105263157895"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.052",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5.0,
+            "clean_price": 102.0,
+            "years_to_maturity": 0.25
+          }
+        }
+      },
+      "expected": "-0.029411764705882352941176470588235294117647058823529411764705882352941176470588235294117647058823529411764705882",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.053",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "clean_price": "102",
+            "par_value": "100",
+            "years_to_maturity": "0.25"
+          }
+        }
+      },
+      "expected": "-2.9411764705882352941176470588235294117647058823529411764705882352941176470588235294117647058823529411764705882",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-2.9411764705882352941176471"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.054",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": -1.0,
+            "clean_price": 102.0,
+            "years_to_maturity": 0.25
+          }
+        }
+      },
+      "expected": "-0.088235294117647058823529411764705882352941176470588235294117647058823529411764705882352941176470588235294117647",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.055",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "-1",
+            "clean_price": "102",
+            "par_value": "100",
+            "years_to_maturity": "0.25"
+          }
+        }
+      },
+      "expected": "-8.8235294117647058823529411764705882352941176470588235294117647058823529411764705882352941176470588235294117647",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-8.8235294117647058823529412"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.056",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 0.0,
+            "clean_price": 100.0,
+            "years_to_maturity": 5.0
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.057",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "0",
+            "clean_price": "100",
+            "par_value": "100",
+            "years_to_maturity": "5"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.058",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 0.0,
+            "clean_price": 95.0,
+            "years_to_maturity": 2.5
+          }
+        }
+      },
+      "expected": "0.021052631578947368421052631578947368421052631578947368421052631578947368421052631578947368421052631578947368421",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.059",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "0",
+            "clean_price": "95",
+            "par_value": "100",
+            "years_to_maturity": "2.5"
+          }
+        }
+      },
+      "expected": "2.1052631578947368421052631578947368421052631578947368421052631578947368421052631578947368421052631578947368421",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "2.1052631578947368421052632"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.060",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 7.5,
+            "clean_price": 110.503,
+            "years_to_maturity": 3.25
+          }
+        }
+      },
+      "expected": "0.038626170260605524806496725811133564769212670174635008168939374427008246904539312890217390547698322147884603203",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.061",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "7.5",
+            "clean_price": "110.503",
+            "par_value": "100",
+            "years_to_maturity": "3.25"
+          }
+        }
+      },
+      "expected": "3.8626170260605524806496725811133564769212670174635008168939374427008246904539312890217390547698322147884603203",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "3.8626170260605524806496726"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.062",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 1.0,
+            "clean_price": 200.0,
+            "years_to_maturity": 100.0
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.063",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "1",
+            "clean_price": "200",
+            "par_value": "100",
+            "years_to_maturity": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.064",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.065",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.066",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.067",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.068",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.069",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.070",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.071",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.072",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "1000.625",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.073",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "1000.625",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.074",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "1000.625",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.075",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "1000.625",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.076",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.075",
+            "original_face": "100",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.077",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.075",
+            "original_face": "100",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.078",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.075",
+            "original_face": "100",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.079",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.075",
+            "original_face": "100",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.080",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.075",
+            "original_face": "5000",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.081",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.075",
+            "original_face": "5000",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.082",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.075",
+            "original_face": "5000",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.083",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.075",
+            "original_face": "5000",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.084",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.075",
+            "original_face": "1000.625",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.085",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.075",
+            "original_face": "1000.625",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.086",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.075",
+            "original_face": "1000.625",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.087",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.075",
+            "original_face": "1000.625",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.088",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0",
+            "original_face": "100",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.089",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0",
+            "original_face": "100",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.090",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0",
+            "original_face": "100",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.091",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0",
+            "original_face": "100",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.092",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.093",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.094",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.095",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.096",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0",
+            "original_face": "1000.625",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.097",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0",
+            "original_face": "1000.625",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.098",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0",
+            "original_face": "1000.625",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.099",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0",
+            "original_face": "1000.625",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.100",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "-0.01",
+            "original_face": "100",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.101",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "-0.01",
+            "original_face": "100",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.102",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "-0.01",
+            "original_face": "100",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.103",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "-0.01",
+            "original_face": "100",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.104",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "-0.01",
+            "original_face": "5000",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.105",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "-0.01",
+            "original_face": "5000",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.106",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "-0.01",
+            "original_face": "5000",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.107",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "-0.01",
+            "original_face": "5000",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.108",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "-0.01",
+            "original_face": "1000.625",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.109",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "-0.01",
+            "original_face": "1000.625",
+            "clean_price_per100": "100"
+          }
+        }
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.110",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "-0.01",
+            "original_face": "1000.625",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.111",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "-0.01",
+            "original_face": "1000.625",
+            "clean_price_per100": "110.503"
+          }
+        }
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.report_percent.112",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_percent",
+            "yield_value": 0.05
+          }
+        }
+      },
+      "expected": "5.000000000000000277555756156289135105907917022705078125",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.113",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_percent",
+            "yield_value": 0.075
+          }
+        }
+      },
+      "expected": "7.499999999999999722444243843710864894092082977294921875",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.114",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_percent",
+            "yield_value": 0.0
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.115",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_percent",
+            "yield_value": -0.0125
+          }
+        }
+      },
+      "expected": "-1.25000000000000006938893903907228377647697925567626953125",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.116",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_percent",
+            "yield_value": 1.5
+          }
+        }
+      },
+      "expected": "150",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.117",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_percent",
+            "yield_value": 1e+20
+          }
+        }
+      },
+      "expected": "10000000000000000000000",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_decimal.118",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 0.05
+          }
+        }
+      },
+      "expected": "0.05000000000000000277555756156289135105907917022705078125",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "0.0500000000000000027755575616"
+    },
+    {
+      "id": "yield_scalar.report_decimal.119",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 0.1
+          }
+        }
+      },
+      "expected": "0.1000000000000000055511151231257827021181583404541015625",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "0.1000000000000000055511151231"
+    },
+    {
+      "id": "yield_scalar.report_decimal.120",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 0.0
+          }
+        }
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.report_decimal.121",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": -0.125
+          }
+        }
+      },
+      "expected": "-0.125",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "-0.125"
+    },
+    {
+      "id": "yield_scalar.report_decimal.122",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 1.5
+          }
+        }
+      },
+      "expected": "1.5",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "1.5"
+    },
+    {
+      "id": "yield_scalar.report_decimal.123",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 1e-28
+          }
+        }
+      },
+      "expected": "9.9999999999999997123254346160061967703296936367536399994355443342760077484474359743593652183335507288575172424E-29",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "0.0000000000000000000000000001"
+    },
+    {
+      "id": "yield_scalar.report_decimal.124",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 1e+20
+          }
+        }
+      },
+      "expected": "100000000000000000000",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "100000000000000000000"
+    },
+    {
+      "id": "yield_scalar.reject.current_binary64.price.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 5,
+            "clean_price": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_binary64.price.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 5,
+            "clean_price": -100
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_binary64.ignored_convention",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 5,
+            "clean_price": 100,
+            "guessed_convention": "Japanese"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_binary64.missing_price",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 5
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_binary64.price.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5,
+            "clean_price": 0,
+            "years_to_maturity": 5
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_binary64.price.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5,
+            "clean_price": -100,
+            "years_to_maturity": 5
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_binary64.ignored_convention",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5,
+            "clean_price": 100,
+            "years_to_maturity": 5,
+            "guessed_convention": "Japanese"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_binary64.missing_price",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5,
+            "years_to_maturity": 5
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_decimal_rate.price.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "5",
+            "clean_price": "0"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_decimal_rate.price.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "5",
+            "clean_price": "-100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_decimal_rate.ignored_convention",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "5",
+            "clean_price": "100",
+            "guessed_convention": "Japanese"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_decimal_rate.missing_price",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "5"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_percent_from_rate.price.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.05",
+            "clean_price_per100": "0"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_percent_from_rate.price.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.05",
+            "clean_price_per100": "-100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_percent_from_rate.ignored_convention",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.05",
+            "clean_price_per100": "100",
+            "guessed_convention": "Japanese"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_percent_from_rate.missing_price",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "0.05"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_percent_from_amount.price.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "5",
+            "clean_price_per100": "0"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_percent_from_amount.price.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "5",
+            "clean_price_per100": "-100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_percent_from_amount.ignored_convention",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "5",
+            "clean_price_per100": "100",
+            "guessed_convention": "Japanese"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.current_percent_from_amount.missing_price",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_amount",
+            "annual_coupon_per100": "5"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_decimal_percent.price.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "clean_price": "0",
+            "par_value": "100",
+            "years_to_maturity": "5"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_decimal_percent.price.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "clean_price": "-100",
+            "par_value": "100",
+            "years_to_maturity": "5"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_decimal_percent.ignored_convention",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "clean_price": "100",
+            "par_value": "100",
+            "years_to_maturity": "5",
+            "guessed_convention": "Japanese"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_decimal_percent.missing_price",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "par_value": "100",
+            "years_to_maturity": "5"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_decimal_rate.price.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "0"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_decimal_rate.price.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "-100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_decimal_rate.ignored_convention",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "100",
+            "guessed_convention": "Japanese"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_decimal_rate.missing_price",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "5000"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_percent.price.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "0"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_percent.price.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "-100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_percent.ignored_convention",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "5000",
+            "clean_price_per100": "100",
+            "guessed_convention": "Japanese"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_percent.missing_price",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "5000"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_binary64.years.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5,
+            "clean_price": 100,
+            "years_to_maturity": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_binary64.years.-1",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5,
+            "clean_price": 100,
+            "years_to_maturity": -1
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_decimal_percent.years.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "clean_price": "100",
+            "years_to_maturity": "0",
+            "par_value": "100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.simple_decimal_percent.years.-1",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "5",
+            "clean_price": "100",
+            "years_to_maturity": "-1",
+            "par_value": "100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_decimal_rate.face.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "0",
+            "clean_price_per100": "100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_decimal_rate.face.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_decimal_rate",
+            "annual_rate": "0.05",
+            "original_face": "-100",
+            "clean_price_per100": "100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_percent.face.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "0",
+            "clean_price_per100": "100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.fixed_current_percent.face.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "fixed_current_percent",
+            "annual_rate": "0.05",
+            "original_face": "-100",
+            "clean_price_per100": "100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.percent_overflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_percent",
+            "yield_value": 1e+308
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.decimal_overflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 1e+308
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.decimal_underflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 1e-100
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.binary_current_overflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 1e+308,
+            "clean_price": 1e-308
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.binary_current_underflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_binary64",
+            "annual_coupon": 1e-308,
+            "clean_price": 1e+308
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.binary_simple_overflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_binary64",
+            "annual_coupon": 5,
+            "clean_price": 1,
+            "years_to_maturity": 1e-308
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.decimal_current_underflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": "0.0000000000000000000000000001",
+            "clean_price": "79228162514264337593543950335"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.decimal_percent_overflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_percent_from_rate",
+            "annual_rate": "79228162514264337593543950335",
+            "clean_price_per100": "100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.decimal_simple_overflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "79228162514264337593543950335",
+            "clean_price": "1",
+            "par_value": "100",
+            "years_to_maturity": "1"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.decimal_simple_underflow",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "0.0000000000000000000000000001",
+            "clean_price": "79228162514264337593543950335",
+            "par_value": "79228162514264337593543950335",
+            "years_to_maturity": "1"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.decimal_numeric_input",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "current_decimal_rate",
+            "annual_coupon": 5,
+            "clean_price": "100"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.nonfinite_string",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_percent",
+            "yield_value": "NaN"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.ignored_report_unit",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal",
+            "yield_value": 0.05,
+            "unit": "percent"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.missing_report_value",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "report_decimal"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.unknown_action",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "street_yield",
+            "yield_value": 0.05
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.non100_par",
+      "expected_error": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "50",
+            "clean_price": "950",
+            "par_value": "1000",
+            "years_to_maturity": "2.5"
+          }
+        }
+      },
+      "expected": "7.3684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789474",
+      "expected_decimal": "7.3684210526315789473684211",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25"
+    },
+    {
+      "id": "yield_scalar.reject.nonpositive_par.0",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "50",
+            "clean_price": "950",
+            "par_value": "0",
+            "years_to_maturity": "2.5"
+          }
+        }
+      }
+    },
+    {
+      "id": "yield_scalar.reject.nonpositive_par.-100",
+      "expected_error": "invalid_input",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "yield_scalar",
+          "action": {
+            "kind": "simple_decimal_percent",
+            "annual_coupon": "50",
+            "clean_price": "950",
+            "par_value": "-100",
+            "years_to_maturity": "2.5"
+          }
+        }
+      }
+    }
+  ],
+  "certified": false
+}

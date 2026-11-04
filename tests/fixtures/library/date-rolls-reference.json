@@ -1,0 +1,73 @@
+{
+  "absolute_bound": "0.0000001",
+  "claims": [
+    {
+      "amount": "-3",
+      "due": "2026-10-09",
+      "effective": "2026-10-08",
+      "kind": "bond_coupon",
+      "ordinal": 0
+    },
+    {
+      "amount": "-400",
+      "due": "2026-10-09",
+      "effective": "2026-10-08",
+      "kind": "principal",
+      "ordinal": 0
+    },
+    {
+      "amount": "-0.06",
+      "due": "2026-10-12",
+      "effective": "2026-10-09",
+      "kind": "bond_coupon",
+      "ordinal": 1
+    },
+    {
+      "amount": "-600",
+      "due": "2026-10-12",
+      "effective": "2026-10-09",
+      "kind": "principal",
+      "ordinal": 1
+    }
+  ],
+  "expected_due_current": "-1003.06",
+  "expected_maturity_current": {
+    "base_pv": "-1002.8972660703935905471634953762201307612157730747198918576138596442684126395596",
+    "half_minus_pv": "-1002.8975126035672906726419993468539012479197418541907031643497401404930693638888",
+    "half_plus_pv": "-1002.8970195373212054037573055039380402462385464555238140833036467324746030027254",
+    "half_value": "0.0004930662460852688846938429158610016811953986668890810460934080184663611634",
+    "minus_pv": "-1002.8977591368423058218291199735642632049928622019735972068412671005426104493490",
+    "plus_pv": "-1002.8967730043501352007871442830884725830230455222399084098432336022680264163575",
+    "value": "0.00049306624608531052098784523789531098490833986684439849901674913729201649575"
+  },
+  "expected_native_coupon_cash": {
+    "cds_final": "-0.89",
+    "swap_fixed": "-3.10",
+    "swap_floating": "3.44"
+  },
+  "expected_outstanding_principal_after_amortization": "600",
+  "expected_received_before_actual_payment": "0",
+  "expected_remaining_after_amortization": "1",
+  "provenance": "Independent Decimal80: explicit synthetic ACT/360 fixed cash, no native imports",
+  "relative_bound": "0",
+  "schema_version": 1,
+  "terms": {
+    "collateral_rate": ".033",
+    "collateral_time": "ACT/365F",
+    "face": "1000",
+    "first_period_days": 30,
+    "held": "-1000",
+    "last_period_days": 1,
+    "maturity": "2026-10-09",
+    "maturity_valuation": "2026-10-09",
+    "payment_adjustment": "Following",
+    "payment_delay_calendar_days": 1,
+    "principal_after_step": "600",
+    "rate": ".036",
+    "rounding": "NearestEven2"
+  },
+  "units": {
+    "cash": "USD",
+    "risk": "signed USD per +1bp continuous collateral zero"
+  }
+}

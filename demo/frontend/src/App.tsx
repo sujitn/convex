@@ -21,10 +21,9 @@ import BondPricingDemo from './components/BondPricingDemo';
 import PortfolioDemo from './components/PortfolioDemo';
 import ETFAnalyticsDemo from './components/ETFAnalyticsDemo';
 import StreamingDemo from './components/StreamingDemo';
-import ETFStreamingDemo from './components/ETFStreamingDemo';
 import CurveBootstrapDemo from './components/CurveBootstrapDemo';
 
-type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | 'streaming' | 'etf-streaming' | 'bootstrap' | null;
+type DemoSection = 'curves' | 'pricing' | 'portfolio' | 'etf' | 'streaming' | 'bootstrap' | null;
 
 function App() {
   const [activeDemo, setActiveDemo] = useState<DemoSection>(null);
@@ -87,8 +86,8 @@ function App() {
               High-Performance Fixed Income Analytics
             </h1>
             <p className="text-xl text-primary-200 max-w-3xl mx-auto mb-8">
-              Production-grade bond pricing, yield curve construction, portfolio analytics,
-              and risk metrics. Built in Rust for sub-microsecond calculations.
+              Bond pricing, supplied yield curves, portfolio analytics and risk tools.
+              Calculations depend on the supplied instruments, data and model assumptions.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <button
@@ -152,18 +151,6 @@ function App() {
                 <span>Streaming</span>
               </button>
               <button
-                onClick={() => setActiveDemo(activeDemo === 'etf-streaming' ? null : 'etf-streaming')}
-                className={cn(
-                  "btn flex items-center space-x-2",
-                  activeDemo === 'etf-streaming'
-                    ? "bg-white text-primary-900"
-                    : "bg-primary-700 text-white hover:bg-primary-600"
-                )}
-              >
-                <Zap className="w-4 h-4" />
-                <span>Live ETF</span>
-              </button>
-              <button
                 onClick={() => setActiveDemo(activeDemo === 'bootstrap' ? null : 'bootstrap')}
                 className={cn(
                   "btn flex items-center space-x-2",
@@ -191,7 +178,6 @@ function App() {
                 {activeDemo === 'portfolio' && 'Portfolio Analytics'}
                 {activeDemo === 'etf' && 'ETF Analytics'}
                 {activeDemo === 'streaming' && 'Real-Time Streaming'}
-                {activeDemo === 'etf-streaming' && 'Live ETF Analytics'}
                 {activeDemo === 'bootstrap' && 'Curve Bootstrapping'}
               </h2>
               <button
@@ -202,27 +188,26 @@ function App() {
               </button>
             </div>
 
-            {/* Streaming demos and bootstrap work without API since they use demo providers / frontend-only code */}
-            {activeDemo === 'streaming' ? (
+            {/* These panels report their own server state; the rest need a reachable API */}
+            {activeDemo === 'portfolio' ? (
+              <PortfolioDemo />
+            ) : activeDemo === 'streaming' ? (
               <StreamingDemo />
-            ) : activeDemo === 'etf-streaming' ? (
-              <ETFStreamingDemo />
             ) : activeDemo === 'bootstrap' ? (
               <CurveBootstrapDemo />
             ) : !isApiConnected ? (
               <div className="card text-center py-12">
                 <p className="text-slate-600 mb-4">
-                  API server not connected. Running in demo mode with sample data.
+                  API server is unavailable. Calculations are unavailable until a backend is connected.
                 </p>
                 <p className="text-sm text-slate-500">
-                  Deploy the Convex server to Fly.io or run locally to enable live calculations.
+                  Configure an API connection to calculate with supplied inputs.
                 </p>
               </div>
             ) : (
               <>
                 {activeDemo === 'curves' && <YieldCurveDemo />}
                 {activeDemo === 'pricing' && <BondPricingDemo />}
-                {activeDemo === 'portfolio' && <PortfolioDemo />}
                 {activeDemo === 'etf' && <ETFAnalyticsDemo />}
               </>
             )}
@@ -235,10 +220,10 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-slate-900 mb-4">
-              Institutional-Grade Analytics
+              Fixed Income Analytics
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-              Production-grade calculations with enterprise performance
+              Pricing, supplied curves and risk calculations
             </p>
           </div>
 
@@ -271,7 +256,7 @@ function App() {
             <FeatureCard
               icon={<Zap className="w-6 h-6" />}
               title="Real-Time Streaming"
-              description="WebSocket-based quote streaming, batch pricing, and ETF iNAV calculations with sub-millisecond latency."
+              description="Live runtime valuations streamed over the WebSocket, with batch pricing and ETF iNAV over REST. Performance depends on the workload and deployment."
             />
           </div>
         </div>

@@ -1,0 +1,67 @@
+{
+  "status": "declared_before_observation",
+  "recorded_at": "2026-10-16T19:30:13.325578+00:00",
+  "reference": "Exact supplied Decimal digits; no financial model or native answer supplies any target.",
+  "cases": [
+    {
+      "id": "healthy-coupon",
+      "constructor": {
+        "type": "fixed_rate",
+        "name": "exact-description-control",
+        "coupon_rate": "0.05",
+        "maturity": "2035-01-15",
+        "issue": "2025-01-15",
+        "currency": "USD",
+        "face_value": "100"
+      },
+      "field": "coupon_rate",
+      "exact_decimal": "0.05"
+    },
+    {
+      "id": "exact-coupon",
+      "constructor": {
+        "type": "fixed_rate",
+        "name": "exact-description-control",
+        "coupon_rate": "0.0512345678901234567890123456",
+        "maturity": "2035-01-15",
+        "issue": "2025-01-15",
+        "currency": "USD",
+        "face_value": "100"
+      },
+      "field": "coupon_rate",
+      "exact_decimal": "0.0512345678901234567890123456"
+    },
+    {
+      "id": "exact-face",
+      "constructor": {
+        "type": "fixed_rate",
+        "name": "exact-description-control",
+        "coupon_rate": "0.05",
+        "maturity": "2035-01-15",
+        "issue": "2025-01-15",
+        "currency": "USD",
+        "face_value": "100.1234567890123456789012345"
+      },
+      "field": "face_value",
+      "exact_decimal": "100.1234567890123456789012345"
+    },
+    {
+      "id": "exact-FRN-spread",
+      "constructor": {
+        "type": "floating_rate",
+        "name": "exact-description-FRN",
+        "spread_bps": "125.12345678901234567890123456",
+        "maturity": "2035-01-15",
+        "issue": "2025-01-15",
+        "currency": "USD",
+        "face_value": "100"
+      },
+      "field": "spread_bps",
+      "exact_decimal": "125.12345678901234567890123456"
+    }
+  ],
+  "absolute_decimal_bound": "0",
+  "relative_decimal_bound": "0",
+  "native_results_consulted": false,
+  "certified": false
+}

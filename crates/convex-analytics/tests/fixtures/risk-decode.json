@@ -1,0 +1,292 @@
+{
+  "recorded_at": "2026-10-16T07:51:52.089714+00:00",
+  "status": "independent_declarations_before_typed_repair",
+  "reference": "Python Decimal120 independently evaluates admitted exact string/number spellings; finite JSON model numbers retain the established shortest-decimal conversion. Decimal96 coefficient and maximum28scale bounds reject rounding/overflow. Native outputs are not used.",
+  "units": "Duration years; Convexity years squared; DV01 declared common-base currency per basis point, without implicit scale/FX conversion",
+  "absolute_decimal_bound": "0",
+  "risk_types": [
+    "Duration",
+    "Convexity",
+    "DV01"
+  ],
+  "cases": [
+    {
+      "id": "number-0",
+      "input_json": "0",
+      "expected": "success",
+      "exact_decimal": "0"
+    },
+    {
+      "id": "number-1",
+      "input_json": "-0.0",
+      "expected": "success",
+      "exact_decimal": "0"
+    },
+    {
+      "id": "number-2",
+      "input_json": "4.5",
+      "expected": "success",
+      "exact_decimal": "4.5"
+    },
+    {
+      "id": "number-3",
+      "input_json": "-4.5",
+      "expected": "success",
+      "exact_decimal": "-4.5"
+    },
+    {
+      "id": "number-4",
+      "input_json": "0.045",
+      "expected": "success",
+      "exact_decimal": "0.045"
+    },
+    {
+      "id": "number-5",
+      "input_json": "1e-28",
+      "expected": "success",
+      "exact_decimal": "0.0000000000000000000000000001"
+    },
+    {
+      "id": "number-6",
+      "input_json": "-1e-28",
+      "expected": "success",
+      "exact_decimal": "-0.0000000000000000000000000001"
+    },
+    {
+      "id": "number-7",
+      "input_json": "18446744073709551615",
+      "expected": "success",
+      "exact_decimal": "18446744073709551615"
+    },
+    {
+      "id": "number-8",
+      "input_json": "-9223372036854775808",
+      "expected": "success",
+      "exact_decimal": "-9223372036854775808"
+    },
+    {
+      "id": "number-9",
+      "input_json": "1e28",
+      "expected": "success",
+      "exact_decimal": "10000000000000000000000000000"
+    },
+    {
+      "id": "number-10",
+      "input_json": "-1e28",
+      "expected": "success",
+      "exact_decimal": "-10000000000000000000000000000"
+    },
+    {
+      "id": "string-0",
+      "input_json": "\"0\"",
+      "expected": "success",
+      "exact_decimal": "0"
+    },
+    {
+      "id": "string-1",
+      "input_json": "\"-0\"",
+      "expected": "success",
+      "exact_decimal": "-0"
+    },
+    {
+      "id": "string-2",
+      "input_json": "\"4.50\"",
+      "expected": "success",
+      "exact_decimal": "4.50"
+    },
+    {
+      "id": "string-3",
+      "input_json": "\"-4.5\"",
+      "expected": "success",
+      "exact_decimal": "-4.5"
+    },
+    {
+      "id": "string-4",
+      "input_json": "\".125\"",
+      "expected": "success",
+      "exact_decimal": "0.125"
+    },
+    {
+      "id": "string-5",
+      "input_json": "\"-.125\"",
+      "expected": "success",
+      "exact_decimal": "-0.125"
+    },
+    {
+      "id": "string-6",
+      "input_json": "\"1e2\"",
+      "expected": "success",
+      "exact_decimal": "100"
+    },
+    {
+      "id": "string-7",
+      "input_json": "\"1.25e-2\"",
+      "expected": "success",
+      "exact_decimal": "0.0125"
+    },
+    {
+      "id": "string-8",
+      "input_json": "\"1.2500e-2\"",
+      "expected": "success",
+      "exact_decimal": "0.012500"
+    },
+    {
+      "id": "string-9",
+      "input_json": "\"1e-28\"",
+      "expected": "success",
+      "exact_decimal": "0.0000000000000000000000000001"
+    },
+    {
+      "id": "string-10",
+      "input_json": "\"-1e-28\"",
+      "expected": "success",
+      "exact_decimal": "-0.0000000000000000000000000001"
+    },
+    {
+      "id": "string-11",
+      "input_json": "\"79228162514264337593543950335\"",
+      "expected": "success",
+      "exact_decimal": "79228162514264337593543950335"
+    },
+    {
+      "id": "string-12",
+      "input_json": "\"-79228162514264337593543950335\"",
+      "expected": "success",
+      "exact_decimal": "-79228162514264337593543950335"
+    },
+    {
+      "id": "invalid-string-0",
+      "input_json": "\"0.00000000000000000000000000001\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-1",
+      "input_json": "\"-0.00000000000000000000000000001\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-2",
+      "input_json": "\"1.00000000000000000000000000001\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-3",
+      "input_json": "\"-1.00000000000000000000000000001\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-4",
+      "input_json": "\"79228162514264337593543950336\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-5",
+      "input_json": "\"-79228162514264337593543950336\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-6",
+      "input_json": "\"1e29\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-7",
+      "input_json": "\"-1e29\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-8",
+      "input_json": "\"1e-29\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-9",
+      "input_json": "\"-1e-29\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-10",
+      "input_json": "\"1.00000000000000000000000000001e0\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-11",
+      "input_json": "\"NaN\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-12",
+      "input_json": "\"Infinity\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-13",
+      "input_json": "\"\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-14",
+      "input_json": "\"1.2.3\"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-string-15",
+      "input_json": "\" 4.5 \"",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-0",
+      "input_json": "1e-29",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-1",
+      "input_json": "-1e-29",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-2",
+      "input_json": "1e-100",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-3",
+      "input_json": "-1e-100",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-4",
+      "input_json": "1e29",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-5",
+      "input_json": "-1e29",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-6",
+      "input_json": "null",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-7",
+      "input_json": "true",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-8",
+      "input_json": "[]",
+      "expected": "invalid_input"
+    },
+    {
+      "id": "invalid-number-or-shape-9",
+      "input_json": "{}",
+      "expected": "invalid_input"
+    }
+  ],
+  "healthy_cases": 24,
+  "invalid_cases": 26,
+  "raw_erasure_scope": "Raw JSON tokens erased upstream require the separate core JSON admission owner; generic typed decoding cannot recover their original spelling.",
+  "certified": false
+}

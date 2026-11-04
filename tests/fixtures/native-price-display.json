@@ -1,0 +1,84 @@
+{
+  "status": "independent_display_reference_declared_before_candidate_execution",
+  "recorded_at": "2026-10-17T03:45:07.112848+00:00",
+  "complete_cases": 12,
+  "reference": "Exact Fraction truncation at four quoted price places, with explicit currency text.",
+  "native_results_consulted": false,
+  "original_price_Display_not_executed": true,
+  "original_fixed_buffer_source_limit": 32,
+  "cases": [
+    {
+      "id": "price-display-01",
+      "value": "0",
+      "currency": "USD",
+      "expected_text": "0.0000 USD"
+    },
+    {
+      "id": "price-display-02",
+      "value": "98.5",
+      "currency": "EUR",
+      "expected_text": "98.5000 EUR"
+    },
+    {
+      "id": "price-display-03",
+      "value": "98.123456",
+      "currency": "GBP",
+      "expected_text": "98.1234 GBP"
+    },
+    {
+      "id": "price-display-04",
+      "value": "-98.123456",
+      "currency": "USD",
+      "expected_text": "-98.1234 USD"
+    },
+    {
+      "id": "price-display-05",
+      "value": "79228162514264337593543950335",
+      "currency": "EUR",
+      "expected_text": "79228162514264337593543950335.0000 EUR"
+    },
+    {
+      "id": "price-display-06",
+      "value": "-79228162514264337593543950335",
+      "currency": "GBP",
+      "expected_text": "-79228162514264337593543950335.0000 GBP"
+    },
+    {
+      "id": "price-display-07",
+      "value": "1e28",
+      "currency": "USD",
+      "expected_text": "10000000000000000000000000000.0000 USD"
+    },
+    {
+      "id": "price-display-08",
+      "value": "-1e28",
+      "currency": "EUR",
+      "expected_text": "-10000000000000000000000000000.0000 EUR"
+    },
+    {
+      "id": "price-display-09",
+      "value": "1e-28",
+      "currency": "GBP",
+      "expected_text": "0.0000 GBP"
+    },
+    {
+      "id": "price-display-10",
+      "value": "-1e-28",
+      "currency": "USD",
+      "expected_text": "-0.0000 USD"
+    },
+    {
+      "id": "price-display-11",
+      "value": "0.0000999999999999999999999999",
+      "currency": "EUR",
+      "expected_text": "0.0000 EUR"
+    },
+    {
+      "id": "price-display-12",
+      "value": "-0.0000999999999999999999999999",
+      "currency": "GBP",
+      "expected_text": "-0.0000 GBP"
+    }
+  ],
+  "certified": false
+}

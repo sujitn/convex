@@ -26,7 +26,6 @@ pub struct ActiveWeight {
 
 impl ActiveWeight {
     /// Creates a new active weight.
-    #[must_use]
     pub fn new(portfolio_weight: f64, benchmark_weight: f64) -> Self {
         let active_weight = portfolio_weight - benchmark_weight;
         let relative_weight = if benchmark_weight > 0.0 {
@@ -44,13 +43,11 @@ impl ActiveWeight {
     }
 
     /// Returns true if this is an overweight position.
-    #[must_use]
     pub fn is_overweight(&self) -> bool {
         self.active_weight > 0.0
     }
 
     /// Returns true if this is an underweight position.
-    #[must_use]
     pub fn is_underweight(&self) -> bool {
         self.active_weight < 0.0
     }
@@ -80,7 +77,6 @@ pub struct ActiveWeights {
 
 impl ActiveWeights {
     /// Returns sectors where portfolio is overweight.
-    #[must_use]
     pub fn overweight_sectors(&self) -> Vec<(Sector, f64)> {
         self.by_sector
             .iter()
@@ -90,7 +86,6 @@ impl ActiveWeights {
     }
 
     /// Returns sectors where portfolio is underweight.
-    #[must_use]
     pub fn underweight_sectors(&self) -> Vec<(Sector, f64)> {
         self.by_sector
             .iter()
@@ -100,7 +95,6 @@ impl ActiveWeights {
     }
 
     /// Returns the largest active positions by absolute weight.
-    #[must_use]
     pub fn largest_active_positions(&self, n: usize) -> Vec<(&str, f64)> {
         let mut positions: Vec<_> = self
             .by_holding
@@ -166,97 +160,98 @@ pub struct TrackingErrorEstimate {
 ///     println!("{:?}: +{:.2}%", sector, weight);
 /// }
 /// ```
-#[must_use]
 pub fn active_weights(
     portfolio: &[Holding],
     benchmark: &[Holding],
     config: &AnalyticsConfig,
-) -> ActiveWeights {
-    // Calculate sector weights
-    let port_sector = bucket_by_sector(portfolio, config);
-    let bench_sector = bucket_by_sector(benchmark, config);
+) -> crate::PortfolioResult<ActiveWeights> {
+    Ok({
+        // Calculate sector weights
+        let port_sector = bucket_by_sector(portfolio, config)?;
+        let bench_sector = bucket_by_sector(benchmark, config)?;
 
-    let mut by_sector = HashMap::new();
-    let mut all_sectors: std::collections::HashSet<Sector> =
-        port_sector.by_sector.keys().copied().collect();
-    all_sectors.extend(bench_sector.by_sector.keys().copied());
+        let mut by_sector = HashMap::new();
+        let mut all_sectors: std::collections::HashSet<Sector> =
+            port_sector.by_sector.keys().copied().collect();
+        all_sectors.extend(bench_sector.by_sector.keys().copied());
 
-    for sector in all_sectors {
-        let port_wt = port_sector.get(sector).map(|m| m.weight_pct).unwrap_or(0.0);
-        let bench_wt = bench_sector
-            .get(sector)
-            .map(|m| m.weight_pct)
-            .unwrap_or(0.0);
+        for sector in all_sectors {
+            let port_wt = port_sector.get(sector).map(|m| m.weight_pct).unwrap_or(0.0);
+            let bench_wt = bench_sector
+                .get(sector)
+                .map(|m| m.weight_pct)
+                .unwrap_or(0.0);
 
-        by_sector.insert(sector, ActiveWeight::new(port_wt, bench_wt));
-    }
+            by_sector.insert(sector, ActiveWeight::new(port_wt, bench_wt));
+        }
 
-    // Calculate rating weights
-    let port_rating = bucket_by_rating(portfolio, config);
-    let bench_rating = bucket_by_rating(benchmark, config);
+        // Calculate rating weights
+        let port_rating = bucket_by_rating(portfolio, config)?;
+        let bench_rating = bucket_by_rating(benchmark, config)?;
 
-    let mut by_rating = HashMap::new();
-    let mut all_ratings: std::collections::HashSet<RatingBucket> =
-        port_rating.by_bucket.keys().copied().collect();
-    all_ratings.extend(bench_rating.by_bucket.keys().copied());
+        let mut by_rating = HashMap::new();
+        let mut all_ratings: std::collections::HashSet<RatingBucket> =
+            port_rating.by_bucket.keys().copied().collect();
+        all_ratings.extend(bench_rating.by_bucket.keys().copied());
 
-    for rating in all_ratings {
-        let port_wt = port_rating
-            .get_bucket(rating)
-            .map(|m| m.weight_pct)
-            .unwrap_or(0.0);
-        let bench_wt = bench_rating
-            .get_bucket(rating)
-            .map(|m| m.weight_pct)
-            .unwrap_or(0.0);
+        for rating in all_ratings {
+            let port_wt = port_rating
+                .get_bucket(rating)
+                .map(|m| m.weight_pct)
+                .unwrap_or(0.0);
+            let bench_wt = bench_rating
+                .get_bucket(rating)
+                .map(|m| m.weight_pct)
+                .unwrap_or(0.0);
 
-        by_rating.insert(rating, ActiveWeight::new(port_wt, bench_wt));
-    }
+            by_rating.insert(rating, ActiveWeight::new(port_wt, bench_wt));
+        }
 
-    // Calculate holding weights
-    let port_mv: Decimal = portfolio.iter().map(|h| h.market_value()).sum();
-    let bench_mv: Decimal = benchmark.iter().map(|h| h.market_value()).sum();
+        // Calculate holding weights
+        let port_mv: Decimal = crate::analytics::metrics::clean_total(portfolio.iter())?;
+        let bench_mv: Decimal = crate::analytics::metrics::clean_total(benchmark.iter())?;
 
-    let port_mv_f: f64 = port_mv.try_into().unwrap_or(1.0);
-    let bench_mv_f: f64 = bench_mv.try_into().unwrap_or(1.0);
+        let port_mv_f: f64 = port_mv.try_into().unwrap_or(1.0);
+        let bench_mv_f: f64 = bench_mv.try_into().unwrap_or(1.0);
 
-    let mut by_holding: HashMap<String, ActiveWeight> = HashMap::new();
+        let mut by_holding: HashMap<String, ActiveWeight> = HashMap::new();
 
-    // Add portfolio holdings
-    for h in portfolio {
-        let mv: f64 = h.market_value().try_into().unwrap_or(0.0);
-        let port_wt = (mv / port_mv_f) * 100.0;
+        // Add portfolio holdings
+        for h in portfolio {
+            let mv: f64 = crate::analytics::metrics::presentation(h.market_value()?)?;
+            let port_wt = (mv / port_mv_f) * 100.0;
 
-        by_holding.insert(h.id.clone(), ActiveWeight::new(port_wt, 0.0));
-    }
+            by_holding.insert(h.id.clone(), ActiveWeight::new(port_wt, 0.0));
+        }
 
-    // Update with benchmark holdings
-    for h in benchmark {
-        let mv: f64 = h.market_value().try_into().unwrap_or(0.0);
-        let bench_wt = (mv / bench_mv_f) * 100.0;
+        // Update with benchmark holdings
+        for h in benchmark {
+            let mv: f64 = crate::analytics::metrics::presentation(h.market_value()?)?;
+            let bench_wt = (mv / bench_mv_f) * 100.0;
 
-        let entry = by_holding
-            .entry(h.id.clone())
-            .or_insert_with(|| ActiveWeight::new(0.0, 0.0));
+            let entry = by_holding
+                .entry(h.id.clone())
+                .or_insert_with(|| ActiveWeight::new(0.0, 0.0));
 
-        // Update benchmark weight and recalculate
-        *entry = ActiveWeight::new(entry.portfolio_weight, bench_wt);
-    }
+            // Update benchmark weight and recalculate
+            *entry = ActiveWeight::new(entry.portfolio_weight, bench_wt);
+        }
 
-    // Calculate summary statistics
-    let total_active_weight: f64 = by_holding.values().map(|w| w.active_weight.abs()).sum();
+        // Calculate summary statistics
+        let total_active_weight: f64 = by_holding.values().map(|w| w.active_weight.abs()).sum();
 
-    let overweight_count = by_holding.values().filter(|w| w.is_overweight()).count();
-    let underweight_count = by_holding.values().filter(|w| w.is_underweight()).count();
+        let overweight_count = by_holding.values().filter(|w| w.is_overweight()).count();
+        let underweight_count = by_holding.values().filter(|w| w.is_underweight()).count();
 
-    ActiveWeights {
-        by_sector,
-        by_rating,
-        by_holding,
-        total_active_weight,
-        overweight_count,
-        underweight_count,
-    }
+        ActiveWeights {
+            by_sector,
+            by_rating,
+            by_holding,
+            total_active_weight,
+            overweight_count,
+            underweight_count,
+        }
+    })
 }
 
 /// Estimates tracking error using a simplified factor model.
@@ -293,102 +288,87 @@ pub fn active_weights(
 ///
 /// println!("Estimated tracking error: {:.2}%", te.tracking_error);
 /// ```
-#[must_use]
 pub fn estimate_tracking_error(
     portfolio: &[Holding],
     benchmark: &[Holding],
     config: &AnalyticsConfig,
     rate_vol: f64,
     spread_vol: f64,
-) -> TrackingErrorEstimate {
-    // Calculate weighted average durations
-    let port_duration = calculate_weighted_duration(portfolio, config);
-    let bench_duration = calculate_weighted_duration(benchmark, config);
-    let active_duration = port_duration - bench_duration;
+) -> crate::PortfolioResult<TrackingErrorEstimate> {
+    Ok({
+        // Calculate weighted average durations
+        let port_duration = calculate_weighted_duration(portfolio, config)?;
+        let bench_duration = calculate_weighted_duration(benchmark, config)?;
+        let active_duration = port_duration - bench_duration;
 
-    // Calculate weighted average spreads
-    let port_spread = calculate_weighted_spread(portfolio, config);
-    let bench_spread = calculate_weighted_spread(benchmark, config);
-    let active_spread = port_spread - bench_spread;
+        // Calculate weighted average spreads
+        let port_spread = calculate_weighted_spread(portfolio, config)?;
+        let bench_spread = calculate_weighted_spread(benchmark, config)?;
+        let active_spread = port_spread - bench_spread;
 
-    // Duration contribution to TE: |active_duration| × rate_vol
-    let duration_contribution = active_duration.abs() * rate_vol * 100.0;
+        // Duration contribution to TE: |active_duration| × rate_vol
+        let duration_contribution = active_duration.abs() * rate_vol * 100.0;
 
-    // Spread contribution to TE: |active_spread / 10000| × spread_vol / spread_vol
-    // Simplified: assume spread duration similar to duration
-    let spread_contribution =
-        (active_spread.abs() / 10000.0) * port_duration.abs() * spread_vol * 100.0;
+        // Spread contribution to TE: |active_spread / 10000| × spread_vol / spread_vol
+        // Simplified: assume spread duration similar to duration
+        let spread_contribution =
+            (active_spread.abs() / 10000.0) * port_duration.abs() * spread_vol * 100.0;
 
-    // Sector contribution: simplified based on active sector weights
-    let weights = active_weights(portfolio, benchmark, config);
-    let sector_active: f64 = weights
-        .by_sector
-        .values()
-        .map(|w| w.active_weight.abs())
-        .sum();
+        // Sector contribution: simplified based on active sector weights
+        let weights = active_weights(portfolio, benchmark, config)?;
+        let sector_active: f64 = weights
+            .by_sector
+            .values()
+            .map(|w| w.active_weight.abs())
+            .sum();
 
-    // Assume each 1% active sector weight contributes ~10bp to TE
-    let sector_contribution = sector_active * 0.001;
+        // Assume each 1% active sector weight contributes ~10bp to TE
+        let sector_contribution = sector_active * 0.001;
 
-    // Selection contribution (residual)
-    let selection_contribution = weights.total_active_weight * 0.0005;
+        // Selection contribution (residual)
+        let selection_contribution = weights.total_active_weight * 0.0005;
 
-    // Total TE (simplified sum-of-squares)
-    let tracking_error = (duration_contribution.powi(2)
-        + spread_contribution.powi(2)
-        + sector_contribution.powi(2)
-        + selection_contribution.powi(2))
-    .sqrt();
+        // Total TE (simplified sum-of-squares)
+        let tracking_error = (duration_contribution.powi(2)
+            + spread_contribution.powi(2)
+            + sector_contribution.powi(2)
+            + selection_contribution.powi(2))
+        .sqrt();
 
-    TrackingErrorEstimate {
-        tracking_error,
-        duration_contribution,
-        spread_contribution,
-        sector_contribution,
-        selection_contribution,
-        active_duration,
-        active_spread,
-    }
+        TrackingErrorEstimate {
+            tracking_error,
+            duration_contribution,
+            spread_contribution,
+            sector_contribution,
+            selection_contribution,
+            active_duration,
+            active_spread,
+        }
+    })
 }
 
 /// Helper to calculate weighted average duration.
-fn calculate_weighted_duration(holdings: &[Holding], _config: &AnalyticsConfig) -> f64 {
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
-    let total_mv_f: f64 = total_mv.try_into().unwrap_or(1.0);
-
-    if total_mv_f <= 0.0 {
-        return 0.0;
-    }
-
-    let mut sum = 0.0;
-    for h in holdings {
-        if let Some(dur) = h.analytics.best_duration() {
-            let mv: f64 = h.market_value().try_into().unwrap_or(0.0);
-            sum += dur * (mv / total_mv_f);
-        }
-    }
-
-    sum
+fn calculate_weighted_duration(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<f64> {
+    crate::weighted_best_duration(holdings, config)?.ok_or_else(|| {
+        crate::PortfolioError::invalid_portfolio(
+            "complete requested benchmark metric and nonzero weights required",
+        )
+    })
 }
 
 /// Helper to calculate weighted average spread.
-fn calculate_weighted_spread(holdings: &[Holding], _config: &AnalyticsConfig) -> f64 {
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
-    let total_mv_f: f64 = total_mv.try_into().unwrap_or(1.0);
-
-    if total_mv_f <= 0.0 {
-        return 0.0;
-    }
-
-    let mut sum = 0.0;
-    for h in holdings {
-        if let Some(spread) = h.analytics.best_spread() {
-            let mv: f64 = h.market_value().try_into().unwrap_or(0.0);
-            sum += spread * (mv / total_mv_f);
-        }
-    }
-
-    sum
+fn calculate_weighted_spread(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<f64> {
+    crate::weighted_best_spread(holdings, config)?.ok_or_else(|| {
+        crate::PortfolioError::invalid_portfolio(
+            "complete requested benchmark metric and nonzero weights required",
+        )
+    })
 }
 
 #[cfg(test)]
@@ -465,7 +445,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let weights = active_weights(&portfolio, &benchmark, &config);
+        let weights = active_weights(&portfolio, &benchmark, &config).unwrap();
 
         // Portfolio: 50% Govt, 50% Corp
         // Benchmark: 75% Govt, 25% Corp
@@ -490,7 +470,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let weights = active_weights(&portfolio, &benchmark, &config);
+        let weights = active_weights(&portfolio, &benchmark, &config).unwrap();
 
         // Portfolio: 50% AAA, 50% BBB
         // Benchmark: 50% AAA, 50% A
@@ -518,7 +498,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let weights = active_weights(&portfolio, &benchmark, &config);
+        let weights = active_weights(&portfolio, &benchmark, &config).unwrap();
 
         // H1: Portfolio 50%, Benchmark 25% → Active +25%
         let h1 = weights.by_holding.get("H1").unwrap();
@@ -546,7 +526,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let weights = active_weights(&portfolio, &benchmark, &config);
+        let weights = active_weights(&portfolio, &benchmark, &config).unwrap();
 
         // H1: overweight, H2: overweight (not in benchmark), H3: underweight (not in portfolio)
         assert_eq!(weights.overweight_count, 2);
@@ -566,7 +546,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let weights = active_weights(&portfolio, &benchmark, &config);
+        let weights = active_weights(&portfolio, &benchmark, &config).unwrap();
         let largest = weights.largest_active_positions(2);
 
         assert_eq!(largest.len(), 2);
@@ -595,7 +575,7 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let te = estimate_tracking_error(&portfolio, &benchmark, &config, 0.01, 0.002);
+        let te = estimate_tracking_error(&portfolio, &benchmark, &config, 0.01, 0.002).unwrap();
 
         // Active duration = 6 - 5 = 1
         assert!((te.active_duration - 1.0).abs() < 0.01);
@@ -620,7 +600,7 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let te = estimate_tracking_error(&holdings, &holdings, &config, 0.01, 0.002);
+        let te = estimate_tracking_error(&holdings, &holdings, &config, 0.01, 0.002).unwrap();
 
         // Identical portfolios should have zero active exposure
         assert!((te.active_duration).abs() < 0.01);
@@ -640,7 +620,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let weights = active_weights(&portfolio, &benchmark, &config);
+        let weights = active_weights(&portfolio, &benchmark, &config).unwrap();
 
         let overweight = weights.overweight_sectors();
         let underweight = weights.underweight_sectors();

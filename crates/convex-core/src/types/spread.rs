@@ -1,10 +1,13 @@
 //! Spread types for fixed income analytics.
 
+use convex_math::decimal::BoundedDecimal;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt;
 use std::ops::{Add, Neg, Sub};
+
+use crate::error::{ConvexError, ConvexResult};
 
 /// Types of spreads used in fixed income analytics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
@@ -57,13 +60,18 @@ impl fmt::Display for SpreadType {
 ///
 /// let spread = Spread::new(dec!(125), SpreadType::ZSpread);
 /// assert_eq!(spread.as_bps(), dec!(125));
-/// assert_eq!(spread.as_decimal(), dec!(0.0125));
+/// assert_eq!(spread.as_decimal().unwrap(), dec!(0.0125));
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Spread {
     /// Spread value in basis points
-    #[cfg_attr(feature = "schemars", schemars(with = "f64"))]
+    #[serde(with = "crate::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "crate::contracts::numeric_decimal::schema")
+    )]
     value_bps: Decimal,
     /// Type of spread
     spread_type: SpreadType,
@@ -80,12 +88,16 @@ impl Spread {
     }
 
     /// Creates a spread from a decimal value.
-    #[must_use]
-    pub fn from_decimal(decimal: Decimal, spread_type: SpreadType) -> Self {
-        Self {
-            value_bps: decimal * Decimal::from(10_000),
+    ///
+    /// # Errors
+    /// Rejects an unrepresentable basis-point value.
+    pub fn from_decimal(decimal: Decimal, spread_type: SpreadType) -> ConvexResult<Self> {
+        Ok(Self {
+            value_bps: BoundedDecimal::decimal(decimal)
+                .multiply(Decimal::from(10_000))?
+                .finish_exact()?,
             spread_type,
-        }
+        })
     }
 
     /// Returns the spread in basis points.
@@ -95,15 +107,35 @@ impl Spread {
     }
 
     /// Returns the spread as a decimal (125 bps = 0.0125).
-    #[must_use]
-    pub fn as_decimal(&self) -> Decimal {
-        self.value_bps / Decimal::from(10_000)
+    ///
+    /// # Errors
+    /// Rejects lost digits or nonzero erasure.
+    pub fn as_decimal(&self) -> ConvexResult<Decimal> {
+        Ok(BoundedDecimal::decimal(self.value_bps)
+            .divide_power_of_ten(4)?
+            .finish_exact()?)
+    }
+
+    /// Return the decimal rate directly as nearest/even IEEE binary64.
+    ///
+    /// This numeric representation does not require an intermediate Decimal
+    /// rate and therefore retains rates below Decimal's fractional limit.
+    ///
+    /// # Errors
+    /// Propagates the shared bounded arithmetic and binary64 range checks.
+    pub fn as_decimal_f64(&self) -> ConvexResult<f64> {
+        Ok(BoundedDecimal::decimal(self.value_bps)
+            .ratio_as_f64(&BoundedDecimal::decimal(Decimal::from(10_000)))?)
     }
 
     /// Returns the spread as a percentage.
-    #[must_use]
-    pub fn as_percentage(&self) -> Decimal {
-        self.value_bps / Decimal::ONE_HUNDRED
+    ///
+    /// # Errors
+    /// Rejects lost digits or nonzero erasure.
+    pub fn as_percentage(&self) -> ConvexResult<Decimal> {
+        Ok(BoundedDecimal::decimal(self.value_bps)
+            .divide_power_of_ten(2)?
+            .finish_exact()?)
     }
 
     /// Returns the spread type.
@@ -165,42 +197,50 @@ impl Spread {
 }
 
 impl Add for Spread {
-    type Output = Self;
+    type Output = ConvexResult<Self>;
 
     /// Adds two spreads of the same type.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the spreads are of different types.
+    /// Rejects different spread types, overflow or an inexact sum.
     fn add(self, rhs: Self) -> Self::Output {
-        assert!(
-            self.spread_type == rhs.spread_type,
-            "Cannot add spreads of different types"
-        );
-        Self {
-            value_bps: self.value_bps + rhs.value_bps,
-            spread_type: self.spread_type,
+        if self.spread_type != rhs.spread_type {
+            return Err(ConvexError::InvalidSpread {
+                value_bps: self.value_bps,
+                reason: "cannot add spreads of different types".into(),
+            });
         }
+        let mut amount = BoundedDecimal::decimal(self.value_bps);
+        amount.add(&BoundedDecimal::decimal(rhs.value_bps))?;
+        Ok(Self {
+            value_bps: amount.finish_exact()?,
+            spread_type: self.spread_type,
+        })
     }
 }
 
 impl Sub for Spread {
-    type Output = Self;
+    type Output = ConvexResult<Self>;
 
     /// Subtracts two spreads of the same type.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the spreads are of different types.
+    /// Rejects different spread types, overflow or an inexact difference.
     fn sub(self, rhs: Self) -> Self::Output {
-        assert!(
-            self.spread_type == rhs.spread_type,
-            "Cannot subtract spreads of different types"
-        );
-        Self {
-            value_bps: self.value_bps - rhs.value_bps,
-            spread_type: self.spread_type,
+        if self.spread_type != rhs.spread_type {
+            return Err(ConvexError::InvalidSpread {
+                value_bps: self.value_bps,
+                reason: "cannot subtract spreads of different types".into(),
+            });
         }
+        let mut amount = BoundedDecimal::decimal(self.value_bps);
+        amount.add(&BoundedDecimal::decimal(-rhs.value_bps))?;
+        Ok(Self {
+            value_bps: amount.finish_exact()?,
+            spread_type: self.spread_type,
+        })
     }
 }
 
@@ -241,13 +281,13 @@ mod tests {
     fn test_spread_creation() {
         let spread = Spread::new(dec!(125), SpreadType::ZSpread);
         assert_eq!(spread.as_bps(), dec!(125));
-        assert_eq!(spread.as_decimal(), dec!(0.0125));
+        assert_eq!(spread.as_decimal().unwrap(), dec!(0.0125));
         assert_eq!(spread.spread_type(), SpreadType::ZSpread);
     }
 
     #[test]
     fn test_spread_from_decimal() {
-        let spread = Spread::from_decimal(dec!(0.0125), SpreadType::GSpread);
+        let spread = Spread::from_decimal(dec!(0.0125), SpreadType::GSpread).unwrap();
         assert_eq!(spread.as_bps(), dec!(125));
     }
 
@@ -282,10 +322,10 @@ mod tests {
         let s1 = Spread::new(dec!(100), SpreadType::ZSpread);
         let s2 = Spread::new(dec!(50), SpreadType::ZSpread);
 
-        let sum = s1 + s2;
+        let sum = (s1 + s2).unwrap();
         assert_eq!(sum.as_bps(), dec!(150));
 
-        let diff = s1 - s2;
+        let diff = (s1 - s2).unwrap();
         assert_eq!(diff.as_bps(), dec!(50));
 
         let negated = -s1;
@@ -330,7 +370,7 @@ mod tests {
     #[test]
     fn test_spread_as_percentage() {
         let spread = Spread::new(dec!(125), SpreadType::ZSpread);
-        assert_eq!(spread.as_percentage(), dec!(1.25)); // 125 bps = 1.25%
+        assert_eq!(spread.as_percentage().unwrap(), dec!(1.25)); // 125 bps = 1.25%
     }
 
     #[test]

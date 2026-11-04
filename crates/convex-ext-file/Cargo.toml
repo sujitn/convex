@@ -1,5 +1,6 @@
 [package]
 name = "convex-ext-file"
+publish = false  # internal; not published to crates.io
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,23 +12,20 @@ keywords = ["finance", "bonds", "csv", "json", "data"]
 categories = ["finance"]
 
 [dependencies]
-# Trait definitions
-convex-traits = { path = "../convex-traits" }
+# Port traits implemented by this adapter
+convex-ports = { workspace = true }
 convex-core = { workspace = true }
 
 # File parsing
-csv = "1"
 serde_json = { workspace = true }
 
 # Async
 async-trait = "0.1"
-tokio = { version = "1", features = ["sync", "fs"] }
-dashmap = "6"
 
 # Core dependencies
-rust_decimal = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+tempfile = "3"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

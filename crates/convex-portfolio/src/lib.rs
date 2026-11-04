@@ -63,8 +63,10 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 #![allow(clippy::module_name_repetitions)]
-
 // Module declarations
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
+
 pub mod analytics;
 pub mod benchmark;
 pub mod bucketing;
@@ -72,6 +74,8 @@ pub mod contribution;
 pub mod error;
 pub mod etf;
 pub mod portfolio;
+/// Complete-key signed monetary aggregation and explicit coverage/FX reporting.
+pub mod signed_risk;
 pub mod stress;
 pub mod types;
 
@@ -107,6 +111,7 @@ pub use portfolio::{Portfolio, PortfolioBuilder};
 // Re-export analytics types and functions
 pub use analytics::{
     // Key Rates
+    aggregate_key_rate_exposure,
     aggregate_key_rate_profile,
     // Credit Quality
     calculate_credit_quality,
@@ -125,7 +130,6 @@ pub use analytics::{
     calculate_yield_metrics,
     cs01_per_share,
     dv01_per_share,
-    estimate_days_to_liquidate,
     liquidity_distribution,
     // Parallel utilities
     maybe_parallel_filter_map,
@@ -155,8 +159,9 @@ pub use analytics::{
     weighted_ytw,
     weighted_z_spread,
     CreditQualityMetrics,
-    DaysToLiquidate,
     FallenAngelRisk,
+    KeyRateExposure,
+    KeyRateExposurePoint,
     KeyRateProfile,
     LiquidityBucket,
     LiquidityDistribution,
@@ -196,19 +201,22 @@ pub use bucketing::{
 // Re-export stress testing types and functions
 pub use stress::{
     // Impact calculations
-    best_case,
-    key_rate_shift_impact,
-    parallel_shift_impact,
     run_stress_scenario,
     run_stress_scenarios,
-    spread_shock_impact,
     // Standard scenarios
     standard as stress_scenarios,
     summarize_results,
-    worst_case,
     // Scenarios
     RateScenario,
     SpreadScenario,
+    StressCalculation,
+    StressError,
+    StressErrorCode,
+    StressFxPin,
+    StressOrder,
+    StressOutcome,
+    StressPolicy,
+    StressRateBasis,
     StressResult,
     StressScenario,
     StressSummary,
@@ -232,12 +240,14 @@ pub use contribution::{
     BucketContribution,
     Cs01Contributions,
     DurationContributions,
+    DurationMeasure,
     Dv01Contributions,
     HoldingAttribution,
     HoldingContribution,
     PortfolioAttribution,
     SectorAttribution,
     SpreadContributions,
+    SpreadMeasure,
 };
 
 // Re-export benchmark comparison types and functions
@@ -335,14 +345,16 @@ pub mod prelude {
 
     // Stress testing
     pub use crate::stress::{
-        parallel_shift_impact, run_stress_scenario, run_stress_scenarios, spread_shock_impact,
-        RateScenario, SpreadScenario, StressResult, StressScenario, StressSummary,
+        run_stress_scenario, run_stress_scenarios, RateScenario, SpreadScenario, StressCalculation,
+        StressError, StressErrorCode, StressFxPin, StressOrder, StressOutcome, StressPolicy,
+        StressRateBasis, StressResult, StressScenario, StressSummary,
     };
 
     // Contribution analysis
     pub use crate::contribution::{
         duration_contributions, dv01_contributions, spread_contributions, DurationContributions,
-        Dv01Contributions, HoldingContribution, SpreadContributions,
+        DurationMeasure, Dv01Contributions, HoldingContribution, SpreadContributions,
+        SpreadMeasure,
     };
 
     // Benchmark comparison

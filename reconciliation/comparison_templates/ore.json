@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "state": "pending_product_fixture",
+  "comparator": "ore-1.8.17.0",
+  "purpose": "Dated IRS/OIS valuation, curve helpers and signed risk",
+  "owning_tasks": [
+    "CVX-018",
+    "CVX-019"
+  ],
+  "admission": "Instantiate the ready-pack schema checked by reconciliation/comparison.py. Nulls below are missing evidence; this template cannot be run or certified.",
+  "terms": {
+    "required": "All contractual economic terms, currency/notional/sign, independent schedules and settlement/entitlement rules. Do not approximate missing terms."
+  },
+  "context": {
+    "valuation_at": null,
+    "settlement_date": null,
+    "known_at": null,
+    "dataset_kind": null,
+    "reporting_currency": null,
+    "reference_versions": null,
+    "curves": null,
+    "quotes": null,
+    "fixings": null,
+    "calendars": null,
+    "rounding": null
+  },
+  "conventions": null,
+  "model": {
+    "name": null,
+    "version": null,
+    "settings": null,
+    "approximations": null
+  },
+  "required_artifacts": [
+    "upstream immutable source/archive hash and license/attribution bytes",
+    "comparator binary hash, compiler, OS/architecture and full dependency/submodule versions",
+    "exact CLI/build arguments and environment, execution receipt",
+    "full original economic inputs, curve/fixing/quote/calendar artifacts with effective and available times",
+    "original comparator outputs and explicit unit/sign/bump mapping",
+    "second independent source or analytic invariant for disagreements"
+  ],
+  "capture_record": {
+    "status": "not_executed",
+    "binary_sha256": null,
+    "source_sha256": null,
+    "execution_receipt": null
+  },
+  "expected_outputs": null,
+  "metrics": {
+    "required": [
+      "unit",
+      "absolute_tolerance",
+      "relative_tolerance",
+      "justification",
+      "reference artifact/pointer",
+      "bump/rebuild policy"
+    ]
+  },
+  "exceptions": [],
+  "normalization": "ORE NPV CSV or explicitly exported ISDA grid CSV may be normalized with declared columns/currencies. This step does not price or qualify the reference."
+}

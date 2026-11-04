@@ -1,4 +1,6 @@
-//! Hedging analytics. Two surfaces:
+//! Hedging analytics. Distinct supplied-factor and indicative surfaces:
+//!
+//! - [`constrained`]: bounded complete-factor, native-quantity/cost/lot proposals.
 //!
 //! - **Hedge advisor** (`types`, `instruments`, `strategies`, `cost`,
 //!   `compare`, `narrate`): structured proposal pipeline.
@@ -6,6 +8,7 @@
 //!   ratios for callers that want raw numbers.
 
 pub mod compare;
+pub mod constrained;
 pub mod contribution;
 pub mod cost;
 pub mod ctd;
@@ -31,6 +34,7 @@ pub use strategies::{
 };
 pub use types::{
     residual_from, BondFuture, CashBondLeg, ComparisonReport, ComparisonRow, Constraints,
-    HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap, KeyRateBucketLimit,
-    Recommendation, RecommendationReason, ResidualRisk, SwapSide, TradeoffNotes,
+    HedgeExecutionStatus, HedgeInstrument, HedgeProposal, HedgeTrade, InterestRateSwap,
+    KeyRateBucketLimit, Recommendation, RecommendationReason, ResidualRisk, SwapSide,
+    TradeoffNotes,
 };

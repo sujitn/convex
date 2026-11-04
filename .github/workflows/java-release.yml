@@ -1,6 +1,6 @@
 name: Java release
 
-# Cut a release by pushing a tag, e.g.:  git tag java-v0.13.0 && git push origin java-v0.13.0
+# Cut a release by pushing a tag, e.g.:  git tag java-v0.14.0 && git push origin java-v0.14.0
 on:
   push:
     tags:
@@ -43,13 +43,14 @@ jobs:
           sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
           echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
 
+      # `excel` profile = panic=unwind; see [profile.excel] in Cargo.toml.
       - name: Build cdylib
-        run: cargo build -p convex-ffi --release --target ${{ matrix.target }}
+        run: cargo build -p convex-ffi --profile excel --target ${{ matrix.target }}
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.classifier }}
-          path: target/${{ matrix.target }}/release/${{ matrix.lib }}
+          path: target/${{ matrix.target }}/excel/${{ matrix.lib }}
           if-no-files-found: error
 
   # Stage every cdylib into the jar resources and publish to Maven Central.
@@ -63,7 +64,7 @@ jobs:
           persist-credentials: false
 
       - name: Download native libraries
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: staging
 
@@ -75,7 +76,7 @@ jobs:
           cp -r staging/* bindings/java/src/main/resources/native/
 
       - name: Set up JDK 22
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: temurin
           java-version: '22'

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "reference": "Exact rational positivity of1+rate*days/360; Decimal60 rate answers declared before first native pole comparison.",
+  "cases": [
+    {
+      "days": 1,
+      "money_market_decimal": "-360.00000000000000000000000001",
+      "admissible": false,
+      "simple_fixed365_decimal": "-365.000000000000000000000000010138888888888888888888888888889"
+    },
+    {
+      "days": 1,
+      "money_market_decimal": "-360",
+      "admissible": false,
+      "simple_fixed365_decimal": "-365"
+    },
+    {
+      "days": 1,
+      "money_market_decimal": "-359.99999999999999999999999999",
+      "admissible": true,
+      "simple_fixed365_decimal": "-364.999999999999999999999999989861111111111111111111111111111"
+    },
+    {
+      "days": 90,
+      "money_market_decimal": "-4.00000000000000000000000001",
+      "admissible": false,
+      "simple_fixed365_decimal": "-4.05555555555555555555555556569444444444444444444444444444444"
+    },
+    {
+      "days": 90,
+      "money_market_decimal": "-4",
+      "admissible": false,
+      "simple_fixed365_decimal": "-4.05555555555555555555555555555555555555555555555555555555556"
+    },
+    {
+      "days": 90,
+      "money_market_decimal": "-3.99999999999999999999999999",
+      "admissible": true,
+      "simple_fixed365_decimal": "-4.05555555555555555555555554541666666666666666666666666666667"
+    },
+    {
+      "days": 180,
+      "money_market_decimal": "-2.00000000000000000000000001",
+      "admissible": false,
+      "simple_fixed365_decimal": "-2.02777777777777777777777778791666666666666666666666666666667"
+    },
+    {
+      "days": 180,
+      "money_market_decimal": "-2",
+      "admissible": false,
+      "simple_fixed365_decimal": "-2.02777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "days": 180,
+      "money_market_decimal": "-1.99999999999999999999999999",
+      "admissible": true,
+      "simple_fixed365_decimal": "-2.02777777777777777777777776763888888888888888888888888888889"
+    }
+  ],
+  "absolute_tolerance": "1e-22",
+  "relative_tolerance": "1e-24"
+}

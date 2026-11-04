@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "task_id": "CVX-059",
+  "certified": false,
+  "independent_quantitative_approval": false,
+  "oracle": {
+    "implementation": "Independent Python math.erfc/Jamshidian bisection on explicitly dated annual cash; margin-FRN European option reduces analytically to a ZCB call. No Convex import.",
+    "parameters": {
+      "mean_reversion": 0.03,
+      "volatility": 0.012
+    },
+    "curve_flat_continuous_zero": 0.04,
+    "root": "2025-01-01",
+    "units": "premium per unit notional; volatility annualized decimal in named convention; bond prices per 100 original face",
+    "tolerances": {
+      "premium_absolute": 2e-07,
+      "premium_relative": 1e-11,
+      "calibrated_sigma_absolute": 2e-07,
+      "lattice_price_absolute": 0.004,
+      "lattice_price_relative": 1e-08,
+      "successive_grid_absolute": 0.004,
+      "successive_grid_relative": 1e-08
+    },
+    "justification": "Analytic bounds include existing A&S CDF error. Event-aligned moment tree has payoff kinks; check 128/256/512/1024 interval convergence and independent analytic price to 0.004 per 100. Tolerances are new scoped engineering declarations, not approvals or universal optional-model accuracy."
+  },
+  "swaption_cases": [
+    {
+      "id": "synthetic-1-3-normal",
+      "expiry_years": 1,
+      "tail_years": 3,
+      "strike": 0.04,
+      "side": "put",
+      "convention": "normal",
+      "shift": 0,
+      "volatility": 0.01177131343521054,
+      "expected_model_premium": 0.013610655194269046,
+      "expected_forward": 0.04081077419238822,
+      "expected_annuity": 2.6621805720700045,
+      "exercise_date": "2026-01-01",
+      "maturity_date": "2028-12-31",
+      "periods": [
+        {
+          "start": "2026-01-01",
+          "end": "2027-01-01",
+          "payment": "2027-01-01",
+          "accrual": 1.0,
+          "time": 2.0
+        },
+        {
+          "start": "2027-01-01",
+          "end": "2028-01-01",
+          "payment": "2028-01-01",
+          "accrual": 1.0,
+          "time": 3.0
+        },
+        {
+          "start": "2028-01-01",
+          "end": "2028-12-31",
+          "payment": "2028-12-31",
+          "accrual": 1.0,
+          "time": 4.0
+        }
+      ]
+    },
+    {
+      "id": "synthetic-2-2-shifted_lognormal",
+      "expiry_years": 2,
+      "tail_years": 2,
+      "strike": 0.05,
+      "side": "call",
+      "convention": "shifted_lognormal",
+      "shift": 0.02,
+      "volatility": 0.18156630642624705,
+      "expected_model_premium": 0.021300023076065638,
+      "expected_forward": 0.04081077419238821,
+      "expected_annuity": 1.7390642256833688,
+      "exercise_date": "2027-01-01",
+      "maturity_date": "2028-12-31",
+      "periods": [
+        {
+          "start": "2027-01-01",
+          "end": "2028-01-01",
+          "payment": "2028-01-01",
+          "accrual": 1.0,
+          "time": 3.0
+        },
+        {
+          "start": "2028-01-01",
+          "end": "2028-12-31",
+          "payment": "2028-12-31",
+          "accrual": 1.0,
+          "time": 4.0
+        }
+      ]
+    },
+    {
+      "id": "synthetic-3-4-normal",
+      "expiry_years": 3,
+      "tail_years": 4,
+      "strike": 0.035,
+      "side": "put",
+      "convention": "normal",
+      "shift": 0,
+      "volatility": 0.011239609452264973,
+      "expected_model_premium": 0.03539522265388677,
+      "expected_forward": 0.040810844760822106,
+      "expected_annuity": 3.2132805882842588,
+      "exercise_date": "2028-01-01",
+      "maturity_date": "2031-12-31",
+      "periods": [
+        {
+          "start": "2028-01-01",
+          "end": "2029-01-01",
+          "payment": "2029-01-01",
+          "accrual": 1.0027397260273974,
+          "time": 4.002739726027397
+        },
+        {
+          "start": "2029-01-01",
+          "end": "2030-01-01",
+          "payment": "2030-01-01",
+          "accrual": 1.0,
+          "time": 5.002739726027397
+        },
+        {
+          "start": "2030-01-01",
+          "end": "2031-01-01",
+          "payment": "2031-01-01",
+          "accrual": 1.0,
+          "time": 6.002739726027397
+        },
+        {
+          "start": "2031-01-01",
+          "end": "2031-12-31",
+          "payment": "2031-12-31",
+          "accrual": 0.9972602739726028,
+          "time": 7.0
+        }
+      ]
+    }
+  ],
+  "joint_frn": {
+    "id": "joint-term-frn-european-call",
+    "root": "2025-01-01",
+    "exercise": "2026-01-01",
+    "maturity": "2027-01-01",
+    "face": 100,
+    "margin_decimal": 0.05,
+    "call_price_per_100": 104.8,
+    "eligible_initial_rate": 0.040810774192388224,
+    "parameters": {
+      "mean_reversion": 0.03,
+      "volatility": 0.02
+    },
+    "discount_zero": 0.04,
+    "projection_zero": 0.04,
+    "expected_plain_price": 109.4195289276948,
+    "expected_option_price": 0.037655627066134345,
+    "expected_callable_price": 109.38187330062867
+  },
+  "notice_zero": {
+    "root": "2025-01-01",
+    "notice": "2026-01-01",
+    "exercise": "2026-03-15",
+    "settlement": "2026-03-25",
+    "maturity": "2027-01-01",
+    "notice_calendar_days": -73,
+    "settlement_calendar_days": 10,
+    "call_price_per_100": 98,
+    "parameters": {
+      "mean_reversion": 0.03,
+      "volatility": 0.02
+    },
+    "rate": 0.04,
+    "expected_callable_price": 92.118773680762,
+    "expected_option_price": 0.1928609579015692,
+    "oracle": "Bond exchange option at notice: variance sigma^2 B(0,2t_notice) [B(t_notice,T_maturity)-B(t_notice,T_settlement)]^2; independent Python math.erfc."
+  },
+  "risk_case": {
+    "id": "european-callable-zero-fixed-model-risk",
+    "root": "2025-01-01",
+    "exercise": "2026-01-01",
+    "maturity": "2027-01-01",
+    "call_price_per_100": 96,
+    "discount_rate": 0.04,
+    "oas_decimal": 0.00123456,
+    "parameters": {
+      "mean_reversion": 0.03,
+      "volatility": 0.02
+    },
+    "rows": [
+      {
+        "bump_decimal": 0.005,
+        "base_price": 91.3895997757468,
+        "up_price": 90.67988973759338,
+        "down_price": 92.0580270705699,
+        "duration": 1.5079804883249475,
+        "convexity": -18.068902120866273,
+        "pv01_per_100": 0.013781373329765216
+      },
+      {
+        "bump_decimal": 0.01,
+        "base_price": 91.3895997757468,
+        "up_price": 89.93163404946986,
+        "down_price": 92.68544789549877,
+        "duration": 1.5066341535504344,
+        "convexity": -17.739174580345427,
+        "pv01_per_100": 0.013769069230144525
+      },
+      {
+        "bump_decimal": 0.02,
+        "base_price": 91.3895997757468,
+        "up_price": 88.34242816398172,
+        "down_price": 93.8321254839231,
+        "duration": 1.5017292266877398,
+        "convexity": -16.540336785380354,
+        "pv01_per_100": 0.013724243299853427
+      }
+    ],
+    "tolerances": {
+      "duration_absolute": 0.005,
+      "convexity_absolute": 0.5,
+      "pv01_absolute": 5e-05
+    },
+    "justification": "Independent erfc European callable-ZCB bump/reprice with fixed sigma/a and constant OAS. Tests cover 50/100/200bp explicit scenario bumps; 1bp is rejected below two lattice cells. These new scoped engineering bounds do not certify arbitrary curves or option-risk accuracy."
+  }
+}

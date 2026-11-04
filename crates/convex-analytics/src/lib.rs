@@ -1,47 +1,12 @@
-//! # Convex Analytics
-//!
-//! Unified analytics engine for fixed income securities.
-//!
-//! This crate consolidates all calculation logic from the Convex library:
-//! - **Yields**: Yield-to-maturity, current yield, simple yield, money market yields
-//! - **Pricing**: Bond pricing from curves, present value calculations
-//! - **Spreads**: Z-spread, G-spread, I-spread, OAS, ASW, discount margin
-//! - **Risk**: Duration, convexity, DV01, VaR, hedging
-//! - **Options**: Binomial trees, Hull-White model for callable/putable bonds
-//! - **YAS**: Bloomberg YAS replication
-//! - **Cash Flows**: Cash flow generation, accrued interest, schedules
-//!
-//! ## Architecture
-//!
-//! `convex-analytics` depends on `convex-bonds` for instrument definitions,
-//! but `convex-bonds` does NOT depend on this crate. This separation ensures
-//! that bond types remain lightweight and calculation-free.
-//!
-//! ## Usage
-//!
-//! ```rust,ignore
-//! use convex_bonds::prelude::*;
-//! use convex_analytics::prelude::*;
-//!
-//! // Create a bond
-//! let bond = FixedRateBondBuilder::new()
-//!     .coupon_rate(dec!(0.05))
-//!     .maturity(date!(2030-01-15))
-//!     .build()?;
-//!
-//! // Calculate analytics using standalone functions
-//! let ytm = yield_to_maturity(&bond, settlement, clean_price, Frequency::SemiAnnual)?;
-//! let duration = modified_duration(&bond, settlement, ytm.yield_value, Frequency::SemiAnnual)?;
-//!
-//! // Or use calculators
-//! let yas = YASCalculator::new(&govt_curve, &swap_curve, &spot_curve);
-//! let result = yas.analyze(&bond, settlement, clean_price)?;
-//! ```
-
+// The crate documentation is the README, so docs.rs and crates.io show the
+// same text and its examples run as doctests.
+#![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-
 // Module declarations - will be populated as we migrate
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
+
 pub mod error;
 
 // Re-export the error type
@@ -51,8 +16,38 @@ pub use error::{AnalyticsError, AnalyticsResult};
 // MODULES
 // ============================================================================
 
+/// Checked pricing of full supplied dated bond contractual cash.
+pub mod bond_contract;
 pub mod cashflows;
+/// Full supplied CDS calibration through the actual native credit pricer.
+pub mod credit_calibration;
+/// Distinct credit scenarios, signed sensitivities and checked bond-CDS mappings.
+pub mod credit_risk;
+/// Stochastic term coupon bounds on original supplied profiles, resets and history.
+pub mod floating_coupon;
+/// Actual supplied futures/cash carry, observation pricing, signed risk and settlement effects.
+pub mod futures;
+/// Pure ordered economic lifecycle and proposed contractual cash/position effects.
+pub mod lifecycle;
+/// Checked pure futures/cash reference facts and execution-input eligibility.
+pub mod futures_reference {
+    pub use convex_core::futures::*;
+}
+pub mod cash_calibration;
+/// Full supplied cash quotations and actual-security government spreads.
+pub mod cash_quotation;
+/// Pure dated product helper descriptions and checked curve composition.
+pub mod curve_inputs;
+pub mod optional_bond;
+/// Explicit signed native quote reference risk and immutable dependency rebuilding.
+pub mod quote_risk;
+/// Complete mixed dated deposit/FRA/futures/IRS/OIS/tenor-basis curve workflows.
+pub mod rate_calibration;
 pub mod risk;
+/// Native-quote IRS/OIS fitting with exact dependent curves and frozen history.
+pub mod swap_calibration;
+/// Standalone full native construction, price, inverse and revaluation workflows.
+pub mod workflow;
 pub mod yields;
 
 // Phase 3: Spreads (from convex-spreads/)
@@ -68,10 +63,15 @@ pub mod options;
 pub mod functions;
 
 // Mark-driven pricing (the trader-mark sovereignty entry point)
+/// Pure shared fixed/zero quote orchestration and explicit diagnostic risk.
+pub mod bond_quote;
 pub mod pricing;
 
 // JSON-wire DTOs for FFI / MCP / WASM boundaries.
 pub mod dto;
+
+/// Explicit bridges from public DTOs into validated shared contracts.
+pub mod contracts;
 
 // Phase 7: Short-rate model calibration (HW1F single-σ via co-terminal swaptions)
 pub mod calibration;
@@ -92,9 +92,8 @@ pub mod prelude {
 
     // Yields
     pub use crate::yields::{
-        current_yield, simple_yield, street_convention_yield, RollForwardMethod,
-        ShortDateCalculator, StandardYieldEngine, YieldEngine, YieldEngineResult, YieldResult,
-        YieldSolver,
+        current_yield, simple_yield, street_convention_yield, ShortDateCalculator,
+        StandardYieldEngine, YieldEngine, YieldEngineResult, YieldResult, YieldSolver,
     };
 
     // Risk
@@ -145,11 +144,12 @@ pub mod prelude {
         ZSpreadCalculator,
     };
 
-    // YAS (Bloomberg YAS replication)
+    // Supplied fixed-bond diagnostics
     pub use crate::yas::{
         calculate_accrued_amount, calculate_proceeds, calculate_settlement_date,
         BatchYASCalculator, BloombergReference, SettlementInvoice, SettlementInvoiceBuilder,
-        ValidationFailure, YASCalculator, YASResult, YasAnalysis, YasAnalysisBuilder,
+        SettlementInvoiceError, SettlementInvoiceResult, ValidationFailure, YASCalculator,
+        YASResult,
     };
 
     // Options (callable/puttable bonds)

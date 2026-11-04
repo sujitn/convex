@@ -1,10 +1,9 @@
-//! YAS Calculator - Bloomberg YAS Replication.
+//! Supplied fixed-bond yield, spread, risk and invoice diagnostics.
 //!
-//! This module provides the main YAS calculator that integrates yield, spread,
-//! and risk calculations into a single comprehensive analysis matching Bloomberg's
-//! YAS (Yield Analysis System) function.
+//! Actual supported measures require their original pricing and convention context.
+//! Historical supplied comparison targets do not establish vendor/model certification.
 //!
-//! # Bloomberg Validation Target
+//! # Historical supplied diagnostic example (unapproved)
 //!
 //! Boeing 7.5% 06/15/2025 (CUSIP: 097023AH7)
 //! Settlement: 04/29/2020, Price: 110.503
@@ -17,12 +16,12 @@
 //! | Mod Duration    | 4.209     | +/-0.001         |
 //! | Convexity       | 0.219     | +/-0.001         |
 
-use super::invoice::SettlementInvoice;
+use super::invoice::{calculate_proceeds, SettlementInvoice};
 use crate::error::{AnalyticsError, AnalyticsResult};
-use crate::risk::{BondRiskCalculator, BondRiskMetrics};
-use crate::yields::{
-    current_yield_from_amount, money_market_yield, simple_yield, street_convention_yield,
-};
+use crate::functions;
+use crate::risk::{convexity::Convexity, duration::Duration, BondRiskMetrics, DV01};
+use crate::yields::{current_yield_from_amount, simple_yield};
+use convex_math::portable;
 
 use convex_math::solvers::{brent, SolverConfig};
 use rust_decimal::prelude::ToPrimitive;
@@ -30,33 +29,25 @@ use rust_decimal::prelude::ToPrimitive;
 use chrono::NaiveDate;
 use convex_bonds::prelude::Bond;
 use convex_bonds::traits::BondCashFlow;
-use convex_core::types::{Date, Spread, SpreadType};
+use convex_core::types::{Date, Frequency, Spread, SpreadType};
 use convex_curves::curves::ZeroCurve;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::sync::Arc;
 
-/// Complete YAS result matching Bloomberg YAS output.
-///
-/// This struct provides all metrics that would be displayed on a
-/// Bloomberg YAS screen, using proper typed values for spreads and risk metrics.
+/// Supported supplied-input diagnostic results, with explicit spread/risk types.
+/// This is not a declaration of vendor or market-convention equivalence.
 #[derive(Debug, Clone)]
 pub struct YASResult {
     // ===== Yield Metrics =====
     /// Street convention yield-to-maturity (standard market quote)
     pub ytm: Decimal,
 
-    /// True yield (accounts for actual settlement)
-    pub true_yield: Decimal,
-
     /// Current yield (annual coupon / clean price)
     pub current_yield: Decimal,
 
     /// Simple yield
     pub simple_yield: Decimal,
-
-    /// Money market equivalent yield (roll-forward methodology)
-    pub money_market_yield: Option<Decimal>,
 
     // ===== Spread Metrics =====
     /// G-Spread (yield - interpolated government yield)
@@ -78,7 +69,7 @@ pub struct YASResult {
     pub oas: Option<Spread>,
 
     // ===== Risk Metrics =====
-    /// Complete risk metrics from BondRiskCalculator
+    /// Quoted-yield risk from the same dated bond owner and quote frequency as YTM.
     pub risk: BondRiskMetrics,
 
     // ===== Settlement Invoice =====
@@ -190,12 +181,8 @@ impl std::fmt::Display for YASResult {
             " YIELDS                                                     "
         )?;
         writeln!(f, "   Street Convention:  {:>10.6}%", self.ytm)?;
-        writeln!(f, "   True Yield:         {:>10.6}%", self.true_yield)?;
         writeln!(f, "   Current Yield:      {:>10.3}%", self.current_yield)?;
         writeln!(f, "   Simple Yield:       {:>10.3}%", self.simple_yield)?;
-        if let Some(mmy) = self.money_market_yield {
-            writeln!(f, "   Money Market Yield: {:>10.6}%", mmy)?;
-        }
         writeln!(
             f,
             "------------------------------------------------------------"
@@ -349,10 +336,8 @@ impl std::fmt::Display for ValidationFailure {
     }
 }
 
-/// YAS Calculator - main calculator for Bloomberg YAS replication.
-///
-/// This calculator integrates yield, spread, and risk calculations to produce
-/// a complete YAS analysis matching Bloomberg's output.
+/// Compute supported supplied fixed-bond diagnostics.
+/// Missing economic context remains an error; no full vendor equivalence is implied.
 pub struct YASCalculator<'a> {
     /// Government/benchmark curve for G-spread
     govt_curve: &'a ZeroCurve,
@@ -534,35 +519,58 @@ impl<'a> YASCalculator<'a> {
     ) -> AnalyticsResult<YASResult> {
         let settlement_date: Date = settlement.into();
         let bond_frequency = bond.frequency().periods_per_year();
+        let quote_frequency = match self.frequency {
+            1 => Frequency::Annual,
+            2 => Frequency::SemiAnnual,
+            4 => Frequency::Quarterly,
+            12 => Frequency::Monthly,
+            _ => {
+                return Err(AnalyticsError::InvalidInput(
+                    "YAS quote frequency must be 1, 2, 4 or 12".into(),
+                ));
+            }
+        };
+        let maturity = bond
+            .maturity()
+            .ok_or_else(|| AnalyticsError::InvalidInput("bond has no maturity".into()))?;
+        if settlement_date < bond.issue_date() || settlement_date >= maturity {
+            return Err(AnalyticsError::InvalidSettlement {
+                settlement: settlement_date.to_string(),
+                maturity: maturity.to_string(),
+            });
+        }
 
-        let cash_flows = bond.cash_flows(settlement_date);
+        let cash_flows = bond.try_cash_flows(settlement_date)?;
         if cash_flows.is_empty() {
             return Err(AnalyticsError::InvalidInput(
                 "bond has no cash flows".to_string(),
             ));
         }
 
-        let accrued_decimal = bond.accrued_interest(settlement_date);
-        let dirty_price = clean_price + accrued_decimal;
+        let accrued_decimal = bond.try_accrued_interest(settlement_date)?;
+        let dirty_price = clean_price
+            .checked_add(accrued_decimal)
+            .ok_or_else(|| AnalyticsError::InvalidInput("dirty price overflow".into()))?;
         let dirty_price_f64 = dirty_price
             .to_string()
             .parse::<f64>()
             .map_err(|_| AnalyticsError::InvalidInput("invalid dirty price".to_string()))?;
 
         let mut times: Vec<f64> = Vec::new();
-        let mut cf_values: Vec<f64> = Vec::new();
 
         for cf in &cash_flows {
             let t = settlement_date.days_between(&cf.date) as f64 / 365.25;
             if t > 0.0 {
                 times.push(t);
-                cf_values.push(cf.amount.to_string().parse::<f64>().unwrap_or(0.0));
             }
         }
 
-        let ytm_decimal =
-            street_convention_yield(dirty_price_f64, &cf_values, &times, bond_frequency, 0.05)?;
-        let ytm = ytm_decimal * Decimal::ONE_HUNDRED;
+        let ytm_f64 =
+            functions::yield_to_maturity(bond, settlement_date, clean_price, quote_frequency)?
+                .yield_value;
+        let ytm = checked_decimal(ytm_f64)?
+            .checked_mul(Decimal::ONE_HUNDRED)
+            .ok_or_else(|| AnalyticsError::InvalidInput("YTM percent overflow".into()))?;
 
         use convex_bonds::traits::CashFlowType;
 
@@ -628,22 +636,40 @@ impl<'a> YASCalculator<'a> {
             .calculate_asw_spread(dirty_price, settlement_date, maturity_date)
             .ok();
 
-        let ytm_f64 = ytm
-            .to_string()
-            .parse::<f64>()
-            .map_err(|_| AnalyticsError::InvalidInput("invalid ytm".to_string()))?
-            / 100.0;
-
-        let risk = BondRiskCalculator::from_bond(
+        let macaulay = checked_decimal(functions::macaulay_duration(
             bond,
             settlement_date,
-            dirty_price_f64,
             ytm_f64,
-            convex_core::types::Compounding::from_periods_per_year(bond_frequency),
-        )
-        .map_err(|e| AnalyticsError::InvalidInput(format!("risk calculator: {e}")))?
-        .all_metrics()
-        .map_err(|e| AnalyticsError::InvalidInput(format!("risk metrics: {e}")))?;
+            quote_frequency,
+        )?)?;
+        let modified = checked_decimal(functions::modified_duration(
+            bond,
+            settlement_date,
+            ytm_f64,
+            quote_frequency,
+        )?)?;
+        let convexity = checked_decimal(functions::convexity(
+            bond,
+            settlement_date,
+            ytm_f64,
+            quote_frequency,
+        )?)?;
+        let dv01_per_100 = checked_decimal(functions::dv01(
+            bond,
+            settlement_date,
+            ytm_f64,
+            dirty_price_f64,
+            quote_frequency,
+        )?)?;
+        let dv01 = calculate_proceeds(bond.face_value(), dv01_per_100, Decimal::ZERO)
+            .map_err(|error| AnalyticsError::CalculationFailed(error.to_string()))?;
+        let risk = BondRiskMetrics {
+            macaulay_duration: Duration::new(macaulay),
+            modified_duration: Duration::new(modified),
+            convexity: Convexity::new(convexity),
+            dv01_per_100: DV01::new(dv01_per_100),
+            dv01: DV01::new(dv01),
+        };
 
         let face_value = bond.face_value();
         let accrued_days = self.calculate_accrued_days(&cash_flows, settlement_date);
@@ -657,32 +683,10 @@ impl<'a> YASCalculator<'a> {
             .build()
             .map_err(|e| AnalyticsError::InvalidInput(e.to_string()))?;
 
-        let ytm_decimal = ytm / dec!(100);
-        let days_per_year = match bond.currency() {
-            convex_core::Currency::GBP
-            | convex_core::Currency::AUD
-            | convex_core::Currency::NZD => 365,
-            _ => 360,
-        };
-
-        let mmy_result = money_market_yield(
-            &cash_flows,
-            dirty_price,
-            ytm_decimal,
-            settlement_date,
-            maturity_date,
-            bond_frequency,
-            days_per_year,
-        )
-        .map(|mmy| mmy * dec!(100))
-        .ok();
-
         Ok(YASResult {
             ytm,
-            true_yield: ytm,
             current_yield: current,
             simple_yield: simple,
-            money_market_yield: mmy_result,
             g_spread: g_spread_value,
             benchmark_spread: benchmark_spread_value,
             benchmark_tenor: benchmark_tenor_label.to_string(),
@@ -730,7 +734,7 @@ impl<'a> YASCalculator<'a> {
                 let cf_date = settlement.add_days((*t * 365.0) as i64);
                 let df_f64 = spot_curve.discount_factor(cf_date).unwrap_or(1.0);
                 // Adjust for z-spread: DF_adj = DF * exp(-z * t)
-                pv += amount * df_f64 * (-z * t).exp();
+                pv += amount * df_f64 * portable::exp(-z * t);
             }
             pv - target
         };
@@ -829,6 +833,18 @@ impl<'a> YASCalculator<'a> {
 
         0
     }
+}
+
+fn checked_decimal(value: f64) -> AnalyticsResult<Decimal> {
+    let decimal = Decimal::from_f64_retain(value).ok_or_else(|| {
+        AnalyticsError::CalculationFailed("unrepresentable YAS yield/risk measure".into())
+    })?;
+    if value != 0.0 && decimal.is_zero() {
+        return Err(AnalyticsError::CalculationFailed(
+            "YAS yield/risk measure underflow".into(),
+        ));
+    }
+    Ok(decimal)
 }
 
 /// Batch YAS Calculator for parallel processing of multiple bonds.

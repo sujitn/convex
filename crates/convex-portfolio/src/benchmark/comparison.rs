@@ -59,13 +59,11 @@ pub struct DurationComparison {
 
 impl DurationComparison {
     /// Returns true if portfolio is longer duration than benchmark.
-    #[must_use]
     pub fn is_longer(&self) -> bool {
         self.difference.map(|d| d > 0.0).unwrap_or(false)
     }
 
     /// Returns true if portfolio is shorter duration than benchmark.
-    #[must_use]
     pub fn is_shorter(&self) -> bool {
         self.difference.map(|d| d < 0.0).unwrap_or(false)
     }
@@ -95,13 +93,11 @@ pub struct SpreadComparison {
 
 impl SpreadComparison {
     /// Returns true if portfolio has wider spread than benchmark.
-    #[must_use]
     pub fn is_wider(&self) -> bool {
         self.difference.map(|d| d > 0.0).unwrap_or(false)
     }
 
     /// Returns true if portfolio has tighter spread than benchmark.
-    #[must_use]
     pub fn is_tighter(&self) -> bool {
         self.difference.map(|d| d < 0.0).unwrap_or(false)
     }
@@ -131,7 +127,6 @@ pub struct YieldComparison {
 
 impl YieldComparison {
     /// Returns true if portfolio has higher yield than benchmark.
-    #[must_use]
     pub fn is_higher_yield(&self) -> bool {
         self.ytm_difference.map(|d| d > 0.0).unwrap_or(false)
     }
@@ -141,13 +136,16 @@ impl YieldComparison {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskComparison {
     /// Portfolio total DV01.
-    pub portfolio_dv01: f64,
+    #[serde(with = "convex_core::contracts::decimal_serde::optional")]
+    pub portfolio_dv01: Option<rust_decimal::Decimal>,
 
     /// Benchmark total DV01.
-    pub benchmark_dv01: f64,
+    #[serde(with = "convex_core::contracts::decimal_serde::optional")]
+    pub benchmark_dv01: Option<rust_decimal::Decimal>,
 
     /// DV01 difference.
-    pub dv01_difference: f64,
+    #[serde(with = "convex_core::contracts::decimal_serde::optional")]
+    pub dv01_difference: Option<rust_decimal::Decimal>,
 
     /// DV01 ratio (portfolio / benchmark).
     pub dv01_ratio: Option<f64>,
@@ -238,102 +236,113 @@ pub struct RatingComparison {
 ///         comparison.spread.difference.unwrap());
 /// }
 /// ```
-#[must_use]
 pub fn benchmark_comparison(
     portfolio: &[Holding],
     benchmark: &[Holding],
     config: &AnalyticsConfig,
-) -> BenchmarkComparison {
-    // Calculate active weights
-    let active_wts = active_weights(portfolio, benchmark, config);
+) -> crate::PortfolioResult<BenchmarkComparison> {
+    Ok({
+        // Calculate active weights
+        let active_wts = active_weights(portfolio, benchmark, config)?;
 
-    // Calculate metrics for both (no shares outstanding for benchmark comparison)
-    let port_risk = calculate_risk_metrics(portfolio, None, config);
-    let bench_risk = calculate_risk_metrics(benchmark, None, config);
+        // Calculate metrics for both (no shares outstanding for benchmark comparison)
+        let port_risk = calculate_risk_metrics(portfolio, None, config)?;
+        let bench_risk = calculate_risk_metrics(benchmark, None, config)?;
 
-    let port_spread = calculate_spread_metrics(portfolio, None, config);
-    let bench_spread = calculate_spread_metrics(benchmark, None, config);
+        let port_spread = calculate_spread_metrics(portfolio, None, config)?;
+        let bench_spread = calculate_spread_metrics(benchmark, None, config)?;
 
-    let port_yield = calculate_yield_metrics(portfolio, config);
-    let bench_yield = calculate_yield_metrics(benchmark, config);
+        let port_yield = calculate_yield_metrics(portfolio, config)?;
+        let bench_yield = calculate_yield_metrics(benchmark, config)?;
 
-    // Duration comparison
-    let duration = DurationComparison {
-        portfolio_duration: port_risk.best_duration,
-        benchmark_duration: bench_risk.best_duration,
-        difference: match (port_risk.best_duration, bench_risk.best_duration) {
-            (Some(p), Some(b)) => Some(p - b),
-            _ => None,
-        },
-        ratio: match (port_risk.best_duration, bench_risk.best_duration) {
-            (Some(p), Some(b)) if b > 0.0 => Some(p / b),
-            _ => None,
-        },
-        portfolio_effective: port_risk.effective_duration,
-        benchmark_effective: bench_risk.effective_duration,
-    };
+        // Duration comparison
+        let duration = DurationComparison {
+            portfolio_duration: port_risk.best_duration,
+            benchmark_duration: bench_risk.best_duration,
+            difference: match (port_risk.best_duration, bench_risk.best_duration) {
+                (Some(p), Some(b)) => Some(p - b),
+                _ => None,
+            },
+            ratio: match (port_risk.best_duration, bench_risk.best_duration) {
+                (Some(p), Some(b)) if b > 0.0 => Some(p / b),
+                _ => None,
+            },
+            portfolio_effective: port_risk.effective_duration,
+            benchmark_effective: bench_risk.effective_duration,
+        };
 
-    // Spread comparison
-    let spread = SpreadComparison {
-        portfolio_spread: port_spread.z_spread,
-        benchmark_spread: bench_spread.z_spread,
-        difference: match (port_spread.z_spread, bench_spread.z_spread) {
-            (Some(p), Some(b)) => Some(p - b),
-            _ => None,
-        },
-        ratio: match (port_spread.z_spread, bench_spread.z_spread) {
-            (Some(p), Some(b)) if b > 0.0 => Some(p / b),
-            _ => None,
-        },
-        portfolio_oas: port_spread.oas,
-        benchmark_oas: bench_spread.oas,
-    };
+        // Spread comparison
+        let spread = SpreadComparison {
+            portfolio_spread: port_spread.z_spread,
+            benchmark_spread: bench_spread.z_spread,
+            difference: match (port_spread.z_spread, bench_spread.z_spread) {
+                (Some(p), Some(b)) => Some(p - b),
+                _ => None,
+            },
+            ratio: match (port_spread.z_spread, bench_spread.z_spread) {
+                (Some(p), Some(b)) if b > 0.0 => Some(p / b),
+                _ => None,
+            },
+            portfolio_oas: port_spread.oas,
+            benchmark_oas: bench_spread.oas,
+        };
 
-    // Yield comparison
-    let yield_comparison = YieldComparison {
-        portfolio_ytm: port_yield.ytm,
-        benchmark_ytm: bench_yield.ytm,
-        ytm_difference: match (port_yield.ytm, bench_yield.ytm) {
-            (Some(p), Some(b)) => Some(p - b),
-            _ => None,
-        },
-        portfolio_ytw: port_yield.ytw,
-        benchmark_ytw: bench_yield.ytw,
-        ytw_difference: match (port_yield.ytw, bench_yield.ytw) {
-            (Some(p), Some(b)) => Some(p - b),
-            _ => None,
-        },
-    };
+        // Yield comparison
+        let yield_comparison = YieldComparison {
+            portfolio_ytm: port_yield.ytm,
+            benchmark_ytm: bench_yield.ytm,
+            ytm_difference: match (port_yield.ytm, bench_yield.ytm) {
+                (Some(p), Some(b)) => Some(p - b),
+                _ => None,
+            },
+            portfolio_ytw: port_yield.ytw,
+            benchmark_ytw: bench_yield.ytw,
+            ytw_difference: match (port_yield.ytw, bench_yield.ytw) {
+                (Some(p), Some(b)) => Some(p - b),
+                _ => None,
+            },
+        };
 
-    // Risk comparison (total_dv01 is f64, not Option)
-    let risk = RiskComparison {
-        portfolio_dv01: port_risk.total_dv01,
-        benchmark_dv01: bench_risk.total_dv01,
-        dv01_difference: port_risk.total_dv01 - bench_risk.total_dv01,
-        dv01_ratio: if bench_risk.total_dv01 > 0.0 {
-            Some(port_risk.total_dv01 / bench_risk.total_dv01)
-        } else {
-            None
-        },
-        portfolio_convexity: port_risk.convexity,
-        benchmark_convexity: bench_risk.convexity,
-    };
+        let (dv01_difference, dv01_ratio) = match (port_risk.total_dv01, bench_risk.total_dv01) {
+            (Some(p), Some(b)) => {
+                use convex_math::decimal::BoundedDecimal;
+                let mut difference = BoundedDecimal::decimal(p);
+                difference.add(&BoundedDecimal::decimal(-b))?;
+                let ratio = crate::analytics::metrics::signed_ratio(
+                    &BoundedDecimal::decimal(p),
+                    &BoundedDecimal::decimal(b),
+                )?
+                .map(crate::analytics::metrics::presentation)
+                .transpose()?;
+                (Some(difference.finish()?), ratio)
+            }
+            _ => (None, None),
+        };
+        let risk = RiskComparison {
+            portfolio_dv01: port_risk.total_dv01,
+            benchmark_dv01: bench_risk.total_dv01,
+            dv01_difference,
+            dv01_ratio,
+            portfolio_convexity: port_risk.convexity,
+            benchmark_convexity: bench_risk.convexity,
+        };
 
-    // Sector-level comparison
-    let by_sector = calculate_sector_comparison(portfolio, benchmark, config);
+        // Sector-level comparison
+        let by_sector = calculate_sector_comparison(portfolio, benchmark, config)?;
 
-    // Rating-level comparison
-    let by_rating = calculate_rating_comparison(portfolio, benchmark, config);
+        // Rating-level comparison
+        let by_rating = calculate_rating_comparison(portfolio, benchmark, config)?;
 
-    BenchmarkComparison {
-        active_weights: active_wts,
-        duration,
-        spread,
-        yield_comparison,
-        risk,
-        by_sector,
-        by_rating,
-    }
+        BenchmarkComparison {
+            active_weights: active_wts,
+            duration,
+            spread,
+            yield_comparison,
+            risk,
+            by_sector,
+            by_rating,
+        }
+    })
 }
 
 /// Calculates sector-level comparison.
@@ -341,39 +350,41 @@ fn calculate_sector_comparison(
     portfolio: &[Holding],
     benchmark: &[Holding],
     config: &AnalyticsConfig,
-) -> HashMap<Sector, SectorComparison> {
-    let port_sector = bucket_by_sector(portfolio, config);
-    let bench_sector = bucket_by_sector(benchmark, config);
+) -> crate::PortfolioResult<HashMap<Sector, SectorComparison>> {
+    Ok({
+        let port_sector = bucket_by_sector(portfolio, config)?;
+        let bench_sector = bucket_by_sector(benchmark, config)?;
 
-    let mut result = HashMap::new();
+        let mut result = HashMap::new();
 
-    // Collect all sectors
-    let mut all_sectors: std::collections::HashSet<Sector> =
-        port_sector.by_sector.keys().copied().collect();
-    all_sectors.extend(bench_sector.by_sector.keys().copied());
+        // Collect all sectors
+        let mut all_sectors: std::collections::HashSet<Sector> =
+            port_sector.by_sector.keys().copied().collect();
+        all_sectors.extend(bench_sector.by_sector.keys().copied());
 
-    for sector in all_sectors {
-        let port_metrics = port_sector.get(sector);
-        let bench_metrics = bench_sector.get(sector);
+        for sector in all_sectors {
+            let port_metrics = port_sector.get(sector);
+            let bench_metrics = bench_sector.get(sector);
 
-        let port_weight = port_metrics.map(|m| m.weight_pct).unwrap_or(0.0);
-        let bench_weight = bench_metrics.map(|m| m.weight_pct).unwrap_or(0.0);
+            let port_weight = port_metrics.map(|m| m.weight_pct).unwrap_or(0.0);
+            let bench_weight = bench_metrics.map(|m| m.weight_pct).unwrap_or(0.0);
 
-        result.insert(
-            sector,
-            SectorComparison {
-                portfolio_weight: port_weight,
-                benchmark_weight: bench_weight,
-                active_weight: port_weight - bench_weight,
-                portfolio_duration: port_metrics.and_then(|m| m.avg_duration),
-                benchmark_duration: bench_metrics.and_then(|m| m.avg_duration),
-                portfolio_spread: port_metrics.and_then(|m| m.avg_spread),
-                benchmark_spread: bench_metrics.and_then(|m| m.avg_spread),
-            },
-        );
-    }
+            result.insert(
+                sector,
+                SectorComparison {
+                    portfolio_weight: port_weight,
+                    benchmark_weight: bench_weight,
+                    active_weight: port_weight - bench_weight,
+                    portfolio_duration: port_metrics.and_then(|m| m.avg_duration),
+                    benchmark_duration: bench_metrics.and_then(|m| m.avg_duration),
+                    portfolio_spread: port_metrics.and_then(|m| m.avg_spread),
+                    benchmark_spread: bench_metrics.and_then(|m| m.avg_spread),
+                },
+            );
+        }
 
-    result
+        result
+    })
 }
 
 /// Calculates rating-level comparison.
@@ -381,93 +392,97 @@ fn calculate_rating_comparison(
     portfolio: &[Holding],
     benchmark: &[Holding],
     config: &AnalyticsConfig,
-) -> HashMap<RatingBucket, RatingComparison> {
-    let port_rating = bucket_by_rating(portfolio, config);
-    let bench_rating = bucket_by_rating(benchmark, config);
+) -> crate::PortfolioResult<HashMap<RatingBucket, RatingComparison>> {
+    Ok({
+        let port_rating = bucket_by_rating(portfolio, config)?;
+        let bench_rating = bucket_by_rating(benchmark, config)?;
 
-    let mut result = HashMap::new();
+        let mut result = HashMap::new();
 
-    // Collect all rating buckets
-    let mut all_ratings: std::collections::HashSet<RatingBucket> =
-        port_rating.by_bucket.keys().copied().collect();
-    all_ratings.extend(bench_rating.by_bucket.keys().copied());
+        // Collect all rating buckets
+        let mut all_ratings: std::collections::HashSet<RatingBucket> =
+            port_rating.by_bucket.keys().copied().collect();
+        all_ratings.extend(bench_rating.by_bucket.keys().copied());
 
-    for rating in all_ratings {
-        let port_metrics = port_rating.get_bucket(rating);
-        let bench_metrics = bench_rating.get_bucket(rating);
+        for rating in all_ratings {
+            let port_metrics = port_rating.get_bucket(rating);
+            let bench_metrics = bench_rating.get_bucket(rating);
 
-        let port_weight = port_metrics.map(|m| m.weight_pct).unwrap_or(0.0);
-        let bench_weight = bench_metrics.map(|m| m.weight_pct).unwrap_or(0.0);
+            let port_weight = port_metrics.map(|m| m.weight_pct).unwrap_or(0.0);
+            let bench_weight = bench_metrics.map(|m| m.weight_pct).unwrap_or(0.0);
 
-        result.insert(
-            rating,
-            RatingComparison {
-                portfolio_weight: port_weight,
-                benchmark_weight: bench_weight,
-                active_weight: port_weight - bench_weight,
-                portfolio_duration: port_metrics.and_then(|m| m.avg_duration),
-                benchmark_duration: bench_metrics.and_then(|m| m.avg_duration),
-                portfolio_spread: port_metrics.and_then(|m| m.avg_spread),
-                benchmark_spread: bench_metrics.and_then(|m| m.avg_spread),
-            },
-        );
-    }
+            result.insert(
+                rating,
+                RatingComparison {
+                    portfolio_weight: port_weight,
+                    benchmark_weight: bench_weight,
+                    active_weight: port_weight - bench_weight,
+                    portfolio_duration: port_metrics.and_then(|m| m.avg_duration),
+                    benchmark_duration: bench_metrics.and_then(|m| m.avg_duration),
+                    portfolio_spread: port_metrics.and_then(|m| m.avg_spread),
+                    benchmark_spread: bench_metrics.and_then(|m| m.avg_spread),
+                },
+            );
+        }
 
-    result
+        result
+    })
 }
 
 /// Calculates duration difference by sector.
 ///
 /// Returns the contribution to duration difference from each sector.
-#[must_use]
 pub fn duration_difference_by_sector(
     portfolio: &[Holding],
     benchmark: &[Holding],
     config: &AnalyticsConfig,
-) -> HashMap<Sector, f64> {
-    let comparison = calculate_sector_comparison(portfolio, benchmark, config);
+) -> crate::PortfolioResult<HashMap<Sector, f64>> {
+    Ok({
+        let comparison = calculate_sector_comparison(portfolio, benchmark, config)?;
 
-    comparison
-        .into_iter()
-        .filter_map(|(sector, comp)| {
-            match (comp.portfolio_duration, comp.benchmark_duration) {
-                (Some(p), Some(b)) => {
-                    // Contribution = active_weight × duration + weight × duration_diff
-                    let allocation = (comp.active_weight / 100.0) * b;
-                    let selection = (comp.portfolio_weight / 100.0) * (p - b);
-                    Some((sector, allocation + selection))
+        comparison
+            .into_iter()
+            .filter_map(|(sector, comp)| {
+                match (comp.portfolio_duration, comp.benchmark_duration) {
+                    (Some(p), Some(b)) => {
+                        // Contribution = active_weight × duration + weight × duration_diff
+                        let allocation = (comp.active_weight / 100.0) * b;
+                        let selection = (comp.portfolio_weight / 100.0) * (p - b);
+                        Some((sector, allocation + selection))
+                    }
+                    _ => None,
                 }
-                _ => None,
-            }
-        })
-        .collect()
+            })
+            .collect()
+    })
 }
 
 /// Calculates spread difference by sector.
 ///
 /// Returns the contribution to spread difference from each sector.
-#[must_use]
 pub fn spread_difference_by_sector(
     portfolio: &[Holding],
     benchmark: &[Holding],
     config: &AnalyticsConfig,
-) -> HashMap<Sector, f64> {
-    let comparison = calculate_sector_comparison(portfolio, benchmark, config);
+) -> crate::PortfolioResult<HashMap<Sector, f64>> {
+    Ok({
+        let comparison = calculate_sector_comparison(portfolio, benchmark, config)?;
 
-    comparison
-        .into_iter()
-        .filter_map(|(sector, comp)| {
-            match (comp.portfolio_spread, comp.benchmark_spread) {
-                (Some(p), Some(b)) => {
-                    // Contribution = active_weight × spread + weight × spread_diff
-                    let allocation = (comp.active_weight / 100.0) * b;
-                    let selection = (comp.portfolio_weight / 100.0) * (p - b);
-                    Some((sector, allocation + selection))
+        comparison
+            .into_iter()
+            .filter_map(|(sector, comp)| {
+                match (comp.portfolio_spread, comp.benchmark_spread) {
+                    (Some(p), Some(b)) => {
+                        // Contribution = active_weight × spread + weight × spread_diff
+                        let allocation = (comp.active_weight / 100.0) * b;
+                        let selection = (comp.portfolio_weight / 100.0) * (p - b);
+                        Some((sector, allocation + selection))
+                    }
+                    _ => None,
                 }
-                _ => None,
-            }
-        })
-        .collect()
+            })
+            .collect()
+    })
 }
 
 #[cfg(test)]
@@ -537,7 +552,7 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let comparison = benchmark_comparison(&portfolio, &benchmark, &config);
+        let comparison = benchmark_comparison(&portfolio, &benchmark, &config).unwrap();
 
         // Duration difference = 6 - 5 = 1
         assert!((comparison.duration.difference.unwrap() - 1.0).abs() < 0.01);
@@ -567,7 +582,7 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let comparison = benchmark_comparison(&portfolio, &benchmark, &config);
+        let comparison = benchmark_comparison(&portfolio, &benchmark, &config).unwrap();
 
         // Spread difference = 150 - 100 = 50bp
         assert!((comparison.spread.difference.unwrap() - 50.0).abs() < 0.01);
@@ -597,7 +612,7 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let comparison = benchmark_comparison(&portfolio, &benchmark, &config);
+        let comparison = benchmark_comparison(&portfolio, &benchmark, &config).unwrap();
 
         // YTM difference = 5.5% - 4.5% = 1%
         assert!((comparison.yield_comparison.ytm_difference.unwrap() - 0.01).abs() < 0.001);
@@ -649,7 +664,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let comparison = benchmark_comparison(&portfolio, &benchmark, &config);
+        let comparison = benchmark_comparison(&portfolio, &benchmark, &config).unwrap();
 
         // Government: Portfolio 50%, Benchmark 75% → Active -25%
         let govt = comparison.by_sector.get(&Sector::Government).unwrap();
@@ -683,7 +698,7 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let comparison = benchmark_comparison(&portfolio, &benchmark, &config);
+        let comparison = benchmark_comparison(&portfolio, &benchmark, &config).unwrap();
 
         // AAA: Portfolio 100%, Benchmark 0% → Active +100%
         let aaa = comparison.by_rating.get(&RatingBucket::AAA).unwrap();
@@ -739,7 +754,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let dur_diff = duration_difference_by_sector(&portfolio, &benchmark, &config);
+        let dur_diff = duration_difference_by_sector(&portfolio, &benchmark, &config).unwrap();
 
         // Both sectors have 50% weight in both
         // Government: selection = 0.5 × (6 - 5) = 0.5
@@ -762,7 +777,7 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let comparison = benchmark_comparison(&holdings, &holdings, &config);
+        let comparison = benchmark_comparison(&holdings, &holdings, &config).unwrap();
 
         // Duration difference should be zero
         assert!((comparison.duration.difference.unwrap()).abs() < 0.01);
@@ -798,7 +813,7 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let comparison = benchmark_comparison(&portfolio, &benchmark, &config);
+        let comparison = benchmark_comparison(&portfolio, &benchmark, &config).unwrap();
 
         // Duration ratio = 6 / 4 = 1.5
         assert!((comparison.duration.ratio.unwrap() - 1.5).abs() < 0.01);

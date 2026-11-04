@@ -6,8 +6,10 @@
 //!
 //! These models are used for curve fitting rather than point-by-point interpolation.
 
+use crate::bounds::{finite, finite_slice};
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
+use crate::portable;
 
 /// Nelson-Siegel yield curve model.
 ///
@@ -73,6 +75,7 @@ impl NelsonSiegel {
     ///
     /// Returns an error if tau is not positive.
     pub fn new(beta0: f64, beta1: f64, beta2: f64, tau: f64) -> MathResult<Self> {
+        finite_slice(&[beta0, beta1, beta2, tau], "Nelson-Siegel parameters")?;
         if tau <= 0.0 {
             return Err(MathError::invalid_input(format!(
                 "tau must be positive, got {tau}"
@@ -87,6 +90,12 @@ impl NelsonSiegel {
         })
     }
 
+    /// Finite checked forward query for external input.
+    pub fn try_forward_rate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "forward query")?;
+        finite(self.forward_rate(t), "parametric forward")
+    }
+
     /// Returns the instantaneous forward rate at time t.
     ///
     /// ```text
@@ -98,7 +107,7 @@ impl NelsonSiegel {
         }
 
         let x = t / self.tau;
-        let exp_x = (-x).exp();
+        let exp_x = portable::exp(-x);
 
         self.beta0 + self.beta1 * exp_x + self.beta2 * x * exp_x
     }
@@ -113,7 +122,7 @@ impl NelsonSiegel {
         if x.abs() < 1e-10 {
             1.0 - x / 2.0 + x * x / 6.0 // Taylor expansion for numerical stability
         } else {
-            (1.0 - (-x).exp()) / x
+            (1.0 - portable::exp(-x)) / x
         }
     }
 
@@ -122,16 +131,17 @@ impl NelsonSiegel {
         if x.abs() < 1e-10 {
             x / 2.0 - x * x / 3.0 // Taylor expansion for numerical stability
         } else {
-            Self::loading_factor_1(x) - (-x).exp()
+            Self::loading_factor_1(x) - portable::exp(-x)
         }
     }
 }
 
 impl Interpolator for NelsonSiegel {
     fn interpolate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             // As t → 0, z(t) → β₀ + β₁
-            return Ok(self.beta0 + self.beta1);
+            return finite(self.beta0 + self.beta1, "short rate");
         }
 
         let x = t / self.tau;
@@ -140,16 +150,17 @@ impl Interpolator for NelsonSiegel {
             + self.beta1 * Self::loading_factor_1(x)
             + self.beta2 * Self::loading_factor_2(x);
 
-        Ok(z)
+        finite(z, "parametric interpolation")
     }
 
     fn derivative(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             return Ok(0.0);
         }
 
         let x = t / self.tau;
-        let exp_x = (-x).exp();
+        let exp_x = portable::exp(-x);
 
         // dz/dt = (1/τ) * [β₁ * d(L1)/dx + β₂ * d(L2)/dx]
         // where L1 = (1 - e^(-x))/x and L2 = L1 - e^(-x)
@@ -163,7 +174,7 @@ impl Interpolator for NelsonSiegel {
 
         let dz_dx = self.beta1 * dl1 + self.beta2 * dl2;
 
-        Ok(dz_dx / self.tau)
+        finite(dz_dx / self.tau, "Nelson-Siegel derivative")
     }
 
     fn allows_extrapolation(&self) -> bool {
@@ -247,6 +258,10 @@ impl Svensson {
         tau1: f64,
         tau2: f64,
     ) -> MathResult<Self> {
+        finite_slice(
+            &[beta0, beta1, beta2, beta3, tau1, tau2],
+            "Svensson parameters",
+        )?;
         if tau1 <= 0.0 {
             return Err(MathError::invalid_input(format!(
                 "tau1 must be positive, got {tau1}"
@@ -268,6 +283,12 @@ impl Svensson {
         })
     }
 
+    /// Finite checked forward query for external input.
+    pub fn try_forward_rate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "forward query")?;
+        finite(self.forward_rate(t), "parametric forward")
+    }
+
     /// Returns the instantaneous forward rate at time t.
     pub fn forward_rate(&self, t: f64) -> f64 {
         if t <= 0.0 {
@@ -276,8 +297,8 @@ impl Svensson {
 
         let x1 = t / self.tau1;
         let x2 = t / self.tau2;
-        let exp_x1 = (-x1).exp();
-        let exp_x2 = (-x2).exp();
+        let exp_x1 = portable::exp(-x1);
+        let exp_x2 = portable::exp(-x2);
 
         self.beta0 + self.beta1 * exp_x1 + self.beta2 * x1 * exp_x1 + self.beta3 * x2 * exp_x2
     }
@@ -294,7 +315,7 @@ impl Svensson {
         if x.abs() < 1e-10 {
             1.0 - x / 2.0 + x * x / 6.0
         } else {
-            (1.0 - (-x).exp()) / x
+            (1.0 - portable::exp(-x)) / x
         }
     }
 
@@ -303,15 +324,16 @@ impl Svensson {
         if x.abs() < 1e-10 {
             x / 2.0 - x * x / 3.0
         } else {
-            Self::loading_factor_1(x) - (-x).exp()
+            Self::loading_factor_1(x) - portable::exp(-x)
         }
     }
 }
 
 impl Interpolator for Svensson {
     fn interpolate(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
-            return Ok(self.beta0 + self.beta1);
+            return finite(self.beta0 + self.beta1, "short rate");
         }
 
         let x1 = t / self.tau1;
@@ -322,18 +344,19 @@ impl Interpolator for Svensson {
             + self.beta2 * Self::loading_factor_2(x1)
             + self.beta3 * Self::loading_factor_2(x2);
 
-        Ok(z)
+        finite(z, "parametric interpolation")
     }
 
     fn derivative(&self, t: f64) -> MathResult<f64> {
+        finite(t, "query coordinate")?;
         if t <= 0.0 {
             return Ok(0.0);
         }
 
         let x1 = t / self.tau1;
         let x2 = t / self.tau2;
-        let exp_x1 = (-x1).exp();
-        let exp_x2 = (-x2).exp();
+        let exp_x1 = portable::exp(-x1);
+        let exp_x2 = portable::exp(-x2);
 
         // Derivatives of loading factors
         let l1_1 = Self::loading_factor_1(x1);
@@ -348,7 +371,7 @@ impl Interpolator for Svensson {
             + self.beta2 * dl2_1 / self.tau1
             + self.beta3 * dl2_2 / self.tau2;
 
-        Ok(dz_dt)
+        finite(dz_dt, "Svensson derivative")
     }
 
     fn allows_extrapolation(&self) -> bool {

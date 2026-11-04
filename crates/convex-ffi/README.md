@@ -1,18 +1,24 @@
 # convex-ffi
 
-C-ABI FFI for the Convex fixed-income analytics library.
+C ABI for the Convex fixed-income analytics library, built as `crates/convex-ffi`.
+It is the native library behind the Excel add-in and the Java binding. The crate
+is not published to crates.io; build it from this repository.
 
 The boundary is JSON. Construction takes a `*Spec` JSON string and returns
 an opaque `u64` handle. Analytics take a request JSON, return a response
 JSON. Adding a new bond shape, spread family, or pricing convention is a
 serde enum variant plus a dispatch arm in `convex-analytics` /
-`convex-ffi::dispatch` — **no new C symbol** has to ship.
+`convex-ffi::dispatch`, so no new C symbol has to ship.
 
 ## Building
 
 ```bash
-cargo build --release -p convex-ffi
+cargo build --locked --profile excel -p convex-ffi
 ```
+
+The optimized host profile uses `panic=unwind`; abort builds are rejected.
+Artifacts are written under `target/excel`. See [assurance](../../docs/internal/ASSURANCE.md)
+for bounds, error contracts and review policy.
 
 Produces:
 
@@ -22,7 +28,7 @@ Produces:
 | Static archive | `libconvex_ffi.a`  | `libconvex_ffi.a`   | `convex_ffi.lib` |
 | Rust rlib | `libconvex_ffi.rlib` (for integration tests) |
 
-## C surface (13 symbols)
+## C surface
 
 ### Construction
 
@@ -36,6 +42,10 @@ const char* convex_list_objects(void);          // free with convex_string_free
 void        convex_clear_all(void);
 ```
 
+`convex_library(const char* request_json)` runs a complete `LibraryRequest`
+(see the [library API](../../docs/LIBRARY-API.md)). It needs no handles; free
+its result with `convex_string_free`.
+
 `convex_bond_from_json` and `convex_curve_from_json` return `0` on failure;
 read `convex_last_error()` for diagnostics.
 
@@ -47,9 +57,15 @@ const char* convex_risk         (const char* request_json);
 const char* convex_spread       (const char* request_json);
 const char* convex_cashflows    (const char* request_json);
 const char* convex_curve_query  (const char* request_json);
+const char* convex_make_whole   (const char* request_json);
+const char* convex_yas          (const char* request_json);
+const char* convex_scenario     (const char* request_json);
+const char* convex_risk_profile (const char* request_json);
+const char* convex_hedge        (const char* request_json);
+const char* convex_compare      (const char* request_json);
 ```
 
-All five return a heap-allocated UTF-8 string the caller MUST free with
+All RPCs return a heap-allocated UTF-8 string the caller MUST free with
 `convex_string_free`. The body is a JSON envelope:
 
 ```json
@@ -64,6 +80,8 @@ Error codes:
 | `invalid_input` | Bad JSON, missing required field, or unparseable mark. May carry a `field` pointer. |
 | `invalid_handle` | Handle not in the registry, or wrong kind for the call. |
 | `analytics` | Solver did not converge, settlement ≥ maturity, etc. |
+| `resource_limit` | All concurrent constructor/RPC slots are in use. |
+| `panic` | Unexpected internal panic contained with a fixed diagnostic. |
 
 ### Utilities
 
@@ -79,7 +97,8 @@ void        convex_string_free(const char* s);
 `convex_schema` accepts: `"Mark"`, `"BondSpec"`, `"CurveSpec"`,
 `"PricingRequest"`, `"PricingResponse"`, `"RiskRequest"`, `"RiskResponse"`,
 `"SpreadRequest"`, `"SpreadResponse"`, `"CashflowRequest"`,
-`"CashflowResponse"`, `"CurveQueryRequest"`, `"CurveQueryResponse"`.
+`"CashflowResponse"`, `"CurveQueryRequest"`, `"CurveQueryResponse"`,
+`"LibraryRequest"`.
 
 ## DTOs
 
@@ -153,9 +172,17 @@ The complete request / response shapes are defined in
 | Field | Used by | Meaning |
 |---|---|---|
 | `volatility` | OAS | Short-rate volatility, decimal (0.01 = 1%). |
-| `forward_curve` | DM | Projection curve handle. Defaults to discount curve. |
-| `current_index` | DM (simple-margin shortcut) | Current index rate, decimal. |
-| `govt_curve` | G-spread | **Required.** Separate government curve handle. |
+| `forward_curve` | DM | Explicit projection handle; fixing-aware dispatch is not yet supported. |
+| `current_index` | DM | Kept for compatibility; it cannot replace fixing history. |
+| `government` | G-spread | `GovernmentCurveSpec` benchmark securities and yields, required. |
+| `quote_frequency` | Fixed-coupon spread | Quoted-yield compounding; unchanged semiannual default. |
+
+See the [bond quote contracts](../../docs/BOND-QUOTES.md) for fixed-coupon terms,
+zero-coupon redemption, missing-fixing and ICMA failures, curve roles and the
+convention matrix. FRN price, risk, DM and cash-flow calls fail with a `fixings`
+error until v1 can represent the fixing history they need.
+The old government zero-curve fields and YAS outputs have been removed;
+see [caller migration](../../docs/internal/ROUTE-MIGRATION.md).
 
 ## C example
 
@@ -234,7 +261,21 @@ FFI function is safe to call from multiple threads. The thread-local
 `last_error` slot is per-thread; check it on the same thread that triggered
 the failure.
 
+## Input and resource limits
+
+Constructors and RPCs reject input over 2 MiB, malformed UTF-8, duplicate
+JSON fields, excessive nesting or collection sizes, and dates or numbers outside
+the supported range.
+There are 32 concurrent constructor/RPC slots and 16,384 object slots.
+Invalid input returns a normal error; constructors return zero and a
+thread-local diagnostic. `convex_object_count` returns `-1` when unavailable.
+Zero-coupon Simple/Daily compounding returns an unsupported-input error.
+The assurance guide lists the bounds and supported conventions.
+
 ## Memory model
+
+Inputs must be immutable, NUL-terminated allocations that stay valid for the
+whole call. The library cannot detect an invalid pointer.
 
 - Strings returned by `convex_*` (any function with `*const c_char` or
   `*mut c_char` return type **other than** `convex_last_error` and
@@ -248,10 +289,10 @@ the failure.
 ## Tests
 
 ```bash
-cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+cargo test --locked -p convex-ffi --test smoke -- --test-threads=1
 ```
 
-19 end-to-end tests: every spread family (Z / G / I / ASW / OAS / DM),
+End-to-end tests cover: every spread family (Z / G / I / ASW / OAS / DM),
 FRN / zero / sinking-fund pricing and risk, KRD, cashflow tag stability,
 schema introspection, mark parsing, error envelopes.
 

@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "provenance": "Independent Python Decimal60; original synthetic inputs and stated formulas only. No native/candidate outputs read. Exact cents after declared rounding.",
+  "input_sha256": "a1acef35919fd7518a57a9de21c7afc3b538c1f6a871d3861c934cec29f188b0",
+  "bond": {
+    "coupon_1": "24.93",
+    "coupon_2": "18.15",
+    "principal_1": "400.00",
+    "principal_2": "600.00",
+    "exercise_accrued": "12.11",
+    "exercise_cash": "1022.11"
+  },
+  "irs": {
+    "fixed_1": "-3222.22",
+    "float_1": "5115.28",
+    "fixed_2": "-1937.50",
+    "float_2": "-226.04"
+  },
+  "ois": {
+    "fixed": "-777.78",
+    "float": "1235.16"
+  },
+  "cds": {
+    "initial_cash": "-20000.00",
+    "first_premium": "-27.78",
+    "default_protection": "600000.00",
+    "default_accrual": "-340.28"
+  },
+  "futures": {
+    "opening_points": "100",
+    "daily_points": "99.970009",
+    "currency_per_point": "2500",
+    "contracts": -3,
+    "previous_rounded_contract": "250000.00",
+    "current_rounded_contract": "249925.02",
+    "variation": "224.94"
+  }
+}

@@ -1,0 +1,2593 @@
+{
+  "recorded_at": "2026-10-15T21:13:41.895387+00:00",
+  "status": "predeclared_next_instrument_feature_not_current_qualification",
+  "independent_identity": "All these January30to31 intervals have exactly0years under the three supplied30/360rules. Every admitted finite yield has DF1. Absolute price equals original redemption independently of face. A matching target cannot identify a yield; other targets have no root.",
+  "cases": [
+    {
+      "id": "following-zero-instrument-000",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Annual",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-001",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Annual",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-002",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Annual",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-003",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Annual",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-004",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "SemiAnnual",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-005",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "SemiAnnual",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-006",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "SemiAnnual",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-007",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "SemiAnnual",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-008",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Quarterly",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-009",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Quarterly",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-010",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Quarterly",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-011",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Quarterly",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-012",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Monthly",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-013",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Monthly",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-014",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Monthly",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-015",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Monthly",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-016",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Continuous",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-017",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Continuous",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-018",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Continuous",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-019",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360US",
+      "compounding": "Continuous",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-020",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Annual",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-021",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Annual",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-022",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Annual",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-023",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Annual",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-024",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "SemiAnnual",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-025",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "SemiAnnual",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-026",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "SemiAnnual",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-027",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "SemiAnnual",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-028",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Quarterly",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-029",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Quarterly",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-030",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Quarterly",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-031",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Quarterly",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-032",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Monthly",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-033",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Monthly",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-034",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Monthly",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-035",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Monthly",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-036",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Continuous",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-037",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Continuous",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-038",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Continuous",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-039",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360E",
+      "compounding": "Continuous",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-040",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Annual",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-041",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Annual",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-042",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Annual",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-043",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Annual",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-044",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "SemiAnnual",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-045",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "SemiAnnual",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-046",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "SemiAnnual",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-047",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "SemiAnnual",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-048",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Quarterly",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-049",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Quarterly",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-050",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Quarterly",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-051",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Quarterly",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-052",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Monthly",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-053",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Monthly",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-054",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Monthly",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-055",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Monthly",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-056",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Continuous",
+      "face": "100",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-057",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Continuous",
+      "face": "100",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-058",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Continuous",
+      "face": "1000",
+      "redemption": "100",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "100"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "100"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "100",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "99.875",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "100.125",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    },
+    {
+      "id": "following-zero-instrument-059",
+      "native_constructor": "ZeroCouponBond::builder",
+      "issue_date": "2024-01-31",
+      "settlement": "2025-01-30",
+      "maturity": "2025-01-31",
+      "currency": "USD",
+      "calendar": "explicit weekend-only supplied calendar",
+      "day_count": "Thirty360German",
+      "compounding": "Continuous",
+      "face": "1000",
+      "redemption": "1000.625",
+      "independent_discount_years": "0",
+      "price_checks": [
+        {
+          "annual_decimal_yield": "-0.05",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0",
+          "exact_absolute_cash_price": "1000.625"
+        },
+        {
+          "annual_decimal_yield": "0.05",
+          "exact_absolute_cash_price": "1000.625"
+        }
+      ],
+      "inverse_checks": [
+        {
+          "absolute_cash_price": "1000.625",
+          "expected_native_classification": "YieldNonUnique"
+        },
+        {
+          "absolute_cash_price": "1000.500",
+          "expected_native_classification": "YieldNoRoot"
+        },
+        {
+          "absolute_cash_price": "1000.750",
+          "expected_native_classification": "YieldNoRoot"
+        }
+      ],
+      "continuous_inverse_same_structural_classes": true
+    }
+  ],
+  "native_calls_not_executed_here": true,
+  "raw_positive_time_zero_functions_must_remain_unchanged": true,
+  "periodic_poles_must_still_fail": true,
+  "original_active_dates_and_missing_context_failures_must_remain": true,
+  "independent_or_production_certificate": false,
+  "certified": false
+}

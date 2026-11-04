@@ -26,7 +26,6 @@ pub struct RatingDistribution {
 
 impl RatingDistribution {
     /// Returns the weight of investment grade holdings (BBB- or better).
-    #[must_use]
     pub fn investment_grade_weight(&self) -> f64 {
         self.by_rating
             .iter()
@@ -36,7 +35,6 @@ impl RatingDistribution {
     }
 
     /// Returns the weight of high yield holdings (BB+ or worse, excluding D and NR).
-    #[must_use]
     pub fn high_yield_weight(&self) -> f64 {
         self.by_rating
             .iter()
@@ -46,7 +44,6 @@ impl RatingDistribution {
     }
 
     /// Returns the weight of defaulted holdings (D rating).
-    #[must_use]
     pub fn default_weight(&self) -> f64 {
         self.by_rating
             .get(&CreditRating::D)
@@ -55,7 +52,6 @@ impl RatingDistribution {
     }
 
     /// Returns the weight of unrated holdings.
-    #[must_use]
     pub fn unrated_weight(&self) -> f64 {
         let explicit_nr = self
             .by_rating
@@ -68,7 +64,6 @@ impl RatingDistribution {
     /// Returns the weighted average rating score (1=AAA, 22=D).
     ///
     /// Lower scores indicate higher credit quality.
-    #[must_use]
     pub fn average_rating_score(&self) -> Option<f64> {
         let (sum, weight) = self
             .by_rating
@@ -88,7 +83,6 @@ impl RatingDistribution {
     }
 
     /// Returns the implied average rating based on average score.
-    #[must_use]
     pub fn average_rating(&self) -> Option<CreditRating> {
         self.average_rating_score().and_then(|score| {
             // Round to nearest rating
@@ -122,19 +116,16 @@ impl RatingDistribution {
     }
 
     /// Returns metrics for a specific rating.
-    #[must_use]
     pub fn get(&self, rating: CreditRating) -> Option<&BucketMetrics> {
         self.by_rating.get(&rating)
     }
 
     /// Returns metrics for a specific rating bucket.
-    #[must_use]
     pub fn get_bucket(&self, bucket: RatingBucket) -> Option<&BucketMetrics> {
         self.by_bucket.get(&bucket)
     }
 
     /// Returns all ratings with their metrics, sorted by rating (best to worst).
-    #[must_use]
     pub fn sorted_by_rating(&self) -> Vec<(CreditRating, &BucketMetrics)> {
         let mut result: Vec<_> = self.by_rating.iter().map(|(r, m)| (*r, m)).collect();
         result.sort_by_key(|(r, _)| *r);
@@ -142,7 +133,6 @@ impl RatingDistribution {
     }
 
     /// Returns all buckets with their metrics, sorted by bucket (best to worst).
-    #[must_use]
     pub fn sorted_by_bucket(&self) -> Vec<(RatingBucket, &BucketMetrics)> {
         let mut result: Vec<_> = self.by_bucket.iter().map(|(b, m)| (*b, m)).collect();
         result.sort_by_key(|(b, _)| *b);
@@ -163,72 +153,75 @@ impl RatingDistribution {
 /// # Returns
 ///
 /// Distribution of holdings by credit rating with aggregated metrics.
-#[must_use]
-pub fn bucket_by_rating(holdings: &[Holding], config: &AnalyticsConfig) -> RatingDistribution {
-    if holdings.is_empty() {
-        return RatingDistribution::default();
-    }
+pub fn bucket_by_rating(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<RatingDistribution> {
+    Ok({
+        if holdings.is_empty() {
+            return Ok(RatingDistribution::default());
+        }
 
-    // Calculate total market value for weight percentages
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
+        // Calculate total market value for weight percentages
+        let total_mv: Decimal = crate::analytics::metrics::clean_total(holdings.iter())?;
 
-    if total_mv.is_zero() {
-        return RatingDistribution {
-            total_market_value: Decimal::ZERO,
-            ..Default::default()
-        };
-    }
+        if total_mv.is_zero() {
+            return Err(crate::PortfolioError::invalid_portfolio(
+                "nonempty bucket weights are undefined at zero net market value",
+            ));
+        }
 
-    // Group holdings by rating (using indices to avoid lifetime issues)
-    let mut grouped: HashMap<Option<CreditRating>, Vec<usize>> = HashMap::new();
-    for (i, h) in holdings.iter().enumerate() {
-        let rating = h.classification.rating.composite;
-        grouped.entry(rating).or_default().push(i);
-    }
+        // Group holdings by rating (using indices to avoid lifetime issues)
+        let mut grouped: HashMap<Option<CreditRating>, Vec<usize>> = HashMap::new();
+        for (i, h) in holdings.iter().enumerate() {
+            let rating = h.classification.rating.composite;
+            grouped.entry(rating).or_default().push(i);
+        }
 
-    // Aggregate metrics for each group
-    let mut by_rating = HashMap::new();
-    let mut unrated = BucketMetrics::default();
+        // Aggregate metrics for each group
+        let mut by_rating = HashMap::new();
+        let mut unrated = BucketMetrics::default();
 
-    for (rating_opt, indices) in grouped {
-        let group: Vec<&Holding> = indices.iter().map(|&i| &holdings[i]).collect();
-        let metrics = aggregate_bucket_metrics(&group, total_mv, config);
+        for (rating_opt, indices) in grouped {
+            let group: Vec<&Holding> = indices.iter().map(|&i| &holdings[i]).collect();
+            let metrics = aggregate_bucket_metrics(&group, total_mv, config)?;
 
-        match rating_opt {
-            Some(rating) => {
-                by_rating.insert(rating, metrics);
-            }
-            None => {
-                unrated = metrics;
+            match rating_opt {
+                Some(rating) => {
+                    by_rating.insert(rating, metrics);
+                }
+                None => {
+                    unrated = metrics;
+                }
             }
         }
-    }
 
-    // Also aggregate by bucket
-    let mut by_bucket: HashMap<RatingBucket, BucketMetrics> = HashMap::new();
-    for (rating, metrics) in &by_rating {
-        let bucket = rating.bucket();
-        let entry = by_bucket.entry(bucket).or_default();
-        entry.count += metrics.count;
-        entry.market_value += metrics.market_value;
-        entry.par_value += metrics.par_value;
-        // Weight will be recalculated below
-    }
-
-    // Calculate bucket weights
-    for metrics in by_bucket.values_mut() {
-        if !total_mv.is_zero() {
-            let weight = metrics.market_value / total_mv * Decimal::ONE_HUNDRED;
-            metrics.weight_pct = weight.try_into().unwrap_or(0.0);
+        // Also aggregate by bucket
+        let mut by_bucket: HashMap<RatingBucket, BucketMetrics> = HashMap::new();
+        for (rating, metrics) in &by_rating {
+            let bucket = rating.bucket();
+            let entry = by_bucket.entry(bucket).or_default();
+            entry.count += metrics.count;
+            entry.market_value += metrics.market_value;
+            entry.par_value += metrics.par_value;
+            // Weight will be recalculated below
         }
-    }
 
-    RatingDistribution {
-        by_rating,
-        by_bucket,
-        total_market_value: total_mv,
-        unrated,
-    }
+        // Calculate bucket weights
+        for metrics in by_bucket.values_mut() {
+            if !total_mv.is_zero() {
+                let weight = metrics.market_value / total_mv * Decimal::ONE_HUNDRED;
+                metrics.weight_pct = weight.try_into().unwrap_or(0.0);
+            }
+        }
+
+        RatingDistribution {
+            by_rating,
+            by_bucket,
+            total_market_value: total_mv,
+            unrated,
+        }
+    })
 }
 
 #[cfg(test)]
@@ -263,7 +256,7 @@ mod tests {
         let holdings: Vec<Holding> = vec![];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_rating(&holdings, &config);
+        let dist = bucket_by_rating(&holdings, &config).unwrap();
 
         assert!(dist.by_rating.is_empty());
         assert!(dist.total_market_value.is_zero());
@@ -278,7 +271,7 @@ mod tests {
         )];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_rating(&holdings, &config);
+        let dist = bucket_by_rating(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_rating.len(), 1);
         let aaa = dist.get(CreditRating::AAA).unwrap();
@@ -295,7 +288,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_rating(&holdings, &config);
+        let dist = bucket_by_rating(&holdings, &config).unwrap();
 
         // AAA + BBB = 66.67%
         assert!((dist.investment_grade_weight() - 66.67).abs() < 0.1);
@@ -311,7 +304,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_rating(&holdings, &config);
+        let dist = bucket_by_rating(&holdings, &config).unwrap();
 
         // Average should be (1 + 9) / 2 = 5 (A+)
         let avg = dist.average_rating_score().unwrap();
@@ -330,7 +323,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_rating(&holdings, &config);
+        let dist = bucket_by_rating(&holdings, &config).unwrap();
 
         // All three should be in the AA bucket
         assert_eq!(dist.by_rating.len(), 3);
@@ -349,7 +342,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_rating(&holdings, &config);
+        let dist = bucket_by_rating(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_rating.len(), 1);
         assert_eq!(dist.unrated.count, 1);
@@ -365,7 +358,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_rating(&holdings, &config);
+        let dist = bucket_by_rating(&holdings, &config).unwrap();
         let sorted = dist.sorted_by_rating();
 
         assert_eq!(sorted.len(), 3);

@@ -23,13 +23,32 @@ pub fn duration_hedge_ratio(
     hedge_duration: f64,
     hedge_price: f64,
 ) -> AnalyticsResult<f64> {
-    if hedge_duration.abs() < 1e-10 || hedge_price.abs() < 1e-10 {
-        return Err(AnalyticsError::CalculationFailed(
-            "hedge duration or price is zero".to_string(),
+    if [target_duration, target_value, hedge_duration, hedge_price]
+        .iter()
+        .any(|v| !v.is_finite())
+    {
+        return Err(AnalyticsError::InvalidInput(
+            "finite hedge inputs required".into(),
         ));
     }
-    let hedge_value = -(target_duration * target_value) / hedge_duration;
-    Ok(hedge_value / hedge_price)
+    if hedge_duration.abs() < 1e-10 || hedge_price.abs() < 1e-10 {
+        return Err(AnalyticsError::CalculationFailed(
+            "hedge duration or price is zero".into(),
+        ));
+    }
+    let numerator = target_duration * target_value;
+    let amount = -numerator / hedge_duration;
+    let units = amount / hedge_price;
+    if !numerator.is_finite()
+        || !amount.is_finite()
+        || !units.is_finite()
+        || (target_duration != 0.0 && target_value != 0.0 && units == 0.0)
+    {
+        return Err(AnalyticsError::CalculationFailed(
+            "hedge arithmetic overflow or nonzero underflow".into(),
+        ));
+    }
+    Ok(units)
 }
 
 #[cfg(test)]
@@ -39,7 +58,11 @@ mod tests {
 
     #[test]
     fn dv01_ratio_short_to_neutralize() {
-        let ratio = dv01_hedge_ratio(DV01::from(1000.0), DV01::from(50.0)).unwrap();
+        let ratio = dv01_hedge_ratio(
+            DV01::try_from(1000.0).unwrap(),
+            DV01::try_from(50.0).unwrap(),
+        )
+        .unwrap();
         assert_relative_eq!(ratio, -20.0, epsilon = 0.01);
     }
 

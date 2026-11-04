@@ -1,0 +1,170 @@
+{
+  "status": "predeclared_before_runtime_observation",
+  "recorded_at": "2026-10-16T18:08:11.038246+00:00",
+  "reference": "Independent Decimal520 arithmetic and explicit unknown-economic-field rejection; no native output supplies any target.",
+  "mark_cases": [
+    {
+      "id": "ordinary-price",
+      "text": "99.5C",
+      "expected": "exact_decimal",
+      "exact_decimal": "99.5"
+    },
+    {
+      "id": "exact-price-digits",
+      "text": "99.12345678901234567890123456C",
+      "expected": "exact_decimal",
+      "exact_decimal": "99.12345678901234567890123456"
+    },
+    {
+      "id": "ordinary-yield",
+      "text": "4.65%@SA",
+      "expected": "exact_decimal",
+      "exact_decimal": "0.0465"
+    },
+    {
+      "id": "exact-yield-digits",
+      "text": "4.12345678901234567890123456%@SA",
+      "expected": "exact_decimal",
+      "exact_decimal": "0.0412345678901234567890123456"
+    },
+    {
+      "id": "ordinary-spread",
+      "text": "125bps@USD.SOFR",
+      "expected": "exact_decimal",
+      "exact_decimal": "125"
+    },
+    {
+      "id": "exact-spread-digits",
+      "text": "125.12345678901234567890123456bps@USD.SOFR",
+      "expected": "exact_decimal",
+      "exact_decimal": "125.12345678901234567890123456"
+    },
+    {
+      "id": "nonzero-price-erasure",
+      "text": "0.00000000000000000000000000001C",
+      "expected": "rejected",
+      "exact_decimal": null
+    },
+    {
+      "id": "nonzero-yield-erasure",
+      "text": "0.0000000000000000000000000001%@SA",
+      "expected": "rejected",
+      "exact_decimal": null
+    },
+    {
+      "id": "percent-division-rounding",
+      "text": "4.123456789012345678901234567%@SA",
+      "expected": "rejected",
+      "exact_decimal": null
+    }
+  ],
+  "bond_constructor": {
+    "type": "fixed_rate",
+    "name": "following-supplied-quote-book",
+    "coupon_rate": "0.05",
+    "frequency": "SemiAnnual",
+    "maturity": "2035-01-15",
+    "issue": "2025-01-15",
+    "day_count": "Thirty360US",
+    "currency": "USD",
+    "face_value": "100"
+  },
+  "curve_constructor": {
+    "type": "discrete",
+    "name": "following-supplied-quote-curve",
+    "ref_date": "2025-01-15",
+    "tenors": [
+      1,
+      10
+    ],
+    "values": [
+      0.04,
+      0.04
+    ],
+    "value_kind": "zero_rate",
+    "interpolation": "linear",
+    "day_count": "Act365Fixed"
+  },
+  "RPC_cases": [
+    {
+      "id": "healthy-price",
+      "operation": "price",
+      "mark": "5%",
+      "expected": "accepted"
+    },
+    {
+      "id": "ignored-price-coupon-steps",
+      "operation": "price",
+      "mark": "5%",
+      "extra": {
+        "coupon_steps": []
+      },
+      "expected": "rejected"
+    },
+    {
+      "id": "ignored-risk-principal-steps",
+      "operation": "risk",
+      "mark": "5%",
+      "extra": {
+        "principal_steps": []
+      },
+      "expected": "rejected"
+    },
+    {
+      "id": "parsed-price-rounding",
+      "operation": "price",
+      "mark": {
+        "mark": "price",
+        "value": "99.12345678901234567890123456789",
+        "kind": "Clean"
+      },
+      "expected": "rejected"
+    },
+    {
+      "id": "parsed-yield-erasure",
+      "operation": "price",
+      "mark": {
+        "mark": "yield",
+        "value": "0.00000000000000000000000000001",
+        "frequency": "SemiAnnual"
+      },
+      "expected": "rejected"
+    },
+    {
+      "id": "healthy-curve-query",
+      "operation": "curve_query",
+      "query": "df",
+      "tenor": 1,
+      "expected": "accepted"
+    },
+    {
+      "id": "ignored-curve-query-compounding",
+      "operation": "curve_query",
+      "query": "df",
+      "tenor": 1,
+      "extra": {
+        "compounding": "Simple"
+      },
+      "expected": "rejected"
+    }
+  ],
+  "curve_cases": [
+    {
+      "id": "nonzero-df-underflow",
+      "rate": "1e18",
+      "expected": "rejected"
+    },
+    {
+      "id": "df-overflow",
+      "rate": "-1e18",
+      "expected": "rejected"
+    }
+  ],
+  "bounds": {
+    "absolute_decimal": "0",
+    "relative_decimal": "0"
+  },
+  "native_results_consulted": false,
+  "financial_default_or_prior_bound_changed": false,
+  "certified": false
+}

@@ -273,10 +273,6 @@ impl TermStructure for SegmentedCurve {
     }
 }
 
-// Thread safety
-unsafe impl Send for SegmentedCurve {}
-unsafe impl Sync for SegmentedCurve {}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,0 +1,2242 @@
+{
+  "certified": false,
+  "provenance": "Separately declared original Decimal60 interacting/conditional native-lot and bounded-empty-axis controls, before this corpus execution.",
+  "cases": [
+    {
+      "id": "hedge.interacting_lots",
+      "expected_error": null,
+      "expected_status": "feasible",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "hedge",
+          "problem": {
+            "snapshot_id": "SNAP.1",
+            "entity": "DESK.A",
+            "settlement": "2026-01-05",
+            "reporting_currency": "USD",
+            "position_state": {
+              "id": "CURRENT.AND.PENDING",
+              "version": 11
+            },
+            "expected_holdings": [
+              "ORIGIN"
+            ],
+            "holdings": [
+              {
+                "risk": {
+                  "id": "ORIGIN",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.ORIGIN",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.ORIGIN",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.ORIGIN",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 0.0,
+                      "minus_pv": -0.0,
+                      "half_plus_pv": 0.0,
+                      "half_minus_pv": -0.0,
+                      "value": 0.0,
+                      "half_value": 0.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "current_quantity": "1000",
+                "pending_quantity": "0"
+              }
+            ],
+            "factors": [
+              {
+                "key": {
+                  "factor": {
+                    "family": "interest_rate",
+                    "target": {
+                      "kind": "curve",
+                      "curve_id": "USD.DISC"
+                    },
+                    "currency": "USD",
+                    "tenor": "parallel",
+                    "quote_type": "zero_rate",
+                    "basis": "zero_node",
+                    "convention_version": 7,
+                    "model_version": "MODEL.RISK.v1"
+                  },
+                  "coordinate": {
+                    "kind": "zero",
+                    "curve": {
+                      "id": "USD.DISC",
+                      "version": "3"
+                    },
+                    "node": null
+                  },
+                  "native_unit": "DecimalRate",
+                  "response": "frozen_curves",
+                  "unit": "currency_per_bp"
+                },
+                "risk_settings": {
+                  "bump": 0.0001,
+                  "stability": {
+                    "absolute": 1e-08,
+                    "relative": 0.0
+                  },
+                  "policy_version": 3
+                },
+                "credit": null,
+                "scale": 1.0,
+                "weight": 1.0,
+                "target": 0.0,
+                "lower": 0.0,
+                "upper": 0.0
+              },
+              {
+                "key": {
+                  "factor": {
+                    "family": "interest_rate",
+                    "target": {
+                      "kind": "curve",
+                      "curve_id": "USD.PROJ"
+                    },
+                    "currency": "USD",
+                    "tenor": "parallel",
+                    "quote_type": "zero_rate",
+                    "basis": "zero_node",
+                    "convention_version": 7,
+                    "model_version": "MODEL.RISK.v1"
+                  },
+                  "coordinate": {
+                    "kind": "zero",
+                    "curve": {
+                      "id": "USD.PROJ",
+                      "version": "5"
+                    },
+                    "node": null
+                  },
+                  "native_unit": "DecimalRate",
+                  "response": "frozen_curves",
+                  "unit": "currency_per_bp"
+                },
+                "risk_settings": {
+                  "bump": 0.0001,
+                  "stability": {
+                    "absolute": 1e-08,
+                    "relative": 0.0
+                  },
+                  "policy_version": 3
+                },
+                "credit": null,
+                "scale": 1.0,
+                "weight": 1.0,
+                "target": 0.0,
+                "lower": -1.0,
+                "upper": 1.0
+              }
+            ],
+            "candidates": [
+              {
+                "risk": {
+                  "id": "HEDGE.0",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.HEDGE.0",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.HEDGE.0",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.HEDGE.0",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "eligibility": {
+                  "eligible": true,
+                  "decision": {
+                    "id": "ELIGIBILITY.HEDGE.0",
+                    "version": 5
+                  },
+                  "reason": "Supplied fictional engineering eligibility; no order authority"
+                },
+                "trade_lower": "-10000",
+                "trade_upper": "10000",
+                "holding_lower": "-20000",
+                "holding_upper": "20000",
+                "buy_available": "10000",
+                "sell_available": "10000",
+                "lot": "1000",
+                "costs": {
+                  "currency": "USD",
+                  "buy_per_reference": "0",
+                  "sell_per_reference": "0",
+                  "observation": {
+                    "id": "ACTUAL.SUPPLIED.COSTS.HEDGE.0",
+                    "version": 6
+                  }
+                }
+              },
+              {
+                "risk": {
+                  "id": "HEDGE.1",
+                  "product": "irs",
+                  "instrument": {
+                    "id": "INSTRUMENT.HEDGE.1",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.HEDGE.1",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.HEDGE.1",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": -1.0,
+                      "minus_pv": 1.0,
+                      "half_plus_pv": -0.5,
+                      "half_minus_pv": 0.5,
+                      "value": -1.0,
+                      "half_value": -1.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "eligibility": {
+                  "eligible": true,
+                  "decision": {
+                    "id": "ELIGIBILITY.HEDGE.1",
+                    "version": 5
+                  },
+                  "reason": "Supplied fictional engineering eligibility; no order authority"
+                },
+                "trade_lower": "-10000",
+                "trade_upper": "10000",
+                "holding_lower": "-20000",
+                "holding_upper": "20000",
+                "buy_available": "10000",
+                "sell_available": "10000",
+                "lot": "1000",
+                "costs": {
+                  "currency": "USD",
+                  "buy_per_reference": "0",
+                  "sell_per_reference": "0",
+                  "observation": {
+                    "id": "ACTUAL.SUPPLIED.COSTS.HEDGE.1",
+                    "version": 6
+                  }
+                }
+              }
+            ],
+            "max_cost": 1000.0,
+            "settings": {
+              "policy_version": 9,
+              "rank_relative_tolerance": 1e-10,
+              "max_condition": 10000.0,
+              "solver_tolerance": 1e-10,
+              "factor_tolerance": 1e-09,
+              "cost_tolerance": 1e-09,
+              "cost_scale": 1.0,
+              "cost_weight": 0.0,
+              "max_work": 100000,
+              "svd_iterations": 1000
+            }
+          },
+          "action": {
+            "kind": "solve"
+          }
+        }
+      }
+    },
+    {
+      "id": "hedge.conditional_continuous",
+      "expected_error": null,
+      "expected_status": "feasible",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "hedge",
+          "problem": {
+            "snapshot_id": "SNAP.1",
+            "entity": "DESK.A",
+            "settlement": "2026-01-05",
+            "reporting_currency": "USD",
+            "position_state": {
+              "id": "CURRENT.AND.PENDING",
+              "version": 11
+            },
+            "expected_holdings": [
+              "ORIGIN"
+            ],
+            "holdings": [
+              {
+                "risk": {
+                  "id": "ORIGIN",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.ORIGIN",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.ORIGIN",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.ORIGIN",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 0.3,
+                      "minus_pv": -0.3,
+                      "half_plus_pv": 0.15,
+                      "half_minus_pv": -0.15,
+                      "value": 0.3,
+                      "half_value": 0.3
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.4,
+                      "minus_pv": -1.4,
+                      "half_plus_pv": 0.7,
+                      "half_minus_pv": -0.7,
+                      "value": 1.4,
+                      "half_value": 1.4
+                    }
+                  ],
+                  "fx": null
+                },
+                "current_quantity": "1000",
+                "pending_quantity": "0"
+              }
+            ],
+            "factors": [
+              {
+                "key": {
+                  "factor": {
+                    "family": "interest_rate",
+                    "target": {
+                      "kind": "curve",
+                      "curve_id": "USD.DISC"
+                    },
+                    "currency": "USD",
+                    "tenor": "parallel",
+                    "quote_type": "zero_rate",
+                    "basis": "zero_node",
+                    "convention_version": 7,
+                    "model_version": "MODEL.RISK.v1"
+                  },
+                  "coordinate": {
+                    "kind": "zero",
+                    "curve": {
+                      "id": "USD.DISC",
+                      "version": "3"
+                    },
+                    "node": null
+                  },
+                  "native_unit": "DecimalRate",
+                  "response": "frozen_curves",
+                  "unit": "currency_per_bp"
+                },
+                "risk_settings": {
+                  "bump": 0.0001,
+                  "stability": {
+                    "absolute": 1e-08,
+                    "relative": 0.0
+                  },
+                  "policy_version": 3
+                },
+                "credit": null,
+                "scale": 1.0,
+                "weight": 1.0,
+                "target": 0.0,
+                "lower": -1000.0,
+                "upper": 1000.0
+              },
+              {
+                "key": {
+                  "factor": {
+                    "family": "interest_rate",
+                    "target": {
+                      "kind": "curve",
+                      "curve_id": "USD.PROJ"
+                    },
+                    "currency": "USD",
+                    "tenor": "parallel",
+                    "quote_type": "zero_rate",
+                    "basis": "zero_node",
+                    "convention_version": 7,
+                    "model_version": "MODEL.RISK.v1"
+                  },
+                  "coordinate": {
+                    "kind": "zero",
+                    "curve": {
+                      "id": "USD.PROJ",
+                      "version": "5"
+                    },
+                    "node": null
+                  },
+                  "native_unit": "DecimalRate",
+                  "response": "frozen_curves",
+                  "unit": "currency_per_bp"
+                },
+                "risk_settings": {
+                  "bump": 0.0001,
+                  "stability": {
+                    "absolute": 1e-08,
+                    "relative": 0.0
+                  },
+                  "policy_version": 3
+                },
+                "credit": null,
+                "scale": 1.0,
+                "weight": 1.0,
+                "target": 0.0,
+                "lower": -1000.0,
+                "upper": 1000.0
+              }
+            ],
+            "candidates": [
+              {
+                "risk": {
+                  "id": "HEDGE.0",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.HEDGE.0",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.HEDGE.0",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.HEDGE.0",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 0.0,
+                      "minus_pv": -0.0,
+                      "half_plus_pv": 0.0,
+                      "half_minus_pv": -0.0,
+                      "value": 0.0,
+                      "half_value": 0.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "eligibility": {
+                  "eligible": true,
+                  "decision": {
+                    "id": "ELIGIBILITY.HEDGE.0",
+                    "version": 5
+                  },
+                  "reason": "Supplied fictional engineering eligibility; no order authority"
+                },
+                "trade_lower": "-10000",
+                "trade_upper": "10000",
+                "holding_lower": "-20000",
+                "holding_upper": "20000",
+                "buy_available": "10000",
+                "sell_available": "10000",
+                "lot": null,
+                "costs": {
+                  "currency": "USD",
+                  "buy_per_reference": "0",
+                  "sell_per_reference": "0",
+                  "observation": {
+                    "id": "ACTUAL.SUPPLIED.COSTS.HEDGE.0",
+                    "version": 6
+                  }
+                }
+              },
+              {
+                "risk": {
+                  "id": "HEDGE.1",
+                  "product": "futures",
+                  "instrument": {
+                    "id": "INSTRUMENT.HEDGE.1",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.HEDGE.1",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.HEDGE.1",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1",
+                    "reference_quantity": "1",
+                    "quantity_unit": "contracts",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1",
+                        "reference_quantity": "1",
+                        "quantity_unit": "contracts",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1",
+                        "reference_quantity": "1",
+                        "quantity_unit": "contracts",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "eligibility": {
+                  "eligible": true,
+                  "decision": {
+                    "id": "ELIGIBILITY.HEDGE.1",
+                    "version": 5
+                  },
+                  "reason": "Supplied fictional engineering eligibility; no order authority"
+                },
+                "trade_lower": "-10",
+                "trade_upper": "10",
+                "holding_lower": "-20",
+                "holding_upper": "20",
+                "buy_available": "10",
+                "sell_available": "10",
+                "lot": "1",
+                "costs": {
+                  "currency": "USD",
+                  "buy_per_reference": "0",
+                  "sell_per_reference": "0",
+                  "observation": {
+                    "id": "ACTUAL.SUPPLIED.COSTS.HEDGE.1",
+                    "version": 6
+                  }
+                }
+              }
+            ],
+            "max_cost": 1000.0,
+            "settings": {
+              "policy_version": 9,
+              "rank_relative_tolerance": 1e-10,
+              "max_condition": 10000.0,
+              "solver_tolerance": 1e-10,
+              "factor_tolerance": 1e-09,
+              "cost_tolerance": 1e-09,
+              "cost_scale": 1.0,
+              "cost_weight": 0.0,
+              "max_work": 100000,
+              "svd_iterations": 1000
+            }
+          },
+          "action": {
+            "kind": "solve"
+          }
+        }
+      }
+    },
+    {
+      "id": "hedge.empty_later_lot",
+      "expected_error": null,
+      "expected_status": "discrete_infeasible",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "hedge",
+          "problem": {
+            "snapshot_id": "SNAP.1",
+            "entity": "DESK.A",
+            "settlement": "2026-01-05",
+            "reporting_currency": "USD",
+            "position_state": {
+              "id": "CURRENT.AND.PENDING",
+              "version": 11
+            },
+            "expected_holdings": [
+              "ORIGIN"
+            ],
+            "holdings": [
+              {
+                "risk": {
+                  "id": "ORIGIN",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.ORIGIN",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.ORIGIN",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.ORIGIN",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 0.0,
+                      "minus_pv": -0.0,
+                      "half_plus_pv": 0.0,
+                      "half_minus_pv": -0.0,
+                      "value": 0.0,
+                      "half_value": 0.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "current_quantity": "1000",
+                "pending_quantity": "0"
+              }
+            ],
+            "factors": [
+              {
+                "key": {
+                  "factor": {
+                    "family": "interest_rate",
+                    "target": {
+                      "kind": "curve",
+                      "curve_id": "USD.DISC"
+                    },
+                    "currency": "USD",
+                    "tenor": "parallel",
+                    "quote_type": "zero_rate",
+                    "basis": "zero_node",
+                    "convention_version": 7,
+                    "model_version": "MODEL.RISK.v1"
+                  },
+                  "coordinate": {
+                    "kind": "zero",
+                    "curve": {
+                      "id": "USD.DISC",
+                      "version": "3"
+                    },
+                    "node": null
+                  },
+                  "native_unit": "DecimalRate",
+                  "response": "frozen_curves",
+                  "unit": "currency_per_bp"
+                },
+                "risk_settings": {
+                  "bump": 0.0001,
+                  "stability": {
+                    "absolute": 1e-08,
+                    "relative": 0.0
+                  },
+                  "policy_version": 3
+                },
+                "credit": null,
+                "scale": 1.0,
+                "weight": 1.0,
+                "target": 0.0,
+                "lower": -1000.0,
+                "upper": 1000.0
+              },
+              {
+                "key": {
+                  "factor": {
+                    "family": "interest_rate",
+                    "target": {
+                      "kind": "curve",
+                      "curve_id": "USD.PROJ"
+                    },
+                    "currency": "USD",
+                    "tenor": "parallel",
+                    "quote_type": "zero_rate",
+                    "basis": "zero_node",
+                    "convention_version": 7,
+                    "model_version": "MODEL.RISK.v1"
+                  },
+                  "coordinate": {
+                    "kind": "zero",
+                    "curve": {
+                      "id": "USD.PROJ",
+                      "version": "5"
+                    },
+                    "node": null
+                  },
+                  "native_unit": "DecimalRate",
+                  "response": "frozen_curves",
+                  "unit": "currency_per_bp"
+                },
+                "risk_settings": {
+                  "bump": 0.0001,
+                  "stability": {
+                    "absolute": 1e-08,
+                    "relative": 0.0
+                  },
+                  "policy_version": 3
+                },
+                "credit": null,
+                "scale": 1.0,
+                "weight": 1.0,
+                "target": 0.0,
+                "lower": -1000.0,
+                "upper": 1000.0
+              }
+            ],
+            "candidates": [
+              {
+                "risk": {
+                  "id": "HEDGE.0",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.HEDGE.0",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.HEDGE.0",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.HEDGE.0",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "eligibility": {
+                  "eligible": true,
+                  "decision": {
+                    "id": "ELIGIBILITY.HEDGE.0",
+                    "version": 5
+                  },
+                  "reason": "Supplied fictional engineering eligibility; no order authority"
+                },
+                "trade_lower": "-1000000000000000",
+                "trade_upper": "1000000000000000",
+                "holding_lower": "-1000000000000000",
+                "holding_upper": "1000000000000000",
+                "buy_available": "1000000000000000",
+                "sell_available": "1000000000000000",
+                "lot": "1",
+                "costs": {
+                  "currency": "USD",
+                  "buy_per_reference": "0",
+                  "sell_per_reference": "0",
+                  "observation": {
+                    "id": "ACTUAL.SUPPLIED.COSTS.HEDGE.0",
+                    "version": 6
+                  }
+                }
+              },
+              {
+                "risk": {
+                  "id": "HEDGE.1",
+                  "product": "irs",
+                  "instrument": {
+                    "id": "INSTRUMENT.HEDGE.1",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.HEDGE.1",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.HEDGE.1",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    },
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.PROJ"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.PROJ",
+                            "version": "5"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": -1.0,
+                      "minus_pv": 1.0,
+                      "half_plus_pv": -0.5,
+                      "half_minus_pv": 0.5,
+                      "value": -1.0,
+                      "half_value": -1.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "eligibility": {
+                  "eligible": true,
+                  "decision": {
+                    "id": "ELIGIBILITY.HEDGE.1",
+                    "version": 5
+                  },
+                  "reason": "Supplied fictional engineering eligibility; no order authority"
+                },
+                "trade_lower": "100",
+                "trade_upper": "200",
+                "holding_lower": "-20000",
+                "holding_upper": "20000",
+                "buy_available": "10000",
+                "sell_available": "10000",
+                "lot": "1000",
+                "costs": {
+                  "currency": "USD",
+                  "buy_per_reference": "0",
+                  "sell_per_reference": "0",
+                  "observation": {
+                    "id": "ACTUAL.SUPPLIED.COSTS.HEDGE.1",
+                    "version": 6
+                  }
+                }
+              }
+            ],
+            "max_cost": 1000.0,
+            "settings": {
+              "policy_version": 9,
+              "rank_relative_tolerance": 1e-10,
+              "max_condition": 10000.0,
+              "solver_tolerance": 1e-10,
+              "factor_tolerance": 1e-09,
+              "cost_tolerance": 1e-09,
+              "cost_scale": 1.0,
+              "cost_weight": 0.0,
+              "max_work": 100000,
+              "svd_iterations": 1000
+            }
+          },
+          "action": {
+            "kind": "solve"
+          }
+        }
+      }
+    },
+    {
+      "id": "hedge.aggregate_boundary",
+      "expected_error": null,
+      "expected_status": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "hedge",
+          "problem": {
+            "snapshot_id": "SNAP.1",
+            "entity": "DESK.A",
+            "settlement": "2026-01-05",
+            "reporting_currency": "USD",
+            "position_state": {
+              "id": "CURRENT.AND.PENDING",
+              "version": 11
+            },
+            "expected_holdings": [
+              "ORIGIN"
+            ],
+            "holdings": [
+              {
+                "risk": {
+                  "id": "ORIGIN",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.ORIGIN",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.ORIGIN",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.ORIGIN",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "current_quantity": "1000",
+                "pending_quantity": "0"
+              }
+            ],
+            "factors": [
+              {
+                "key": {
+                  "factor": {
+                    "family": "interest_rate",
+                    "target": {
+                      "kind": "curve",
+                      "curve_id": "USD.DISC"
+                    },
+                    "currency": "USD",
+                    "tenor": "parallel",
+                    "quote_type": "zero_rate",
+                    "basis": "zero_node",
+                    "convention_version": 7,
+                    "model_version": "MODEL.RISK.v1"
+                  },
+                  "coordinate": {
+                    "kind": "zero",
+                    "curve": {
+                      "id": "USD.DISC",
+                      "version": "3"
+                    },
+                    "node": null
+                  },
+                  "native_unit": "DecimalRate",
+                  "response": "frozen_curves",
+                  "unit": "currency_per_bp"
+                },
+                "risk_settings": {
+                  "bump": 0.0001,
+                  "stability": {
+                    "absolute": 1e-08,
+                    "relative": 0.0
+                  },
+                  "policy_version": 3
+                },
+                "credit": null,
+                "scale": 1.0,
+                "weight": 1.0,
+                "target": 0.0,
+                "lower": -1000.0,
+                "upper": 1000.0
+              }
+            ],
+            "candidates": [
+              {
+                "risk": {
+                  "id": "HEDGE.0",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.HEDGE.0",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.HEDGE.0",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.HEDGE.0",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "eligibility": {
+                  "eligible": true,
+                  "decision": {
+                    "id": "ELIGIBILITY.HEDGE.0",
+                    "version": 5
+                  },
+                  "reason": "Supplied fictional engineering eligibility; no order authority"
+                },
+                "trade_lower": "-10000",
+                "trade_upper": "10000",
+                "holding_lower": "-20000",
+                "holding_upper": "20000",
+                "buy_available": "10000",
+                "sell_available": "10000",
+                "lot": null,
+                "costs": {
+                  "currency": "USD",
+                  "buy_per_reference": "0",
+                  "sell_per_reference": "0",
+                  "observation": {
+                    "id": "ACTUAL.SUPPLIED.COSTS.HEDGE.0",
+                    "version": 6
+                  }
+                }
+              }
+            ],
+            "max_cost": 1000.0,
+            "settings": {
+              "policy_version": 9,
+              "rank_relative_tolerance": 1e-10,
+              "max_condition": 10000.0,
+              "solver_tolerance": 1e-10,
+              "factor_tolerance": 1e-09,
+              "cost_tolerance": 1e-09,
+              "cost_scale": 1.0,
+              "cost_weight": 0.0,
+              "max_work": 100000,
+              "svd_iterations": 1000
+            }
+          },
+          "action": {
+            "kind": "aggregate"
+          }
+        }
+      }
+    },
+    {
+      "id": "hedge.aggregate_missing",
+      "expected_error": "missing_input",
+      "expected_status": null,
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "hedge",
+          "problem": {
+            "snapshot_id": "SNAP.1",
+            "entity": "DESK.A",
+            "settlement": "2026-01-05",
+            "reporting_currency": "USD",
+            "position_state": {
+              "id": "CURRENT.AND.PENDING",
+              "version": 11
+            },
+            "expected_holdings": [
+              "ORIGIN"
+            ],
+            "holdings": [],
+            "factors": [
+              {
+                "key": {
+                  "factor": {
+                    "family": "interest_rate",
+                    "target": {
+                      "kind": "curve",
+                      "curve_id": "USD.DISC"
+                    },
+                    "currency": "USD",
+                    "tenor": "parallel",
+                    "quote_type": "zero_rate",
+                    "basis": "zero_node",
+                    "convention_version": 7,
+                    "model_version": "MODEL.RISK.v1"
+                  },
+                  "coordinate": {
+                    "kind": "zero",
+                    "curve": {
+                      "id": "USD.DISC",
+                      "version": "3"
+                    },
+                    "node": null
+                  },
+                  "native_unit": "DecimalRate",
+                  "response": "frozen_curves",
+                  "unit": "currency_per_bp"
+                },
+                "risk_settings": {
+                  "bump": 0.0001,
+                  "stability": {
+                    "absolute": 1e-08,
+                    "relative": 0.0
+                  },
+                  "policy_version": 3
+                },
+                "credit": null,
+                "scale": 1.0,
+                "weight": 1.0,
+                "target": 0.0,
+                "lower": -1000.0,
+                "upper": 1000.0
+              }
+            ],
+            "candidates": [
+              {
+                "risk": {
+                  "id": "HEDGE.0",
+                  "product": "cash_bond",
+                  "instrument": {
+                    "id": "INSTRUMENT.HEDGE.0",
+                    "version": 2
+                  },
+                  "economics": {
+                    "id": "FULL.TERMS.HEDGE.0",
+                    "version": 3
+                  },
+                  "calculation": {
+                    "id": "FULL.MODEL.HEDGE.0",
+                    "version": 4
+                  },
+                  "entity": "DESK.A",
+                  "settlement": "2026-01-05",
+                  "credit_scope": [],
+                  "reference_position": {
+                    "quantity": "1000",
+                    "reference_quantity": "1000",
+                    "quantity_unit": "notional",
+                    "currency": "USD"
+                  },
+                  "sensitivities": [
+                    {
+                      "key": {
+                        "factor": {
+                          "family": "interest_rate",
+                          "target": {
+                            "kind": "curve",
+                            "curve_id": "USD.DISC"
+                          },
+                          "currency": "USD",
+                          "tenor": "parallel",
+                          "quote_type": "zero_rate",
+                          "basis": "zero_node",
+                          "convention_version": 7,
+                          "model_version": "MODEL.RISK.v1"
+                        },
+                        "coordinate": {
+                          "kind": "zero",
+                          "curve": {
+                            "id": "USD.DISC",
+                            "version": "3"
+                          },
+                          "node": null
+                        },
+                        "native_unit": "DecimalRate",
+                        "response": "frozen_curves",
+                        "unit": "currency_per_bp"
+                      },
+                      "position": {
+                        "quantity": "1000",
+                        "reference_quantity": "1000",
+                        "quantity_unit": "notional",
+                        "currency": "USD"
+                      },
+                      "snapshot_id": "SNAP.1",
+                      "settings": {
+                        "bump": 0.0001,
+                        "stability": {
+                          "absolute": 1e-08,
+                          "relative": 0.0
+                        },
+                        "policy_version": 3
+                      },
+                      "method": "central",
+                      "base_pv": 0.0,
+                      "plus_pv": 1.0,
+                      "minus_pv": -1.0,
+                      "half_plus_pv": 0.5,
+                      "half_minus_pv": -0.5,
+                      "value": 1.0,
+                      "half_value": 1.0
+                    }
+                  ],
+                  "fx": null
+                },
+                "eligibility": {
+                  "eligible": true,
+                  "decision": {
+                    "id": "ELIGIBILITY.HEDGE.0",
+                    "version": 5
+                  },
+                  "reason": "Supplied fictional engineering eligibility; no order authority"
+                },
+                "trade_lower": "-10000",
+                "trade_upper": "10000",
+                "holding_lower": "-20000",
+                "holding_upper": "20000",
+                "buy_available": "10000",
+                "sell_available": "10000",
+                "lot": null,
+                "costs": {
+                  "currency": "USD",
+                  "buy_per_reference": "0",
+                  "sell_per_reference": "0",
+                  "observation": {
+                    "id": "ACTUAL.SUPPLIED.COSTS.HEDGE.0",
+                    "version": 6
+                  }
+                }
+              }
+            ],
+            "max_cost": 1000.0,
+            "settings": {
+              "policy_version": 9,
+              "rank_relative_tolerance": 1e-10,
+              "max_condition": 10000.0,
+              "solver_tolerance": 1e-10,
+              "factor_tolerance": 1e-09,
+              "cost_tolerance": 1e-09,
+              "cost_scale": 1.0,
+              "cost_weight": 0.0,
+              "max_work": 100000,
+              "svd_iterations": 1000
+            }
+          },
+          "action": {
+            "kind": "aggregate"
+          }
+        }
+      }
+    }
+  ]
+}

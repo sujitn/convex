@@ -2,6 +2,7 @@
 //!
 //! Combines Newton-Raphson with Brent's method for robust convergence.
 
+use crate::bounds::{finite, interval, opposite_signs};
 use crate::error::{MathError, MathResult};
 use crate::solvers::{brent, SolverConfig, SolverResult};
 
@@ -53,18 +54,24 @@ where
     F: Fn(f64) -> f64,
     DF: Fn(f64) -> f64,
 {
+    config.validate()?;
+    finite(initial_guess, "initial guess")?;
+    if let Some((a, b)) = bounds {
+        interval(a, b)?;
+    }
     // Try Newton-Raphson first
     let newton_result = newton_with_monitoring(&f, &df, initial_guess, config);
 
     match newton_result {
         Ok(result) => Ok(result),
+        Err(error @ MathError::NonFinite { .. }) => Err(error),
         Err(_) => {
             // Newton failed, try Brent if we have bounds
             if let Some((a, b)) = bounds {
                 brent(&f, a, b, config)
             } else {
                 // No bounds provided, try to find them
-                match find_bracket(&f, initial_guess) {
+                match find_bracket(&f, initial_guess)? {
                     Some((a, b)) => brent(&f, a, b, config),
                     None => Err(MathError::invalid_input(
                         "Newton-Raphson failed and could not find bracketing interval for Brent",
@@ -97,7 +104,7 @@ where
     let newton_max_iter = config.max_iterations.min(20);
 
     for iteration in 0..newton_max_iter {
-        let fx = f(x);
+        let fx = finite(f(x), "function evaluation")?;
         let residual = fx.abs();
 
         // Check for convergence
@@ -120,7 +127,7 @@ where
         }
         prev_residual = residual;
 
-        let dfx = df(x);
+        let dfx = finite(df(x), "derivative evaluation")?;
 
         // Check for zero derivative
         if dfx.abs() < 1e-15 {
@@ -128,14 +135,14 @@ where
         }
 
         // Newton step
-        let step = fx / dfx;
+        let step = finite(fx / dfx, "Newton step")?;
 
         // Check for very large step (sign of trouble)
         if step.abs() > 1e10 {
             return Err(MathError::invalid_input("Newton step too large"));
         }
 
-        x -= step;
+        x = finite(x - step, "Newton iterate")?;
 
         // Check for NaN or infinity
         if !x.is_finite() {
@@ -144,7 +151,10 @@ where
 
         // Check for step convergence
         if step.abs() < config.tolerance {
-            let final_fx = f(x);
+            let final_fx = finite(f(x), "function evaluation")?;
+            if final_fx.abs() >= config.tolerance {
+                return Err(MathError::convergence_failed(iteration + 1, final_fx.abs()));
+            }
             return Ok(SolverResult {
                 root: x,
                 iterations: iteration + 1,
@@ -153,13 +163,16 @@ where
         }
     }
 
-    Err(MathError::convergence_failed(newton_max_iter, f(x).abs()))
+    Err(MathError::convergence_failed(
+        newton_max_iter,
+        finite(f(x), "function evaluation")?.abs(),
+    ))
 }
 
 /// Attempts to find a bracketing interval for the root.
 ///
 /// Uses exponential expansion from the initial guess.
-fn find_bracket<F>(f: &F, initial_guess: f64) -> Option<(f64, f64)>
+fn find_bracket<F>(f: &F, initial_guess: f64) -> MathResult<Option<(f64, f64)>>
 where
     F: Fn(f64) -> f64,
 {
@@ -173,24 +186,24 @@ where
         right = 1.0;
     }
 
-    let f_init = f(initial_guess);
+    let f_init = finite(f(initial_guess), "function evaluation")?;
 
     for _ in 0..50 {
         left -= delta;
         right += delta;
 
-        let f_left = f(left);
-        let f_right = f(right);
+        let f_left = finite(f(finite(left, "bracket endpoint")?), "function evaluation")?;
+        let f_right = finite(f(finite(right, "bracket endpoint")?), "function evaluation")?;
 
         // Check if we've bracketed a root
-        if f_left * f_init < 0.0 {
-            return Some((left, initial_guess));
+        if opposite_signs(f_left, f_init) {
+            return Ok(Some((left, initial_guess)));
         }
-        if f_right * f_init < 0.0 {
-            return Some((initial_guess, right));
+        if opposite_signs(f_right, f_init) {
+            return Ok(Some((initial_guess, right)));
         }
-        if f_left * f_right < 0.0 {
-            return Some((left, right));
+        if opposite_signs(f_left, f_right) {
+            return Ok(Some((left, right)));
         }
 
         // Exponentially expand the search
@@ -202,7 +215,7 @@ where
         }
     }
 
-    None
+    Ok(None)
 }
 
 /// Hybrid solver without derivative (uses numerical differentiation).

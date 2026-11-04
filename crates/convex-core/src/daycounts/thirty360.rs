@@ -1,6 +1,6 @@
 //! 30/360 day count conventions.
 //!
-//! This module provides all 30/360 variants with Bloomberg-exact implementations.
+//! Month-end rules for 30/360 day count conventions.
 
 use rust_decimal::Decimal;
 
@@ -97,11 +97,6 @@ impl DayCount for Thirty360US {
     }
 }
 
-/// Type alias for backwards compatibility.
-///
-/// `Thirty360` is equivalent to [`Thirty360US`] (Bond Basis).
-pub type Thirty360 = Thirty360US;
-
 // =============================================================================
 // 30E/360 (Eurobond Basis)
 // =============================================================================
@@ -180,13 +175,8 @@ impl DayCount for Thirty360E {
 /// # Rules
 ///
 /// 1. If D1 is the last day of the month, change D1 to 30
-/// 2. If D2 is the last day of the month (but not the maturity date), change D2 to 30
-///
-/// The maturity date exception means D2 = 31 stays as 31 on the final payment.
-///
-/// # Bloomberg
-///
-/// Matches Bloomberg `30E/360 ISDA` convention.
+/// 2. If D2 is the last day of the month, change D2 to 30, except for
+///    February at the supplied termination date. A final 31st becomes day 30.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Thirty360EIsda {
     /// The termination/maturity date of the swap
@@ -194,6 +184,25 @@ pub struct Thirty360EIsda {
 }
 
 impl Thirty360EIsda {
+    /// Checked contract-aware fraction. Only a February termination keeps its
+    /// actual final day; a termination on the 31st still becomes day 30.
+    pub fn checked_year_fraction(&self, start: Date, end: Date) -> crate::ConvexResult<Decimal> {
+        if !(1..=9999).contains(&start.year()) || !(1..=9999).contains(&end.year()) || end < start {
+            return Err(crate::ConvexError::DayCountError {
+                reason: "invalid checked accrual dates".into(),
+            });
+        }
+        if self
+            .termination_date
+            .is_some_and(|date| !(1..=9999).contains(&date.year()))
+        {
+            return Err(crate::ConvexError::DayCountError {
+                reason: "invalid termination date".into(),
+            });
+        }
+        Ok(Decimal::from(self.day_count(start, end)) / Decimal::from(360))
+    }
+
     /// Creates a new 30E/360 ISDA convention.
     ///
     /// # Arguments
@@ -242,10 +251,9 @@ impl DayCount for Thirty360EIsda {
             d1 = 30;
         }
 
-        // Rule 2: If D2 is the last day of the month AND
-        // (no termination date specified OR end != termination date), change D2 to 30
-        let is_maturity = self.termination_date == Some(end);
-        if end.is_end_of_month() && !is_maturity {
+        // Rule 2: Month-end becomes day 30, except February termination.
+        let february_termination = end.month() == 2 && self.termination_date == Some(end);
+        if end.is_end_of_month() && !february_termination {
             d2 = 30;
         }
 
@@ -534,9 +542,9 @@ mod tests {
         let start = Date::from_ymd(2025, 1, 31).unwrap();
         let end = termination;
 
-        // D1 = 30 (EOM), D2 = 31 (stays because it's maturity)
-        // Days = 30 * 2 + (31-30) = 61
-        assert_eq!(dc.day_count(start, end), 61);
+        // D1 = 30 (EOM), D2 = 30 (March maturity has no February exception)
+        // Days = 30 * 2 + (30-30) = 60
+        assert_eq!(dc.day_count(start, end), 60);
     }
 
     #[test]

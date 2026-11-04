@@ -1,6 +1,6 @@
 //! Validation Test Suite
 //!
-//! This module contains comprehensive tests based on the validation specification
+//! This module contains tests based on the validation specification
 //! with exact numerical test cases derived from Bloomberg methodologies.
 
 #[cfg(test)]

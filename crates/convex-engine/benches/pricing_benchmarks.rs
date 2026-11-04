@@ -2,27 +2,30 @@
 //!
 //! Run with: cargo bench -p convex-engine
 
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
+
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
+use convex_core::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
 use convex_core::{Currency, Date};
 use convex_engine::curve_builder::BuiltCurve;
 use convex_engine::etf_pricing::EtfPricer;
 use convex_engine::portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
-use convex_engine::pricing_router::{PricingInput, PricingRouter};
-use convex_traits::ids::{CurveId, EtfId, InstrumentId, PortfolioId};
-use convex_traits::output::BondQuoteOutput;
-use convex_traits::reference_data::{
+use convex_engine::ports::output::BondQuoteOutput;
+use convex_engine::ports::reference_data::{
     BondReferenceData, BondType, EtfHoldingEntry, EtfHoldings, IssuerType,
 };
+use convex_engine::pricing_router::{PricingInput, PricingRouter};
 
 // =============================================================================
 // TEST DATA GENERATORS
 // =============================================================================
 
 fn create_test_curve(ref_date: Date) -> BuiltCurve {
-    BuiltCurve {
+    let mut built = BuiltCurve {
         curve_id: CurveId::new("USD_SOFR"),
         reference_date: ref_date,
         points: vec![
@@ -38,7 +41,11 @@ fn create_test_curve(ref_date: Date) -> BuiltCurve {
         ],
         built_at: 0,
         inputs_hash: "bench".to_string(),
-    }
+        extrapolation: convex_curves::ExtrapolationMethod::Flat,
+        inner: None,
+    };
+    built.rebuild_inner().unwrap();
+    built
 }
 
 fn create_test_bond(id: usize) -> BondReferenceData {
@@ -47,7 +54,8 @@ fn create_test_bond(id: usize) -> BondReferenceData {
     let coupon_idx = id % coupons.len();
     let maturity_idx = id % maturities.len();
 
-    BondReferenceData {
+    reference_terms::complete(BondReferenceData {
+        contractual_terms: None,
         instrument_id: InstrumentId::new(format!("BOND_{:05}", id)),
         isin: Some(format!("US9128{:05}X", id)),
         cusip: Some(format!("9128{:05}", id)),
@@ -80,7 +88,7 @@ fn create_test_bond(id: usize) -> BondReferenceData {
         first_coupon_date: Some(Date::from_ymd(2020, 7, 15).unwrap()),
         last_updated: 0,
         source: "bench".to_string(),
-    }
+    })
 }
 
 fn create_bond_batch(count: usize) -> Vec<BondReferenceData> {
@@ -175,6 +183,9 @@ fn create_test_quotes(count: usize) -> Vec<BondQuoteOutput> {
             pricing_spec: "bench".to_string(),
             source: "bench".to_string(),
             is_stale: false,
+            zero_pv01_signed: None,
+            z_pv01_signed: None,
+            measure_errors: Vec::new(),
             quality: 100,
         })
         .collect()

@@ -1,0 +1,198 @@
+{
+  "fixture_id": "CVX-004-RESTORE-001",
+  "configs": [
+    {
+      "config_id": "CONFIG-RESTORE",
+      "description": "Fictional USD configuration v1",
+      "applies_to": {
+        "currency": "USD",
+        "sector": "Technology"
+      },
+      "pricing_spec": {
+        "MarketQuote": {
+          "side": "Mid"
+        }
+      },
+      "bid_ask_spread": {
+        "half_spread_bps": 2.0,
+        "bid_spread_bps": null,
+        "ask_spread_bps": null,
+        "prefer_market_spread": true
+      },
+      "analytics_curves": {
+        "discount_curve": "USD-FIXTURE",
+        "government_curve": null,
+        "swap_curve": null,
+        "frn_reference_curve": null
+      },
+      "priority": 10,
+      "active": true,
+      "version": 1,
+      "created_at": 100,
+      "updated_at": 100
+    },
+    {
+      "config_id": "CONFIG-RESTORE",
+      "description": "Fictional USD configuration v2",
+      "applies_to": {
+        "currency": "USD",
+        "sector": "Technology"
+      },
+      "pricing_spec": {
+        "MarketQuote": {
+          "side": "Mid"
+        }
+      },
+      "bid_ask_spread": {
+        "half_spread_bps": 2.0,
+        "bid_spread_bps": null,
+        "ask_spread_bps": null,
+        "prefer_market_spread": true
+      },
+      "analytics_curves": {
+        "discount_curve": "USD-FIXTURE",
+        "government_curve": null,
+        "swap_curve": null,
+        "frn_reference_curve": null
+      },
+      "priority": 10,
+      "active": false,
+      "version": 2,
+      "created_at": 100,
+      "updated_at": 200
+    }
+  ],
+  "curve_recipes": [
+    {
+      "schema_version": 1,
+      "curve_id": "USD-FIXTURE",
+      "version": 1,
+      "source_time": "2026-10-01T12:00:00Z",
+      "recorded_at": "2026-10-01T12:00:00Z",
+      "source": "fixture-source",
+      "model_id": "fixture-model",
+      "input_versions": [],
+      "quality": "Valid",
+      "max_age_ms": 86400000,
+      "recipe": {
+        "key": {
+          "id": "USD-FIXTURE",
+          "version": "1"
+        }
+      }
+    },
+    {
+      "schema_version": 1,
+      "curve_id": "USD-FIXTURE",
+      "version": 2,
+      "source_time": "2026-10-02T12:00:00Z",
+      "recorded_at": "2026-10-02T12:00:00Z",
+      "source": "fixture-source",
+      "model_id": "fixture-model",
+      "input_versions": [],
+      "quality": "Valid",
+      "max_age_ms": 86400000,
+      "recipe": {
+        "key": {
+          "id": "USD-FIXTURE",
+          "version": "2"
+        }
+      }
+    }
+  ],
+  "audit": [
+    {
+      "id": 11,
+      "timestamp": 100,
+      "event_type": "fixture",
+      "entity_type": "config",
+      "entity_id": "CONFIG-RESTORE",
+      "user": "fixture-actor",
+      "action": "create",
+      "details": "fictional seed"
+    },
+    {
+      "id": 12,
+      "timestamp": 200,
+      "event_type": "fixture",
+      "entity_type": "config",
+      "entity_id": "CONFIG-RESTORE",
+      "user": "fixture-actor",
+      "action": "deactivate",
+      "details": "fictional seed"
+    }
+  ],
+  "reference_bond": {
+    "instrument_id": "RESTORE-BOND",
+    "isin": "fixture-isin-001",
+    "cusip": "fixture-cusip-001",
+    "sedol": null,
+    "bbgid": null,
+    "description": "Fictional restore bond v1",
+    "currency": "USD",
+    "issue_date": "2020-01-15",
+    "maturity_date": "2030-01-15",
+    "coupon_rate": "0.05375",
+    "frequency": 2,
+    "day_count": "ACT/ACT",
+    "face_value": "100",
+    "bond_type": "FixedBullet",
+    "issuer_type": "CorporateIG",
+    "issuer_id": "ISSUER-001",
+    "issuer_name": "Fictional issuer",
+    "seniority": "Senior",
+    "is_callable": false,
+    "call_schedule": [],
+    "is_putable": false,
+    "is_sinkable": false,
+    "floating_terms": null,
+    "inflation_index": null,
+    "inflation_base_index": null,
+    "has_deflation_floor": false,
+    "country_of_risk": "US",
+    "sector": "Technology",
+    "amount_outstanding": "100000000",
+    "first_coupon_date": null,
+    "last_updated": 0,
+    "source": "fictional-fixture",
+    "contractual_terms": {
+      "effective": {
+        "from": "2000-01-01T00:00:00Z",
+        "until": null
+      },
+      "dated_date": "2020-01-15",
+      "penultimate_coupon_date": null,
+      "redemption_value": "100",
+      "issuer": {
+        "entity_id": "ISSUER-001",
+        "version": 1
+      },
+      "calendar": {
+        "id": "fixture-calendar",
+        "version": 1
+      },
+      "calendar_code": "sifma",
+      "convention": {
+        "id": "fixture-convention",
+        "version": 1
+      },
+      "settings": {
+        "day_count": "ActActIsda",
+        "business_day_convention": "Following",
+        "end_of_month": true,
+        "settlement_days": 2,
+        "ex_coupon_days": 0
+      },
+      "provenance": {
+        "source": "fictional-fixture",
+        "evidence_reference": "fixture/reference-terms-v1"
+      },
+      "stub": "none",
+      "payment_lag": 0
+    }
+  },
+  "reference_revision_description": "Fictional restore bond v2",
+  "reference_create_key": "restore-create",
+  "reference_update_key": "restore-update",
+  "recorded_at": "2026-10-03T12:00:00.123456789Z"
+}

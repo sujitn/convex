@@ -1,0 +1,70 @@
+{
+  "reference": "Independent Python Fraction declarations for original scalar shapes; not native results",
+  "original_reference_cases": 64,
+  "original_reference_unchanged": true,
+  "exact_discrete": {
+    "knots": [
+      [
+        "2",
+        "50"
+      ],
+      [
+        "10",
+        "100"
+      ]
+    ],
+    "at_2": "50",
+    "at_10": "100",
+    "at_6": "invalid"
+  },
+  "explicit_linear_no_extrapolation": {
+    "knots": [
+      [
+        "2",
+        "50"
+      ],
+      [
+        "10",
+        "100"
+      ]
+    ],
+    "at_6": "75",
+    "at_1": "invalid",
+    "at_11": "invalid"
+  },
+  "actual_2s10s_constructor": {
+    "short_bps": "-50",
+    "long_bps": "50",
+    "at_2": "-50",
+    "at_5": "0",
+    "at_10": "50"
+  },
+  "zero_pivot_0_30_shape": {
+    "short_bps": "-50",
+    "long_bps": "50",
+    "pivot": "5",
+    "at_2": "-30",
+    "at_5": "0",
+    "at_10": "10",
+    "at_30": "50",
+    "at_31": "invalid"
+  },
+  "invalid_shapes": [
+    "NaN shift",
+    "infinite shift",
+    "zero pivot",
+    "pivot at30",
+    "negative tenor",
+    "NaN tenor",
+    "duplicate exact knot",
+    "empty knots",
+    "nonpositive or unordered butterfly bounds"
+  ],
+  "bounds": {
+    "shift_absolute": "0.000000000001",
+    "shift_relative": "0",
+    "exact_zero": true
+  },
+  "candidate_execution": false,
+  "certified": false
+}

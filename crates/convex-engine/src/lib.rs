@@ -5,15 +5,20 @@
 //! This crate provides:
 //! - [`CalculationGraph`]: Dependency tracking and reactive recalculation
 //! - [`PricingRouter`]: Model selection and batch pricing
-//! - [`CurveBuilder`]: Curve construction from market data
+//! - [`curve_resolution`]: Stored curve recipes resolved at an explicit cutoff
 //! - [`EtfPricer`]: ETF iNAV calculation from holdings
 //! - [`PortfolioAnalyzer`]: Portfolio-level risk aggregation
 //! - [`PricingEngine`]: Main engine orchestrating all components
+//! - [`snapshot::SnapshotAssembler`]: Exact immutable input capture and publication
+//! - [`snapshot::SnapshotValuator`]: Supplied-context valuation with bounded complete-key caching
+//!
+//! Snapshot use cases create no scheduling loop. The graph admits supplied snapshot/context tickets;
+//! the event-driven runtime owns authoritative snapshot valuation and publication. `SNAPSHOTS.md` and `GRAPH.md` document scope and migration.
 //!
 //! ## Architecture
 //!
 //! ```text
-//! Market Data ─┬─> CurveBuilder ─> Curves
+//! CurveStore ──┬─> curve_resolution ─> Curves
 //!              │
 //!              └─> CalculationGraph ─> PricingRouter ─┬─> BondQuotes
 //!                                                     │
@@ -26,11 +31,9 @@
 //!
 //! ```ignore
 //! let engine = PricingEngineBuilder::new()
-//!     .with_market_data(market_data_provider)
-//!     .with_reference_data(ref_data_provider)
 //!     .with_storage(storage_adapter)
-//!     .with_config(config_source)
-//!     .with_output(output_publisher)
+//!     .with_config(engine_config)
+//!     .with_runtime(runtime_services)
 //!     .build()?;
 //!
 //! engine.start().await?;
@@ -39,48 +42,176 @@
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 
+#[cfg(test)]
+#[path = "../../convex-ports/tests/support/reference_terms.rs"]
+mod reference_terms;
+
 pub mod builder;
 pub mod calc_graph;
+pub mod calibration_replay;
+pub mod core_workflow;
 pub mod curve_builder;
+pub mod curve_replay;
+pub mod curve_resolution;
 pub mod error;
 pub mod etf_pricing;
-pub mod market_data_listener;
+pub mod floating_valuation;
+pub mod limits;
+pub mod market_ingestion;
+pub mod optional_valuation;
 pub mod portfolio_analytics;
 pub mod pricing_router;
-pub mod reactive;
-pub mod scheduler;
+pub mod request_valuation;
+pub mod runtime;
+pub mod snapshot;
+pub mod telemetry;
 
-mod cache;
-mod context;
+pub mod cache;
+pub mod configuration;
+pub mod context;
 
 // Re-exports
 pub use builder::PricingEngineBuilder;
 pub use calc_graph::{
-    CalculationGraph, NodeId, NodeValue, ShardAssignment, ShardConfig, ShardStrategy,
+    CalculationCompletion, CalculationFailure, CalculationGraph, CalculationTicket, CommitOutcome,
+    GraphError, GraphLimits, NodeId, NodePhase, NodeRole, NodeSpec, NodeValue, ShardAssignment,
+    ShardConfig, ShardStrategy,
 };
-pub use curve_builder::{BuiltCurve, CurveBuilder};
+pub use curve_builder::BuiltCurve;
 pub use error::EngineError;
 pub use etf_pricing::EtfPricer;
-pub use market_data_listener::{
-    CurveInputUpdate, CurveUpdate, FxRateUpdate, IndexFixingUpdate, InflationFixingUpdate,
-    MarketDataListener, MarketDataPublisher, MarketDataUpdate, QuoteUpdate, VolSurfaceUpdate,
+pub use portfolio_analytics::{
+    request_bond_quote, runtime_bond_quote, Portfolio, PortfolioAnalyzer, Position,
 };
-pub use portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
 pub use pricing_router::{BatchPricingResult, PricingRouter};
-pub use reactive::{ReactiveEngine, ReactiveEngineBuilder};
-pub use scheduler::{EodScheduler, IntervalScheduler, NodeUpdate, ThrottleManager, UpdateSource};
+pub use runtime::{
+    AcceptedUpdate, RuntimeError, RuntimeHealth, RuntimeInput, RuntimeMode, RuntimePhase,
+    RuntimePlan, RuntimeServices,
+};
 
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::broadcast;
-use tokio::time::interval;
-use tracing::{debug, info, warn};
 
-use convex_traits::config::EngineConfig;
-use convex_traits::market_data::MarketDataProvider;
-use convex_traits::output::OutputPublisher;
-use convex_traits::reference_data::ReferenceDataProvider;
-use convex_traits::storage::StorageAdapter;
+use crate::ports::config::EngineConfig;
+use crate::ports::storage::StorageAdapter;
+
+/// Curves one bond prices on under a request's valuation context.
+#[derive(Debug, Clone)]
+pub struct PricingCurves {
+    /// Configured discount curve.
+    pub discount: BuiltCurve,
+    /// Configured swap benchmark, when the configuration names one.
+    pub benchmark: Option<BuiltCurve>,
+}
+
+/// The most curve sets one request context resolves. Each set is the roots a product
+/// path reads from the configuration's roles: a bullet's discount and swap curves, a
+/// callable's discount curve, and a note's discount and FRN reference curves.
+const MAX_CURVE_SETS: usize = 3;
+
+/// One curve set's resolution, kept by its context, failure included.
+type CurveRead =
+    Result<Arc<curve_resolution::ResolvedCurves>, curve_resolution::CurveResolutionError>;
+
+/// The approved valuation context of one request: an activated configuration's exact
+/// pricing version, at the request cutoff. Each product path reads the curves it needs
+/// at first use, and the context keeps every set it resolved, a failed one included, so
+/// a request resolves each set once (D69). It also holds every curve record it read, and
+/// a later set takes a held curve from it, so a request prices each curve on one
+/// revision (D72). The government role is not consumed here, as in snapshot valuation.
+pub struct RequestContext {
+    id: convex_core::contracts::SourceId,
+    activation_revision: convex_core::contracts::Version,
+    config: ports::storage::BondPricingConfig,
+    known_at: convex_core::contracts::UtcTimestamp,
+    curves: Arc<dyn ports::storage::CurveStore>,
+    /// Each curve set read, by its roots, in first-use order.
+    reads: Vec<(Vec<convex_core::ids::CurveId>, CurveRead)>,
+    /// Every stored curve record a set read, the revision each later set prices.
+    held: Vec<ports::snapshot::SnapshotCurveRecipe>,
+}
+
+impl RequestContext {
+    /// The approved pricing configuration.
+    pub fn config(&self) -> &ports::storage::BondPricingConfig {
+        &self.config
+    }
+
+    /// Revision of the activation that approved the configuration.
+    pub fn activation_revision(&self) -> convex_core::contracts::Version {
+        self.activation_revision
+    }
+
+    /// Every (curve, version) pin the request read, roots and dependencies, each once,
+    /// in first-use order. A set that failed to resolve priced nothing and lists nothing.
+    pub fn pins(&self) -> Vec<(&str, convex_core::contracts::Version)> {
+        let mut pins = Vec::new();
+        for pin in self
+            .reads
+            .iter()
+            .filter_map(|(_, read)| read.as_ref().ok())
+            .flat_map(|resolved| resolved.pins())
+        {
+            if !pins.contains(&pin) {
+                pins.push(pin);
+            }
+        }
+        pins
+    }
+
+    /// The curves `roots` name, with their dependencies, at the cutoff. A set is
+    /// resolved at its first read and kept, failure included. A curve an earlier set
+    /// read is taken from the context, not the store.
+    pub(crate) async fn read(&mut self, roots: &[convex_core::ids::CurveId]) -> CurveRead {
+        if let Some((_, read)) = self.reads.iter().find(|(set, _)| set.as_slice() == roots) {
+            return read.clone();
+        }
+        if self.reads.len() >= MAX_CURVE_SETS {
+            return Err(ports::TraitError::CapacityExceeded.into());
+        }
+        let read = curve_resolution::resolve_held(
+            self.curves.as_ref(),
+            roots,
+            self.known_at,
+            &mut self.held,
+        )
+        .await
+        .map(Arc::new);
+        self.reads.push((roots.to_vec(), read.clone()));
+        read
+    }
+
+    /// Curves for a bullet `bond`, which the configuration must cover: its discount
+    /// curve and swap benchmark. Each curve must fit its role and the bond's currency.
+    pub async fn curves_for(
+        &mut self,
+        bond: &ports::reference_data::BondReferenceData,
+    ) -> Result<PricingCurves, curve_resolution::CurveResolutionError> {
+        use curve_resolution::CurveResolutionError;
+        if !self.config.applies_to.matches(bond) {
+            return Err(CurveResolutionError::NotCovered(self.id.clone()));
+        }
+        let roles = &self.config.analytics_curves;
+        let mut roots = vec![roles.discount_curve.clone()];
+        roots.extend(roles.swap_curve.clone());
+        let resolved = self.read(&roots).await?;
+        let checked = |id: &convex_core::ids::CurveId, discount: bool| {
+            let native = resolved.native(id)?;
+            if !curve_resolution::pricing_role_matches(native.recipe(), discount, bond.currency) {
+                return Err(CurveResolutionError::Role(id.clone()));
+            }
+            resolved.curve(id)
+        };
+        let roles = &self.config.analytics_curves;
+        Ok(PricingCurves {
+            discount: checked(&roles.discount_curve, true)?,
+            benchmark: roles
+                .swap_curve
+                .as_ref()
+                .map(|id| checked(id, false))
+                .transpose()?,
+        })
+    }
+}
 
 /// The main pricing engine.
 pub struct PricingEngine {
@@ -89,9 +220,6 @@ pub struct PricingEngine {
 
     /// Calculation graph
     calc_graph: Arc<CalculationGraph>,
-
-    /// Curve builder
-    curve_builder: Arc<CurveBuilder>,
 
     /// Pricing router
     pricing_router: Arc<PricingRouter>,
@@ -102,39 +230,21 @@ pub struct PricingEngine {
     /// Portfolio analyzer
     portfolio_analyzer: Arc<PortfolioAnalyzer>,
 
-    /// Market data provider
-    #[allow(dead_code)]
-    market_data: Arc<MarketDataProvider>,
-
-    /// Reference data provider
-    #[allow(dead_code)]
-    reference_data: Arc<ReferenceDataProvider>,
-
-    /// Storage adapter
-    #[allow(dead_code)]
+    /// Storage adapter, including the authoritative reference repository.
     storage: Arc<StorageAdapter>,
 
-    /// Output publisher
-    #[allow(dead_code)]
-    output: Arc<OutputPublisher>,
-
-    /// Shutdown signal sender
-    shutdown_tx: broadcast::Sender<()>,
+    /// Sole lifecycle and accepted-work owner.
+    runtime: runtime::RuntimeController,
+    configurations: Option<Arc<configuration::ConfigurationUseCases>>,
+    /// Request-time valuation through the composed runtime (D57); none without one.
+    request: Option<request_valuation::RequestValuer>,
 }
 
 impl PricingEngine {
     /// Create a new pricing engine.
-    pub fn new(
-        config: EngineConfig,
-        market_data: Arc<MarketDataProvider>,
-        reference_data: Arc<ReferenceDataProvider>,
-        storage: Arc<StorageAdapter>,
-        output: Arc<OutputPublisher>,
-    ) -> Self {
-        let (shutdown_tx, _) = broadcast::channel(1);
-
+    pub fn new(config: EngineConfig, storage: Arc<StorageAdapter>) -> Self {
+        let concurrency = config.max_concurrent_calcs;
         let calc_graph = Arc::new(CalculationGraph::new());
-        let curve_builder = Arc::new(CurveBuilder::new(market_data.clone(), calc_graph.clone()));
         let pricing_router = Arc::new(PricingRouter::new());
         let etf_pricer = Arc::new(EtfPricer::new());
         let portfolio_analyzer = Arc::new(PortfolioAnalyzer::new());
@@ -142,108 +252,157 @@ impl PricingEngine {
         Self {
             config,
             calc_graph,
-            curve_builder,
             pricing_router,
             etf_pricer,
             portfolio_analyzer,
-            market_data,
-            reference_data,
             storage,
-            output,
-            shutdown_tx,
+            runtime: runtime::RuntimeController::new(None, false, concurrency),
+            configurations: None,
+            request: None,
         }
     }
 
-    /// Start the pricing engine.
+    /// Start once, restoring exact dependencies and accepted work before readiness.
     pub async fn start(&self) -> Result<(), EngineError> {
-        info!("Starting pricing engine: {}", self.config.name);
-
-        // Start the calculation loop
-        self.start_calculation_loop().await;
-
-        info!("Pricing engine started");
-        Ok(())
+        self.runtime.start(self).await
     }
 
-    /// Start the main calculation loop.
-    async fn start_calculation_loop(&self) {
-        let calc_graph = self.calc_graph.clone();
-        let mut shutdown_rx = self.shutdown_tx.subscribe();
-
-        // Get calculation interval from config (default 100ms)
-        let calc_interval = Duration::from_millis(100);
-
-        tokio::spawn(async move {
-            let mut ticker = interval(calc_interval);
-
-            loop {
-                tokio::select! {
-                    _ = ticker.tick() => {
-                        // Get dirty nodes that need recalculation
-                        let dirty_nodes = calc_graph.get_nodes_to_calculate();
-
-                        if !dirty_nodes.is_empty() {
-                            debug!("Processing {} dirty nodes", dirty_nodes.len());
-
-                            for node_id in dirty_nodes {
-                                // Process each node based on type
-                                match &node_id {
-                                    NodeId::Curve { curve_id } => {
-                                        debug!("Rebuilding curve: {}", curve_id);
-                                        // Curve building would happen here
-                                    }
-                                    NodeId::BondPrice { instrument_id } => {
-                                        debug!("Repricing bond: {}", instrument_id);
-                                        // Bond repricing would happen here
-                                    }
-                                    NodeId::EtfInav { etf_id } => {
-                                        debug!("Recalculating ETF iNAV: {}", etf_id);
-                                        // ETF iNAV calculation would happen here
-                                    }
-                                    NodeId::Portfolio { portfolio_id } => {
-                                        debug!("Recalculating portfolio: {}", portfolio_id);
-                                        // Portfolio analytics would happen here
-                                    }
-                                    _ => {
-                                        // Other node types
-                                    }
-                                }
-
-                                // Mark as clean (in real impl, after successful calculation)
-                                calc_graph.update_cache(&node_id, NodeValue::Empty);
-                            }
-                        }
-                    }
-                    _ = shutdown_rx.recv() => {
-                        info!("Calculation loop shutting down");
-                        break;
-                    }
-                }
-            }
-        });
-    }
-
-    /// Process a single calculation cycle manually.
-    ///
-    /// This is useful for testing or on-demand calculations.
-    pub fn process_dirty_nodes(&self) -> usize {
-        let dirty_nodes = self.calc_graph.get_nodes_to_calculate();
-        let count = dirty_nodes.len();
-
-        for node_id in dirty_nodes {
-            // Mark as processed
-            self.calc_graph.update_cache(&node_id, NodeValue::Empty);
-        }
-
-        count
-    }
-
-    /// Shutdown the pricing engine.
+    /// Close admission, drain accepted work, and join all owned tasks and workers.
     pub async fn shutdown(&self) -> Result<(), EngineError> {
-        info!("Shutting down pricing engine");
-        let _ = self.shutdown_tx.send(());
-        info!("Pricing engine shutdown complete");
-        Ok(())
+        self.runtime.shutdown().await
+    }
+
+    /// Separate lifecycle/dependency/data status; never execution permission.
+    pub fn runtime_health(&self) -> RuntimeHealth {
+        self.runtime.health()
+    }
+
+    /// Shared configuration validation, staging and inspection use cases, when explicitly composed.
+    pub fn configuration_use_cases(&self) -> Option<&Arc<configuration::ConfigurationUseCases>> {
+        self.configurations.as_ref()
+    }
+
+    /// Validate/warm then atomically activate. A running runtime applies only a hot
+    /// selection; a restart-required one stays committed and applies at the next start.
+    /// A committed selection remains committed if runtime application is delayed or unavailable.
+    pub async fn activate_configuration(
+        &self,
+        command: &ports::configuration::ActivationCommand,
+        fixtures: &[configuration::ConfigurationFixture],
+    ) -> Result<configuration::ConfigurationActivationOutcome, configuration::ConfigurationError>
+    {
+        self.apply_activation(self.composed_configurations()?, command, fixtures)
+            .await
+    }
+
+    /// As [`Self::activate_configuration`], validating under the capabilities the next start
+    /// composes for the staged document.
+    pub async fn activate_configuration_with(
+        &self,
+        capabilities: configuration::ConfigurationCapabilities,
+        command: &ports::configuration::ActivationCommand,
+        fixtures: &[configuration::ConfigurationFixture],
+    ) -> Result<configuration::ConfigurationActivationOutcome, configuration::ConfigurationError>
+    {
+        let cases = self
+            .composed_configurations()?
+            .with_capabilities(capabilities);
+        self.apply_activation(&cases, command, fixtures).await
+    }
+
+    fn composed_configurations(
+        &self,
+    ) -> Result<&configuration::ConfigurationUseCases, configuration::ConfigurationError> {
+        self.configurations
+            .as_deref()
+            .ok_or(configuration::ConfigurationError::Invalid(
+                "configuration use cases are not composed",
+            ))
+    }
+
+    async fn apply_activation(
+        &self,
+        cases: &configuration::ConfigurationUseCases,
+        command: &ports::configuration::ActivationCommand,
+        fixtures: &[configuration::ConfigurationFixture],
+    ) -> Result<configuration::ConfigurationActivationOutcome, configuration::ConfigurationError>
+    {
+        let running = !matches!(
+            self.runtime_health().phase,
+            RuntimePhase::New | RuntimePhase::Stopped
+        );
+        let hot = command.mode == ports::configuration::ReloadClass::Hot;
+        let activation = cases.activate(command, fixtures).await?;
+        // Applied only when the runtime accepted this exact revision; a running runtime keeps
+        // its selection when the active one needs a restart.
+        let applied = if running && hot {
+            self.runtime.refresh_configuration(&activation).await.ok()
+        } else {
+            None
+        }
+        .filter(|r| r.activation_revision == Some(activation.revision));
+        // The commit stands either way; a runtime that did not accept it applies it at the
+        // next start.
+        Ok(configuration::ConfigurationActivationOutcome {
+            restart_required: applied.is_none(),
+            activation,
+            accepted_generation: applied.as_ref().map(|r| r.generation),
+            accepted_activation_revision: applied.and_then(|r| r.activation_revision),
+        })
+    }
+
+    /// Observe joined shutdown so transport sessions can close promptly.
+    pub fn subscribe_shutdown(&self) -> tokio::sync::watch::Receiver<bool> {
+        self.runtime.subscribe_shutdown()
+    }
+
+    /// Canonical persisted result states with original last-good timestamps.
+    pub fn runtime_results(&self) -> Vec<ports::runtime::PublishedValuation> {
+        self.runtime.results()
+    }
+
+    /// Settlement date of the composed runtime plan; every runtime result is valued for it.
+    pub fn runtime_settlement_date(&self) -> Option<convex_core::contracts::BusinessDate> {
+        self.runtime.settlement_date()
+    }
+
+    /// Transient display stream. Lag is explicit; resync through runtime_results.
+    pub fn subscribe_results(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<ports::runtime::PublishedValuation> {
+        self.runtime.subscribe()
+    }
+
+    /// Admit a captured update only after its checkpoint is durable; overload fails explicitly.
+    pub async fn submit_update(
+        &self,
+        event: ports::quote_event::QuoteEvent,
+        as_of: convex_core::contracts::UtcTimestamp,
+        known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<AcceptedUpdate, RuntimeError> {
+        self.runtime.submit(event, as_of, known_at).await
+    }
+
+    /// Run a complete supplied context on the bounded interactive CPU budget; shutdown joins it.
+    pub async fn evaluate_context(
+        &self,
+        snapshot: ports::snapshot::MarketSnapshot,
+        context: context::ValuationContext,
+        request: convex_core::contracts::RequestId,
+        calculated_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<snapshot::SnapshotValuationResult, ports::TraitError> {
+        if snapshot.content().configuration_capture.is_some() {
+            let cases = self
+                .configurations
+                .as_ref()
+                .ok_or(ports::TraitError::Unsupported(
+                    "supplied activation requires configuration composition",
+                ))?;
+            cases.verify_snapshot_selection(&snapshot).await.map_err(|_| ports::TraitError::Conflict("snapshot activation or effective policies differ from retained configuration"))?;
+        }
+        self.runtime
+            .evaluate_context(snapshot, context, request, calculated_at)
+            .await
     }
 
     /// Get the calculation graph.
@@ -251,9 +410,122 @@ impl PricingEngine {
         &self.calc_graph
     }
 
-    /// Get the curve builder.
-    pub fn curve_builder(&self) -> &Arc<CurveBuilder> {
-        &self.curve_builder
+    /// The single durable curve owner.
+    pub fn curve_store(&self) -> &Arc<dyn ports::storage::CurveStore> {
+        &self.storage.curves
+    }
+
+    /// The configuration a request prices under when it names none: the one the
+    /// runtime runs. A server without a runtime has no default.
+    pub fn default_valuation_configuration(&self) -> Option<&convex_core::contracts::SourceId> {
+        self.runtime.configuration_id()
+    }
+
+    /// The approved valuation context of a request at `known_at`: the active
+    /// selection of `configuration` (or of the default). Only an activation approves a
+    /// configuration; a staged version never prices. The configuration is the one
+    /// active now, and the cutoff governs the curve reads, which each product path
+    /// makes at first use (D69).
+    pub async fn request_context(
+        &self,
+        configuration: Option<&convex_core::contracts::SourceId>,
+        known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<RequestContext, curve_resolution::CurveResolutionError> {
+        let started = std::time::Instant::now();
+        let context = self.resolve_request_context(configuration, known_at).await;
+        telemetry::observe(telemetry::REQUEST_CONTEXT_SECONDS, started);
+        context
+    }
+
+    async fn resolve_request_context(
+        &self,
+        configuration: Option<&convex_core::contracts::SourceId>,
+        known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<RequestContext, curve_resolution::CurveResolutionError> {
+        use curve_resolution::CurveResolutionError;
+        let id = configuration
+            .or(self.default_valuation_configuration())
+            .ok_or(CurveResolutionError::NoConfiguration)?;
+        let active = self
+            .storage
+            .configuration
+            .active(id)
+            .await?
+            .ok_or_else(|| CurveResolutionError::NotActivated(id.clone()))?;
+        Ok(RequestContext {
+            id: id.clone(),
+            activation_revision: active.activation.revision,
+            config: active.staged.document.pricing,
+            known_at,
+            curves: self.storage.curves.clone(),
+            reads: Vec::new(),
+            held: Vec::new(),
+        })
+    }
+
+    /// Whether a composed runtime values callables and floating rate notes at request
+    /// time (D57, D65).
+    pub fn values_requests(&self) -> bool {
+        self.request.is_some()
+    }
+
+    /// The stored terms that inline `bond` names, current at `known_at`. Callables and
+    /// floating rate notes are valued on stored terms only, so inline terms must equal
+    /// them (D62).
+    pub async fn stored_terms(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+        known_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<
+        ports::reference_repository::ReferenceRecord,
+        request_valuation::RequestValuationError,
+    > {
+        let lookup = ports::reference_master::ReferenceLookup {
+            as_of: known_at,
+            known_at,
+        };
+        match self
+            .reference_at_for_pricing(&bond.instrument_id, lookup)
+            .await?
+        {
+            Some(record) if record.bond.as_ref() == Some(bond) => Ok(record),
+            _ => Err(request_valuation::RequestValuationError::UnstoredTerms),
+        }
+    }
+
+    /// Value a stored callable or floating rate note at request time (D57): an
+    /// unpublished one-instrument snapshot under `context` at `known_at`, with `mark` as
+    /// a labelled `request` quote, valued through [`Self::evaluate_context`] as the stream
+    /// values a bond. Without a mark every measure fails `MISSING_MARKET_DATA`. Nothing
+    /// is stored.
+    pub async fn value_request(
+        &self,
+        context: &mut RequestContext,
+        reference: &ports::reference_repository::ReferenceRecord,
+        settlement_date: convex_core::contracts::BusinessDate,
+        known_at: convex_core::contracts::UtcTimestamp,
+        mark: Option<rust_decimal::Decimal>,
+    ) -> Result<request_valuation::RequestValuation, request_valuation::RequestValuationError> {
+        use request_valuation::RequestValuationError;
+        let valuer = self
+            .request
+            .as_ref()
+            .ok_or(RequestValuationError::NoRuntime)?;
+        let (snapshot, valuation, curves) = valuer
+            .prepare(context, reference, settlement_date, known_at, mark)
+            .await?;
+        let invalid = |_| ports::TraitError::InvalidInput("invalid request identity");
+        // As the stream names its valuations, by context.
+        let request =
+            convex_core::contracts::RequestId::new(format!("request-{}", valuation.cache_key()))
+                .map_err(invalid)?;
+        let calculated = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
+            .map_err(invalid)?
+            .max(known_at);
+        let result = self
+            .evaluate_context(snapshot, valuation, request, calculated)
+            .await?;
+        Ok(request_valuation::RequestValuation { result, curves })
     }
 
     /// Get the pricing router.
@@ -276,236 +548,84 @@ impl PricingEngine {
         &self.config
     }
 
-    /// Get the reference data provider.
-    pub fn reference_data(&self) -> &Arc<ReferenceDataProvider> {
-        &self.reference_data
-    }
-
-    // =========================================================================
-    // REACTIVE MARKET DATA HANDLERS
-    // =========================================================================
-
-    /// Handle a quote update for a bond.
-    ///
-    /// This method is called when a new quote arrives for a bond.
-    /// It invalidates the quote node in the calc graph, which propagates
-    /// to dependent bond price nodes.
-    pub fn on_quote_update(
+    /// The sole authoritative source for reference reads and mutations.
+    pub fn reference_repository(
         &self,
-        instrument_id: &convex_traits::ids::InstrumentId,
-        bid: Option<rust_decimal::Decimal>,
-        ask: Option<rust_decimal::Decimal>,
-    ) {
-        let node_id = NodeId::Quote {
-            instrument_id: instrument_id.clone(),
-        };
-
-        // Update quote in cache
-        let mid = match (bid, ask) {
-            (Some(b), Some(a)) => Some((b + a) / rust_decimal::Decimal::from(2)),
-            (Some(b), None) => Some(b),
-            (None, Some(a)) => Some(a),
-            (None, None) => None,
-        };
-
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::Quote { bid, ask, mid });
-
-        // Invalidate quote node (propagates to bond price)
-        self.calc_graph.invalidate(&node_id);
-
-        debug!(
-            "Quote update for {}: bid={:?} ask={:?}",
-            instrument_id, bid, ask
-        );
+    ) -> &Arc<dyn ports::reference_repository::ReferenceRepository> {
+        &self.storage.bonds
     }
 
-    /// Handle a curve update.
-    ///
-    /// This method is called when a curve is rebuilt.
-    /// It invalidates the curve node, which propagates to all bonds
-    /// that depend on this curve.
-    pub fn on_curve_update(&self, curve_id: &convex_traits::ids::CurveId, curve: &BuiltCurve) {
-        let node_id = NodeId::Curve {
-            curve_id: curve_id.clone(),
-        };
-
-        // Update curve in cache
-        self.calc_graph.update_cache(
-            &node_id,
-            NodeValue::Curve {
-                points: curve.to_points(),
+    /// Read full reference terms and the exact version consumed by a pricing request.
+    pub async fn reference_for_pricing(
+        &self,
+        id: &convex_core::ids::InstrumentId,
+    ) -> Result<
+        Option<ports::reference_repository::ReferenceRecord>,
+        ports::reference_repository::ReferenceError,
+    > {
+        let time = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
+            .map_err(|_| ports::reference_repository::ReferenceError::Unavailable)?;
+        self.reference_at_for_pricing(
+            id,
+            ports::reference_master::ReferenceLookup {
+                as_of: time,
+                known_at: time,
             },
-        );
-
-        // Invalidate curve node (propagates to dependent bonds)
-        self.calc_graph.invalidate(&node_id);
-
-        debug!("Curve update for {}", curve_id);
-    }
-
-    /// Handle an index fixing update (for FRNs).
-    ///
-    /// This method is called when a floating rate index fixing arrives.
-    /// It invalidates the index fixing node, which propagates to all FRNs
-    /// that reference this index.
-    pub fn on_index_fixing(
-        &self,
-        index: &convex_traits::ids::FloatingRateIndex,
-        date: convex_core::Date,
-        rate: rust_decimal::Decimal,
-    ) {
-        let node_id = NodeId::IndexFixing {
-            index: index.clone(),
-            date,
-        };
-
-        // Update fixing in cache
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::IndexFixing { rate });
-
-        // Invalidate fixing node (propagates to FRNs)
-        self.calc_graph.invalidate(&node_id);
-
-        debug!("Index fixing for {} on {}: {}", index, date, rate);
-    }
-
-    /// Handle an inflation fixing update (for ILBs).
-    ///
-    /// This method is called when an inflation index fixing arrives.
-    /// It invalidates the inflation fixing node, which propagates to all ILBs.
-    pub fn on_inflation_fixing(
-        &self,
-        index: &convex_traits::ids::InflationIndex,
-        month: convex_traits::ids::YearMonth,
-        value: rust_decimal::Decimal,
-    ) {
-        let node_id = NodeId::InflationFixing {
-            index: index.clone(),
-            month,
-        };
-
-        // Update fixing in cache
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::InflationFixing { value });
-
-        // Invalidate fixing node (propagates to ILBs)
-        self.calc_graph.invalidate(&node_id);
-
-        debug!("Inflation fixing for {} ({}): {}", index, month, value);
-    }
-
-    /// Handle an FX rate update.
-    ///
-    /// This method is called when an FX rate is updated.
-    /// It invalidates the FX rate node, which propagates to cross-currency
-    /// portfolio calculations.
-    pub fn on_fx_rate_update(
-        &self,
-        pair: &convex_traits::ids::CurrencyPair,
-        mid: rust_decimal::Decimal,
-    ) {
-        let node_id = NodeId::FxRate { pair: pair.clone() };
-
-        // Update FX rate in cache
-        self.calc_graph
-            .update_cache(&node_id, NodeValue::FxRate { mid });
-
-        // Invalidate FX rate node
-        self.calc_graph.invalidate(&node_id);
-
-        debug!("FX rate update for {}: {}", pair, mid);
-    }
-
-    /// Register a bond for reactive pricing.
-    ///
-    /// This sets up the node in the calc graph with dependencies on
-    /// the relevant curves and quote.
-    pub fn register_bond(
-        &self,
-        instrument_id: convex_traits::ids::InstrumentId,
-        discount_curve: convex_traits::ids::CurveId,
-        benchmark_curve: Option<convex_traits::ids::CurveId>,
-        config: convex_traits::config::NodeConfig,
-    ) {
-        let bond_node = NodeId::BondPrice {
-            instrument_id: instrument_id.clone(),
-        };
-
-        // Build dependencies
-        let mut deps = vec![
-            NodeId::Curve {
-                curve_id: discount_curve,
-            },
-            NodeId::Quote {
-                instrument_id: instrument_id.clone(),
-            },
-        ];
-
-        if let Some(bench_curve) = benchmark_curve {
-            deps.push(NodeId::Curve {
-                curve_id: bench_curve,
-            });
-        }
-
-        // Add node with dependencies
-        self.calc_graph.add_node(bond_node.clone(), deps);
-
-        // Set config
-        self.calc_graph.set_node_config(bond_node, config);
-    }
-
-    /// Register an ETF for iNAV calculations.
-    pub fn register_etf_inav(&self, etf_id: convex_traits::ids::EtfId) {
-        let node_id = NodeId::EtfInav {
-            etf_id: etf_id.clone(),
-        };
-
-        // ETF iNAV depends on its constituent bond prices
-        // In practice, we'd look up the holdings and add dependencies
-        self.calc_graph.add_node(node_id.clone(), vec![]);
-
-        // Use iNAV config (15 second interval)
-        self.calc_graph
-            .set_node_config(node_id, convex_traits::config::NodeConfig::etf_inav());
-    }
-
-    /// Register an ETF for NAV calculations.
-    pub fn register_etf_nav(&self, etf_id: convex_traits::ids::EtfId) {
-        let node_id = NodeId::EtfNav {
-            etf_id: etf_id.clone(),
-        };
-
-        self.calc_graph.add_node(node_id.clone(), vec![]);
-
-        // Use NAV config (end of day)
-        self.calc_graph
-            .set_node_config(node_id, convex_traits::config::NodeConfig::etf_nav());
-    }
-
-    /// Register a portfolio for analytics.
-    pub fn register_portfolio(&self, portfolio_id: convex_traits::ids::PortfolioId) {
-        let node_id = NodeId::Portfolio {
-            portfolio_id: portfolio_id.clone(),
-        };
-
-        self.calc_graph.add_node(node_id.clone(), vec![]);
-
-        // Use portfolio config (5 second throttle)
-        self.calc_graph
-            .set_node_config(node_id, convex_traits::config::NodeConfig::portfolio());
-    }
-
-    /// Create a reactive engine from this pricing engine.
-    ///
-    /// The reactive engine provides additional features like interval
-    /// scheduling and market data listening.
-    pub fn create_reactive_engine(&self) -> reactive::ReactiveEngine {
-        reactive::ReactiveEngine::new(
-            self.calc_graph.clone(),
-            self.curve_builder.clone(),
-            self.pricing_router.clone(),
-            self.reference_data.clone(),
         )
+        .await
+    }
+
+    /// Validate a supplied economic/known-at reference context for deterministic application use.
+    pub async fn reference_at_for_pricing(
+        &self,
+        id: &convex_core::ids::InstrumentId,
+        lookup: ports::reference_master::ReferenceLookup,
+    ) -> Result<
+        Option<ports::reference_repository::ReferenceRecord>,
+        ports::reference_repository::ReferenceError,
+    > {
+        Ok(self
+            .storage
+            .bonds
+            .for_valuation(id, lookup)
+            .await?
+            .map(|resolved| resolved.record))
+    }
+
+    /// Validate inline terms and their exact resource pins before service pricing.
+    pub async fn validate_inline_reference(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+    ) -> Result<(), ports::reference_repository::ReferenceError> {
+        let time = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
+            .map_err(|_| ports::reference_repository::ReferenceError::Unavailable)?;
+        self.storage
+            .bonds
+            .resources_for_valuation(
+                bond,
+                ports::reference_master::ReferenceLookup {
+                    as_of: time,
+                    known_at: time,
+                },
+            )
+            .await?;
+        Ok(())
+    }
+
+    /// Commit a reference use case through the authoritative repository.
+    pub async fn commit_reference(
+        &self,
+        command: &ports::reference_repository::ReferenceCommand,
+        recorded_at: convex_core::contracts::UtcTimestamp,
+    ) -> Result<
+        ports::reference_repository::ReferenceCommit,
+        ports::reference_repository::ReferenceError,
+    > {
+        self.storage.bonds.commit(command, recorded_at).await
     }
 }
+
+/// Hexagonal port traits, re-exported from the [`convex_ports`] crate so that
+/// `convex_engine::ports::*` paths keep working while adapters depend only on
+/// the lightweight ports crate (not the whole engine).
+pub use convex_ports as ports;

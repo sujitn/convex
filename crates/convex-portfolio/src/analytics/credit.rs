@@ -71,19 +71,16 @@ impl CreditQualityMetrics {
     ///
     /// This measures exposure to bonds near the IG/HY boundary that
     /// may be subject to rating migration.
-    #[must_use]
     pub fn crossover_risk(&self) -> f64 {
         self.bbb_weight + self.bb_weight
     }
 
     /// Returns true if the portfolio is majority investment grade.
-    #[must_use]
     pub fn is_investment_grade(&self) -> bool {
         self.ig_weight > 50.0
     }
 
     /// Returns true if the portfolio has significant HY exposure (>10%).
-    #[must_use]
     pub fn has_significant_hy(&self) -> bool {
         self.hy_weight > 10.0
     }
@@ -110,47 +107,48 @@ impl CreditQualityMetrics {
 /// println!("IG weight: {:.1}%", metrics.ig_weight);
 /// println!("Crossover risk: {:.1}%", metrics.crossover_risk());
 /// ```
-#[must_use]
 pub fn calculate_credit_quality(
     holdings: &[Holding],
     config: &AnalyticsConfig,
-) -> CreditQualityMetrics {
-    let rating_distribution = bucket_by_rating(holdings, config);
+) -> crate::PortfolioResult<CreditQualityMetrics> {
+    Ok({
+        let rating_distribution = bucket_by_rating(holdings, config)?;
 
-    let average_rating_score = rating_distribution.average_rating_score();
-    let average_rating = rating_distribution.average_rating();
+        let average_rating_score = rating_distribution.average_rating_score();
+        let average_rating = rating_distribution.average_rating();
 
-    let ig_weight = rating_distribution.investment_grade_weight();
-    let hy_weight = rating_distribution.high_yield_weight();
-    let default_weight = rating_distribution.default_weight();
-    let unrated_weight = rating_distribution.unrated_weight();
+        let ig_weight = rating_distribution.investment_grade_weight();
+        let hy_weight = rating_distribution.high_yield_weight();
+        let default_weight = rating_distribution.default_weight();
+        let unrated_weight = rating_distribution.unrated_weight();
 
-    // Get BBB and BB bucket weights
-    let bbb_weight = rating_distribution
-        .get_bucket(RatingBucket::BBB)
-        .map(|m| m.weight_pct)
-        .unwrap_or(0.0);
+        // Get BBB and BB bucket weights
+        let bbb_weight = rating_distribution
+            .get_bucket(RatingBucket::BBB)
+            .map(|m| m.weight_pct)
+            .unwrap_or(0.0);
 
-    let bb_weight = rating_distribution
-        .get_bucket(RatingBucket::BB)
-        .map(|m| m.weight_pct)
-        .unwrap_or(0.0);
+        let bb_weight = rating_distribution
+            .get_bucket(RatingBucket::BB)
+            .map(|m| m.weight_pct)
+            .unwrap_or(0.0);
 
-    // Calculate quality tiers
-    let quality_tiers = calculate_quality_tiers(&rating_distribution);
+        // Calculate quality tiers
+        let quality_tiers = calculate_quality_tiers(&rating_distribution);
 
-    CreditQualityMetrics {
-        rating_distribution,
-        average_rating_score,
-        average_rating,
-        ig_weight,
-        hy_weight,
-        default_weight,
-        unrated_weight,
-        bbb_weight,
-        bb_weight,
-        quality_tiers,
-    }
+        CreditQualityMetrics {
+            rating_distribution,
+            average_rating_score,
+            average_rating,
+            ig_weight,
+            hy_weight,
+            default_weight,
+            unrated_weight,
+            bbb_weight,
+            bb_weight,
+            quality_tiers,
+        }
+    })
 }
 
 /// Calculates quality tier distribution.
@@ -229,51 +227,55 @@ pub struct RisingStarRisk {
 ///
 /// Analyzes the portfolio for potential rating migrations across
 /// the investment grade / high yield boundary.
-#[must_use]
-pub fn calculate_migration_risk(holdings: &[Holding], _config: &AnalyticsConfig) -> MigrationRisk {
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
+pub fn calculate_migration_risk(
+    holdings: &[Holding],
+    _config: &AnalyticsConfig,
+) -> crate::PortfolioResult<MigrationRisk> {
+    Ok({
+        let total_mv: Decimal = crate::analytics::metrics::clean_total(holdings.iter())?;
 
-    let mut fallen_angel = FallenAngelRisk::default();
-    let mut rising_star = RisingStarRisk::default();
+        let mut fallen_angel = FallenAngelRisk::default();
+        let mut rising_star = RisingStarRisk::default();
 
-    for h in holdings {
-        if let Some(rating) = h.classification.rating.composite {
-            let mv = h.market_value();
-            let weight = if total_mv.is_zero() {
-                0.0
-            } else {
-                let w = mv / total_mv * Decimal::ONE_HUNDRED;
-                w.try_into().unwrap_or(0.0)
-            };
+        for h in holdings {
+            if let Some(rating) = h.classification.rating.composite {
+                let mv = h.market_value()?;
+                let weight = if total_mv.is_zero() {
+                    0.0
+                } else {
+                    let w = mv / total_mv * Decimal::ONE_HUNDRED;
+                    w.try_into().unwrap_or(0.0)
+                };
 
-            match rating {
-                CreditRating::BBBPlus | CreditRating::BBB | CreditRating::BBBMinus => {
-                    fallen_angel.bbb_weight += weight;
-                    fallen_angel.market_value_at_risk += mv;
-                    fallen_angel.holdings_count += 1;
+                match rating {
+                    CreditRating::BBBPlus | CreditRating::BBB | CreditRating::BBBMinus => {
+                        fallen_angel.bbb_weight += weight;
+                        fallen_angel.market_value_at_risk += mv;
+                        fallen_angel.holdings_count += 1;
 
-                    if rating == CreditRating::BBBMinus {
-                        fallen_angel.bbb_minus_weight += weight;
+                        if rating == CreditRating::BBBMinus {
+                            fallen_angel.bbb_minus_weight += weight;
+                        }
                     }
-                }
-                CreditRating::BBPlus | CreditRating::BB | CreditRating::BBMinus => {
-                    rising_star.bb_weight += weight;
-                    rising_star.market_value_potential += mv;
-                    rising_star.holdings_count += 1;
+                    CreditRating::BBPlus | CreditRating::BB | CreditRating::BBMinus => {
+                        rising_star.bb_weight += weight;
+                        rising_star.market_value_potential += mv;
+                        rising_star.holdings_count += 1;
 
-                    if rating == CreditRating::BBPlus {
-                        rising_star.bb_plus_weight += weight;
+                        if rating == CreditRating::BBPlus {
+                            rising_star.bb_plus_weight += weight;
+                        }
                     }
+                    _ => {}
                 }
-                _ => {}
             }
         }
-    }
 
-    MigrationRisk {
-        fallen_angel_risk: fallen_angel,
-        rising_star_risk: rising_star,
-    }
+        MigrationRisk {
+            fallen_angel_risk: fallen_angel,
+            rising_star_risk: rising_star,
+        }
+    })
 }
 
 #[cfg(test)]
@@ -308,7 +310,7 @@ mod tests {
         let holdings: Vec<Holding> = vec![];
         let config = AnalyticsConfig::default();
 
-        let metrics = calculate_credit_quality(&holdings, &config);
+        let metrics = calculate_credit_quality(&holdings, &config).unwrap();
 
         assert!(metrics.average_rating.is_none());
         assert_eq!(metrics.ig_weight, 0.0);
@@ -324,7 +326,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let metrics = calculate_credit_quality(&holdings, &config);
+        let metrics = calculate_credit_quality(&holdings, &config).unwrap();
 
         assert!((metrics.ig_weight - 100.0).abs() < 0.01);
         assert_eq!(metrics.hy_weight, 0.0);
@@ -340,7 +342,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let metrics = calculate_credit_quality(&holdings, &config);
+        let metrics = calculate_credit_quality(&holdings, &config).unwrap();
 
         assert!((metrics.ig_weight - 66.67).abs() < 0.1);
         assert!((metrics.hy_weight - 33.33).abs() < 0.1);
@@ -356,7 +358,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let metrics = calculate_credit_quality(&holdings, &config);
+        let metrics = calculate_credit_quality(&holdings, &config).unwrap();
 
         // BBB bucket = 50%, BB bucket = 25%
         assert!((metrics.bbb_weight - 50.0).abs() < 0.1);
@@ -374,7 +376,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let metrics = calculate_credit_quality(&holdings, &config);
+        let metrics = calculate_credit_quality(&holdings, &config).unwrap();
 
         assert!((metrics.quality_tiers.high_quality - 25.0).abs() < 0.1); // AAA
         assert!((metrics.quality_tiers.upper_medium - 25.0).abs() < 0.1); // A
@@ -391,7 +393,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let risk = calculate_migration_risk(&holdings, &config);
+        let risk = calculate_migration_risk(&holdings, &config).unwrap();
 
         // BBB- is a fallen angel candidate
         assert_eq!(risk.fallen_angel_risk.holdings_count, 1);

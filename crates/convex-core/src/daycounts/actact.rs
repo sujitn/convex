@@ -230,47 +230,15 @@ impl DayCount for ActActIcma {
 ///
 /// # Rules
 ///
-/// 1. Count actual days between dates
-/// 2. The denominator is 366 if the calculation period includes Feb 29
-///    (determined by looking at the year preceding the end date)
-/// 3. For periods > 1 year, split into full years plus remainder
-///
-/// # Bloomberg
-///
-/// Matches Bloomberg `ACT/ACT AFB` or `ACT/ACT FBF` convention.
+/// Count whole anniversaries backwards from the end date, advancing a February
+/// 28 anniversary to February 29 in a leap year. Divide the remaining actual
+/// days by 366 only when February 29 is in `[start, remainder_end)`, otherwise
+/// by 365. Reversed dates negate the same forward calculation.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ActActAfb;
 
 impl ActActAfb {
-    /// Determines if the year basis should be 366.
-    ///
-    /// The basis is 366 if Feb 29 exists in the one-year lookback from end date.
-    fn is_366_basis(start: Date, end: Date) -> bool {
-        // For AFB, we look at whether Feb 29 falls in the relevant period
-        // The "relevant year" is determined by going back one year from the end date
-
-        let days = start.days_between(&end);
-        if days <= 0 {
-            return false;
-        }
-
-        // If period is less than a year, check if Feb 29 is in [start, end]
-        if days <= 366 {
-            return Self::period_contains_feb29(start, end);
-        }
-
-        // For longer periods, we need the rule for the final partial year
-        // Look back one year from end
-        let one_year_back =
-            Date::from_ymd(end.year() - 1, end.month(), end.day()).unwrap_or_else(|_| {
-                // Handle Feb 29 -> Feb 28
-                Date::from_ymd(end.year() - 1, end.month(), 28).unwrap()
-            });
-
-        Self::period_contains_feb29(one_year_back, end)
-    }
-
-    /// Checks if Feb 29 is contained in the period [start, end].
+    /// Checks the remaining interval with start included and end excluded.
     fn period_contains_feb29(start: Date, end: Date) -> bool {
         let start_year = start.year();
         let end_year = end.year();
@@ -281,8 +249,7 @@ impl ActActAfb {
             }
 
             if let Ok(feb_29) = Date::from_ymd(year, 2, 29) {
-                // Feb 29 must be strictly after start and <= end
-                if feb_29 > start && feb_29 <= end {
+                if feb_29 >= start && feb_29 < end {
                     return true;
                 }
             }
@@ -298,45 +265,39 @@ impl DayCount for ActActAfb {
     }
 
     fn year_fraction(&self, start: Date, end: Date) -> Decimal {
-        if start >= end {
+        if start == end {
             return Decimal::ZERO;
         }
-
-        let total_days = start.days_between(&end);
-
-        // For periods up to one year
-        if total_days <= 366 {
-            let basis = if Self::is_366_basis(start, end) {
-                366
-            } else {
-                365
-            };
-            return Decimal::from(total_days) / Decimal::from(basis);
-        }
-
-        // For periods > 1 year, count full years plus remainder
+        let (start, end, sign) = if start < end {
+            (start, end, Decimal::ONE)
+        } else {
+            (end, start, -Decimal::ONE)
+        };
         let mut full_years = 0i32;
-        let mut remaining_start = start;
-
-        // Count full years by moving forward
-        loop {
-            let next_year = remaining_start.add_years(1).unwrap_or(remaining_start);
-            if next_year > end {
+        let mut remaining_end = end;
+        // Each successful step strictly decreases the year. The calendar span
+        // bounds all work, including dates at the underlying calendar limits.
+        for _ in 0..=end.year() - start.year() {
+            let Ok(mut anniversary) = remaining_end.add_years(-1) else {
+                break; // No representable earlier anniversary can cover start.
+            };
+            if anniversary.month() == 2 && anniversary.day() == 28 && anniversary.is_leap_year() {
+                anniversary = anniversary.add_days(1);
+            }
+            if anniversary < start {
                 break;
             }
             full_years += 1;
-            remaining_start = next_year;
+            remaining_end = anniversary;
         }
-
-        // Calculate fraction for remaining period
-        let remaining_days = remaining_start.days_between(&end);
-        let basis = if Self::period_contains_feb29(remaining_start, end) {
+        let remaining_days = start.days_between(&remaining_end);
+        let basis = if Self::period_contains_feb29(start, remaining_end) {
             366
         } else {
             365
         };
 
-        Decimal::from(full_years) + Decimal::from(remaining_days) / Decimal::from(basis)
+        sign * (Decimal::from(full_years) + Decimal::from(remaining_days) / Decimal::from(basis))
     }
 
     fn day_count(&self, start: Date, end: Date) -> i64 {

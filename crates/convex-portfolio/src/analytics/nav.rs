@@ -35,62 +35,36 @@ pub struct NavBreakdown {
 
 impl NavBreakdown {
     /// Creates a NAV breakdown from a portfolio.
-    #[must_use]
-    pub fn from_portfolio(portfolio: &Portfolio) -> Self {
-        let securities_market_value = portfolio.securities_market_value();
-        let accrued_interest = portfolio.total_accrued_interest();
-        let total_cash = portfolio.total_cash();
-        let liabilities = portfolio.total_liabilities();
-
-        let nav = securities_market_value + accrued_interest + total_cash - liabilities;
-
-        let nav_per_share = portfolio.shares_outstanding.and_then(|shares| {
-            if shares > Decimal::ZERO {
-                Some(nav / shares)
-            } else {
-                None
-            }
-        });
-
-        Self {
-            securities_market_value,
-            accrued_interest,
-            total_cash,
-            liabilities,
-            nav,
+    pub fn from_portfolio(portfolio: &Portfolio) -> crate::PortfolioResult<Self> {
+        Ok(Self {
+            securities_market_value: portfolio.securities_market_value()?,
+            accrued_interest: portfolio.total_accrued_interest()?,
+            total_cash: portfolio.total_cash()?,
+            liabilities: portfolio.total_liabilities(),
+            nav: portfolio.nav()?,
             shares_outstanding: portfolio.shares_outstanding,
-            nav_per_share,
-        }
+            nav_per_share: portfolio.nav_per_share()?,
+        })
+    }
+    fn percentage(&self, value: Decimal) -> crate::PortfolioResult<Option<Decimal>> {
+        use convex_math::decimal::BoundedDecimal;
+        let numerator = BoundedDecimal::decimal(value).multiply(Decimal::ONE_HUNDRED)?;
+        super::metrics::signed_ratio(&numerator, &BoundedDecimal::decimal(self.nav))
     }
 
     /// Returns the securities portion as a percentage of NAV.
-    #[must_use]
-    pub fn securities_pct(&self) -> Decimal {
-        if self.nav > Decimal::ZERO {
-            self.securities_market_value / self.nav * Decimal::ONE_HUNDRED
-        } else {
-            Decimal::ZERO
-        }
+    pub fn securities_pct(&self) -> crate::PortfolioResult<Option<Decimal>> {
+        self.percentage(self.securities_market_value)
     }
 
     /// Returns the cash portion as a percentage of NAV.
-    #[must_use]
-    pub fn cash_pct(&self) -> Decimal {
-        if self.nav > Decimal::ZERO {
-            self.total_cash / self.nav * Decimal::ONE_HUNDRED
-        } else {
-            Decimal::ZERO
-        }
+    pub fn cash_pct(&self) -> crate::PortfolioResult<Option<Decimal>> {
+        self.percentage(self.total_cash)
     }
 
     /// Returns the accrued interest as a percentage of NAV.
-    #[must_use]
-    pub fn accrued_pct(&self) -> Decimal {
-        if self.nav > Decimal::ZERO {
-            self.accrued_interest / self.nav * Decimal::ONE_HUNDRED
-        } else {
-            Decimal::ZERO
-        }
+    pub fn accrued_pct(&self) -> crate::PortfolioResult<Option<Decimal>> {
+        self.percentage(self.accrued_interest)
     }
 }
 
@@ -103,8 +77,7 @@ impl NavBreakdown {
 /// println!("NAV: {}", breakdown.nav);
 /// println!("Securities: {}%", breakdown.securities_pct());
 /// ```
-#[must_use]
-pub fn calculate_nav_breakdown(portfolio: &Portfolio) -> NavBreakdown {
+pub fn calculate_nav_breakdown(portfolio: &Portfolio) -> crate::PortfolioResult<NavBreakdown> {
     NavBreakdown::from_portfolio(portfolio)
 }
 
@@ -151,7 +124,7 @@ mod tests {
     #[test]
     fn test_nav_breakdown() {
         let portfolio = create_test_portfolio();
-        let breakdown = calculate_nav_breakdown(&portfolio);
+        let breakdown = calculate_nav_breakdown(&portfolio).unwrap();
 
         // Securities: 1,000,000 + 490,000 = 1,490,000
         assert_eq!(breakdown.securities_market_value, dec!(1_490_000));
@@ -172,14 +145,14 @@ mod tests {
     #[test]
     fn test_nav_percentages() {
         let portfolio = create_test_portfolio();
-        let breakdown = calculate_nav_breakdown(&portfolio);
+        let breakdown = calculate_nav_breakdown(&portfolio).unwrap();
 
         // Securities pct: 1,490,000 / 1,602,500 ≈ 92.98%
-        let sec_pct = breakdown.securities_pct();
+        let sec_pct = breakdown.securities_pct().unwrap().unwrap();
         assert!((sec_pct - dec!(92.98)).abs() < dec!(0.1));
 
         // Cash pct: 100,000 / 1,602,500 ≈ 6.24%
-        let cash_pct = breakdown.cash_pct();
+        let cash_pct = breakdown.cash_pct().unwrap().unwrap();
         assert!((cash_pct - dec!(6.24)).abs() < dec!(0.1));
     }
 
@@ -192,7 +165,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let breakdown = calculate_nav_breakdown(&portfolio);
+        let breakdown = calculate_nav_breakdown(&portfolio).unwrap();
         assert_eq!(breakdown.nav_per_share, None);
         assert_eq!(breakdown.shares_outstanding, None);
     }
@@ -217,7 +190,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let breakdown = calculate_nav_breakdown(&portfolio);
+        let breakdown = calculate_nav_breakdown(&portfolio).unwrap();
 
         // NAV = 1,000,000 + 0 + 100,000 - 50,000 = 1,050,000
         assert_eq!(breakdown.nav, dec!(1_050_000));

@@ -128,6 +128,12 @@ pub enum ConvexError {
     },
 }
 
+impl From<convex_math::MathError> for ConvexError {
+    fn from(error: convex_math::MathError) -> Self {
+        Self::math_error(error.to_string())
+    }
+}
+
 impl ConvexError {
     /// Creates an invalid date error.
     #[must_use]

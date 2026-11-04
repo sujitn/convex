@@ -1,78 +1,8 @@
-//! Convex Term Structure Framework
-//!
-//! A comprehensive curve framework for fixed income pricing, supporting:
-//!
-//! - Multiple curve types (rate, credit, inflation, FX)
-//! - Segmented interpolation with different methods per tenor range
-//! - Curve composition through delegation, derivation, and spreading
-//! - Global calibration from market instruments
-//! - Curve bumping for sensitivity analysis
-//!
-//! # Quick Start
-//!
-//! ```rust,ignore
-//! use convex_curves::{CurveBuilder, RateCurve, InterpolationMethod};
-//! use convex_core::types::{Date, Compounding};
-//!
-//! // Build a SOFR curve from market data
-//! let sofr_curve = CurveBuilder::rate_curve(today)
-//!     .segment(0.0..2.0)
-//!         .discrete_zeros(short_tenors, short_rates, Compounding::Continuous)
-//!         .interpolate(InterpolationMethod::Linear)
-//!     .segment(2.0..10.0)
-//!         .calibrate(swap_instruments)
-//!         .interpolate(InterpolationMethod::MonotoneConvex)
-//!     .build()?;
-//!
-//! let sofr = RateCurve::new(sofr_curve)?;
-//! let df_5y = sofr.discount_factor(today.add_years(5))?;
-//! ```
-//!
-//! # Architecture
-//!
-//! ## Core Trait: `TermStructure`
-//!
-//! The fundamental abstraction for any curve. Provides:
-//! - `value_at(t)`: Raw curve value at tenor t
-//! - `value_type()`: What the values represent (DF, zero rate, etc.)
-//! - `derivative_at(t)`: Optional derivative for forward calculations
-//!
-//! ## Domain Wrappers
-//!
-//! Provide semantic operations on top of any `TermStructure`:
-//!
-//! - [`RateCurve<T>`]: `discount_factor()`, `zero_rate()`, `forward_rate()`
-//! - [`CreditCurve<T>`]: `survival_probability()`, `hazard_rate()`
-//! - `InflationCurve<T>`: `index_ratio()`, `real_rate()` (planned)
-//! - `FxCurve<T>`: `forward_rate()`, `forward_points()` (planned)
-//!
-//! ## Curve Types
-//!
-//! - [`DiscreteCurve`]: Curve from point data with interpolation
-//! - [`SegmentedCurve`]: Different sources/interpolation per tenor range
-//! - [`DelegatedCurve`]: Wraps another curve with fallback handling
-//! - [`DerivedCurve`]: Transforms a base curve (shift, spread, etc.)
-//!
-//! ## Builder Pattern
-//!
-//! Fluent API for constructing complex curves:
-//!
-//! ```rust,ignore
-//! let curve = CurveBuilder::rate_curve(today)
-//!     .segment(0.0..2.0)
-//!         .discrete_zeros(tenors, rates, Compounding::Continuous)
-//!         .interpolate(InterpolationMethod::Linear)
-//!     .segment(2.0..)
-//!         .delegate(swap_curve)
-//!         .extrapolate_with(ExtrapolationMethod::Flat)
-//!     .build()?;
-//! ```
-//!
-//! # Thread Safety
-//!
-//! All term structures implement `Send + Sync`, enabling safe use in
-//! parallel pricing scenarios.
-
+// The crate documentation is the README, so docs.rs and crates.io show the
+// same text and its examples run as doctests.
+#![doc = include_str!("../README.md")]
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
 #![warn(missing_docs)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
@@ -113,6 +43,7 @@ mod term_structure;
 mod value_type;
 
 // Curve implementations
+
 pub mod curves;
 
 // Domain wrappers
@@ -129,6 +60,9 @@ pub mod bumping;
 
 // Multi-curve environment
 pub mod multicurve;
+
+/// Checked pure curve recipes, construction, dependencies and queries.
+pub mod contracts;
 
 // Re-exports for convenience
 pub use conversion::ValueConverter;
@@ -177,7 +111,7 @@ pub mod interpolation {
 }
 
 /// Extrapolation methods for curve extension.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ExtrapolationMethod {
     /// No extrapolation - error if outside range.
     #[default]
@@ -188,10 +122,17 @@ pub enum ExtrapolationMethod {
     Linear,
     /// Flat forward - constant instantaneous forward rate.
     FlatForward,
+    /// Forward rate converging to an Ultimate Forward Rate.
+    UfrConvergence {
+        /// Ultimate forward rate.
+        ufr: f64,
+        /// Convergence speed (alpha).
+        alpha: f64,
+    },
 }
 
 /// Interpolation method selection for curve construction.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum InterpolationMethod {
     /// Simple linear interpolation.
     Linear,
@@ -199,7 +140,8 @@ pub enum InterpolationMethod {
     LogLinear,
     /// Natural cubic spline.
     CubicSpline,
-    /// Monotone convex (production default, positive forwards).
+    /// Nonnegative Hagan–West continuous-zero model; requires nonnegative
+    /// interval means. Select the complete checked source for dated semantics.
     #[default]
     MonotoneConvex,
     /// Flat forward interpolation (constant forward rates between pillars).
@@ -210,10 +152,16 @@ pub enum InterpolationMethod {
     NelsonSiegel,
     /// Svensson parametric model.
     Svensson,
+    /// Exact segment-specific methods in a complete checked composition.
+    Segmented,
+    /// Exact inherited raw method with an explicit native delegation policy.
+    Delegated,
 }
 
 impl InterpolationMethod {
-    /// Returns true if this method guarantees positive forward rates.
+    /// Returns true if the method's correctly represented admissible input
+    /// domain guarantees nonnegative forwards. This does not validate an
+    /// arbitrary raw-value representation or certify a market curve.
     #[must_use]
     pub fn guarantees_positive_forwards(&self) -> bool {
         matches!(
@@ -237,6 +185,7 @@ impl InterpolationMethod {
             InterpolationMethod::MonotoneConvex => "C1",
             InterpolationMethod::PiecewiseConstant => "C-1",
             InterpolationMethod::NelsonSiegel | InterpolationMethod::Svensson => "C∞",
+            InterpolationMethod::Segmented | InterpolationMethod::Delegated => "source-dependent",
         }
     }
 }

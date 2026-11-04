@@ -1,0 +1,1629 @@
+{
+  "recorded_at": "2026-10-15T09:30:06.436947+00:00",
+  "method": "Independent Python Decimal110, no candidate imports/output; actual supplied binary64 inputs promoted exactly",
+  "cash_basis": "Explicit supplied cash and positive discount years, no instrument/convention context inferred",
+  "cases": [
+    {
+      "id": "yield-pricing-000",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "116.20498614958448820595567788786073356315299219314986486358405192874114909800542378709906663410933299224037659",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-001",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "105.0",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-002",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "99.999999999999999732516165988585129112340213790989897983634778180891278220181740808926561964481071464743454229",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-003",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "83.209876543209876543209876543209876543209876543209876543209876543209876543209876543209876543209876543209876543",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-004",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "1229.7199735586085396089536951141587218333725639661161418212301872289337857515921948673567505752895794216103914",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-005",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "1001.7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-006",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "907.60095741249202340820608751985490242318098412891436265240736710136828314577053363186699429487685958753114936",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-007",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "625.62807043466238648734317733267691196397862289024520208384008492211118181082049324614107530485430639218761630",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-008",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "113.71191135734072089374560573785720285612865774659223447379510545948893661477234749681829583468382290462091289",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-009",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "102.5",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-010",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "97.501487209994050892701047668280019866824879353927326266551417560854605501599270558045856260122529023683408792",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-011",
+      "convention": "StreetConvention",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "80.740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740740741",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-012",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "116.05396463536351327363919318929238362533860173000981775834414721155977371576998509241433751200355858715146132",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-013",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "105.0",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-014",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "99.969890854172144455487729325608943622067823866323316374629619153555313500145803581793442474936145747405917775",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-015",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "82.642688665126135941858933681349600699225344524131655511787454652123418062523197758647525771961542606051172759",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-016",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "1226.4911779577260705453114100808815921638254575124655697784110544933532191092004622755083944260767143133782760",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-017",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "1001.750",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-018",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "907.04816597622258286941169648442180695508776656045222686883850624105958525476688961291981679219248764797955371",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-019",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "617.02179125640271814605945958091406062695407301505109773211221379106435590296781364247553113852600770210754235",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-020",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "113.56070891801433514538743775011480661550891636148336354666222481957270326120952305638858456448470932378986665",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-021",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "102.5",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-022",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "97.471396253387104405795246748246076919435899112654095834945875809377266284035610498566814505172359964886647705",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-023",
+      "convention": "StreetConvention",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "80.175285257599885058847475485207313130829372253684702050981190359310832006321763388848313597777804384526047341",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-024",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": -0.4,
+      "expected_price": "174.06081945517285378613987923958889847885380288504835599213814551407617376803906321649019448904970179937248594",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.399
+    },
+    {
+      "id": "yield-pricing-025",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "105.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-026",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "100.05879780141895173473537177620198216675317604677468502908625260908099295939935046824481946160056816296798123",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-027",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "84.236067977499789696409173668731276235440618359611525724270897245410520925637804899414414408378782274969508176",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-028",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": -0.4,
+      "expected_price": "2781.1640983953767072799291304618500450392144671717055596092635788262159173817036428718584331613655915645564018",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.399
+    },
+    {
+      "id": "yield-pricing-029",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "1001.7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-030",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "908.68094927611727650441208235424485543169699695232396488730337198369757534366469611472678243235001444276359261",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-031",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "641.35163413709650770758153330002574515428297106422077261829042969879367624685825998026306730312140445347467441",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-032",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": -0.4,
+      "expected_price": "171.77251387816049234559776574485502726300499061548348900254848740113317528730316978006138076507722557485852395",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.399
+    },
+    {
+      "id": "yield-pricing-033",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "102.50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-034",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "97.560249817628666790499826387698286475099738004137367532066288325792354866514042978510708718715200546741019463",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-035",
+      "convention": "TrueYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "81.763932022500210303590826331268723764559381640388474275729102754589479074362195100585585591621217725030491824",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-036",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": -0.4,
+      "expected_price": "174.06081945517285378613987923958889847885380288504835599213814551407617376803906321649019448904970179937248594",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.399
+    },
+    {
+      "id": "yield-pricing-037",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "105.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-038",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "100.05879780141895173473537177620198216675317604677468502908625260908099295939935046824481946160056816296798123",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-039",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "84.236067977499789696409173668731276235440618359611525724270897245410520925637804899414414408378782274969508176",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-040",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": -0.4,
+      "expected_price": "2781.1640983953767072799291304618500450392144671717055596092635788262159173817036428718584331613655915645564018",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.399
+    },
+    {
+      "id": "yield-pricing-041",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "1001.7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-042",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "908.68094927611727650441208235424485543169699695232396488730337198369757534366469611472678243235001444276359261",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-043",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "641.35163413709650770758153330002574515428297106422077261829042969879367624685825998026306730312140445347467441",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-044",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": -0.4,
+      "expected_price": "171.77251387816049234559776574485502726300499061548348900254848740113317528730316978006138076507722557485852395",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.399
+    },
+    {
+      "id": "yield-pricing-045",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "102.50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-046",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "97.560249817628666790499826387698286475099738004137367532066288325792354866514042978510708718715200546741019463",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-047",
+      "convention": "Annual",
+      "frequency": 4,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "81.763932022500210303590826331268723764559381640388474275729102754589479074362195100585585591621217725030491824",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-048",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": -3.0,
+      "expected_price": "2069.9717573025811055016794282449242739887749281227245574407723837510965441905940918809135935043904479492163215",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -2.999
+    },
+    {
+      "id": "yield-pricing-049",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "105.0",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-050",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "99.939290791394017329435093085156907141382649078029649979381895440555311340724125988471345460853695987845029047",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-051",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "82.033322521280487502292182723350493188474171831156127964160803340515448473513994400028286931174525208536053333",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-052",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": -3.0,
+      "expected_price": "403691.61019148398540145304169640297298638032629606602855098728419777236361443869008818531272266956817042031601",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -2.999
+    },
+    {
+      "id": "yield-pricing-053",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "1001.750",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-054",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "906.48653514216796735677549330533080931686407412741621472488475812283607879797034769011042719700016807731266734",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-055",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "607.84239913290676987944338589856090832054789628231033005454558114046079710792604181182383526329557069573483450",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-056",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": -3.0,
+      "expected_price": "2097.7771542588599507409904750807821896362159483772615975178564689114139755134904573440195672481107252476572588",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -2.999
+    },
+    {
+      "id": "yield-pricing-057",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "102.5",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-058",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "97.440814792504139009195816213650513450731258501714654380238033512317162321729716389915151478352528751606709653",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-059",
+      "convention": "Continuous",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "79.567839966036022658580647674651041125606078432268227940912550160145516027591248861111508732643092566819746599",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-060",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "116.52046783625731065166491901209848398814321924478912092519546455746991321403858210047137313866266818249863251",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-061",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "105.0",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-062",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "100.05807200929152122529613423904826051198118556383071678784706917990604964511460424592785724380876901983463067",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-063",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          2.5
+        ],
+        [
+          1.0,
+          102.5
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "84.222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-064",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "1251.9974662162162335797670703287332466494838950437275284576163347566544992428392079920590280097329902917584122",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-065",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "1001.750",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-066",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "910.74342825848849485961346974602255818241402555863418885947108804706438072771987485619308252282566717702595550",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-067",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.25,
+          0.0
+        ],
+        [
+          0.75,
+          1.125
+        ],
+        [
+          2.0,
+          1000.625
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "668.03070175438596491228070175438596491228070175438596491228070175438596491228070175438596491228070175438596492",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": true,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    },
+    {
+      "id": "yield-pricing-068",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": -0.1,
+      "expected_price": "114.03508771929824632593556006024709353538693911656415531739704034745498766046485113490700005886041017269034579",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": -0.099
+    },
+    {
+      "id": "yield-pricing-069",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.0,
+      "expected_price": "102.5",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.001
+    },
+    {
+      "id": "yield-pricing-070",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.05,
+      "expected_price": "97.560975609756097299939063924852008129871728487081335773305471754967298180798789200827670936506999689874370025",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.051000000000000004
+    },
+    {
+      "id": "yield-pricing-071",
+      "convention": "SimpleYield",
+      "frequency": 2,
+      "cash": [
+        [
+          0.5,
+          -2.5
+        ],
+        [
+          1.0,
+          105.0
+        ]
+      ],
+      "annual_yield": 0.25,
+      "expected_price": "81.777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777778",
+      "price_absolute_bound": "1e-10",
+      "inverse_admitted": false,
+      "yield_absolute_bound": "1e-9",
+      "initial_guess": 0.251
+    }
+  ],
+  "accepted_task": false,
+  "certified": false,
+  "dated_control": {
+    "settlement": "2025-01-15",
+    "payment": "2026-01-15",
+    "amount": "100",
+    "annual_yield": 0.05,
+    "day_count": "Thirty360US",
+    "frequency": "SemiAnnual",
+    "expected_price": "95.181439619274241522903033908387864366448542534205829863176680547293277810826888756692444973230220107079119572",
+    "absolute_bound": "1e-10",
+    "method": "Independent exact Fraction160000/1681, one full 30/360 year at annual decimal .05 with semiannual compounding",
+    "certified": false
+  }
+}
