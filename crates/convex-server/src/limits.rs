@@ -450,7 +450,8 @@ async fn propose(
                 set.limits == limits && set.proposed_by == subject && set.proposal_version.is_none()
             }
             MasterDefinition::LimitProposal(proposal) => {
-                proposal.limits == limits
+                proposal.is_open()
+                    && proposal.limits == limits
                     && proposal.base_version == base
                     && proposal.proposed_by == subject
             }
@@ -543,16 +544,26 @@ async fn propose(
     Ok(proposal_response(record, StatusCode::ACCEPTED))
 }
 
-/// The open proposal `If-Match` names, or the response that refuses the request.
+/// The open proposal `If-Match` names, or the response that refuses the request. The
+/// caller must hold `LimitWrite` on each instrument the proposal names before learning
+/// anything more about it.
 async fn open_proposal(
-    repo: &dyn ReferenceRepository,
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
     id: &BookId,
     expected: Version,
 ) -> Result<(MasterRecord, LimitProposalDefinition), Response> {
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
     let record = current(repo, MasterKey::LimitProposal(id.clone()))
         .await
         .map_err(reference_error)?
         .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    authorize_write(
+        state,
+        ctx,
+        id,
+        &proposal_of(&record).map_err(reference_error)?.limits,
+    )?;
     if record.version != expected {
         return Err(conflict(
             "VERSION_CONFLICT",
@@ -612,8 +623,7 @@ async fn approve(
         }
         return Ok(set_response(&record, written(&record)));
     }
-    let (record, proposal) = open_proposal(repo, &id, expected).await?;
-    authorize_write(state, ctx, &id, &proposal.limits)?;
+    let (record, proposal) = open_proposal(state, ctx, &id, expected).await?;
     if !state.access.is_local_development() && proposal.proposed_by == subject {
         return Err(typed_error(
             StatusCode::FORBIDDEN,
@@ -730,8 +740,7 @@ async fn withdraw(
         }
         return Ok(proposal_response(&record, StatusCode::OK));
     }
-    let (record, proposal) = open_proposal(repo, &id, expected).await?;
-    authorize_write(state, ctx, &id, &proposal.limits)?;
+    let (record, proposal) = open_proposal(state, ctx, &id, expected).await?;
     let floor = [
         after(proposal.effective.from).map_err(reference_error)?,
         record.recorded_at,
