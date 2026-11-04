@@ -15,9 +15,12 @@
 //! A status *change* is recorded before it is published (D86): one `AuditStore` append per
 //! limit whose status differs from its last recorded one, then one `limit_status` frame.
 //! A failed append keeps the last recorded status, so a later evaluation records the
-//! change again; a book with a failed append is evaluated again within a second. A
-//! restart begins with nothing recorded, so its first evaluation records every limit's
-//! status as a change from `unevaluated`, naming the start.
+//! change again; a book with a failed append is evaluated again within a second, unless
+//! the store refused it for capacity, which a second later would not change. A restart
+//! begins with nothing recorded, so its first evaluation records every limit's status as
+//! a change from `unevaluated`, naming the start. A stop is seen between appends, so
+//! shutdown waits for one append at most; what was not recorded is recorded at the next
+//! start.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -38,6 +41,7 @@ use convex_engine::ports::reference_master::*;
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::runtime::PublishedValuation;
 use convex_engine::ports::storage::{AuditEntry, AuditStore};
+use convex_engine::ports::TraitError;
 use convex_engine::PricingEngine;
 use serde::Serialize;
 use tokio::sync::{broadcast, watch};
@@ -143,6 +147,19 @@ fn status_name(status: Option<LimitStatus>) -> &'static str {
 // THE MONITOR
 // =============================================================================
 
+/// The server's stop and the engine's shutdown, read between units of work.
+#[derive(Clone)]
+struct Stop {
+    stop: watch::Receiver<bool>,
+    shutdown: watch::Receiver<bool>,
+}
+
+impl Stop {
+    fn requested(&self) -> bool {
+        *self.stop.borrow() || *self.shutdown.borrow()
+    }
+}
+
 /// The monitor a server composes over its audit store. [`LimitMonitor::run`] is its task.
 pub(crate) struct LimitMonitor {
     audit: Arc<dyn AuditStore>,
@@ -176,6 +193,10 @@ impl LimitMonitor {
             tracing::error!("limit monitor: the clock is outside the supported range");
             return;
         };
+        let halt = Stop {
+            stop: stop.clone(),
+            shutdown: shutdown.clone(),
+        };
         let mut task = Task {
             engine,
             ledger: Ledger {
@@ -183,7 +204,10 @@ impl LimitMonitor {
                 feed: self.feed.clone(),
                 next_id: None,
                 started_at,
+                halt: halt.clone(),
+                full_reported: false,
             },
+            halt,
             books: BTreeMap::new(),
             holders: HashMap::new(),
             terms: PricedTerms::new(),
@@ -195,6 +219,10 @@ impl LimitMonitor {
         let mut timer = tokio::time::interval(RETRY);
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
+            // A stop that arrived during the last unit of work, or before the first.
+            if task.halt.requested() {
+                break;
+            }
             task.work().await;
             tokio::select! {
                 biased;
@@ -204,6 +232,9 @@ impl LimitMonitor {
                 changed = shutdown.changed() => {
                     if changed.is_err() || *shutdown.borrow() { break; }
                 }
+                // Ahead of the streams: under steady ticks one is always ready, and a
+                // retry behind them would never run.
+                _ = timer.tick(), if task.waiting() => task.again(),
                 notice = commits.recv() => {
                     let mut notice = notice;
                     loop {
@@ -234,7 +265,6 @@ impl LimitMonitor {
                         };
                     }
                 }
-                _ = timer.tick(), if task.waiting() => task.again(),
             }
         }
     }
@@ -277,6 +307,7 @@ struct Watched {
 struct Task {
     engine: Arc<PricingEngine>,
     ledger: Ledger,
+    halt: Stop,
     books: BTreeMap<BookId, Watched>,
     /// Each instrument a watched book holds, and the books holding it.
     holders: HashMap<String, BTreeSet<BookId>>,
@@ -337,6 +368,9 @@ impl Task {
                 }
             }
         }
+        if self.halt.requested() {
+            return;
+        }
         if let Some(reload) = self.reload.take() {
             if let Err(error) = self.reread(reload).await {
                 tracing::warn!(%error, "limit monitor: limit sets or books are unreadable");
@@ -344,6 +378,9 @@ impl Task {
                 self.stalled = true;
                 return;
             }
+        }
+        if self.halt.requested() {
+            return;
         }
         if let Some(dirty) = self.dirty.take() {
             self.evaluate(dirty).await;
@@ -377,6 +414,9 @@ impl Task {
             Pending::Some(ids) => ids.into_iter().collect(),
         };
         for id in ids {
+            if self.halt.requested() {
+                return Ok(());
+            }
             let set = repo.get_master(&MasterKey::LimitSet(id.clone())).await?;
             let set = match &set {
                 Some(record) => Some((record.version, set_of(record)?)),
@@ -474,6 +514,9 @@ impl Task {
         };
         let repo = self.engine.reference_repository().clone();
         for (id, subject) in &subjects {
+            if self.halt.requested() {
+                return;
+            }
             let Some((book_version, book)) = &subject.book else {
                 continue;
             };
@@ -501,14 +544,19 @@ impl Task {
                 evaluated_at,
                 instruments: &subject.instruments,
             };
-            if self
+            match self
                 .ledger
                 .record(context, &subject.limits, evaluation, &mut watched.recorded)
                 .await
             {
-                self.retry.remove(id);
-            } else {
-                self.retry.insert(id.clone());
+                // A full store stays full: the book's next evaluation tries again, not a
+                // timer.
+                Recorded::All | Recorded::Full | Recorded::Stopped => {
+                    self.retry.remove(id);
+                }
+                Recorded::Retry => {
+                    self.retry.insert(id.clone());
+                }
             }
             gauges(id, &watched.recorded);
         }
@@ -539,6 +587,19 @@ struct Context<'a> {
     instruments: &'a Arc<[String]>,
 }
 
+/// How one book's changes were recorded.
+enum Recorded {
+    /// Every change.
+    All,
+    /// Not every change; a second later may succeed.
+    Retry,
+    /// The store refused a change for capacity; the rest of the book's changes were not
+    /// tried.
+    Full,
+    /// A stop arrived; the rest were not tried.
+    Stopped,
+}
+
 /// The audit store, the feed, and the next entry ID.
 struct Ledger {
     audit: Arc<dyn AuditStore>,
@@ -547,18 +608,20 @@ struct Ledger {
     /// write that failed after it committed never makes a retry conflict.
     next_id: Option<u64>,
     started_at: UtcTimestamp,
+    halt: Stop,
+    /// A capacity refusal has been logged since the last append that succeeded.
+    full_reported: bool,
 }
 
 impl Ledger {
     /// Record, then publish, each limit whose status differs from its last recorded one.
-    /// Returns whether every change was recorded.
     async fn record(
         &mut self,
         context: Context<'_>,
         limits: &[LimitDefinition],
         evaluation: crate::limits::BookEvaluation,
         recorded: &mut HashMap<LimitId, LimitStatus>,
-    ) -> bool {
+    ) -> Recorded {
         recorded.retain(|id, _| limits.iter().any(|limit| limit.limit_id == *id));
         let snapshot_ids: Arc<[String]> = evaluation.snapshot_ids.into();
         let mut complete = true;
@@ -567,8 +630,11 @@ impl Ledger {
             if previous == Some(evaluation.status) {
                 continue;
             }
+            if self.halt.requested() {
+                return Recorded::Stopped;
+            }
             let Some(record_id) = self.next_id else {
-                return false;
+                return Recorded::Retry;
             };
             self.next_id = record_id.checked_add(1);
             let status = evaluation.status;
@@ -607,6 +673,7 @@ impl Ledger {
             };
             match self.audit.append(&entry).await {
                 Ok(()) => {
+                    self.full_reported = false;
                     recorded.insert(limit.limit_id.clone(), status);
                     metrics::counter!(CHANGES).increment(1);
                     // No subscriber is not an error.
@@ -615,6 +682,14 @@ impl Ledger {
                         instruments: context.instruments.clone(),
                     }));
                 }
+                Err(TraitError::CapacityExceeded) => {
+                    metrics::counter!(APPEND_FAILURES).increment(1);
+                    if !self.full_reported {
+                        self.full_reported = true;
+                        tracing::error!(book = %context.book_id, "limit monitor: the audit store refuses status changes for capacity (it holds at most 1,000,000 entries and keeps them all); changes are neither recorded nor published until it accepts one");
+                    }
+                    return Recorded::Full;
+                }
                 Err(error) => {
                     tracing::warn!(book = %context.book_id, limit = %limit.limit_id, %error, "limit monitor: a status change could not be recorded");
                     metrics::counter!(APPEND_FAILURES).increment(1);
@@ -622,6 +697,10 @@ impl Ledger {
                 }
             }
         }
-        complete
+        if complete {
+            Recorded::All
+        } else {
+            Recorded::Retry
+        }
     }
 }

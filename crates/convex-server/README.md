@@ -246,8 +246,10 @@ Send `{"type":"subscribe_limits","book_ids":[...]}` (at most 64 books) to receiv
 [book limits](#book-limits)). Seed the display from
 `GET /api/v1/books/{book_id}/limits/status`; after `RESYNC_REQUIRED`, read it again.
 `unsubscribe_limits` takes the same shape. A session receives a book's changes only while
-it could read that book's status (see [access](ACCESS.md)); otherwise each change arrives
-as a `FORBIDDEN` error naming the book, without the change. REST calculators return their results in
+it could read that book's status (see [access](ACCESS.md)). A session that holds the book
+but not every instrument it holds or a limit names receives each change as a `FORBIDDEN`
+error naming the book, without the change; a session whose access to the book is revoked
+is closed, as for valuations. REST calculators return their results in
 the response and send nothing on the WebSocket. The bond, ETF and portfolio
 subscriptions are retired and refused with `INVALID_MESSAGE`; see the
 [route migration](../../docs/internal/ROUTE-MIGRATION.md#rest-triggered-websocket-messages-removed).
@@ -548,7 +550,17 @@ message carries `record_id` (the entry's id), the book and set versions, `evalua
 evaluation (`limit_id`, `status`, `value`, `member`, `utilisation`, `reason`), the snapshot
 ids read and `monitor_started_at`. A failed append keeps the last recorded status, so the
 change is recorded by a later evaluation; a book with a failed append is evaluated again
-within a second. Nothing reads these entries over HTTP yet.
+within a second, unless the store was full (below). Nothing reads these entries over HTTP
+yet.
+
+The audit store holds at most 1,000,000 entries and keeps every one: nothing prunes it.
+A value that crosses a bound back and forth records a change each time (D86 has no
+hysteresis), at most once per evaluation per limit. Once the store is full, every change is
+refused: none is recorded or published, `convex_limit_status_append_failures_total` counts
+each refusal, and one error is logged until an append succeeds again. Alert on that
+counter. The monitor is the audit store's only writer today. A stop is seen between
+appends, so shutdown waits for one append at most; changes not yet recorded are restated
+at the next start.
 
 A restart records each limit's status again, as a change from `unevaluated`, with the new
 `monitor_started_at`: a standing breach is restated, not reported as a new one. Each entry

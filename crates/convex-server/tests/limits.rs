@@ -1543,3 +1543,242 @@ async fn a_limit_status_frame_needs_what_the_status_route_needs() {
     stop.send(()).unwrap();
     serving.await.unwrap().unwrap();
 }
+
+// =============================================================================
+// THE MONITOR'S AUDIT FAILURES AND SHUTDOWN (P14c)
+// =============================================================================
+
+use convex_engine::ports::storage::{AuditEntry, AuditFilter, AuditStore, Page, Pagination};
+use convex_engine::ports::TraitError;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// An audit store over the fixture's that delays each append, refuses some, or refuses
+/// all for capacity, as a test needs. It counts every append attempted.
+struct ScriptedAudit {
+    inner: Arc<dyn AuditStore>,
+    delay: std::time::Duration,
+    transient: AtomicUsize,
+    full: bool,
+    attempts: AtomicUsize,
+}
+
+/// How a test scripts the store.
+#[derive(Default)]
+struct Script {
+    delay: std::time::Duration,
+    transient: usize,
+    full: bool,
+}
+
+impl ScriptedAudit {
+    fn over(inner: Arc<dyn AuditStore>, script: Script) -> Self {
+        Self {
+            inner,
+            delay: script.delay,
+            transient: AtomicUsize::new(script.transient),
+            full: script.full,
+            attempts: AtomicUsize::new(0),
+        }
+    }
+
+    fn attempts(&self) -> usize {
+        self.attempts.load(Ordering::SeqCst)
+    }
+}
+
+#[async_trait::async_trait]
+impl AuditStore for ScriptedAudit {
+    async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+        self.attempts.fetch_add(1, Ordering::SeqCst);
+        tokio::time::sleep(self.delay).await;
+        if self.full {
+            return Err(TraitError::CapacityExceeded);
+        }
+        if self
+            .transient
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+            .is_ok()
+        {
+            return Err(TraitError::DatabaseError("injected".into()));
+        }
+        self.inner.append(entry).await
+    }
+
+    async fn query(
+        &self,
+        filter: &AuditFilter,
+        pagination: &Pagination,
+    ) -> Result<Page<AuditEntry>, TraitError> {
+        self.inner.query(filter, pagination).await
+    }
+
+    async fn last_id(&self) -> Result<Option<u64>, TraitError> {
+        self.inner.last_id().await
+    }
+}
+
+/// A local-development server over the fixture repository, no runtime, whose monitor
+/// records through `audit` into the fixture's audit store; `BOOK-A` holds the fixture
+/// bond and `count` face limits.
+struct Monitored {
+    audit: Arc<ScriptedAudit>,
+    stop: tokio::sync::oneshot::Sender<()>,
+    serving: tokio::task::JoinHandle<Result<(), convex_server::StartupError>>,
+    setup: support::Setup,
+}
+
+async fn monitored(script: Script, count: usize) -> Monitored {
+    use convex_server::access::identity::{AccessMode, AccessSettings};
+    use convex_server::{Server, ServerConfig, ServerProfile};
+    let setup = support::setup().await;
+    let audit = Arc::new(ScriptedAudit::over(setup.storage.audit.clone(), script));
+    let engine = Arc::new(
+        PricingEngineBuilder::new()
+            .with_storage(setup.storage.clone())
+            .build()
+            .unwrap(),
+    );
+    let config = ServerConfig {
+        profile: ServerProfile::Demo,
+        host: "127.0.0.1".into(),
+        access: AccessSettings {
+            mode: AccessMode::LocalDevelopment,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let server = Server::with_access_control(config, engine, AccessControl::local_development())
+        .with_limit_monitor(audit.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let serving = tokio::spawn(async move {
+        server
+            .serve_until(listener, async {
+                let _ = stopped.await;
+            })
+            .await
+    });
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    for (path, key, body) in [
+        (
+            "/api/v1/books/BOOK-A",
+            "book-a",
+            json!({"currency": "USD", "positions": [position("1000000")]}),
+        ),
+        (
+            "/api/v1/books/BOOK-A/limits",
+            "limits-a",
+            set((0..count)
+                .map(|i| face(&format!("face-{i:02}"), None, Some("2000000"), None))
+                .collect()),
+        ),
+    ] {
+        let response = client
+            .put(format!("{base}{path}"))
+            .header("idempotency-key", key)
+            .json(&body)
+            .send()
+            .await
+            .unwrap();
+        assert!(
+            response.status().is_success(),
+            "{path}: {}",
+            response.status()
+        );
+    }
+    Monitored {
+        audit,
+        stop,
+        serving,
+        setup,
+    }
+}
+
+async fn until(what: &str, condition: impl Fn() -> bool) {
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        while !condition() {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("never {what}"));
+}
+
+/// Shutdown waits for the append in progress, not for the rest of the pass: 64 changes at
+/// 200 ms each would hold it 12.8 s.
+#[tokio::test]
+async fn shutdown_does_not_wait_for_the_monitors_pass() {
+    let server = monitored(
+        Script {
+            delay: std::time::Duration::from_millis(200),
+            ..Default::default()
+        },
+        64,
+    )
+    .await;
+    let audit = server.audit.clone();
+    until("an append started", || audit.attempts() >= 1).await;
+    let asked = std::time::Instant::now();
+    server.stop.send(()).unwrap();
+    server.serving.await.unwrap().unwrap();
+    let waited = asked.elapsed();
+    assert!(
+        waited < std::time::Duration::from_secs(3),
+        "shutdown waited {waited:?} for {} appends",
+        audit.attempts()
+    );
+    assert!(audit.attempts() < 64, "{}", audit.attempts());
+}
+
+/// A full store stays full: the change is tried at the book's next evaluation, not every
+/// second, and the rest of the book's changes are not tried.
+#[tokio::test]
+async fn a_full_audit_store_is_not_retried_on_a_timer() {
+    let server = monitored(
+        Script {
+            full: true,
+            ..Default::default()
+        },
+        2,
+    )
+    .await;
+    let audit = server.audit.clone();
+    until("an append was attempted", || audit.attempts() >= 1).await;
+    tokio::time::sleep(std::time::Duration::from_millis(2500)).await;
+    assert_eq!(audit.attempts(), 1);
+    server.stop.send(()).unwrap();
+    server.serving.await.unwrap().unwrap();
+}
+
+/// Any other failure is tried again within a second, with nothing else to trigger it.
+#[tokio::test]
+async fn a_failed_append_is_retried_on_the_timer() {
+    let server = monitored(
+        Script {
+            transient: 1,
+            ..Default::default()
+        },
+        1,
+    )
+    .await;
+    let audit = server.audit.clone();
+    let inner = server.setup.storage.audit.clone();
+    let recorded = || async {
+        inner
+            .query(&AuditFilter::default(), &Pagination::new(0, 10))
+            .await
+            .unwrap()
+            .total
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while recorded().await < 1 {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the change is recorded on the retry");
+    assert_eq!(audit.attempts(), 2);
+    server.stop.send(()).unwrap();
+    server.serving.await.unwrap().unwrap();
+}
