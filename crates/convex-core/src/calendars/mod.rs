@@ -18,10 +18,9 @@
 //!
 //! # Performance
 //!
-//! All calendars use bitmap storage for O(1) holiday lookups:
-//! - `is_business_day()`: < 10ns
-//! - `is_holiday()`: < 10ns
-//! - Memory: ~12KB per calendar
+//! Built-in holiday calendars use bitmap storage for O(1) holiday lookups.
+//! Supplied dynamic calendars retain exact holiday sets with expected O(1)
+//! lookups. Checked queries validate calendar coverage and bound date searches.
 //!
 //! # Example
 //!
@@ -41,6 +40,7 @@
 use chrono::Datelike;
 
 mod bitmap;
+pub mod checked;
 mod conventions;
 mod dynamic;
 mod japan;
@@ -86,8 +86,23 @@ pub trait Calendar: Send + Sync {
 
     /// Returns true if the date is a business day.
     ///
-    /// A business day is neither a weekend nor a holiday.
+    /// A business day is neither a weekend nor a holiday. This low-level rule
+    /// requires a date within the implementation's coverage; use
+    /// [`Calendar::try_is_business_day`] for external date admission.
     fn is_business_day(&self, date: Date) -> bool;
+
+    /// Validate the dates covered by this actual calendar implementation.
+    /// Bitmap calendars reject dates beyond their stored holiday range. Supplied
+    /// custom implementations must declare any narrower data coverage here.
+    fn validate_date(&self, _date: Date) -> ConvexResult<()> {
+        Ok(())
+    }
+
+    /// Query an actual business day after checking calendar data coverage.
+    fn try_is_business_day(&self, date: Date) -> ConvexResult<bool> {
+        self.validate_date(date)?;
+        Ok(self.is_business_day(date))
+    }
 
     /// Returns true if the date is a holiday (excluding weekends).
     fn is_holiday(&self, date: Date) -> bool {
@@ -222,6 +237,18 @@ impl JointCalendar {
 }
 
 impl Calendar for JointCalendar {
+    fn validate_date(&self, date: Date) -> ConvexResult<()> {
+        if self.calendars.is_empty() || self.calendars.len() > 16 {
+            return Err(crate::ConvexError::CalendarError {
+                reason: "joint calendar requires 1..16 actual components".into(),
+            });
+        }
+        for calendar in &self.calendars {
+            calendar.validate_date(date)?;
+        }
+        Ok(())
+    }
+
     fn name(&self) -> &'static str {
         // This is a limitation - we can't return a dynamic string
         "Joint Calendar"

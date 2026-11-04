@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "exceptions": [
+    {
+      "id": "ASR-001",
+      "scope": [
+        "crates/convex-core/src/types/date.rs",
+        "crates/convex-core/src/types/frequency.rs",
+        "crates/convex-math/src/extrapolation/ufr_convergence.rs",
+        "crates/convex-math/src/extrapolation/mod.rs",
+        "crates/convex-math/src/extrapolation/flat.rs",
+        "crates/convex-math/src/extrapolation/linear.rs",
+        "crates/convex-math/src/interpolation/parametric.rs",
+        "crates/convex-math/src/optimization/mod.rs",
+        "crates/convex-math/src/stats/normal.rs",
+        "crates/convex-bonds/src/options/swaption_hw1f.rs",
+        "crates/convex-bonds/src/instruments/fixed_rate.rs"
+      ],
+      "rationale": "Existing infallible signatures retain documented preconditions and may panic or yield nonfinite signals on invalid direct Rust input. Changing signatures would break embedding clients; checked alternatives bound external paths.",
+      "mitigations": "Use checked constructors/arithmetic/queries/minimizer/swaption for external input. FFI applies resource/domain validation. Nonfinite minimizer/pricer failure cannot be treated as successful economics. Core compatibility conversion accepts declared period counts only. Pure callbacks must terminate and not panic. Existing signatures are not certified total APIs. CVX-054 checked bond builders and native deserialization prevalidate/cache schedules; try_schedule returns typed errors. Older infallible with_conventions and trait schedule access retain valid-term preconditions; new shared cashflow/fixing APIs deny unwrap/expect/panic.",
+      "tracking_task": "CVX-055 / CVX-060 / CVX-063 / CVX-064",
+      "owner": "Convex maintainers",
+      "reviewed_on": "2026-10-05",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "id": "ASR-002",
+      "scope": [
+        "crates/convex-core/src/calendars/mod.rs",
+        "crates/convex-core/src/calendars/conventions.rs",
+        "crates/convex-core/src/calendars/dynamic.rs",
+        "crates/convex-core/src/daycounts/actact.rs",
+        "crates/convex-core/src/daycounts/act365.rs",
+        "crates/convex-bonds/src/fixings.rs",
+        "crates/convex-core/src/daycounts/thirty360.rs",
+        "crates/convex-bonds/src/cashflows/schedule.rs",
+        "crates/convex-bonds/src/arrc.rs"
+      ],
+      "rationale": "Older infallible calendar/day-count convenience APIs and date-only overnight functions retain preconditions and incomplete publication semantics. The compatibility 30E/360 ISDA method retains its pinned all-month termination behavior; only the new checked path applies the February exception. Calendar file-loading conveniences remain. These compatibility paths are not total or product certificates.",
+      "mitigations": "Use CVX-054 checked shared schedules, offsets, contract-aware day-count accrual and publication/receipt/revision-aware FixingSeries and OvernightSchedule. Missing published observations fail before any projection. Calendar::adjust now bounds built-in searches. Do not pass pathological custom calendars or boundary dates to older infallible convenience searches. Migrate full product amounts/observations and schemas in their owning tasks; file conveniences are setup only. New primitives have no registered exception.",
+      "tracking_task": "CVX-055 / CVX-018 / CVX-019 / CVX-063 / CVX-064",
+      "owner": "Convex maintainers",
+      "reviewed_on": "2026-10-05",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "id": "ASR-003",
+      "scope": [
+        "crates/convex-math/src/interpolation/monotone_convex.rs",
+        "crates/convex-math/src/extrapolation/ufr_convergence.rs",
+        "crates/convex-curves/src/calibration/global_fit.rs"
+      ],
+      "rationale": "Existing monotone-convex has a nonnegative-forward model constraint; UFR is heuristic; SequentialBootstrapper is an approximate quote-curve diagnostic whose historical completion flag reports construction. No new model convention or standalone product completeness is certified.",
+      "mitigations": "Keep negative-rate support in other suitable interpolators without banning discount factors >1. Use checked global/piecewise fitting for production ingress; verify requested residuals and propagate failures. Do not present SequentialBootstrapper completion as repricing convergence or use the heuristic as Smith-Wilson. Independent curve/model certification remains required.",
+      "tracking_task": "CVX-056 / CVX-060",
+      "owner": "Convex maintainers",
+      "reviewed_on": "2026-10-04",
+      "expires_on": "2026-12-31"
+    },
+    {
+      "id": "ASR-004",
+      "scope": [
+        "crates/convex-ffi/src/dispatch.rs",
+        "crates/convex-curves/src/calibration/global_fit.rs",
+        "crates/convex-engine/src/calc_graph.rs",
+        "crates/convex-engine/src/runtime/mod.rs"
+      ],
+      "rationale": "Existing orchestration/dispatch algorithms exceed a one-screen function guideline. Selected measured spans before next format: LM lines 355..467 (113 source lines); scenario_inner 1084..1188 (105 source lines). Splitting branch/state logic only to meet line counts can hide invariants.",
+      "mitigations": "Hash-pin the critical sources, keep input bounds at ingress, test helper error/repricing, generation fencing and concurrent claims, and require focused complexity/state-transition review when changed. Pure scope lints remain active. This exception does not suppress compiler warnings or authorize new unbounded numerical work. Existing runtime graph sizes/queues/timeouts are explicit; distributed/steady-state allocation certification is separate.",
+      "tracking_task": "CVX-060 / CVX-063 / CVX-048",
+      "owner": "Convex maintainers",
+      "reviewed_on": "2026-10-04",
+      "expires_on": "2026-12-31"
+    }
+  ]
+}

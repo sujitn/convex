@@ -414,9 +414,6 @@ pub enum SpreadKind {
     ZSpread,
     /// I-spread — bond YTM minus the swap-curve rate at maturity.
     ISpread,
-    /// G-spread — bond YTM minus the government-curve rate at maturity. Mathematically
-    /// identical to I-spread; the distinction is which curve the caller passes in.
-    GSpread,
 }
 
 /// `compute_position_risk` parameters.
@@ -592,7 +589,7 @@ pub struct ComputeSpreadParams {
     /// Bond reference — id or inline spec.
     pub bond: BondRef,
     /// Curve reference — id or inline spec. For Z-spread this is the discount curve;
-    /// for I-spread the swap curve; for G-spread the government curve.
+    /// for I-spread the swap curve.
     pub curve: CurveRef,
     /// Settlement date.
     pub settlement: DateInput,
@@ -770,9 +767,35 @@ pub struct ListOutput<T> {
 // Tool Implementations
 // ============================================================================
 
+/// Exact library request text, retaining monetary strings and complete native terms.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct LibraryToolParams {
+    /// Versioned complete LibraryRequest JSON; see the generated library schema.
+    pub request_json: String,
+}
+
 #[tool_router]
 #[allow(missing_docs)] // each tool's `description` attribute is the public doc.
 impl ConvexMcpServer {
+    #[tool(
+        description = "Execute a complete versioned supplied-input LibraryRequest. Full native bond, IRS/OIS, CDS, curve/model calibration, futures, risk and lifecycle operations; no server, stored handles or vendor lookups. Return the original JSON envelope with exact cash strings, native diagnostics and explicit unsupported/missing failures. Use library_schema for the actual complete contract."
+    )]
+    pub async fn library(
+        &self,
+        Parameters(params): Parameters<LibraryToolParams>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(CallToolResult::success(vec![rmcp::model::Content::text(
+            convex::library::execute_json(&params.request_json),
+        )]))
+    }
+
+    #[tool(
+        description = "Return the generated schema of the actual complete versioned LibraryRequest and native economic inputs."
+    )]
+    pub async fn library_schema(&self) -> Result<CallToolResult, McpError> {
+        Self::json_result(&convex::library::request_schema())
+    }
     #[tool(
         description = "Create a fixed rate bond. coupon_rate_pct is in percent (5.0 = 5%). \
             frequency, day_count, currency default to (semi_annual, thirty360_us, USD); \
@@ -991,9 +1014,7 @@ impl ConvexMcpServer {
     }
 
     #[tool(
-        description = "Compute a yield spread (z_spread | i_spread | g_spread) for a bond against a curve. \
-            Z-spread is the constant DCF spread. I/G-spread are bond YTM minus curve rate at maturity \
-            (label-only difference: caller passes swap vs government curve). \
+        description = "Compute z_spread or i_spread for a bond against a curve. \
             `bond` and `curve` accept either a stored id (string) or an inline spec (object)."
     )]
     pub async fn compute_spread(
@@ -1025,7 +1046,7 @@ impl ConvexMcpServer {
                     .to_f64()
                     .unwrap_or(f64::NAN)
             }
-            SpreadKind::ISpread | SpreadKind::GSpread => {
+            SpreadKind::ISpread => {
                 let ytm = yield_to_maturity(fixed, settlement, clean_dec, fixed.frequency())
                     .map_err(McpToolError::from)?;
                 let bond_yield = Yield::new(
@@ -1418,10 +1439,11 @@ impl ConvexMcpServer {
     }
 
     #[tool(
-        description = "Per-sleeve book hedge. Each `BookGroup` carries its own positions, \
+        description = "Indicative scalar advisor per sleeve. Each `BookGroup` carries its own positions, \
         curve, constraints, and basket overrides; groups are aggregated and hedged \
         independently. Output per group: aggregate RiskProfile, per-position contribution \
-        decomposition (signed DV01 + share of gross), proposals, skipped strategies."
+        decomposition (signed DV01 + share of gross), indicative proposals, skipped strategies. \
+        Complete supplied-factor constrained calculations use library hedge solve. No order authority."
     )]
     pub async fn propose_book_hedges(
         &self,

@@ -1,5 +1,12 @@
 # Convex ↔ QuantLib reconciliation
 
+An [offline manifest and comparison framework](COMPARISON.md) sits alongside
+this retained reconciliation. It records comparator, version and license
+provenance, native units, unchanged thresholds and failed comparisons without
+live market downloads. ORE, ISDA and exchange product fixtures are still
+pending. The bond pack passes all 392 measures; the original QuantLib runtime
+capture is still incomplete.
+
 A reconciliation test harness comparing Convex's pricing and risk output against QuantLib's on a mixed book of real fixed-income instruments as of **2025-12-31**.
 
 ## Why

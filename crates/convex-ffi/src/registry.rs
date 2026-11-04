@@ -101,6 +101,29 @@ impl Inner {
 }
 
 static REGISTRY: Lazy<Inner> = Lazy::new(Inner::new);
+const MAX_OBJECTS: usize = 16_384;
+
+fn read_tables() -> Option<std::sync::RwLockReadGuard<'static, Tables>> {
+    REGISTRY
+        .tables
+        .read()
+        .map_err(|_| crate::error::set_last_error("registry unavailable: poisoned lock"))
+        .ok()
+}
+fn write_tables() -> Option<std::sync::RwLockWriteGuard<'static, Tables>> {
+    REGISTRY
+        .tables
+        .write()
+        .map_err(|_| crate::error::set_last_error("registry unavailable: poisoned lock"))
+        .ok()
+}
+
+fn next_generation() -> Option<u64> {
+    generation().checked_add(1).or_else(|| {
+        crate::error::set_last_error("registry generation limit exceeded");
+        None
+    })
+}
 
 /// Registry mutation counter. See [`Inner::generation`].
 pub fn generation() -> u64 {
@@ -119,7 +142,22 @@ pub fn register<T: Any + Send + Sync>(
     aliases: &[String],
     content_hash: u64,
 ) -> Handle {
-    let mut t = REGISTRY.tables.write().unwrap();
+    let Some(mut t) = write_tables() else {
+        return INVALID_HANDLE;
+    };
+    let Some(next_generation) = next_generation() else {
+        return INVALID_HANDLE;
+    };
+    let handle = REGISTRY.next_handle.load(Ordering::SeqCst);
+    let Some(next_handle) = handle.checked_add(1) else {
+        crate::error::set_last_error("registry handle limit exceeded");
+        return INVALID_HANDLE;
+    };
+    let replacing = name.as_ref().is_some_and(|n| t.names.contains_key(n));
+    if !replacing && t.objects.len() >= MAX_OBJECTS {
+        crate::error::set_last_error("registry object limit exceeded");
+        return INVALID_HANDLE;
+    }
 
     if let Some(ref n) = name {
         if let Some(&existing) = t.names.get(n) {
@@ -141,7 +179,7 @@ pub fn register<T: Any + Send + Sync>(
         }
     }
 
-    let handle = REGISTRY.next_handle.fetch_add(1, Ordering::SeqCst);
+    REGISTRY.next_handle.store(next_handle, Ordering::SeqCst);
     t.objects.insert(
         handle,
         Entry {
@@ -158,14 +196,14 @@ pub fn register<T: Any + Send + Sync>(
     for a in aliases {
         t.aliases.insert(a.clone(), handle);
     }
-    REGISTRY.generation.fetch_add(1, Ordering::SeqCst);
+    REGISTRY.generation.store(next_generation, Ordering::SeqCst);
     handle
 }
 
 /// Resolve a human identifier (CUSIP / ISIN / free name) — or, as a fallback,
 /// an eviction-slot name — to a handle.
 pub fn resolve_alias(name: &str) -> Option<Handle> {
-    let t = REGISTRY.tables.read().unwrap();
+    let t = read_tables()?;
     t.aliases
         .get(name)
         .copied()
@@ -181,7 +219,7 @@ pub fn resolve_alias(name: &str) -> Option<Handle> {
 /// see [`Entry::object`].
 pub fn with_object<T: Any + Send + Sync, R, F: FnOnce(&T) -> R>(handle: Handle, f: F) -> Option<R> {
     let object = {
-        let t = REGISTRY.tables.read().unwrap();
+        let t = read_tables()?;
         Arc::clone(&t.objects.get(&handle)?.object)
     };
     object.downcast_ref::<T>().map(f)
@@ -189,21 +227,12 @@ pub fn with_object<T: Any + Send + Sync, R, F: FnOnce(&T) -> R>(handle: Handle, 
 
 /// Returns the kind/tag of an object, or `None` if the handle is unknown.
 pub fn kind_of(handle: Handle) -> Option<ObjectKind> {
-    REGISTRY
-        .tables
-        .read()
-        .unwrap()
-        .objects
-        .get(&handle)
-        .map(|e| e.kind)
+    read_tables()?.objects.get(&handle).map(|e| e.kind)
 }
 
 /// Returns the optional name attached to a handle.
 pub fn name_of(handle: Handle) -> Option<String> {
-    REGISTRY
-        .tables
-        .read()
-        .unwrap()
+    read_tables()?
         .objects
         .get(&handle)
         .and_then(|e| e.name.clone())
@@ -211,7 +240,12 @@ pub fn name_of(handle: Handle) -> Option<String> {
 
 /// Drop an object. Returns `true` if it existed.
 pub fn release(handle: Handle) -> bool {
-    let mut t = REGISTRY.tables.write().unwrap();
+    let Some(mut t) = write_tables() else {
+        return false;
+    };
+    let Some(next_generation) = next_generation() else {
+        return false;
+    };
     if let Some(entry) = t.objects.remove(&handle) {
         if let Some(name) = entry.name {
             t.names.remove(&name);
@@ -221,7 +255,7 @@ pub fn release(handle: Handle) -> bool {
                 t.aliases.remove(a);
             }
         }
-        REGISTRY.generation.fetch_add(1, Ordering::SeqCst);
+        REGISTRY.generation.store(next_generation, Ordering::SeqCst);
         true
     } else {
         false
@@ -231,33 +265,37 @@ pub fn release(handle: Handle) -> bool {
 /// All objects matching an optional kind filter, as `(handle, kind, name)`.
 /// The name is the human identifier (CUSIP/ISIN/free name) when the object
 /// has one; the eviction-slot name (cell address) is the fallback.
-pub fn list(filter: Option<ObjectKind>) -> Vec<(Handle, ObjectKind, Option<String>)> {
-    REGISTRY
-        .tables
-        .read()
-        .unwrap()
-        .objects
-        .iter()
-        .filter(|(_, e)| filter.is_none_or(|f| f == e.kind))
-        .map(|(&h, e)| {
-            let display = e.aliases.first().cloned().or_else(|| e.name.clone());
-            (h, e.kind, display)
-        })
-        .collect()
+pub fn list(filter: Option<ObjectKind>) -> Option<Vec<(Handle, ObjectKind, Option<String>)>> {
+    Some(
+        read_tables()?
+            .objects
+            .iter()
+            .filter(|(_, e)| filter.is_none_or(|f| f == e.kind))
+            .map(|(&h, e)| {
+                let display = e.aliases.first().cloned().or_else(|| e.name.clone());
+                (h, e.kind, display)
+            })
+            .collect(),
+    )
 }
 
-/// Number of registered objects.
-pub fn object_count() -> usize {
-    REGISTRY.tables.read().unwrap().objects.len()
+/// Number of objects, or unavailable after a poisoned lock.
+pub fn object_count() -> Option<usize> {
+    Some(read_tables()?.objects.len())
 }
 
 /// Drop all objects. Used by tests and the `clear all` ribbon command.
 pub fn clear_all() {
-    let mut t = REGISTRY.tables.write().unwrap();
+    let Some(mut t) = write_tables() else {
+        return;
+    };
+    let Some(next_generation) = next_generation() else {
+        return;
+    };
     t.objects.clear();
     t.names.clear();
     t.aliases.clear();
-    REGISTRY.generation.fetch_add(1, Ordering::SeqCst);
+    REGISTRY.generation.store(next_generation, Ordering::SeqCst);
 }
 
 #[cfg(test)]
@@ -381,5 +419,55 @@ mod tests {
         release(h1);
         assert_eq!(resolve_alias("USD.SOFR"), Some(h2));
         release(h2);
+    }
+    #[test]
+    fn lookup_survives_eviction_and_does_not_hold_lock_during_callback() {
+        use std::sync::mpsc;
+        use std::time::Duration;
+        let _g = TEST_LOCK.lock().unwrap();
+        let h = reg("concurrent-cell", 17);
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (updated_tx, updated_rx) = mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            with_object::<u64, _, _>(h, |value| {
+                entered_tx.send(()).unwrap();
+                let new_handle = updated_rx
+                    .recv_timeout(Duration::from_secs(2))
+                    .expect("writer blocked by callback read lock");
+                assert_eq!(*value, 17, "in-flight Arc must retain evicted value");
+                assert!(kind_of(h).is_none());
+                assert_eq!(with_object::<u64, _, _>(new_handle, |v| *v), Some(18));
+                new_handle
+            })
+        });
+        entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        let writer = std::thread::spawn(move || {
+            let new_handle = reg("concurrent-cell", 18);
+            updated_tx.send(new_handle).unwrap();
+        });
+        let new_handle = reader.join().unwrap().unwrap();
+        writer.join().unwrap();
+        assert!(release(new_handle));
+    }
+
+    #[test]
+    fn registry_capacity_rejects_without_mutating_and_allows_replacement() {
+        let _g = TEST_LOCK.lock().unwrap();
+        clear_all();
+        for index in 0..MAX_OBJECTS {
+            assert_ne!(
+                reg(&format!("bounded-{index}"), index as u64),
+                INVALID_HANDLE
+            );
+        }
+        let before = generation();
+        assert_eq!(reg("over-capacity", 1), INVALID_HANDLE);
+        assert_eq!(generation(), before);
+        assert_eq!(object_count(), Some(MAX_OBJECTS));
+        let replacement = reg("bounded-0", 99);
+        assert_ne!(replacement, INVALID_HANDLE);
+        assert_eq!(object_count(), Some(MAX_OBJECTS));
+        assert_eq!(with_object::<u64, _, _>(replacement, |v| *v), Some(99));
+        clear_all();
     }
 }

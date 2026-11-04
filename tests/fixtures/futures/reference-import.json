@@ -1,0 +1,1375 @@
+{
+  "schema_version": "2.0",
+  "command": {
+    "idempotency_key": "CME-reference-2026-09-24",
+    "changes": [
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CQW4",
+          "isin": null,
+          "cusip": "91282CQW4",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CQW4",
+          "currency": "USD",
+          "issue_date": "2026-06-30",
+          "maturity_date": "2033-06-30",
+          "coupon_rate": "0.042500",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2026-06-30",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CRC7",
+          "isin": null,
+          "cusip": "91282CRC7",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CRC7",
+          "currency": "USD",
+          "issue_date": "2026-07-31",
+          "maturity_date": "2033-07-31",
+          "coupon_rate": "0.043750",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2026-07-31",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CHT1",
+          "isin": null,
+          "cusip": "91282CHT1",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CHT1",
+          "currency": "USD",
+          "issue_date": "2023-08-15",
+          "maturity_date": "2033-08-15",
+          "coupon_rate": "0.038750",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2023-08-15",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CRJ2",
+          "isin": null,
+          "cusip": "91282CRJ2",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CRJ2",
+          "currency": "USD",
+          "issue_date": "2026-08-31",
+          "maturity_date": "2033-08-31",
+          "coupon_rate": "0.045000",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2026-08-31",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CRM5",
+          "isin": null,
+          "cusip": "91282CRM5",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CRM5",
+          "currency": "USD",
+          "issue_date": "2026-09-30",
+          "maturity_date": "2033-09-30",
+          "coupon_rate": "0.050000",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2026-09-30",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CJJ1",
+          "isin": null,
+          "cusip": "91282CJJ1",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CJJ1",
+          "currency": "USD",
+          "issue_date": "2023-11-15",
+          "maturity_date": "2033-11-15",
+          "coupon_rate": "0.045000",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2023-11-15",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CJZ5",
+          "isin": null,
+          "cusip": "91282CJZ5",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CJZ5",
+          "currency": "USD",
+          "issue_date": "2024-02-15",
+          "maturity_date": "2034-02-15",
+          "coupon_rate": "0.040000",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2024-02-15",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CKQ3",
+          "isin": null,
+          "cusip": "91282CKQ3",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CKQ3",
+          "currency": "USD",
+          "issue_date": "2024-05-15",
+          "maturity_date": "2034-05-15",
+          "coupon_rate": "0.043750",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2024-05-15",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CLF6",
+          "isin": null,
+          "cusip": "91282CLF6",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CLF6",
+          "currency": "USD",
+          "issue_date": "2024-08-15",
+          "maturity_date": "2034-08-15",
+          "coupon_rate": "0.038750",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2024-08-15",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      },
+      {
+        "kind": "create",
+        "bond": {
+          "instrument_id": "UST-91282CLW9",
+          "isin": null,
+          "cusip": "91282CLW9",
+          "sedol": null,
+          "bbgid": null,
+          "description": "CME published eligible UST 91282CLW9",
+          "currency": "USD",
+          "issue_date": "2024-11-15",
+          "maturity_date": "2034-11-15",
+          "coupon_rate": "0.042500",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "Sovereign",
+          "issuer_id": "UST-entity",
+          "issuer_name": "United States Treasury",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Sovereign",
+          "amount_outstanding": null,
+          "first_coupon_date": null,
+          "last_updated": 0,
+          "source": "CME-TCF-reference",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2024-11-15",
+            "penultimate_coupon_date": null,
+            "redemption_value": "100",
+            "issuer": {
+              "entity_id": "UST-entity",
+              "version": 1
+            },
+            "calendar": {
+              "id": "CME-calendar-reference",
+              "version": 1
+            },
+            "calendar_code": "sifma",
+            "convention": {
+              "id": "UST-reference-convention",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Published coupon/issue/maturity/CUSIP; schedule registration assumption, not exchange cashflow certificate"
+            },
+            "stub": "none",
+            "payment_lag": 0
+          }
+        }
+      }
+    ],
+    "master_changes": [
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "entity",
+          "definition": {
+            "entity_id": "UST-entity",
+            "legal_name": "United States Treasury",
+            "parent": null,
+            "country": "US",
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Explicit reference fixture registration; no calendar/convention certification"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "calendar",
+          "definition": {
+            "calendar_id": "CME-calendar-reference",
+            "code": "sifma",
+            "rule_version": "convex-calendar-v1",
+            "coverage_from": "1900-01-01",
+            "coverage_until": "2100-12-31",
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Explicit reference fixture registration; no calendar/convention certification"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "convention",
+          "definition": {
+            "convention_id": "UST-reference-convention",
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": true,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "engineering-registration",
+              "evidence_reference": "Explicit reference fixture registration; no calendar/convention certification"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "futures",
+          "definition": {
+            "contract": {
+              "instrument_id": "CME-ZNZ6",
+              "stamp": {
+                "id": "CME-ZNZ6",
+                "version": 1,
+                "source": "CME",
+                "source_at": "2026-09-24T00:00:00Z",
+                "available_at": "2026-10-07T05:31:43Z",
+                "valid_until": "2026-10-08T00:00:00Z",
+                "quality": "historical",
+                "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+              },
+              "exchange": "CBOT",
+              "product_code": "ZN",
+              "contract_code": "ZNZ6",
+              "contract_month": {
+                "year": 2026,
+                "month": 12
+              },
+              "currency": "USD",
+              "listed_from": "2026-09-24",
+              "last_trade": "2026-12-21",
+              "expiry": "2026-12-21",
+              "currency_per_price_point": "1000",
+              "ticks": [
+                {
+                  "until": null,
+                  "increment": "0.015625",
+                  "from": "2026-09-24"
+                }
+              ],
+              "daily_settlement": {
+                "calendar": {
+                  "id": "CME-calendar-reference",
+                  "version": 1
+                },
+                "time_zone": "America/Chicago",
+                "cash_decimal_places": 2
+              },
+              "settlement": {
+                "kind": "bond",
+                "contract_face": "100000",
+                "delivery": {
+                  "calendar": {
+                    "id": "CME-calendar-reference",
+                    "version": 1
+                  },
+                  "first_notice": "2026-11-27",
+                  "first_delivery": "2026-12-01",
+                  "last_delivery": "2026-12-31",
+                  "basket": {
+                    "id": "CME-ZNZ6-basket",
+                    "version": 1
+                  }
+                }
+              }
+            },
+            "effective": {
+              "from": "2026-09-24T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "CME",
+              "evidence_reference": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "basket",
+          "definition": {
+            "basket": {
+              "stamp": {
+                "id": "CME-ZNZ6-basket",
+                "version": 1,
+                "source": "CME",
+                "source_at": "2026-09-24T00:00:00Z",
+                "available_at": "2026-10-07T05:31:43Z",
+                "valid_until": "2026-10-08T00:00:00Z",
+                "quality": "historical",
+                "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+              },
+              "contract": {
+                "id": "CME-ZNZ6",
+                "version": 1
+              },
+              "contract_month": {
+                "year": 2026,
+                "month": 12
+              },
+              "currency": "USD",
+              "complete": true,
+              "bonds": [
+                {
+                  "instrument": {
+                    "id": "UST-91282CQW4",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.9069"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CRC7",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.9136"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CHT1",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.8870"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CRJ2",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.9202"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CRM5",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.9451"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CJJ1",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.9177"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CJZ5",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.8870"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CKQ3",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.9055"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CLF6",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.8732"
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CLW9",
+                    "version": 1
+                  },
+                  "conversion_factor": "0.8927"
+                }
+              ]
+            },
+            "effective": {
+              "from": "2026-09-24T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "CME",
+              "evidence_reference": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "futures",
+          "definition": {
+            "contract": {
+              "instrument_id": "CME-SR3U6",
+              "stamp": {
+                "id": "CME-SR3U6",
+                "version": 1,
+                "source": "CME",
+                "source_at": "2026-09-24T00:00:00Z",
+                "available_at": "2026-10-07T05:31:43Z",
+                "valid_until": "2026-10-08T00:00:00Z",
+                "quality": "historical",
+                "evidence": "https://www.cmegroup.com/education/articles-and-reports/understanding-sofr-futures"
+              },
+              "exchange": "CME",
+              "product_code": "SR3",
+              "contract_code": "SR3U6",
+              "contract_month": {
+                "year": 2026,
+                "month": 9
+              },
+              "currency": "USD",
+              "listed_from": "2026-07-01",
+              "last_trade": "2026-12-15",
+              "expiry": "2026-12-16",
+              "currency_per_price_point": "2500",
+              "ticks": [
+                {
+                  "from": "2026-07-01",
+                  "until": "2026-08-15",
+                  "increment": "0.005"
+                },
+                {
+                  "from": "2026-08-15",
+                  "until": null,
+                  "increment": "0.0025"
+                }
+              ],
+              "daily_settlement": {
+                "calendar": {
+                  "id": "CME-calendar-reference",
+                  "version": 1
+                },
+                "time_zone": "America/Chicago",
+                "cash_decimal_places": 2
+              },
+              "settlement": {
+                "kind": "rate",
+                "final_settlement": "2026-12-16",
+                "accrual": {
+                  "kind": "overnight",
+                  "index": "USD.SOFR",
+                  "start": "2026-09-16",
+                  "end": "2026-12-16",
+                  "calendar": {
+                    "id": "CME-calendar-reference",
+                    "version": 1
+                  },
+                  "averaging": "compounded",
+                  "day_count": "Act360"
+                },
+                "convexity": {
+                  "kind": "not_admitted"
+                }
+              }
+            },
+            "effective": {
+              "from": "2026-09-24T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "CME",
+              "evidence_reference": "https://www.cmegroup.com/education/articles-and-reports/understanding-sofr-futures"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "cash_universe",
+          "definition": {
+            "universe": {
+              "stamp": {
+                "id": "CME-cash-hedges",
+                "version": 1,
+                "source": "CME",
+                "source_at": "2026-09-24T00:00:00Z",
+                "available_at": "2026-10-07T05:31:43Z",
+                "valid_until": "2026-10-08T00:00:00Z",
+                "quality": "historical",
+                "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+              },
+              "currency": "USD",
+              "candidates": [
+                {
+                  "instrument": {
+                    "id": "UST-91282CQW4",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CQW4",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CRC7",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CRC7",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CHT1",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CHT1",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CRJ2",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CRJ2",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CRM5",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CRM5",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CJJ1",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CJJ1",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CJZ5",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CJZ5",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CKQ3",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CKQ3",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CLF6",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CLF6",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                },
+                {
+                  "instrument": {
+                    "id": "UST-91282CLW9",
+                    "version": 1
+                  },
+                  "quote": {
+                    "id": "quote-UST-91282CLW9",
+                    "version": 1,
+                    "source": "CME",
+                    "source_at": "2026-09-24T00:00:00Z",
+                    "available_at": "2026-10-07T05:31:43Z",
+                    "valid_until": "2026-10-08T00:00:00Z",
+                    "quality": "historical",
+                    "evidence": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+                  },
+                  "currency": "USD",
+                  "settlement": "2026-10-08",
+                  "lot_face": "1000",
+                  "bid_per100": null,
+                  "ask_per100": null,
+                  "bid_size_face": null,
+                  "ask_size_face": null,
+                  "financing": null,
+                  "borrow": null,
+                  "costs": null
+                }
+              ]
+            },
+            "effective": {
+              "from": "2026-09-24T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "CME",
+              "evidence_reference": "CME-TCF-2026-09-24:97308fafb418b43846cdd8e24be173bab08a49d46125f5bf086bc7dab276455d"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "identifier",
+          "definition": {
+            "mapping_id": "CME-ZNZ6-symbol",
+            "identifier": {
+              "kind": "provider",
+              "namespace": "CME",
+              "value": "ZNZ6"
+            },
+            "target": {
+              "kind": "futures",
+              "instrument_id": "CME-ZNZ6"
+            },
+            "effective": {
+              "from": "2026-09-24T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "CME",
+              "evidence_reference": "Exact dated exchange contract code"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

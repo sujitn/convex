@@ -1,0 +1,728 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "qualification": "CME published hypothetical 2017 rate examples precede the April2018 SOFR launch. Rates/publication dates are illustrative and are never actual administrator/feed observations. Direct original PDF byte capture failed; web-reader text and primary table locators are retained, with no raw-PDF checksum claimed.",
+  "sources": [
+    {
+      "url": "https://www.cmegroup.com/education/files/sofr-futures-settlement-calculation-methodologies.pdf",
+      "pages": [
+        1,
+        2,
+        3
+      ],
+      "web_capture_sha256": "c54389944e2ebdb397fc29a5c8a72940393cd519cdc09ef9c2e47fbcc0b025ad",
+      "july_web_capture_sha256": "e37233f4aacb33954163934d8542ac98c788dc47a68656bf63be3b64a1a71848"
+    },
+    {
+      "url": "https://www.cmegroup.com/trading/interest-rates/files/treasury-futures-price-rounding-conventions-2020.pdf",
+      "pages": [
+        3,
+        5
+      ]
+    },
+    {
+      "url": "https://www.cmegroup.com/clearing/files/CME-Money-Calculations-Futures-and-Options.pdf",
+      "pages": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "url": "https://www.cmegroup.com/rulebook/CME/IV/400/460.pdf",
+      "pages": [
+        2
+      ]
+    }
+  ],
+  "sr3": {
+    "start": "2017-06-21",
+    "end": "2017-09-20",
+    "rows": [
+      {
+        "observation": "2017-06-21",
+        "publication": "2017-06-22",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833"
+      },
+      {
+        "observation": "2017-06-22",
+        "publication": "2017-06-23",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833"
+      },
+      {
+        "observation": "2017-06-23",
+        "publication": "2017-06-26",
+        "decimal_rate": "0.0106",
+        "days": 3,
+        "published_factor": "1.00008833"
+      },
+      {
+        "observation": "2017-06-26",
+        "publication": "2017-06-27",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917"
+      },
+      {
+        "observation": "2017-06-27",
+        "publication": "2017-06-28",
+        "decimal_rate": "0.0103",
+        "days": 1,
+        "published_factor": "1.00002861"
+      },
+      {
+        "observation": "2017-06-28",
+        "publication": "2017-06-29",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-06-29",
+        "publication": "2017-06-30",
+        "decimal_rate": "0.0107",
+        "days": 1,
+        "published_factor": "1.00002972"
+      },
+      {
+        "observation": "2017-06-30",
+        "publication": "2017-07-03",
+        "decimal_rate": "0.012",
+        "days": 3,
+        "published_factor": "1.00010000"
+      },
+      {
+        "observation": "2017-07-03",
+        "publication": "2017-07-05",
+        "decimal_rate": "0.011",
+        "days": 2,
+        "published_factor": "1.00006111"
+      },
+      {
+        "observation": "2017-07-05",
+        "publication": "2017-07-06",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917"
+      },
+      {
+        "observation": "2017-07-06",
+        "publication": "2017-07-07",
+        "decimal_rate": "0.0103",
+        "days": 1,
+        "published_factor": "1.00002861"
+      },
+      {
+        "observation": "2017-07-07",
+        "publication": "2017-07-10",
+        "decimal_rate": "0.0101",
+        "days": 3,
+        "published_factor": "1.00008417"
+      },
+      {
+        "observation": "2017-07-10",
+        "publication": "2017-07-11",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-07-11",
+        "publication": "2017-07-12",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-07-12",
+        "publication": "2017-07-13",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-07-13",
+        "publication": "2017-07-14",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833"
+      },
+      {
+        "observation": "2017-07-14",
+        "publication": "2017-07-17",
+        "decimal_rate": "0.0102",
+        "days": 3,
+        "published_factor": "1.00008500"
+      },
+      {
+        "observation": "2017-07-17",
+        "publication": "2017-07-18",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-07-18",
+        "publication": "2017-07-19",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833"
+      },
+      {
+        "observation": "2017-07-19",
+        "publication": "2017-07-20",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-07-20",
+        "publication": "2017-07-21",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833"
+      },
+      {
+        "observation": "2017-07-21",
+        "publication": "2017-07-24",
+        "decimal_rate": "0.0101",
+        "days": 3,
+        "published_factor": "1.00008500"
+      },
+      {
+        "observation": "2017-07-24",
+        "publication": "2017-07-25",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917"
+      },
+      {
+        "observation": "2017-07-25",
+        "publication": "2017-07-26",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-07-26",
+        "publication": "2017-07-27",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-07-27",
+        "publication": "2017-07-28",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-07-28",
+        "publication": "2017-07-31",
+        "decimal_rate": "0.0103",
+        "days": 3,
+        "published_factor": "1.00008583"
+      },
+      {
+        "observation": "2017-07-31",
+        "publication": "2017-08-01",
+        "decimal_rate": "0.0108",
+        "days": 1,
+        "published_factor": "1.00003000"
+      },
+      {
+        "observation": "2017-08-01",
+        "publication": "2017-08-02",
+        "decimal_rate": "0.0103",
+        "days": 1,
+        "published_factor": "1.00002861"
+      },
+      {
+        "observation": "2017-08-02",
+        "publication": "2017-08-03",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-08-03",
+        "publication": "2017-08-04",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-08-04",
+        "publication": "2017-08-07",
+        "decimal_rate": "0.0101",
+        "days": 3,
+        "published_factor": "1.00008417"
+      },
+      {
+        "observation": "2017-08-07",
+        "publication": "2017-08-08",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-08-08",
+        "publication": "2017-08-09",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-08-09",
+        "publication": "2017-08-10",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      },
+      {
+        "observation": "2017-08-10",
+        "publication": "2017-08-11",
+        "decimal_rate": "0.0103",
+        "days": 1,
+        "published_factor": "1.00002861"
+      },
+      {
+        "observation": "2017-08-11",
+        "publication": "2017-08-14",
+        "decimal_rate": "0.0105",
+        "days": 3,
+        "published_factor": "1.00008750"
+      },
+      {
+        "observation": "2017-08-14",
+        "publication": "2017-08-15",
+        "decimal_rate": "0.0108",
+        "days": 1,
+        "published_factor": "1.00003000"
+      },
+      {
+        "observation": "2017-08-15",
+        "publication": "2017-08-16",
+        "decimal_rate": "0.0111",
+        "days": 1,
+        "published_factor": "1.00003083"
+      },
+      {
+        "observation": "2017-08-16",
+        "publication": "2017-08-17",
+        "decimal_rate": "0.0109",
+        "days": 1,
+        "published_factor": "1.00003028"
+      },
+      {
+        "observation": "2017-08-17",
+        "publication": "2017-08-18",
+        "decimal_rate": "0.0109",
+        "days": 1,
+        "published_factor": "1.00003028"
+      },
+      {
+        "observation": "2017-08-18",
+        "publication": "2017-08-21",
+        "decimal_rate": "0.0106",
+        "days": 3,
+        "published_factor": "1.00008833"
+      },
+      {
+        "observation": "2017-08-21",
+        "publication": "2017-08-22",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-08-22",
+        "publication": "2017-08-23",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833"
+      },
+      {
+        "observation": "2017-08-23",
+        "publication": "2017-08-24",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833"
+      },
+      {
+        "observation": "2017-08-24",
+        "publication": "2017-08-25",
+        "decimal_rate": "0.0108",
+        "days": 1,
+        "published_factor": "1.00003000"
+      },
+      {
+        "observation": "2017-08-25",
+        "publication": "2017-08-28",
+        "decimal_rate": "0.0105",
+        "days": 3,
+        "published_factor": "1.00008750"
+      },
+      {
+        "observation": "2017-08-28",
+        "publication": "2017-08-29",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917"
+      },
+      {
+        "observation": "2017-08-29",
+        "publication": "2017-08-30",
+        "decimal_rate": "0.0103",
+        "days": 1,
+        "published_factor": "1.00002861"
+      },
+      {
+        "observation": "2017-08-30",
+        "publication": "2017-08-31",
+        "decimal_rate": "0.0103",
+        "days": 1,
+        "published_factor": "1.00002861"
+      },
+      {
+        "observation": "2017-08-31",
+        "publication": "2017-09-01",
+        "decimal_rate": "0.0114",
+        "days": 1,
+        "published_factor": "1.00003167"
+      },
+      {
+        "observation": "2017-09-01",
+        "publication": "2017-09-05",
+        "decimal_rate": "0.0109",
+        "days": 4,
+        "published_factor": "1.00012111"
+      },
+      {
+        "observation": "2017-09-05",
+        "publication": "2017-09-06",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917"
+      },
+      {
+        "observation": "2017-09-06",
+        "publication": "2017-09-07",
+        "decimal_rate": "0.0103",
+        "days": 1,
+        "published_factor": "1.00002861"
+      },
+      {
+        "observation": "2017-09-07",
+        "publication": "2017-09-08",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-09-08",
+        "publication": "2017-09-11",
+        "decimal_rate": "0.0104",
+        "days": 3,
+        "published_factor": "1.00008667"
+      },
+      {
+        "observation": "2017-09-11",
+        "publication": "2017-09-12",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-09-12",
+        "publication": "2017-09-13",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917"
+      },
+      {
+        "observation": "2017-09-13",
+        "publication": "2017-09-14",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917"
+      },
+      {
+        "observation": "2017-09-14",
+        "publication": "2017-09-15",
+        "decimal_rate": "0.0109",
+        "days": 1,
+        "published_factor": "1.00003028"
+      },
+      {
+        "observation": "2017-09-15",
+        "publication": "2017-09-18",
+        "decimal_rate": "0.011",
+        "days": 3,
+        "published_factor": "1.00009167"
+      },
+      {
+        "observation": "2017-09-18",
+        "publication": "2017-09-19",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889"
+      },
+      {
+        "observation": "2017-09-19",
+        "publication": "2017-09-20",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806"
+      }
+    ],
+    "expected_factor": "1.00265538773517693778655038168695193589856785717504105477832",
+    "expected_decimal_rate": "0.0105048306006999736610784330472823837745541602529096672548923",
+    "expected_final_price": "98.9495",
+    "final_decimal_rate_increment": "0.000001"
+  },
+  "sr1": {
+    "start": "2017-07-01",
+    "end": "2017-08-01",
+    "rows": [
+      {
+        "observation": "2017-06-30",
+        "publication": "2017-07-03",
+        "decimal_rate": "0.012",
+        "days": 3,
+        "published_factor": "1.00010000",
+        "weight_start": "2017-07-01",
+        "weight_end": "2017-07-03",
+        "included_days": 2
+      },
+      {
+        "observation": "2017-07-03",
+        "publication": "2017-07-05",
+        "decimal_rate": "0.011",
+        "days": 2,
+        "published_factor": "1.00006111",
+        "weight_start": "2017-07-03",
+        "weight_end": "2017-07-05",
+        "included_days": 2
+      },
+      {
+        "observation": "2017-07-05",
+        "publication": "2017-07-06",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917",
+        "weight_start": "2017-07-05",
+        "weight_end": "2017-07-06",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-06",
+        "publication": "2017-07-07",
+        "decimal_rate": "0.0103",
+        "days": 1,
+        "published_factor": "1.00002861",
+        "weight_start": "2017-07-06",
+        "weight_end": "2017-07-07",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-07",
+        "publication": "2017-07-10",
+        "decimal_rate": "0.0101",
+        "days": 3,
+        "published_factor": "1.00008417",
+        "weight_start": "2017-07-07",
+        "weight_end": "2017-07-10",
+        "included_days": 3
+      },
+      {
+        "observation": "2017-07-10",
+        "publication": "2017-07-11",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806",
+        "weight_start": "2017-07-10",
+        "weight_end": "2017-07-11",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-11",
+        "publication": "2017-07-12",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806",
+        "weight_start": "2017-07-11",
+        "weight_end": "2017-07-12",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-12",
+        "publication": "2017-07-13",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806",
+        "weight_start": "2017-07-12",
+        "weight_end": "2017-07-13",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-13",
+        "publication": "2017-07-14",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833",
+        "weight_start": "2017-07-13",
+        "weight_end": "2017-07-14",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-14",
+        "publication": "2017-07-17",
+        "decimal_rate": "0.0102",
+        "days": 3,
+        "published_factor": "1.00008500",
+        "weight_start": "2017-07-14",
+        "weight_end": "2017-07-17",
+        "included_days": 3
+      },
+      {
+        "observation": "2017-07-17",
+        "publication": "2017-07-18",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889",
+        "weight_start": "2017-07-17",
+        "weight_end": "2017-07-18",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-18",
+        "publication": "2017-07-19",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833",
+        "weight_start": "2017-07-18",
+        "weight_end": "2017-07-19",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-19",
+        "publication": "2017-07-20",
+        "decimal_rate": "0.0101",
+        "days": 1,
+        "published_factor": "1.00002806",
+        "weight_start": "2017-07-19",
+        "weight_end": "2017-07-20",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-20",
+        "publication": "2017-07-21",
+        "decimal_rate": "0.0102",
+        "days": 1,
+        "published_factor": "1.00002833",
+        "weight_start": "2017-07-20",
+        "weight_end": "2017-07-21",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-21",
+        "publication": "2017-07-24",
+        "decimal_rate": "0.0101",
+        "days": 3,
+        "published_factor": "1.00008500",
+        "weight_start": "2017-07-21",
+        "weight_end": "2017-07-24",
+        "included_days": 3
+      },
+      {
+        "observation": "2017-07-24",
+        "publication": "2017-07-25",
+        "decimal_rate": "0.0105",
+        "days": 1,
+        "published_factor": "1.00002917",
+        "weight_start": "2017-07-24",
+        "weight_end": "2017-07-25",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-25",
+        "publication": "2017-07-26",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889",
+        "weight_start": "2017-07-25",
+        "weight_end": "2017-07-26",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-26",
+        "publication": "2017-07-27",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889",
+        "weight_start": "2017-07-26",
+        "weight_end": "2017-07-27",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-27",
+        "publication": "2017-07-28",
+        "decimal_rate": "0.0104",
+        "days": 1,
+        "published_factor": "1.00002889",
+        "weight_start": "2017-07-27",
+        "weight_end": "2017-07-28",
+        "included_days": 1
+      },
+      {
+        "observation": "2017-07-28",
+        "publication": "2017-07-31",
+        "decimal_rate": "0.0103",
+        "days": 3,
+        "published_factor": "1.00008583",
+        "weight_start": "2017-07-28",
+        "weight_end": "2017-07-31",
+        "included_days": 3
+      },
+      {
+        "observation": "2017-07-31",
+        "publication": "2017-08-01",
+        "decimal_rate": "0.0108",
+        "days": 1,
+        "published_factor": "1.00003000",
+        "weight_start": "2017-07-31",
+        "weight_end": "2017-08-01",
+        "included_days": 1
+      }
+    ],
+    "expected_decimal_rate": "0.0104129032258064516129032258064516129032258064516129032258065",
+    "expected_final_price": "98.959",
+    "final_decimal_rate_increment": "0.00001"
+  },
+  "variation": [
+    {
+      "product": "ZF-example",
+      "multiplier": "1000",
+      "trade": "115.52343750",
+      "settlement": "115.531250",
+      "contracts": -147,
+      "expected": "-1148.07",
+      "tick": "0.0078125"
+    },
+    {
+      "product": "ZT-example",
+      "multiplier": "2000",
+      "trade": "97.74218750",
+      "settlement": "97.96875000",
+      "contracts": 335,
+      "expected": "151795.20",
+      "tick": "0.0078125"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+[
+  {
+    "name": "quantlib",
+    "command": [
+      "/private/tmp/convex-cvx019-ql/bin/python",
+      "/Users/sujitnair/Source/convex/tests/scripts/swap_quantlib_compare.py",
+      "capture",
+      "--wheel",
+      "/private/tmp/quantlib-1.40-cp38-abi3-macosx_11_0_arm64.whl"
+    ],
+    "started_at": "2026-10-06T18:05:29.749095+00:00",
+    "finished_at": "2026-10-06T18:05:29.896674+00:00",
+    "duration_seconds": 0.148,
+    "exit_code": 0,
+    "error": null,
+    "stdout": "quantlib.stdout",
+    "stderr": "quantlib.stderr"
+  },
+  {
+    "name": "rustc",
+    "command": [
+      "rustc",
+      "-Vv"
+    ],
+    "started_at": "2026-10-06T18:05:29.896698+00:00",
+    "finished_at": "2026-10-06T18:05:29.917194+00:00",
+    "duration_seconds": 0.02,
+    "exit_code": 0,
+    "error": null,
+    "stdout": "rustc.stdout",
+    "stderr": "rustc.stderr"
+  },
+  {
+    "name": "cargo-version",
+    "command": [
+      "cargo",
+      "--version"
+    ],
+    "started_at": "2026-10-06T18:05:29.917210+00:00",
+    "finished_at": "2026-10-06T18:05:29.935130+00:00",
+    "duration_seconds": 0.018,
+    "exit_code": 0,
+    "error": null,
+    "stdout": "cargo-version.stdout",
+    "stderr": "cargo-version.stderr"
+  },
+  {
+    "name": "build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--message-format=json",
+      "-p",
+      "convex",
+      "--example",
+      "swap_comparison"
+    ],
+    "started_at": "2026-10-06T18:05:29.935153+00:00",
+    "finished_at": "2026-10-06T18:05:30.017527+00:00",
+    "duration_seconds": 0.082,
+    "exit_code": 0,
+    "error": null,
+    "stdout": "build.stdout",
+    "stderr": "build.stderr"
+  },
+  {
+    "name": "native",
+    "command": [
+      "/private/tmp/convex-production-review-target/debug/examples/swap_comparison"
+    ],
+    "started_at": "2026-10-06T18:05:30.019505+00:00",
+    "finished_at": "2026-10-06T18:05:30.306290+00:00",
+    "duration_seconds": 0.287,
+    "exit_code": 0,
+    "error": null,
+    "stdout": "native.stdout",
+    "stderr": "native.stderr"
+  }
+]

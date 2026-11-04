@@ -7,9 +7,9 @@
 //!
 //! Follows Bloomberg PORT methodology for aggregation.
 
-use crate::analytics::parallel::maybe_parallel_fold;
-use crate::types::{AnalyticsConfig, Holding, WeightingMethod};
-use rust_decimal::prelude::ToPrimitive;
+use super::metrics::{self, MetricBook};
+use crate::types::{AnalyticsConfig, Holding};
+use crate::PortfolioResult;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -38,10 +38,12 @@ pub struct RiskMetrics {
     pub effective_convexity: Option<f64>,
 
     /// Total DV01 (sum of all position DV01s).
-    pub total_dv01: f64,
+    #[serde(with = "convex_core::contracts::decimal_serde::optional")]
+    pub total_dv01: Option<Decimal>,
 
     /// DV01 per share (if shares outstanding is set).
-    pub dv01_per_share: Option<f64>,
+    #[serde(with = "convex_core::contracts::decimal_serde::optional")]
+    pub dv01_per_share: Option<Decimal>,
 
     /// Number of holdings with duration data.
     pub duration_coverage: usize,
@@ -55,7 +57,6 @@ pub struct RiskMetrics {
 
 impl RiskMetrics {
     /// Returns the duration coverage as a percentage.
-    #[must_use]
     pub fn duration_coverage_pct(&self) -> f64 {
         if self.total_holdings > 0 {
             self.duration_coverage as f64 / self.total_holdings as f64 * 100.0
@@ -65,7 +66,6 @@ impl RiskMetrics {
     }
 
     /// Returns the DV01 coverage as a percentage.
-    #[must_use]
     pub fn dv01_coverage_pct(&self) -> f64 {
         if self.total_holdings > 0 {
             self.dv01_coverage as f64 / self.total_holdings as f64 * 100.0
@@ -88,10 +88,13 @@ impl RiskMetrics {
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have modified duration data.
-#[must_use]
-pub fn weighted_modified_duration(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.modified_duration)
+/// Returns `None` if any holdings lack modified duration data.
+pub fn weighted_modified_duration(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?
+        .weighted("modified_duration", |h| h.analytics.modified_duration)
 }
 
 /// Calculates weighted average effective duration.
@@ -101,20 +104,26 @@ pub fn weighted_modified_duration(holdings: &[Holding], config: &AnalyticsConfig
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have effective duration data.
-#[must_use]
-pub fn weighted_effective_duration(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.effective_duration)
+/// Returns `None` if any holdings lack effective duration data.
+pub fn weighted_effective_duration(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?
+        .weighted("effective_duration", |h| h.analytics.effective_duration)
 }
 
 /// Calculates weighted average Macaulay duration.
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have Macaulay duration data.
-#[must_use]
-pub fn weighted_macaulay_duration(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.macaulay_duration)
+/// Returns `None` if any holdings lack Macaulay duration data.
+pub fn weighted_macaulay_duration(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?
+        .weighted("macaulay_duration", |h| h.analytics.macaulay_duration)
 }
 
 /// Calculates weighted average spread duration.
@@ -123,10 +132,12 @@ pub fn weighted_macaulay_duration(holdings: &[Holding], config: &AnalyticsConfig
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have spread duration data.
-#[must_use]
-pub fn weighted_spread_duration(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.spread_duration)
+/// Returns `None` if any holdings lack spread duration data.
+pub fn weighted_spread_duration(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?.weighted("spread_duration", |h| h.analytics.spread_duration)
 }
 
 /// Calculates weighted best duration (prefers effective over modified).
@@ -135,30 +146,37 @@ pub fn weighted_spread_duration(holdings: &[Holding], config: &AnalyticsConfig) 
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have duration data.
-#[must_use]
-pub fn weighted_best_duration(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.best_duration())
+/// Returns `None` if any holdings lack duration data.
+pub fn weighted_best_duration(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?.weighted("best_duration", |h| h.analytics.best_duration())
 }
 
 /// Calculates weighted average convexity.
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have convexity data.
-#[must_use]
-pub fn weighted_convexity(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.convexity)
+/// Returns `None` if any holdings lack convexity data.
+pub fn weighted_convexity(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?.weighted("convexity", |h| h.analytics.convexity)
 }
 
 /// Calculates weighted average effective convexity.
 ///
 /// # Returns
 ///
-/// Returns `None` if no holdings have effective convexity data.
-#[must_use]
-pub fn weighted_effective_convexity(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    weighted_metric(holdings, config, |h| h.analytics.effective_convexity)
+/// Returns `None` if any holdings lack effective convexity data.
+pub fn weighted_effective_convexity(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> PortfolioResult<Option<f64>> {
+    MetricBook::new(holdings, config)?
+        .weighted("effective_convexity", |h| h.analytics.effective_convexity)
 }
 
 /// Calculates total portfolio DV01.
@@ -172,24 +190,11 @@ pub fn weighted_effective_convexity(holdings: &[Holding], config: &AnalyticsConf
 /// DV01 is additive, so we sum individual position DV01s.
 /// This represents the dollar change in portfolio value for a 1bp
 /// parallel shift in rates.
-#[must_use]
-pub fn total_dv01(holdings: &[Holding], config: &AnalyticsConfig) -> f64 {
-    maybe_parallel_fold(
-        holdings,
-        config,
-        0.0_f64,
-        |acc, h| {
-            if let Some(dv01_per_par) = h.analytics.dv01 {
-                let par = h.par_amount.to_f64().unwrap_or(0.0);
-                let fx = h.fx_rate.to_f64().unwrap_or(1.0);
-                // DV01 per 100 par × par / 100 × FX = total DV01 in base currency
-                acc + dv01_per_par * par / 100.0 * fx
-            } else {
-                acc
-            }
-        },
-        |a, b| a + b,
-    )
+pub fn total_dv01(
+    holdings: &[Holding],
+    _config: &AnalyticsConfig,
+) -> PortfolioResult<Option<Decimal>> {
+    metrics::currency_sum(holdings, "dv01", |h| h.analytics.dv01)
 }
 
 /// Calculates DV01 per share.
@@ -197,21 +202,15 @@ pub fn total_dv01(holdings: &[Holding], config: &AnalyticsConfig) -> f64 {
 /// # Returns
 ///
 /// Returns `None` if shares outstanding is not set or is zero.
-#[must_use]
 pub fn dv01_per_share(
     holdings: &[Holding],
     shares: Option<Decimal>,
-    config: &AnalyticsConfig,
-) -> Option<f64> {
-    let total = total_dv01(holdings, config);
-    shares.and_then(|s| {
-        let shares_f64 = s.to_f64().unwrap_or(0.0);
-        if shares_f64 > 0.0 {
-            Some(total / shares_f64)
-        } else {
-            None
-        }
-    })
+    _config: &AnalyticsConfig,
+) -> PortfolioResult<Option<Decimal>> {
+    metrics::per_share_exact(
+        metrics::currency_exact(holdings, "dv01", |h| h.analytics.dv01)?,
+        shares,
+    )
 }
 
 /// Calculates all risk metrics for a portfolio.
@@ -223,12 +222,11 @@ pub fn dv01_per_share(
 /// println!("Portfolio Duration: {:?}", metrics.best_duration);
 /// println!("Total DV01: ${:.2}", metrics.total_dv01);
 /// ```
-#[must_use]
 pub fn calculate_risk_metrics(
     holdings: &[Holding],
     shares_outstanding: Option<Decimal>,
     config: &AnalyticsConfig,
-) -> RiskMetrics {
+) -> PortfolioResult<RiskMetrics> {
     let duration_coverage = holdings
         .iter()
         .filter(|h| h.analytics.best_duration().is_some())
@@ -238,61 +236,29 @@ pub fn calculate_risk_metrics(
         .filter(|h| h.analytics.dv01.is_some())
         .count();
 
-    let total_dv01_val = total_dv01(holdings, config);
+    let total_dv01_val = total_dv01(holdings, config)?;
 
-    RiskMetrics {
-        modified_duration: weighted_modified_duration(holdings, config),
-        effective_duration: weighted_effective_duration(holdings, config),
-        macaulay_duration: weighted_macaulay_duration(holdings, config),
-        spread_duration: weighted_spread_duration(holdings, config),
-        best_duration: weighted_best_duration(holdings, config),
-        convexity: weighted_convexity(holdings, config),
-        effective_convexity: weighted_effective_convexity(holdings, config),
+    Ok(RiskMetrics {
+        modified_duration: weighted_modified_duration(holdings, config)?,
+        effective_duration: weighted_effective_duration(holdings, config)?,
+        macaulay_duration: weighted_macaulay_duration(holdings, config)?,
+        spread_duration: weighted_spread_duration(holdings, config)?,
+        best_duration: weighted_best_duration(holdings, config)?,
+        convexity: weighted_convexity(holdings, config)?,
+        effective_convexity: weighted_effective_convexity(holdings, config)?,
         total_dv01: total_dv01_val,
-        dv01_per_share: dv01_per_share(holdings, shares_outstanding, config),
+        dv01_per_share: dv01_per_share(holdings, shares_outstanding, config)?,
         duration_coverage,
         dv01_coverage,
         total_holdings: holdings.len(),
-    }
-}
-
-/// Internal helper to calculate weighted average of any metric.
-fn weighted_metric<F>(holdings: &[Holding], config: &AnalyticsConfig, get_value: F) -> Option<f64>
-where
-    F: Fn(&Holding) -> Option<f64> + Sync,
-{
-    let (sum_weighted, sum_weights) = maybe_parallel_fold(
-        holdings,
-        config,
-        (0.0_f64, 0.0_f64),
-        |(sum_w, sum_wt), h| {
-            if let Some(value) = get_value(h) {
-                let weight = weight_for_holding(h, config.weighting);
-                (sum_w + value * weight, sum_wt + weight)
-            } else {
-                (sum_w, sum_wt)
-            }
-        },
-        |(a, b), (c, d)| (a + c, b + d),
-    );
-
-    if sum_weights > 0.0 {
-        Some(sum_weighted / sum_weights)
-    } else {
-        None
-    }
-}
-
-/// Returns the weight for a holding as f64.
-fn weight_for_holding(holding: &Holding, method: WeightingMethod) -> f64 {
-    let weight_dec = holding.weight_value(method);
-    weight_dec.to_f64().unwrap_or(0.0)
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::types::HoldingAnalytics;
+    use crate::WeightingMethod;
     use convex_bonds::types::BondIdentifiers;
     use rust_decimal_macros::dec;
 
@@ -327,7 +293,9 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let duration = weighted_modified_duration(&holdings, &config).unwrap();
+        let duration = weighted_modified_duration(&holdings, &config)
+            .unwrap()
+            .unwrap();
 
         // MV weighted: (1M × 5 + 0.5M × 7) / 1.5M = 5.67
         assert!((duration - 5.67).abs() < 0.01);
@@ -341,7 +309,9 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let duration = weighted_modified_duration(&holdings, &config).unwrap();
+        let duration = weighted_modified_duration(&holdings, &config)
+            .unwrap()
+            .unwrap();
 
         // MV weighted: (980k × 5 + 510k × 7) / 1.49M
         let expected = (980_000.0 * 5.0 + 510_000.0 * 7.0) / 1_490_000.0;
@@ -356,7 +326,12 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let dv01 = total_dv01(&holdings, &config);
+        let dv01 = total_dv01(&holdings, &config)
+            .unwrap()
+            .unwrap()
+            .to_string()
+            .parse::<f64>()
+            .unwrap();
 
         // Bond1: 0.05 × 1M / 100 = 500
         // Bond2: 0.07 × 500k / 100 = 350
@@ -379,7 +354,12 @@ mod tests {
 
         let holdings = vec![eur_holding];
         let config = AnalyticsConfig::default();
-        let dv01 = total_dv01(&holdings, &config);
+        let dv01 = total_dv01(&holdings, &config)
+            .unwrap()
+            .unwrap()
+            .to_string()
+            .parse::<f64>()
+            .unwrap();
 
         // DV01 = 0.05 × 1M / 100 × 1.10 = 550
         assert!((dv01 - 550.0).abs() < 0.1);
@@ -397,7 +377,12 @@ mod tests {
         )];
 
         let config = AnalyticsConfig::default();
-        let per_share = dv01_per_share(&holdings, Some(dec!(1_000_000)), &config).unwrap();
+        let per_share = dv01_per_share(&holdings, Some(dec!(1_000_000)), &config)
+            .unwrap()
+            .unwrap()
+            .to_string()
+            .parse::<f64>()
+            .unwrap();
 
         // DV01 = 500, shares = 1M, per share = 0.0005
         assert!((per_share - 0.0005).abs() < 0.0001);
@@ -411,7 +396,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let convexity = weighted_convexity(&holdings, &config).unwrap();
+        let convexity = weighted_convexity(&holdings, &config).unwrap().unwrap();
 
         // Equal MV: (50 + 70) / 2 = 60
         assert!((convexity - 60.0).abs() < 0.1);
@@ -443,7 +428,7 @@ mod tests {
 
         let holdings = vec![holding_with_effective, holding_without];
         let config = AnalyticsConfig::default();
-        let best = weighted_best_duration(&holdings, &config).unwrap();
+        let best = weighted_best_duration(&holdings, &config).unwrap().unwrap();
 
         // Equal MV: (4.5 + 6.0) / 2 = 5.25
         assert!((best - 5.25).abs() < 0.01);
@@ -457,12 +442,22 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let metrics = calculate_risk_metrics(&holdings, Some(dec!(1_000_000)), &config);
+        let metrics = calculate_risk_metrics(&holdings, Some(dec!(1_000_000)), &config).unwrap();
 
         assert!(metrics.modified_duration.is_some());
         assert!(metrics.convexity.is_some());
         // Bond1: 0.05 × 1M / 100 = 500, Bond2: 0.07 × 1M / 100 = 700, Total: 1200
-        assert!((metrics.total_dv01 - 1200.0).abs() < 0.1);
+        assert!(
+            (metrics
+                .total_dv01
+                .unwrap()
+                .to_string()
+                .parse::<f64>()
+                .unwrap()
+                - 1200.0)
+                .abs()
+                < 0.1
+        );
         assert_eq!(metrics.duration_coverage, 2);
         assert_eq!(metrics.dv01_coverage, 2);
         assert!((metrics.duration_coverage_pct() - 100.0).abs() < 0.01);
@@ -473,8 +468,19 @@ mod tests {
         let holdings: Vec<Holding> = vec![];
         let config = AnalyticsConfig::default();
 
-        assert!(weighted_modified_duration(&holdings, &config).is_none());
-        assert!((total_dv01(&holdings, &config)).abs() < 0.001);
+        assert!(weighted_modified_duration(&holdings, &config)
+            .unwrap()
+            .is_none());
+        assert!(
+            (total_dv01(&holdings, &config)
+                .unwrap()
+                .unwrap()
+                .to_string()
+                .parse::<f64>()
+                .unwrap())
+            .abs()
+                < 0.001
+        );
     }
 
     #[test]
@@ -491,7 +497,9 @@ mod tests {
         let holdings = vec![holding];
         let config = AnalyticsConfig::default();
 
-        assert!(weighted_modified_duration(&holdings, &config).is_none());
+        assert!(weighted_modified_duration(&holdings, &config)
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -502,7 +510,9 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default().with_weighting(WeightingMethod::ParValue);
-        let duration = weighted_modified_duration(&holdings, &config).unwrap();
+        let duration = weighted_modified_duration(&holdings, &config)
+            .unwrap()
+            .unwrap();
 
         // Par weighted: (1M × 5 + 0.5M × 7) / 1.5M = 5.67
         assert!((duration - 5.67).abs() < 0.01);

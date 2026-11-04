@@ -1,6 +1,6 @@
 //! Error types for curve operations.
 //!
-//! This module provides comprehensive error handling for curve construction,
+//! This module provides error handling for curve construction,
 //! interpolation, calibration, and value conversion operations.
 
 use convex_core::types::Date;

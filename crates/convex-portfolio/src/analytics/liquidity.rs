@@ -6,9 +6,7 @@
 //! - Days to liquidate estimation
 //! - Liquidity stress testing
 
-use crate::analytics::parallel::maybe_parallel_fold;
-use crate::types::{AnalyticsConfig, Holding, WeightingMethod};
-use rust_decimal::prelude::ToPrimitive;
+use crate::types::{AnalyticsConfig, Holding};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -43,7 +41,6 @@ pub struct LiquidityMetrics {
 
 impl LiquidityMetrics {
     /// Returns bid-ask coverage as a percentage.
-    #[must_use]
     pub fn bid_ask_coverage_pct(&self) -> f64 {
         if self.total_holdings > 0 {
             self.bid_ask_coverage as f64 / self.total_holdings as f64 * 100.0
@@ -53,7 +50,6 @@ impl LiquidityMetrics {
     }
 
     /// Returns liquidity score coverage as a percentage.
-    #[must_use]
     pub fn score_coverage_pct(&self) -> f64 {
         if self.total_holdings > 0 {
             self.score_coverage as f64 / self.total_holdings as f64 * 100.0
@@ -63,7 +59,6 @@ impl LiquidityMetrics {
     }
 
     /// Returns true if portfolio has liquidity concerns.
-    #[must_use]
     pub fn has_liquidity_concerns(&self) -> bool {
         self.illiquid_pct > 15.0 || self.avg_liquidity_score.map(|s| s < 50.0).unwrap_or(false)
     }
@@ -89,101 +84,74 @@ impl LiquidityMetrics {
 /// println!("Avg bid-ask: {:.1}bp", metrics.avg_bid_ask_spread.unwrap_or(0.0));
 /// println!("Illiquid: {:.1}%", metrics.illiquid_pct);
 /// ```
-#[must_use]
 pub fn calculate_liquidity_metrics(
     holdings: &[Holding],
     config: &AnalyticsConfig,
-) -> LiquidityMetrics {
-    if holdings.is_empty() {
-        return LiquidityMetrics {
-            avg_bid_ask_spread: None,
-            avg_liquidity_score: None,
-            highly_liquid_pct: 0.0,
-            moderately_liquid_pct: 0.0,
-            illiquid_pct: 0.0,
-            bid_ask_coverage: 0,
-            score_coverage: 0,
-            total_holdings: 0,
+) -> crate::PortfolioResult<LiquidityMetrics> {
+    Ok({
+        if holdings.is_empty() {
+            return Ok(LiquidityMetrics {
+                avg_bid_ask_spread: None,
+                avg_liquidity_score: None,
+                highly_liquid_pct: 0.0,
+                moderately_liquid_pct: 0.0,
+                illiquid_pct: 0.0,
+                bid_ask_coverage: 0,
+                score_coverage: 0,
+                total_holdings: 0,
+            });
+        }
+
+        let total_holdings = holdings.len();
+
+        // Calculate weighted average bid-ask spread
+        let avg_bid_ask_spread = weighted_bid_ask_spread(holdings, config)?;
+
+        // Calculate weighted average liquidity score
+        let avg_liquidity_score = weighted_liquidity_score(holdings, config)?;
+
+        // Count coverage
+        let bid_ask_coverage = holdings
+            .iter()
+            .filter(|h| h.analytics.bid_ask_spread.is_some())
+            .count();
+        let score_coverage = holdings
+            .iter()
+            .filter(|h| h.analytics.liquidity_score.is_some())
+            .count();
+
+        let total = crate::analytics::metrics::clean_exact(holdings.iter())?;
+        let bucket = |kind: u8| -> crate::PortfolioResult<f64> {
+            let selected = holdings.iter().filter(|h| {
+                h.analytics.liquidity_score.is_some_and(|score| match kind {
+                    0 => score >= 70.0,
+                    1 => (30.0..70.0).contains(&score),
+                    _ => score < 30.0,
+                })
+            });
+            let sum =
+                crate::analytics::metrics::clean_exact(selected)?.multiply(Decimal::ONE_HUNDRED)?;
+            let value =
+                crate::analytics::metrics::signed_ratio(&sum, &total)?.ok_or_else(|| {
+                    crate::PortfolioError::invalid_portfolio(
+                        "liquidity bucket ratio is undefined at zero total value",
+                    )
+                })?;
+            crate::analytics::metrics::presentation(value)
         };
-    }
+        let (highly_liquid, moderately_liquid, illiquid) = (bucket(0)?, bucket(1)?, bucket(2)?);
 
-    let total_holdings = holdings.len();
-
-    // Calculate weighted average bid-ask spread
-    let avg_bid_ask_spread = weighted_bid_ask_spread(holdings, config);
-
-    // Calculate weighted average liquidity score
-    let avg_liquidity_score = weighted_liquidity_score(holdings, config);
-
-    // Count coverage
-    let bid_ask_coverage = holdings
-        .iter()
-        .filter(|h| h.analytics.bid_ask_spread.is_some())
-        .count();
-    let score_coverage = holdings
-        .iter()
-        .filter(|h| h.analytics.liquidity_score.is_some())
-        .count();
-
-    // Calculate liquidity buckets
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
-    let total_mv_f64 = total_mv.to_f64().unwrap_or(1.0);
-
-    let (highly_liquid, moderately_liquid, illiquid) = if total_mv_f64 > 0.0 {
-        let highly_liquid: f64 = holdings
-            .iter()
-            .filter(|h| {
-                h.analytics
-                    .liquidity_score
-                    .map(|s| s >= 70.0)
-                    .unwrap_or(false)
-            })
-            .map(|h| h.market_value().to_f64().unwrap_or(0.0))
-            .sum::<f64>()
-            / total_mv_f64
-            * 100.0;
-
-        let moderately_liquid: f64 = holdings
-            .iter()
-            .filter(|h| {
-                h.analytics
-                    .liquidity_score
-                    .map(|s| (30.0..70.0).contains(&s))
-                    .unwrap_or(false)
-            })
-            .map(|h| h.market_value().to_f64().unwrap_or(0.0))
-            .sum::<f64>()
-            / total_mv_f64
-            * 100.0;
-
-        let illiquid: f64 = holdings
-            .iter()
-            .filter(|h| {
-                h.analytics
-                    .liquidity_score
-                    .map(|s| s < 30.0)
-                    .unwrap_or(false)
-            })
-            .map(|h| h.market_value().to_f64().unwrap_or(0.0))
-            .sum::<f64>()
-            / total_mv_f64
-            * 100.0;
-
-        (highly_liquid, moderately_liquid, illiquid)
-    } else {
-        (0.0, 0.0, 0.0)
-    };
-
-    LiquidityMetrics {
-        avg_bid_ask_spread,
-        avg_liquidity_score,
-        highly_liquid_pct: highly_liquid,
-        moderately_liquid_pct: moderately_liquid,
-        illiquid_pct: illiquid,
-        bid_ask_coverage,
-        score_coverage,
-        total_holdings,
-    }
+        LiquidityMetrics {
+            avg_bid_ask_spread,
+            avg_liquidity_score,
+            highly_liquid_pct: highly_liquid,
+            moderately_liquid_pct: moderately_liquid,
+            illiquid_pct: illiquid,
+            bid_ask_coverage,
+            score_coverage,
+            total_holdings,
+        }
+    })
 }
 
 /// Calculates weighted average bid-ask spread.
@@ -191,32 +159,12 @@ pub fn calculate_liquidity_metrics(
 /// # Returns
 ///
 /// Weighted average bid-ask spread in basis points, or None if no data.
-#[must_use]
-pub fn weighted_bid_ask_spread(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    let (sum_weighted, sum_weights) = maybe_parallel_fold(
-        holdings,
-        config,
-        (0.0, 0.0),
-        |(sum_w, sum_wt), h| {
-            if let Some(spread) = h.analytics.bid_ask_spread {
-                let weight = match config.weighting {
-                    WeightingMethod::MarketValue => h.market_value().to_f64().unwrap_or(0.0),
-                    WeightingMethod::ParValue => h.par_amount.to_f64().unwrap_or(0.0),
-                    WeightingMethod::EqualWeight => 1.0,
-                };
-                (sum_w + spread * weight, sum_wt + weight)
-            } else {
-                (sum_w, sum_wt)
-            }
-        },
-        |(a, b), (c, d)| (a + c, b + d),
-    );
-
-    if sum_weights > 0.0 {
-        Some(sum_weighted / sum_weights)
-    } else {
-        None
-    }
+pub fn weighted_bid_ask_spread(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<Option<f64>> {
+    crate::analytics::metrics::MetricBook::new(holdings, config)?
+        .weighted("bid_ask_spread", |h| h.analytics.bid_ask_spread)
 }
 
 /// Calculates weighted average liquidity score.
@@ -224,32 +172,12 @@ pub fn weighted_bid_ask_spread(holdings: &[Holding], config: &AnalyticsConfig) -
 /// # Returns
 ///
 /// Weighted average liquidity score (0-100), or None if no data.
-#[must_use]
-pub fn weighted_liquidity_score(holdings: &[Holding], config: &AnalyticsConfig) -> Option<f64> {
-    let (sum_weighted, sum_weights) = maybe_parallel_fold(
-        holdings,
-        config,
-        (0.0, 0.0),
-        |(sum_w, sum_wt), h| {
-            if let Some(score) = h.analytics.liquidity_score {
-                let weight = match config.weighting {
-                    WeightingMethod::MarketValue => h.market_value().to_f64().unwrap_or(0.0),
-                    WeightingMethod::ParValue => h.par_amount.to_f64().unwrap_or(0.0),
-                    WeightingMethod::EqualWeight => 1.0,
-                };
-                (sum_w + score * weight, sum_wt + weight)
-            } else {
-                (sum_w, sum_wt)
-            }
-        },
-        |(a, b), (c, d)| (a + c, b + d),
-    );
-
-    if sum_weights > 0.0 {
-        Some(sum_weighted / sum_weights)
-    } else {
-        None
-    }
+pub fn weighted_liquidity_score(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<Option<f64>> {
+    crate::analytics::metrics::MetricBook::new(holdings, config)?
+        .weighted("liquidity_score", |h| h.analytics.liquidity_score)
 }
 
 /// Liquidity bucket classification.
@@ -267,7 +195,6 @@ pub enum LiquidityBucket {
 
 impl LiquidityBucket {
     /// Classify a holding based on liquidity score and bid-ask spread.
-    #[must_use]
     pub fn classify(liquidity_score: Option<f64>, bid_ask_spread: Option<f64>) -> Self {
         // Prefer liquidity score if available
         if let Some(score) = liquidity_score {
@@ -337,179 +264,53 @@ pub struct BucketInfo {
 /// # Returns
 ///
 /// Distribution of holdings across liquidity buckets.
-#[must_use]
 pub fn liquidity_distribution(
     holdings: &[Holding],
-    _config: &AnalyticsConfig,
-) -> LiquidityDistribution {
-    let mut by_bucket: HashMap<LiquidityBucket, Vec<&Holding>> = HashMap::new();
-
-    for h in holdings {
-        let bucket =
-            LiquidityBucket::classify(h.analytics.liquidity_score, h.analytics.bid_ask_spread);
-        by_bucket.entry(bucket).or_default().push(h);
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<LiquidityDistribution> {
+    use crate::analytics::metrics::{self, MetricBook};
+    let total = metrics::clean_exact(holdings.iter())?;
+    let mut groups = HashMap::<LiquidityBucket, Vec<&Holding>>::new();
+    for holding in holdings {
+        let bucket = LiquidityBucket::classify(
+            holding.analytics.liquidity_score,
+            holding.analytics.bid_ask_spread,
+        );
+        groups.entry(bucket).or_default().push(holding);
     }
-
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
-    let total_mv_f64 = total_mv.to_f64().unwrap_or(1.0);
-
-    let unknown_count = by_bucket
-        .get(&LiquidityBucket::Unknown)
-        .map(|v| v.len())
-        .unwrap_or(0);
-
-    let result_by_bucket: HashMap<LiquidityBucket, BucketInfo> = by_bucket
-        .into_iter()
-        .map(|(bucket, group)| {
-            let mv: Decimal = group.iter().map(|h| h.market_value()).sum();
-            let weight_pct = if total_mv_f64 > 0.0 {
-                mv.to_f64().unwrap_or(0.0) / total_mv_f64 * 100.0
-            } else {
-                0.0
-            };
-
-            // Calculate averages for this bucket
-            let scores: Vec<f64> = group
-                .iter()
-                .filter_map(|h| h.analytics.liquidity_score)
-                .collect();
-            let avg_score = if !scores.is_empty() {
-                Some(scores.iter().sum::<f64>() / scores.len() as f64)
-            } else {
-                None
-            };
-
-            let spreads: Vec<f64> = group
-                .iter()
-                .filter_map(|h| h.analytics.bid_ask_spread)
-                .collect();
-            let avg_spread = if !spreads.is_empty() {
-                Some(spreads.iter().sum::<f64>() / spreads.len() as f64)
-            } else {
-                None
-            };
-
-            (
-                bucket,
-                BucketInfo {
-                    market_value: mv,
-                    weight_pct,
-                    count: group.len(),
-                    avg_score,
-                    avg_spread,
-                },
-            )
-        })
-        .collect();
-
-    LiquidityDistribution {
-        by_bucket: result_by_bucket,
-        total_market_value: total_mv,
+    let unknown_count = groups.get(&LiquidityBucket::Unknown).map_or(0, Vec::len);
+    let mut by_bucket = HashMap::new();
+    for (bucket, group) in groups {
+        let value = metrics::clean_exact(group.iter().copied())?;
+        let fraction = metrics::signed_ratio(&value.multiply(Decimal::ONE_HUNDRED)?, &total)?
+            .ok_or_else(|| {
+                crate::PortfolioError::invalid_portfolio(
+                    "liquidity distribution ratio undefined at zero value",
+                )
+            })?;
+        let book = MetricBook::from_rows(
+            group.iter().copied(),
+            &config
+                .clone()
+                .with_weighting(crate::WeightingMethod::EqualWeight),
+        )?;
+        by_bucket.insert(
+            bucket,
+            BucketInfo {
+                count: group.len(),
+                market_value: value.finish()?,
+                weight_pct: metrics::presentation(fraction)?,
+                avg_score: book.weighted("liquidity_score", |h| h.analytics.liquidity_score)?,
+                avg_spread: book.weighted("bid_ask_spread", |h| h.analytics.bid_ask_spread)?,
+            },
+        );
+    }
+    // No empty normalization is reported; an empty distribution contains no buckets.
+    Ok(LiquidityDistribution {
+        by_bucket,
+        total_market_value: total.finish()?,
         unknown_count,
-    }
-}
-
-/// Estimates days to liquidate portfolio.
-///
-/// Uses a simple model based on average daily volume (ADV) assumptions.
-///
-/// # Arguments
-///
-/// * `holdings` - Portfolio holdings with optional liquidity data
-/// * `max_participation_rate` - Maximum percentage of ADV to participate (typically 10-25%)
-/// * `config` - Analytics configuration
-///
-/// # Returns
-///
-/// Estimated number of days to fully liquidate the portfolio.
-#[must_use]
-pub fn estimate_days_to_liquidate(
-    holdings: &[Holding],
-    max_participation_rate: f64,
-    _config: &AnalyticsConfig,
-) -> DaysToLiquidate {
-    if holdings.is_empty() || max_participation_rate <= 0.0 {
-        return DaysToLiquidate {
-            total_days: 0.0,
-            highly_liquid_days: 0.0,
-            illiquid_days: 0.0,
-            holdings_without_adv: holdings.len(),
-        };
-    }
-
-    // Simple model: estimate ADV from liquidity score
-    // Higher score = higher ADV = faster to liquidate
-    let mut total_days = 0.0;
-    let mut highly_liquid_days = 0.0;
-    let mut illiquid_days = 0.0;
-    let mut missing_adv = 0;
-
-    for h in holdings {
-        let mv = h.market_value().to_f64().unwrap_or(0.0);
-
-        if let Some(score) = h.analytics.liquidity_score {
-            // Estimate ADV based on liquidity score
-            // Assume liquidity score 100 = 10M ADV, score 0 = 100K ADV (logarithmic)
-            let estimated_adv = 100_000.0 * (10.0_f64.powf(score / 50.0));
-            let daily_capacity = estimated_adv * max_participation_rate / 100.0;
-
-            if daily_capacity > 0.0 {
-                let days = mv / daily_capacity;
-                total_days += days;
-
-                if score >= 70.0 {
-                    highly_liquid_days += days;
-                } else if score < 30.0 {
-                    illiquid_days += days;
-                }
-            }
-        } else {
-            missing_adv += 1;
-            // Assume illiquid for unknown
-            let conservative_adv = 100_000.0;
-            let daily_capacity = conservative_adv * max_participation_rate / 100.0;
-            if daily_capacity > 0.0 {
-                let days = mv / daily_capacity;
-                total_days += days;
-                illiquid_days += days;
-            }
-        }
-    }
-
-    DaysToLiquidate {
-        total_days,
-        highly_liquid_days,
-        illiquid_days,
-        holdings_without_adv: missing_adv,
-    }
-}
-
-/// Days to liquidate breakdown.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DaysToLiquidate {
-    /// Total estimated days to liquidate entire portfolio.
-    pub total_days: f64,
-
-    /// Days attributed to highly liquid holdings.
-    pub highly_liquid_days: f64,
-
-    /// Days attributed to illiquid holdings.
-    pub illiquid_days: f64,
-
-    /// Number of holdings without ADV data.
-    pub holdings_without_adv: usize,
-}
-
-impl DaysToLiquidate {
-    /// Percentage of time spent on illiquid holdings.
-    #[must_use]
-    pub fn illiquid_pct_of_time(&self) -> f64 {
-        if self.total_days > 0.0 {
-            self.illiquid_days / self.total_days * 100.0
-        } else {
-            0.0
-        }
-    }
+    })
 }
 
 #[cfg(test)]
@@ -542,7 +343,7 @@ mod tests {
     #[test]
     fn test_calculate_liquidity_metrics_empty() {
         let config = AnalyticsConfig::default();
-        let metrics = calculate_liquidity_metrics(&[], &config);
+        let metrics = calculate_liquidity_metrics(&[], &config).unwrap();
 
         assert!(metrics.avg_bid_ask_spread.is_none());
         assert!(metrics.avg_liquidity_score.is_none());
@@ -557,7 +358,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let metrics = calculate_liquidity_metrics(&holdings, &config);
+        let metrics = calculate_liquidity_metrics(&holdings, &config).unwrap();
 
         // Equal weights: avg score = (80 + 40) / 2 = 60
         assert!(metrics.avg_liquidity_score.is_some());
@@ -581,7 +382,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let metrics = calculate_liquidity_metrics(&holdings, &config);
+        let metrics = calculate_liquidity_metrics(&holdings, &config).unwrap();
 
         // Both are illiquid (score < 30)
         assert!((metrics.illiquid_pct - 100.0).abs() < 0.1);
@@ -634,37 +435,13 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let dist = liquidity_distribution(&holdings, &config);
+        let dist = liquidity_distribution(&holdings, &config).unwrap();
 
         assert_eq!(dist.unknown_count, 1);
 
         let highly_liquid = dist.by_bucket.get(&LiquidityBucket::HighlyLiquid);
         assert!(highly_liquid.is_some());
         assert!((highly_liquid.unwrap().weight_pct - 40.0).abs() < 0.1);
-    }
-
-    #[test]
-    fn test_estimate_days_to_liquidate() {
-        let holdings = vec![
-            create_holding_with_liquidity("H1", dec!(1_000_000), Some(80.0), None),
-            create_holding_with_liquidity("H2", dec!(1_000_000), Some(20.0), None),
-        ];
-
-        let config = AnalyticsConfig::default();
-        let dtl = estimate_days_to_liquidate(&holdings, 20.0, &config);
-
-        // High liquidity holding should be faster
-        assert!(dtl.total_days > 0.0);
-        assert!(dtl.illiquid_days > dtl.highly_liquid_days);
-    }
-
-    #[test]
-    fn test_days_to_liquidate_empty() {
-        let config = AnalyticsConfig::default();
-        let dtl = estimate_days_to_liquidate(&[], 20.0, &config);
-
-        assert_eq!(dtl.total_days, 0.0);
-        assert_eq!(dtl.holdings_without_adv, 0);
     }
 
     #[test]
@@ -675,7 +452,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let spread = weighted_bid_ask_spread(&holdings, &config);
+        let spread = weighted_bid_ask_spread(&holdings, &config).unwrap();
 
         // Weighted: (10 × 600 + 20 × 400) / (600 + 400) = 14
         assert!(spread.is_some());

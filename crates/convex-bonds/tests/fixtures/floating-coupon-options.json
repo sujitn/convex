@@ -1,0 +1,2144 @@
+{
+  "provenance": "Independent Python math.erfc/algebra declared before native candidate execution; annual decimal rate and index-forward volatility, exact literal model/time/strike inputs. No native output or human approval.",
+  "absolute_bounds": {
+    "expected_payoff": 1e-12,
+    "forward_delta": 1e-12,
+    "forward_gamma": 1e-10,
+    "annual_vol_vega": 1e-12
+  },
+  "cases": [
+    {
+      "id": "0/0.25/-0.01/-0.015/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 0.25,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.005751295211842283,
+        "forward_delta": 0.7881446014166033,
+        "forward_gamma": 46.35064844183725,
+        "annual_vol_vega": 0.14484577638074142
+      }
+    },
+    {
+      "id": "0/0.25/-0.01/-0.015/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 0.25,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.0007512952118422843,
+        "forward_delta": -0.21185539858339672,
+        "forward_gamma": 46.35064844183725,
+        "annual_vol_vega": 0.14484577638074142
+      }
+    },
+    {
+      "id": "0/0.25/0.0/0.005/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 0.25,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.0007512952118422839,
+        "forward_delta": 0.21185539858339672,
+        "forward_gamma": 46.350648441837244,
+        "annual_vol_vega": 0.1448457763807414
+      }
+    },
+    {
+      "id": "0/0.25/0.0/0.005/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 0.25,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.005751295211842284,
+        "forward_delta": -0.7881446014166033,
+        "forward_gamma": 46.350648441837244,
+        "annual_vol_vega": 0.1448457763807414
+      }
+    },
+    {
+      "id": "0/0.25/0.04/0.03/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 0.25,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.010145262299751018,
+        "forward_delta": 0.945200708300442,
+        "forward_gamma": 17.747333548712884,
+        "annual_vol_vega": 0.055460417339727765
+      }
+    },
+    {
+      "id": "0/0.25/0.04/0.03/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 0.25,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.00014526229975101736,
+        "forward_delta": -0.05479929169955796,
+        "forward_gamma": 17.747333548712884,
+        "annual_vol_vega": 0.055460417339727765
+      }
+    },
+    {
+      "id": "0/0.25/0.04/0.04/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 0.25,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.0024933892525089547,
+        "forward_delta": 0.5,
+        "forward_gamma": 63.83076486422923,
+        "annual_vol_vega": 0.19947114020071635
+      }
+    },
+    {
+      "id": "0/0.25/0.04/0.04/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 0.25,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.0024933892525089547,
+        "forward_delta": -0.5,
+        "forward_gamma": 63.83076486422923,
+        "annual_vol_vega": 0.19947114020071635
+      }
+    },
+    {
+      "id": "0/1.5/-0.01/-0.015/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.008930401577217962,
+        "forward_delta": 0.6280142609624715,
+        "forward_gamma": 24.70540916226392,
+        "annual_vol_vega": 0.46322642179244844
+      }
+    },
+    {
+      "id": "0/1.5/-0.01/-0.015/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.0039304015772179636,
+        "forward_delta": -0.3719857390375285,
+        "forward_gamma": 24.70540916226392,
+        "annual_vol_vega": 0.46322642179244844
+      }
+    },
+    {
+      "id": "0/1.5/0.0/0.005/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.003930401577217963,
+        "forward_delta": 0.3719857390375285,
+        "forward_gamma": 24.70540916226392,
+        "annual_vol_vega": 0.46322642179244844
+      }
+    },
+    {
+      "id": "0/1.5/0.0/0.005/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.008930401577217964,
+        "forward_delta": -0.6280142609624715,
+        "forward_gamma": 24.70540916226392,
+        "annual_vol_vega": 0.46322642179244844
+      }
+    },
+    {
+      "id": "0/1.5/0.04/0.03/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.012366048410727849,
+        "forward_delta": 0.7431854433034379,
+        "forward_gamma": 21.052560971492127,
+        "annual_vol_vega": 0.39473551821547737
+      }
+    },
+    {
+      "id": "0/1.5/0.04/0.03/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.002366048410727846,
+        "forward_delta": -0.256814556696562,
+        "forward_gamma": 21.052560971492127,
+        "annual_vol_vega": 0.39473551821547737
+      }
+    },
+    {
+      "id": "0/1.5/0.04/0.04/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.006107531398786499,
+        "forward_delta": 0.5,
+        "forward_gamma": 26.058800634822397,
+        "annual_vol_vega": 0.4886025119029199
+      }
+    },
+    {
+      "id": "0/1.5/0.04/0.04/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.006107531398786499,
+        "forward_delta": -0.5,
+        "forward_gamma": 26.058800634822397,
+        "annual_vol_vega": 0.4886025119029199
+      }
+    },
+    {
+      "id": "0/5.0/-0.01/-0.015/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 5.0,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.013828713889252643,
+        "forward_delta": 0.5709861715062394,
+        "forward_gamma": 14.046442280603449,
+        "annual_vol_vega": 0.8779026425377157
+      }
+    },
+    {
+      "id": "0/5.0/-0.01/-0.015/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 5.0,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.008828713889252642,
+        "forward_delta": -0.42901382849376063,
+        "forward_gamma": 14.046442280603449,
+        "annual_vol_vega": 0.8779026425377157
+      }
+    },
+    {
+      "id": "0/5.0/0.0/0.005/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 5.0,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.008828713889252642,
+        "forward_delta": 0.42901382849376063,
+        "forward_gamma": 14.046442280603449,
+        "annual_vol_vega": 0.8779026425377157
+      }
+    },
+    {
+      "id": "0/5.0/0.0/0.005/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 5.0,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.013828713889252643,
+        "forward_delta": -0.5709861715062394,
+        "forward_gamma": 14.046442280603449,
+        "annual_vol_vega": 0.8779026425377157
+      }
+    },
+    {
+      "id": "0/5.0/0.04/0.03/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 5.0,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.016856909443910245,
+        "forward_delta": 0.6397426064318724,
+        "forward_gamma": 13.388138725877146,
+        "annual_vol_vega": 0.8367586703673218
+      }
+    },
+    {
+      "id": "0/5.0/0.04/0.03/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 5.0,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.006856909443910245,
+        "forward_delta": -0.3602573935681276,
+        "forward_gamma": 13.388138725877146,
+        "annual_vol_vega": 0.8367586703673218
+      }
+    },
+    {
+      "id": "0/5.0/0.04/0.04/call",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 5.0,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.01115077572595482,
+        "forward_delta": 0.5,
+        "forward_gamma": 14.272992929222168,
+        "annual_vol_vega": 0.8920620580763856
+      }
+    },
+    {
+      "id": "0/5.0/0.04/0.04/put",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 5.0,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.01115077572595482,
+        "forward_delta": -0.5,
+        "forward_gamma": 14.272992929222168,
+        "annual_vol_vega": 0.8920620580763856
+      }
+    },
+    {
+      "id": "1/0.25/-0.01/-0.015/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 0.25,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.005007881245385586,
+        "forward_delta": 0.9909595342107366,
+        "forward_gamma": 9.76086143929107,
+        "annual_vol_vega": 0.00024402153598227668
+      }
+    },
+    {
+      "id": "1/0.25/-0.01/-0.015/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 0.25,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 7.881245385590863e-06,
+        "forward_delta": -0.009040465789263378,
+        "forward_gamma": 9.76086143929107,
+        "annual_vol_vega": 0.00024402153598227668
+      }
+    },
+    {
+      "id": "1/0.25/0.0/0.005/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 0.25,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.0002119107043885059,
+        "forward_delta": 0.12085859919074234,
+        "forward_gamma": 53.61266319386682,
+        "annual_vol_vega": 0.003015712304655009
+      }
+    },
+    {
+      "id": "1/0.25/0.0/0.005/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 0.25,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.0052119107043885025,
+        "forward_delta": -0.8791414008092576,
+        "forward_gamma": 53.61266319386682,
+        "annual_vol_vega": 0.003015712304655009
+      }
+    },
+    {
+      "id": "1/0.25/0.04/0.03/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 0.25,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.010423821408777019,
+        "forward_delta": 0.902461506533321,
+        "forward_gamma": 19.694447703869436,
+        "annual_vol_vega": 0.006031424609310015
+      }
+    },
+    {
+      "id": "1/0.25/0.04/0.03/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 0.25,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.0004238214087770101,
+        "forward_delta": -0.09753849346667898,
+        "forward_gamma": 19.694447703869436,
+        "annual_vol_vega": 0.006031424609310015
+      }
+    },
+    {
+      "id": "1/0.25/0.04/0.04/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 0.25,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.0034884736640946046,
+        "forward_delta": 0.5249176690292472,
+        "forward_gamma": 45.50444076421561,
+        "annual_vol_vega": 0.013935734984041034
+      }
+    },
+    {
+      "id": "1/0.25/0.04/0.04/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 0.25,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.0034884736640946046,
+        "forward_delta": -0.4750823309707528,
+        "forward_gamma": 45.50444076421561,
+        "annual_vol_vega": 0.013935734984041034
+      }
+    },
+    {
+      "id": "1/1.5/-0.01/-0.015/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.005491493713300552,
+        "forward_delta": 0.8627281873510625,
+        "forward_gamma": 35.862587723431886,
+        "annual_vol_vega": 0.005379388158514781
+      }
+    },
+    {
+      "id": "1/1.5/-0.01/-0.015/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.0004914937133005531,
+        "forward_delta": -0.13727181264893754,
+        "forward_gamma": 35.862587723431886,
+        "annual_vol_vega": 0.005379388158514781
+      }
+    },
+    {
+      "id": "1/1.5/0.0/0.005/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.0019402551686014072,
+        "forward_delta": 0.36303393194471956,
+        "forward_gamma": 40.84583223139093,
+        "annual_vol_vega": 0.013785468378094433
+      }
+    },
+    {
+      "id": "1/1.5/0.0/0.005/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.006940255168601403,
+        "forward_delta": -0.6369660680552804,
+        "forward_gamma": 40.84583223139093,
+        "annual_vol_vega": 0.013785468378094433
+      }
+    },
+    {
+      "id": "1/1.5/0.04/0.03/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.01388051033720282,
+        "forward_delta": 0.7442639202931377,
+        "forward_gamma": 15.004591431939518,
+        "annual_vol_vega": 0.02757093675618887
+      }
+    },
+    {
+      "id": "1/1.5/0.04/0.03/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.003880510337202811,
+        "forward_delta": -0.2557360797068623,
+        "forward_gamma": 15.004591431939518,
+        "annual_vol_vega": 0.02757093675618887
+      }
+    },
+    {
+      "id": "1/1.5/0.04/0.04/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.008517260492927569,
+        "forward_delta": 0.5608375749494826,
+        "forward_gamma": 18.39657600831197,
+        "annual_vol_vega": 0.03380370841527325
+      }
+    },
+    {
+      "id": "1/1.5/0.04/0.04/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.008517260492927569,
+        "forward_delta": -0.4391624250505174,
+        "forward_gamma": 18.39657600831197,
+        "annual_vol_vega": 0.03380370841527325
+      }
+    },
+    {
+      "id": "1/5.0/-0.01/-0.015/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 5.0,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.006834710140230158,
+        "forward_delta": 0.7864400742237082,
+        "forward_gamma": 26.032318392245333,
+        "annual_vol_vega": 0.013016159196122663
+      }
+    },
+    {
+      "id": "1/5.0/-0.01/-0.015/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 5.0,
+      "forward": -0.01,
+      "strike": -0.015,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.001834710140230159,
+        "forward_delta": -0.21355992577629182,
+        "forward_gamma": 26.032318392245333,
+        "annual_vol_vega": 0.013016159196122663
+      }
+    },
+    {
+      "id": "1/5.0/0.0/0.005/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 5.0,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.004917420008777375,
+        "forward_delta": 0.5014981755776569,
+        "forward_gamma": 23.788153807556085,
+        "annual_vol_vega": 0.0267616730335006
+      }
+    },
+    {
+      "id": "1/5.0/0.0/0.005/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 5.0,
+      "forward": 0.0,
+      "strike": 0.005,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.009917420008777374,
+        "forward_delta": -0.4985018244223431,
+        "forward_gamma": 23.788153807556085,
+        "annual_vol_vega": 0.0267616730335006
+      }
+    },
+    {
+      "id": "1/5.0/0.04/0.03/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 5.0,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.019834840017554756,
+        "forward_delta": 0.7106421354699334,
+        "forward_gamma": 8.738505480326722,
+        "annual_vol_vega": 0.053523346067001196
+      }
+    },
+    {
+      "id": "1/5.0/0.04/0.03/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 5.0,
+      "forward": 0.04,
+      "strike": 0.03,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.009834840017554747,
+        "forward_delta": -0.2893578645300666,
+        "forward_gamma": 8.738505480326722,
+        "annual_vol_vega": 0.053523346067001196
+      }
+    },
+    {
+      "id": "1/5.0/0.04/0.04/call",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 5.0,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "call",
+      "expected": {
+        "expected_payoff": 0.01541017674245566,
+        "forward_delta": 0.6100726910175405,
+        "forward_gamma": 9.804430826295464,
+        "annual_vol_vega": 0.06005213881105974
+      }
+    },
+    {
+      "id": "1/5.0/0.04/0.04/put",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 5.0,
+      "forward": 0.04,
+      "strike": 0.04,
+      "side": "put",
+      "expected": {
+        "expected_payoff": 0.01541017674245566,
+        "forward_delta": -0.3899273089824596,
+        "forward_gamma": 9.804430826295464,
+        "annual_vol_vega": 0.06005213881105974
+      }
+    }
+  ],
+  "certified": false,
+  "coupon_cases": [
+    {
+      "id": "0/-0.01/-2.0/0",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0225,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": -2.0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/-0.01/-2.0/1",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.013670306642983264,
+        "cap_adjustment": 0.008829693357016735,
+        "floor_adjustment": 0,
+        "forward_delta": -1.1935040594926598,
+        "forward_gamma": -50.577293371388855,
+        "annual_vol_vega": -0.9483242507135409
+      }
+    },
+    {
+      "id": "0/-0.01/-2.0/2",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.026622360289136324,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.0041223602891363245,
+        "forward_delta": -1.5375672735495236,
+        "forward_gamma": 39.785508103271184,
+        "annual_vol_vega": 0.7459782769363347
+      }
+    },
+    {
+      "id": "0/-0.01/-2.0/3",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.01779266693211959,
+        "cap_adjustment": 0.008829693357016735,
+        "floor_adjustment": 0.0041223602891363245,
+        "forward_delta": -0.7310713330421834,
+        "forward_gamma": -10.791785268117671,
+        "annual_vol_vega": -0.2023459737772062
+      }
+    },
+    {
+      "id": "0/-0.01/-2.0/4",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0.01946907906181842,
+        "floor_adjustment": 0.006969079061818418,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/-0.01/0.0/0",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/-0.01/0.0/1",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/-0.01/0.0/2",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/-0.01/0.0/3",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/-0.01/0.0/4",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.0075,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/-0.01/1.5/0",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": -0.012499999999999999,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 1.5,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/-0.01/1.5/1",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": -0.01278823285507081,
+        "cap_adjustment": 0.00028823285507081057,
+        "floor_adjustment": 0,
+        "forward_delta": 1.4518432188000991,
+        "forward_gamma": -7.051413286690147,
+        "annual_vol_vega": -0.13221399912544024
+      }
+    },
+    {
+      "id": "0/-0.01/1.5/2",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.004235981734000067,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.016735981734000066,
+        "forward_delta": 0.439660260804855,
+        "forward_gamma": 33.70588689368401,
+        "annual_vol_vega": 0.6319853792565752
+      }
+    },
+    {
+      "id": "0/-0.01/1.5/3",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.003947748878929257,
+        "cap_adjustment": 0.00028823285507081057,
+        "floor_adjustment": 0.016735981734000066,
+        "forward_delta": 0.39150347960495413,
+        "forward_gamma": 26.65447360699386,
+        "annual_vol_vega": 0.4997713801311349
+      }
+    },
+    {
+      "id": "0/-0.01/1.5/4",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0.001988006116614481,
+        "floor_adjustment": 0.02448800611661448,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/-2.0/0",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": -0.0375,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": -2.0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/-2.0/1",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": -0.03764771159472963,
+        "cap_adjustment": 0.00014771159472962711,
+        "floor_adjustment": 0,
+        "forward_delta": -1.9725136638884897,
+        "forward_gamma": -4.588268537570566,
+        "annual_vol_vega": -0.0860300350794481
+      }
+    },
+    {
+      "id": "0/0.02/-2.0/2",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.001632399069207445,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.039132399069207444,
+        "forward_delta": -0.22067136191984682,
+        "forward_gamma": 24.618611648872843,
+        "annual_vol_vega": 0.4615989684163657
+      }
+    },
+    {
+      "id": "0/0.02/-2.0/3",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0014846874744778166,
+        "cap_adjustment": 0.00014771159472962711,
+        "floor_adjustment": 0.039132399069207444,
+        "forward_delta": -0.19318502580833652,
+        "forward_gamma": 20.030343111302276,
+        "annual_vol_vega": 0.3755689333369176
+      }
+    },
+    {
+      "id": "0/0.02/-2.0/4",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0.0007974025119623068,
+        "floor_adjustment": 0.04829740251196231,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/0.0/0",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/0.0/1",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/0.0/2",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/0.0/3",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/0.0/4",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.0075,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/1.5/0",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0325,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 1.5,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "0/0.02/1.5/1",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.02203446728928121,
+        "cap_adjustment": 0.010465532710718792,
+        "floor_adjustment": 0,
+        "forward_delta": 0.6849814553964844,
+        "forward_gamma": -38.85725213744185,
+        "annual_vol_vega": -0.7285734775770346
+      }
+    },
+    {
+      "id": "0/0.02/1.5/2",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.03331414258928333,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.0008141425892833261,
+        "forward_delta": 1.3822559539812143,
+        "forward_gamma": 14.358457968456605,
+        "annual_vol_vega": 0.2692210869085613
+      }
+    },
+    {
+      "id": "0/0.02/1.5/3",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.022848609878564536,
+        "cap_adjustment": 0.010465532710718792,
+        "floor_adjustment": 0.0008141425892833261,
+        "forward_delta": 0.5672374093776987,
+        "forward_gamma": -24.498794168985242,
+        "annual_vol_vega": -0.45935239066847333
+      }
+    },
+    {
+      "id": "0/0.02/1.5/4",
+      "model": {
+        "kind": "normal",
+        "volatility": 0.0125
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0.02448800611661448,
+        "floor_adjustment": 0.001988006116614481,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/-2.0/0",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0225,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": -2.0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/-2.0/1",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.02087414192987698,
+        "cap_adjustment": 0.0016258580701230194,
+        "floor_adjustment": 0,
+        "forward_delta": -1.5941621832655177,
+        "forward_gamma": -92.23255227765097,
+        "annual_vol_vega": -0.013834882841647638
+      }
+    },
+    {
+      "id": "1/-0.01/-2.0/2",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.022989759093094767,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.0004897590930947682,
+        "forward_delta": -1.8079281395792197,
+        "forward_gamma": 55.64357655705567,
+        "annual_vol_vega": 0.008346536483558346
+      }
+    },
+    {
+      "id": "1/-0.01/-2.0/3",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.021363901022971747,
+        "cap_adjustment": 0.0016258580701230194,
+        "floor_adjustment": 0.0004897590930947682,
+        "forward_delta": -1.4020903228447374,
+        "forward_gamma": -36.5889757205953,
+        "annual_vol_vega": -0.0054883463580892924
+      }
+    },
+    {
+      "id": "1/-0.01/-2.0/4",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0.013929825199405665,
+        "floor_adjustment": 0.0014298251994056613,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/0.0/0",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/0.0/1",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/0.0/2",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/0.0/3",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/0.0/4",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.0075,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/1.5/0",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": -0.012499999999999999,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 1.5,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/-0.01/1.5/1",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": -0.012508149692912567,
+        "cap_adjustment": 8.149692912569058e-06,
+        "floor_adjustment": 0,
+        "forward_delta": 1.4952322871094414,
+        "forward_gamma": -2.3607916610780637,
+        "annual_vol_vega": -0.00035411874916170945
+      }
+    },
+    {
+      "id": "1/-0.01/1.5/2",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.00069078022825334,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.013190780228253339,
+        "forward_delta": 0.2436626960448054,
+        "forward_gamma": 60.19077092974839,
+        "annual_vol_vega": 0.009028615639462254
+      }
+    },
+    {
+      "id": "1/-0.01/1.5/3",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0006826305353407718,
+        "cap_adjustment": 8.149692912569058e-06,
+        "floor_adjustment": 0.013190780228253339,
+        "forward_delta": 0.23889498315424684,
+        "forward_gamma": 57.82997926867033,
+        "annual_vol_vega": 0.008674496890300545
+      }
+    },
+    {
+      "id": "1/-0.01/1.5/4",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": -0.01,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0.00016029069687546792,
+        "floor_adjustment": 0.022660290696875463,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/-2.0/0",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": -0.0375,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": -2.0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/-2.0/1",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": -0.037500505465188426,
+        "cap_adjustment": 5.054651884294008e-07,
+        "floor_adjustment": 0,
+        "forward_delta": -1.9998686073032614,
+        "forward_gamma": -0.03482748743332461,
+        "annual_vol_vega": -3.2650769468741824e-05
+      }
+    },
+    {
+      "id": "1/0.02/-2.0/2",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0006490912660208695,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.03814909126602087,
+        "forward_delta": -0.09138847729313171,
+        "forward_gamma": 12.536327573423245,
+        "annual_vol_vega": 0.01175280710008429
+      }
+    },
+    {
+      "id": "1/0.02/-2.0/3",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0006485858008324422,
+        "cap_adjustment": 5.054651884294008e-07,
+        "floor_adjustment": 0.03814909126602087,
+        "forward_delta": -0.09125708459639315,
+        "forward_gamma": 12.501500085989921,
+        "annual_vol_vega": 0.011720156330615548
+      }
+    },
+    {
+      "id": "1/0.02/-2.0/4",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": -2.0,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0.00014042545458205886,
+        "floor_adjustment": 0.04764042545458206,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/0.0/0",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/0.0/1",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/0.0/2",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/0.0/3",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.0025,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/0.0/4",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 0.0,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.0075,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/1.5/0",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.0325,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0,
+        "forward_delta": 1.5,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    },
+    {
+      "id": "1/0.02/1.5/1",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": null,
+      "expected": {
+        "expected_rate": 0.022221943340670833,
+        "cap_adjustment": 0.010278056659329167,
+        "floor_adjustment": 0,
+        "forward_delta": 0.5939417913664087,
+        "forward_gamma": -37.75135800108524,
+        "annual_vol_vega": -0.03539189812601741
+      }
+    },
+    {
+      "id": "1/0.02/1.5/2",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": null,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.032712670065407345,
+        "cap_adjustment": 0,
+        "floor_adjustment": 0.00021267006540734424,
+        "forward_delta": 1.4665271901459143,
+        "forward_gamma": 5.204612558311472,
+        "annual_vol_vega": 0.0048793242734170034
+      }
+    },
+    {
+      "id": "1/0.02/1.5/3",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.03,
+      "floor": 0.0,
+      "expected": {
+        "expected_rate": 0.022434613406078177,
+        "cap_adjustment": 0.010278056659329167,
+        "floor_adjustment": 0.00021267006540734424,
+        "forward_delta": 0.560468981512323,
+        "forward_gamma": -32.54674544277376,
+        "annual_vol_vega": -0.030512573852600408
+      }
+    },
+    {
+      "id": "1/0.02/1.5/4",
+      "model": {
+        "kind": "shifted_lognormal",
+        "volatility": 0.25,
+        "displacement": 0.03
+      },
+      "expiry_time": 1.5,
+      "forward": 0.02,
+      "gearing": 1.5,
+      "additive": 0.0025,
+      "cap": 0.01,
+      "floor": 0.01,
+      "expected": {
+        "expected_rate": 0.01,
+        "cap_adjustment": 0.02364882455175478,
+        "floor_adjustment": 0.0011488245517547661,
+        "forward_delta": 0,
+        "forward_gamma": 0,
+        "annual_vol_vega": 0
+      }
+    }
+  ]
+}

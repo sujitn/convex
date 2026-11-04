@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "inspected_on": "2026-10-04",
+  "capture_kind": "limited factual research record, not upstream source/binary capture",
+  "QuantLib": {
+    "version": "1.40",
+    "release_url": "https://github.com/lballabio/QuantLib/releases/tag/v1.40",
+    "source_commit": "06edddbdb85f006c43a449b5fc846a00c67477f3",
+    "license_url": "https://www.quantlib.org/license.shtml",
+    "license": "QuantLib modified BSD license",
+    "record": "Retained fixture metadata names 1.40. Existing CI pins QuantLib==1.40. No installed comparator binary or original wheel/container/compiler receipt is available here; no fresh QuantLib execution is claimed."
+  },
+  "ORE": {
+    "version": "1.8.17.0",
+    "tag": "1.8.17.0",
+    "source_commit": "3d75a69087911a7e2cf1e6882da7bc27135c0762",
+    "release_url": "https://github.com/OpenSourceRisk/Engine/releases/tag/1.8.17.0",
+    "license_url": "https://opensourcerisk.org/faqs/",
+    "license": "Modified BSD (upstream description)",
+    "record": "Release identity verified from the primary release listing and commit link. ORE source/binary, transitive submodule revisions, license bytes and execution receipts are not bundled. ORE/QuantLib share ancestry; ORE alone is not a second independent mathematical source."
+  },
+  "ISDA": {
+    "version": "1.8.3",
+    "release_date": "2021-04-07",
+    "download_url": "https://www.cdsmodel.com/download.html",
+    "license": "ISDA CDS Standard Model Public Licence Version 1.0",
+    "license_url": "https://www.cdsmodel.com/cds-disclaimer.html",
+    "grid_url": "https://www.cdsmodel.com/rfr-test-grids.html",
+    "grid_selection": "USD trade date 2022-06-21, NYM calendar update",
+    "record": "Version and dated grid listing verified at primary sources. Model archive, binary and grid numerical data are not captured. Future model integration must retain upstream attribution and licensing records; no claim of ISDA compliance is made."
+  },
+  "exchange": {
+    "document": "Understanding SOFR Futures",
+    "document_url": "https://www.cmegroup.com/education/articles-and-reports/understanding-sofr-futures",
+    "version": "factual extract inspected 2026-10-04; upstream does not expose a revision identifier",
+    "license": "CME copyrighted educational material; no open-source software/data redistribution grant recorded",
+    "published_example": {
+      "annual_rate_percent": "3.5",
+      "sr3_quote_price_points": "96.50"
+    },
+    "record": "The small numerical example identifies the 100-minus-percent quotation. It is a documentary input for a future product fixture, not a Convex rate-futures comparison. Full document, fixings and contract settlement data are not bundled."
+  }
+}

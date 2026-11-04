@@ -1,0 +1,4442 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "accrued-000",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-001",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "-0.015",
+            "original_face": "1000.625",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "-3.75234375",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-002",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-003",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.075",
+            "original_face": "1000000",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "18750",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-004",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-01-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-005",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "2.513888888888888888888888889",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-006",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-007",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "-0.015",
+            "original_face": "1000.625",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "-3.700941780821917808219178082",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-008",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-009",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.075",
+            "original_face": "1000000",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "18493.15068493150684931506849",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-010",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-01-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-011",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "2.479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-012",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-013",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "-0.015",
+            "original_face": "1000.625",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "-3.700941780821917808219178082",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-014",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-015",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.075",
+            "original_face": "1000000",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "18493.15068493150684931506849",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-016",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-01-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-017",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "2.479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-018",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.243093922651933701657458564",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-019",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "-0.015",
+            "original_face": "1000.625",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "-3.731612569060773480662983425",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-020",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-021",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.075",
+            "original_face": "1000000",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "18646.40883977900552486187845",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-022",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-01-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-023",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "2.5",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-024",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-025",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "-0.015",
+            "original_face": "1000.625",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "-3.700941780821917808219178082",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-026",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-027",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.075",
+            "original_face": "1000000",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "18493.15068493150684931506849",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-028",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-01-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-029",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "2.479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-030",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-031",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "-0.015",
+            "original_face": "1000.625",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "-3.75234375",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-032",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-033",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.075",
+            "original_face": "1000000",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "18750",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-034",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-01-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-035",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "2.5",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-036",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-037",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "-0.015",
+            "original_face": "1000.625",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "-3.75234375",
+      "absolute_bound": "0.0000000000000000000000000060037500",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-038",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0",
+            "original_face": "5000",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.0000000000000000000000000004",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-039",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.075",
+            "original_face": "1000000",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "18750",
+      "absolute_bound": "0.0000000000000000000000300000000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-040",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-01-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-041",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "2.5",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-042",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2024-06-01",
+            "period_start": "2024-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2024-09-01",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.256830601092896174863387978",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-043",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2024-06-01",
+            "period_start": "2024-01-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-01-01",
+            "frequency": "Annual"
+          }
+        }
+      },
+      "expected_decimal": "2.076502732240437158469945355",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-044",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2023-12-15",
+            "period_start": "2023-10-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2024-04-01",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.024590163934426229508196721",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-045",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2024-03-15",
+            "period_start": "2023-12-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2024-06-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "1.243805674077401003069091998",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-046",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-03-31",
+            "period_start": "2025-02-28",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2025-08-31",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0.4166666666666666666666666667",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-047",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-03-31",
+            "period_start": "2025-02-28",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360E",
+            "period_end": "2025-08-31",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": "0.4444444444444444444444444444",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-048",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "1.866666666666666666666666667",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-049",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-03",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.1333333333333333333333333333",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-050",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-10",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.05555555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-051",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-052",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "1.841095890410958904109589041",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-053",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-03",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.1315068493150684931506849315",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-054",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-10",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.05479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-055",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-056",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "1.841095890410958904109589041",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-057",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-03",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.1315068493150684931506849315",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-058",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-10",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.05479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-059",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-060",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "1.856353591160220994475138122",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-061",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-03",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.1325966850828729281767955801",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-062",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-10",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.05524861878453038674033149171",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-063",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-064",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "1.841095890410958904109589041",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-065",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-03",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.1315068493150684931506849315",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-066",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-10",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.05479452054794520547945205479",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-067",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-068",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "1.855555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-069",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-03",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.1333333333333333333333333333",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-070",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-10",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.05555555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-071",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-072",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "1.855555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-073",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-03",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.1333333333333333333333333333",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-074",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-10",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "-0.05555555555555555555555555556",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-075",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Thirty360E",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000001600",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-076",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2025-06-15"
+          }
+        }
+      },
+      "expected_decimal": "1.041666666666666666666666667",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-077",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Fixed",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2025-06-15"
+          }
+        }
+      },
+      "expected_decimal": "1.027397260273972602739726027",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-078",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIsda",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2025-06-15"
+          }
+        }
+      },
+      "expected_decimal": "1.027397260273972602739726027",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-079",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2025-06-15"
+          }
+        }
+      },
+      "expected_decimal": "1.030219780219780219780219780",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-080",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Leap",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2025-06-15"
+          }
+        }
+      },
+      "expected_decimal": "1.027397260273972602739726027",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-081",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360"
+          }
+        }
+      },
+      "expected_decimal": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-082",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Fixed"
+          }
+        }
+      },
+      "expected_decimal": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-083",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIsda"
+          }
+        }
+      },
+      "expected_decimal": "1.232876712328767123287671233",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-084",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360US"
+          }
+        }
+      },
+      "expected_decimal": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-085",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360E"
+          }
+        }
+      },
+      "expected_decimal": "1.25",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-086",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2020-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360US",
+            "period_end": "2030-01-15",
+            "frequency": "Zero"
+          }
+        }
+      },
+      "expected_decimal": "0",
+      "absolute_bound": "0.000000000000000000000000002000",
+      "expected_error": null
+    },
+    {
+      "id": "accrued-reject-087",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "0",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-088",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "-100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-089",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "2",
+            "original_face": "79228162514264337593543950335",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-090",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": 100,
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-091",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "1e-29",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-092",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": 0.05,
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-093",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-01-14",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-094",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-07-16",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-095",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-01-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-096",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-01-14",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-097",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "0000-01-01",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-098",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "UNKNOWN",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-099",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActAfb",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-100",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360EIsda",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-101",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360German",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-102",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "unknown_step": []
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-103",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.0000000000000000000000000001",
+            "original_face": "0.0000000000000000000000000001",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-104",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 367,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-105",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 4294967295,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-106",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": -1,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-107",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 2
+            }
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "missing_input"
+    },
+    {
+      "id": "accrued-reject-108",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [
+            {
+              "pin": {
+                "id": "CAL.ACCRUED.SUPPLIED",
+                "version": 1
+              },
+              "holidays": [
+                "2025-07-08"
+              ],
+              "weekend_days": [
+                5,
+                6
+              ]
+            }
+          ],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.MISSING",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "missing_input"
+    },
+    {
+      "id": "accrued-reject-109",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "ex_dividend",
+            "settlement": "2025-07-02",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.04",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "ex_dividend_days": 7,
+            "calendar": {
+              "id": "CAL.ACCRUED.SUPPLIED",
+              "version": 1
+            }
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "missing_input"
+    },
+    {
+      "id": "accrued-reject-110",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2025-03-02",
+            "reference_end": "2025-06-15"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-111",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2025-06-01"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-112",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIcma",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2024-12-15"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-113",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-05-15",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2025-06-15"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-114",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "irregular_period",
+            "settlement": "2025-06-16",
+            "period_start": "2025-03-01",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-06-15",
+            "frequency": "SemiAnnual",
+            "reference_start": "2024-12-15",
+            "reference_end": "2025-06-15"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-115",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActIcma"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-116",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act365Leap"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-117",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360EIsda"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-118",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "ActActAfb"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-119",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "year_fraction",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Thirty360German"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-120",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-121",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-122",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-123",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-124",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "day_count": "Act360",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-125",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "period_end": "2025-07-15",
+            "frequency": "SemiAnnual"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    },
+    {
+      "id": "accrued-reject-126",
+      "request": {
+        "schema_version": 1,
+        "inputs": {
+          "calendars": [],
+          "helper_calendars": [],
+          "curves": [],
+          "calibration": null,
+          "fixings": [],
+          "publications": []
+        },
+        "operation": {
+          "kind": "accrued_interest",
+          "action": {
+            "kind": "standard",
+            "settlement": "2025-04-15",
+            "period_start": "2025-01-15",
+            "annual_rate": "0.05",
+            "original_face": "100",
+            "day_count": "Act360",
+            "period_end": "2025-07-15"
+          }
+        }
+      },
+      "expected_decimal": null,
+      "absolute_bound": null,
+      "expected_error": "invalid_input"
+    }
+  ],
+  "certified": false
+}

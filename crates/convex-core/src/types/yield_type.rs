@@ -1,10 +1,12 @@
 //! Yield type for bond analytics.
 
+use convex_math::decimal::BoundedDecimal;
+use libm as portable;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use super::Compounding;
+use super::{quote_display::four_places, Compounding};
 use crate::error::{ConvexError, ConvexResult};
 
 /// A yield value with compounding convention.
@@ -18,12 +20,19 @@ use crate::error::{ConvexError, ConvexResult};
 /// use rust_decimal_macros::dec;
 ///
 /// let ytm = Yield::new(dec!(0.05), Compounding::SemiAnnual);
-/// assert_eq!(ytm.as_percentage(), dec!(5.0));
-/// assert_eq!(ytm.as_bps(), 500);
+/// assert_eq!(ytm.as_percentage().unwrap(), dec!(5.0));
+/// assert_eq!(ytm.as_bps().unwrap(), 500);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(deny_unknown_fields)]
 pub struct Yield {
     /// Yield as a decimal (0.05 = 5%)
+    #[serde(with = "crate::contracts::numeric_decimal")]
+    #[cfg_attr(
+        feature = "schemars",
+        schemars(schema_with = "crate::contracts::numeric_decimal::schema")
+    )]
     value: Decimal,
     /// Compounding frequency convention
     compounding: Compounding,
@@ -39,12 +48,16 @@ impl Yield {
     }
 
     /// Creates a yield from a percentage value.
-    #[must_use]
-    pub fn from_percentage(percentage: Decimal, compounding: Compounding) -> Self {
-        Self {
-            value: percentage / Decimal::ONE_HUNDRED,
+    ///
+    /// # Errors
+    /// Rejects digits that the exact decimal-rate representation cannot retain.
+    pub fn from_percentage(percentage: Decimal, compounding: Compounding) -> ConvexResult<Self> {
+        Ok(Self {
+            value: BoundedDecimal::decimal(percentage)
+                .divide_power_of_ten(2)?
+                .finish_exact()?,
             compounding,
-        }
+        })
     }
 
     /// Creates a yield from basis points.
@@ -79,16 +92,32 @@ impl Yield {
     }
 
     /// Returns the yield as a percentage.
-    #[must_use]
-    pub fn as_percentage(&self) -> Decimal {
-        self.value * Decimal::ONE_HUNDRED
+    ///
+    /// # Errors
+    /// Rejects an unrepresentable percentage without changing the stored rate.
+    pub fn as_percentage(&self) -> ConvexResult<Decimal> {
+        Ok(BoundedDecimal::decimal(self.value)
+            .multiply(Decimal::ONE_HUNDRED)?
+            .finish_exact()?)
     }
 
     /// Returns the yield in basis points.
-    #[must_use]
-    pub fn as_bps(&self) -> i64 {
-        let bps = self.value * Decimal::from(10_000);
-        bps.trunc().to_string().parse().unwrap_or(0)
+    /// Fractional basis points truncate toward zero, including genuine zero.
+    ///
+    /// # Errors
+    /// Rejects an integer outside the signed 64-bit range.
+    pub fn as_bps(&self) -> ConvexResult<i64> {
+        let numerator = self
+            .value
+            .mantissa()
+            .checked_mul(10_000)
+            .ok_or_else(|| ConvexError::math_error("basis-point integer overflow"))?;
+        // Decimal scale is at most 28, so this positive divisor fits i128.
+        let divisor = 10i128.pow(self.value.scale());
+        i64::try_from(numerator / divisor).map_err(|_| ConvexError::InvalidYield {
+            value: self.value,
+            reason: "basis-point integer outside the signed 64-bit range".into(),
+        })
     }
 
     /// Returns the compounding convention.
@@ -115,12 +144,12 @@ impl Yield {
         // r2 = n2 * ((1 + r1/n1)^(n1/n2) - 1)
         let r2 = if target == Compounding::Continuous {
             // Convert to continuous: r_c = n * ln(1 + r/n)
-            n1 * (1.0 + r1 / n1).ln()
+            n1 * portable::log(1.0 + r1 / n1)
         } else if self.compounding == Compounding::Continuous {
             // Convert from continuous: r = n * (e^(r_c/n) - 1)
-            n2 * ((r1 / n2).exp() - 1.0)
+            n2 * (portable::exp(r1 / n2) - 1.0)
         } else {
-            n2 * ((1.0 + r1 / n1).powf(n1 / n2) - 1.0)
+            n2 * (portable::pow(1.0 + r1 / n1, n1 / n2) - 1.0)
         };
 
         Self {
@@ -132,7 +161,12 @@ impl Yield {
 
 impl fmt::Display for Yield {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:.4}% ({})", self.as_percentage(), self.compounding)
+        write!(
+            f,
+            "{}% ({})",
+            four_places(self.value, true),
+            self.compounding
+        )
     }
 }
 
@@ -145,7 +179,7 @@ mod tests {
     fn test_yield_creation() {
         let y = Yield::new(dec!(0.05), Compounding::SemiAnnual);
         assert_eq!(y.value(), dec!(0.05));
-        assert_eq!(y.as_percentage(), dec!(5.0));
+        assert_eq!(y.as_percentage().unwrap(), dec!(5.0));
         assert_eq!(y.compounding(), Compounding::SemiAnnual);
     }
 
@@ -153,14 +187,14 @@ mod tests {
     fn test_yield_from_bps() {
         let y = Yield::from_bps(250, Compounding::SemiAnnual);
         assert_eq!(y.value(), dec!(0.025));
-        assert_eq!(y.as_bps(), 250);
+        assert_eq!(y.as_bps().unwrap(), 250);
     }
 
     #[test]
     fn test_yield_from_percentage() {
-        let y = Yield::from_percentage(dec!(5.0), Compounding::SemiAnnual);
+        let y = Yield::from_percentage(dec!(5.0), Compounding::SemiAnnual).unwrap();
         assert_eq!(y.value(), dec!(0.05));
-        assert_eq!(y.as_percentage(), dec!(5.0));
+        assert_eq!(y.as_percentage().unwrap(), dec!(5.0));
     }
 
     #[test]

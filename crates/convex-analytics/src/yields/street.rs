@@ -58,7 +58,7 @@ pub fn street_convention_yield(
         {
             let y = result.yield_value;
             if y > -0.5 && y < 1.0 {
-                return Ok(Decimal::from_f64_retain(y).unwrap_or(Decimal::ZERO));
+                return result.yield_decimal().map_err(Into::into);
             }
         }
     }

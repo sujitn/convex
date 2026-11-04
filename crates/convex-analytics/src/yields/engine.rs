@@ -1,8 +1,8 @@
-//! Unified yield calculation engine.
+//! Supplied-cash yield diagnostics and checked scalar reporting.
 //!
-//! This module provides a comprehensive yield calculation engine that supports
-//! all yield conventions, compounding methods, and edge cases. It consolidates
-//! yield calculation logic to ensure consistency across the codebase.
+//! Scalar reporting and simple/current-yield measures have checked native owners.
+//! The retained general solver and accrued methods do not qualify missing market
+//! conventions or contextual cash mechanics; use the complete dated contract routes.
 //!
 //! # Example
 //!
@@ -22,48 +22,21 @@
 //! )?;
 //! ```
 
-use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
-use convex_bonds::cashflows::AccruedInterestCalculator;
 use convex_bonds::traits::BondCashFlow;
-use convex_bonds::types::{AccruedConvention, CalendarId, YieldCalculationRules, YieldConvention};
+use convex_bonds::types::YieldCalculationRules;
 use convex_core::types::Date;
-use convex_math::solvers::{brent, newton_raphson, SolverConfig};
 
-use crate::error::{AnalyticsError, AnalyticsResult};
+use crate::error::AnalyticsResult;
 
-/// Result of a yield calculation.
-#[derive(Debug, Clone, Copy)]
-pub struct YieldEngineResult {
-    /// The calculated yield (as a decimal, e.g., 0.05 for 5%).
-    pub yield_value: f64,
-    /// Number of iterations to converge.
-    pub iterations: u32,
-    /// Final residual (should be near zero).
-    pub residual: f64,
-    /// Convention used for calculation.
-    pub convention: YieldConvention,
-}
-
-impl YieldEngineResult {
-    /// Returns the yield as a percentage (e.g., 5.0 for 5%).
-    #[must_use]
-    pub fn yield_percent(&self) -> f64 {
-        self.yield_value * 100.0
-    }
-
-    /// Returns the yield as a Decimal.
-    #[must_use]
-    pub fn yield_decimal(&self) -> Decimal {
-        Decimal::from_f64_retain(self.yield_value).unwrap_or(Decimal::ZERO)
-    }
-}
+/// The canonical native result, including checked reporting conversions.
+pub use convex_bonds::pricing::{StandardYieldEngine, YieldEngineResult};
 
 /// Trait for yield calculation engines.
 ///
 /// Implementations provide methods to calculate yields from prices and vice versa,
-/// with full support for different conventions and edge cases.
+/// for their explicitly supplied cash and rules; this is not convention qualification.
 pub trait YieldEngine: Send + Sync {
     /// Calculate yield from price.
     ///
@@ -105,7 +78,7 @@ pub trait YieldEngine: Send + Sync {
         yield_rate: f64,
         settlement: Date,
         rules: &YieldCalculationRules,
-    ) -> f64;
+    ) -> AnalyticsResult<f64>;
 
     /// Calculate accrued interest.
     ///
@@ -129,172 +102,10 @@ pub trait YieldEngine: Send + Sync {
         coupon_rate: Decimal,
         face_value: Decimal,
         rules: &YieldCalculationRules,
-    ) -> Decimal;
+    ) -> AnalyticsResult<Decimal>;
 }
 
-/// Standard yield calculation engine.
-///
-/// Implements the `YieldEngine` trait with full support for all conventions.
-/// Uses Newton-Raphson with Brent's method fallback for robust convergence.
-#[derive(Debug, Clone)]
-pub struct StandardYieldEngine {
-    /// Solver tolerance.
-    tolerance: f64,
-    /// Maximum iterations.
-    max_iterations: u32,
-}
-
-impl Default for StandardYieldEngine {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl StandardYieldEngine {
-    /// Creates a new standard yield engine with default settings.
-    ///
-    /// Default tolerance: 1e-10
-    /// Default max iterations: 100
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            tolerance: 1e-10,
-            max_iterations: 100,
-        }
-    }
-
-    /// Sets the solver tolerance.
-    #[must_use]
-    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
-        self.tolerance = tolerance;
-        self
-    }
-
-    /// Sets the maximum iterations.
-    #[must_use]
-    pub fn with_max_iterations(mut self, max_iterations: u32) -> Self {
-        self.max_iterations = max_iterations;
-        self
-    }
-
-    /// Prepares cash flow data for calculation.
-    fn prepare_cash_flows(
-        &self,
-        cash_flows: &[BondCashFlow],
-        settlement: Date,
-        rules: &YieldCalculationRules,
-    ) -> Vec<(f64, f64)> {
-        let dc = rules.accrual_day_count.to_day_count();
-
-        cash_flows
-            .iter()
-            .filter(|cf| cf.date > settlement)
-            .map(|cf| {
-                let years = dc.year_fraction(settlement, cf.date);
-                let amount = cf.amount.to_f64().unwrap_or(0.0);
-                (years.to_f64().unwrap_or(0.0), amount)
-            })
-            .collect()
-    }
-
-    /// Estimates initial yield guess.
-    fn estimate_initial_yield(
-        &self,
-        cf_data: &[(f64, f64)],
-        dirty_price: f64,
-        _rules: &YieldCalculationRules,
-    ) -> f64 {
-        // Current yield approximation
-        let total_coupons: f64 = cf_data.iter().map(|(_, amt)| amt).sum();
-        let years_to_mat = cf_data.last().map_or(1.0, |(y, _)| *y);
-        let face = cf_data.last().map_or(100.0, |(_, amt)| *amt).min(100.0);
-
-        let annual_coupon = if years_to_mat > 0.0 {
-            (total_coupons - face) / years_to_mat
-        } else {
-            0.0
-        };
-
-        if dirty_price > 0.0 {
-            (annual_coupon / dirty_price).clamp(-0.5, 1.0)
-        } else {
-            0.05
-        }
-    }
-
-    /// Calculates present value at a given yield using the specified compounding.
-    fn pv_at_yield(
-        &self,
-        cf_data: &[(f64, f64)],
-        yield_rate: f64,
-        rules: &YieldCalculationRules,
-    ) -> f64 {
-        cf_data
-            .iter()
-            .map(|(years, amount)| {
-                let df = rules.compounding.discount_factor(yield_rate, *years);
-                amount * df
-            })
-            .sum()
-    }
-
-    /// Calculates the derivative of PV with respect to yield.
-    fn pv_derivative(
-        &self,
-        cf_data: &[(f64, f64)],
-        yield_rate: f64,
-        rules: &YieldCalculationRules,
-    ) -> f64 {
-        cf_data
-            .iter()
-            .map(|(years, amount)| {
-                let ddf_dy = rules
-                    .compounding
-                    .discount_factor_derivative(yield_rate, *years);
-                amount * ddf_dy
-            })
-            .sum()
-    }
-
-    /// Solves using Brent's method when Newton-Raphson fails.
-    fn solve_with_brent<F>(
-        &self,
-        objective: F,
-        initial_guess: f64,
-        convention: YieldConvention,
-    ) -> AnalyticsResult<YieldEngineResult>
-    where
-        F: Fn(f64) -> f64,
-    {
-        let config = SolverConfig::new(self.tolerance, self.max_iterations);
-
-        // Try to find a bracket
-        let brackets = [
-            (initial_guess - 0.1, initial_guess + 0.1),
-            (-0.1, 0.5),
-            (-0.2, 1.0),
-            (-0.5, 2.0),
-        ];
-
-        for (a, b) in brackets {
-            if let Ok(result) = brent(&objective, a, b, &config) {
-                return Ok(YieldEngineResult {
-                    yield_value: result.root,
-                    iterations: result.iterations,
-                    residual: result.residual,
-                    convention,
-                });
-            }
-        }
-
-        Err(AnalyticsError::SolverConvergenceFailed {
-            solver: "YieldEngine".to_string(),
-            iterations: self.max_iterations,
-            residual: f64::NAN,
-        })
-    }
-}
-
+// One native implementation owns numerical checks and solver behavior.
 impl YieldEngine for StandardYieldEngine {
     fn yield_from_price(
         &self,
@@ -304,65 +115,28 @@ impl YieldEngine for StandardYieldEngine {
         settlement: Date,
         rules: &YieldCalculationRules,
     ) -> AnalyticsResult<YieldEngineResult> {
-        let dirty_price = clean_price + accrued;
-        let target = dirty_price.to_f64().unwrap_or(100.0);
-
-        let cf_data = self.prepare_cash_flows(cash_flows, settlement, rules);
-
-        if cf_data.is_empty() {
-            return Err(AnalyticsError::InvalidInput(
-                "No future cash flows".to_string(),
-            ));
-        }
-
-        let initial_guess = self.estimate_initial_yield(&cf_data, target, rules);
-
-        // Objective function: PV(yield) - target = 0
-        let objective = |y: f64| self.pv_at_yield(&cf_data, y, rules) - target;
-
-        // Analytical derivative for Newton-Raphson
-        let derivative = |y: f64| self.pv_derivative(&cf_data, y, rules);
-
-        let config = SolverConfig::new(self.tolerance, self.max_iterations);
-
-        // Try Newton-Raphson first
-        if let Ok(result) = newton_raphson(objective, derivative, initial_guess, &config) {
-            Ok(YieldEngineResult {
-                yield_value: result.root,
-                iterations: result.iterations,
-                residual: result.residual,
-                convention: rules.convention,
-            })
-        } else {
-            // Try multiple initial guesses
-            let guesses = [0.01, 0.03, 0.05, 0.08, 0.10, 0.15];
-            for guess in guesses {
-                if let Ok(result) = newton_raphson(objective, derivative, guess, &config) {
-                    return Ok(YieldEngineResult {
-                        yield_value: result.root,
-                        iterations: result.iterations,
-                        residual: result.residual,
-                        convention: rules.convention,
-                    });
-                }
-            }
-
-            // Fallback to Brent's method
-            self.solve_with_brent(objective, initial_guess, rules.convention)
-        }
+        convex_bonds::pricing::YieldEngine::yield_from_price(
+            self,
+            cash_flows,
+            clean_price,
+            accrued,
+            settlement,
+            rules,
+        )
+        .map_err(Into::into)
     }
-
     fn price_from_yield(
         &self,
         cash_flows: &[BondCashFlow],
         yield_rate: f64,
         settlement: Date,
         rules: &YieldCalculationRules,
-    ) -> f64 {
-        let cf_data = self.prepare_cash_flows(cash_flows, settlement, rules);
-        self.pv_at_yield(&cf_data, yield_rate, rules)
+    ) -> AnalyticsResult<f64> {
+        convex_bonds::pricing::YieldEngine::price_from_yield(
+            self, cash_flows, yield_rate, settlement, rules,
+        )
+        .map_err(Into::into)
     }
-
     fn accrued_interest(
         &self,
         settlement: Date,
@@ -371,62 +145,17 @@ impl YieldEngine for StandardYieldEngine {
         coupon_rate: Decimal,
         face_value: Decimal,
         rules: &YieldCalculationRules,
-    ) -> Decimal {
-        let frequency = rules.frequency;
-        let day_count = rules.accrual_day_count;
-
-        match rules.accrued_convention {
-            AccruedConvention::None => Decimal::ZERO,
-            AccruedConvention::Standard => AccruedInterestCalculator::standard(
-                settlement,
-                last_coupon,
-                next_coupon,
-                coupon_rate,
-                face_value,
-                day_count,
-                frequency,
-            ),
-            AccruedConvention::ExDividend => {
-                if let Some(ex_div_rules) = &rules.ex_dividend_rules {
-                    // Get calendar from settlement rules or use weekend-only
-                    let calendar = CalendarId::weekend_only();
-                    AccruedInterestCalculator::ex_dividend(
-                        settlement,
-                        last_coupon,
-                        next_coupon,
-                        coupon_rate,
-                        face_value,
-                        day_count,
-                        frequency,
-                        ex_div_rules.days,
-                        &calendar,
-                    )
-                } else {
-                    AccruedInterestCalculator::standard(
-                        settlement,
-                        last_coupon,
-                        next_coupon,
-                        coupon_rate,
-                        face_value,
-                        day_count,
-                        frequency,
-                    )
-                }
-            }
-            AccruedConvention::RecordDate | AccruedConvention::CumDividend => {
-                // For record date, use standard accrued calculation
-                // The record date logic affects who receives the coupon, not the accrued amount
-                AccruedInterestCalculator::standard(
-                    settlement,
-                    last_coupon,
-                    next_coupon,
-                    coupon_rate,
-                    face_value,
-                    day_count,
-                    frequency,
-                )
-            }
-        }
+    ) -> AnalyticsResult<Decimal> {
+        convex_bonds::pricing::YieldEngine::accrued_interest(
+            self,
+            settlement,
+            last_coupon,
+            next_coupon,
+            coupon_rate,
+            face_value,
+            rules,
+        )
+        .map_err(Into::into)
     }
 }
 
@@ -436,72 +165,26 @@ impl YieldEngine for StandardYieldEngine {
 ///
 /// This is a simple measure that ignores time value of money
 /// and capital gains/losses.
-#[must_use]
-pub fn current_yield_simple(annual_coupon: f64, clean_price: f64) -> f64 {
-    if clean_price <= 0.0 {
-        return 0.0;
-    }
-    annual_coupon / clean_price
+pub fn current_yield_simple(annual_coupon: f64, clean_price: f64) -> AnalyticsResult<f64> {
+    convex_bonds::pricing::current_yield_simple(annual_coupon, clean_price).map_err(Into::into)
 }
 
-/// Calculate simple yield (Japanese convention).
-///
-/// Simple Yield = (Annual Coupon + (100 - Price) / Years) / Price
-///
-/// No compounding - assumes simple interest.
-#[must_use]
-pub fn simple_yield_f64(annual_coupon: f64, clean_price: f64, years_to_maturity: f64) -> f64 {
-    if clean_price <= 0.0 || years_to_maturity <= 0.0 {
-        return 0.0;
-    }
-    let capital_gain = (100.0 - clean_price) / years_to_maturity;
-    (annual_coupon + capital_gain) / clean_price
-}
-
-/// Calculate discount yield (T-Bill convention).
-///
-/// Discount Yield = (Face - Price) / Face × (360 / Days)
-#[must_use]
-pub fn discount_yield_simple(price: f64, face: f64, days_to_maturity: i64) -> f64 {
-    if face <= 0.0 || days_to_maturity <= 0 {
-        return 0.0;
-    }
-    ((face - price) / face) * (360.0 / days_to_maturity as f64)
-}
-
-/// Calculate bond equivalent yield from discount yield.
-///
-/// Converts money market discount yield to bond-equivalent basis.
-#[must_use]
-pub fn bond_equivalent_yield_simple(discount_yield: f64, days_to_maturity: i64) -> f64 {
-    if days_to_maturity <= 0 {
-        return 0.0;
-    }
-
-    let days = days_to_maturity as f64;
-
-    if days <= 182.0 {
-        // Simple conversion for short-dated
-        (365.0 * discount_yield) / (360.0 - discount_yield * days)
-    } else {
-        // More complex formula for longer-dated
-        let price = 100.0 * (1.0 - discount_yield * days / 360.0);
-        let term = days / 365.0;
-
-        // Solve for semi-annual equivalent yield
-        // This is an approximation
-        let face = 100.0;
-        let gain = face - price;
-        2.0 * ((gain / price) / term
-            + ((gain / price).powi(2) / term.powi(2) + 2.0 * gain / (price * term)).sqrt())
-            / 2.0
-    }
+/// Arithmetic per100 simple-yield estimate as an annual decimal rate.
+/// This does not identify a dated market convention.
+pub fn simple_yield_f64(
+    annual_coupon: f64,
+    clean_price: f64,
+    years_to_maturity: f64,
+) -> AnalyticsResult<f64> {
+    convex_bonds::pricing::simple_yield(annual_coupon, clean_price, years_to_maturity)
+        .map_err(Into::into)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use rust_decimal::prelude::ToPrimitive;
     use rust_decimal_macros::dec;
 
     fn date(y: i32, m: u32, d: u32) -> Date {
@@ -559,6 +242,41 @@ mod tests {
         flows
     }
 
+    // The original synthetic test now supplies its missing nominal context.
+    // Reference construction uses original schedule terms, not cash order.
+    fn supplied_icma_basis(
+        start: Date,
+        end: Date,
+        frequency: convex_core::types::Frequency,
+    ) -> convex_bonds::pricing::discount_time::DiscountTimeBasis {
+        use convex_core::{
+            calendars::WeekendCalendar,
+            cashflows::{CouponSchedule, DateRules, ScheduleSpec, StubType},
+        };
+        let spec = ScheduleSpec {
+            start_date: start,
+            end_date: end,
+            frequency,
+            stub_type: StubType::ShortFirst,
+            end_of_month: false,
+            first_regular_date: None,
+            penultimate_date: None,
+        };
+        let schedule =
+            CouponSchedule::generate(&spec, &DateRules::default(), &WeekendCalendar).unwrap();
+        let mut references = Vec::new();
+        for p in schedule.periods() {
+            for r in p.reference_periods() {
+                if references.last() != Some(r) {
+                    references.push(*r);
+                }
+            }
+        }
+        convex_bonds::pricing::discount_time::DiscountTimeBasis::Icma {
+            schedule: spec,
+            reference_periods: references,
+        }
+    }
     #[test]
     fn test_engine_yield_at_par() {
         let settlement = date(2025, 1, 15);
@@ -629,7 +347,9 @@ mod tests {
         let engine = StandardYieldEngine::new();
         let rules = YieldCalculationRules::us_corporate();
 
-        let price = engine.price_from_yield(&cash_flows, 0.05, settlement, &rules);
+        let price = engine
+            .price_from_yield(&cash_flows, 0.05, settlement, &rules)
+            .unwrap();
 
         // At par yield, price should be close to par
         assert_relative_eq!(price, 100.0, epsilon = 1.0);
@@ -662,8 +382,9 @@ mod tests {
             .unwrap();
 
         // Yield -> Price
-        let calculated_dirty =
-            engine.price_from_yield(&cash_flows, result.yield_value, settlement, &rules);
+        let calculated_dirty = engine
+            .price_from_yield(&cash_flows, result.yield_value, settlement, &rules)
+            .unwrap();
         let calculated_clean = calculated_dirty - accrued.to_f64().unwrap();
 
         // Should round-trip
@@ -691,6 +412,9 @@ mod tests {
 
         let engine = StandardYieldEngine::new();
         let rules = YieldCalculationRules::uk_gilt();
+
+        let engine =
+            engine.with_discount_basis(supplied_icma_basis(settlement, maturity, rules.frequency));
 
         let result = engine
             .yield_from_price(&cash_flows, dec!(100), dec!(0), settlement, &rules)
@@ -720,6 +444,9 @@ mod tests {
         let engine = StandardYieldEngine::new();
         let rules = YieldCalculationRules::german_bund();
 
+        let engine =
+            engine.with_discount_basis(supplied_icma_basis(settlement, maturity, rules.frequency));
+
         let result = engine
             .yield_from_price(&cash_flows, dec!(100), dec!(0), settlement, &rules)
             .unwrap();
@@ -730,29 +457,29 @@ mod tests {
 
     #[test]
     fn test_current_yield() {
-        let cy = current_yield_simple(5.0, 100.0);
+        let cy = current_yield_simple(5.0, 100.0).unwrap();
         assert_relative_eq!(cy, 0.05, epsilon = 0.0001);
 
-        let cy = current_yield_simple(5.0, 110.0);
+        let cy = current_yield_simple(5.0, 110.0).unwrap();
         assert!(cy < 0.05);
     }
 
     #[test]
     fn test_simple_yield() {
         // At par, simple yield = coupon rate
-        let sy = simple_yield_f64(5.0, 100.0, 5.0);
+        let sy = simple_yield_f64(5.0, 100.0, 5.0).unwrap();
         assert_relative_eq!(sy, 0.05, epsilon = 0.0001);
 
         // Discount bond
-        let sy = simple_yield_f64(5.0, 95.0, 5.0);
+        let sy = simple_yield_f64(5.0, 95.0, 5.0).unwrap();
         assert!(sy > 0.05); // Should include capital gain
     }
 
     #[test]
     fn test_discount_yield() {
         // 3-month T-Bill at 99
-        let dy = discount_yield_simple(99.0, 100.0, 90);
-        assert!(dy > 0.0);
-        assert!(dy < 0.05);
+        let dy = convex_bonds::pricing::bill::bank_discount_yield(dec!(99), dec!(100), 90).unwrap();
+        assert!(dy > dec!(0));
+        assert!(dy < dec!(0.05));
     }
 }

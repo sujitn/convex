@@ -70,19 +70,16 @@ pub struct CreationBasket {
 
 impl CreationBasket {
     /// Number of ETF shares that would be created.
-    #[must_use]
     pub fn shares_created(&self) -> Decimal {
         self.creation_unit_size
     }
 
     /// NAV per share of the ETF.
-    #[must_use]
     pub fn nav_per_share(&self) -> f64 {
         self.total_value.to_f64().unwrap_or(0.0) / self.creation_unit_size.to_f64().unwrap_or(1.0)
     }
 
     /// Cash as a percentage of total value.
-    #[must_use]
     pub fn cash_pct(&self) -> f64 {
         if !self.total_value.is_zero() {
             self.cash_component.to_f64().unwrap_or(0.0) / self.total_value.to_f64().unwrap_or(1.0)
@@ -137,87 +134,84 @@ pub struct BasketAnalysis {
 /// println!("Basket has {} securities", basket.security_count);
 /// println!("Cash component: ${}", basket.cash_component);
 /// ```
-#[must_use]
 pub fn build_creation_basket(
     holdings: &[Holding],
     creation_unit_size: Decimal,
     total_shares: Decimal,
     cash_balance: Decimal,
-) -> CreationBasket {
-    if total_shares.is_zero() {
-        return CreationBasket {
-            creation_unit_size,
-            components: vec![],
-            security_count: 0,
-            securities_value: Decimal::ZERO,
-            cash_component: Decimal::ZERO,
-            total_value: Decimal::ZERO,
-            nav_per_cu: 0.0,
-            estimated_cost_bps: None,
-            substitution_count: 0,
-        };
-    }
+) -> crate::PortfolioResult<CreationBasket> {
+    Ok({
+        if total_shares <= Decimal::ZERO || creation_unit_size <= Decimal::ZERO {
+            return Err(crate::PortfolioError::invalid_portfolio(
+                "positive supplied total shares and creation unit size required",
+            ));
+        }
 
-    // Scale factor: creation unit size / total shares
-    let scale_factor = creation_unit_size / total_shares;
-
-    // Build components
-    let mut components: Vec<BasketComponent> = holdings
-        .iter()
-        .map(|h| {
-            let scaled_quantity = h.par_amount * scale_factor;
-            let mv = h.market_value() * scale_factor;
-            BasketComponent {
+        use convex_math::decimal::BoundedDecimal;
+        crate::analytics::metrics::amount_rows(holdings.iter())?;
+        let denominator = BoundedDecimal::decimal(total_shares);
+        let mut components = Vec::with_capacity(holdings.len());
+        for h in holdings {
+            let quantity = BoundedDecimal::decimal(h.par_amount)
+                .multiply(creation_unit_size)?
+                .ratio(&denominator)?;
+            let value = h
+                .exact_amount(h.exact_clean_price()?, true)?
+                .multiply(creation_unit_size)?
+                .ratio(&denominator)?;
+            components.push(BasketComponent {
                 holding_id: h.id.clone(),
                 security_id: h
                     .identifiers
                     .isin()
                     .map(|i| i.to_string())
                     .unwrap_or_default(),
-                quantity: scaled_quantity,
+                quantity,
                 price: h.market_price,
-                market_value: mv,
-                weight_pct: 0.0, // Will be calculated below
+                market_value: value,
+                weight_pct: 0.0,
                 is_substitution: false,
-            }
-        })
-        .collect();
-
-    // Calculate total securities value
-    let securities_value: Decimal = components.iter().map(|c| c.market_value).sum();
-
-    // Cash component (scaled)
-    let cash_component = cash_balance * scale_factor;
-
-    // Total value
-    let total_value = securities_value + cash_component;
-
-    // Calculate weights
-    let total_f64 = total_value.to_f64().unwrap_or(1.0);
-    for comp in &mut components {
-        if total_f64 > 0.0 {
-            comp.weight_pct = comp.market_value.to_f64().unwrap_or(0.0) / total_f64 * 100.0;
+            });
         }
-    }
 
-    // Sort by weight descending
-    components.sort_by(|a, b| {
-        b.weight_pct
-            .partial_cmp(&a.weight_pct)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+        // Calculate total securities value
+        let securities_value: Decimal = components.iter().map(|c| c.market_value).sum();
 
-    CreationBasket {
-        creation_unit_size,
-        security_count: components.len(),
-        components,
-        securities_value,
-        cash_component,
-        total_value,
-        nav_per_cu: total_value.to_f64().unwrap_or(0.0),
-        estimated_cost_bps: None,
-        substitution_count: 0,
-    }
+        // Cash component (scaled)
+        let cash_component = BoundedDecimal::decimal(cash_balance)
+            .multiply(creation_unit_size)?
+            .ratio(&denominator)?;
+
+        // Total value
+        let total_value = securities_value + cash_component;
+
+        // Calculate weights
+        let total_f64 = total_value.to_f64().unwrap_or(1.0);
+        for comp in &mut components {
+            if total_f64 > 0.0 {
+                comp.weight_pct = comp.market_value.to_f64().unwrap_or(0.0) / total_f64 * 100.0;
+            }
+        }
+
+        // Sort by weight descending
+        components.sort_by(|a, b| {
+            b.weight_pct
+                .partial_cmp(&a.weight_pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        CreationBasket {
+            creation_unit_size,
+            security_count: components.len(),
+            components,
+            securities_value,
+            cash_component,
+            total_value,
+            nav_per_cu: total_value.to_f64().unwrap_or(0.0),
+            estimated_cost_bps: None,
+            substitution_count: 0,
+        }
+    })
 }
 
 /// Analyzes differences between creation basket and target portfolio.
@@ -231,85 +225,92 @@ pub fn build_creation_basket(
 /// # Returns
 ///
 /// Analysis of differences including excluded holdings and weight mismatches.
-#[must_use]
 pub fn analyze_basket(
     basket: &CreationBasket,
     target_holdings: &[Holding],
     _config: &AnalyticsConfig,
-) -> BasketAnalysis {
-    // Build maps for comparison
-    let basket_ids: HashMap<&str, &BasketComponent> = basket
-        .components
-        .iter()
-        .map(|c| (c.holding_id.as_str(), c))
-        .collect();
-
-    let target_weights: HashMap<&str, f64> = {
-        let total_mv: Decimal = target_holdings.iter().map(|h| h.market_value()).sum();
-        let total_f64 = total_mv.to_f64().unwrap_or(1.0);
-        target_holdings
+) -> crate::PortfolioResult<BasketAnalysis> {
+    Ok({
+        // Build maps for comparison
+        let basket_ids: HashMap<&str, &BasketComponent> = basket
+            .components
             .iter()
-            .map(|h| {
-                let weight = if total_f64 > 0.0 {
-                    h.market_value().to_f64().unwrap_or(0.0) / total_f64 * 100.0
+            .map(|c| (c.holding_id.as_str(), c))
+            .collect();
+
+        let target_weights: HashMap<&str, f64> = {
+            let total = crate::analytics::metrics::clean_exact(target_holdings.iter())?;
+            target_holdings
+                .iter()
+                .map(|h| {
+                    let value = h
+                        .exact_amount(h.exact_clean_price()?, true)?
+                        .multiply(rust_decimal::Decimal::ONE_HUNDRED)?;
+                    let weight = crate::analytics::metrics::signed_ratio(&value, &total)?
+                        .ok_or_else(|| {
+                            crate::PortfolioError::invalid_portfolio(
+                                "target basket weights undefined at zero value",
+                            )
+                        })?;
+                    Ok((
+                        h.id.as_str(),
+                        crate::analytics::metrics::presentation(weight)?,
+                    ))
+                })
+                .collect::<crate::PortfolioResult<HashMap<_, _>>>()?
+        };
+
+        // Find excluded holdings (in target but not in basket)
+        let excluded_holdings: Vec<String> = target_holdings
+            .iter()
+            .filter(|h| !basket_ids.contains_key(h.id.as_str()))
+            .map(|h| h.id.clone())
+            .collect();
+
+        // Find added holdings (in basket but not in target)
+        let target_ids: std::collections::HashSet<&str> =
+            target_holdings.iter().map(|h| h.id.as_str()).collect();
+        let added_holdings: Vec<String> = basket
+            .components
+            .iter()
+            .filter(|c| !target_ids.contains(c.holding_id.as_str()))
+            .map(|c| c.holding_id.clone())
+            .collect();
+
+        // Calculate weight differences
+        let mut weight_differences: Vec<(String, f64)> = basket
+            .components
+            .iter()
+            .filter_map(|c| {
+                let target_weight = target_weights
+                    .get(c.holding_id.as_str())
+                    .copied()
+                    .unwrap_or(0.0);
+                let diff = c.weight_pct - target_weight;
+                if diff.abs() > 0.01 {
+                    Some((c.holding_id.clone(), diff))
                 } else {
-                    0.0
-                };
-                (h.id.as_str(), weight)
+                    None
+                }
             })
-            .collect()
-    };
+            .collect();
 
-    // Find excluded holdings (in target but not in basket)
-    let excluded_holdings: Vec<String> = target_holdings
-        .iter()
-        .filter(|h| !basket_ids.contains_key(h.id.as_str()))
-        .map(|h| h.id.clone())
-        .collect();
+        // Sort by absolute difference
+        weight_differences.sort_by(|a, b| {
+            b.1.abs()
+                .partial_cmp(&a.1.abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
-    // Find added holdings (in basket but not in target)
-    let target_ids: std::collections::HashSet<&str> =
-        target_holdings.iter().map(|h| h.id.as_str()).collect();
-    let added_holdings: Vec<String> = basket
-        .components
-        .iter()
-        .filter(|c| !target_ids.contains(c.holding_id.as_str()))
-        .map(|c| c.holding_id.clone())
-        .collect();
-
-    // Calculate weight differences
-    let mut weight_differences: Vec<(String, f64)> = basket
-        .components
-        .iter()
-        .filter_map(|c| {
-            let target_weight = target_weights
-                .get(c.holding_id.as_str())
-                .copied()
-                .unwrap_or(0.0);
-            let diff = c.weight_pct - target_weight;
-            if diff.abs() > 0.01 {
-                Some((c.holding_id.clone(), diff))
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    // Sort by absolute difference
-    weight_differences.sort_by(|a, b| {
-        b.1.abs()
-            .partial_cmp(&a.1.abs())
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-
-    BasketAnalysis {
-        excluded_holdings,
-        added_holdings,
-        weight_differences,
-        duration_diff: None, // Would require analytics on both sides
-        yield_diff: None,
-        tracking_error_bps: None,
-    }
+        BasketAnalysis {
+            excluded_holdings,
+            added_holdings,
+            weight_differences,
+            duration_diff: None, // Would require analytics on both sides
+            yield_diff: None,
+            tracking_error_bps: None,
+        }
+    })
 }
 
 /// Calculates creation/redemption arbitrage opportunity.
@@ -335,7 +336,6 @@ pub fn analyze_basket(
 ///     println!("Creation arbitrage: {}bp profit", create_profit);
 /// }
 /// ```
-#[must_use]
 pub fn arbitrage_opportunity(
     nav_per_share: f64,
     market_price: f64,
@@ -384,13 +384,11 @@ pub struct BasketFlowSummary {
 
 impl BasketFlowSummary {
     /// Is there net creation activity?
-    #[must_use]
     pub fn is_net_creation(&self) -> bool {
         self.net_units > 0
     }
 
     /// Is there net redemption activity?
-    #[must_use]
     pub fn is_net_redemption(&self) -> bool {
         self.net_units < 0
     }
@@ -426,7 +424,8 @@ mod tests {
             dec!(50_000),    // creation unit size
             dec!(1_000_000), // total shares
             dec!(100_000),   // cash balance
-        );
+        )
+        .unwrap();
 
         // Scale factor = 50,000 / 1,000,000 = 0.05
         assert_eq!(basket.creation_unit_size, dec!(50_000));
@@ -451,7 +450,8 @@ mod tests {
             dec!(50_000),    // creation unit size
             dec!(1_000_000), // total shares
             dec!(0),         // no cash
-        );
+        )
+        .unwrap();
 
         // Total value = 1,000,000 × 0.05 = 50,000
         // NAV per share = 50,000 / 50,000 = 1.0
@@ -460,10 +460,12 @@ mod tests {
 
     #[test]
     fn test_creation_basket_empty() {
-        let basket = build_creation_basket(&[], dec!(50_000), dec!(0), dec!(0));
+        let error = build_creation_basket(&[], dec!(50_000), dec!(0), dec!(0)).unwrap_err();
 
-        assert_eq!(basket.security_count, 0);
-        assert!(basket.total_value.is_zero());
+        assert!(matches!(
+            error,
+            crate::PortfolioError::InvalidPortfolio { .. }
+        ));
     }
 
     #[test]
@@ -474,7 +476,8 @@ mod tests {
         ];
 
         let basket =
-            build_creation_basket(&basket_holdings, dec!(50_000), dec!(1_000_000), dec!(0));
+            build_creation_basket(&basket_holdings, dec!(50_000), dec!(1_000_000), dec!(0))
+                .unwrap();
 
         // Target has different composition
         let target_holdings = vec![
@@ -484,7 +487,7 @@ mod tests {
         ];
 
         let config = AnalyticsConfig::default();
-        let analysis = analyze_basket(&basket, &target_holdings, &config);
+        let analysis = analyze_basket(&basket, &target_holdings, &config).unwrap();
 
         // H3 is in target but not in basket
         assert_eq!(analysis.excluded_holdings.len(), 1);
@@ -560,7 +563,8 @@ mod tests {
             dec!(50_000),
             dec!(1_000_000),
             dec!(100_000), // 10% cash
-        );
+        )
+        .unwrap();
 
         // Securities = 900,000 × 0.05 = 45,000
         // Cash = 100,000 × 0.05 = 5,000

@@ -26,7 +26,6 @@ pub struct MaturityDistribution {
 
 impl MaturityDistribution {
     /// Returns the weight of short-term holdings (0-3 years).
-    #[must_use]
     pub fn short_term_weight(&self) -> f64 {
         [MaturityBucket::ZeroToOne, MaturityBucket::OneToThree]
             .iter()
@@ -36,7 +35,6 @@ impl MaturityDistribution {
     }
 
     /// Returns the weight of intermediate holdings (3-10 years).
-    #[must_use]
     pub fn intermediate_weight(&self) -> f64 {
         [
             MaturityBucket::ThreeToFive,
@@ -50,7 +48,6 @@ impl MaturityDistribution {
     }
 
     /// Returns the weight of long-term holdings (10+ years).
-    #[must_use]
     pub fn long_term_weight(&self) -> f64 {
         [
             MaturityBucket::TenToTwenty,
@@ -64,13 +61,11 @@ impl MaturityDistribution {
     }
 
     /// Returns metrics for a specific bucket.
-    #[must_use]
     pub fn get(&self, bucket: MaturityBucket) -> Option<&BucketMetrics> {
         self.by_bucket.get(&bucket)
     }
 
     /// Returns all buckets with their metrics, sorted by maturity (shortest to longest).
-    #[must_use]
     pub fn sorted_by_maturity(&self) -> Vec<(MaturityBucket, &BucketMetrics)> {
         let mut result: Vec<_> = self.by_bucket.iter().map(|(b, m)| (*b, m)).collect();
         result.sort_by_key(|(b, _)| *b);
@@ -92,72 +87,63 @@ impl MaturityDistribution {
 /// # Returns
 ///
 /// Distribution of holdings by maturity bucket with aggregated metrics.
-#[must_use]
-pub fn bucket_by_maturity(holdings: &[Holding], config: &AnalyticsConfig) -> MaturityDistribution {
-    if holdings.is_empty() {
-        return MaturityDistribution::default();
-    }
-
-    // Calculate total market value for weight percentages
-    let total_mv: Decimal = holdings.iter().map(|h| h.market_value()).sum();
-
-    if total_mv.is_zero() {
-        return MaturityDistribution {
-            total_market_value: Decimal::ZERO,
-            ..Default::default()
-        };
-    }
-
-    // Calculate weighted average maturity
-    let (maturity_sum, maturity_weight) = holdings.iter().fold((0.0, 0.0), |(sum, w), h| {
-        if let Some(ytm) = h.analytics.years_to_maturity {
-            let mv: f64 = h.market_value().try_into().unwrap_or(0.0);
-            (sum + ytm * mv, w + mv)
-        } else {
-            (sum, w)
+pub fn bucket_by_maturity(
+    holdings: &[Holding],
+    config: &AnalyticsConfig,
+) -> crate::PortfolioResult<MaturityDistribution> {
+    Ok({
+        if holdings.is_empty() {
+            return Ok(MaturityDistribution::default());
         }
-    });
 
-    let weighted_avg_maturity = if maturity_weight > 0.0 {
-        Some(maturity_sum / maturity_weight)
-    } else {
-        None
-    };
+        // Calculate total market value for weight percentages
+        let total_mv: Decimal = crate::analytics::metrics::clean_total(holdings.iter())?;
 
-    // Group holdings by maturity bucket (using indices to avoid lifetime issues)
-    let mut grouped: HashMap<Option<MaturityBucket>, Vec<usize>> = HashMap::new();
-    for (i, h) in holdings.iter().enumerate() {
-        let bucket = h
-            .analytics
-            .years_to_maturity
-            .map(MaturityBucket::from_years);
-        grouped.entry(bucket).or_default().push(i);
-    }
+        if total_mv.is_zero() {
+            return Err(crate::PortfolioError::invalid_portfolio(
+                "nonempty bucket weights are undefined at zero net market value",
+            ));
+        }
 
-    // Aggregate metrics for each group
-    let mut by_bucket = HashMap::new();
-    let mut unknown = BucketMetrics::default();
+        let weighted_avg_maturity =
+            crate::analytics::metrics::MetricBook::new(holdings, config)?
+                .weighted("years_to_maturity", |h| h.analytics.years_to_maturity)?;
 
-    for (bucket_opt, indices) in grouped {
-        let group: Vec<&Holding> = indices.iter().map(|&i| &holdings[i]).collect();
-        let metrics = aggregate_bucket_metrics(&group, total_mv, config);
+        // Group holdings by maturity bucket (using indices to avoid lifetime issues)
+        let mut grouped: HashMap<Option<MaturityBucket>, Vec<usize>> = HashMap::new();
+        for (i, h) in holdings.iter().enumerate() {
+            let bucket = h
+                .analytics
+                .years_to_maturity
+                .map(MaturityBucket::from_years);
+            grouped.entry(bucket).or_default().push(i);
+        }
 
-        match bucket_opt {
-            Some(bucket) => {
-                by_bucket.insert(bucket, metrics);
-            }
-            None => {
-                unknown = metrics;
+        // Aggregate metrics for each group
+        let mut by_bucket = HashMap::new();
+        let mut unknown = BucketMetrics::default();
+
+        for (bucket_opt, indices) in grouped {
+            let group: Vec<&Holding> = indices.iter().map(|&i| &holdings[i]).collect();
+            let metrics = aggregate_bucket_metrics(&group, total_mv, config)?;
+
+            match bucket_opt {
+                Some(bucket) => {
+                    by_bucket.insert(bucket, metrics);
+                }
+                None => {
+                    unknown = metrics;
+                }
             }
         }
-    }
 
-    MaturityDistribution {
-        by_bucket,
-        total_market_value: total_mv,
-        unknown,
-        weighted_avg_maturity,
-    }
+        MaturityDistribution {
+            by_bucket,
+            total_market_value: total_mv,
+            unknown,
+            weighted_avg_maturity,
+        }
+    })
 }
 
 #[cfg(test)]
@@ -193,7 +179,7 @@ mod tests {
         let holdings: Vec<Holding> = vec![];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_maturity(&holdings, &config);
+        let dist = bucket_by_maturity(&holdings, &config).unwrap();
 
         assert!(dist.by_bucket.is_empty());
         assert!(dist.total_market_value.is_zero());
@@ -204,7 +190,7 @@ mod tests {
         let holdings = vec![create_test_holding("H1", dec!(100), Some(2.5))]; // 1-3Y bucket
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_maturity(&holdings, &config);
+        let dist = bucket_by_maturity(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 1);
         let bucket = dist.get(MaturityBucket::OneToThree).unwrap();
@@ -221,7 +207,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_maturity(&holdings, &config);
+        let dist = bucket_by_maturity(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 3);
         assert!(dist.get(MaturityBucket::ZeroToOne).is_some());
@@ -241,7 +227,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_maturity(&holdings, &config);
+        let dist = bucket_by_maturity(&holdings, &config).unwrap();
 
         // 2 short, 2 intermediate, 2 long = each 33.33%
         assert!((dist.short_term_weight() - 33.33).abs() < 0.1);
@@ -257,7 +243,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_maturity(&holdings, &config);
+        let dist = bucket_by_maturity(&holdings, &config).unwrap();
 
         // Average should be (2 + 10) / 2 = 6 years
         let avg = dist.weighted_avg_maturity.unwrap();
@@ -272,7 +258,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_maturity(&holdings, &config);
+        let dist = bucket_by_maturity(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 1);
         assert_eq!(dist.unknown.count, 1);
@@ -288,7 +274,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_maturity(&holdings, &config);
+        let dist = bucket_by_maturity(&holdings, &config).unwrap();
         let sorted = dist.sorted_by_maturity();
 
         assert_eq!(sorted.len(), 3);
@@ -312,7 +298,7 @@ mod tests {
         ];
         let config = AnalyticsConfig::default();
 
-        let dist = bucket_by_maturity(&holdings, &config);
+        let dist = bucket_by_maturity(&holdings, &config).unwrap();
 
         assert_eq!(dist.by_bucket.len(), 8);
         for bucket in MaturityBucket::all() {

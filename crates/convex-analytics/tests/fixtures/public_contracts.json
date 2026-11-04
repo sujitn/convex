@@ -1,0 +1,11 @@
+{
+  "bonds": [
+    {"type":"fixed_rate","name":"fixture-fixed","coupon_rate":0.05375,"frequency":"SemiAnnual","issue":"2025-01-15","maturity":"2035-01-15","currency":"USD","face_value":100},
+    {"type":"callable","name":"fixture-callable","coupon_rate":0.05,"frequency":"Annual","issue":"2025-01-15","maturity":"2035-01-15","currency":"GBP","face_value":100,"call_style":"bermudan","call_schedule":[{"date":"2030-01-15","price":102.25}],"put_schedule":[{"date":"2031-01-15","price":99.75}],"make_whole_spread_bps":-10.5},
+    {"type":"floating_rate","name":"fixture-frn","spread_bps":-12.5,"rate_index":"euribor3m","issue":"2025-01-15","maturity":"2030-01-15","currency":"EUR","face_value":1000,"cap":0.06,"floor":-0.01},
+    {"type":"zero_coupon","name":"fixture-zero","issue":"2025-01-15","maturity":"2030-01-15","currency":"USD","face_value":1000000,"compounding":"SemiAnnual"},
+    {"type":"sinking_fund","name":"fixture-sink","coupon_rate":0.04,"issue":"2025-01-15","maturity":"2035-01-15","currency":"USD","face_value":100,"schedule":[{"date":"2030-01-15","amount":25,"price":100},{"date":"2035-01-15","amount":75,"price":100}]}
+  ],
+  "pricing": {"clean_price":98.123456789,"dirty_price":98.123456789,"accrued":-0.0,"ytm_decimal":-0.001,"z_spread_bps":-25.5},
+  "risk": {"modified_duration":-4.25,"macaulay_duration":4.5,"convexity":12.5,"dv01":-0.0425,"spread_duration":-3.75,"key_rates":[{"tenor":2.0,"duration":-1.25},{"tenor":5.0,"duration":2.5}]}
+}

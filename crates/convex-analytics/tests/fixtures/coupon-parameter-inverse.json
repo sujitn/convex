@@ -1,0 +1,2879 @@
+{
+  "provenance": "Pre-candidate inverse targets, full original inputs and exact parameter values inherited from preceding independent full-contract model-scenario references; no native candidate output used. Native absolute currency PV1e-8 and parameter2e-7 comparison bounds are declared before execution.",
+  "source_pins": {
+    "crates/convex-analytics/tests/fixtures/coupon-model-scenarios.json": "d4302d3859af7409ed109cb94748a47231988f40dbfeaa3b0596a98dcd7eb7bd",
+    ".ai/production-readiness/evidence/CVX-063-Coupon-Parameter-Derivatives/independent-constant-collar.json": "af4b9ae39a37a32b9a547d0cbddd51ac2374c13a903a7f3d9d44f07b9ee4a2c6"
+  },
+  "absolute_pv_bound": 1e-08,
+  "absolute_parameter_bound": 2e-07,
+  "cases": [
+    {
+      "id": "inverse.normal.normal_volatility.2024-02-01.0.005",
+      "input": {
+        "bond": {
+          "terms": {
+            "schema_version": 1,
+            "currency": "USD",
+            "issue_date": "2023-12-29",
+            "face_value": "5000",
+            "schedule": {
+              "start_date": "2024-01-01",
+              "end_date": "2024-04-01",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Unadjusted",
+              "payment_delay": {
+                "CalendarDays": 0
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "payment": "WEEKEND",
+              "reset": "WEEKEND",
+              "observation": "WEEKEND",
+              "exercise": "WEEKEND"
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Unadjusted",
+            "day_count": "Act360",
+            "profiles": {
+              "coupon": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0"
+                }
+              ],
+              "spread": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0.002"
+                }
+              ],
+              "gearing": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-03-10",
+                  "value": "1"
+                },
+                {
+                  "start": "2024-03-10",
+                  "end": "2024-04-01",
+                  "value": "-1"
+                }
+              ],
+              "notional": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-02-15",
+                  "value": "5000"
+                },
+                {
+                  "start": "2024-02-15",
+                  "end": "2024-04-01",
+                  "value": "3000"
+                }
+              ]
+            },
+            "coupon": {
+              "kind": "term",
+              "index_id": "SUPPLIED.TERM",
+              "resets": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-04-01",
+                "frequency": "Monthly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "reset_adjustment": "Unadjusted",
+              "fixing_offset": {
+                "CalendarDays": 0
+              },
+              "projection_day_count": "Act360"
+            },
+            "coupon_principal": "AccrualProfile",
+            "redemption_multiplier": "1",
+            "principal_prices": [],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": []
+          },
+          "calendars": {
+            "payment": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "reset": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "observation": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "exercise": {
+              "id": "WEEKEND",
+              "version": 1
+            }
+          }
+        },
+        "context": {
+          "settlement": "2024-01-15",
+          "on_payment": "Exclude",
+          "fixing": {
+            "valuation_date": "2024-01-15",
+            "known_at": "2024-01-15T18:00:00Z",
+            "unpublished": "RequirePublished",
+            "final_only": true
+          },
+          "overnight_accrual_cutoffs": []
+        },
+        "projection": {
+          "id": "projection",
+          "version": "v1"
+        },
+        "discount": {
+          "id": "discount",
+          "version": "v1"
+        },
+        "options": {
+          "cap": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-02-20",
+              "value": "0.03"
+            },
+            {
+              "start": "2024-02-20",
+              "end": "2024-04-01",
+              "value": "0.02"
+            }
+          ],
+          "floor": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0"
+            }
+          ],
+          "models": [
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-02-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "normal",
+                "volatility": 0.0125
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            },
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-03-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "normal",
+                "volatility": 0.0125
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            }
+          ]
+        }
+      },
+      "resources": {
+        "calendars": [
+          {
+            "pin": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "holidays": [],
+            "weekend_days": [
+              5,
+              6
+            ]
+          }
+        ],
+        "helper_calendars": [],
+        "curves": [
+          {
+            "key": {
+              "id": "discount",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "projection",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "SUPPLIED.TERM"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "unused",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "calibration": null,
+        "fixings": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "rate": "0.04",
+            "published_at": "2024-01-01T16:00:00Z",
+            "known_at": "2024-01-01T16:00:00Z",
+            "revision": 1,
+            "status": "Final",
+            "source_id": "declared-fixing"
+          }
+        ],
+        "publications": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "expected_publication": "2024-01-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-02-01",
+            "expected_publication": "2024-02-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-03-01",
+            "expected_publication": "2024-03-01T16:00:00Z"
+          }
+        ]
+      },
+      "coordinate": {
+        "index_id": "SUPPLIED.TERM",
+        "observation_date": "2024-02-01",
+        "payment_date": "2024-04-01",
+        "source_id": "declared-volatility",
+        "source_version": 1,
+        "parameter": {
+          "kind": "normal_volatility"
+        }
+      },
+      "delta": 0.005,
+      "expected": {
+        "original_parameter": 0.0125,
+        "scenario_parameter": 0.0175,
+        "base_pv": 4999.004759961246,
+        "scenario_pv": 4999.0044766657975
+      },
+      "target": {
+        "value": 4999.0044766657975,
+        "currency": "USD",
+        "unit": "currency"
+      },
+      "settings": {
+        "lower": 0.01325,
+        "upper": 0.02275,
+        "price_tolerance": 1e-08,
+        "parameter_tolerance": 1e-10,
+        "max_iterations": 64,
+        "max_price_evaluations": 96
+      },
+      "expected_parameter": 0.0175,
+      "expected_base_pv": 4999.004759961246,
+      "expected_pv": 4999.0044766657975,
+      "expected_endpoint": null
+    },
+    {
+      "id": "inverse.shifted_black.lognormal_volatility.2024-02-01.0.1",
+      "input": {
+        "bond": {
+          "terms": {
+            "schema_version": 1,
+            "currency": "USD",
+            "issue_date": "2023-12-29",
+            "face_value": "5000",
+            "schedule": {
+              "start_date": "2024-01-01",
+              "end_date": "2024-04-01",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Unadjusted",
+              "payment_delay": {
+                "CalendarDays": 0
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "payment": "WEEKEND",
+              "reset": "WEEKEND",
+              "observation": "WEEKEND",
+              "exercise": "WEEKEND"
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Unadjusted",
+            "day_count": "Act360",
+            "profiles": {
+              "coupon": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0"
+                }
+              ],
+              "spread": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0.002"
+                }
+              ],
+              "gearing": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-03-10",
+                  "value": "1"
+                },
+                {
+                  "start": "2024-03-10",
+                  "end": "2024-04-01",
+                  "value": "-1"
+                }
+              ],
+              "notional": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-02-15",
+                  "value": "5000"
+                },
+                {
+                  "start": "2024-02-15",
+                  "end": "2024-04-01",
+                  "value": "3000"
+                }
+              ]
+            },
+            "coupon": {
+              "kind": "term",
+              "index_id": "SUPPLIED.TERM",
+              "resets": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-04-01",
+                "frequency": "Monthly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "reset_adjustment": "Unadjusted",
+              "fixing_offset": {
+                "CalendarDays": 0
+              },
+              "projection_day_count": "Act360"
+            },
+            "coupon_principal": "AccrualProfile",
+            "redemption_multiplier": "1",
+            "principal_prices": [],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": []
+          },
+          "calendars": {
+            "payment": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "reset": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "observation": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "exercise": {
+              "id": "WEEKEND",
+              "version": 1
+            }
+          }
+        },
+        "context": {
+          "settlement": "2024-01-15",
+          "on_payment": "Exclude",
+          "fixing": {
+            "valuation_date": "2024-01-15",
+            "known_at": "2024-01-15T18:00:00Z",
+            "unpublished": "RequirePublished",
+            "final_only": true
+          },
+          "overnight_accrual_cutoffs": []
+        },
+        "projection": {
+          "id": "projection",
+          "version": "v1"
+        },
+        "discount": {
+          "id": "discount",
+          "version": "v1"
+        },
+        "options": {
+          "cap": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-02-20",
+              "value": "0.03"
+            },
+            {
+              "start": "2024-02-20",
+              "end": "2024-04-01",
+              "value": "0.02"
+            }
+          ],
+          "floor": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0"
+            }
+          ],
+          "models": [
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-02-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "shifted_lognormal",
+                "volatility": 0.25,
+                "displacement": 0.03
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            },
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-03-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "shifted_lognormal",
+                "volatility": 0.25,
+                "displacement": 0.03
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            }
+          ]
+        }
+      },
+      "resources": {
+        "calendars": [
+          {
+            "pin": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "holidays": [],
+            "weekend_days": [
+              5,
+              6
+            ]
+          }
+        ],
+        "helper_calendars": [],
+        "curves": [
+          {
+            "key": {
+              "id": "discount",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "projection",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "SUPPLIED.TERM"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "unused",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "calibration": null,
+        "fixings": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "rate": "0.04",
+            "published_at": "2024-01-01T16:00:00Z",
+            "known_at": "2024-01-01T16:00:00Z",
+            "revision": 1,
+            "status": "Final",
+            "source_id": "declared-fixing"
+          }
+        ],
+        "publications": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "expected_publication": "2024-01-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-02-01",
+            "expected_publication": "2024-02-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-03-01",
+            "expected_publication": "2024-03-01T16:00:00Z"
+          }
+        ]
+      },
+      "coordinate": {
+        "index_id": "SUPPLIED.TERM",
+        "observation_date": "2024-02-01",
+        "payment_date": "2024-04-01",
+        "source_id": "declared-volatility",
+        "source_version": 1,
+        "parameter": {
+          "kind": "lognormal_volatility"
+        }
+      },
+      "delta": 0.1,
+      "expected": {
+        "original_parameter": 0.25,
+        "scenario_parameter": 0.35,
+        "base_pv": 4999.004677705594,
+        "scenario_pv": 4999.001677737206
+      },
+      "target": {
+        "value": 4999.001677737206,
+        "currency": "USD",
+        "unit": "currency"
+      },
+      "settings": {
+        "lower": 0.26,
+        "upper": 0.41,
+        "price_tolerance": 1e-08,
+        "parameter_tolerance": 1e-10,
+        "max_iterations": 64,
+        "max_price_evaluations": 96
+      },
+      "expected_parameter": 0.35,
+      "expected_base_pv": 4999.004677705594,
+      "expected_pv": 4999.001677737206,
+      "expected_endpoint": null
+    },
+    {
+      "id": "inverse.shifted_black.lognormal_displacement.2024-02-01.0.01",
+      "input": {
+        "bond": {
+          "terms": {
+            "schema_version": 1,
+            "currency": "USD",
+            "issue_date": "2023-12-29",
+            "face_value": "5000",
+            "schedule": {
+              "start_date": "2024-01-01",
+              "end_date": "2024-04-01",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Unadjusted",
+              "payment_delay": {
+                "CalendarDays": 0
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "payment": "WEEKEND",
+              "reset": "WEEKEND",
+              "observation": "WEEKEND",
+              "exercise": "WEEKEND"
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Unadjusted",
+            "day_count": "Act360",
+            "profiles": {
+              "coupon": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0"
+                }
+              ],
+              "spread": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0.002"
+                }
+              ],
+              "gearing": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-03-10",
+                  "value": "1"
+                },
+                {
+                  "start": "2024-03-10",
+                  "end": "2024-04-01",
+                  "value": "-1"
+                }
+              ],
+              "notional": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-02-15",
+                  "value": "5000"
+                },
+                {
+                  "start": "2024-02-15",
+                  "end": "2024-04-01",
+                  "value": "3000"
+                }
+              ]
+            },
+            "coupon": {
+              "kind": "term",
+              "index_id": "SUPPLIED.TERM",
+              "resets": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-04-01",
+                "frequency": "Monthly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "reset_adjustment": "Unadjusted",
+              "fixing_offset": {
+                "CalendarDays": 0
+              },
+              "projection_day_count": "Act360"
+            },
+            "coupon_principal": "AccrualProfile",
+            "redemption_multiplier": "1",
+            "principal_prices": [],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": []
+          },
+          "calendars": {
+            "payment": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "reset": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "observation": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "exercise": {
+              "id": "WEEKEND",
+              "version": 1
+            }
+          }
+        },
+        "context": {
+          "settlement": "2024-01-15",
+          "on_payment": "Exclude",
+          "fixing": {
+            "valuation_date": "2024-01-15",
+            "known_at": "2024-01-15T18:00:00Z",
+            "unpublished": "RequirePublished",
+            "final_only": true
+          },
+          "overnight_accrual_cutoffs": []
+        },
+        "projection": {
+          "id": "projection",
+          "version": "v1"
+        },
+        "discount": {
+          "id": "discount",
+          "version": "v1"
+        },
+        "options": {
+          "cap": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-02-20",
+              "value": "0.03"
+            },
+            {
+              "start": "2024-02-20",
+              "end": "2024-04-01",
+              "value": "0.02"
+            }
+          ],
+          "floor": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0"
+            }
+          ],
+          "models": [
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-02-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "shifted_lognormal",
+                "volatility": 0.25,
+                "displacement": 0.03
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            },
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-03-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "shifted_lognormal",
+                "volatility": 0.25,
+                "displacement": 0.03
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            }
+          ]
+        }
+      },
+      "resources": {
+        "calendars": [
+          {
+            "pin": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "holidays": [],
+            "weekend_days": [
+              5,
+              6
+            ]
+          }
+        ],
+        "helper_calendars": [],
+        "curves": [
+          {
+            "key": {
+              "id": "discount",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "projection",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "SUPPLIED.TERM"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "unused",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "calibration": null,
+        "fixings": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "rate": "0.04",
+            "published_at": "2024-01-01T16:00:00Z",
+            "known_at": "2024-01-01T16:00:00Z",
+            "revision": 1,
+            "status": "Final",
+            "source_id": "declared-fixing"
+          }
+        ],
+        "publications": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "expected_publication": "2024-01-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-02-01",
+            "expected_publication": "2024-02-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-03-01",
+            "expected_publication": "2024-03-01T16:00:00Z"
+          }
+        ]
+      },
+      "coordinate": {
+        "index_id": "SUPPLIED.TERM",
+        "observation_date": "2024-02-01",
+        "payment_date": "2024-04-01",
+        "source_id": "declared-volatility",
+        "source_version": 1,
+        "parameter": {
+          "kind": "lognormal_displacement"
+        }
+      },
+      "delta": 0.01,
+      "expected": {
+        "original_parameter": 0.03,
+        "scenario_parameter": 0.04,
+        "base_pv": 4999.004677705594,
+        "scenario_pv": 4999.004255110325
+      },
+      "target": {
+        "value": 4999.004255110325,
+        "currency": "USD",
+        "unit": "currency"
+      },
+      "settings": {
+        "lower": 0.031,
+        "upper": 0.055,
+        "price_tolerance": 1e-08,
+        "parameter_tolerance": 1e-10,
+        "max_iterations": 64,
+        "max_price_evaluations": 96
+      },
+      "expected_parameter": 0.04,
+      "expected_base_pv": 4999.004677705594,
+      "expected_pv": 4999.004255110325,
+      "expected_endpoint": null
+    },
+    {
+      "id": "inverse.whole.normal_factor_loading.2024-02-01.0.002",
+      "input": {
+        "bond": {
+          "terms": {
+            "schema_version": 1,
+            "currency": "USD",
+            "issue_date": "2023-12-29",
+            "face_value": "5000",
+            "schedule": {
+              "start_date": "2024-01-01",
+              "end_date": "2024-04-01",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Unadjusted",
+              "payment_delay": {
+                "CalendarDays": 0
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "payment": "WEEKEND",
+              "reset": "WEEKEND",
+              "observation": "WEEKEND",
+              "exercise": "WEEKEND"
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Unadjusted",
+            "day_count": "Act360",
+            "profiles": {
+              "coupon": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0"
+                }
+              ],
+              "spread": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0.002"
+                }
+              ],
+              "gearing": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-03-10",
+                  "value": "1"
+                },
+                {
+                  "start": "2024-03-10",
+                  "end": "2024-04-01",
+                  "value": "-1"
+                }
+              ],
+              "notional": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-02-15",
+                  "value": "5000"
+                },
+                {
+                  "start": "2024-02-15",
+                  "end": "2024-04-01",
+                  "value": "3000"
+                }
+              ]
+            },
+            "coupon": {
+              "kind": "term",
+              "index_id": "SUPPLIED.TERM",
+              "resets": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-04-01",
+                "frequency": "Monthly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "reset_adjustment": "Unadjusted",
+              "fixing_offset": {
+                "CalendarDays": 0
+              },
+              "projection_day_count": "Act360"
+            },
+            "coupon_principal": "AccrualProfile",
+            "redemption_multiplier": "1",
+            "principal_prices": [],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": []
+          },
+          "calendars": {
+            "payment": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "reset": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "observation": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "exercise": {
+              "id": "WEEKEND",
+              "version": 1
+            }
+          }
+        },
+        "context": {
+          "settlement": "2024-01-15",
+          "on_payment": "Exclude",
+          "fixing": {
+            "valuation_date": "2024-01-15",
+            "known_at": "2024-01-15T18:00:00Z",
+            "unpublished": "RequirePublished",
+            "final_only": true
+          },
+          "overnight_accrual_cutoffs": []
+        },
+        "projection": {
+          "id": "projection",
+          "version": "v1"
+        },
+        "discount": {
+          "id": "discount",
+          "version": "v1"
+        },
+        "options": {
+          "cap": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0.03"
+            }
+          ],
+          "floor": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0"
+            }
+          ],
+          "models": [],
+          "whole_coupon": {
+            "accrual_policy": "expected_coupon_pro_rata_notional_accrual",
+            "factors": [
+              {
+                "index_id": "SUPPLIED.TERM",
+                "observation_date": "2024-02-01",
+                "payment_date": "2024-04-01",
+                "forward_adjustment": 0,
+                "loadings": [
+                  0.005,
+                  0.002
+                ],
+                "source_id": "DECLARED.JOINT.NORMAL",
+                "version": 1,
+                "known_at": "2024-01-15T18:00:00Z"
+              },
+              {
+                "index_id": "SUPPLIED.TERM",
+                "observation_date": "2024-03-01",
+                "payment_date": "2024-04-01",
+                "forward_adjustment": 0,
+                "loadings": [
+                  0.004,
+                  -0.003
+                ],
+                "source_id": "DECLARED.JOINT.NORMAL",
+                "version": 1,
+                "known_at": "2024-01-15T18:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "resources": {
+        "calendars": [
+          {
+            "pin": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "holidays": [],
+            "weekend_days": [
+              5,
+              6
+            ]
+          }
+        ],
+        "helper_calendars": [],
+        "curves": [
+          {
+            "key": {
+              "id": "discount",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "projection",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "SUPPLIED.TERM"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "unused",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "calibration": null,
+        "fixings": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "rate": "0.04",
+            "published_at": "2024-01-01T16:00:00Z",
+            "known_at": "2024-01-01T16:00:00Z",
+            "revision": 1,
+            "status": "Final",
+            "source_id": "declared-fixing"
+          }
+        ],
+        "publications": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "expected_publication": "2024-01-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-02-01",
+            "expected_publication": "2024-02-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-03-01",
+            "expected_publication": "2024-03-01T16:00:00Z"
+          }
+        ]
+      },
+      "coordinate": {
+        "index_id": "SUPPLIED.TERM",
+        "observation_date": "2024-02-01",
+        "payment_date": "2024-04-01",
+        "source_id": "DECLARED.JOINT.NORMAL",
+        "source_version": 1,
+        "parameter": {
+          "kind": "normal_factor_loading",
+          "factor": 0
+        }
+      },
+      "delta": 0.002,
+      "expected": {
+        "original_parameter": 0.005,
+        "scenario_parameter": 0.007,
+        "base_pv": 5003.367373323093,
+        "scenario_pv": 5003.299347804216
+      },
+      "target": {
+        "value": 5003.299347804216,
+        "currency": "USD",
+        "unit": "currency"
+      },
+      "settings": {
+        "lower": 0.00525,
+        "upper": 0.0095,
+        "price_tolerance": 1e-08,
+        "parameter_tolerance": 1e-10,
+        "max_iterations": 64,
+        "max_price_evaluations": 96
+      },
+      "expected_parameter": 0.007,
+      "expected_base_pv": 5003.367373323093,
+      "expected_pv": 5003.299347804216,
+      "expected_endpoint": null
+    },
+    {
+      "id": "inverse.whole.normal_factor_loading.2024-03-01.-0.001",
+      "input": {
+        "bond": {
+          "terms": {
+            "schema_version": 1,
+            "currency": "USD",
+            "issue_date": "2023-12-29",
+            "face_value": "5000",
+            "schedule": {
+              "start_date": "2024-01-01",
+              "end_date": "2024-04-01",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Unadjusted",
+              "payment_delay": {
+                "CalendarDays": 0
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "payment": "WEEKEND",
+              "reset": "WEEKEND",
+              "observation": "WEEKEND",
+              "exercise": "WEEKEND"
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Unadjusted",
+            "day_count": "Act360",
+            "profiles": {
+              "coupon": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0"
+                }
+              ],
+              "spread": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0.002"
+                }
+              ],
+              "gearing": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-03-10",
+                  "value": "1"
+                },
+                {
+                  "start": "2024-03-10",
+                  "end": "2024-04-01",
+                  "value": "-1"
+                }
+              ],
+              "notional": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-02-15",
+                  "value": "5000"
+                },
+                {
+                  "start": "2024-02-15",
+                  "end": "2024-04-01",
+                  "value": "3000"
+                }
+              ]
+            },
+            "coupon": {
+              "kind": "term",
+              "index_id": "SUPPLIED.TERM",
+              "resets": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-04-01",
+                "frequency": "Monthly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "reset_adjustment": "Unadjusted",
+              "fixing_offset": {
+                "CalendarDays": 0
+              },
+              "projection_day_count": "Act360"
+            },
+            "coupon_principal": "AccrualProfile",
+            "redemption_multiplier": "1",
+            "principal_prices": [],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": []
+          },
+          "calendars": {
+            "payment": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "reset": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "observation": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "exercise": {
+              "id": "WEEKEND",
+              "version": 1
+            }
+          }
+        },
+        "context": {
+          "settlement": "2024-01-15",
+          "on_payment": "Exclude",
+          "fixing": {
+            "valuation_date": "2024-01-15",
+            "known_at": "2024-01-15T18:00:00Z",
+            "unpublished": "RequirePublished",
+            "final_only": true
+          },
+          "overnight_accrual_cutoffs": []
+        },
+        "projection": {
+          "id": "projection",
+          "version": "v1"
+        },
+        "discount": {
+          "id": "discount",
+          "version": "v1"
+        },
+        "options": {
+          "cap": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0.03"
+            }
+          ],
+          "floor": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0"
+            }
+          ],
+          "models": [],
+          "whole_coupon": {
+            "accrual_policy": "expected_coupon_pro_rata_notional_accrual",
+            "factors": [
+              {
+                "index_id": "SUPPLIED.TERM",
+                "observation_date": "2024-02-01",
+                "payment_date": "2024-04-01",
+                "forward_adjustment": 0,
+                "loadings": [
+                  0.005,
+                  0.002
+                ],
+                "source_id": "DECLARED.JOINT.NORMAL",
+                "version": 1,
+                "known_at": "2024-01-15T18:00:00Z"
+              },
+              {
+                "index_id": "SUPPLIED.TERM",
+                "observation_date": "2024-03-01",
+                "payment_date": "2024-04-01",
+                "forward_adjustment": 0,
+                "loadings": [
+                  0.004,
+                  -0.003
+                ],
+                "source_id": "DECLARED.JOINT.NORMAL",
+                "version": 1,
+                "known_at": "2024-01-15T18:00:00Z"
+              }
+            ]
+          }
+        }
+      },
+      "resources": {
+        "calendars": [
+          {
+            "pin": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "holidays": [],
+            "weekend_days": [
+              5,
+              6
+            ]
+          }
+        ],
+        "helper_calendars": [],
+        "curves": [
+          {
+            "key": {
+              "id": "discount",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "projection",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "SUPPLIED.TERM"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "unused",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "calibration": null,
+        "fixings": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "rate": "0.04",
+            "published_at": "2024-01-01T16:00:00Z",
+            "known_at": "2024-01-01T16:00:00Z",
+            "revision": 1,
+            "status": "Final",
+            "source_id": "declared-fixing"
+          }
+        ],
+        "publications": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "expected_publication": "2024-01-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-02-01",
+            "expected_publication": "2024-02-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-03-01",
+            "expected_publication": "2024-03-01T16:00:00Z"
+          }
+        ]
+      },
+      "coordinate": {
+        "index_id": "SUPPLIED.TERM",
+        "observation_date": "2024-03-01",
+        "payment_date": "2024-04-01",
+        "source_id": "DECLARED.JOINT.NORMAL",
+        "source_version": 1,
+        "parameter": {
+          "kind": "normal_factor_loading",
+          "factor": 1
+        }
+      },
+      "delta": -0.001,
+      "expected": {
+        "original_parameter": -0.003,
+        "scenario_parameter": -0.004,
+        "base_pv": 5003.367373323093,
+        "scenario_pv": 5003.360998183388
+      },
+      "target": {
+        "value": 5003.360998183388,
+        "currency": "USD",
+        "unit": "currency"
+      },
+      "settings": {
+        "lower": -0.0055,
+        "upper": -0.00325,
+        "price_tolerance": 1e-08,
+        "parameter_tolerance": 1e-10,
+        "max_iterations": 64,
+        "max_price_evaluations": 96
+      },
+      "expected_parameter": -0.004,
+      "expected_base_pv": 5003.367373323093,
+      "expected_pv": 5003.360998183388,
+      "expected_endpoint": null
+    },
+    {
+      "id": "inverse.normal.normal_volatility.2024-02-01.0.0",
+      "input": {
+        "bond": {
+          "terms": {
+            "schema_version": 1,
+            "currency": "USD",
+            "issue_date": "2023-12-29",
+            "face_value": "5000",
+            "schedule": {
+              "start_date": "2024-01-01",
+              "end_date": "2024-04-01",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Unadjusted",
+              "payment_delay": {
+                "CalendarDays": 0
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "payment": "WEEKEND",
+              "reset": "WEEKEND",
+              "observation": "WEEKEND",
+              "exercise": "WEEKEND"
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Unadjusted",
+            "day_count": "Act360",
+            "profiles": {
+              "coupon": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0"
+                }
+              ],
+              "spread": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0.002"
+                }
+              ],
+              "gearing": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-03-10",
+                  "value": "1"
+                },
+                {
+                  "start": "2024-03-10",
+                  "end": "2024-04-01",
+                  "value": "-1"
+                }
+              ],
+              "notional": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-02-15",
+                  "value": "5000"
+                },
+                {
+                  "start": "2024-02-15",
+                  "end": "2024-04-01",
+                  "value": "3000"
+                }
+              ]
+            },
+            "coupon": {
+              "kind": "term",
+              "index_id": "SUPPLIED.TERM",
+              "resets": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-04-01",
+                "frequency": "Monthly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "reset_adjustment": "Unadjusted",
+              "fixing_offset": {
+                "CalendarDays": 0
+              },
+              "projection_day_count": "Act360"
+            },
+            "coupon_principal": "AccrualProfile",
+            "redemption_multiplier": "1",
+            "principal_prices": [],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": []
+          },
+          "calendars": {
+            "payment": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "reset": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "observation": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "exercise": {
+              "id": "WEEKEND",
+              "version": 1
+            }
+          }
+        },
+        "context": {
+          "settlement": "2024-01-15",
+          "on_payment": "Exclude",
+          "fixing": {
+            "valuation_date": "2024-01-15",
+            "known_at": "2024-01-15T18:00:00Z",
+            "unpublished": "RequirePublished",
+            "final_only": true
+          },
+          "overnight_accrual_cutoffs": []
+        },
+        "projection": {
+          "id": "projection",
+          "version": "v1"
+        },
+        "discount": {
+          "id": "discount",
+          "version": "v1"
+        },
+        "options": {
+          "cap": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-02-20",
+              "value": "0.03"
+            },
+            {
+              "start": "2024-02-20",
+              "end": "2024-04-01",
+              "value": "0.02"
+            }
+          ],
+          "floor": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0"
+            }
+          ],
+          "models": [
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-02-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "normal",
+                "volatility": 0.0125
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            },
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-03-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "normal",
+                "volatility": 0.0125
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            }
+          ]
+        }
+      },
+      "resources": {
+        "calendars": [
+          {
+            "pin": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "holidays": [],
+            "weekend_days": [
+              5,
+              6
+            ]
+          }
+        ],
+        "helper_calendars": [],
+        "curves": [
+          {
+            "key": {
+              "id": "discount",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "projection",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "SUPPLIED.TERM"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "unused",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "calibration": null,
+        "fixings": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "rate": "0.04",
+            "published_at": "2024-01-01T16:00:00Z",
+            "known_at": "2024-01-01T16:00:00Z",
+            "revision": 1,
+            "status": "Final",
+            "source_id": "declared-fixing"
+          }
+        ],
+        "publications": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "expected_publication": "2024-01-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-02-01",
+            "expected_publication": "2024-02-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-03-01",
+            "expected_publication": "2024-03-01T16:00:00Z"
+          }
+        ]
+      },
+      "coordinate": {
+        "index_id": "SUPPLIED.TERM",
+        "observation_date": "2024-02-01",
+        "payment_date": "2024-04-01",
+        "source_id": "declared-volatility",
+        "source_version": 1,
+        "parameter": {
+          "kind": "normal_volatility"
+        }
+      },
+      "delta": 0.0,
+      "expected": {
+        "original_parameter": 0.0125,
+        "scenario_parameter": 0.0125,
+        "base_pv": 4999.004759961246,
+        "scenario_pv": 4999.004759961246
+      },
+      "target": {
+        "value": 4999.004759961246,
+        "currency": "USD",
+        "unit": "currency"
+      },
+      "settings": {
+        "lower": 0.0125,
+        "upper": 0.01875,
+        "price_tolerance": 1e-08,
+        "parameter_tolerance": 1e-10,
+        "max_iterations": 64,
+        "max_price_evaluations": 96
+      },
+      "expected_parameter": 0.0125,
+      "expected_base_pv": 4999.004759961246,
+      "expected_pv": 4999.004759961246,
+      "expected_endpoint": 0
+    },
+    {
+      "id": "inverse.normal.upper_endpoint",
+      "input": {
+        "bond": {
+          "terms": {
+            "schema_version": 1,
+            "currency": "USD",
+            "issue_date": "2023-12-29",
+            "face_value": "5000",
+            "schedule": {
+              "start_date": "2024-01-01",
+              "end_date": "2024-04-01",
+              "frequency": "Quarterly",
+              "stub_type": "None",
+              "end_of_month": false,
+              "first_regular_date": null,
+              "penultimate_date": null
+            },
+            "dates": {
+              "accrual_adjustment": "Unadjusted",
+              "payment_adjustment": "Unadjusted",
+              "payment_delay": {
+                "CalendarDays": 0
+              },
+              "fixing_offset": null,
+              "observation_offset": null,
+              "ex_coupon": null
+            },
+            "calendars": {
+              "payment": "WEEKEND",
+              "reset": "WEEKEND",
+              "observation": "WEEKEND",
+              "exercise": "WEEKEND"
+            },
+            "settlement_lag": {
+              "CalendarDays": 0
+            },
+            "settlement_adjustment": "Unadjusted",
+            "day_count": "Act360",
+            "profiles": {
+              "coupon": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0"
+                }
+              ],
+              "spread": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-04-01",
+                  "value": "0.002"
+                }
+              ],
+              "gearing": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-03-10",
+                  "value": "1"
+                },
+                {
+                  "start": "2024-03-10",
+                  "end": "2024-04-01",
+                  "value": "-1"
+                }
+              ],
+              "notional": [
+                {
+                  "start": "2024-01-01",
+                  "end": "2024-02-15",
+                  "value": "5000"
+                },
+                {
+                  "start": "2024-02-15",
+                  "end": "2024-04-01",
+                  "value": "3000"
+                }
+              ]
+            },
+            "coupon": {
+              "kind": "term",
+              "index_id": "SUPPLIED.TERM",
+              "resets": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-04-01",
+                "frequency": "Monthly",
+                "stub_type": "None",
+                "end_of_month": false,
+                "first_regular_date": null,
+                "penultimate_date": null
+              },
+              "reset_adjustment": "Unadjusted",
+              "fixing_offset": {
+                "CalendarDays": 0
+              },
+              "projection_day_count": "Act360"
+            },
+            "coupon_principal": "AccrualProfile",
+            "redemption_multiplier": "1",
+            "principal_prices": [],
+            "rounding": "Unrounded",
+            "negative_coupons": "Allow",
+            "ex_coupon_accrual": "SubtractCoupon",
+            "exercise": []
+          },
+          "calendars": {
+            "payment": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "reset": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "observation": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "exercise": {
+              "id": "WEEKEND",
+              "version": 1
+            }
+          }
+        },
+        "context": {
+          "settlement": "2024-01-15",
+          "on_payment": "Exclude",
+          "fixing": {
+            "valuation_date": "2024-01-15",
+            "known_at": "2024-01-15T18:00:00Z",
+            "unpublished": "RequirePublished",
+            "final_only": true
+          },
+          "overnight_accrual_cutoffs": []
+        },
+        "projection": {
+          "id": "projection",
+          "version": "v1"
+        },
+        "discount": {
+          "id": "discount",
+          "version": "v1"
+        },
+        "options": {
+          "cap": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-02-20",
+              "value": "0.03"
+            },
+            {
+              "start": "2024-02-20",
+              "end": "2024-04-01",
+              "value": "0.02"
+            }
+          ],
+          "floor": [
+            {
+              "start": "2024-01-01",
+              "end": "2024-04-01",
+              "value": "0"
+            }
+          ],
+          "models": [
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-02-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "normal",
+                "volatility": 0.0125
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            },
+            {
+              "index_id": "SUPPLIED.TERM",
+              "observation_date": "2024-03-01",
+              "payment_date": "2024-04-01",
+              "model": {
+                "kind": "normal",
+                "volatility": 0.0125
+              },
+              "forward_adjustment": 0.0,
+              "source_id": "declared-volatility",
+              "version": 1,
+              "known_at": "2024-01-15T18:00:00Z"
+            }
+          ]
+        }
+      },
+      "resources": {
+        "calendars": [
+          {
+            "pin": {
+              "id": "WEEKEND",
+              "version": 1
+            },
+            "holidays": [],
+            "weekend_days": [
+              5,
+              6
+            ]
+          }
+        ],
+        "helper_calendars": [],
+        "curves": [
+          {
+            "key": {
+              "id": "discount",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.03,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "projection",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Projection",
+              "index_id": "SUPPLIED.TERM"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.04,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": {
+              "id": "unused",
+              "version": "v1"
+            },
+            "role": {
+              "kind": "Discount",
+              "collateral_currency": "USD"
+            },
+            "currency": "USD",
+            "reference_date": "2024-01-15",
+            "time_basis": "Act365Fixed",
+            "representation": {
+              "ZeroRates": {
+                "compounding": "Continuous"
+              }
+            },
+            "interpolation": "Linear",
+            "extrapolation": "Flat",
+            "dependencies": [],
+            "calibration": "Direct",
+            "source": {
+              "Nodes": [
+                {
+                  "pillar": {
+                    "Tenor": 0.01
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                },
+                {
+                  "pillar": {
+                    "Tenor": 30
+                  },
+                  "quote": {
+                    "value": 0.07,
+                    "unit": "DecimalRate"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "calibration": null,
+        "fixings": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "rate": "0.04",
+            "published_at": "2024-01-01T16:00:00Z",
+            "known_at": "2024-01-01T16:00:00Z",
+            "revision": 1,
+            "status": "Final",
+            "source_id": "declared-fixing"
+          }
+        ],
+        "publications": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-01-01",
+            "expected_publication": "2024-01-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-02-01",
+            "expected_publication": "2024-02-01T16:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-03-01",
+            "expected_publication": "2024-03-01T16:00:00Z"
+          }
+        ]
+      },
+      "coordinate": {
+        "index_id": "SUPPLIED.TERM",
+        "observation_date": "2024-02-01",
+        "payment_date": "2024-04-01",
+        "source_id": "declared-volatility",
+        "source_version": 1,
+        "parameter": {
+          "kind": "normal_volatility"
+        }
+      },
+      "delta": 0.0,
+      "expected": {
+        "original_parameter": 0.0125,
+        "scenario_parameter": 0.0125,
+        "base_pv": 4999.004759961246,
+        "scenario_pv": 4999.004759961246
+      },
+      "target": {
+        "value": 4999.004759961246,
+        "currency": "USD",
+        "unit": "currency"
+      },
+      "settings": {
+        "lower": 0.00625,
+        "upper": 0.0125,
+        "price_tolerance": 1e-08,
+        "parameter_tolerance": 1e-10,
+        "max_iterations": 64,
+        "max_price_evaluations": 96
+      },
+      "expected_parameter": 0.0125,
+      "expected_base_pv": 4999.004759961246,
+      "expected_pv": 4999.004759961246,
+      "expected_endpoint": 1
+    }
+  ],
+  "constant_collar": {
+    "provenance": "Exact original45days at5000 and46days at3000, constant2percent coupon; original2000Feb15/3000Apr1 principal,3percent continuous discount. No candidate execution.",
+    "present_value": "4996.023687679665106309901852503422642625188787545510397307603031892335871113057628397938896453882962",
+    "parameter_derivatives": "identically zero for all supplied volatility moves",
+    "certified": false
+  },
+  "identification": "One selected bracketed native root only; global parameter/model uniqueness is not certified.",
+  "certified": false
+}

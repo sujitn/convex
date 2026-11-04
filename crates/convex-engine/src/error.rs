@@ -5,6 +5,9 @@ use thiserror::Error;
 /// Engine error type.
 #[derive(Debug, Error)]
 pub enum EngineError {
+    /// Typed lifecycle, admission or recovery failure.
+    #[error(transparent)]
+    Runtime(#[from] crate::runtime::RuntimeError),
     /// Configuration error
     #[error("configuration error: {0}")]
     ConfigError(String),

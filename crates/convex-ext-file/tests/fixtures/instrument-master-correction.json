@@ -1,0 +1,185 @@
+{
+  "schema_version": "2.0",
+  "command": {
+    "idempotency_key": "master-example-correction",
+    "changes": [
+      {
+        "kind": "update",
+        "expected_version": 1,
+        "bond": {
+          "instrument_id": "INSTRUMENT-001",
+          "isin": "NEW-ISIN",
+          "cusip": null,
+          "sedol": null,
+          "bbgid": null,
+          "description": "Fictional reference bond",
+          "currency": "USD",
+          "issue_date": "2020-01-15",
+          "maturity_date": "2030-01-15",
+          "coupon_rate": "0.05375",
+          "frequency": 2,
+          "day_count": "ACT/ACT",
+          "face_value": "100",
+          "bond_type": "FixedBullet",
+          "issuer_type": "CorporateIG",
+          "issuer_id": "ENTITY-001",
+          "issuer_name": "Fictional master issuer",
+          "seniority": "Senior",
+          "is_callable": false,
+          "call_schedule": [],
+          "is_putable": false,
+          "is_sinkable": false,
+          "floating_terms": null,
+          "inflation_index": null,
+          "inflation_base_index": null,
+          "has_deflation_floor": false,
+          "country_of_risk": "US",
+          "sector": "Technology",
+          "amount_outstanding": "100000000",
+          "first_coupon_date": "2020-01-15",
+          "last_updated": 0,
+          "source": "fictional-fixture",
+          "contractual_terms": {
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": null
+            },
+            "dated_date": "2019-12-15",
+            "penultimate_coupon_date": null,
+            "redemption_value": "102.50",
+            "issuer": {
+              "entity_id": "ENTITY-001",
+              "version": 1
+            },
+            "calendar": {
+              "id": "calendar-example",
+              "version": 1
+            },
+            "calendar_code": "weekends_only",
+            "convention": {
+              "id": "convention-example",
+              "version": 1
+            },
+            "settings": {
+              "day_count": "ActActIsda",
+              "business_day_convention": "Unadjusted",
+              "end_of_month": false,
+              "settlement_days": 2,
+              "ex_coupon_days": 0
+            },
+            "provenance": {
+              "source": "fictional-fixture",
+              "evidence_reference": "fixture/master-correction-v2"
+            },
+            "stub": "short_first",
+            "payment_lag": 0
+          }
+        }
+      }
+    ],
+    "master_changes": [
+      {
+        "expected_version": 1,
+        "definition": {
+          "kind": "identifier",
+          "definition": {
+            "mapping_id": "isin-old",
+            "identifier": {
+              "kind": "isin",
+              "value": "OLD-ISIN"
+            },
+            "target": {
+              "kind": "instrument",
+              "instrument_id": "INSTRUMENT-001"
+            },
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": "2026-01-01T00:00:00Z"
+            },
+            "provenance": {
+              "source": "fictional-fixture",
+              "evidence_reference": "fixture/master-v1"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": 1,
+        "definition": {
+          "kind": "identifier",
+          "definition": {
+            "mapping_id": "provider-old",
+            "identifier": {
+              "kind": "provider",
+              "namespace": "provider-a",
+              "value": "OLD.SYMBOL"
+            },
+            "target": {
+              "kind": "instrument",
+              "instrument_id": "INSTRUMENT-001"
+            },
+            "effective": {
+              "from": "2000-01-01T00:00:00Z",
+              "until": "2026-01-01T00:00:00Z"
+            },
+            "provenance": {
+              "source": "fictional-fixture",
+              "evidence_reference": "fixture/master-v1"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "identifier",
+          "definition": {
+            "mapping_id": "isin-new",
+            "identifier": {
+              "kind": "isin",
+              "value": "NEW-ISIN"
+            },
+            "target": {
+              "kind": "instrument",
+              "instrument_id": "INSTRUMENT-001"
+            },
+            "effective": {
+              "from": "2026-01-01T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "fictional-fixture",
+              "evidence_reference": "fixture/master-v1"
+            }
+          }
+        }
+      },
+      {
+        "expected_version": null,
+        "definition": {
+          "kind": "identifier",
+          "definition": {
+            "mapping_id": "provider-new",
+            "identifier": {
+              "kind": "provider",
+              "namespace": "provider-a",
+              "value": "NEW.SYMBOL"
+            },
+            "target": {
+              "kind": "instrument",
+              "instrument_id": "INSTRUMENT-001"
+            },
+            "effective": {
+              "from": "2026-01-01T00:00:00Z",
+              "until": null
+            },
+            "provenance": {
+              "source": "fictional-fixture",
+              "evidence_reference": "fixture/master-v1"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

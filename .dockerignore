@@ -7,6 +7,7 @@ target/
 # Git
 .git/
 .gitignore
+.ai/
 
 # IDE
 .idea/
@@ -20,12 +21,15 @@ LICENSE
 
 # Tests and test data (included in crates, can't exclude)
 test_data/
+tests/
 
 # Excel add-in (not needed for server)
 excel/
 
 # Demo folder (separate deployment)
 demo/
+www/
+**/node_modules/
 
 # Keep all crates - workspace requires them for build
 # (Docker multi-stage build only copies the server binary to final image)

@@ -1,0 +1,310 @@
+{
+  "provenance": "Independent full-date/profile/fixing/common-factor Gaussian algebra, Python math.erfc/expm1; declared before graph-risk candidate execution. No native output or approval.",
+  "context": {
+    "id": "whole_coupon_correlated",
+    "terms": {
+      "schema_version": 1,
+      "currency": "USD",
+      "issue_date": "2023-12-29",
+      "face_value": "5000",
+      "schedule": {
+        "start_date": "2024-01-01",
+        "end_date": "2024-04-01",
+        "frequency": "Quarterly",
+        "stub_type": "None",
+        "end_of_month": false,
+        "first_regular_date": null,
+        "penultimate_date": null
+      },
+      "dates": {
+        "accrual_adjustment": "Unadjusted",
+        "payment_adjustment": "Unadjusted",
+        "payment_delay": {
+          "CalendarDays": 0
+        },
+        "fixing_offset": null,
+        "observation_offset": null,
+        "ex_coupon": null
+      },
+      "calendars": {
+        "payment": "WEEKEND",
+        "reset": "WEEKEND",
+        "observation": "WEEKEND",
+        "exercise": "WEEKEND"
+      },
+      "settlement_lag": {
+        "CalendarDays": 0
+      },
+      "settlement_adjustment": "Unadjusted",
+      "day_count": "Act360",
+      "profiles": {
+        "coupon": [
+          {
+            "start": "2024-01-01",
+            "end": "2024-04-01",
+            "value": "0"
+          }
+        ],
+        "spread": [
+          {
+            "start": "2024-01-01",
+            "end": "2024-04-01",
+            "value": "0.002"
+          }
+        ],
+        "gearing": [
+          {
+            "start": "2024-01-01",
+            "end": "2024-03-10",
+            "value": "1"
+          },
+          {
+            "start": "2024-03-10",
+            "end": "2024-04-01",
+            "value": "-1"
+          }
+        ],
+        "notional": [
+          {
+            "start": "2024-01-01",
+            "end": "2024-02-15",
+            "value": "5000"
+          },
+          {
+            "start": "2024-02-15",
+            "end": "2024-04-01",
+            "value": "3000"
+          }
+        ]
+      },
+      "coupon": {
+        "kind": "term",
+        "index_id": "SUPPLIED.TERM",
+        "resets": {
+          "start_date": "2024-01-01",
+          "end_date": "2024-04-01",
+          "frequency": "Monthly",
+          "stub_type": "None",
+          "end_of_month": false,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reset_adjustment": "Unadjusted",
+        "fixing_offset": {
+          "CalendarDays": 0
+        },
+        "projection_day_count": "Act360"
+      },
+      "coupon_principal": "AccrualProfile",
+      "redemption_multiplier": "1",
+      "principal_prices": [],
+      "rounding": "Unrounded",
+      "negative_coupons": "Allow",
+      "ex_coupon_accrual": "SubtractCoupon",
+      "exercise": []
+    },
+    "context": {
+      "settlement": "2024-01-15",
+      "on_payment": "Exclude",
+      "fixing": {
+        "valuation_date": "2024-01-15",
+        "known_at": "2024-01-15T18:00:00Z",
+        "unpublished": "RequirePublished",
+        "final_only": true
+      },
+      "overnight_accrual_cutoffs": []
+    },
+    "history": [
+      {
+        "index_id": "SUPPLIED.TERM",
+        "observation_date": "2024-01-01",
+        "rate": "0.04",
+        "published_at": "2024-01-01T16:00:00Z",
+        "known_at": "2024-01-01T16:00:00Z",
+        "revision": 1,
+        "status": "Final",
+        "source_id": "declared-fixing"
+      }
+    ],
+    "options": {
+      "cap": [
+        {
+          "start": "2024-01-01",
+          "end": "2024-04-01",
+          "value": "0.03"
+        }
+      ],
+      "floor": [
+        {
+          "start": "2024-01-01",
+          "end": "2024-04-01",
+          "value": "0"
+        }
+      ],
+      "models": [],
+      "whole_coupon": {
+        "accrual_policy": "expected_coupon_pro_rata_notional_accrual",
+        "factors": [
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-02-01",
+            "payment_date": "2024-04-01",
+            "forward_adjustment": 0,
+            "loadings": [
+              0.005,
+              0.002
+            ],
+            "source_id": "DECLARED.JOINT.NORMAL",
+            "version": 1,
+            "known_at": "2024-01-15T18:00:00Z"
+          },
+          {
+            "index_id": "SUPPLIED.TERM",
+            "observation_date": "2024-03-01",
+            "payment_date": "2024-04-01",
+            "forward_adjustment": 0,
+            "loadings": [
+              0.004,
+              -0.003
+            ],
+            "source_id": "DECLARED.JOINT.NORMAL",
+            "version": 1,
+            "known_at": "2024-01-15T18:00:00Z"
+          }
+        ]
+      }
+    },
+    "forecast_rate": "0.04",
+    "discount_rate": 0.03,
+    "expected": {
+      "unbounded_cash_mean": 27.683333333333334,
+      "notional_accrual": "1008.333333333333333333333333333333333333333333333333333333333333333333",
+      "cash_factor_loadings": [
+        1.163888888888889,
+        0.9638888888888889
+      ],
+      "cash_standard_deviation": 1.5111979141735437,
+      "expected_cash": 27.655591076611078,
+      "present_value": 5003.465366093165,
+      "dirty_price": 100.0693073218633,
+      "accrued_model": 0.10666068183816946,
+      "clean_price": 99.96264664002514
+    }
+  },
+  "projection_continuous_zero": 0.04,
+  "discount_continuous_zero": 0.03,
+  "absolute_bounds": {
+    "pv": 1e-08,
+    "sensitivity": 1e-08
+  },
+  "cases": [
+    {
+      "axis": "discount",
+      "bump": 0.0001,
+      "base": 5003.367373323093,
+      "plus": 5003.286964913701,
+      "minus": 5003.447783215259,
+      "half_plus": 5003.327168933052,
+      "half_minus": 5003.407578083827,
+      "value": -0.08040915077890531,
+      "half_value": -0.08040915077435784
+    },
+    {
+      "axis": "projection",
+      "bump": 0.0001,
+      "base": 5003.367373323093,
+      "plus": 5003.387313133442,
+      "minus": 5003.347409625941,
+      "half_plus": 5003.37734625091,
+      "half_minus": 5003.357394423727,
+      "value": 0.019951753750774515,
+      "half_value": 0.01995182718292199
+    },
+    {
+      "axis": "joint",
+      "bump": 0.0001,
+      "base": 5003.367373323093,
+      "plus": 5003.3069043034075,
+      "minus": 5003.427819096951,
+      "half_plus": 5003.3371417556755,
+      "half_minus": 5003.397599079204,
+      "value": -0.06045739677165329,
+      "half_value": -0.06045732352868072
+    }
+  ],
+  "certified": false,
+  "segment_cases": [
+    {
+      "model": "normal",
+      "axis": "discount",
+      "bump": 0.0001,
+      "base": 4999.004759961246,
+      "plus": 4998.924443584097,
+      "minus": 4999.085077819228,
+      "half_plus": 4998.96460158757,
+      "half_minus": 4999.044918705131,
+      "value": -0.08031711756530058,
+      "half_value": -0.08031711756120785
+    },
+    {
+      "model": "normal",
+      "axis": "projection",
+      "bump": 0.0001,
+      "base": 4999.004759961246,
+      "plus": 4999.004760176216,
+      "minus": 4999.004759708128,
+      "half_plus": 4999.004760073135,
+      "half_minus": 4999.004759839834,
+      "value": 2.3404390958603472e-07,
+      "half_value": 2.3330085241468623e-07
+    },
+    {
+      "model": "normal",
+      "axis": "joint",
+      "bump": 0.0001,
+      "base": 4999.004759961246,
+      "plus": 4998.924443799063,
+      "minus": 4999.085077566106,
+      "half_plus": 4998.9646016994575,
+      "half_minus": 4999.044918583718,
+      "value": -0.08031688352139099,
+      "half_value": -0.08031688426035544
+    },
+    {
+      "model": "shifted_black",
+      "axis": "discount",
+      "bump": 0.0001,
+      "base": 4999.004677705594,
+      "plus": 4998.92436133018,
+      "minus": 4999.0849955618405,
+      "half_plus": 4998.964519332785,
+      "half_minus": 4999.044836448611,
+      "value": -0.08031711583043943,
+      "half_value": -0.08031711582589196
+    },
+    {
+      "model": "shifted_black",
+      "axis": "projection",
+      "bump": 0.0001,
+      "base": 4999.004677705594,
+      "plus": 4999.004685712545,
+      "minus": 4999.004668893718,
+      "half_plus": 4999.0046818051815,
+      "half_minus": 4999.00467340487,
+      "value": 8.409413567278534e-06,
+      "half_value": 8.40031134430319e-06
+    },
+    {
+      "model": "shifted_black",
+      "axis": "joint",
+      "bump": 0.0001,
+      "base": 4999.004677705594,
+      "plus": 4998.924369336963,
+      "minus": 4999.084986749779,
+      "half_plus": 4998.964523432329,
+      "half_minus": 4999.044832147843,
+      "value": -0.08030870640823196,
+      "half_value": -0.08030871551454766
+    }
+  ]
+}

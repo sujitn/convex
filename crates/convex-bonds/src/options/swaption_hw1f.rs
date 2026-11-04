@@ -1,6 +1,7 @@
 //! Closed-form European swaption pricing under HW1F with constant `(a, σ)`,
 //! via Jamshidian's decomposition. See Brigo & Mercurio §3.3.2 / §3.11.2.
 
+use convex_math::portable;
 use convex_math::solvers::{brent, SolverConfig};
 use convex_math::stats::standard_normal_cdf;
 
@@ -10,7 +11,7 @@ pub(crate) fn b_hw1f(a: f64, t: f64, s: f64) -> f64 {
     if a.abs() < 1e-12 {
         return tau;
     }
-    (1.0 - (-a * tau).exp()) / a
+    (1.0 - portable::exp(-a * tau)) / a
 }
 
 /// Lognormal vol of `P(T, S)` under HW1F (Brigo-Mercurio 3.40).
@@ -19,13 +20,13 @@ pub(crate) fn zcb_option_vol(a: f64, sigma: f64, t_expiry: f64, t_maturity: f64)
     if a.abs() < 1e-12 {
         return sigma * t_expiry.sqrt() * bt;
     }
-    let var = sigma.powi(2) / (2.0 * a) * (1.0 - (-2.0 * a * t_expiry).exp()) * bt.powi(2);
+    let var = sigma.powi(2) / (2.0 * a) * (1.0 - portable::exp(-2.0 * a * t_expiry)) * bt.powi(2);
     var.sqrt()
 }
 
 /// Closed-form ZCB call/put under HW1F (Brigo-Mercurio 3.40-3.41).
 pub(crate) fn zcb_option(p_t: f64, p_s: f64, k: f64, sigma_p: f64, is_call: bool) -> f64 {
-    let h = (p_s / (k * p_t)).ln() / sigma_p + sigma_p / 2.0;
+    let h = portable::log(p_s / (k * p_t)) / sigma_p + sigma_p / 2.0;
     if is_call {
         p_s * standard_normal_cdf(h) - k * p_t * standard_normal_cdf(h - sigma_p)
     } else {
@@ -64,6 +65,8 @@ pub fn bachelier_atm_price(annuity: f64, normal_vol: f64, expiry: f64) -> f64 {
 /// Caller passes the time-0 instantaneous forward rate `f_0t` at the swaption
 /// expiry — typically `curve.instantaneous_forward(expiry)` — so the pricer
 /// stays free of curve-interpolation arithmetic.
+/// Returns NaN on invalid input or numerical failure. Use
+/// [`try_payer_swaption_hw1f`] to retain the typed error.
 pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
     discount: &F,
     a: f64,
@@ -73,19 +76,53 @@ pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
     tail: f64,
     strike: f64,
 ) -> f64 {
+    try_payer_swaption_hw1f(discount, a, sigma, f_0t, expiry, tail, strike).unwrap_or(f64::NAN)
+}
+
+/// Checked HW1F swaption price with at most 150 annual payments and 100
+/// Jamshidian root iterations. Discount callbacks must terminate and not panic.
+pub fn try_payer_swaption_hw1f<F: Fn(f64) -> f64>(
+    discount: &F,
+    a: f64,
+    sigma: f64,
+    f_0t: f64,
+    expiry: f64,
+    tail: f64,
+    strike: f64,
+) -> convex_math::MathResult<f64> {
+    use convex_math::MathError;
+    if [a, sigma, f_0t, expiry, tail, strike]
+        .iter()
+        .any(|v| !v.is_finite())
+        || !(0.0..=10.0).contains(&a)
+        || sigma <= 0.0
+        || sigma > 10.0
+        || expiry <= 0.0
+        || tail.round() < 1.0
+        || expiry + tail > 150.0
+    {
+        return Err(MathError::invalid_input(
+            "HW1F parameters outside bounded finite domain",
+        ));
+    }
     let n = tail.round() as usize;
     let p_t = discount(expiry);
+    if !p_t.is_finite() || p_t <= 0.0 {
+        return Err(MathError::invalid_input(
+            "HW1F discount factor must be finite positive",
+        ));
+    }
 
     let theta_factor = if a.abs() < 1e-12 {
         sigma.powi(2) * expiry / 2.0
     } else {
-        sigma.powi(2) / (4.0 * a) * (1.0 - (-2.0 * a * expiry).exp())
+        sigma.powi(2) / (4.0 * a) * (1.0 - portable::exp(-2.0 * a * expiry))
     };
 
     let big_b = |s: f64| b_hw1f(a, expiry, s);
     let big_a = |s: f64| {
         let bts = big_b(s);
-        discount(s) / p_t * (bts * f_0t - theta_factor * bts.powi(2)).exp()
+        discount(s) / p_t * portable::exp(bts * f_0t - theta_factor * bts.powi(2))
     };
 
     // Synthetic fixed-leg cashflows: τ_i = 1, c_i = K (final flow adds the
@@ -101,16 +138,17 @@ pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
 
     let bond_value = |r: f64| -> f64 {
         cs.iter()
-            .map(|(ti, ci)| ci * big_a(*ti) * (-big_b(*ti) * r).exp())
+            .map(|(ti, ci)| ci * big_a(*ti) * portable::exp(-big_b(*ti) * r))
             .sum()
     };
 
     let cfg = SolverConfig::new(1e-12, 100);
-    let r_star = brent(|r| bond_value(r) - 1.0, -1.0, 1.0, &cfg).map_or(0.0, |res| res.root);
+    let r_star = brent(|r| bond_value(r) - 1.0, -1.0, 1.0, &cfg)?.root;
 
-    cs.iter()
+    let price: f64 = cs
+        .iter()
         .map(|(ti, ci)| {
-            let xi = big_a(*ti) * (-big_b(*ti) * r_star).exp();
+            let xi = big_a(*ti) * portable::exp(-big_b(*ti) * r_star);
             ci * zcb_option(
                 p_t,
                 discount(*ti),
@@ -119,7 +157,13 @@ pub fn payer_swaption_hw1f<F: Fn(f64) -> f64>(
                 false,
             )
         })
-        .sum()
+        .sum();
+    if !price.is_finite() || price < 0.0 {
+        return Err(MathError::NonFinite {
+            operation: "HW1F swaption price".into(),
+        });
+    }
+    Ok(price)
 }
 
 #[cfg(test)]

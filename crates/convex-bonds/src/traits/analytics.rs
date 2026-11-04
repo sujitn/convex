@@ -25,12 +25,26 @@ use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
 use convex_core::daycounts::DayCountConvention;
-use convex_core::types::{Date, Frequency};
+use convex_core::types::{Compounding, Date, Frequency};
 
 use crate::error::{BondError, BondResult};
-use crate::pricing::{YieldResult, YieldSolver};
+use crate::pricing::{dated_cash::DatedCashYieldRisk, risk_math, YieldResult, YieldSolver};
 use crate::traits::Bond;
 use crate::types::YieldConvention;
+
+fn complete_yield_risk<B: Bond + ?Sized>(
+    bond: &B,
+    settlement: Date,
+    ytm: f64,
+    frequency: Frequency,
+) -> BondResult<DatedCashYieldRisk> {
+    let cash = bond.yield_cash_flows(settlement, frequency)?;
+    let risk = cash.yield_risk(ytm, Compounding::from(frequency))?;
+    if risk.present_value.abs() < 1e-10 {
+        return Err(BondError::invalid_spec("zero present value"));
+    }
+    Ok(risk)
+}
 
 /// Analytics extension trait for bonds.
 ///
@@ -64,29 +78,15 @@ pub trait BondAnalytics: Bond {
         clean_price: Decimal,
         frequency: Frequency,
     ) -> BondResult<YieldResult> {
-        let cash_flows = self.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return Err(BondError::InvalidSpec {
-                reason: "no future cash flows".to_string(),
-            });
-        }
-
-        let accrued = self.accrued_interest(settlement);
-        let day_count = self.parse_day_count()?;
-
-        let solver = YieldSolver::new().with_convention(YieldConvention::StreetConvention);
-
-        solver.solve(
-            &cash_flows,
-            clean_price,
-            accrued,
+        self.yield_to_maturity_with_convention(
             settlement,
-            day_count,
+            clean_price,
             frequency,
+            YieldConvention::StreetConvention,
         )
     }
 
-    /// Calculates yield to maturity with a specific yield convention.
+    /// Yield inversion over the same normalized dated cashflows as pricing/risk.
     fn yield_to_maturity_with_convention(
         &self,
         settlement: Date,
@@ -94,85 +94,52 @@ pub trait BondAnalytics: Bond {
         frequency: Frequency,
         convention: YieldConvention,
     ) -> BondResult<YieldResult> {
-        let cash_flows = self.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return Err(BondError::InvalidSpec {
-                reason: "no future cash flows".to_string(),
-            });
+        let cash = self.yield_cash_flows(settlement, frequency)?;
+        let target = clean_price
+            .checked_add(self.try_accrued_interest(settlement)?)
+            .and_then(|v| v.to_f64())
+            .ok_or_else(|| BondError::invalid_spec("dirty price overflow"))?;
+        if target <= 0.0 {
+            return Err(BondError::invalid_spec("dirty price must be positive"));
         }
-
-        let accrued = self.accrued_interest(settlement);
-        let day_count = self.parse_day_count()?;
-
         let solver = YieldSolver::new().with_convention(convention);
-        solver.solve(
-            &cash_flows,
-            clean_price,
-            accrued,
-            settlement,
-            day_count,
-            frequency,
+        solver.solve_dated_cash(
+            &cash,
+            target,
+            solver.cash_basis(f64::from(frequency.periods_per_year()))?,
+            0.05,
         )
     }
 
-    // ==================== Price Calculations ====================
-
-    /// Calculates dirty price from yield.
-    ///
-    /// # Arguments
-    ///
-    /// * `settlement` - Settlement date
-    /// * `ytm` - Yield to maturity as decimal (e.g., 0.05 for 5%)
-    /// * `frequency` - Compounding frequency
-    ///
-    /// # Returns
-    ///
-    /// Dirty price per 100 face value.
+    /// Dirty price per 100 using the canonical dated yield cashflows.
     fn dirty_price_from_yield(
         &self,
         settlement: Date,
         ytm: f64,
         frequency: Frequency,
     ) -> BondResult<f64> {
-        let cash_flows = self.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return Err(BondError::InvalidSpec {
-                reason: "no future cash flows".to_string(),
-            });
-        }
-
-        let day_count = self.parse_day_count()?;
-        let solver = YieldSolver::new();
-
-        Ok(solver.dirty_price_from_yield(&cash_flows, ytm, settlement, day_count, frequency))
+        let cash = self.yield_cash_flows(settlement, frequency)?;
+        cash.price(
+            ytm,
+            crate::pricing::yield_cash::CashYieldCompounding::Periodic {
+                frequency: f64::from(frequency.periods_per_year()),
+            },
+        )
     }
 
-    /// Calculates clean price from yield.
+    /// Clean price per 100 using the same accrued convention as inversion.
     fn clean_price_from_yield(
         &self,
         settlement: Date,
         ytm: f64,
         frequency: Frequency,
     ) -> BondResult<f64> {
-        let cash_flows = self.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return Err(BondError::InvalidSpec {
-                reason: "no future cash flows".to_string(),
-            });
-        }
-
-        let accrued = self.accrued_interest(settlement);
-        let day_count = self.parse_day_count()?;
-        let solver = YieldSolver::new();
-
-        Ok(solver.clean_price_from_yield(
-            &cash_flows,
-            ytm,
-            accrued,
-            settlement,
-            day_count,
-            frequency,
-        ))
+        let dirty = self.dirty_price_from_yield(settlement, ytm, frequency)?;
+        let accrued = self
+            .try_accrued_interest(settlement)?
+            .to_f64()
+            .ok_or_else(|| BondError::invalid_spec("accrued conversion"))?;
+        Ok(dirty - accrued)
     }
 
     // ==================== Duration Calculations ====================
@@ -193,42 +160,7 @@ pub trait BondAnalytics: Bond {
         ytm: f64,
         frequency: Frequency,
     ) -> BondResult<f64> {
-        let cash_flows = self.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return Err(BondError::InvalidSpec {
-                reason: "no future cash flows".to_string(),
-            });
-        }
-
-        let day_count = self.parse_day_count()?;
-        let periods_per_year = f64::from(frequency.periods_per_year());
-        let rate_per_period = ytm / periods_per_year;
-
-        // Period-aware year fractions (ICMA / 30-360-US unified) — matches QL.
-        let cf_data = crate::pricing::yield_solver::project_discount_fractions(
-            &cash_flows,
-            settlement,
-            day_count,
-            periods_per_year,
-        );
-
-        let mut weighted_time = 0.0;
-        let mut total_pv = 0.0;
-        for (years, amount) in &cf_data {
-            let periods = years * periods_per_year;
-            let df = 1.0 / (1.0 + rate_per_period).powf(periods);
-            let pv = amount * df;
-            weighted_time += years * pv;
-            total_pv += pv;
-        }
-
-        if total_pv.abs() < 1e-10 {
-            return Err(BondError::InvalidSpec {
-                reason: "zero present value".to_string(),
-            });
-        }
-
-        Ok(weighted_time / total_pv)
+        Ok(complete_yield_risk(self, settlement, ytm, frequency)?.macaulay_duration)
     }
 
     /// Calculates modified duration from Macaulay duration.
@@ -242,9 +174,7 @@ pub trait BondAnalytics: Bond {
         ytm: f64,
         frequency: Frequency,
     ) -> BondResult<f64> {
-        let mac_dur = self.macaulay_duration(settlement, ytm, frequency)?;
-        let periods_per_year = f64::from(frequency.periods_per_year());
-        Ok(mac_dur / (1.0 + ytm / periods_per_year))
+        Ok(complete_yield_risk(self, settlement, ytm, frequency)?.modified_duration)
     }
 
     /// Calculates effective duration using numerical bumping.
@@ -267,19 +197,11 @@ pub trait BondAnalytics: Bond {
         frequency: Frequency,
         bump_bps: f64,
     ) -> BondResult<f64> {
-        let bump = bump_bps / 10_000.0;
-
+        let bump = risk_math::yield_bump(ytm, bump_bps)?;
         let price_base = self.dirty_price_from_yield(settlement, ytm, frequency)?;
         let price_up = self.dirty_price_from_yield(settlement, ytm + bump, frequency)?;
         let price_down = self.dirty_price_from_yield(settlement, ytm - bump, frequency)?;
-
-        if price_base.abs() < 1e-10 {
-            return Err(BondError::InvalidSpec {
-                reason: "zero base price".to_string(),
-            });
-        }
-
-        Ok((price_down - price_up) / (2.0 * price_base * bump))
+        risk_math::duration_stencil(price_up, price_down, price_base, bump)
     }
 
     // ==================== Convexity Calculations ====================
@@ -289,45 +211,7 @@ pub trait BondAnalytics: Bond {
     /// Convexity measures the curvature of the price-yield relationship.
     /// It captures the second-order effect that duration misses.
     fn convexity(&self, settlement: Date, ytm: f64, frequency: Frequency) -> BondResult<f64> {
-        let cash_flows = self.cash_flows(settlement);
-        if cash_flows.is_empty() {
-            return Err(BondError::InvalidSpec {
-                reason: "no future cash flows".to_string(),
-            });
-        }
-
-        let day_count = self.parse_day_count()?;
-        let periods_per_year = f64::from(frequency.periods_per_year());
-        let rate_per_period = ytm / periods_per_year;
-
-        let cf_data = crate::pricing::yield_solver::project_discount_fractions(
-            &cash_flows,
-            settlement,
-            day_count,
-            periods_per_year,
-        );
-
-        let mut weighted_convexity = 0.0;
-        let mut total_pv = 0.0;
-        for (years, amount) in &cf_data {
-            let periods = years * periods_per_year;
-            let df = 1.0 / (1.0 + rate_per_period).powf(periods);
-            let pv = amount * df;
-
-            // Convexity contribution: t(t+1/f) * PV / (1+y/f)^2
-            let convex_term = years * (years + 1.0 / periods_per_year) * pv;
-            weighted_convexity += convex_term;
-            total_pv += pv;
-        }
-
-        if total_pv.abs() < 1e-10 {
-            return Err(BondError::InvalidSpec {
-                reason: "zero present value".to_string(),
-            });
-        }
-
-        let y_factor = (1.0 + rate_per_period).powi(2);
-        Ok(weighted_convexity / (total_pv * y_factor))
+        Ok(complete_yield_risk(self, settlement, ytm, frequency)?.convexity)
     }
 
     /// Calculates effective convexity using numerical bumping.
@@ -340,19 +224,11 @@ pub trait BondAnalytics: Bond {
         frequency: Frequency,
         bump_bps: f64,
     ) -> BondResult<f64> {
-        let bump = bump_bps / 10_000.0;
-
+        let bump = risk_math::yield_bump(ytm, bump_bps)?;
         let price_base = self.dirty_price_from_yield(settlement, ytm, frequency)?;
         let price_up = self.dirty_price_from_yield(settlement, ytm + bump, frequency)?;
         let price_down = self.dirty_price_from_yield(settlement, ytm - bump, frequency)?;
-
-        if price_base.abs() < 1e-10 {
-            return Err(BondError::InvalidSpec {
-                reason: "zero base price".to_string(),
-            });
-        }
-
-        Ok((price_up + price_down - 2.0 * price_base) / (price_base * bump * bump))
+        risk_math::convexity_stencil(price_up, price_down, price_base, bump)
     }
 
     // ==================== DV01 Calculations ====================
@@ -370,10 +246,11 @@ pub trait BondAnalytics: Bond {
         frequency: Frequency,
     ) -> BondResult<f64> {
         let mod_dur = self.modified_duration(settlement, ytm, frequency)?;
-        Ok(mod_dur * dirty_price * 0.0001)
+        risk_math::dv01(mod_dur, dirty_price, 100.0)
     }
 
-    /// Calculates DV01 for a specific notional amount.
+    /// Calculates DV01 for signed notional face using the supplied per100 dirty price.
+    /// Instrument face does not change the per100 quotation denominator.
     fn dv01_notional(
         &self,
         settlement: Date,
@@ -383,8 +260,7 @@ pub trait BondAnalytics: Bond {
         frequency: Frequency,
     ) -> BondResult<f64> {
         let mod_dur = self.modified_duration(settlement, ytm, frequency)?;
-        let face = self.face_value().to_f64().unwrap_or(100.0);
-        Ok(mod_dur * dirty_price * (notional / face) * 0.0001)
+        risk_math::dv01(mod_dur, dirty_price, notional)
     }
 
     // ==================== Price Change Estimation ====================
@@ -403,11 +279,7 @@ pub trait BondAnalytics: Bond {
     ) -> BondResult<f64> {
         let mod_dur = self.modified_duration(settlement, ytm, frequency)?;
         let convex = self.convexity(settlement, ytm, frequency)?;
-
-        let duration_effect = -mod_dur * dirty_price * yield_change;
-        let convexity_effect = 0.5 * convex * dirty_price * yield_change.powi(2);
-
-        Ok(duration_effect + convexity_effect)
+        risk_math::price_change(mod_dur, convex, dirty_price, yield_change)
     }
 
     // ==================== Helper Methods ====================

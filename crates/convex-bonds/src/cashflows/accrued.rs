@@ -1,56 +1,152 @@
-//! Accrued interest calculations for bonds.
-//!
-//! This module provides accrued interest calculations with support for:
-//! - Standard accrued interest (most markets)
-//! - Ex-dividend accrued (UK Gilts)
-//! - Irregular period calculations (ICMA stub handling)
-//!
-//! # Example
-//!
-//! ```rust,ignore
-//! use convex_bonds::cashflows::AccruedInterestCalculator;
-//! use convex_core::types::{Date, Frequency};
-//! use convex_core::daycounts::DayCountConvention;
-//! use rust_decimal_macros::dec;
-//!
-//! let accrued = AccruedInterestCalculator::standard(
-//!     Date::from_ymd(2025, 4, 15).unwrap(),  // settlement
-//!     Date::from_ymd(2025, 1, 15).unwrap(),  // last coupon
-//!     Date::from_ymd(2025, 7, 15).unwrap(),  // next coupon
-//!     dec!(0.05),                             // 5% coupon rate
-//!     dec!(100),                              // face value
-//!     DayCountConvention::Thirty360US,
-//!     Frequency::SemiAnnual,
-//! );
-//! ```
+//! Checked constant-coupon period accrual over supplied dates and cash units.
+//! These helpers do not infer payment/entitlement state or a market convention.
+//! Full step profiles, delayed payments and complete reference meshes use BondContract.
 
+use crate::{BondError, BondResult};
+use convex_core::{
+    calendars::{checked, Calendar},
+    cashflows::{act365l_year_fraction, icma_year_fraction, ReferencePeriod, MAX_CONTRACT_DAYS},
+    daycounts::DayCountConvention,
+    types::{Date, Frequency},
+};
 use rust_decimal::Decimal;
 
-use convex_core::daycounts::DayCountConvention;
-use convex_core::types::{Date, Frequency};
+fn invalid(reason: &str) -> BondError {
+    BondError::invalid_spec(reason)
+}
+fn arithmetic() -> BondError {
+    BondError::pricing_failed("accrued Decimal overflow/nonzero underflow")
+}
+fn interval(start: Date, end: Date, allow_zero: bool) -> BondResult<()> {
+    if !(1..=9999).contains(&start.year())
+        || !(1..=9999).contains(&end.year())
+        || end < start
+        || (!allow_zero && end == start)
+        || start.days_between(&end) > MAX_CONTRACT_DAYS
+    {
+        return Err(invalid("invalid or excessive accrued date interval"));
+    }
+    Ok(())
+}
+fn multiply(left: Decimal, right: Decimal) -> BondResult<Decimal> {
+    let value = left.checked_mul(right).ok_or_else(arithmetic)?;
+    if left != Decimal::ZERO && right != Decimal::ZERO && value == Decimal::ZERO {
+        return Err(arithmetic());
+    }
+    Ok(value)
+}
+fn cash(face: Decimal, rate: Decimal, fraction: Decimal) -> BondResult<Decimal> {
+    multiply(multiply(face, rate)?, fraction)
+}
+fn supported(day_count: DayCountConvention) -> BondResult<()> {
+    match day_count {
+        DayCountConvention::Act360
+        | DayCountConvention::Act365Fixed
+        | DayCountConvention::ActActIsda
+        | DayCountConvention::ActActIcma
+        | DayCountConvention::Act365Leap
+        | DayCountConvention::Thirty360US
+        | DayCountConvention::Thirty360E => Ok(()),
+        _ => Err(invalid(
+            "accrual convention requires its complete original contract/maturity context",
+        )),
+    }
+}
+fn regular(start: Date, end: Date, frequency: Frequency) -> BondResult<()> {
+    interval(start, end, false)?;
+    let months = frequency.months_per_period() as i32;
+    if frequency.is_zero()
+        || months == 0
+        || !(start.add_months(months).is_ok_and(|d| d == end)
+            || end.add_months(-months).is_ok_and(|d| d == start))
+    {
+        return Err(invalid(
+            "explicit regular ICMA reference period/frequency required",
+        ));
+    }
+    Ok(())
+}
+struct CouponContext {
+    start: Date,
+    end: Date,
+    rate: Decimal,
+    face: Decimal,
+    day_count: DayCountConvention,
+    frequency: Frequency,
+}
+impl CouponContext {
+    fn new(
+        start: Date,
+        end: Date,
+        rate: Decimal,
+        face: Decimal,
+        day_count: DayCountConvention,
+        frequency: Frequency,
+    ) -> BondResult<Self> {
+        interval(start, end, false)?;
+        if face <= Decimal::ZERO {
+            return Err(invalid("positive original accrued face required"));
+        }
+        supported(day_count)?;
+        Ok(Self {
+            start,
+            end,
+            rate,
+            face,
+            day_count,
+            frequency,
+        })
+    }
+    fn amount(
+        &self,
+        start: Date,
+        end: Date,
+        reference: Option<(Date, Date)>,
+    ) -> BondResult<Decimal> {
+        interval(start, end, true)?;
+        if start < self.start || end > self.end {
+            return Err(invalid("accrual outside original period"));
+        }
+        // An explicit no-coupon frequency has zero coupon accrual, after all
+        // dates, original face and convention admission have been validated.
+        if self.frequency.is_zero() {
+            return Ok(Decimal::ZERO);
+        }
+        let fraction = match self.day_count {
+            DayCountConvention::ActActIcma => {
+                let (left, right) =
+                    reference.ok_or_else(|| invalid("original ICMA reference bounds required"))?;
+                regular(left, right, self.frequency)?;
+                if left > self.start || right < self.end {
+                    return Err(invalid("single ICMA reference does not cover original period; use complete reference mesh"));
+                }
+                icma_year_fraction(
+                    start,
+                    end,
+                    self.frequency,
+                    &[ReferencePeriod {
+                        start: left,
+                        end: right,
+                    }],
+                )
+                .map_err(|e| invalid(&e.to_string()))?
+            }
+            DayCountConvention::Act365Leap => {
+                act365l_year_fraction(start, end, self.start, self.end, self.frequency)
+                    .map_err(|e| invalid(&e.to_string()))?
+            }
+            _ => self.day_count.to_day_count().year_fraction(start, end),
+        };
+        cash(self.face, self.rate, fraction)
+    }
+}
 
-use crate::types::CalendarId;
-
-/// Calculator for accrued interest.
+/// Checked constant-coupon period interest; actual paid/entitlement state is separate.
 pub struct AccruedInterestCalculator;
-
 impl AccruedInterestCalculator {
-    /// Calculates standard accrued interest.
-    ///
-    /// # Arguments
-    ///
-    /// * `settlement` - Settlement date
-    /// * `last_coupon` - Last coupon date
-    /// * `next_coupon` - Next coupon date
-    /// * `coupon_rate` - Annual coupon rate as decimal (e.g., 0.05 for 5%)
-    /// * `face_value` - Face value of the bond
-    /// * `day_count` - Day count convention
-    /// * `frequency` - Coupon frequency
-    ///
-    /// # Returns
-    ///
-    /// Accrued interest per unit of face value.
-    #[must_use]
+    /// Interest from the original period start through settlement (including end).
+    /// Context-free conventions use annual day fractions. ICMA treats the supplied
+    /// boundaries as an explicit regular reference period; stubs need irregular_period.
     pub fn standard(
         settlement: Date,
         last_coupon: Date,
@@ -59,59 +155,20 @@ impl AccruedInterestCalculator {
         face_value: Decimal,
         day_count: DayCountConvention,
         frequency: Frequency,
-    ) -> Decimal {
-        if frequency.is_zero() {
-            return Decimal::ZERO;
-        }
-
-        let dc = day_count.to_day_count();
-
-        // ACT/360 and ACT/365* don't return 1/freq for a regular period, so the
-        // "coupon_per_period × accrued/period" prorata understates accrued.
-        // Match QL: `face × rate × year_fraction(last, settlement)` directly.
-        if matches!(
+    ) -> BondResult<Decimal> {
+        CouponContext::new(
+            last_coupon,
+            next_coupon,
+            coupon_rate,
+            face_value,
             day_count,
-            DayCountConvention::Act360
-                | DayCountConvention::Act365Fixed
-                | DayCountConvention::Act365Leap
-        ) {
-            return face_value * coupon_rate * dc.year_fraction(last_coupon, settlement);
-        }
-
-        let accrual_days = dc.day_count(last_coupon, settlement);
-        let period_days = dc.day_count(last_coupon, next_coupon);
-
-        if period_days == 0 {
-            return Decimal::ZERO;
-        }
-
-        let periods_per_year = Decimal::from(frequency.periods_per_year());
-        let period_coupon = face_value * coupon_rate / periods_per_year;
-
-        period_coupon * Decimal::from(accrual_days) / Decimal::from(period_days)
+            frequency,
+        )?
+        .amount(last_coupon, settlement, Some((last_coupon, next_coupon)))
     }
-
-    /// Calculates accrued interest with ex-dividend handling (UK Gilts).
-    ///
-    /// When settlement is in the ex-dividend period, the buyer does not
-    /// receive the next coupon, so accrued interest is negative.
-    ///
-    /// # Arguments
-    ///
-    /// * `settlement` - Settlement date
-    /// * `last_coupon` - Last coupon date
-    /// * `next_coupon` - Next coupon date
-    /// * `coupon_rate` - Annual coupon rate as decimal
-    /// * `face_value` - Face value of the bond
-    /// * `day_count` - Day count convention
-    /// * `frequency` - Coupon frequency
-    /// * `ex_div_days` - Number of business days before coupon for ex-dividend
-    /// * `calendar` - Calendar for business day calculations
-    ///
-    /// # Returns
-    ///
-    /// Accrued interest (negative if in ex-dividend period).
-    #[must_use]
+    /// Remaining-interest ex-coupon convention at/on the actual supplied cutoff.
+    /// Counts business days backwards from next_coupon, excluding that anchor.
+    /// This does not infer a market calendar, payment delay or recorded payment.
     #[allow(clippy::too_many_arguments)]
     pub fn ex_dividend(
         settlement: Date,
@@ -122,136 +179,100 @@ impl AccruedInterestCalculator {
         day_count: DayCountConvention,
         frequency: Frequency,
         ex_div_days: u32,
-        calendar: &CalendarId,
-    ) -> Decimal {
-        if frequency.is_zero() {
-            return Decimal::ZERO;
+        calendar: &dyn Calendar,
+    ) -> BondResult<Decimal> {
+        let context = CouponContext::new(
+            last_coupon,
+            next_coupon,
+            coupon_rate,
+            face_value,
+            day_count,
+            frequency,
+        )?;
+        interval(last_coupon, settlement, true)?;
+        if settlement > next_coupon {
+            return Err(invalid("settlement after original accrual period"));
         }
-
-        let cal = calendar.to_calendar();
-
-        // Calculate ex-dividend date (ex_div_days business days before next coupon)
-        let ex_div_date = cal.add_business_days(next_coupon, -(ex_div_days as i32));
-
-        if settlement >= ex_div_date {
-            // Ex-dividend: buyer doesn't receive next coupon
-            // Accrued is negative (days from settlement to next coupon)
-            let dc = day_count.to_day_count();
-            let days_to_coupon = dc.day_count(settlement, next_coupon);
-            let period_days = dc.day_count(last_coupon, next_coupon);
-
-            if period_days == 0 {
-                return Decimal::ZERO;
-            }
-
-            let periods_per_year = Decimal::from(frequency.periods_per_year());
-            let period_coupon = face_value * coupon_rate / periods_per_year;
-
-            // Negative accrued (rebate to seller)
-            -period_coupon * Decimal::from(days_to_coupon) / Decimal::from(period_days)
+        let days = i32::try_from(ex_div_days)
+            .map_err(|_| invalid("ex-dividend offset exceeds integer bound"))?;
+        let ex_date = checked::add_business_days(next_coupon, -days, calendar)
+            .map_err(|e| invalid(&e.to_string()))?;
+        let reference = Some((last_coupon, next_coupon));
+        if settlement >= ex_date {
+            let amount = context.amount(settlement, next_coupon, reference)?;
+            Decimal::ZERO.checked_sub(amount).ok_or_else(arithmetic)
         } else {
-            // Normal accrued
-            Self::standard(
-                settlement,
-                last_coupon,
-                next_coupon,
-                coupon_rate,
-                face_value,
-                day_count,
-                frequency,
-            )
+            context.amount(last_coupon, settlement, reference)
         }
     }
-
-    /// Calculates accrued interest for an irregular (stub) period.
-    ///
-    /// Uses ICMA methodology: actual days in stub period divided by
-    /// the reference period length.
-    ///
-    /// # Arguments
-    ///
-    /// * `settlement` - Settlement date
-    /// * `period_start` - Actual period start date
-    /// * `period_end` - Actual period end date
-    /// * `ref_period_start` - Reference period start (regular period)
-    /// * `ref_period_end` - Reference period end (regular period)
-    /// * `coupon_rate` - Annual coupon rate as decimal
-    /// * `face_value` - Face value of the bond
-    /// * `day_count` - Day count convention
-    /// * `frequency` - Coupon frequency
-    ///
-    /// # Returns
-    ///
-    /// Accrued interest for the irregular period.
-    #[must_use]
+    /// Single-reference stub interest. Full original period/end and complete
+    /// supplied reference coverage are checked, including a zero requested interval.
     #[allow(clippy::too_many_arguments)]
     pub fn irregular_period(
         settlement: Date,
         period_start: Date,
-        _period_end: Date,
+        period_end: Date,
         ref_period_start: Date,
         ref_period_end: Date,
         coupon_rate: Decimal,
         face_value: Decimal,
         day_count: DayCountConvention,
         frequency: Frequency,
-    ) -> Decimal {
-        if frequency.is_zero() {
-            return Decimal::ZERO;
+    ) -> BondResult<Decimal> {
+        let context = CouponContext::new(
+            period_start,
+            period_end,
+            coupon_rate,
+            face_value,
+            day_count,
+            frequency,
+        )?;
+        interval(ref_period_start, ref_period_end, false)?;
+        if ref_period_start > period_start || ref_period_end < period_end {
+            return Err(invalid("reference does not cover original accrual period"));
         }
-
-        let dc = day_count.to_day_count();
-
-        // Days accrued in the stub period
-        let actual_days = dc.day_count(period_start, settlement);
-
-        // Reference period length
-        let ref_days = dc.day_count(ref_period_start, ref_period_end);
-
-        if ref_days == 0 {
-            return Decimal::ZERO;
-        }
-
-        let periods_per_year = Decimal::from(frequency.periods_per_year());
-        let period_coupon = face_value * coupon_rate / periods_per_year;
-
-        period_coupon * Decimal::from(actual_days) / Decimal::from(ref_days)
+        context.amount(
+            period_start,
+            settlement,
+            Some((ref_period_start, ref_period_end)),
+        )
     }
-
-    /// Calculates accrued interest using year fraction.
-    ///
-    /// This method uses the day count's year fraction directly,
-    /// which is more accurate for ACT/ACT conventions.
-    ///
-    /// # Arguments
-    ///
-    /// * `settlement` - Settlement date
-    /// * `last_coupon` - Last coupon date
-    /// * `coupon_rate` - Annual coupon rate as decimal
-    /// * `face_value` - Face value of the bond
-    /// * `day_count` - Day count convention
-    ///
-    /// # Returns
-    ///
-    /// Accrued interest based on year fraction.
-    #[must_use]
+    /// Annual-rate interest over supplied dates for an explicitly context-free law.
+    /// ICMA, ACT/365L and maturity-dependent conventions cannot use this signature.
     pub fn using_year_fraction(
         settlement: Date,
         last_coupon: Date,
         coupon_rate: Decimal,
         face_value: Decimal,
         day_count: DayCountConvention,
-    ) -> Decimal {
-        let dc = day_count.to_day_count();
-        let year_frac = dc.year_fraction(last_coupon, settlement);
-
-        face_value * coupon_rate * year_frac
+    ) -> BondResult<Decimal> {
+        interval(last_coupon, settlement, true)?;
+        if face_value <= Decimal::ZERO {
+            return Err(invalid("positive original accrued face required"));
+        }
+        match day_count {
+            DayCountConvention::Act360
+            | DayCountConvention::Act365Fixed
+            | DayCountConvention::ActActIsda
+            | DayCountConvention::Thirty360US
+            | DayCountConvention::Thirty360E => cash(
+                face_value,
+                coupon_rate,
+                day_count
+                    .to_day_count()
+                    .year_fraction(last_coupon, settlement),
+            ),
+            _ => Err(invalid(
+                "year-fraction accrual requires original coupon/reference/maturity context",
+            )),
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::CalendarId;
     use rust_decimal_macros::dec;
 
     #[test]
@@ -272,7 +293,8 @@ mod tests {
             dec!(1_000_000), // $1M face
             DayCountConvention::Thirty360US,
             Frequency::SemiAnnual,
-        );
+        )
+        .unwrap();
 
         // Expected: 134 days accrued out of 180 day period
         // Coupon per period = 1,000,000 * 0.075 / 2 = 37,500
@@ -308,7 +330,8 @@ mod tests {
             dec!(100),
             DayCountConvention::Thirty360US,
             Frequency::Zero,
-        );
+        )
+        .unwrap();
 
         assert_eq!(accrued, Decimal::ZERO);
     }
@@ -319,7 +342,7 @@ mod tests {
         let settlement = Date::from_ymd(2025, 4, 15).unwrap();
         let last_coupon = Date::from_ymd(2025, 1, 15).unwrap();
         let next_coupon = Date::from_ymd(2025, 7, 15).unwrap();
-        let calendar = CalendarId::weekend_only();
+        let calendar = CalendarId::weekend_only().try_to_calendar().unwrap();
 
         let accrued = AccruedInterestCalculator::ex_dividend(
             settlement,
@@ -330,8 +353,9 @@ mod tests {
             DayCountConvention::ActActIcma,
             Frequency::SemiAnnual,
             7, // 7 business days ex-div
-            &calendar,
-        );
+            calendar.as_ref(),
+        )
+        .unwrap();
 
         assert!(accrued > Decimal::ZERO);
     }
@@ -345,7 +369,7 @@ mod tests {
         let settlement = Date::from_ymd(2025, 7, 10).unwrap();
         let last_coupon = Date::from_ymd(2025, 1, 15).unwrap();
         let next_coupon = Date::from_ymd(2025, 7, 15).unwrap();
-        let calendar = CalendarId::weekend_only();
+        let calendar = CalendarId::weekend_only().try_to_calendar().unwrap();
 
         let accrued = AccruedInterestCalculator::ex_dividend(
             settlement,
@@ -356,8 +380,9 @@ mod tests {
             DayCountConvention::ActActIcma,
             Frequency::SemiAnnual,
             7,
-            &calendar,
-        );
+            calendar.as_ref(),
+        )
+        .unwrap();
 
         // Should be negative in ex-dividend period
         assert!(accrued < Decimal::ZERO);
@@ -382,7 +407,8 @@ mod tests {
             dec!(100),
             DayCountConvention::ActActIcma,
             Frequency::SemiAnnual,
-        );
+        )
+        .unwrap();
 
         assert!(accrued > Decimal::ZERO);
         assert!(accrued < dec!(2.5)); // Less than full period coupon
@@ -399,7 +425,8 @@ mod tests {
             dec!(0.05),
             dec!(100),
             DayCountConvention::Act360,
-        );
+        )
+        .unwrap();
 
         // 90 days / 360 = 0.25
         // 100 * 0.05 * 0.25 = 1.25

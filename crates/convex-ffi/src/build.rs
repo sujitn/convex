@@ -178,7 +178,24 @@ impl CouponBuilder for convex_bonds::instruments::FixedRateBondBuilder {
 fn build_fixed_rate(spec: FixedRateSpec, hash: u64) -> Handle {
     let mut b = FixedRateBond::builder();
     b = apply_identifier_fixed(b, &spec.id);
-    b = apply_coupon(b, &spec.coupon);
+    b = apply_coupon(b, &spec.coupon).business_day_convention(spec.coupon.business_day_convention);
+    if let Some(terms) = &spec.terms {
+        b = b
+            .dated_date(terms.dated_date)
+            .calendar(convex_bonds::types::CalendarId::new(terms.calendar.clone()))
+            .end_of_month(terms.end_of_month)
+            .settlement_days(terms.settlement_days)
+            .redemption_value(terms.redemption_value);
+        if let Some(date) = terms.first_coupon_date {
+            b = b.first_coupon_date(date);
+        }
+        if let Some(date) = terms.penultimate_coupon_date {
+            b = b.penultimate_coupon_date(date);
+        }
+        if let Some(rule) = terms.ex_coupon {
+            b = b.ex_coupon_rule(rule);
+        }
+    }
     let bond = match b.build() {
         Ok(b) => b,
         Err(e) => {
@@ -261,7 +278,7 @@ fn build_floating_rate(spec: FloatingRateSpec, hash: u64) -> Handle {
     }
     b = b
         .index(index)
-        .spread_decimal(spec.spread_bps / Decimal::from(10_000))
+        .spread_bps(spec.spread_bps)
         .maturity(spec.maturity)
         .issue_date(spec.issue)
         .frequency(spec.frequency)
@@ -300,9 +317,10 @@ fn build_zero_coupon(spec: ZeroCouponSpec, hash: u64) -> Handle {
         CoreComp::Quarterly => ZcbComp::Quarterly,
         CoreComp::Monthly => ZcbComp::Monthly,
         CoreComp::Continuous => ZcbComp::Continuous,
-        // Simple/Daily aren't on the bond builder; nearest fallback.
-        CoreComp::Simple => ZcbComp::Annual,
-        CoreComp::Daily => ZcbComp::Continuous,
+        CoreComp::Simple | CoreComp::Daily => {
+            set_last_error("unsupported zero-coupon compounding; no approximation is applied");
+            return INVALID_HANDLE;
+        }
     };
 
     let mut builder = ZeroCouponBond::builder()
@@ -312,6 +330,9 @@ fn build_zero_coupon(spec: ZeroCouponSpec, hash: u64) -> Handle {
         .face_value(spec.face_value)
         .day_count(spec.day_count)
         .compounding(comp);
+    if let Some(redemption) = spec.redemption_value {
+        builder = builder.redemption_value(redemption);
+    }
     if let Some(c) = &spec.id.cusip {
         builder = builder.cusip_unchecked(c);
     } else if let Some(i) = &spec.id.isin {
@@ -500,11 +521,4 @@ fn build_bootstrap_curve(spec: convex_analytics::dto::BootstrapSpec, hash: u64) 
             INVALID_HANDLE
         }
     }
-}
-
-// ---- Diagnostics ----------------------------------------------------------
-
-#[allow(dead_code)]
-pub(crate) fn fixed_rate_decimal_to_f64(d: Decimal) -> f64 {
-    d.to_f64().unwrap_or(f64::NAN)
 }

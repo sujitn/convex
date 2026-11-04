@@ -8,6 +8,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -103,8 +104,8 @@ class SmokeTest {
 
     @Test
     void buildsAllBondShapes() {
-        // FRN, zero-coupon, and sinking-fund builders each produce a usable
-        // handle with a non-empty cashflow schedule.
+        // FRN construction is supported; v1 cash projection cannot supply history.
+        // Zero and sinking-fund handles retain actual contractual cash.
         try (Bond frn = FloatingRateNote.builder()
                 .cusip("FRN00000A").spreadBps(new BigDecimal("75"))
                 .rateIndex(RateIndex.SOFR)
@@ -121,7 +122,9 @@ class SmokeTest {
                 .sink(LocalDate.of(2029, 1, 15), 25.0)
                 .build()) {
 
-            assertTrue(ConvexAnalytics.cashflows(frn, SETTLE).size() >= 1);
+            var missing = assertThrows(ConvexException.class, () -> ConvexAnalytics.cashflows(frn, SETTLE));
+            assertEquals("invalid_input", missing.code());
+            assertEquals("fixings", missing.field());
             assertEquals(1, ConvexAnalytics.cashflows(zero, SETTLE).size(), "zero has a single redemption flow");
             assertTrue(ConvexAnalytics.cashflows(sinker, SETTLE).size() >= 1);
         }

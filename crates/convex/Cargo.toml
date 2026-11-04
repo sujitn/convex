@@ -14,10 +14,22 @@ keywords = ["finance", "fixed-income", "bonds", "pricing", "quantitative"]
 categories = ["finance"]
 
 [features]
-schemars = ["convex-core/schemars", "convex-analytics/schemars"]
+schemars = ["dep:schemars", "convex-core/schemars", "convex-analytics/schemars", "convex-portfolio/schemars"]
 
 [dependencies]
 convex-core = { workspace = true }
+convex-math = { workspace = true }
 convex-curves = { workspace = true }
 convex-bonds = { workspace = true }
+convex-rates = { workspace = true }
+convex-credit = { workspace = true }
 convex-analytics = { workspace = true }
+convex-portfolio = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+rust_decimal = { workspace = true }
+thiserror = { workspace = true }
+schemars = { version = "1.2", optional = true }
+
+[dev-dependencies]

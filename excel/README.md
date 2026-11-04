@@ -1,18 +1,18 @@
 # Convex Excel Add-In
 
-Mark-driven fixed income analytics for Microsoft Excel, powered by Rust.
+Mark-driven fixed income analytics for Microsoft Excel, using the Rust library through `convex-ffi`. The add-in lives in `excel/` (C# project `excel/Convex.Excel`) and ships as a zip on the GitHub releases page; this page also covers building it from source.
 
-The add-in is intentionally small: a compact C FFI surface, a typed JSON
-wire format, ~20 cell UDFs, and a ribbon. Adding a new bond shape, spread
+The add-in is small: a compact C FFI surface, a typed JSON
+wire format, about 30 cell functions (UDFs), and a ribbon. Adding a new bond shape, spread
 family, or pricing convention is a serde enum variant on the Rust side plus
 one dispatch arm — no new C symbol, no new P/Invoke, no new UDF.
 
-Bloomberg-style behaviors: reference bonds by CUSIP/ISIN/name instead of
+Behaviors worth knowing: reference bonds by CUSIP/ISIN/name instead of
 handles; `CX.YAS` spills a full yield-and-spread analysis from one call;
 identical requests are served from a generation-gated cache so multi-field
-blocks and repeated recalcs cost one engine call; errors are native Excel
+blocks and repeated recalcs cost one engine call; errors are standard Excel
 errors with per-cell detail via `CX.LASTERROR` and a ribbon Error Log;
-IntelliSense tooltips document every argument in the grid; tickets are
+IntelliSense tooltips document every argument in the grid; the pricing and spread forms are
 modeless so Excel stays interactive. On add-in load a full rebuild
 re-registers cell-built objects, so reopened workbooks heal automatically
 (Settings → "Rebuild handles on open"; manual: ribbon **Rebuild**).
@@ -36,7 +36,7 @@ cd excel/Convex.Excel
 dotnet build --configuration Release
 ```
 
-The native `convex_ffi.dll` is copied next to the `.xll` automatically by
+The Rust `convex_ffi.dll` is copied next to the `.xll` automatically by
 the build.
 
 ### Loading the add-in
@@ -98,7 +98,7 @@ return `#REF!`.
 | UDF | Description |
 |---|---|
 | `CX.PRICE(bond, settle, mark, [curve], [quoteFreq], [field])` | Returns clean / dirty / accrued / YTM / Z-bps. `field`: `clean` (default), `dirty`, `accrued`, `ytm`, `z_spread`, `grid`. |
-| `CX.YAS(bond, settle, mark, curve, [govtCurve], [quoteFreq], [swapCurve])` | **One-call Bloomberg-YAS-style grid**: every yield convention, G/Z/benchmark/ASW spreads, durations, convexity, DV01, and the settlement invoice — a single engine computation. |
+| `CX.YAS(bond, settle, mark, curve, [quoteFreq], [swapCurve])` | Convenience yields, Z/ASW spreads, durations, convexity, DV01 and settlement invoice. |
 | `CX.RISK(bond, settle, mark, [curve], [metric], [quoteFreq], [krdTenors])` | `metric`: `grid` (default), `mod_dur`, `mac_dur`, `convexity`, `dv01`, `spread_dur`, `krd`. |
 | `CX.SPREAD(bond, curve, settle, mark, [type], [vol], [field])` | Z / G / I / ASW / ASW_PROC / OAS / DM / Credit. `field`: `bps` (default), `grid`. |
 | `CX.SCENARIO(bond, curve, settle, mark, shifts, [kind], [pivot], [quoteFreq])` | Scenario ladder in one call — reprices under each bps shift holding the mark-implied Z fixed. `kind`: `parallel` (default), `steepener`, `flattener`, `key_rate`, `credit`. |
@@ -131,11 +131,14 @@ registry change.
 | `CX.MARK(text)` | Parse a textual mark and return its canonical JSON form. |
 | `CX.DESCRIBE(handle)` | Inspect a registered object's key fields. |
 | `CX.LASTERROR(cellRef)` | Full `[code] message` detail behind an error value in a cell. |
-| `CX.DIAG()` | Native-library load status, engine version, object count. |
+| `CX.DIAG()` | Rust-library load status, engine version, object count. |
 | `CX.VERSION()` | Library version. |
 | `CX.OBJECTS()` | Number of registered objects. |
 | `CX.RELEASE(handle)` | Release one handle. |
 | `CX.CLEAR()` | Release every handle (and the error log). |
+| `CX.LIBRARY(requestJson)` | Run a complete `LibraryRequest` JSON; returns the result envelope as text. |
+| `CX.LIBRARY.RANGE(requestCells)` | Same, with the request split across text cells; returns the result in one-column chunks. |
+| `CX.MW(...)` | Make-whole call price for a callable bond with a make-whole spread. |
 
 ## Examples
 
@@ -160,16 +163,13 @@ B2: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z")                    ' Z-spr
 B3: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "Z", , "grid")          ' grid: bps + spread DV01
 ```
 
-### G-spread requires a separate government curve
+### Government spreads use benchmark securities
 
-```excel
-B4: =CX.CURVE("USD.TSY", TODAY(), {2,5,10,30}, {0.042,0.044,0.045,0.046}, "zero_rate", "linear")
-B5: =CX.SPREAD(A1, B1, DATE(2025,4,15), "99.5C", "G")
-    ' #VALUE! — =CX.LASTERROR(B5) explains: G-spread requires a separate
-    ' government curve handle (params.govt_curve)
-B6: ' UDF doesn't yet expose params.govt_curve directly — call via the ribbon
-    ' Spread Ticket form, which threads the field through.
-```
+Use `CX.LIBRARY` / `CX.LIBRARY.RANGE` with a full `government_spread`
+request that carries the benchmark bond/bill quotes and calendars. `CX.SPREAD` has no argument
+for benchmark securities and cannot compute a G-spread. Its error names
+`params.government`; a zero-rate curve is not accepted as a government benchmark.
+See [removed routes and Excel argument migration](../docs/internal/ROUTE-MIGRATION.md).
 
 ### Bootstrap a curve from market instruments
 
@@ -263,11 +263,13 @@ The complete request/response shapes are exposed via `=CX.SCHEMA(...)`:
                                                               convex-core
 ```
 
-The FFI is 13 C symbols total: 5 stateful (build bond, build curve,
-describe, release, list, count, clear) and 5 stateless analytics RPCs
-(`convex_price`, `convex_risk`, `convex_spread`, `convex_cashflows`,
-`convex_curve_query`) plus 3 utilities (`convex_schema`,
-`convex_mark_parse`, `convex_string_free`/`last_error`/`version`).
+The C surface is small. Stateful calls build, describe, release, list, count
+and clear bonds and curves. The stateless analytics calls are `convex_price`,
+`convex_risk`, `convex_spread`, `convex_cashflows` and `convex_curve_query`,
+plus `convex_library` for complete library requests. Utilities are
+`convex_schema`, `convex_mark_parse`, `convex_string_free`, `convex_last_error`
+and `convex_version`. See the [convex-ffi README](../crates/convex-ffi/README.md)
+for the full list.
 
 Bonds and curves live in a thread-safe Rust registry behind opaque
 `u64` handles displayed in cells as `#CX#100`, `#CX#101`, ….
@@ -289,7 +291,7 @@ Codes:
 - `panic` — an internal engine error was caught at the FFI boundary
   (converted to an error envelope instead of crashing Excel).
 
-The cell UDFs surface these as **native Excel errors** so `IFERROR` /
+The cell UDFs surface these as **standard Excel errors** so `IFERROR` /
 `ISERROR` and error propagation work as in any built-in function:
 
 | Excel error | Meaning |
@@ -298,11 +300,11 @@ The cell UDFs surface these as **native Excel errors** so `IFERROR` /
 | `#NAME?`  | unknown keyword — frequency, day count, spread type, field/metric name |
 | `#REF!`   | handle (or ticker) not registered, or wrong object kind |
 | `#NUM!`   | solver non-convergence or domain error |
-| `#N/A`    | native library not loaded — run `=CX.DIAG()` |
+| `#N/A`    | Rust library not loaded — run `=CX.DIAG()` |
 
 The full message behind any error is one call away:
 `=CX.LASTERROR(B2)` returns `[code] message` for the failing cell, and
-the ribbon **Diagnostics** button reports native-load status.
+the ribbon **Diagnostics** button reports whether the Rust library loaded.
 
 ## Demo workbook
 
@@ -316,18 +318,25 @@ python excel/build_demo.py
 ```
 
 Open it with the add-in loaded; every formula should evaluate without
-`#NAME?`. Any native Excel error in a CX cell carries structured detail
+`#NAME?`. Any Excel error in a CX cell carries structured detail
 (see *Errors*) — `=CX.LASTERROR(cell)` tells you which argument was
 rejected.
 
 ## Smoke tests
 
 ```powershell
-cargo test -p convex-ffi --test smoke --release -- --test-threads=1
+cargo test --locked -p convex-ffi --test smoke -- --test-threads=1
 ```
 
-19 end-to-end tests cover: every spread family, FRN/zero/sinking-fund
+End-to-end tests cover: every spread family, FRN/zero/sinking-fund
 pricing and risk, KRD, cashflow tag stability, schema introspection, mark
 parsing, and the error envelope.
 
 For a manual cell-side checklist see `excel/SMOKE_TEST.md`.
+
+## Library API
+
+See the [library API](../docs/LIBRARY-API.md) for request shapes and limits.
+`CX.LIBRARY` returns the result envelope unchanged, with decimal strings and
+error diagnostics intact. Coverage of the required operations and host
+certification are still open.

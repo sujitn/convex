@@ -1,5 +1,6 @@
 //! Natural cubic spline interpolation.
 
+use crate::bounds::{finite, finite_slice};
 use crate::error::{MathError, MathResult};
 use crate::interpolation::Interpolator;
 
@@ -42,27 +43,9 @@ impl CubicSpline {
     ///
     /// Returns an error if there are fewer than 3 points or if lengths differ.
     pub fn new(xs: Vec<f64>, ys: Vec<f64>) -> MathResult<Self> {
-        if xs.len() < 3 {
-            return Err(MathError::insufficient_data(3, xs.len()));
-        }
-        if xs.len() != ys.len() {
-            return Err(MathError::invalid_input(format!(
-                "xs and ys must have same length: {} vs {}",
-                xs.len(),
-                ys.len()
-            )));
-        }
-
-        // Check that xs are sorted
-        for i in 1..xs.len() {
-            if xs[i] <= xs[i - 1] {
-                return Err(MathError::invalid_input(
-                    "x values must be strictly increasing",
-                ));
-            }
-        }
-
+        super::validate_points(&xs, &ys, 3)?;
         let y2s = compute_second_derivatives(&xs, &ys);
+        finite_slice(&y2s, "spline coefficients")?;
 
         Ok(Self {
             xs,
@@ -81,10 +64,7 @@ impl CubicSpline {
 
     /// Finds the index i such that xs[i] <= x < xs[i+1].
     fn find_segment(&self, x: f64) -> usize {
-        match self
-            .xs
-            .binary_search_by(|probe| probe.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        match self.xs.binary_search_by(|probe| probe.total_cmp(&x)) {
             Ok(i) => i.min(self.xs.len() - 2),
             Err(i) => (i.saturating_sub(1)).min(self.xs.len() - 2),
         }
@@ -95,6 +75,7 @@ impl Interpolator for CubicSpline {
     #[allow(clippy::many_single_char_names)]
     #[allow(clippy::similar_names)]
     fn interpolate(&self, x: f64) -> MathResult<f64> {
+        finite(x, "query coordinate")?;
         // Check bounds
         if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
             return Err(MathError::ExtrapolationNotAllowed {
@@ -122,12 +103,13 @@ impl Interpolator for CubicSpline {
             + b * y_hi
             + ((a * a * a - a) * y2_lo + (b * b * b - b) * y2_hi) * (h * h) / 6.0;
 
-        Ok(y)
+        finite(y, "spline interpolation")
     }
 
     #[allow(clippy::many_single_char_names)]
     #[allow(clippy::similar_names)]
     fn derivative(&self, x: f64) -> MathResult<f64> {
+        finite(x, "query coordinate")?;
         // Check bounds
         if !self.allow_extrapolation && (x < self.xs[0] || x > self.xs[self.xs.len() - 1]) {
             return Err(MathError::ExtrapolationNotAllowed {
@@ -155,7 +137,7 @@ impl Interpolator for CubicSpline {
         let dy = (y_hi - y_lo) / h - (3.0 * a * a - 1.0) / 6.0 * h * y2_lo
             + (3.0 * b * b - 1.0) / 6.0 * h * y2_hi;
 
-        Ok(dy)
+        finite(dy, "spline derivative")
     }
 
     fn allows_extrapolation(&self) -> bool {

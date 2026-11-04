@@ -1,0 +1,133 @@
+{
+    "terms": {
+        "url": "https://www.bankofcanada.ca/terms/"
+    },
+    "groupDetail": {
+        "label": "Selected benchmark bond yields",
+        "description": "The daily yields for a set of benchmark government bonds. These yields serve as reference rates for Canadian dollar-denominated fixed income securities and are used to assess market conditions and inform monetary policy decisions.",
+        "link": "https://www.bankofcanada.ca/?p=39890",
+        "metadata": {
+            "unit": "Percent",
+            "frequency": "Business daily"
+        }
+    },
+    "seriesDetail": {
+        "BD.CDN.2YR.DQ.YLD": {
+            "label": "Benchmark bond yield, 2-year",
+            "description": "The yield on the Government of Canada 2-year benchmark bond. This series reflects the prevailing interest rate for the 2-year term and is used to monitor short-term government borrowing costs.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Percent",
+                "frequency": "Business daily"
+            }
+        },
+        "BD.CDN.3YR.DQ.YLD": {
+            "label": "Benchmark bond yield, 3-year",
+            "description": "The yield on the Government of Canada 3-year benchmark bond. This series measures the market interest rate for the Government of Canada’s 3-year bond, which serves as a reference rate for Canadian dollar-denominated debt securities.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Percent",
+                "frequency": "Business daily"
+            }
+        },
+        "BD.CDN.5YR.DQ.YLD": {
+            "label": "Benchmark bond yield, 5-year",
+            "description": "The yield on the Government of Canada 5-year benchmark bond. This series reports the prevailing yield for the 5-year maturity point on the Canadian government bond yield curve.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Percent",
+                "frequency": "Business daily"
+            }
+        },
+        "BD.CDN.7YR.DQ.YLD": {
+            "label": "Benchmark bond yield, 7-year",
+            "description": "The yield on the Government of Canada 7-year benchmark bond. This series represents the prevailing market yield for the 7-year maturity point on the Government of Canada yield curve.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Percent",
+                "frequency": "Business daily"
+            }
+        },
+        "BD.CDN.10YR.DQ.YLD": {
+            "label": "Benchmark bond yield, 10-year",
+            "description": "The yield on the Government of Canada 10-year benchmark bond. This series represents the prevailing market interest rate for the 10-year Government of Canada bond and is used as a reference for financial market analysis and reporting.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Percent",
+                "frequency": "Business daily"
+            }
+        },
+        "BD.CDN.LONG.DQ.YLD": {
+            "label": "Benchmark bond yield, long-term",
+            "description": "The yield on the Government of Canada long-term benchmark bond. This series represents the prevailing interest rate for the designated long-term benchmark bond and is used in the Bank of Canada’s reporting of financial market conditions.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Percent",
+                "frequency": "Business daily"
+            }
+        },
+        "BD.CDN.RRB.DQ.YLD": {
+            "label": "Real Return Bonds yield, long-term",
+            "description": "The yield on Government of Canada Real Return Bonds. These bonds are part of the government securities held by the Bank of Canada and are reported in millions of Canadian dollars.",
+            "dimension": {
+                "key": "d",
+                "name": "Date"
+            },
+            "dateFormat": "daily",
+            "metadata": {
+                "unit": "Percent",
+                "frequency": "Business daily"
+            }
+        }
+    },
+    "observations": [
+        {
+            "d": "2026-10-19",
+            "BD.CDN.RRB.DQ.YLD": {
+                "v": "1.97"
+            },
+            "BD.CDN.2YR.DQ.YLD": {
+                "v": "3.33"
+            },
+            "BD.CDN.3YR.DQ.YLD": {
+                "v": "3.44"
+            },
+            "BD.CDN.5YR.DQ.YLD": {
+                "v": "3.64"
+            },
+            "BD.CDN.7YR.DQ.YLD": {
+                "v": "3.72"
+            },
+            "BD.CDN.10YR.DQ.YLD": {
+                "v": "3.93"
+            },
+            "BD.CDN.LONG.DQ.YLD": {
+                "v": "4.25"
+            }
+        }
+    ]
+}

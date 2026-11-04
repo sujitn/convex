@@ -1,0 +1,594 @@
+{
+  "schema_version": 1,
+  "units": "All rates are decimal fractions; analytics percent helpers multiply exactly once by100.",
+  "convention": "Explicit 360 bank discount on face and money market on price; fixed365 simple rate admits1 through182remaining days. Treasury investment-rate quotes use the separate original-date owner.",
+  "provenance": "Exact rational expressions evaluated independently at Decimal60 before candidate edits; no native import/output.",
+  "absolute_tolerance": "1e-22",
+  "relative_tolerance": "1e-24",
+  "cash_cases": [
+    {
+      "price": "97",
+      "face": "100",
+      "days": 1,
+      "bank_discount_decimal": "10.8",
+      "money_market_decimal": "11.1340206185567010309278350515463917525773195876288659793814",
+      "simple_fixed365_decimal": "11.2886597938144329896907216494845360824742268041237113402062"
+    },
+    {
+      "price": "100",
+      "face": "100",
+      "days": 1,
+      "bank_discount_decimal": "0",
+      "money_market_decimal": "0",
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "price": "103",
+      "face": "100",
+      "days": 1,
+      "bank_discount_decimal": "-10.8",
+      "money_market_decimal": "-10.4854368932038834951456310679611650485436893203883495145631",
+      "simple_fixed365_decimal": "-10.6310679611650485436893203883495145631067961165048543689320"
+    },
+    {
+      "price": "981.23456789",
+      "face": "1000",
+      "days": 1,
+      "bank_discount_decimal": "6.7555555596",
+      "money_market_decimal": "6.88475088492532867772121350146862486520302527211040202563690",
+      "simple_fixed365_decimal": "6.98037242499373602046734146676680021055306728977860205377074"
+    },
+    {
+      "price": "0.000975",
+      "face": "0.001",
+      "days": 1,
+      "bank_discount_decimal": "9",
+      "money_market_decimal": "9.23076923076923076923076923076923076923076923076923076923077",
+      "simple_fixed365_decimal": "9.35897435897435897435897435897435897435897435897435897435897"
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": 20,
+      "bank_discount_decimal": "0.54",
+      "money_market_decimal": "0.556701030927835051546391752577319587628865979381443298969072",
+      "simple_fixed365_decimal": "0.564432989690721649484536082474226804123711340206185567010309"
+    },
+    {
+      "price": "100",
+      "face": "100",
+      "days": 20,
+      "bank_discount_decimal": "0",
+      "money_market_decimal": "0",
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "price": "103",
+      "face": "100",
+      "days": 20,
+      "bank_discount_decimal": "-0.54",
+      "money_market_decimal": "-0.524271844660194174757281553398058252427184466019417475728155",
+      "simple_fixed365_decimal": "-0.531553398058252427184466019417475728155339805825242718446602"
+    },
+    {
+      "price": "981.23456789",
+      "face": "1000",
+      "days": 20,
+      "bank_discount_decimal": "0.33777777798",
+      "money_market_decimal": "0.344237544246266433886060675073431243260151263605520101281845",
+      "simple_fixed365_decimal": "0.349018621249686801023367073338340010527653364488930102688537"
+    },
+    {
+      "price": "0.000975",
+      "face": "0.001",
+      "days": 20,
+      "bank_discount_decimal": "0.45",
+      "money_market_decimal": "0.461538461538461538461538461538461538461538461538461538461538",
+      "simple_fixed365_decimal": "0.467948717948717948717948717948717948717948717948717948717949"
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": 90,
+      "bank_discount_decimal": "0.12",
+      "money_market_decimal": "0.123711340206185567010309278350515463917525773195876288659794",
+      "simple_fixed365_decimal": "0.125429553264604810996563573883161512027491408934707903780069"
+    },
+    {
+      "price": "100",
+      "face": "100",
+      "days": 90,
+      "bank_discount_decimal": "0",
+      "money_market_decimal": "0",
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "price": "103",
+      "face": "100",
+      "days": 90,
+      "bank_discount_decimal": "-0.12",
+      "money_market_decimal": "-0.116504854368932038834951456310679611650485436893203883495146",
+      "simple_fixed365_decimal": "-0.118122977346278317152103559870550161812297734627831715210356"
+    },
+    {
+      "price": "981.23456789",
+      "face": "1000",
+      "days": 90,
+      "bank_discount_decimal": "0.07506172844",
+      "money_market_decimal": "0.0764972320547258741969023722385402762800336141345600225070766",
+      "simple_fixed365_decimal": "0.0775596936110415113385260162974088912283674143308733561530082"
+    },
+    {
+      "price": "0.000975",
+      "face": "0.001",
+      "days": 90,
+      "bank_discount_decimal": "0.1",
+      "money_market_decimal": "0.102564102564102564102564102564102564102564102564102564102564",
+      "simple_fixed365_decimal": "0.103988603988603988603988603988603988603988603988603988603989"
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": 181,
+      "bank_discount_decimal": "0.0596685082872928176795580110497237569060773480662983425414365",
+      "money_market_decimal": "0.0615139260693740388449051660306430483567807712023694253004500",
+      "simple_fixed365_decimal": "0.0623682861536709004955288488921797573617360596912912228740673"
+    },
+    {
+      "price": "100",
+      "face": "100",
+      "days": 181,
+      "bank_discount_decimal": "0",
+      "money_market_decimal": "0",
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "price": "103",
+      "face": "100",
+      "days": 181,
+      "bank_discount_decimal": "-0.0596685082872928176795580110497237569060773480662983425414365",
+      "money_market_decimal": "-0.0579305905701872016306388456793434533068712117148527597489674",
+      "simple_fixed365_decimal": "-0.0587351821058842460977310518693343346027999785442257147454809"
+    },
+    {
+      "price": "981.23456789",
+      "face": "1000",
+      "days": 181,
+      "bank_discount_decimal": "0.0373235113790055248618784530386740331491712707182320441988950",
+      "money_market_decimal": "0.0380372977067697717001172016655725130674200291276817791471652",
+      "simple_fixed365_decimal": "0.0385655935082526851959521627998165757489119739766773594130980"
+    },
+    {
+      "price": "0.000975",
+      "face": "0.001",
+      "days": 181,
+      "bank_discount_decimal": "0.0497237569060773480662983425414364640883977900552486187845304",
+      "money_market_decimal": "0.0509987250318742031449213769655758606034849128771780705482363",
+      "simple_fixed365_decimal": "0.0517070406573169004108230627567644142229777588893610993058507"
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": 182,
+      "bank_discount_decimal": "0.0593406593406593406593406593406593406593406593406593406593407",
+      "money_market_decimal": "0.0611759374645972584116914013821230316075676900419168460405574",
+      "simple_fixed365_decimal": "0.0620256032627166647785204486235414070465616857369434689022318"
+    },
+    {
+      "price": "100",
+      "face": "100",
+      "days": 182,
+      "bank_discount_decimal": "0",
+      "money_market_decimal": "0",
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "price": "103",
+      "face": "100",
+      "days": 182,
+      "bank_discount_decimal": "-0.0593406593406593406593406593406593406593406593406593406593407",
+      "money_market_decimal": "-0.0576122906219993598634375333404459618051851061559799423877094",
+      "simple_fixed365_decimal": "-0.0584124613250826843059852768590632668302571215192574415875387"
+    },
+    {
+      "price": "981.23456789",
+      "face": "1000",
+      "days": 182,
+      "bank_discount_decimal": "0.0371184371406593406593406593406593406593406593406593406593407",
+      "money_market_decimal": "0.0378283015655237839435231511069704662923243146819252858551478",
+      "simple_fixed365_decimal": "0.0383536946428227253871831948723450561019399301636186926031359"
+    },
+    {
+      "price": "0.000975",
+      "face": "0.001",
+      "days": 182,
+      "bank_discount_decimal": "0.0494505494505494505494505494505494505494505494505494505494505",
+      "money_market_decimal": "0.0507185122569737954353338968723584108199492814877430262045647",
+      "simple_fixed365_decimal": "0.0514229360383206537052690898844744998591152437306283460129614"
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": 183,
+      "bank_discount_decimal": "0.0590163934426229508196721311475409836065573770491803278688525",
+      "money_market_decimal": "0.0608416427243535575460537434510731789758323474733817813080953",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "100",
+      "face": "100",
+      "days": 183,
+      "bank_discount_decimal": "0",
+      "money_market_decimal": "0",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "103",
+      "face": "100",
+      "days": 183,
+      "bank_discount_decimal": "-0.0590163934426229508196721311475409836065573770491803278688525",
+      "money_market_decimal": "-0.0572974693617698551647302244150883335985993951933789590959733",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "981.23456789",
+      "face": "1000",
+      "days": 183,
+      "bank_discount_decimal": "0.0369156041508196721311475409836065573770491803278688524590164",
+      "money_market_decimal": "0.0376215895351110856706077240517411194819837446563409946756115",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "0.000975",
+      "face": "0.001",
+      "days": 183,
+      "bank_discount_decimal": "0.0491803278688524590163934426229508196721311475409836065573770",
+      "money_market_decimal": "0.0504413619167717528373266078184110970996216897856242118537201",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": 364,
+      "bank_discount_decimal": "0.0296703296703296703296703296703296703296703296703296703296703",
+      "money_market_decimal": "0.0305879687322986292058457006910615158037838450209584230202787",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "100",
+      "face": "100",
+      "days": 364,
+      "bank_discount_decimal": "0",
+      "money_market_decimal": "0",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "103",
+      "face": "100",
+      "days": 364,
+      "bank_discount_decimal": "-0.0296703296703296703296703296703296703296703296703296703296703",
+      "money_market_decimal": "-0.0288061453109996799317187666702229809025925530779899711938547",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "981.23456789",
+      "face": "1000",
+      "days": 364,
+      "bank_discount_decimal": "0.0185592185703296703296703296703296703296703296703296703296703",
+      "money_market_decimal": "0.0189141507827618919717615755534852331461621573409626429275739",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "0.000975",
+      "face": "0.001",
+      "days": 364,
+      "bank_discount_decimal": "0.0247252747252747252747252747252747252747252747252747252747253",
+      "money_market_decimal": "0.0253592561284868977176669484361792054099746407438715131022823",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": 365,
+      "bank_discount_decimal": "0.0295890410958904109589041095890410958904109589041095890410959",
+      "money_market_decimal": "0.0305041660782375370710351645247846349385679988702160711763875",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "100",
+      "face": "100",
+      "days": 365,
+      "bank_discount_decimal": "0",
+      "money_market_decimal": "0",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "103",
+      "face": "100",
+      "days": 365,
+      "bank_discount_decimal": "-0.0295890410958904109589041095890410958904109589041095890410959",
+      "money_market_decimal": "-0.0287272243649421465620428248437292193110786008777763000398989",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "981.23456789",
+      "face": "1000",
+      "days": 365,
+      "bank_discount_decimal": "0.0185083713961643835616438356164383561643835616438356164383562",
+      "money_market_decimal": "0.0188623311915762429526608589081332188087754117044120603442107",
+      "simple_fixed365_decimal": null
+    },
+    {
+      "price": "0.000975",
+      "face": "0.001",
+      "days": 365,
+      "bank_discount_decimal": "0.0246575342465753424657534246575342465753424657534246575342466",
+      "money_market_decimal": "0.0252897787144362486828240252897787144362486828240252897787144",
+      "simple_fixed365_decimal": null
+    }
+  ],
+  "rate_cases": [
+    {
+      "money_market_decimal": "-3.9",
+      "days": 1,
+      "simple_fixed365_decimal": "-3.95416666666666666666666666666666666666666666666666666666667"
+    },
+    {
+      "money_market_decimal": "-0.5",
+      "days": 1,
+      "simple_fixed365_decimal": "-0.506944444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "money_market_decimal": "0",
+      "days": 1,
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "money_market_decimal": "0.02",
+      "days": 1,
+      "simple_fixed365_decimal": "0.0202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "0.2",
+      "days": 1,
+      "simple_fixed365_decimal": "0.202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "100000000",
+      "days": 1,
+      "simple_fixed365_decimal": "101388888.888888888888888888888888888888888888888888888888889"
+    },
+    {
+      "money_market_decimal": "-3.9",
+      "days": 20,
+      "simple_fixed365_decimal": "-3.95416666666666666666666666666666666666666666666666666666667"
+    },
+    {
+      "money_market_decimal": "-0.5",
+      "days": 20,
+      "simple_fixed365_decimal": "-0.506944444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "money_market_decimal": "0",
+      "days": 20,
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "money_market_decimal": "0.02",
+      "days": 20,
+      "simple_fixed365_decimal": "0.0202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "0.2",
+      "days": 20,
+      "simple_fixed365_decimal": "0.202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "100000000",
+      "days": 20,
+      "simple_fixed365_decimal": "101388888.888888888888888888888888888888888888888888888888889"
+    },
+    {
+      "money_market_decimal": "-3.9",
+      "days": 90,
+      "simple_fixed365_decimal": "-3.95416666666666666666666666666666666666666666666666666666667"
+    },
+    {
+      "money_market_decimal": "-0.5",
+      "days": 90,
+      "simple_fixed365_decimal": "-0.506944444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "money_market_decimal": "0",
+      "days": 90,
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "money_market_decimal": "0.02",
+      "days": 90,
+      "simple_fixed365_decimal": "0.0202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "0.2",
+      "days": 90,
+      "simple_fixed365_decimal": "0.202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "100000000",
+      "days": 90,
+      "simple_fixed365_decimal": "101388888.888888888888888888888888888888888888888888888888889"
+    },
+    {
+      "money_market_decimal": "-3.9",
+      "days": 181,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "-0.5",
+      "days": 181,
+      "simple_fixed365_decimal": "-0.506944444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "money_market_decimal": "0",
+      "days": 181,
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "money_market_decimal": "0.02",
+      "days": 181,
+      "simple_fixed365_decimal": "0.0202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "0.2",
+      "days": 181,
+      "simple_fixed365_decimal": "0.202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "100000000",
+      "days": 181,
+      "simple_fixed365_decimal": "101388888.888888888888888888888888888888888888888888888888889"
+    },
+    {
+      "money_market_decimal": "-3.9",
+      "days": 182,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "-0.5",
+      "days": 182,
+      "simple_fixed365_decimal": "-0.506944444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "money_market_decimal": "0",
+      "days": 182,
+      "simple_fixed365_decimal": "0"
+    },
+    {
+      "money_market_decimal": "0.02",
+      "days": 182,
+      "simple_fixed365_decimal": "0.0202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "0.2",
+      "days": 182,
+      "simple_fixed365_decimal": "0.202777777777777777777777777777777777777777777777777777777778"
+    },
+    {
+      "money_market_decimal": "100000000",
+      "days": 182,
+      "simple_fixed365_decimal": "101388888.888888888888888888888888888888888888888888888888889"
+    },
+    {
+      "money_market_decimal": "-3.9",
+      "days": 183,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "-0.5",
+      "days": 183,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "0",
+      "days": 183,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "0.02",
+      "days": 183,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "0.2",
+      "days": 183,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "100000000",
+      "days": 183,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "-3.9",
+      "days": 365,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "-0.5",
+      "days": 365,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "0",
+      "days": 365,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "0.02",
+      "days": 365,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "0.2",
+      "days": 365,
+      "simple_fixed365_decimal": null
+    },
+    {
+      "money_market_decimal": "100000000",
+      "days": 365,
+      "simple_fixed365_decimal": null
+    }
+  ],
+  "invalid_cash": [
+    {
+      "price": "0",
+      "face": "100",
+      "days": 90
+    },
+    {
+      "price": "-1",
+      "face": "100",
+      "days": 90
+    },
+    {
+      "price": "97",
+      "face": "0",
+      "days": 90
+    },
+    {
+      "price": "97",
+      "face": "-100",
+      "days": 90
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": 0
+    },
+    {
+      "price": "97",
+      "face": "100",
+      "days": -1
+    }
+  ],
+  "invalid_bond_facts": [
+    "before_issue",
+    "at_maturity",
+    "after_maturity",
+    "zero_issue_interval",
+    "non_face_redemption",
+    "nonpositive_face",
+    "nonpositive_price"
+  ],
+  "overflow_inputs": [
+    {
+      "price": "0.0000000000000000000000000001",
+      "face": "100",
+      "days": 1
+    }
+  ],
+  "primary_sources": [
+    "https://www.treasurydirect.gov/files/laws-and-regulations/auction-regulations-uoc/31-cfr-part-356.pdf",
+    "https://www.treasurydirect.gov/files/laws-and-regulations/uoc-noncomp-increase.pdf"
+  ]
+}

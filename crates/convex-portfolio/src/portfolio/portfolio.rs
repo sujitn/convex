@@ -55,96 +55,127 @@ impl Portfolio {
         self.holdings.is_empty()
     }
 
-    /// Returns the total market value of all holdings (in base currency).
-    #[must_use]
-    pub fn securities_market_value(&self) -> Decimal {
-        self.holdings.iter().map(|h| h.market_value()).sum()
+    pub(crate) fn exact_securities_value(
+        &self,
+        accrued: bool,
+    ) -> crate::PortfolioResult<convex_math::decimal::BoundedDecimal> {
+        self.validate()?;
+        crate::analytics::metrics::sum(self.holdings.iter().map(|h| {
+            let price = if accrued {
+                convex_math::decimal::BoundedDecimal::decimal(h.accrued_interest)
+            } else {
+                h.exact_clean_price()?
+            };
+            h.exact_amount(price, true)
+        }))
     }
-
-    /// Returns the total accrued interest (in base currency).
-    #[must_use]
-    pub fn total_accrued_interest(&self) -> Decimal {
-        self.holdings.iter().map(|h| h.accrued_amount()).sum()
+    pub(crate) fn exact_cash(
+        &self,
+    ) -> crate::PortfolioResult<convex_math::decimal::BoundedDecimal> {
+        self.validate()?;
+        crate::analytics::metrics::sum(self.cash.iter().map(CashPosition::exact_value))
     }
-
-    /// Returns the total par value of all holdings (in base currency).
-    #[must_use]
-    pub fn total_par_value(&self) -> Decimal {
-        self.holdings.iter().map(|h| h.par_amount * h.fx_rate).sum()
+    pub(crate) fn exact_nav(&self) -> crate::PortfolioResult<convex_math::decimal::BoundedDecimal> {
+        self.validate()?;
+        let mut nav = crate::analytics::metrics::sum(
+            self.holdings
+                .iter()
+                .map(|h| h.exact_amount(h.exact_dirty_price()?, true)),
+        )?;
+        nav.add(&self.exact_cash()?)?;
+        nav.add(&convex_math::decimal::BoundedDecimal::decimal(
+            -self.total_liabilities(),
+        ))?;
+        Ok(nav)
     }
-
-    /// Returns the total cash value (in base currency).
-    #[must_use]
-    pub fn total_cash(&self) -> Decimal {
-        self.cash.iter().map(|c| c.value_in_base()).sum()
+    /// Checked total clean reporting value, retaining signed cancellation.
+    pub fn securities_market_value(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_securities_value(false)?
+            .finish()
+            .map_err(Into::into)
     }
-
-    /// Returns the total liabilities.
+    /// Checked total reporting accrued; signed ex-coupon accrual stays signed.
+    pub fn total_accrued_interest(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_securities_value(true)?
+            .finish()
+            .map_err(Into::into)
+    }
+    /// Checked reporting par, with exact products and signed accumulation.
+    pub fn total_par_value(&self) -> crate::PortfolioResult<Decimal> {
+        self.validate()?;
+        crate::analytics::metrics::sum(
+            self.holdings
+                .iter()
+                .map(|h| h.exact_weight(WeightingMethod::ParValue)),
+        )?
+        .finish()
+        .map_err(Into::into)
+    }
+    /// Checked total supplied cash converted to reporting currency.
+    pub fn total_cash(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_cash()?.finish().map_err(Into::into)
+    }
+    /// Supplied reporting liabilities; absence explicitly means none in this contract.
     #[must_use]
     pub fn total_liabilities(&self) -> Decimal {
         self.liabilities.unwrap_or(Decimal::ZERO)
     }
-
-    /// Calculates the Net Asset Value (NAV).
-    ///
-    /// NAV = Securities MV + Accrued Interest + Cash - Liabilities
-    #[must_use]
-    pub fn nav(&self) -> Decimal {
-        self.securities_market_value() + self.total_accrued_interest() + self.total_cash()
-            - self.total_liabilities()
+    /// Checked exact dirty securities plus supplied cash less reporting liabilities.
+    pub fn nav(&self) -> crate::PortfolioResult<Decimal> {
+        self.exact_nav()?.finish().map_err(Into::into)
     }
-
-    /// Calculates the NAV per share.
-    ///
-    /// Returns None if shares_outstanding is not set or is zero.
-    #[must_use]
-    pub fn nav_per_share(&self) -> Option<Decimal> {
-        self.shares_outstanding.and_then(|shares| {
-            if shares > Decimal::ZERO {
-                Some(self.nav() / shares)
-            } else {
-                None
-            }
-        })
+    /// Final exact NAV/share ratio; absent or zero shares have no ratio.
+    pub fn nav_per_share(&self) -> crate::PortfolioResult<Option<Decimal>> {
+        crate::analytics::metrics::per_share_exact(Some(self.exact_nav()?), self.shares_outstanding)
     }
-
-    /// Returns the total DV01 of the portfolio.
-    #[must_use]
-    pub fn total_dv01(&self) -> Decimal {
-        self.holdings.iter().filter_map(|h| h.total_dv01()).sum()
+    /// Complete supplied currency DV01, unavailable if any holding lacks it.
+    pub fn total_dv01(&self) -> crate::PortfolioResult<Option<Decimal>> {
+        self.validate()?;
+        crate::analytics::metrics::currency_sum(&self.holdings, "dv01", |h| h.analytics.dv01)
     }
-
-    /// Returns the DV01 per share.
-    #[must_use]
-    pub fn dv01_per_share(&self) -> Option<Decimal> {
-        self.shares_outstanding.and_then(|shares| {
-            if shares > Decimal::ZERO {
-                Some(self.total_dv01() / shares)
-            } else {
-                None
-            }
-        })
+    /// Final exact currency DV01/share ratio, with explicit missing inputs.
+    pub fn dv01_per_share(&self) -> crate::PortfolioResult<Option<Decimal>> {
+        self.validate()?;
+        crate::analytics::metrics::per_share_exact(
+            crate::analytics::metrics::currency_exact(&self.holdings, "dv01", |h| {
+                h.analytics.dv01
+            })?,
+            self.shares_outstanding,
+        )
     }
-
-    /// Calculates the weight of each holding.
-    ///
-    /// Returns a vector of (holding_id, weight) pairs.
-    #[must_use]
-    pub fn calculate_weights(&self, method: WeightingMethod) -> Vec<(&str, Decimal)> {
-        let total: Decimal = self.holdings.iter().map(|h| h.weight_value(method)).sum();
-
-        if total == Decimal::ZERO {
-            return self
-                .holdings
-                .iter()
-                .map(|h| (h.id.as_str(), Decimal::ZERO))
-                .collect();
+    /// Checked signed presentation weights; zero normalization is unavailable.
+    pub fn calculate_weights(
+        &self,
+        method: WeightingMethod,
+    ) -> crate::PortfolioResult<Option<Vec<(&str, Decimal)>>> {
+        use convex_math::decimal::BoundedDecimal;
+        self.validate()?;
+        let weights = self
+            .holdings
+            .iter()
+            .map(|h| h.exact_weight(method))
+            .collect::<crate::PortfolioResult<Vec<_>>>()?;
+        let mut total = BoundedDecimal::zero();
+        for weight in &weights {
+            total.add(weight)?;
         }
-
+        if total.is_zero() {
+            return Ok(None);
+        }
         self.holdings
             .iter()
-            .map(|h| (h.id.as_str(), h.weight_value(method) / total))
-            .collect()
+            .zip(weights)
+            .map(|(h, weight)| {
+                crate::analytics::metrics::signed_ratio(&weight, &total)?
+                    .map(|v| (h.id.as_str(), v))
+                    .ok_or_else(|| {
+                        crate::PortfolioError::invalid_portfolio(
+                            "undefined nonzero weight denominator",
+                        )
+                    })
+            })
+            .collect::<crate::PortfolioResult<Vec<_>>>()
+            .map(Some)
     }
 
     /// Returns holdings filtered by a predicate.
@@ -183,6 +214,16 @@ impl Portfolio {
     /// - Valid FX rates
     /// - Consistent data
     pub fn validate(&self) -> crate::PortfolioResult<()> {
+        crate::analytics::metrics::identities(&self.holdings)?;
+        if self.cash.len() > 65_536
+            || self.shares_outstanding.is_some_and(|s| s < Decimal::ZERO)
+            || self.liabilities.is_some_and(|l| l < Decimal::ZERO)
+        {
+            return Err(crate::PortfolioError::invalid_portfolio(
+                "bounded cash manifest and nonnegative supplied shares/liabilities required",
+            ));
+        }
+
         // Check for empty portfolio (warning, not error)
         if self.holdings.is_empty() && self.cash.is_empty() {
             // Empty portfolio is valid but unusual
@@ -269,7 +310,10 @@ mod tests {
         // Bond1: 1,000,000 × 100/100 = 1,000,000
         // Bond2: 500,000 × 98/100 = 490,000
         // Total: 1,490,000
-        assert_eq!(portfolio.securities_market_value(), dec!(1_490_000));
+        assert_eq!(
+            portfolio.securities_market_value().unwrap(),
+            dec!(1_490_000)
+        );
     }
 
     #[test]
@@ -279,13 +323,13 @@ mod tests {
         // Bond1: 1,000,000 × 1.0/100 = 10,000
         // Bond2: 500,000 × 0.5/100 = 2,500
         // Total: 12,500
-        assert_eq!(portfolio.total_accrued_interest(), dec!(12_500));
+        assert_eq!(portfolio.total_accrued_interest().unwrap(), dec!(12_500));
     }
 
     #[test]
     fn test_total_cash() {
         let portfolio = create_test_portfolio();
-        assert_eq!(portfolio.total_cash(), dec!(100_000));
+        assert_eq!(portfolio.total_cash().unwrap(), dec!(100_000));
     }
 
     #[test]
@@ -293,7 +337,7 @@ mod tests {
         let portfolio = create_test_portfolio();
 
         // NAV = 1,490,000 + 12,500 + 100,000 - 0 = 1,602,500
-        assert_eq!(portfolio.nav(), dec!(1_602_500));
+        assert_eq!(portfolio.nav().unwrap(), dec!(1_602_500));
     }
 
     #[test]
@@ -301,7 +345,7 @@ mod tests {
         let portfolio = create_test_portfolio();
 
         // NAV per share = 1,602,500 / 1,000,000 = 1.6025
-        assert_eq!(portfolio.nav_per_share(), Some(dec!(1.6025)));
+        assert_eq!(portfolio.nav_per_share().unwrap(), Some(dec!(1.6025)));
     }
 
     #[test]
@@ -311,7 +355,7 @@ mod tests {
         // Bond1: 0.05 × 1,000,000 / 100 = 500
         // Bond2: 0.04 × 500,000 / 100 = 200
         // Total: 700
-        let dv01 = portfolio.total_dv01();
+        let dv01 = portfolio.total_dv01().unwrap().unwrap();
         assert!((dv01 - dec!(700)).abs() < dec!(1));
     }
 
@@ -319,7 +363,10 @@ mod tests {
     fn test_calculate_weights() {
         let portfolio = create_test_portfolio();
 
-        let weights = portfolio.calculate_weights(WeightingMethod::MarketValue);
+        let weights = portfolio
+            .calculate_weights(WeightingMethod::MarketValue)
+            .unwrap()
+            .unwrap();
         assert_eq!(weights.len(), 2);
 
         // Bond1 weight: 1,000,000 / 1,490,000 ≈ 0.6711
@@ -339,7 +386,10 @@ mod tests {
     fn test_par_value_weights() {
         let portfolio = create_test_portfolio();
 
-        let weights = portfolio.calculate_weights(WeightingMethod::ParValue);
+        let weights = portfolio
+            .calculate_weights(WeightingMethod::ParValue)
+            .unwrap()
+            .unwrap();
 
         // Bond1 weight: 1,000,000 / 1,500,000 ≈ 0.6667
         // Bond2 weight: 500,000 / 1,500,000 ≈ 0.3333

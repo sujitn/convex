@@ -29,6 +29,19 @@ impl CallableFloatingRateNote {
         &self.base
     }
 
+    /// Checked lossless floating/exercise economics. No joint floating-option
+    /// model is inferred from the schedule or a discount-margin workout.
+    pub fn contract_terms(
+        &self,
+        coupon: crate::contracts::BondCoupon,
+    ) -> Result<crate::contracts::BondTerms, crate::contracts::BondContractError> {
+        let mut terms = self.base.contract_terms(coupon)?;
+        terms.exercise =
+            crate::contracts::call_terms(&self.call_schedule, terms.schedule.end_date)?;
+        terms.clone().build()?;
+        Ok(terms)
+    }
+
     /// Workout dates strictly after `settlement`. Bermudan/European return
     /// each entry's start date; American/ParCall expand to all coupon dates
     /// inside each entry's window. Entries whose start ≥ maturity (after

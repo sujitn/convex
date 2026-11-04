@@ -1,0 +1,3587 @@
+{
+  "schema_version": 1,
+  "qualification": "independent_manual_oracle_not_ore_quantlib_capture",
+  "certified": false,
+  "engine": "Python datetime and Decimal, 60 digits; literal independently pinned timelines; no native library imports",
+  "source": {
+    "path": "crates/convex-rates/tests/fixtures/swaps.json",
+    "sha256": "825544e22ada59b6e8f5742fd2f41d7adb5b843f9d5b0cdd832221c86fd6bf20"
+  },
+  "tolerances": {
+    "money_absolute": "1e-7",
+    "rate_absolute": "1e-12",
+    "discount_ratio_absolute": "1e-13",
+    "date": "exact",
+    "justification": "New scoped synthetic cases with million-unit notional: independent Decimal-60 vs finite binary curve projection. Existing evidence/tolerances unchanged."
+  },
+  "cases": [
+    {
+      "id": "regular-eom/2024-03-15",
+      "source_case": "regular-eom",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-02-27",
+          "rate": "0.0425",
+          "published_at": "2024-02-27T08:00:00Z",
+          "known_at": "2024-02-27T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "6130.560047332568286038524202337087",
+        "fixed_pv": "-16890.741782920751379004689973873713",
+        "floating_pv": "23021.301830253319665043214176210800",
+        "fixed_accrued": "-1666.666666666666666666666666666667",
+        "floating_accrued": "2255.208333333333333333333333333333",
+        "par": {
+          "fixed_rate": "0.054518154681712197197198918536",
+          "floating_spread": "-0.013518154681712197197198918536",
+          "fixed_rate_shift": "0.014518154681712197197198918536",
+          "floating_spread_shift": "-0.014518154681712197197198918536",
+          "fixed_annuity": "422268.544573018784475117249346842815",
+          "floating_annuity": "422268.544573018784475117249346842815"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.998579152546683433604706632054",
+            "pv": "-3439.550414327465160193989510407418"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "-3320.304932813811962676284078514191"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.993469979003469295336270388629",
+            "pv": "-3421.952149900838683936042449722836"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "0.991134611877485270917326060501",
+            "pv": "-3303.782039591617569724420201669605"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-3405.152246287018002473953733559662"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-02",
+            "amount": "4660.763888888888888888888888888889",
+            "discount_ratio": "0.998579152546683433604706632054",
+            "pv": "4654.141654386851294887492056270038"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "4483.370106498742220383820785180548",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "4465.846764071327781573285979216036"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "4727.970249638060303122877783191782",
+            "discount_ratio": "0.993469979003469295336270388629",
+            "pv": "4697.096504636951252081313493379564"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "4667.009350022645611836341855751445",
+            "discount_ratio": "0.991134611877485270917326060501",
+            "pv": "4625.634500763289663556584673056808"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "4631.414865615582322778574636349106",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "4578.582406394899672944537974288355"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shortfirst/2024-03-15",
+      "source_case": "shortfirst",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-01-26",
+          "rate": "0.0425",
+          "published_at": "2024-01-26T08:00:00Z",
+          "known_at": "2024-01-26T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "11015.093059735780226056370358657647",
+        "fixed_pv": "-30091.402524931798701764896719210888",
+        "floating_pv": "41106.495584667578927821267077868535",
+        "fixed_accrued": "-4888.888888888888888888888888888889",
+        "floating_accrued": "6615.277777777777777777777777777778",
+        "par": {
+          "fixed_rate": "0.054642179673226441767687612892",
+          "floating_spread": "-0.013642179673226441767687612892",
+          "fixed_rate_shift": "0.014642179673226441767687612892",
+          "floating_spread_shift": "-0.014642179673226441767687612892",
+          "fixed_annuity": "752285.063123294967544122417980272205",
+          "floating_annuity": "752285.063123294967544122417980272205"
+        },
+        "fixed": [
+          {
+            "payment": "2024-05-03",
+            "amount": "-10000.000000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "-9960.914798441435888028852235542574"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-10105.613118013085684761411080241578"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "-10024.874608477277128974633403426736"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-05-03",
+            "amount": "13531.250000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "13478.362836641067935989040681218546"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "14077.024069693129849911317243011364",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "13916.441651211865442455041428345924"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "13981.616619481626914458605089729867",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "13711.691096814645549377184968304065"
+          }
+        ]
+      }
+    },
+    {
+      "id": "longfirst/2024-03-15",
+      "source_case": "longfirst",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-01-08",
+          "rate": "0.0425",
+          "published_at": "2024-01-08T08:00:00Z",
+          "known_at": "2024-01-08T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "11835.830935315694370580414329315373",
+        "fixed_pv": "-32415.615977901467075638295574170822",
+        "floating_pv": "44251.446913217161446218709903486195",
+        "fixed_accrued": "-7222.222222222222222222222222222222",
+        "floating_accrued": "9772.569444444444444444444444444444",
+        "par": {
+          "fixed_rate": "0.054605097670683753366350956743",
+          "floating_spread": "-0.013605097670683753366350956743",
+          "fixed_rate_shift": "0.014605097670683753366350956743",
+          "floating_spread_shift": "-0.014605097670683753366350956743",
+          "fixed_annuity": "810390.399447536676890957389354270555",
+          "floating_annuity": "810390.399447536676890957389354270555"
+        },
+        "fixed": [
+          {
+            "payment": "2024-05-03",
+            "amount": "-12333.333333333333333333333333333333",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "-12285.128251411104261902251090502508"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-10105.613118013085684761411080241578"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "-10024.874608477277128974633403426736"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-05-03",
+            "amount": "16688.541666666666666666666666666667",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "16623.314165190650454386483506836206"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "14077.024069693129849911317243011364",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "13916.441651211865442455041428345924"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "13981.616619481626914458605089729867",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "13711.691096814645549377184968304065"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shortlast/2024-03-15",
+      "source_case": "shortlast",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-01-26",
+          "rate": "0.0425",
+          "published_at": "2024-01-26T08:00:00Z",
+          "known_at": "2024-01-26T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "11510.160520639207465320869533336014",
+        "fixed_pv": "-31397.852375458207902900185124851770",
+        "floating_pv": "42908.012896097415368221054658187784",
+        "fixed_accrued": "-4888.888888888888888888888888888889",
+        "floating_accrued": "6615.277777777777777777777777777778",
+        "par": {
+          "fixed_rate": "0.054663627795939317281777893034",
+          "floating_spread": "-0.013663627795939317281777893034",
+          "fixed_rate_shift": "0.014663627795939317281777893034",
+          "floating_spread_shift": "-0.014663627795939317281777893034",
+          "fixed_annuity": "784946.309386455197572504628121294246",
+          "floating_annuity": "784946.309386455197572504628121294246"
+        },
+        "fixed": [
+          {
+            "payment": "2024-05-03",
+            "amount": "-10000.000000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "-9960.914798441435888028852235542574"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-10105.613118013085684761411080241578"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "-10024.874608477277128974633403426736"
+          },
+          {
+            "payment": "2024-11-14",
+            "amount": "-1333.333333333333333333333333333333",
+            "discount_ratio": "0.979837387894806900851466304231",
+            "pv": "-1306.449850526409201135288405640882"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-05-03",
+            "amount": "13531.250000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "13478.362836641067935989040681218546"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "14077.024069693129849911317243011364",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "13916.441651211865442455041428345924"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "13981.616619481626914458605089729867",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "13711.691096814645549377184968304065"
+          },
+          {
+            "payment": "2024-11-14",
+            "amount": "1838.588049084776519408005702723921",
+            "discount_ratio": "0.979837387894806900851466304231",
+            "pv": "1801.517311429836440399787580319249"
+          }
+        ]
+      }
+    },
+    {
+      "id": "longlast/2024-03-15",
+      "source_case": "longlast",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-01-26",
+          "rate": "0.0425",
+          "published_at": "2024-01-26T08:00:00Z",
+          "known_at": "2024-01-26T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "11526.362759669885182925832724974632",
+        "fixed_pv": "-31389.093287683401315962762831338460",
+        "floating_pv": "42915.456047353286498888595556313092",
+        "fixed_accrued": "-4888.888888888888888888888888888889",
+        "floating_accrued": "6615.277777777777777777777777777778",
+        "par": {
+          "fixed_rate": "0.054688366629809792066227190523",
+          "floating_spread": "-0.013688366629809792066227190523",
+          "fixed_rate_shift": "0.014688366629809792066227190523",
+          "floating_spread_shift": "-0.014688366629809792066227190523",
+          "fixed_annuity": "784727.332192085032899069070783461506",
+          "floating_annuity": "784727.332192085032899069070783461506"
+        },
+        "fixed": [
+          {
+            "payment": "2024-05-03",
+            "amount": "-10000.000000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "-9960.914798441435888028852235542574"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-10105.613118013085684761411080241578"
+          },
+          {
+            "payment": "2024-11-14",
+            "amount": "-11555.555555555555555555555555555556",
+            "discount_ratio": "0.979837387894806900851466304231",
+            "pv": "-11322.565371228879743172499515554308"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-05-03",
+            "amount": "13531.250000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "13478.362836641067935989040681218546"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "14077.024069693129849911317243011364",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "13916.441651211865442455041428345924"
+          },
+          {
+            "payment": "2024-11-14",
+            "amount": "15840.027897737879283298785433759298",
+            "discount_ratio": "0.979837387894806900851466304231",
+            "pv": "15520.651559500353120444513446748622"
+          }
+        ]
+      }
+    },
+    {
+      "id": "explicit-both-stubs/2024-03-15",
+      "source_case": "explicit-both-stubs",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-02-27",
+          "rate": "0.0425",
+          "published_at": "2024-02-27T08:00:00Z",
+          "known_at": "2024-02-27T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "7917.369744054037424122610676670120",
+        "fixed_pv": "-21928.014163023796098905320716376796",
+        "floating_pv": "29845.383907077833523027931393046916",
+        "fixed_accrued": "-1666.666666666666666666666666666667",
+        "floating_accrued": "2255.208333333333333333333333333333",
+        "par": {
+          "fixed_rate": "0.054442474699610026077695894581",
+          "floating_spread": "-0.013442474699610026077695894581",
+          "fixed_rate_shift": "0.014442474699610026077695894581",
+          "floating_spread_shift": "-0.014442474699610026077695894581",
+          "fixed_annuity": "548200.354075594902472633017909419911",
+          "floating_annuity": "548200.354075594902472633017909419911"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.998579152546683433604706632054",
+            "pv": "-3439.550414327465160193989510407418"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "-3320.304932813811962676284078514191"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.993469979003469295336270388629",
+            "pv": "-3421.952149900838683936042449722836"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "0.991134611877485270917326060501",
+            "pv": "-3303.782039591617569724420201669605"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-3405.152246287018002473953733559662"
+          },
+          {
+            "payment": "2024-09-03",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.985935723613417199129584063916",
+            "pv": "-3396.000825779548130335233997932439"
+          },
+          {
+            "payment": "2024-09-17",
+            "amount": "-1666.666666666666666666666666666667",
+            "discount_ratio": "0.984762932594097953739238046742",
+            "pv": "-1641.271554323496589565396744570645"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-02",
+            "amount": "4660.763888888888888888888888888889",
+            "discount_ratio": "0.998579152546683433604706632054",
+            "pv": "4654.141654386851294887492056270038"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "4483.370106498742220383820785180548",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "4465.846764071327781573285979216036"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "4727.970249638060303122877783191782",
+            "discount_ratio": "0.993469979003469295336270388629",
+            "pv": "4697.096504636951252081313493379564"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "4667.009350022645611836341855751445",
+            "discount_ratio": "0.991134611877485270917326060501",
+            "pv": "4625.634500763289663556584673056808"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "4631.414865615582322778574636349106",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "4578.582406394899672944537974288355"
+          },
+          {
+            "payment": "2024-09-03",
+            "amount": "4658.943445782269631770765743252480",
+            "discount_ratio": "0.985935723613417199129584063916",
+            "pv": "4593.418777491329349395746719979521"
+          },
+          {
+            "payment": "2024-09-17",
+            "amount": "2265.177968729073681778087148591914",
+            "discount_ratio": "0.984762932594097953739238046742",
+            "pv": "2230.663299333184508588970496856596"
+          }
+        ]
+      }
+    },
+    {
+      "id": "independent-leg-frequency/2024-03-15",
+      "source_case": "independent-leg-frequency",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-01-26",
+          "rate": "0.0425",
+          "published_at": "2024-01-26T08:00:00Z",
+          "known_at": "2024-01-26T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "15449.179720674556136082233209776432",
+        "fixed_pv": "-40633.759180597360029028772584345099",
+        "floating_pv": "56082.938901271916165111005794121530",
+        "fixed_accrued": "-4888.888888888888888888888888888889",
+        "floating_accrued": "6615.277777777777777777777777777778",
+        "par": {
+          "fixed_rate": "0.055208220979024305526185957502",
+          "floating_spread": "-0.014149766893093045806490224651",
+          "fixed_rate_shift": "0.015208220979024305526185957502",
+          "floating_spread_shift": "-0.015149766893093045806490224651",
+          "fixed_annuity": "1015843.979514934000725719314608627465",
+          "floating_annuity": "1019763.527036050706861516318757425747"
+        },
+        "fixed": [
+          {
+            "payment": "2024-08-02",
+            "amount": "-20222.222222222222222222222222222222",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-19991.538994330234724201921919608340"
+          },
+          {
+            "payment": "2025-02-04",
+            "amount": "-20444.444444444444444444444444444444",
+            "discount_ratio": "0.972692768128391973795433170683",
+            "pv": "-19886.163259513791464262189267301234"
+          },
+          {
+            "payment": "2025-02-11",
+            "amount": "-777.777777777777777777777777777778",
+            "discount_ratio": "0.972073191540000652154564653846",
+            "pv": "-756.056926753333840564661397435524"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-05-03",
+            "amount": "13531.250000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "13478.362836641067935989040681218546"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "14077.024069693129849911317243011364",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "13916.441651211865442455041428345924"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "13981.616619481626914458605089729867",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "13711.691096814645549377184968304065"
+          },
+          {
+            "payment": "2025-02-04",
+            "amount": "14301.926010092586022336296317251561",
+            "discount_ratio": "0.972692768128391973795433170683",
+            "pv": "13911.380000324405943856433276860259"
+          },
+          {
+            "payment": "2025-02-11",
+            "amount": "1095.661649296810293652344924863396",
+            "discount_ratio": "0.972073191540000652154564653846",
+            "pv": "1065.063316279931293433305439392737"
+          }
+        ]
+      }
+    },
+    {
+      "id": "independent-calendars/2024-03-15",
+      "source_case": "independent-calendars",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-01-26",
+          "rate": "0.0425",
+          "published_at": "2024-01-26T08:00:00Z",
+          "known_at": "2024-01-26T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-02-27",
+          "rate": "0.0425",
+          "published_at": "2024-02-27T08:00:00Z",
+          "known_at": "2024-02-27T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "6164.944409687073781284469895593057",
+        "fixed_pv": "-17000.577311659647269010747069643306",
+        "floating_pv": "23165.521721346721050295216965236363",
+        "fixed_accrued": "-1777.777777777777777777777777777778",
+        "floating_accrued": "2405.555555555555555555555555555556",
+        "par": {
+          "fixed_rate": "0.054505258960726983560943236596",
+          "floating_spread": "-0.013505258960726983560943236596",
+          "fixed_rate_shift": "0.014505258960726983560943236596",
+          "floating_spread_shift": "-0.014505258960726983560943236596",
+          "fixed_annuity": "425014.432791491181725268676741082641",
+          "floating_annuity": "425014.432791491181725268676741082641"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-02",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "0.998579152546683433604706632054",
+            "pv": "-3328.597175155611445349022106845888"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "-3555.555555555555555555555555555556",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "-3541.658595001399426854703017081804"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.993469979003469295336270388629",
+            "pv": "-3421.952149900838683936042449722836"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "-3111.111111111111111111111111111111",
+            "discount_ratio": "0.991134611877485270917326060501",
+            "pv": "-3083.529903618843065076125521558298"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-3666.666666666666666666666666666667",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-3624.839487982954647794853974434479"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-02",
+            "amount": "4510.416666666666666666666666666667",
+            "discount_ratio": "0.998579152546683433604706632054",
+            "pv": "4504.008052632436736987895538325843"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "4780.889718027134993291757333723352",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "4762.203514201299261846881365701717"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "4726.692155791339904487493125443625",
+            "discount_ratio": "0.993469979003469295336270388629",
+            "pv": "4695.826756769885474345124525829656"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "4352.543858462044965687886008481612",
+            "discount_ratio": "0.991134611877485270917326060501",
+            "pv": "4313.956867836511122153682468737835"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "4945.946986735962677538624415425601",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "4889.526529906588454961633066641312"
+          }
+        ]
+      }
+    },
+    {
+      "id": "full-index-tenor-stub/2024-03-15",
+      "source_case": "full-index-tenor-stub",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-01-26",
+          "rate": "0.0425",
+          "published_at": "2024-01-26T08:00:00Z",
+          "known_at": "2024-01-26T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "11536.499099243360225638035506961652",
+        "fixed_pv": "-31397.852375458207902900185124851770",
+        "floating_pv": "42934.351474701568128538220631813422",
+        "fixed_accrued": "-4888.888888888888888888888888888889",
+        "floating_accrued": "6615.277777777777777777777777777778",
+        "par": {
+          "fixed_rate": "0.054697182420362916426704979731",
+          "floating_spread": "-0.013697182420362916426704979731",
+          "fixed_rate_shift": "0.014697182420362916426704979731",
+          "floating_spread_shift": "-0.014697182420362916426704979731",
+          "fixed_annuity": "784946.309386455197572504628121294246",
+          "floating_annuity": "784946.309386455197572504628121294246"
+        },
+        "fixed": [
+          {
+            "payment": "2024-05-03",
+            "amount": "-10000.000000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "-9960.914798441435888028852235542574"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "-10105.613118013085684761411080241578"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "-10222.222222222222222222222222222222",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "-10024.874608477277128974633403426736"
+          },
+          {
+            "payment": "2024-11-14",
+            "amount": "-1333.333333333333333333333333333333",
+            "discount_ratio": "0.979837387894806900851466304231",
+            "pv": "-1306.449850526409201135288405640882"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-05-03",
+            "amount": "13531.250000000000000000000000000000",
+            "discount_ratio": "0.996091479844143588802885223554",
+            "pv": "13478.362836641067935989040681218546"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "14077.024069693129849911317243011364",
+            "discount_ratio": "0.988592587631714903944051083937",
+            "pv": "13916.441651211865442455041428345924"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "13981.616619481626914458605089729867",
+            "discount_ratio": "0.980694255177124936530127180770",
+            "pv": "13711.691096814645549377184968304065"
+          },
+          {
+            "payment": "2024-11-14",
+            "amount": "1865.468610012076437696038650076291",
+            "discount_ratio": "0.979837387894806900851466304231",
+            "pv": "1827.855890033989200716953553944887"
+          }
+        ]
+      }
+    },
+    {
+      "id": "amortized-stepped-multiple-resets/2024-07-15",
+      "source_case": "amortized-stepped-multiple-resets",
+      "valuation_date": "2024-07-15",
+      "known_at": "2024-07-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-04-26",
+          "rate": "0.0425",
+          "published_at": "2024-04-26T08:00:00Z",
+          "known_at": "2024-04-26T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-05-29",
+          "rate": "0.0425",
+          "published_at": "2024-05-29T08:00:00Z",
+          "known_at": "2024-05-29T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-06-27",
+          "rate": "0.0425",
+          "published_at": "2024-06-27T08:00:00Z",
+          "known_at": "2024-06-27T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "-2613.036326495316803706251096153723",
+        "fixed_pv": "-36354.131124931791439133919707972866",
+        "floating_pv": "33741.094798436474635427668611819143",
+        "fixed_accrued": "-17611.110000000000000000000000000000",
+        "floating_accrued": "10298.780000000000000000000000000000",
+        "par": null,
+        "fixed": [
+          {
+            "payment": "2024-08-02",
+            "amount": "-18944.440000000000000000000000000000",
+            "discount_ratio": "0.998505317568236975328698821010",
+            "pv": "-18916.124078352411284896015092688309"
+          },
+          {
+            "payment": "2025-02-04",
+            "amount": "-17093.750000000000000000000000000000",
+            "discount_ratio": "0.982446068772455499927230581990",
+            "pv": "-16793.687488079161201881097760896081"
+          },
+          {
+            "payment": "2025-02-11",
+            "amount": "-656.250000000000000000000000000000",
+            "discount_ratio": "0.981820279619381260734181873354",
+            "pv": "-644.319558500218952356806854388476"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-08-02",
+            "amount": "12102.950000000000000000000000000000",
+            "discount_ratio": "0.998505317568236975328698821010",
+            "pv": "12084.859933262493700554475395738906"
+          },
+          {
+            "payment": "2024-11-04",
+            "amount": "10448.760000000000000000000000000000",
+            "discount_ratio": "0.990527787638821933590453173064",
+            "pv": "10349.787126369017066822583496582063"
+          },
+          {
+            "payment": "2025-02-04",
+            "amount": "10687.240000000000000000000000000000",
+            "discount_ratio": "0.982446068772455499927230581990",
+            "pv": "10499.636924027737317042295765069632"
+          },
+          {
+            "payment": "2025-02-11",
+            "amount": "821.750000000000000000000000000000",
+            "discount_ratio": "0.981820279619381260734181873354",
+            "pv": "806.810814777226551008313954428542"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ois-holiday/2024-04-07",
+      "source_case": "ois-holiday",
+      "valuation_date": "2024-04-07",
+      "known_at": "2024-04-07T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.ON"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-04",
+          "rate": "0.03",
+          "published_at": "2024-04-04T08:00:00Z",
+          "known_at": "2024-04-04T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-05",
+          "rate": "-0.004",
+          "published_at": "2024-04-05T08:00:00Z",
+          "known_at": "2024-04-05T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "-417.593032949583676611268288161584",
+        "fixed_pv": "-777.279711586436740923338706337907",
+        "floating_pv": "359.686678636853064312070418176323",
+        "fixed_accrued": "-333.333333333333333333333333333333",
+        "floating_accrued": "84.719907407407407407407407407407",
+        "par": {
+          "fixed_rate": "0.018510025324228697958299947501",
+          "floating_spread": "0.022489974675771302041700052499",
+          "fixed_rate_shift": "-0.021489974675771302041700052499",
+          "floating_spread_shift": "0.021489974675771302041700052499",
+          "fixed_annuity": "19431.992789660918523083467658447675",
+          "floating_annuity": "19431.992789660918523083467658447675"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-15",
+            "amount": "-777.777777777777777777777777777778",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "-777.279711586436740923338706337907"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-15",
+            "amount": "359.917159082224682522498979183489",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "359.686678636853064312070418176323"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ois-lookback/2024-04-07",
+      "source_case": "ois-lookback",
+      "valuation_date": "2024-04-07",
+      "known_at": "2024-04-07T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.ON"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-02",
+          "rate": "0.01",
+          "published_at": "2024-04-02T08:00:00Z",
+          "known_at": "2024-04-02T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-03",
+          "rate": "0.02",
+          "published_at": "2024-04-03T08:00:00Z",
+          "known_at": "2024-04-03T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-04",
+          "rate": "0.03",
+          "published_at": "2024-04-04T08:00:00Z",
+          "known_at": "2024-04-04T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-05",
+          "rate": "-0.004",
+          "published_at": "2024-04-05T08:00:00Z",
+          "known_at": "2024-04-05T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "-355.298758452416736626568081232591",
+        "fixed_pv": "-777.279711586436740923338706337907",
+        "floating_pv": "421.980953134020004296770625105316",
+        "fixed_accrued": "-333.333333333333333333333333333333",
+        "floating_accrued": "181.948302469135802469135802469136",
+        "par": {
+          "fixed_rate": "0.021715783743937022339800117578",
+          "floating_spread": "0.019284216256062977660199882422",
+          "fixed_rate_shift": "-0.018284216256062977660199882422",
+          "floating_spread_shift": "0.018284216256062977660199882422",
+          "fixed_annuity": "19431.992789660918523083467658447675",
+          "floating_annuity": "19431.992789660918523083467658447675"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-15",
+            "amount": "-777.777777777777777777777777777778",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "-777.279711586436740923338706337907"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-15",
+            "amount": "422.251350576553212162780064014632",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "421.980953134020004296770625105316"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ois-shift/2024-04-07",
+      "source_case": "ois-shift",
+      "valuation_date": "2024-04-07",
+      "known_at": "2024-04-07T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.ON"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-02",
+          "rate": "0.01",
+          "published_at": "2024-04-02T08:00:00Z",
+          "known_at": "2024-04-02T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-03",
+          "rate": "0.02",
+          "published_at": "2024-04-03T08:00:00Z",
+          "known_at": "2024-04-03T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-04",
+          "rate": "0.03",
+          "published_at": "2024-04-04T08:00:00Z",
+          "known_at": "2024-04-04T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-05",
+          "rate": "-0.004",
+          "published_at": "2024-04-05T08:00:00Z",
+          "known_at": "2024-04-05T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "-605.166426316089751975439645458200",
+        "fixed_pv": "-777.279711586436740923338706337907",
+        "floating_pv": "172.113285270346988947899060879707",
+        "fixed_accrued": "-333.333333333333333333333333333333",
+        "floating_accrued": "188.894868752139774805669867398262",
+        "par": {
+          "fixed_rate": "0.008857212285603689006466784245",
+          "floating_spread": "0.032142787714396310993533215755",
+          "fixed_rate_shift": "-0.031142787714396310993533215755",
+          "floating_spread_shift": "0.031142787714396310993533215755",
+          "fixed_annuity": "19431.992789660918523083467658447675",
+          "floating_annuity": "19431.992789660918523083467658447675"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-15",
+            "amount": "-777.777777777777777777777777777778",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "-777.279711586436740923338706337907"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-15",
+            "amount": "172.223572220071730681298582533150",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "172.113285270346988947899060879707"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ois-lockout/2024-04-07",
+      "source_case": "ois-lockout",
+      "valuation_date": "2024-04-07",
+      "known_at": "2024-04-07T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.ON"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-02",
+          "rate": "0.01",
+          "published_at": "2024-04-02T08:00:00Z",
+          "known_at": "2024-04-02T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        },
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-03",
+          "rate": "0.02",
+          "published_at": "2024-04-03T08:00:00Z",
+          "known_at": "2024-04-03T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "-306.701617709446027532061470070610",
+        "fixed_pv": "-777.279711586436740923338706337907",
+        "floating_pv": "470.578093876990713391277236267297",
+        "fixed_accrued": "-333.333333333333333333333333333333",
+        "floating_accrued": "181.948302469135802469135802469136",
+        "par": {
+          "fixed_rate": "0.024216666760362776797961983147",
+          "floating_spread": "0.016783333239637223202038016853",
+          "fixed_rate_shift": "-0.015783333239637223202038016853",
+          "floating_spread_shift": "0.015783333239637223202038016853",
+          "fixed_annuity": "19431.992789660918523083467658447675",
+          "floating_annuity": "19431.992789660918523083467658447675"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-15",
+            "amount": "-777.777777777777777777777777777778",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "-777.279711586436740923338706337907"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-15",
+            "amount": "470.879631451498437738149672306051",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "470.578093876990713391277236267297"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ois-partial-weekend/2024-04-07",
+      "source_case": "ois-partial-weekend",
+      "valuation_date": "2024-04-07",
+      "known_at": "2024-04-07T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.ON"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.ON",
+          "observation_date": "2024-04-05",
+          "rate": "-0.004",
+          "published_at": "2024-04-05T08:00:00Z",
+          "known_at": "2024-04-05T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "-169.154321548599103463121441526657",
+        "fixed_pv": "-444.159835192249566241907832193090",
+        "floating_pv": "275.005513643650462778786390666433",
+        "fixed_accrued": "0.000000000000000000000000000000",
+        "floating_accrued": "0.000000000000000000000000000000",
+        "par": {
+          "fixed_rate": "0.024766355879488061625219110627",
+          "floating_spread": "0.016233644120511938374780889373",
+          "fixed_rate_shift": "-0.015233644120511938374780889373",
+          "floating_spread_shift": "0.015233644120511938374780889373",
+          "fixed_annuity": "11103.995879806239156047695804827243",
+          "floating_annuity": "11103.995879806239156047695804827243"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-15",
+            "amount": "-444.444444444444444444444444444444",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "-444.159835192249566241907832193090"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-15",
+            "amount": "275.181731994311795835767895854632",
+            "discount_ratio": "0.999359629182561524044292622434",
+            "pv": "275.005513643650462778786390666433"
+          }
+        ]
+      }
+    },
+    {
+      "id": "regular-eom/2024-01-15",
+      "source_case": "regular-eom",
+      "valuation_date": "2024-01-15",
+      "known_at": "2024-01-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [],
+      "expected": {
+        "pv": "6912.474324446263269068296126327306",
+        "fixed_pv": "-20023.181717719066790526790649273745",
+        "floating_pv": "26935.656042165330059595086775601051",
+        "fixed_accrued": "0.000000000000000000000000000000",
+        "floating_accrued": "0.000000000000000000000000000000",
+        "par": {
+          "fixed_rate": "0.053808942898079427069529708762",
+          "floating_spread": "-0.012808942898079427069529708762",
+          "fixed_rate_shift": "0.013808942898079427069529708762",
+          "floating_spread_shift": "-0.013808942898079427069529708762",
+          "fixed_annuity": "500579.542942976669763169766231843619",
+          "floating_annuity": "500579.542942976669763169766231843619"
+        },
+        "fixed": [
+          {
+            "payment": "2024-03-05",
+            "amount": "-3222.222222222222222222222222222222",
+            "discount_ratio": "0.996189659602045918723643228359",
+            "pv": "-3209.944458717703515887294846935621"
+          },
+          {
+            "payment": "2024-04-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.993997091983054731374784154435",
+            "pv": "-3423.767761274966296957589865274780"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "0.991520834166311824509852795162",
+            "pv": "-3305.069447221039415032842650538767"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.988911362292584156354811099630",
+            "pv": "-3406.250247896678760777682676501951"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "0.986586711186038627113940203056",
+            "pv": "-3288.622370620128757046467343519690"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "0.984056351222482271078200625759",
+            "pv": "-3389.527431988550044824913266502936"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-03-05",
+            "amount": "4157.658192219799868186493359699595",
+            "discount_ratio": "0.996189659602045918723643228359",
+            "pv": "4141.816099249100029810798834456075"
+          },
+          {
+            "payment": "2024-04-02",
+            "amount": "4538.201360557141112114782359389686",
+            "discount_ratio": "0.993997091983054731374784154435",
+            "pv": "4510.958955227340724145778849000923"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "4483.370106498742220383820785180548",
+            "discount_ratio": "0.991520834166311824509852795162",
+            "pv": "4445.354867871939168670716637949073"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "4727.970249638060303122877783191782",
+            "discount_ratio": "0.988911362292584156354811099630",
+            "pv": "4675.543500448383408160375424492146"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "4667.009350022645611836341855751445",
+            "discount_ratio": "0.986586711186038627113940203056",
+            "pv": "4604.409405713333721906334583276459"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "4631.414865615582322778574636349106",
+            "discount_ratio": "0.984056351222482271078200625759",
+            "pv": "4557.573213655233006901082446426374"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ois-shift/2024-04-01",
+      "source_case": "ois-shift",
+      "valuation_date": "2024-04-01",
+      "known_at": "2024-04-01T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.ON"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [],
+      "expected": {
+        "pv": "260.013683427337855448603105846629",
+        "fixed_pv": "-776.908328873868154373327177943673",
+        "floating_pv": "1036.922012301206009821930283790301",
+        "fixed_accrued": "0.000000000000000000000000000000",
+        "floating_accrued": "0.000000000000000000000000000000",
+        "par": {
+          "fixed_rate": "0.053387097229565231626050575456",
+          "floating_spread": "-0.012387097229565231626050575456",
+          "fixed_rate_shift": "0.013387097229565231626050575456",
+          "floating_spread_shift": "-0.013387097229565231626050575456",
+          "fixed_annuity": "19422.708221846703859333179448591813",
+          "floating_annuity": "19422.708221846703859333179448591813"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-15",
+            "amount": "-777.777777777777777777777777777778",
+            "discount_ratio": "0.998882137123544769908563514499",
+            "pv": "-776.908328873868154373327177943673"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-15",
+            "amount": "1038.082446130435059395427856081280",
+            "discount_ratio": "0.998882137123544769908563514499",
+            "pv": "1036.922012301206009821930283790301"
+          }
+        ]
+      }
+    },
+    {
+      "id": "regular-eom/2024-08-02",
+      "source_case": "regular-eom",
+      "valuation_date": "2024-08-02",
+      "known_at": "2024-08-02T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.025,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.028,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.032,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": 0.037,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": 0.041,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": 0.044,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-06-27",
+          "rate": "0.0425",
+          "published_at": "2024-06-27T08:00:00Z",
+          "known_at": "2024-06-27T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "1216.319444444444444444444444444444",
+        "fixed_pv": "-3444.444444444444444444444444444444",
+        "floating_pv": "4660.763888888888888888888888888889",
+        "fixed_accrued": "-3444.444444444444444444444444444444",
+        "floating_accrued": "4660.763888888888888888888888888889",
+        "par": {
+          "fixed_rate": "0.054125000000000000000000000000",
+          "floating_spread": "-0.013125000000000000000000000000",
+          "fixed_rate_shift": "0.014125000000000000000000000000",
+          "floating_spread_shift": "-0.014125000000000000000000000000",
+          "fixed_annuity": "86111.111111111111111111111111111111",
+          "floating_annuity": "86111.111111111111111111111111111111"
+        },
+        "fixed": [
+          {
+            "payment": "2024-08-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "1.000000000000000000000000000000",
+            "pv": "-3444.444444444444444444444444444444"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-08-02",
+            "amount": "4660.763888888888888888888888888889",
+            "discount_ratio": "1.000000000000000000000000000000",
+            "pv": "4660.763888888888888888888888888889"
+          }
+        ]
+      }
+    },
+    {
+      "id": "regular-eom/2024-08-05",
+      "source_case": "regular-eom",
+      "valuation_date": "2024-08-05",
+      "known_at": "2024-08-05T23:59:59Z",
+      "curves": [],
+      "fixings": [],
+      "expected": {
+        "pv": "0.000000000000000000000000000000",
+        "fixed_pv": "0.000000000000000000000000000000",
+        "floating_pv": "0.000000000000000000000000000000",
+        "fixed_accrued": "0.000000000000000000000000000000",
+        "floating_accrued": "0.000000000000000000000000000000",
+        "par": null,
+        "fixed": [],
+        "floating": []
+      }
+    },
+    {
+      "id": "regular-eom/2024-03-15/negative",
+      "source_case": "regular-eom",
+      "valuation_date": "2024-03-15",
+      "known_at": "2024-03-15T23:59:59Z",
+      "curves": [
+        {
+          "key": {
+            "id": "USD.OIS",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Discount",
+            "collateral_currency": "USD"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": -0.01,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": -0.01,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": -0.01,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "key": {
+            "id": "USD.TERM.PROJ",
+            "version": "v1"
+          },
+          "role": {
+            "kind": "Projection",
+            "index_id": "USD.TERM"
+          },
+          "currency": "USD",
+          "reference_date": "2023-10-01",
+          "time_basis": "Act365Fixed",
+          "representation": {
+            "ZeroRates": {
+              "compounding": "Continuous"
+            }
+          },
+          "interpolation": "Linear",
+          "extrapolation": "None",
+          "dependencies": [],
+          "calibration": "Direct",
+          "source": {
+            "Nodes": [
+              {
+                "pillar": {
+                  "Date": "2023-10-01"
+                },
+                "quote": {
+                  "value": -0.005,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2024-07-01"
+                },
+                "quote": {
+                  "value": -0.005,
+                  "unit": "DecimalRate"
+                }
+              },
+              {
+                "pillar": {
+                  "Date": "2026-01-01"
+                },
+                "quote": {
+                  "value": -0.005,
+                  "unit": "DecimalRate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "fixings": [
+        {
+          "index_id": "USD.TERM",
+          "observation_date": "2024-02-27",
+          "rate": "0.0425",
+          "published_at": "2024-02-27T08:00:00Z",
+          "known_at": "2024-02-27T08:00:00Z",
+          "revision": 1,
+          "status": "Final",
+          "source_id": "fixture"
+        }
+      ],
+      "expected": {
+        "pv": "-14128.249366472216917792648266879507",
+        "fixed_pv": "-17037.035416779675167636947537487071",
+        "floating_pv": "2908.786050307458249844299270607564",
+        "fixed_accrued": "-1666.666666666666666666666666666667",
+        "floating_accrued": "2255.208333333333333333333333333333",
+        "par": {
+          "fixed_rate": "0.006829324419769913996634774834",
+          "floating_spread": "0.034170675580230086003365225166",
+          "fixed_rate_shift": "-0.033170675580230086003365225166",
+          "floating_spread_shift": "0.033170675580230086003365225166",
+          "fixed_annuity": "425925.885419491879190923688437176773",
+          "floating_annuity": "425925.885419491879190923688437176773"
+        },
+        "fixed": [
+          {
+            "payment": "2024-04-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "1.000493272303721839352764802516",
+            "pv": "-3446.143493490597446659523208667469"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "1.001343367263944748060415984893",
+            "pv": "-3337.811224213149160201386616311292"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "1.002221642280366398602802464359",
+            "pv": "-3452.096767854595372965208488348463"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "-3333.333333333333333333333333333333",
+            "discount_ratio": "1.002990764809751808480941172996",
+            "pv": "-3343.302549365839361603137243321356"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-3444.444444444444444444444444444444",
+            "discount_ratio": "1.003842981829014336640942833147",
+            "pv": "-3457.681381855493826207691980838491"
+          }
+        ],
+        "floating": [
+          {
+            "payment": "2024-04-02",
+            "amount": "4660.763888888888888888888888888889",
+            "discount_ratio": "1.000493272303721839352764802516",
+            "pv": "4663.062914629464670011167341728169"
+          },
+          {
+            "payment": "2024-05-03",
+            "amount": "-430.259756748648010765699762156911",
+            "discount_ratio": "1.001343367263944748060415984893",
+            "pv": "-430.837753620856974893535813455514"
+          },
+          {
+            "payment": "2024-06-04",
+            "amount": "-444.598113886252717379913549427716",
+            "discount_ratio": "1.002221642280366398602802464359",
+            "pv": "-445.585851853833571655346190115111"
+          },
+          {
+            "payment": "2024-07-02",
+            "amount": "-430.259756748648010765699762156911",
+            "discount_ratio": "1.002990764809751808480941172996",
+            "pv": "-431.546562488184240428756989817351"
+          },
+          {
+            "payment": "2024-08-02",
+            "amount": "-444.598113886252717379913549427716",
+            "discount_ratio": "1.003842981829014336640942833147",
+            "pv": "-446.306696359131633189229077732630"
+          }
+        ]
+      }
+    }
+  ]
+}

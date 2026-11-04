@@ -1,0 +1,644 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "qualification": "Explicit synthetic CVX-062 legal/economic/calendar/source inputs; shapes reused from prior native terms, no original reference economics changed and no production certification.",
+  "calendar": "Weekend-only, no added holidays; every original calendar pin explicitly bound to this supplied synthetic resource.",
+  "bond": {
+    "schema_version": 1,
+    "currency": "USD",
+    "issue_date": "2024-01-02",
+    "face_value": "1000",
+    "schedule": {
+      "start_date": "2024-01-02",
+      "end_date": "2025-01-02",
+      "frequency": "SemiAnnual",
+      "stub_type": "None",
+      "end_of_month": false,
+      "first_regular_date": null,
+      "penultimate_date": null
+    },
+    "dates": {
+      "accrual_adjustment": "Unadjusted",
+      "payment_adjustment": "Unadjusted",
+      "payment_delay": {
+        "CalendarDays": 5
+      },
+      "fixing_offset": null,
+      "observation_offset": null,
+      "ex_coupon": null
+    },
+    "calendars": {
+      "payment": "WEEKEND",
+      "reset": "WEEKEND",
+      "observation": "WEEKEND",
+      "exercise": "WEEKEND"
+    },
+    "settlement_lag": {
+      "CalendarDays": 0
+    },
+    "settlement_adjustment": "Unadjusted",
+    "day_count": "Act365Fixed",
+    "profiles": {
+      "coupon": [
+        {
+          "start": "2024-01-02",
+          "end": "2024-04-02",
+          "value": "0.04"
+        },
+        {
+          "start": "2024-04-02",
+          "end": "2025-01-02",
+          "value": "0.06"
+        }
+      ],
+      "spread": [
+        {
+          "start": "2024-01-02",
+          "end": "2025-01-02",
+          "value": "0"
+        }
+      ],
+      "gearing": [
+        {
+          "start": "2024-01-02",
+          "end": "2025-01-02",
+          "value": "0"
+        }
+      ],
+      "notional": [
+        {
+          "start": "2024-01-02",
+          "end": "2024-07-02",
+          "value": "1000"
+        },
+        {
+          "start": "2024-07-02",
+          "end": "2025-01-02",
+          "value": "600"
+        }
+      ]
+    },
+    "coupon": {
+      "kind": "fixed"
+    },
+    "coupon_principal": "AccrualProfile",
+    "redemption_multiplier": "1",
+    "principal_prices": [],
+    "rounding": {
+      "NearestEven": 2
+    },
+    "negative_coupons": "Allow",
+    "ex_coupon_accrual": "SubtractCoupon",
+    "exercise": [
+      {
+        "right": "call",
+        "style": {
+          "style": "american",
+          "start": "2024-04-02",
+          "end": "2024-12-02"
+        },
+        "price_per_100": "101",
+        "notice_offset": {
+          "CalendarDays": -2
+        },
+        "settlement_lag": {
+          "CalendarDays": 3
+        },
+        "settlement_adjustment": "Following",
+        "accrued": "pay_accrued",
+        "protection_end": null
+      }
+    ]
+  },
+  "frn": {
+    "schema_version": 1,
+    "currency": "USD",
+    "issue_date": "2024-01-02",
+    "face_value": "1000",
+    "schedule": {
+      "start_date": "2024-01-02",
+      "end_date": "2024-07-02",
+      "frequency": "Quarterly",
+      "stub_type": "None",
+      "end_of_month": false,
+      "first_regular_date": null,
+      "penultimate_date": null
+    },
+    "dates": {
+      "accrual_adjustment": "Unadjusted",
+      "payment_adjustment": "Unadjusted",
+      "payment_delay": {
+        "CalendarDays": 5
+      },
+      "fixing_offset": null,
+      "observation_offset": null,
+      "ex_coupon": null
+    },
+    "calendars": {
+      "payment": "WEEKEND",
+      "reset": "WEEKEND",
+      "observation": "WEEKEND",
+      "exercise": "WEEKEND"
+    },
+    "settlement_lag": {
+      "CalendarDays": 0
+    },
+    "settlement_adjustment": "Unadjusted",
+    "day_count": "Act365Fixed",
+    "profiles": {
+      "coupon": [
+        {
+          "start": "2024-01-02",
+          "end": "2024-07-02",
+          "value": "0"
+        }
+      ],
+      "spread": [
+        {
+          "start": "2024-01-02",
+          "end": "2024-07-02",
+          "value": "0.001"
+        }
+      ],
+      "gearing": [
+        {
+          "start": "2024-01-02",
+          "end": "2024-07-02",
+          "value": "1"
+        }
+      ],
+      "notional": [
+        {
+          "start": "2024-01-02",
+          "end": "2024-07-02",
+          "value": "1000"
+        }
+      ]
+    },
+    "coupon": {
+      "kind": "term",
+      "index_id": "USD.TERM",
+      "resets": {
+        "start_date": "2024-01-02",
+        "end_date": "2024-07-02",
+        "frequency": "Monthly",
+        "stub_type": "None",
+        "end_of_month": false,
+        "first_regular_date": null,
+        "penultimate_date": null
+      },
+      "reset_adjustment": "Unadjusted",
+      "fixing_offset": {
+        "CalendarDays": 0
+      },
+      "projection_day_count": "Act360"
+    },
+    "coupon_principal": "AccrualProfile",
+    "redemption_multiplier": "1",
+    "principal_prices": [],
+    "rounding": {
+      "NearestEven": 2
+    },
+    "negative_coupons": "Allow",
+    "ex_coupon_accrual": "SubtractCoupon",
+    "exercise": [
+      {
+        "right": "call",
+        "style": {
+          "style": "american",
+          "start": "2024-02-02",
+          "end": "2024-06-02"
+        },
+        "price_per_100": "101",
+        "notice_offset": {
+          "CalendarDays": -2
+        },
+        "settlement_lag": {
+          "CalendarDays": 3
+        },
+        "settlement_adjustment": "Following",
+        "accrued": "pay_accrued",
+        "protection_end": null
+      }
+    ]
+  },
+  "irs": {
+    "schema_version": 1,
+    "trade_id": "lifecycle.synthetic.irs",
+    "version": 1,
+    "currency": "USD",
+    "side": "PayFixed",
+    "effective_date": "2024-01-31",
+    "maturity_date": "2024-03-31",
+    "fixed": {
+      "leg": {
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-03-31",
+          "frequency": "Monthly",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Following",
+          "payment_delay": {
+            "BusinessDays": 2
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "accrual": {
+            "id": "ACCRUAL",
+            "version": 1
+          },
+          "payment": {
+            "id": "PAYMENT",
+            "version": 1
+          }
+        },
+        "day_count": "Act360",
+        "notionals": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-02-29",
+            "value": "1000000"
+          },
+          {
+            "start": "2024-02-29",
+            "end": "2024-03-31",
+            "value": "500000"
+          }
+        ],
+        "rounding": {
+          "NearestEven": 2
+        },
+        "negative_coupons": "Allow"
+      },
+      "rates": [
+        {
+          "start": "2024-01-31",
+          "end": "2024-02-29",
+          "value": "0.04"
+        },
+        {
+          "start": "2024-02-29",
+          "end": "2024-03-31",
+          "value": "0.045"
+        }
+      ]
+    },
+    "floating": {
+      "kind": "term",
+      "leg": {
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-03-31",
+          "frequency": "Monthly",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Following",
+          "payment_delay": {
+            "BusinessDays": 2
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "accrual": {
+            "id": "ACCRUAL",
+            "version": 1
+          },
+          "payment": {
+            "id": "PAYMENT",
+            "version": 1
+          }
+        },
+        "day_count": "Act360",
+        "notionals": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-02-29",
+            "value": "1000000"
+          },
+          {
+            "start": "2024-02-29",
+            "end": "2024-03-31",
+            "value": "500000"
+          }
+        ],
+        "rounding": {
+          "NearestEven": 2
+        },
+        "negative_coupons": "Allow"
+      },
+      "resets": {
+        "index_id": "USD.TERM",
+        "tenor_months": 3,
+        "schedule": {
+          "start_date": "2024-01-31",
+          "end_date": "2024-03-31",
+          "frequency": "Monthly",
+          "stub_type": "None",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "reset_calendar": {
+          "id": "RESET",
+          "version": 1
+        },
+        "reset_adjustment": "Unadjusted",
+        "fixing_calendar": {
+          "id": "FIXING",
+          "version": 1
+        },
+        "fixing_offset": {
+          "BusinessDays": -2
+        },
+        "fixing_adjustment": "Preceding",
+        "rate_period": "ResetInterval",
+        "index_end_of_month": false,
+        "index_end_adjustment": "Unadjusted",
+        "projection_day_count": "Act360"
+      },
+      "profiles": {
+        "spreads": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-03-31",
+            "value": "0.001"
+          }
+        ],
+        "gearings": [
+          {
+            "start": "2024-01-31",
+            "end": "2024-03-31",
+            "value": "1.25"
+          }
+        ]
+      },
+      "projection_curve": {
+        "id": "USD.TERM.PROJ",
+        "version": "v1"
+      },
+      "fixing_policy": {
+        "unpublished": "Forecast",
+        "final_only": true
+      }
+    },
+    "collateral": {
+      "agreement": {
+        "id": "CSA.USD",
+        "version": 1
+      },
+      "currency": "USD",
+      "discount_curve": {
+        "id": "USD.OIS",
+        "version": "v1"
+      }
+    }
+  },
+  "ois": {
+    "schema_version": 1,
+    "trade_id": "lifecycle.synthetic.ois",
+    "version": 1,
+    "currency": "USD",
+    "side": "PayFixed",
+    "effective_date": "2024-04-04",
+    "maturity_date": "2024-04-11",
+    "fixed": {
+      "leg": {
+        "schedule": {
+          "start_date": "2024-04-04",
+          "end_date": "2024-04-11",
+          "frequency": "Monthly",
+          "stub_type": "ShortLast",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Following",
+          "payment_delay": {
+            "BusinessDays": 2
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "accrual": {
+            "id": "ACCRUAL",
+            "version": 1
+          },
+          "payment": {
+            "id": "PAYMENT",
+            "version": 1
+          }
+        },
+        "day_count": "Act360",
+        "notionals": [
+          {
+            "start": "2024-04-04",
+            "end": "2024-04-11",
+            "value": "1000000"
+          }
+        ],
+        "rounding": {
+          "NearestEven": 2
+        },
+        "negative_coupons": "Allow"
+      },
+      "rates": [
+        {
+          "start": "2024-04-04",
+          "end": "2024-04-11",
+          "value": "0.04"
+        }
+      ]
+    },
+    "floating": {
+      "kind": "overnight",
+      "leg": {
+        "schedule": {
+          "start_date": "2024-04-04",
+          "end_date": "2024-04-11",
+          "frequency": "Monthly",
+          "stub_type": "ShortLast",
+          "end_of_month": true,
+          "first_regular_date": null,
+          "penultimate_date": null
+        },
+        "dates": {
+          "accrual_adjustment": "Unadjusted",
+          "payment_adjustment": "Following",
+          "payment_delay": {
+            "BusinessDays": 2
+          },
+          "fixing_offset": null,
+          "observation_offset": null,
+          "ex_coupon": null
+        },
+        "calendars": {
+          "accrual": {
+            "id": "ACCRUAL",
+            "version": 1
+          },
+          "payment": {
+            "id": "PAYMENT",
+            "version": 1
+          }
+        },
+        "day_count": "Act360",
+        "notionals": [
+          {
+            "start": "2024-04-04",
+            "end": "2024-04-11",
+            "value": "1000000"
+          }
+        ],
+        "rounding": {
+          "NearestEven": 2
+        },
+        "negative_coupons": "Allow"
+      },
+      "profiles": {
+        "spreads": [
+          {
+            "start": "2024-04-04",
+            "end": "2024-04-11",
+            "value": "0.001"
+          }
+        ],
+        "gearings": [
+          {
+            "start": "2024-04-04",
+            "end": "2024-04-11",
+            "value": "1.25"
+          }
+        ]
+      },
+      "projection_curve": {
+        "id": "USD.TERM.PROJ",
+        "version": "v1"
+      },
+      "fixing_policy": {
+        "unpublished": "Forecast",
+        "final_only": true
+      },
+      "index_id": "USD.ON",
+      "observation_calendar": {
+        "id": "OBSERVATION",
+        "version": 1
+      },
+      "convention": {
+        "lookback_business_days": 2,
+        "observation_shift": true,
+        "lockout_business_days": 0
+      }
+    },
+    "collateral": {
+      "agreement": {
+        "id": "CSA.USD",
+        "version": 1
+      },
+      "currency": "USD",
+      "discount_curve": {
+        "id": "USD.OIS",
+        "version": "v1"
+      }
+    }
+  },
+  "cds": {
+    "trade_id": "lifecycle.synthetic.cds",
+    "version": 1,
+    "side": "ProtectionBuyer",
+    "currency": "USD",
+    "notional": "1000000",
+    "reference": {
+      "entity_id": "standalone.synthetic.reference-entity",
+      "seniority": "SeniorUnsecured",
+      "document": {
+        "id": "standalone.synthetic.confirmation",
+        "version": 1
+      },
+      "restructuring_clause": {
+        "id": "standalone.synthetic.no-restructuring",
+        "version": 1
+      },
+      "recovery_fraction": 0.4
+    },
+    "model": "Standard183",
+    "trade_date": "2024-06-19",
+    "step_in_date": "2024-06-20",
+    "protection_start_date": "2024-06-20",
+    "cash_settlement_date": "2024-06-24",
+    "settlement_lag_business_days": 3,
+    "premium_schedule": {
+      "start_date": "2024-06-19",
+      "end_date": "2025-03-20",
+      "frequency": "Quarterly",
+      "stub_type": "ShortFirst",
+      "end_of_month": false,
+      "first_regular_date": null,
+      "penultimate_date": null
+    },
+    "maturity_rule": "QuarterlyTwentieth",
+    "coupon_decimal": "0.01",
+    "premium_day_count": "Act360",
+    "pay_accrual_on_default": true,
+    "premium_calendar": {
+      "id": "standalone.synthetic.credit-calendar",
+      "version": 1
+    },
+    "settlement_calendar": {
+      "id": "standalone.synthetic.credit-calendar",
+      "version": 1
+    },
+    "discount_curve": {
+      "id": "standalone.cds.discount",
+      "version": "1"
+    },
+    "survival_curve": {
+      "id": "standalone.cds.survival",
+      "version": "1"
+    },
+    "initial_clean_upfront_fraction": "0.02"
+  },
+  "rates": {
+    "USD.TERM": {
+      "2024-01-29": "0.05",
+      "2024-02-27": "-0.005"
+    },
+    "USD.ON": {
+      "2024-04-02": "0.05",
+      "2024-04-03": "0.05",
+      "2024-04-04": "0.05",
+      "2024-04-05": "0.05",
+      "2024-04-08": "0.05"
+    }
+  },
+  "default": {
+    "date": "2024-07-02",
+    "accrual_day_fraction": "0.25",
+    "recovery": "0.4",
+    "cash_date": "2024-07-10"
+  },
+  "precision": {
+    "cash_decimal_places": 2,
+    "rounding": "NearestEven",
+    "comparison": "exact after declared contract rounding"
+  }
+}

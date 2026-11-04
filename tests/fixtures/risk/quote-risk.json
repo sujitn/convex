@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "certified": false,
+  "qualification": "Independent synthetic engineering reference. No human quantitative approval or market/model/host/library/production/latency certificate.",
+  "method": "Decimal60 full entitled stepped/amortizing cash, actual settlement-to-payment ACT365F semiannual cashflow yield, unrounded absolute PV, signed central and independent half-bump normalization.",
+  "tolerances": {
+    "pv_absolute": "0.00000001",
+    "risk_absolute": "0.00000001",
+    "integration_stability_absolute": "0.05",
+    "integration_stability_relative": "0.0001",
+    "bucket_parallel_absolute": "0.10",
+    "bucket_parallel_relative": "0.0001"
+  },
+  "source_reads": {
+    "tests/fixtures/curves/cash-curves.json": "e460ff72ef9865991f1f52f808a9147f157062f2169d35fd5370028b61388068",
+    "tests/scripts/cash_calibration_reference.py": "bc5708838af6ca86863e0194e6aaf35d640cb48e996ba4d607738b780c5d28e1"
+  },
+  "helper": {
+    "id": "positive.gov.1",
+    "quote_version": 1,
+    "pillar": "2027-10-07",
+    "terms": {
+      "schema_version": 1,
+      "currency": "USD",
+      "issue_date": "2026-04-07",
+      "face_value": "5000",
+      "schedule": {
+        "start_date": "2026-04-07",
+        "end_date": "2027-10-07",
+        "frequency": "SemiAnnual",
+        "stub_type": "ShortLast",
+        "end_of_month": false,
+        "first_regular_date": null,
+        "penultimate_date": null
+      },
+      "dates": {
+        "accrual_adjustment": "Unadjusted",
+        "payment_adjustment": "Following",
+        "payment_delay": {
+          "CalendarDays": 0
+        },
+        "fixing_offset": null,
+        "observation_offset": null,
+        "ex_coupon": null
+      },
+      "calendars": {
+        "payment": "CASH.SYNTHETIC.v1",
+        "reset": "CASH.SYNTHETIC.v1",
+        "observation": "CASH.SYNTHETIC.v1",
+        "exercise": "CASH.SYNTHETIC.v1"
+      },
+      "settlement_lag": {
+        "BusinessDays": 2
+      },
+      "settlement_adjustment": "Following",
+      "day_count": "Act360",
+      "profiles": {
+        "coupon": [
+          {
+            "start": "2026-04-07",
+            "end": "2027-01-07",
+            "value": ".035"
+          },
+          {
+            "start": "2027-01-07",
+            "end": "2027-10-07",
+            "value": ".045"
+          }
+        ],
+        "spread": [
+          {
+            "start": "2026-04-07",
+            "end": "2027-10-07",
+            "value": "0"
+          }
+        ],
+        "gearing": [
+          {
+            "start": "2026-04-07",
+            "end": "2027-10-07",
+            "value": "0"
+          }
+        ],
+        "notional": [
+          {
+            "start": "2026-04-07",
+            "end": "2027-04-07",
+            "value": "5000"
+          },
+          {
+            "start": "2027-04-07",
+            "end": "2027-10-07",
+            "value": "3000"
+          }
+        ]
+      },
+      "coupon": {
+        "kind": "fixed"
+      },
+      "coupon_principal": "AccrualProfile",
+      "redemption_multiplier": "1",
+      "principal_prices": [],
+      "rounding": "Unrounded",
+      "negative_coupons": "Allow",
+      "ex_coupon_accrual": "SubtractCoupon",
+      "exercise": []
+    },
+    "trade_date": "2026-10-07",
+    "settlement": "2026-10-13",
+    "on_payment": "Exclude",
+    "credit_identity": null,
+    "quote_kind": {
+      "kind": "CashflowYield",
+      "convention": {
+        "day_count": "Act365Fixed",
+        "compounding": "SemiAnnual",
+        "lower_yield": -0.9,
+        "upper_yield": 1.0,
+        "max_iterations": 256,
+        "price_tolerance": 1e-11
+      }
+    },
+    "quote": {
+      "value": 3.1,
+      "unit": "PercentRate"
+    },
+    "tolerance": 1e-08
+  },
+  "holidays": [
+    "2026-10-09",
+    "2026-10-12",
+    "2026-11-11",
+    "2027-01-01"
+  ],
+  "cases": [
+    {
+      "bump": "0.00005",
+      "base": "5047.20751670438225192721543292632688367291748414576893697955",
+      "plus": "5047.01420040589470392791311060808210560080640654387808943655",
+      "minus": "5047.4008459110872887813164164918888215958164290817287763954",
+      "half_plus": "5047.1108569416864157638474166401936128652229353691567290555",
+      "half_minus": "5047.30417969413245807456110717287590717839164964362397371045",
+      "value": "-0.38664550519258485340330588380671599501002253785068695885",
+      "half_value": "-0.3866455048920846214273810653645886263374285489344893099"
+    },
+    {
+      "bump": "0.0001",
+      "base": "5047.20751670438225192721543292632688367291748414576893697955",
+      "plus": "5046.82089701442271520275797153223140655621113403195787675125",
+      "minus": "5047.59418802721188677307644390479068017587237238562212214065",
+      "half_plus": "5047.01420040589470392791311060808210560080640654387808943655",
+      "half_minus": "5047.4008459110872887813164164918888215958164290817287763954",
+      "value": "-0.38664550639458578515923618627963680983061917683212269470",
+      "half_value": "-0.38664550519258485340330588380671599501002253785068695885"
+    },
+    {
+      "bump": "0.0002",
+      "base": "5047.20751670438225192721543292632688367291748414576893697955",
+      "plus": "5046.43432894771841064007035097768219429782675242231913137225",
+      "minus": "5047.9809109925287689353449694309023254762689126279099994002",
+      "half_plus": "5046.82089701442271520275797153223140655621113403195787675125",
+      "half_minus": "5047.59418802721188677307644390479068017587237238562212214065",
+      "value": "-0.3866455112025895738186546133050327946105400513977170069875",
+      "half_value": "-0.38664550639458578515923618627963680983061917683212269470"
+    }
+  ]
+}

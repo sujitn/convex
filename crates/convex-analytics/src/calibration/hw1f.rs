@@ -2,10 +2,11 @@
 //! mean reversion held fixed (industry standard for callable corporate OAS).
 
 use convex_bonds::options::swaption_hw1f::{
-    bachelier_atm_price, forward_annuity, forward_swap_rate, payer_swaption_hw1f,
+    bachelier_atm_price, forward_annuity, forward_swap_rate, try_payer_swaption_hw1f,
 };
 use convex_curves::{Compounding, RateCurveDyn};
-use convex_math::optimization::golden_section;
+use convex_math::optimization::golden_section_checked;
+use convex_math::portable;
 
 use crate::error::{AnalyticsError, AnalyticsResult};
 
@@ -38,15 +39,41 @@ pub fn calibrate_hw1f_sigma(
     a: f64,
     helpers: &[CoterminalSwaptionHelper],
 ) -> AnalyticsResult<Hw1fCalibration> {
-    if helpers.is_empty() {
+    if helpers.is_empty()
+        || helpers.len() > 128
+        || !a.is_finite()
+        || !(0.0..=10.0).contains(&a)
+        || helpers.iter().any(|h| {
+            !h.expiry_years.is_finite()
+                || !h.tail_years.is_finite()
+                || !h.atm_normal_vol_bps.is_finite()
+                || h.expiry_years <= 0.0
+                || h.tail_years.round() < 1.0
+                || h.expiry_years + h.tail_years > 150.0
+                || h.atm_normal_vol_bps <= 0.0
+                || h.atm_normal_vol_bps > 100_000.0
+        })
+    {
         return Err(AnalyticsError::InvalidInput(
-            "calibrate_hw1f_sigma: empty helper strip".into(),
+            "calibrate_hw1f_sigma: invalid or oversized helper strip".into(),
         ));
     }
 
-    let discount = |t: f64| {
-        let z = curve.zero_rate(t, Compounding::Continuous).unwrap_or(0.05);
-        (-z * t).exp()
+    let curve_error = std::cell::RefCell::new(None);
+    let discount = |t: f64| match curve.zero_rate(t, Compounding::Continuous) {
+        Ok(z) if z.is_finite() => {
+            let df = portable::exp(-z * t);
+            if df.is_finite() && df > 0.0 {
+                df
+            } else {
+                f64::NAN
+            }
+        }
+        Ok(_) => f64::NAN,
+        Err(error) => {
+            *curve_error.borrow_mut() = Some(AnalyticsError::from(error));
+            f64::NAN
+        }
     };
 
     // Pre-compute strikes, market values, and instantaneous forwards once —
@@ -64,15 +91,29 @@ pub fn calibrate_hw1f_sigma(
         .collect();
     let f0t: Vec<f64> = helpers
         .iter()
-        .map(|h| curve.instantaneous_forward(h.expiry_years).unwrap_or(0.04))
-        .collect();
+        .map(|h| curve.instantaneous_forward(h.expiry_years))
+        .collect::<Result<_, _>>()?;
+    if let Some(error) = curve_error.borrow_mut().take() {
+        return Err(error);
+    }
+    if strikes
+        .iter()
+        .chain(&market)
+        .chain(&f0t)
+        .any(|v| !v.is_finite())
+        || market.iter().any(|v| *v <= 0.0)
+    {
+        return Err(AnalyticsError::InvalidInput(
+            "HW1F strip has nonfinite values or zero market price".into(),
+        ));
+    }
 
     let ssr = |sigma: f64| -> f64 {
         helpers
             .iter()
             .enumerate()
             .map(|(i, h)| {
-                let model = payer_swaption_hw1f(
+                let model = try_payer_swaption_hw1f(
                     &discount,
                     a,
                     sigma,
@@ -80,16 +121,24 @@ pub fn calibrate_hw1f_sigma(
                     h.expiry_years,
                     h.tail_years,
                     strikes[i],
-                );
+                )
+                .unwrap_or(f64::NAN);
                 let res = (model - market[i]) / market[i];
                 res * res
             })
             .sum()
     };
 
-    let sigma = golden_section(ssr, 1e-5, 0.10, 1e-9, 200);
+    let result = golden_section_checked(ssr, 1e-5, 0.10, 1e-9, 200);
+    if let Some(error) = curve_error.into_inner() {
+        return Err(error);
+    }
+    let sigma = result?;
     Ok(Hw1fCalibration { a, sigma })
 }
+
+#[cfg(test)]
+use convex_bonds::options::swaption_hw1f::payer_swaption_hw1f;
 
 #[cfg(test)]
 mod tests {

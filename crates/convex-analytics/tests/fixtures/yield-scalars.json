@@ -1,0 +1,1645 @@
+{
+  "provenance": "Pre-candidate Fraction and Decimal110 arithmetic on explicitly supplied amounts, per100 quotes and actual positive faces. Native candidate output is never an input. Reporting Decimal retains binary64 rather than inventing a source decimal quote.",
+  "binary64_absolute_bound": "1e-14",
+  "decimal_absolute_bound": "1e-25",
+  "cases": [
+    {
+      "id": "yield_scalar.current_binary64.000",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 5.0,
+        "clean_price": 100.0
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.001",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "5",
+        "clean_price": "100"
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.002",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0.05",
+        "clean_price_per100": "100"
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.003",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "5",
+        "clean_price_per100": "100"
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.current_binary64.004",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 5.0,
+        "clean_price": 110.503
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.005",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "5",
+        "clean_price": "110.503"
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.006",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0.05",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.007",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "5",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.current_binary64.008",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 5.0,
+        "clean_price": 95.25
+      },
+      "expected": "0.052493438320209973753280839895013123359580052493438320209973753280839895013123359580052493438320209973753280840",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.009",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "5",
+        "clean_price": "95.25"
+      },
+      "expected": "0.052493438320209973753280839895013123359580052493438320209973753280839895013123359580052493438320209973753280840",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.010",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0.05",
+        "clean_price_per100": "95.25"
+      },
+      "expected": "5.2493438320209973753280839895013123359580052493438320209973753280839895013123359580052493438320209973753280840",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5.249343832020997375328084"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.011",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "5",
+        "clean_price_per100": "95.25"
+      },
+      "expected": "5.2493438320209973753280839895013123359580052493438320209973753280839895013123359580052493438320209973753280840",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5.249343832020997375328084"
+    },
+    {
+      "id": "yield_scalar.current_binary64.012",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 7.5,
+        "clean_price": 100.0
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.013",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "7.5",
+        "clean_price": "100"
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.014",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0.075",
+        "clean_price_per100": "100"
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.015",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "7.5",
+        "clean_price_per100": "100"
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.current_binary64.016",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 7.5,
+        "clean_price": 110.503
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.017",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "7.5",
+        "clean_price": "110.503"
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.018",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0.075",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.019",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "7.5",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.current_binary64.020",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 7.5,
+        "clean_price": 95.25
+      },
+      "expected": "0.078740157480314960629921259842519685039370078740157480314960629921259842519685039370078740157480314960629921260",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.021",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "7.5",
+        "clean_price": "95.25"
+      },
+      "expected": "0.078740157480314960629921259842519685039370078740157480314960629921259842519685039370078740157480314960629921260",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.022",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0.075",
+        "clean_price_per100": "95.25"
+      },
+      "expected": "7.8740157480314960629921259842519685039370078740157480314960629921259842519685039370078740157480314960629921260",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.874015748031496062992126"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.023",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "7.5",
+        "clean_price_per100": "95.25"
+      },
+      "expected": "7.8740157480314960629921259842519685039370078740157480314960629921259842519685039370078740157480314960629921260",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.874015748031496062992126"
+    },
+    {
+      "id": "yield_scalar.current_binary64.024",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 0.0,
+        "clean_price": 100.0
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.025",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "0",
+        "clean_price": "100"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.026",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0",
+        "clean_price_per100": "100"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.027",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "0",
+        "clean_price_per100": "100"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_binary64.028",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 0.0,
+        "clean_price": 110.503
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.029",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "0",
+        "clean_price": "110.503"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.030",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.031",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "0",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_binary64.032",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": 0.0,
+        "clean_price": 95.25
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.033",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "0",
+        "clean_price": "95.25"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.034",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "0",
+        "clean_price_per100": "95.25"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.035",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "0",
+        "clean_price_per100": "95.25"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.current_binary64.036",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": -1.0,
+        "clean_price": 100.0
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.037",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "-1",
+        "clean_price": "100"
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.038",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "-0.01",
+        "clean_price_per100": "100"
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.039",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "-1",
+        "clean_price_per100": "100"
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.current_binary64.040",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": -1.0,
+        "clean_price": 110.503
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.041",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "-1",
+        "clean_price": "110.503"
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.042",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "-0.01",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.043",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "-1",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.current_binary64.044",
+      "operation": {
+        "kind": "current_binary64",
+        "annual_coupon": -1.0,
+        "clean_price": 95.25
+      },
+      "expected": "-0.010498687664041994750656167979002624671916010498687664041994750656167979002624671916010498687664041994750656168",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_decimal_rate.045",
+      "operation": {
+        "kind": "current_decimal_rate",
+        "annual_coupon": "-1",
+        "clean_price": "95.25"
+      },
+      "expected": "-0.010498687664041994750656167979002624671916010498687664041994750656167979002624671916010498687664041994750656168",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_rate.046",
+      "operation": {
+        "kind": "current_percent_from_rate",
+        "annual_rate": "-0.01",
+        "clean_price_per100": "95.25"
+      },
+      "expected": "-1.0498687664041994750656167979002624671916010498687664041994750656167979002624671916010498687664041994750656168",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1.0498687664041994750656168"
+    },
+    {
+      "id": "yield_scalar.current_percent_from_amount.047",
+      "operation": {
+        "kind": "current_percent_from_amount",
+        "annual_coupon_per100": "-1",
+        "clean_price_per100": "95.25"
+      },
+      "expected": "-1.0498687664041994750656167979002624671916010498687664041994750656167979002624671916010498687664041994750656168",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1.0498687664041994750656168"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.048",
+      "operation": {
+        "kind": "simple_binary64",
+        "annual_coupon": 5.0,
+        "clean_price": 100.0,
+        "years_to_maturity": 5.0
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.049",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "5",
+        "clean_price": "100",
+        "par_value": "100",
+        "years_to_maturity": "5"
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.050",
+      "operation": {
+        "kind": "simple_binary64",
+        "annual_coupon": 5.0,
+        "clean_price": 95.0,
+        "years_to_maturity": 5.0
+      },
+      "expected": "0.063157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.051",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "5",
+        "clean_price": "95",
+        "par_value": "100",
+        "years_to_maturity": "5"
+      },
+      "expected": "6.3157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263157894736842105263",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.3157894736842105263157895"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.052",
+      "operation": {
+        "kind": "simple_binary64",
+        "annual_coupon": 5.0,
+        "clean_price": 102.0,
+        "years_to_maturity": 0.25
+      },
+      "expected": "-0.029411764705882352941176470588235294117647058823529411764705882352941176470588235294117647058823529411764705882",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.053",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "5",
+        "clean_price": "102",
+        "par_value": "100",
+        "years_to_maturity": "0.25"
+      },
+      "expected": "-2.9411764705882352941176470588235294117647058823529411764705882352941176470588235294117647058823529411764705882",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-2.9411764705882352941176471"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.054",
+      "operation": {
+        "kind": "simple_binary64",
+        "annual_coupon": -1.0,
+        "clean_price": 102.0,
+        "years_to_maturity": 0.25
+      },
+      "expected": "-0.088235294117647058823529411764705882352941176470588235294117647058823529411764705882352941176470588235294117647",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.055",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "-1",
+        "clean_price": "102",
+        "par_value": "100",
+        "years_to_maturity": "0.25"
+      },
+      "expected": "-8.8235294117647058823529411764705882352941176470588235294117647058823529411764705882352941176470588235294117647",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-8.8235294117647058823529412"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.056",
+      "operation": {
+        "kind": "simple_binary64",
+        "annual_coupon": 0.0,
+        "clean_price": 100.0,
+        "years_to_maturity": 5.0
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.057",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "0",
+        "clean_price": "100",
+        "par_value": "100",
+        "years_to_maturity": "5"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.058",
+      "operation": {
+        "kind": "simple_binary64",
+        "annual_coupon": 0.0,
+        "clean_price": 95.0,
+        "years_to_maturity": 2.5
+      },
+      "expected": "0.021052631578947368421052631578947368421052631578947368421052631578947368421052631578947368421052631578947368421",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.059",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "0",
+        "clean_price": "95",
+        "par_value": "100",
+        "years_to_maturity": "2.5"
+      },
+      "expected": "2.1052631578947368421052631578947368421052631578947368421052631578947368421052631578947368421052631578947368421",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "2.1052631578947368421052632"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.060",
+      "operation": {
+        "kind": "simple_binary64",
+        "annual_coupon": 7.5,
+        "clean_price": 110.503,
+        "years_to_maturity": 3.25
+      },
+      "expected": "0.038626170260605524806496725811133564769212670174635008168939374427008246904539312890217390547698322147884603203",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.061",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "7.5",
+        "clean_price": "110.503",
+        "par_value": "100",
+        "years_to_maturity": "3.25"
+      },
+      "expected": "3.8626170260605524806496725811133564769212670174635008168939374427008246904539312890217390547698322147884603203",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "3.8626170260605524806496726"
+    },
+    {
+      "id": "yield_scalar.simple_binary64.062",
+      "operation": {
+        "kind": "simple_binary64",
+        "annual_coupon": 1.0,
+        "clean_price": 200.0,
+        "years_to_maturity": 100.0
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.063",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "1",
+        "clean_price": "200",
+        "par_value": "100",
+        "years_to_maturity": "100"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.064",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.05",
+        "original_face": "100",
+        "clean_price_per100": "100"
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.065",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.05",
+        "original_face": "100",
+        "clean_price_per100": "100"
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.066",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.05",
+        "original_face": "100",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.067",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.05",
+        "original_face": "100",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.068",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.05",
+        "original_face": "5000",
+        "clean_price_per100": "100"
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.069",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.05",
+        "original_face": "5000",
+        "clean_price_per100": "100"
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.070",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.05",
+        "original_face": "5000",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.071",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.05",
+        "original_face": "5000",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.072",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.05",
+        "original_face": "1000.625",
+        "clean_price_per100": "100"
+      },
+      "expected": "0.05",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.073",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.05",
+        "original_face": "1000.625",
+        "clean_price_per100": "100"
+      },
+      "expected": "5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.074",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.05",
+        "original_face": "1000.625",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0.045247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.075",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.05",
+        "original_face": "1000.625",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "4.5247640335556500728487009402459661728640851379600553831117707211568916680995086106259558564020886310778892881",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "4.5247640335556500728487009"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.076",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.075",
+        "original_face": "100",
+        "clean_price_per100": "100"
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.077",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.075",
+        "original_face": "100",
+        "clean_price_per100": "100"
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.078",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.075",
+        "original_face": "100",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.079",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.075",
+        "original_face": "100",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.080",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.075",
+        "original_face": "5000",
+        "clean_price_per100": "100"
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.081",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.075",
+        "original_face": "5000",
+        "clean_price_per100": "100"
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.082",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.075",
+        "original_face": "5000",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.083",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.075",
+        "original_face": "5000",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.084",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.075",
+        "original_face": "1000.625",
+        "clean_price_per100": "100"
+      },
+      "expected": "0.075",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.085",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.075",
+        "original_face": "1000.625",
+        "clean_price_per100": "100"
+      },
+      "expected": "7.5",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "7.5"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.086",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0.075",
+        "original_face": "1000.625",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0.067871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.087",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0.075",
+        "original_face": "1000.625",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "6.7871460503334751092730514103689492592961277069400830746676560817353375021492629159389337846031329466168339321",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "6.7871460503334751092730514"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.088",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0",
+        "original_face": "100",
+        "clean_price_per100": "100"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.089",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0",
+        "original_face": "100",
+        "clean_price_per100": "100"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.090",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0",
+        "original_face": "100",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.091",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0",
+        "original_face": "100",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.092",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0",
+        "original_face": "5000",
+        "clean_price_per100": "100"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.093",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0",
+        "original_face": "5000",
+        "clean_price_per100": "100"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.094",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0",
+        "original_face": "5000",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.095",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0",
+        "original_face": "5000",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.096",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0",
+        "original_face": "1000.625",
+        "clean_price_per100": "100"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.097",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0",
+        "original_face": "1000.625",
+        "clean_price_per100": "100"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.098",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "0",
+        "original_face": "1000.625",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.099",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "0",
+        "original_face": "1000.625",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.100",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "-0.01",
+        "original_face": "100",
+        "clean_price_per100": "100"
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.101",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "-0.01",
+        "original_face": "100",
+        "clean_price_per100": "100"
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.102",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "-0.01",
+        "original_face": "100",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.103",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "-0.01",
+        "original_face": "100",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.104",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "-0.01",
+        "original_face": "5000",
+        "clean_price_per100": "100"
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.105",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "-0.01",
+        "original_face": "5000",
+        "clean_price_per100": "100"
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.106",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "-0.01",
+        "original_face": "5000",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.107",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "-0.01",
+        "original_face": "5000",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.108",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "-0.01",
+        "original_face": "1000.625",
+        "clean_price_per100": "100"
+      },
+      "expected": "-0.01",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.109",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "-0.01",
+        "original_face": "1000.625",
+        "clean_price_per100": "100"
+      },
+      "expected": "-1",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-1"
+    },
+    {
+      "id": "yield_scalar.fixed_current_decimal_rate.110",
+      "operation": {
+        "kind": "fixed_current_decimal_rate",
+        "annual_rate": "-0.01",
+        "original_face": "1000.625",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "-0.0090495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "decimal_rate",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.fixed_current_percent.111",
+      "operation": {
+        "kind": "fixed_current_percent",
+        "annual_rate": "-0.01",
+        "original_face": "1000.625",
+        "clean_price_per100": "110.503"
+      },
+      "expected": "-0.90495280671113001456974018804919323457281702759201107662235414423137833361990172212519117128041772621557785761",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25",
+      "expected_decimal": "-0.9049528067111300145697402"
+    },
+    {
+      "id": "yield_scalar.report_percent.112",
+      "operation": {
+        "kind": "report_percent",
+        "yield_value": 0.05
+      },
+      "expected": "5.000000000000000277555756156289135105907917022705078125",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.113",
+      "operation": {
+        "kind": "report_percent",
+        "yield_value": 0.075
+      },
+      "expected": "7.499999999999999722444243843710864894092082977294921875",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.114",
+      "operation": {
+        "kind": "report_percent",
+        "yield_value": 0.0
+      },
+      "expected": "0",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.115",
+      "operation": {
+        "kind": "report_percent",
+        "yield_value": -0.0125
+      },
+      "expected": "-1.25000000000000006938893903907228377647697925567626953125",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.116",
+      "operation": {
+        "kind": "report_percent",
+        "yield_value": 1.5
+      },
+      "expected": "150",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_percent.117",
+      "operation": {
+        "kind": "report_percent",
+        "yield_value": 1e+20
+      },
+      "expected": "10000000000000000000000",
+      "unit": "percent",
+      "representation": "binary64",
+      "absolute_bound": "1e-14"
+    },
+    {
+      "id": "yield_scalar.report_decimal.118",
+      "operation": {
+        "kind": "report_decimal",
+        "yield_value": 0.05
+      },
+      "expected": "0.05000000000000000277555756156289135105907917022705078125",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "0.0500000000000000027755575616"
+    },
+    {
+      "id": "yield_scalar.report_decimal.119",
+      "operation": {
+        "kind": "report_decimal",
+        "yield_value": 0.1
+      },
+      "expected": "0.1000000000000000055511151231257827021181583404541015625",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "0.1000000000000000055511151231"
+    },
+    {
+      "id": "yield_scalar.report_decimal.120",
+      "operation": {
+        "kind": "report_decimal",
+        "yield_value": 0.0
+      },
+      "expected": "0",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "0"
+    },
+    {
+      "id": "yield_scalar.report_decimal.121",
+      "operation": {
+        "kind": "report_decimal",
+        "yield_value": -0.125
+      },
+      "expected": "-0.125",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "-0.125"
+    },
+    {
+      "id": "yield_scalar.report_decimal.122",
+      "operation": {
+        "kind": "report_decimal",
+        "yield_value": 1.5
+      },
+      "expected": "1.5",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "1.5"
+    },
+    {
+      "id": "yield_scalar.report_decimal.123",
+      "operation": {
+        "kind": "report_decimal",
+        "yield_value": 1e-28
+      },
+      "expected": "9.9999999999999997123254346160061967703296936367536399994355443342760077484474359743593652183335507288575172424E-29",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "0.0000000000000000000000000001"
+    },
+    {
+      "id": "yield_scalar.report_decimal.124",
+      "operation": {
+        "kind": "report_decimal",
+        "yield_value": 1e+20
+      },
+      "expected": "100000000000000000000",
+      "unit": "decimal_rate",
+      "representation": "decimal",
+      "absolute_bound": "5e-28",
+      "expected_decimal": "100000000000000000000"
+    },
+    {
+      "id": "yield_scalar.simple_decimal_percent.non100_par",
+      "operation": {
+        "kind": "simple_decimal_percent",
+        "annual_coupon": "50",
+        "clean_price": "950",
+        "par_value": "1000",
+        "years_to_maturity": "2.5"
+      },
+      "expected": "7.3684210526315789473684210526315789473684210526315789473684210526315789473684210526315789473684210526315789474",
+      "expected_decimal": "7.3684210526315789473684211",
+      "unit": "percent",
+      "representation": "decimal",
+      "absolute_bound": "1e-25"
+    }
+  ],
+  "certified": false
+}

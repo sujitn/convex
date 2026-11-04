@@ -1,59 +1,72 @@
-//! Historical VaR calculation.
-
+//! Inverse empirical CDF of actual signed losses, with explicit IID time scaling.
 use super::{VaRMethod, VaRResult};
 use crate::error::{AnalyticsError, AnalyticsResult};
+#[cfg(test)]
 use rust_decimal::Decimal;
 
-/// Calculate historical VaR from a series of returns.
-///
-/// # Arguments
-///
-/// * `returns` - Historical returns (as decimals, e.g., -0.01 for -1%)
-/// * `portfolio_value` - Current portfolio value
-/// * `confidence_level` - Confidence level (e.g., 0.95 for 95%)
-/// * `horizon_days` - Time horizon in days
-///
-/// # Returns
-///
-/// VaR result
+/// Maximum observations admitted by one scalar historical calculation.
+pub const MAX_HISTORICAL_OBSERVATIONS: usize = 1_000_000;
+
+/// Nearest-rank signed loss quantile, rank=ceil(exact binary64 confidence*N).
+/// Loss=-signed_value*return. Gains retain their negative sign. Horizon scaling
+/// is sqrt(days), an explicit IID assumption rather than actual multi-day data.
 pub fn historical_var(
     returns: &[f64],
     portfolio_value: f64,
     confidence_level: f64,
     horizon_days: u32,
 ) -> AnalyticsResult<VaRResult> {
-    if returns.is_empty() {
+    super::admit(portfolio_value, confidence_level, horizon_days)?;
+    if returns.is_empty()
+        || returns.len() > MAX_HISTORICAL_OBSERVATIONS
+        || returns.iter().any(|r| !r.is_finite())
+    {
         return Err(AnalyticsError::InvalidInput(
-            "no returns provided".to_string(),
+            "1..1000000 finite historical returns required".into(),
         ));
     }
-
-    if confidence_level <= 0.0 || confidence_level >= 1.0 {
-        return Err(AnalyticsError::InvalidInput(
-            "confidence level must be between 0 and 1".to_string(),
-        ));
+    let mut losses = Vec::new();
+    losses.try_reserve_exact(returns.len()).map_err(|_| {
+        AnalyticsError::CalculationFailed("historical loss allocation failed".into())
+    })?;
+    for value in returns {
+        losses.push(super::product(&[-portfolio_value, *value])?);
     }
-
-    // Sort returns (ascending - worst returns first)
-    let mut sorted_returns = returns.to_vec();
-    sorted_returns.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-
-    // Find the VaR percentile
-    let var_index = ((1.0 - confidence_level) * sorted_returns.len() as f64).floor() as usize;
-    let var_return = sorted_returns[var_index];
-
-    // Scale for time horizon (assumes daily returns)
-    let scaled_return = var_return * (horizon_days as f64).sqrt();
-
-    // Calculate VaR in absolute terms
-    let var = (-scaled_return * portfolio_value).abs();
-
+    losses.sort_by(f64::total_cmp);
+    let rank = empirical_rank(confidence_level, returns.len());
+    let loss = rank
+        .checked_sub(1)
+        .and_then(|index| losses.get(index))
+        .ok_or_else(|| {
+            AnalyticsError::CalculationFailed("empirical rank outside supplied history".into())
+        })?;
+    let scaled = super::product(&[*loss, f64::from(horizon_days).sqrt()])?;
     Ok(VaRResult {
-        var: Decimal::from_f64_retain(var).unwrap_or(Decimal::ZERO),
+        var: crate::risk::cash::decimal(scaled)?,
         confidence_level,
         horizon_days,
         method: VaRMethod::Historical,
     })
+}
+
+// For an admitted 0<p<1, p=significand/2^shift. A53bit significand times
+// at most1million rows fits u128. Even subnormal p has rank1, without rounding
+// 1-p to1 or multiplying p*N into an ambiguous binary64 integer boundary.
+fn empirical_rank(probability: f64, count: usize) -> usize {
+    let bits = probability.to_bits();
+    let exponent = ((bits >> 52) & 0x7ff) as u32;
+    let fraction = bits & ((1_u64 << 52) - 1);
+    let (significand, shift) = if exponent == 0 {
+        (fraction, 1074)
+    } else {
+        (fraction | (1_u64 << 52), 1075 - exponent)
+    };
+    let numerator = u128::from(significand) * count as u128;
+    if shift >= 128 {
+        return 1;
+    }
+    let denominator = 1_u128 << shift;
+    numerator.div_ceil(denominator) as usize
 }
 
 #[cfg(test)]

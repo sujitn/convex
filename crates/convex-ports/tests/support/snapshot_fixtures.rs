@@ -1,0 +1,264 @@
+//! Fictional resolved fixtures; never production construction defaults.
+#![allow(dead_code)] // Suites use different subsets of these shared constructors.
+
+use convex_core::contracts::*;
+use convex_ports::{
+    fixing::*, quote_event::*, reference_data::BondReferenceData, reference_master::*,
+    reference_repository::ReferenceRecord, snapshot::*, storage::*,
+};
+use std::collections::BTreeMap;
+
+#[path = "reference_terms.rs"]
+pub mod reference_terms;
+
+pub fn time(value: &str) -> UtcTimestamp {
+    UtcTimestamp::parse(value).unwrap()
+}
+pub fn version(value: u64) -> Version {
+    Version::new(value).unwrap()
+}
+pub fn bond() -> BondReferenceData {
+    serde_json::from_str(include_str!("../fixtures/reference_bond.json")).unwrap()
+}
+pub fn config() -> BondPricingConfig {
+    serde_json::from_str(include_str!("../fixtures/pricing_config.json")).unwrap()
+}
+pub fn event(sequence: u64, source_ms: i64, receive_ms: i64, mid: &str) -> QuoteEvent {
+    QuoteEvent {
+        schema_version: 1,
+        key: QuoteKey {
+            instrument_id: bond().instrument_id,
+            source: "feed-a".into(),
+        },
+        session: "session-1".into(),
+        sequence,
+        source_time_ms: source_ms,
+        receive_time_ms: receive_ms,
+        quality: QuoteQuality::Live,
+        entitled: true,
+        entitlement_tags: vec!["fictional-research".into()],
+        evidence_reference: Some("fixture/quote".into()),
+        event: QuoteEventKind::Image {
+            fields: vec![QuoteChange {
+                field: QuoteField::MidPrice,
+                update: FieldUpdate::Set(QuoteValue {
+                    value: ExactDecimal::parse(mid).unwrap().decimal(),
+                    unit: QuoteUnit::PricePer100,
+                }),
+            }],
+        },
+    }
+}
+pub fn quote_requirement() -> QuoteRequirement {
+    QuoteRequirement {
+        key: QuoteKey {
+            instrument_id: bond().instrument_id,
+            source: "feed-a".into(),
+        },
+        fields: vec![QuoteField::MidPrice],
+        max_age_ms: 10_000,
+    }
+}
+pub fn fixing_key() -> FixingKey {
+    FixingKey {
+        index_id: IndexId::new("USD-SOFR").unwrap(),
+        observation_date: BusinessDate::parse("2026-10-01").unwrap(),
+        source: SourceId::new("administrator").unwrap(),
+    }
+}
+pub fn fixing(revision: u64, published: &str, recorded: &str, rate: &str) -> PublishedFixing {
+    PublishedFixing {
+        schema_version: 1,
+        key: fixing_key(),
+        version: version(revision),
+        rate: DecimalRate::new(ExactDecimal::parse(rate).unwrap()),
+        published_at: time(published),
+        recorded_at: time(recorded),
+        is_preliminary: false,
+        entitled: true,
+        evidence_reference: format!("fixture/fixing/{revision}"),
+    }
+}
+pub fn curve() -> SnapshotCurve {
+    SnapshotCurve {
+        curve_id: CurveId::new("USD-FIXTURE").unwrap(),
+        version: version(1),
+        reference_date: BusinessDate::parse("2026-10-02").unwrap(),
+        source_time: time("2026-10-02T15:00:00Z"),
+        recorded_at: time("2026-10-02T15:00:00Z"),
+        source: SourceId::new("supplied-fixture").unwrap(),
+        model_id: ModelId::new("supplied-zero-nodes-v1").unwrap(),
+        input_versions: vec![],
+        quality: DataQuality::Valid,
+        max_age_ms: 10_000,
+        interpolation: ZeroInterpolation::MonotoneConvex,
+        extrapolation: ZeroExtrapolation::FlatZero,
+        points: vec![1.0, 2.0, 5.0, 10.0]
+            .into_iter()
+            .map(|tenor| ZeroRatePoint {
+                tenor_years: FiniteF64::new(tenor).unwrap(),
+                continuous_zero: FiniteF64::new(0.04).unwrap(),
+            })
+            .collect(),
+    }
+}
+pub fn content() -> SnapshotContent {
+    let bond = bond();
+    let resources: Vec<_> = reference_terms::resources(&bond)
+        .into_iter()
+        .map(|change| MasterRecord {
+            schema_version: SchemaVersion::V2,
+            version: version(1),
+            recorded_at: time("2025-01-01T00:00:00Z"),
+            definition: change.definition,
+        })
+        .collect();
+    let as_of = time("2026-10-02T15:00:00Z");
+    let event = event(
+        1,
+        as_of.datetime().timestamp_millis(),
+        as_of.datetime().timestamp_millis(),
+        "99.25",
+    );
+    let fields = BTreeMap::from([(
+        QuoteField::MidPrice,
+        FieldObservation {
+            value: QuoteValue {
+                value: ExactDecimal::parse("99.25").unwrap().decimal(),
+                unit: QuoteUnit::PricePer100,
+            },
+            source_time_ms: event.source_time_ms,
+            receive_time_ms: event.receive_time_ms,
+            sequence: 1,
+        },
+    )]);
+    SnapshotContent {
+        schema_version: 1,
+        as_of,
+        known_at: as_of,
+        generation: version(1),
+        configuration: config(),
+        configuration_capture: None,
+        references: SnapshotReferences::new(vec![ResolvedBondReference {
+            record: ReferenceRecord {
+                schema_version: SchemaVersion::V2,
+                instrument_id: bond.instrument_id.clone(),
+                version: version(1),
+                recorded_at: time("2025-01-01T00:00:00Z"),
+                bond: Some(bond),
+            },
+            issuer: resources[0].clone(),
+            calendar: resources[1].clone(),
+            convention: resources[2].clone(),
+            floating: None,
+        }]),
+        quotes: vec![SnapshotQuote {
+            requirement: quote_requirement(),
+            delivery_watermark: Some(event.clone()),
+            image: Some(QuoteSnapshot {
+                watermark: event,
+                fields,
+                state: DataState::Live,
+            }),
+        }
+        .into()],
+        fixings: vec![],
+        required_curves: vec![curve().curve_id],
+        curves: vec![curve()],
+        curve_recipes: vec![],
+        calibration: None,
+        max_source_skew_ms: 1000,
+    }
+}
+pub fn snapshot() -> MarketSnapshot {
+    MarketSnapshot::new(content()).unwrap()
+}
+/// The fixture under schema 4, the sectioned identity assembly writes.
+pub fn sectioned_snapshot() -> MarketSnapshot {
+    let mut content = content();
+    content.schema_version = SNAPSHOT_SCHEMA;
+    MarketSnapshot::new(content).unwrap()
+}
+/// The identity is SHA-256 over the content's plain serialization (D68): the hash streams
+/// the references from their section's cached JSON, and this writes them record by record.
+pub fn assert_plain_identity(snapshot: &MarketSnapshot) {
+    let content = snapshot.content();
+    let domain: &[u8] = match content.schema_version {
+        1 => b"convex.snapshot.v1\0",
+        2 => b"convex.snapshot.v2\0",
+        3 => b"convex.snapshot.v3\0",
+        other => panic!("schema {other} is not hashed whole"),
+    };
+    let bytes = serde_json::to_vec(content).unwrap();
+    assert_eq!(
+        snapshot.id().as_str(),
+        format!("sha256:{}", content_digest(domain, &bytes))
+    );
+}
+/// Schema 4's id (P13b-ii), written from the content's plain serialization: the digest of
+/// the references, the quote count and each quote's digest, then the frame, which is the
+/// whole serialization with its `references` and `quotes` members cut out.
+pub fn assert_sectioned_identity(snapshot: &MarketSnapshot) {
+    let content = snapshot.content();
+    assert_eq!(content.schema_version, 4);
+    let digest = |domain: &[u8], bytes: &[u8]| -> Vec<u8> {
+        let hex = content_digest(domain, bytes);
+        (0..hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
+            .collect()
+    };
+    let references = serde_json::to_vec(&content.references).unwrap();
+    let mut hashed = digest(b"convex.snapshot.v4.references\0", &references);
+    hashed.extend((content.quotes.len() as u64).to_be_bytes());
+    for quote in &content.quotes {
+        let quote = serde_json::to_vec(quote).unwrap();
+        hashed.extend(digest(b"convex.snapshot.v4.quote\0", &quote));
+    }
+    let mut frame = String::from_utf8(serde_json::to_vec(content).unwrap()).unwrap();
+    let quotes = serde_json::to_vec(&content.quotes).unwrap();
+    for (name, json) in [("references", references), ("quotes", quotes)] {
+        let member = format!(",\"{name}\":{}", String::from_utf8(json).unwrap());
+        assert_eq!(frame.matches(&member).count(), 1, "{name}");
+        frame = frame.replacen(&member, "", 1);
+    }
+    hashed.extend(frame.as_bytes());
+    assert_eq!(
+        snapshot.id().as_str(),
+        format!(
+            "sha256:{}",
+            content_digest(b"convex.snapshot.v4\0", &hashed)
+        )
+    );
+}
+/// Add a copy of the fixture bond under `id`, its mid observed `age_ms` before `as_of`.
+pub fn add_bond(content: &mut SnapshotContent, id: &str, age_ms: i64) {
+    let mut reference = content.references[0].clone();
+    reference.record.instrument_id = convex_core::ids::InstrumentId::new(id);
+    if let Some(bond) = &mut reference.record.bond {
+        bond.instrument_id = reference.record.instrument_id.clone();
+    }
+    let mut quote = SnapshotQuote::clone(&content.quotes[0]);
+    quote.requirement.key.instrument_id = reference.record.instrument_id.clone();
+    let key = quote.requirement.key.clone();
+    let observed = content.as_of.datetime().timestamp_millis() - age_ms;
+    for event in quote
+        .delivery_watermark
+        .iter_mut()
+        .chain(quote.image.iter_mut().map(|image| &mut image.watermark))
+    {
+        event.key = key.clone();
+        event.source_time_ms = observed;
+        event.receive_time_ms = observed;
+    }
+    for field in quote
+        .image
+        .iter_mut()
+        .flat_map(|image| image.fields.values_mut())
+    {
+        field.source_time_ms = observed;
+        field.receive_time_ms = observed;
+    }
+    content.references.make_mut().push(reference);
+    content.quotes.push(quote.into());
+}

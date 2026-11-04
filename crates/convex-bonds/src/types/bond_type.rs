@@ -1,6 +1,6 @@
 //! Bond type classification.
 //!
-//! Provides a comprehensive enumeration of bond types for analytics dispatch.
+//! Provides an enumeration of bond types for analytics dispatch.
 
 use serde::{Deserialize, Serialize};
 

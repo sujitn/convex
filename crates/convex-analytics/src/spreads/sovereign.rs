@@ -9,6 +9,7 @@ use std::fmt;
 
 /// Supranational bond issuers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum SupranationalIssuer {
     /// European Investment Bank
     EIB,
@@ -83,6 +84,7 @@ impl fmt::Display for SupranationalIssuer {
 /// Represents the issuer of government bonds for use in government curve
 /// construction and G-spread calculations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Sovereign {
     // Americas
     /// US Treasury

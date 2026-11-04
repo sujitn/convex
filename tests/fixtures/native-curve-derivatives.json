@@ -1,0 +1,1931 @@
+{
+  "status": "predeclared_independent_reference_draft",
+  "recorded_at": "2026-10-16T22:56:51.710129+00:00",
+  "precision": 90,
+  "reference": "Differentiate ln accumulation analytically for a locally linear zero rate; discount curves use -Pprime/P. Exact binary64 inputs enter Decimal90; no finite difference or native output is used.",
+  "cases": [
+    {
+      "id": "instantaneous-zero-001",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-002",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.01125000000000000023418766925686895774560980498790740966796875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-003",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.020000000000000000416333634234433702658861875534057617187500",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-004",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "-0.01000000000000000020816681711721685132943093776702880859375",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-005",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "-0.01000000000000000020816681711721685132943093776702880859375",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-006",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "-0.01000000000000000020816681711721685132943093776702880859375",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-007",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-008",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00875000000000000018214596497756474491325207054615020751953125",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-009",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-010",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-011",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-012",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-013",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-014",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.00",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-015",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-016",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-017",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-018",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-019",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0.050000000000000002775557561562891351059079170227050781250000",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-020",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "0.04875000000000000274953670942323924464290030300617218017578125",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-021",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "0.040000000000000002567390744445674499729648232460021972656250",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-022",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0.05000000000000000277555756156289135105907917022705078125",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-023",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.05000000000000000277555756156289135105907917022705078125",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-024",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0.05000000000000000277555756156289135105907917022705078125",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-025",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0.050000000000000002775557561562891351059079170227050781250000",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-026",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.05125000000000000280157841370254345747525803744792938232421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-027",
+      "value_type": "zero_rate",
+      "compounding": "Continuous",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.060000000000000002983724378680108202388510107994079589843750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-028",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.01000000000000000020816681711721685132943093776702880859375",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-029",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.0112781954887218047466412087932804017641375374212448281042599718033690458449103775355152221",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-030",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.0204081632653061228824798357293145593874770854599568331354552630139356414596019601244576850",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-031",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "-0.01000000000000000020816681711721685132943093776702880859375",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-032",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "-0.0100250626566416042192366300384714682347889221522176249815644193807724851954758911426801974",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-033",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "-0.0102040816326530614412399178646572796937385427299784165677276315069678207298009800622288425",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-034",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.01000000000000000020816681711721685132943093776702880859375",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-035",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00877192982456140369183205128366253470544030688319042185886886695817592454604140474984517275",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-036",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-037",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-038",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-039",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-040",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-041",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-042",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-043",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-044",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-045",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-046",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0.05000000000000000277555756156289135105907917022705078125",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-047",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0481481481481481508307429335864479146229778810004128388833492480774740099267973638253493632",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-048",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0363636363636363657868472842687691144516910679131309490141329324774391104679218855851190539",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-049",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0.05000000000000000277555756156289135105907917022705078125",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-050",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.0493827160493827187568310309407871718647046620780827390267589493705237395673570870857064340",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-051",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0.0454545454545454568393037698866870554151371391073396789484084613092683844991166779574603242",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-052",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0.05000000000000000277555756156289135105907917022705078125",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-053",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0506172839506172866829191282951264291064314431557526391701686506635734692079168103460635048",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-054",
+      "value_type": "zero_rate",
+      "compounding": "Simple",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0545454545454545478917602555046049963785832103015484088826839901410976585303114703298015944",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-055",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100503358535014413938183697981606872484609726411791273912792484855928040391832558859196847",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-056",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.0113129621161277040466301768991219222465736745168472625757280242731947659097173212335198571",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-057",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.0201513459545115426163128266058505672333625876465242088668694547864084990034557786667210638",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-058",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "-0.0100503358535014413938183697981606872484609726411791273912792484855928040391832558859196847",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-059",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "-0.0100503358535014413938183697981606872484609726411791273912792484855928040391832558859196847",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-060",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "-0.0100503358535014413938183697981606872484609726411791273912792484855928040391832558859196847",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-061",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100503358535014413938183697981606872484609726411791273912792484855928040391832558859196847",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-062",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00878770959087517874100656269719945225034827076551099220683047269799084216864919053831951232",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-063",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0000506742475086598286760870095291927364406423641659540843109578152228909250892668948816944",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-064",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-065",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-066",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-067",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-068",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.00",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-069",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-070",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-071",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-072",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-073",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0487901641694320057087625580925849894562033605279920435897527470197402951815870311966909082",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-074",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0475996879789558152109372086189513409436294977816066240798607212301454413641361551722718977",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-075",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0392663546456224817261597623035158013556124585569086875106165407029814646419800230013388242",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-076",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0.0487901641694320057087625580925849894562033605279920435897527470197402951815870311966909082",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-077",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.0487901641694320057087625580925849894562033605279920435897527470197402951815870311966909082",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-078",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0.0487901641694320057087625580925849894562033605279920435897527470197402951815870311966909082",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-079",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0487901641694320057087625580925849894562033605279920435897527470197402951815870311966909082",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-080",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0499806403599081962065879075662186379687772232743774630996447728093351489990379072211099187",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-081",
+      "value_type": "zero_rate",
+      "compounding": "Annual",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0583139736932415296913653538816541775567942624990753996688889533364991257211940393920429922",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-082",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100250836470885642954003594415766193966315743366229368717687055425927118033789203518222833",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-083",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.0112813650541237402010803696833908224914027325890032531269071131009879212148739025747758787",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-084",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.0200753349033699715408404413760902441548008403556654669128759660097543870953387781354510462",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-085",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "-0.0100250836470885642954003594415766193966315743366229368717687055425927118033789203518222833",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-086",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "-0.0100250836470885642954003594415766193966315743366229368717687055425927118033789203518222833",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-087",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "-0.0100250836470885642954003594415766193966315743366229368717687055425927118033789203518222833",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-088",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100250836470885642954003594415766193966315743366229368717687055425927118033789203518222833",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-089",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00876880224005338838972034919976241630186041608424262061663029798419750239188393812886868794",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-090",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0000251676091928429500397224929370053615376916824195931693385549245689634885809374318064796",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-091",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-092",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-093",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-094",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-095",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.00",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-096",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-097",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-098",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-099",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-100",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0493852251807430047364763865444940006438594991463098972268352714567337994290107688368860980",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-101",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0481657129856210534932291289909743319243745040082932284875024738771219085129243587660495634",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-102",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0396291276197673947904983261163366508879795380421765473121728908198386721003194882701938210",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-103",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0.0493852251807430047364763865444940006438594991463098972268352714567337994290107688368860980",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-104",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.0493852251807430047364763865444940006438594991463098972268352714567337994290107688368860980",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-105",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0.0493852251807430047364763865444940006438594991463098972268352714567337994290107688368860980",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-106",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0493852251807430047364763865444940006438594991463098972268352714567337994290107688368860980",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-107",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0506047373758649559797236440980136693633444942843265659661680690363456903450971789077226326",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-108",
+      "value_type": "zero_rate",
+      "compounding": "SemiAnnual",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0591413227417186146824544469726513503997394602504432471414976520936289267577020494035783750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-109",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100125208724741216519754985894656088837528756833576287652246845089196778127058411076660122",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-110",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.0112656537045543221793800773442745424131014909523848318879202369315162384621403275005010369",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-111",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.0200375835291157258712121286279370771185417978355752537467891038896921630081817322503462096",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-112",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "-0.0100125208724741216519754985894656088837528756833576287652246845089196778127058411076660122",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-113",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "-0.0100125208724741216519754985894656088837528756833576287652246845089196778127058411076660122",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-114",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "-0.0100125208724741216519754985894656088837528756833576287652246845089196778127058411076660122",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-115",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100125208724741216519754985894656088837528756833576287652246845089196778127058411076660122",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-116",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00875938804039392112457091983465667535440426041433042564252913208632311716327135471483098752",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-117",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0000125417841674825672611314490058593510360464688599962163397348718528073827700500350141852",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-118",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-119",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-120",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-121",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-122",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.00",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-123",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-124",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-125",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-126",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-127",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0496900799942286159864639333523826395017896590470882686160431540614624320732003814288368612",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-128",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0484555120929940480603758359980433822600628779694183684726334527684127024326406581684797904",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-129",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0398135367843520725777591545176685815679754104257290674687655437170645949487225953459802950",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-130",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0.0496900799942286159864639333523826395017896590470882686160431540614624320732003814288368612",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-131",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.0496900799942286159864639333523826395017896590470882686160431540614624320732003814288368612",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-132",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0.0496900799942286159864639333523826395017896590470882686160431540614624320732003814288368612",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-133",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0496900799942286159864639333523826395017896590470882686160431540614624320732003814288368612",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-134",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0509246478954631839125520307067218967435164401247581687594528553545121617137601046891939320",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-135",
+      "value_type": "zero_rate",
+      "compounding": "Quarterly",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0595666232041051593951687121870966974356039076684474697633207644058602691976781675116934274",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-136",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100041689829292061255287425449872390695997517623253245321446237177541863202410268617114934",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-137",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.0112552115183754113225688302195916899846645800935932070614395713244478283219616485674309141",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-138",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.0200125092664988477018494439418228463901183784124683847665042045713033223340060005074668592",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-139",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "-0.0100041689829292061255287425449872390695997517623253245321446237177541863202410268617114934",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-140",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "-0.0100041689829292061255287425449872390695997517623253245321446237177541863202410268617114934",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-141",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "-0.0100041689829292061255287425449872390695997517623253245321446237177541863202410268617114934",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-142",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100041689829292061255287425449872390695997517623253245321446237177541863202410268617114934",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-143",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00875312644748300092848865487038278815453492343105744200284967611106054431852040515599207267",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-144",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0000041713006404354507919588518483682509188748878177357022149571357949496935239467840438724",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-145",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-146",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-147",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-148",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-149",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.00",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-150",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-151",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-152",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-153",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-154",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0498961217839643043817798779606120290514910082527758900016279383183806250174312127047930437",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-155",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0486513085059560056009670003863949789548570024313848541566915506020297739177817539741212501",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-156",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0399376155598979141352768573668756282784189616816476032421368365875738162202355428594186952",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-157",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0.0498961217839643043817798779606120290514910082527758900016279383183806250174312127047930437",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-158",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.0498961217839643043817798779606120290514910082527758900016279383183806250174312127047930437",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-159",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0.0498961217839643043817798779606120290514910082527758900016279383183806250174312127047930437",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-160",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0498961217839643043817798779606120290514910082527758900016279383183806250174312127047930437",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-161",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0511409350619726031625927555348290791481250140741669258465643260347314761170806714354648373",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-162",
+      "value_type": "zero_rate",
+      "compounding": "Monthly",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0598546280080306946282828985543484298245630548239041767611190400491874338146268825501673922",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-163",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100001369888034543856807000807036486537053328169438117215696014407478138756570399676287457",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-164",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.0112501712363170849221279212281970355125691928088365136571264063802366120482927777622993895",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-165",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.0200004109689124986772584692606507435246162127520854272060240409566581992567429423249938958",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-166",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "-0.0100001369888034543856807000807036486537053328169438117215696014407478138756570399676287457",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-167",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "-0.0100001369888034543856807000807036486537053328169438117215696014407478138756570399676287457",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-168",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "-0.0100001369888034543856807000807036486537053328169438117215696014407478138756570399676287457",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-169",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "-0.0100001369888034543856807000807036486537053328169438117215696014407478138756570399676287457",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-170",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00875010274128982384923347893321026179484147282505110978601279650125901570302130217295810193",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-171",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": -0.01,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "1.369913055899058970690992434462172055471181978037628848380751625715054288623897364044E-7",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-172",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-173",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "-0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-174",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "-0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-175",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-176",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.00",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-177",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-178",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0E-60",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-179",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.00125000000000000002602085213965210641617886722087860107421875",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-180",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.0,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.010000000000000000208166817117216851329430937767028808593750",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-181",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0499965756551877401655056421464531954535493682750958298802795515634842867629468283433812797",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-182",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0487467468646111068015989387928778636803521344590213878619501465556207442265742758265273077",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-183",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": -0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0399979453305746732542520153178505412679714977465002937336443115005759464719664082085495036",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-184",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.0,
+      "expected_decimal": "0.0499965756551877401655056421464531954535493682750958298802795515634842867629468283433812797",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-185",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 0.25,
+      "expected_decimal": "0.0499965756551877401655056421464531954535493682750958298802795515634842867629468283433812797",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-186",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0.0499965756551877401655056421464531954535493682750958298802795515634842867629468283433812797",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-187",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.0,
+      "expected_decimal": "0.0499965756551877401655056421464531954535493682750958298802795515634842867629468283433812797",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-188",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 0.25,
+      "expected_decimal": "0.0512464044457643735294123455000285272267466020911702718986089565713478292993193808602352517",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-zero-189",
+      "value_type": "zero_rate",
+      "compounding": "Daily",
+      "rate": 0.05,
+      "derivative": 0.005,
+      "time": 2.0,
+      "expected_decimal": "0.0599952059798008070767592689750558496391272388036913660269147916263926270539272484782130558",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-discount-190",
+      "value_type": "discount_factor",
+      "compounding": "Continuous",
+      "rate": 0.9,
+      "derivative": -0.05,
+      "time": 2.0,
+      "expected_decimal": "0.0555555555555555572688626923227723966552901459621398668311742270676956927592532560286757527",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-discount-191",
+      "value_type": "discount_factor",
+      "compounding": "Continuous",
+      "rate": 1.0,
+      "derivative": 0.0,
+      "time": 2.0,
+      "expected_decimal": "0",
+      "absolute_bound": "2e-14"
+    },
+    {
+      "id": "instantaneous-discount-192",
+      "value_type": "discount_factor",
+      "compounding": "Continuous",
+      "rate": 1.05,
+      "derivative": 0.025,
+      "time": 2.0,
+      "expected_decimal": "-0.0238095238095238098384985897463595503026149106959630642364584228905996965331538288236443698",
+      "absolute_bound": "2e-14"
+    }
+  ],
+  "native_results_consulted": false,
+  "public_source_changed": false,
+  "certified": false
+}

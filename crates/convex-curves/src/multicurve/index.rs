@@ -18,6 +18,7 @@ use std::fmt;
 ///
 /// Represents time periods like 1M, 3M, 6M, 1Y, 5Y, etc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum Tenor {
     /// 1 day (overnight)
     ON,

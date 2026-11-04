@@ -3,14 +3,17 @@
 //! This module provides:
 //!
 //! - **Binomial Tree**: Interest rate tree for backward induction pricing
-//! - **Short Rate Models**: Hull-White, Black-Derman-Toy for tree construction
+//! - **Short Rate Model**: Hull-White (other models are not implemented)
+//! - **Checked HW1F**: Explicit parameters, bounded moment lattice and analytic
+//!   dated-payment European options in [`hw1f`]
 //! - **OAS Support**: Option-adjusted spread calculation infrastructure
 //!
 //! # Overview
 //!
 //! Callable/puttable bonds require modeling interest rate uncertainty to value
 //! the embedded options. This module provides the lattice-based framework
-//! commonly used in production systems.
+//! used by the existing compatibility APIs. New supplied optional-bond workflows
+//! use the separately checked API and require scoped convergence/model evidence.
 //!
 //! # Example
 //!
@@ -28,6 +31,9 @@
 //! ```
 
 pub mod binomial_tree;
+/// Explicit normal/shifted-lognormal forward coupon option expectations.
+pub mod floating_coupon;
+pub mod hw1f;
 pub mod models;
 pub mod swaption_hw1f;
 pub mod trinomial_tree;
