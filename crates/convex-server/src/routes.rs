@@ -9,6 +9,7 @@ use convex_engine::PricingEngine;
 
 use crate::books;
 use crate::handlers::{self, AppState};
+use crate::limits;
 use crate::reference;
 use crate::websocket::{self, WebSocketState};
 
@@ -39,6 +40,7 @@ pub fn create_router_with_access(
         access: access.clone(),
         engine,
         ws_state: WebSocketState::new(),
+        limit_writes: Arc::new(tokio::sync::Mutex::new(())),
     });
 
     let router = Router::new()
@@ -319,6 +321,35 @@ pub fn create_router_with_access(
         .route(
             "/api/v1/books/:book_id/history",
             get(books::get_book_history),
+        )
+        // Book limits: two-subject changes (D85) and status on request
+        .route(
+            "/api/v1/books/:book_id/limits",
+            get(limits::get_limits).put(limits::put_limits),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/versions/:version",
+            get(limits::get_limits_version),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/history",
+            get(limits::get_limits_history),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/proposal",
+            get(limits::get_limit_proposal),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/proposal/approve",
+            post(limits::approve_limits),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/proposal/withdraw",
+            post(limits::withdraw_limits),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/status",
+            get(limits::get_limit_status),
         )
         // Portfolio alias over books (one release)
         .route(

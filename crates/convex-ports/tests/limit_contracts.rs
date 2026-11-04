@@ -189,3 +189,109 @@ fn statuses_order_by_severity_and_reasons_list_a_bounded_prefix() {
         json!({"code":"zero_net_value"})
     );
 }
+
+/// P14b (D82, D85): a limit set and a proposal are master records of their own kinds.
+#[test]
+fn limit_sets_and_proposals_have_their_own_keys_and_wire_forms() {
+    use convex_ports::limits::{LimitProposalDefinition, LimitSetDefinition};
+    use convex_ports::reference_master::{MasterDefinition, MasterKey, MasterKind};
+    let set = json!({
+        "book_id": "BOOK-A",
+        "limits": [{"limit_id": "face", "measure": {"kind": "face", "instrument": "each"}, "upper": "5"}],
+        "proposed_by": "access:aaaa",
+        "approved_by": "access:bbbb",
+        "proposal_version": 1,
+        "effective": {"from": "2026-11-04T00:00:00Z", "until": null},
+        "provenance": {"source": "limits-api", "evidence_reference": "limits-api:k"},
+    });
+    let parsed: LimitSetDefinition = serde_json::from_value(set.clone()).unwrap();
+    parsed.validate().unwrap();
+    let definition = MasterDefinition::LimitSet(Box::new(parsed));
+    let key = definition.key();
+    assert_eq!(key.storage_key(), "limit_set/BOOK-A");
+    assert_eq!(key.kind(), MasterKind::LimitSet);
+    assert_eq!(MasterKind::LimitProposal.prefix(), "limit_proposal");
+    let book = convex_core::contracts::ReferenceDataId::new("BOOK-A").unwrap();
+    assert_eq!(
+        MasterKey::LimitProposal(book.clone()).storage_key(),
+        "limit_proposal/BOOK-A"
+    );
+    assert_ne!(MasterKey::LimitSet(book.clone()), MasterKey::Book(book));
+    let wire = serde_json::to_value(&definition).unwrap();
+    assert_eq!(wire["kind"], "limit_set");
+    assert_eq!(wire["definition"], set);
+
+    let set_refused = |edit: &dyn Fn(&mut serde_json::Value)| {
+        let mut value = set.clone();
+        edit(&mut value);
+        let parsed: LimitSetDefinition = serde_json::from_value(value).unwrap();
+        assert!(matches!(
+            parsed.validate(),
+            Err(ReferenceError::InvalidInput(_))
+        ));
+    };
+    set_refused(&|v| v["proposed_by"] = json!(""));
+    set_refused(&|v| v["approved_by"] = json!("access: spaced"));
+    set_refused(&|v| v["approved_by"] = json!("a".repeat(129)));
+    set_refused(&|v| v["effective"]["until"] = json!("2026-11-05T00:00:00Z"));
+    set_refused(&|v| v["limits"][0]["upper"] = json!(null));
+    // D85: a set approved from a proposal names two subjects; one committed in one step
+    // names one.
+    set_refused(&|v| v["approved_by"] = json!("access:aaaa"));
+    set_refused(&|v| {
+        v.as_object_mut().unwrap().remove("proposal_version");
+    });
+    let mut one_step = set.clone();
+    one_step.as_object_mut().unwrap().remove("proposal_version");
+    one_step["approved_by"] = json!("access:aaaa");
+    serde_json::from_value::<LimitSetDefinition>(one_step)
+        .unwrap()
+        .validate()
+        .unwrap();
+
+    let proposal = json!({
+        "book_id": "BOOK-A",
+        "base_version": 1,
+        "limits": [],
+        "proposed_by": "access:aaaa",
+        "closed": {"outcome": "approved", "by": "access:bbbb", "limit_set_version": 2},
+        "effective": {"from": "2026-11-04T00:00:00Z", "until": "2026-11-04T00:00:01Z"},
+        "provenance": {"source": "limits-api", "evidence_reference": "limits-api:k"},
+    });
+    let parsed: LimitProposalDefinition = serde_json::from_value(proposal.clone()).unwrap();
+    parsed.validate().unwrap();
+    assert!(!parsed.is_open());
+    assert_eq!(serde_json::to_value(&parsed).unwrap(), proposal);
+    let proposal_refused = |edit: &dyn Fn(&mut serde_json::Value)| {
+        let mut value = proposal.clone();
+        edit(&mut value);
+        let parsed: LimitProposalDefinition = serde_json::from_value(value).unwrap();
+        assert!(matches!(
+            parsed.validate(),
+            Err(ReferenceError::InvalidInput(_))
+        ));
+    };
+    // A proposal ends exactly when it is closed.
+    proposal_refused(&|v| v["effective"]["until"] = json!(null));
+    proposal_refused(&|v| {
+        v.as_object_mut().unwrap().remove("closed");
+    });
+    proposal_refused(&|v| v["closed"] = json!({"outcome": "withdrawn", "by": ""}));
+    // Its proposer cannot approve it (D85), though it may withdraw it.
+    proposal_refused(&|v| v["closed"]["by"] = json!("access:aaaa"));
+    let mut withdrawn = proposal.clone();
+    withdrawn["closed"] = json!({"outcome": "withdrawn", "by": "access:aaaa"});
+    serde_json::from_value::<LimitProposalDefinition>(withdrawn)
+        .unwrap()
+        .validate()
+        .unwrap();
+    let mut open = proposal.clone();
+    open.as_object_mut().unwrap().remove("closed");
+    open["effective"]["until"] = json!(null);
+    let open: LimitProposalDefinition = serde_json::from_value(open).unwrap();
+    open.validate().unwrap();
+    assert!(open.is_open());
+    let mut unknown = proposal;
+    unknown["closed"]["note"] = json!("x");
+    assert!(serde_json::from_value::<LimitProposalDefinition>(unknown).is_err());
+}

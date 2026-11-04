@@ -37,6 +37,14 @@ async fn master_compare_and_set_race() {
 }
 
 #[tokio::test]
+async fn limit_sets_and_proposals_commit_together_and_list_by_kind() {
+    conformance::limit_sets_and_proposals_commit_together_and_list_by_kind(Arc::new(
+        MemoryReferenceRepository::default(),
+    ))
+    .await;
+}
+
+#[tokio::test]
 async fn books_page_in_order_and_version_with_compare_and_set() {
     conformance::books_page_in_order_and_version_with_compare_and_set(Arc::new(
         MemoryReferenceRepository::default(),

@@ -119,6 +119,14 @@ impl AccessContext {
         self.identity.as_ref()
     }
 }
+/// The subject a durable record names, as configuration and limits record an actor: the
+/// verified caller's pseudonymous audit identity (`access:` and its digest), or
+/// `local-development` where requests carry no subject.
+pub(crate) fn recorded_subject(ctx: &Option<axum::Extension<AccessContext>>) -> String {
+    ctx.as_ref()
+        .and_then(|axum::Extension(ctx)| ctx.subject_fingerprint())
+        .map_or_else(|| "local-development".to_owned(), |f| format!("access:{f}"))
+}
 struct SubjectUsage {
     window: Instant,
     count: u32,

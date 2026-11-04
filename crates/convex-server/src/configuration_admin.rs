@@ -400,9 +400,7 @@ fn expected_revision(headers: &HeaderMap) -> Result<u64, ConfigurationError> {
 
 /// The verified caller's pseudonymous audit identity; explicit local development has none.
 fn actor(ctx: &Option<Extension<AccessContext>>) -> String {
-    ctx.as_ref()
-        .and_then(|Extension(ctx)| ctx.subject_fingerprint())
-        .map_or_else(|| "local-development".to_owned(), |f| format!("access:{f}"))
+    crate::access::recorded_subject(ctx)
 }
 
 fn is_demo(profile: &Option<Extension<ServerProfile>>) -> bool {

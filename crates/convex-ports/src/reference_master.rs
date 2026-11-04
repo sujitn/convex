@@ -585,6 +585,10 @@ pub enum MasterKey {
     Book(BookId),
     /// Rate index publication rule and declared conventions.
     RateIndex(ReferenceDataId),
+    /// A book's approved limits (P14, D82).
+    LimitSet(BookId),
+    /// A proposed change to a book's limits, awaiting a second subject (D85).
+    LimitProposal(BookId),
 }
 
 /// The kind of a master resource, named as its storage-key prefix.
@@ -613,6 +617,10 @@ pub enum MasterKind {
     Book,
     /// Rate indices.
     RateIndex,
+    /// Book limit sets.
+    LimitSet,
+    /// Proposed book limit changes.
+    LimitProposal,
 }
 
 impl MasterKind {
@@ -630,6 +638,8 @@ impl MasterKind {
             Self::CashUniverse => "cash_universe",
             Self::Book => "book",
             Self::RateIndex => "rate_index",
+            Self::LimitSet => "limit_set",
+            Self::LimitProposal => "limit_proposal",
         }
     }
 }
@@ -649,6 +659,8 @@ impl MasterKey {
             Self::CashUniverse(_) => MasterKind::CashUniverse,
             Self::Book(_) => MasterKind::Book,
             Self::RateIndex(_) => MasterKind::RateIndex,
+            Self::LimitSet(_) => MasterKind::LimitSet,
+            Self::LimitProposal(_) => MasterKind::LimitProposal,
         }
     }
 
@@ -666,6 +678,8 @@ impl MasterKey {
             Self::CashUniverse(id) => format!("cash_universe/{}", id.as_str()),
             Self::Book(id) => format!("book/{}", id.as_str()),
             Self::RateIndex(id) => format!("rate_index/{}", id.as_str()),
+            Self::LimitSet(id) => format!("limit_set/{}", id.as_str()),
+            Self::LimitProposal(id) => format!("limit_proposal/{}", id.as_str()),
         }
     }
 }
@@ -701,6 +715,10 @@ pub enum MasterDefinition {
     Book(Box<BookDefinition>),
     /// Rate index publication rule and declared conventions.
     RateIndex(Box<RateIndexDefinition>),
+    /// A book's approved limits; written only through the book limit routes.
+    LimitSet(Box<crate::limits::LimitSetDefinition>),
+    /// A proposed change to a book's limits; written only through the book limit routes.
+    LimitProposal(Box<crate::limits::LimitProposalDefinition>),
 }
 
 impl MasterDefinition {
@@ -718,6 +736,8 @@ impl MasterDefinition {
             Self::CashUniverse(v) => MasterKey::CashUniverse(v.universe.stamp.id.clone()),
             Self::Book(v) => MasterKey::Book(v.book_id.clone()),
             Self::RateIndex(v) => MasterKey::RateIndex(v.rate_index_id.clone()),
+            Self::LimitSet(v) => MasterKey::LimitSet(v.book_id.clone()),
+            Self::LimitProposal(v) => MasterKey::LimitProposal(v.book_id.clone()),
         }
     }
     /// Economic validity.
@@ -734,6 +754,8 @@ impl MasterDefinition {
             Self::CashUniverse(v) => v.effective,
             Self::Book(v) => v.effective,
             Self::RateIndex(v) => v.effective,
+            Self::LimitSet(v) => v.effective,
+            Self::LimitProposal(v) => v.effective,
         }
     }
     /// Validate complete bounded fields, independently of backend state.
@@ -802,6 +824,14 @@ impl MasterDefinition {
                     ));
                 }
                 v.conventions.validate(Some(v.kind))?;
+                &v.provenance
+            }
+            Self::LimitSet(v) => {
+                v.validate()?;
+                &v.provenance
+            }
+            Self::LimitProposal(v) => {
+                v.validate()?;
                 &v.provenance
             }
         };

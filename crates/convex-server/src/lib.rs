@@ -32,6 +32,7 @@ mod curves;
 mod error;
 pub mod handlers;
 pub mod health;
+mod limits;
 pub mod market;
 mod reference;
 pub mod routes;

@@ -81,6 +81,8 @@ pub struct AppState {
     pub engine: Arc<PricingEngine>,
     /// WebSocket state for real-time streaming
     pub ws_state: WebSocketState,
+    /// Serializes limit set writes, so the D87 bound is counted and committed as one step.
+    pub(crate) limit_writes: Arc<tokio::sync::Mutex<()>>,
 }
 
 type PortfolioHandlerError = (StatusCode, Json<serde_json::Value>);

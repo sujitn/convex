@@ -11,7 +11,9 @@ use convex_core::contracts::{RequestId, UtcTimestamp, Version};
 use convex_core::ids::InstrumentId;
 use convex_core::Currency;
 use convex_engine::ports::reference_data::{BondReferenceData, BondType, IssuerType};
-use convex_engine::ports::reference_master::{ExternalIdentifier, MasterKind, ReferenceLookup};
+use convex_engine::ports::reference_master::{
+    ExternalIdentifier, MasterDefinition, MasterKind, ReferenceLookup,
+};
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::storage::{BondFilter, Pagination};
 use convex_ext_file::{parse_reference_import, preflight_reference_import, ReferenceImportError};
@@ -45,6 +47,9 @@ pub(crate) async fn commit_reference_transaction(
             "header/body idempotency keys differ",
         ));
     }
+    if crate::limits::writes_limits(&command.master_changes) {
+        return crate::limits::limits_route_required();
+    }
     let time = match now() {
         Ok(time) => time,
         Err(error) => return reference_error(error),
@@ -70,6 +75,9 @@ pub(crate) async fn import_reference(
         Ok(document) => document,
         Err(error) => return refused(error),
     };
+    if crate::limits::writes_limits(&document.command.master_changes) {
+        return crate::limits::limits_route_required();
+    }
     let repository = state.engine.reference_repository();
     if let Err(error) = preflight_reference_import(repository.as_ref(), &document).await {
         return refused(error);
@@ -92,7 +100,8 @@ pub(crate) struct MasterPage {
     limit: Option<usize>,
 }
 
-/// Current master resources of one kind in identity order. Books have their own listing.
+/// Current master resources of one kind in identity order. Books and their limits have
+/// their own routes.
 pub(crate) async fn list_masters(
     State(state): State<Arc<AppState>>,
     Path(kind): Path<String>,
@@ -102,10 +111,17 @@ pub(crate) async fn list_masters(
         return reference_error(ReferenceError::InvalidInput("invalid master page query"));
     };
     let kind = match serde_json::from_value::<MasterKind>(serde_json::Value::String(kind)) {
-        Ok(kind) if kind != MasterKind::Book => kind,
+        Ok(kind)
+            if !matches!(
+                kind,
+                MasterKind::Book | MasterKind::LimitSet | MasterKind::LimitProposal
+            ) =>
+        {
+            kind
+        }
         _ => {
             return reference_error(ReferenceError::InvalidInput(
-                "unknown master kind; books are listed under /api/v1/books",
+                "unknown master kind; books and their limits are read under /api/v1/books",
             ))
         }
     };
@@ -456,6 +472,17 @@ pub(crate) async fn get_reference_commit(
         Err(_) => return reference_error(ReferenceError::InvalidInput("invalid idempotency key")),
     };
     match state.engine.reference_repository().get_commit(&key).await {
+        // A limit commit is read through its book's limit routes, which check instruments.
+        Ok(Some(receipt))
+            if receipt.master_records.iter().any(|record| {
+                matches!(
+                    record.definition,
+                    MasterDefinition::LimitSet(_) | MasterDefinition::LimitProposal(_)
+                )
+            }) =>
+        {
+            crate::limits::limits_route_required()
+        }
         Ok(Some(receipt)) => Json(receipt).into_response(),
         Ok(None) => reference_error(ReferenceError::NotFound),
         Err(error) => reference_error(error),
