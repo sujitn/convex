@@ -65,7 +65,7 @@ near zero. For such a book, DV01, CS01 and gross value are the measures to bound
 
 The status is decided on exact state. A ratio (`modified_duration`, `group_share`) is
 compared as its numerator against `bound × denominator`. Only the reported values are
-rounded, half to even:
+rounded, half to even, and neither keeps trailing zeros:
 - `value` is rounded at Decimal precision.
 - `utilisation` is the value over each bound that faces away from zero, taking the
   larger. It is rounded at Decimal precision, then to eight places. It is for display.
@@ -74,6 +74,14 @@ rounded, half to even:
 worse of the two. Severity decides first (`within` < `warning` < `unknown` < `breach`),
 then utilisation, then the earlier member. `member` names the one kept. A limit on each
 member of a book that holds none is within, with no value.
+
+## On the server
+
+A book's limit set is stored, changed by two subjects and evaluated on request through
+`/api/v1/books/{book_id}/limits` (P14b); see [the server's guide](../convex-server/README.md#book-limits).
+The status route builds each `LimitPosition` from the accepted runtime result for the
+position, read through `runtime_bond_quote`, and from the priced bond version's
+classifications.
 
 ## Why a limit is unknown
 

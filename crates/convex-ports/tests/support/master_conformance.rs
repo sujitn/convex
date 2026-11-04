@@ -813,3 +813,180 @@ pub async fn books_page_in_order_and_version_with_compare_and_set(
         .unwrap()
         .is_none());
 }
+
+fn limits(upper: &str) -> Vec<convex_ports::limits::LimitDefinition> {
+    serde_json::from_value(serde_json::json!([
+        {"limit_id": "face", "measure": {"kind": "face", "instrument": "each"}, "upper": upper}
+    ]))
+    .unwrap()
+}
+
+fn proposal_change(
+    expected: Option<Version>,
+    upper: &str,
+    closed: Option<convex_ports::limits::LimitProposalClosure>,
+) -> MasterChange {
+    let from = time("2025-01-02T00:00:00Z");
+    MasterChange {
+        expected_version: expected,
+        definition: MasterDefinition::LimitProposal(Box::new(
+            convex_ports::limits::LimitProposalDefinition {
+                book_id: ReferenceDataId::new("B-L1").unwrap(),
+                base_version: None,
+                limits: limits(upper),
+                proposed_by: "access:proposer".into(),
+                effective: EffectiveInterval {
+                    from,
+                    until: closed.as_ref().map(|_| time("2025-01-03T00:00:00Z")),
+                },
+                closed,
+                provenance: ReferenceProvenance {
+                    source: SourceId::new("limits-api").unwrap(),
+                    evidence_reference: "limits-api:conformance".into(),
+                },
+            },
+        )),
+    }
+}
+
+fn set_change(expected: Option<Version>, upper: &str) -> MasterChange {
+    MasterChange {
+        expected_version: expected,
+        definition: MasterDefinition::LimitSet(Box::new(
+            convex_ports::limits::LimitSetDefinition {
+                book_id: ReferenceDataId::new("B-L1").unwrap(),
+                limits: limits(upper),
+                proposed_by: "access:proposer".into(),
+                approved_by: "access:approver".into(),
+                proposal_version: Some(version(1)),
+                effective: EffectiveInterval {
+                    from: time("2025-01-03T00:00:00Z"),
+                    until: None,
+                },
+                provenance: ReferenceProvenance {
+                    source: SourceId::new("limits-api").unwrap(),
+                    evidence_reference: "limits-api:conformance".into(),
+                },
+            },
+        )),
+    }
+}
+
+/// P14b (D82, D85): an approval commits the limit set and closes its proposal in one
+/// transaction, or neither; both kinds list on their own, never as books.
+pub async fn limit_sets_and_proposals_commit_together_and_list_by_kind(
+    repository: Arc<dyn ReferenceRepository>,
+) {
+    use convex_ports::limits::LimitProposalClosure;
+    let approved = || {
+        Some(LimitProposalClosure::Approved {
+            by: "access:approver".into(),
+            limit_set_version: version(1),
+        })
+    };
+    repository
+        .commit(
+            &command(
+                "limits-propose",
+                vec![],
+                vec![proposal_change(None, "5", None)],
+            ),
+            time("2025-01-02T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    let receipt = repository
+        .commit(
+            &command(
+                "limits-approve",
+                vec![],
+                vec![
+                    set_change(None, "5"),
+                    proposal_change(Some(version(1)), "5", approved()),
+                ],
+            ),
+            time("2025-01-03T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(receipt.master_records.len(), 2);
+    let id = || ReferenceDataId::new("B-L1").unwrap();
+
+    // A stale proposal expectation refuses the whole approval: the set does not move.
+    assert!(matches!(
+        repository
+            .commit(
+                &command(
+                    "limits-stale",
+                    vec![],
+                    vec![
+                        set_change(Some(version(1)), "6"),
+                        proposal_change(Some(version(1)), "6", approved()),
+                    ],
+                ),
+                time("2025-01-04T00:00:00Z"),
+            )
+            .await,
+        Err(ReferenceError::Conflict(_))
+    ));
+    let set = repository
+        .get_master(&MasterKey::LimitSet(id()))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(set.version, version(1));
+    let proposal = repository
+        .get_master(&MasterKey::LimitProposal(id()))
+        .await
+        .unwrap()
+        .unwrap();
+    let MasterDefinition::LimitProposal(closed) = &proposal.definition else {
+        panic!("not a proposal")
+    };
+    assert_eq!((proposal.version, closed.is_open()), (version(2), false));
+
+    let sets = repository
+        .list_masters(MasterKind::LimitSet, None, 10)
+        .await
+        .unwrap();
+    let proposals = repository
+        .list_masters(MasterKind::LimitProposal, None, 10)
+        .await
+        .unwrap();
+    assert_eq!(sets, vec![set]);
+    assert_eq!(proposals, vec![proposal]);
+    assert!(repository.list_books(None, 10).await.unwrap().is_empty());
+
+    // A proposal ends exactly when it closes; a set holds at most 64 limits.
+    let mut open_ended = proposal_change(Some(version(2)), "7", approved());
+    if let MasterDefinition::LimitProposal(p) = &mut open_ended.definition {
+        p.effective.until = None;
+    }
+    let mut oversized = set_change(Some(version(1)), "7");
+    if let MasterDefinition::LimitSet(s) = &mut oversized.definition {
+        s.limits = (0..65)
+            .map(|i| {
+                let mut limit = limits("7").remove(0);
+                limit.limit_id = ReferenceDataId::new(format!("face-{i}")).unwrap();
+                limit
+            })
+            .collect();
+    }
+    for (key, change) in [
+        ("limits-open-ended", open_ended),
+        ("limits-oversized", oversized),
+    ] {
+        assert!(
+            matches!(
+                repository
+                    .commit(
+                        &command(key, vec![], vec![change]),
+                        time("2025-01-05T00:00:00Z")
+                    )
+                    .await,
+                Err(ReferenceError::InvalidInput(_))
+            ),
+            "{key}"
+        );
+    }
+}

@@ -101,6 +101,7 @@ No token claim grants a local role, and no role grants data/resources implicitly
 | reference_writer | Reference mutations, curve construction/deletion and market input writes (fixings, live quotes) |
 | book_writer | Portfolio/position mutations |
 | operator | Runtime/dependency and configuration inspection; configuration staging, activation and rollback |
+| risk_manager | Book limit changes (`LimitWrite`): propose, approve and withdraw. Reading limits and their status needs `reader` or `analyst` |
 
 Combine roles deliberately. `reference_writer` does not automatically include `reader`; `operator` does not authorize a calculation or grant market data. The separate data classes are `reference`, `market`, `results`, `books`, `configuration`, `operations`. Resource namespaces are instrument, curve, book, ETF, source and configuration. v1 `portfolio_id` maps exactly to the book namespace; the present portfolio store remains volatile and does not establish authoritative financial books.
 
@@ -116,6 +117,9 @@ Combine roles deliberately. `reference_writer` does not automatically include `r
 | Live quote ingress | Instrument and source of every event; market data; `reference_writer` |
 | Portfolio/position operations | Book ID and every instrument in input/returned content; nested batches are checked before dispatch |
 | Portfolio analytics stream | Book plus whole underlying instrument/curve/source grants and market/results/books |
+| Book limit reads (set, version, proposal, status) | Book ID, books data and every instrument the book holds or a limit names, because a set or status names instruments in fields the response scan does not read; status also needs results data. History summaries need the book only |
+| Book limit writes (propose, approve, withdraw) | `risk_manager`, book ID, books data and every instrument a limit names. Under `required` access an approval needs a different subject from the proposer (D85), compared by subject fingerprint; under `local_development` a change commits in one step |
+| Reference transactions and imports naming a limit set or proposal | Refused with 403 `LIMITS_ROUTE_REQUIRED`, whatever the role; the master listing refuses both kinds too |
 | Configuration inspection | Operator, configuration ID and configuration/reference/market grants; returned dependency IDs are checked |
 | Configuration stage/activate/rollback | Operator (`ConfigurationWrite`), configuration ID and configuration/reference/market grants; every ID in the body is checked; bodies up to 4 MiB |
 | Configuration validate/diff, history, versions and version diff | Operator; history, versions and version diff also need the configuration ID; validate also needs reference/market grants |

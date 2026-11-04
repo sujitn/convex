@@ -53,7 +53,7 @@ const DEFAULT_CURRENCY: &str = "USD";
 // ERRORS
 // =============================================================================
 
-fn typed_error(status: StatusCode, code: &'static str, message: &str) -> Response {
+pub(crate) fn typed_error(status: StatusCode, code: &'static str, message: &str) -> Response {
     (
         status,
         Json(serde_json::json!({"error":message, "code":code, "retryable":false})),
@@ -93,11 +93,11 @@ fn rows_rejected(errors: &[RowError], truncated: bool) -> Response {
         .into_response()
 }
 
-fn book_id(raw: String) -> Result<BookId, ReferenceError> {
+pub(crate) fn book_id(raw: String) -> Result<BookId, ReferenceError> {
     BookId::new(raw).map_err(|_| ReferenceError::InvalidInput("invalid book identity"))
 }
 
-fn book_of(record: &MasterRecord) -> Result<&BookDefinition, ReferenceError> {
+pub(crate) fn book_of(record: &MasterRecord) -> Result<&BookDefinition, ReferenceError> {
     match &record.definition {
         MasterDefinition::Book(book) => Ok(book),
         _ => Err(ReferenceError::Unsupported("not a book resource")),
@@ -105,7 +105,7 @@ fn book_of(record: &MasterRecord) -> Result<&BookDefinition, ReferenceError> {
 }
 
 /// If-Match is optional on a snapshot: absent means create-only.
-fn optional_expected(headers: &HeaderMap) -> Result<Option<Version>, ReferenceError> {
+pub(crate) fn optional_expected(headers: &HeaderMap) -> Result<Option<Version>, ReferenceError> {
     if headers.get_all("if-match").iter().next().is_none() {
         return Ok(None);
     }
@@ -1645,7 +1645,7 @@ fn gate_runtime_results(
 /// Complete runtime results by instrument and priced version. `Valid` is always accepted;
 /// `Demo` only in an explicit demonstration composition, the switch that also lets the
 /// runtime value and serve Demo inputs.
-fn accepted_runtime_results(
+pub(crate) fn accepted_runtime_results(
     state: &AppState,
 ) -> BTreeMap<String, BTreeMap<u64, PublishedValuation>> {
     let demo = state

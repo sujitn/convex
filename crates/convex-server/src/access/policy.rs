@@ -27,6 +27,9 @@ pub enum Role {
     BookWriter,
     /// Inspect configuration and operations, and stage, activate and roll back configuration.
     Operator,
+    /// Propose, approve and withdraw changes to scoped books' limits (P14, D85). Reading
+    /// limits and their status needs `Reader` or `Analyst`, as other book reads do.
+    RiskManager,
 }
 /// Capabilities checked identically at HTTP, WS and future job admission.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +54,8 @@ pub enum Action {
     Operate,
     /// Stage, activate or roll back configuration.
     ConfigurationWrite,
+    /// Propose, approve or withdraw a change to a book's limits.
+    LimitWrite,
     /// Read a job.
     JobRead,
     /// Submit a job.
@@ -76,6 +81,7 @@ impl Action {
             Self::ReferenceWrite | Self::CurveWrite => roles.contains(&Role::ReferenceWriter),
             Self::BookWrite => roles.contains(&Role::BookWriter),
             Self::Operate | Self::ConfigurationWrite => roles.contains(&Role::Operator),
+            Self::LimitWrite => roles.contains(&Role::RiskManager),
         }
     }
 }

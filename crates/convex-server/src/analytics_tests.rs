@@ -35,6 +35,7 @@ fn cancelled_waiter_retains_both_admissions_until_blocking_work_finishes() {
                 access: access.clone(),
                 engine,
                 ws_state: WebSocketState::new(),
+                limit_writes: Arc::new(tokio::sync::Mutex::new(())),
             });
             // Occupy the sole blocking thread. The real calculation queues after
             // acquiring its permit, so cancellation is deterministic without sleeps.

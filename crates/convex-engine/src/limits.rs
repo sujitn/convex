@@ -149,7 +149,9 @@ impl Exact {
         } else {
             self.n.ratio(&self.d)
         };
-        value.map(ExactDecimal::new).map_err(|_| bound())
+        value
+            .map(|v| ExactDecimal::new(v.normalize()))
+            .map_err(|_| bound())
     }
 
     /// The value over `limit`, which faces away from zero.
@@ -247,7 +249,7 @@ fn known(limit: &LimitDefinition, found: Option<Candidate>) -> Judged<LimitEvalu
         status: found.status,
         value: Some(found.value.report()?),
         member: found.member,
-        utilisation: found.utilisation.map(ExactDecimal::new),
+        utilisation: found.utilisation.map(|u| ExactDecimal::new(u.normalize())),
         reason: None,
     })
 }

@@ -469,6 +469,54 @@ with 422:
 
 Other portfolio analytics routes take inline positions only.
 
+### Book limits
+
+A book's limits are one versioned limit set per book (`MasterKey::LimitSet`), in the same
+reference repository, with the same compare-and-set versions, history, idempotency receipts
+and backup as books. A set holds at most 64 limits; the measures, bounds, warning bands and
+statuses are described in [the engine's limits guide](../convex-engine/LIMITS.md).
+
+| Route | Result |
+| --- | --- |
+| `PUT /api/v1/books/{book_id}/limits` | Propose a complete set: 202 with the proposal. Under local development it commits at once: 201 on version 1, 200 on a replace |
+| `POST /api/v1/books/{book_id}/limits/proposal/approve` | A second subject commits the open proposal: 201 or 200 with the set |
+| `POST /api/v1/books/{book_id}/limits/proposal/withdraw` | Close the open proposal without committing it: 200 |
+| `GET /api/v1/books/{book_id}/limits` | The current set, pinned in `ETag` |
+| `GET /api/v1/books/{book_id}/limits/versions/{v}` | One immutable version |
+| `GET /api/v1/books/{book_id}/limits/history?from=&limit=` | Version summaries, oldest first, at most 500 per page |
+| `GET /api/v1/books/{book_id}/limits/proposal` | The latest proposal, open or closed, pinned in `ETag` |
+| `GET /api/v1/books/{book_id}/limits/status` | Each limit evaluated now against the current Live results |
+
+Every write needs `Idempotency-Key`, and the `risk_manager` role (see [access](ACCESS.md)).
+On `PUT`, `If-Match` names the limit set version the change replaces, and is absent only for
+a book's first set; the book must exist. A new proposal replaces an open one, and the
+proposal's history keeps every version. Approve and withdraw take the proposal version in
+`If-Match`. Approval commits the set and closes the proposal in one transaction. The set
+records who proposed and who approved it, as configuration records an actor: `access:` and
+the credential's digest. Under `access.mode = local_development` requests carry no subject,
+so a change commits in one step, recorded as `local-development`.
+
+| Code | When |
+|---|---|
+| 403 `LIMIT_SELF_APPROVAL` | The approver is the proposer |
+| 409 `VERSION_CONFLICT` | `If-Match` does not name the current set (on `PUT`) or the current proposal (on approve or withdraw), or the key was used with another body |
+| 409 `LIMIT_PROPOSAL_CLOSED` | The proposal was already approved or withdrawn |
+| 409 `LIMIT_SET_CHANGED` | The set moved after the proposal was made |
+| 409 `LIMITED_BOOKS_EXCEEDED` | 64 other books already hold a non-empty set (the monitor's bound, D87); an empty set takes no place |
+| 403 `LIMITS_ROUTE_REQUIRED` | A reference transaction or import names a limit set or proposal: only these routes write them |
+
+Status names the book and set versions, the time and the snapshots whose results it read.
+Each item carries the limit's measure and bounds beside its `status`, `value`, `member`,
+`utilisation` and, when `unknown`, its `reason`. It reads accepted runtime results as
+analytics by book do, but a missing input never refuses the request: a position without an
+accepted result, or with one that cannot be read as an analyzer quote, makes each limit that
+reads market data `unknown`, and a `face` limit still evaluates. With the configured
+measures of analytics by book, plus `cs01_mid` and the `krd_*_mid` tenors that limits read,
+status for a 256-position book with 64 limits over every measure took 4.1 ms per request
+against 3.8 ms for analytics by book (median, `ci` profile, WSL2 loopback). A runtime values
+at most 256 instruments, so a 1,000-position book has results for at most 256 of its
+positions.
+
 ## Reference schema and Rust migration
 
 The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. A complete earlier three-table repository adds the master tables atomically while retaining exact prior content and receipts. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
@@ -490,7 +538,7 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 ## Management routes and the admin app
 
 - `POST /api/v1/reference/import` takes a reference import file as the request body: the strict `{schema_version, command}` envelope, at most 8 MiB. It commits the one atomic transaction like `/api/v1/reference/transactions`. The file's idempotency key makes a re-upload return the retained receipt. A refusal carries the importer's `diagnostics` (section, row, field, code, line and column), never source values.
-- `GET /api/v1/reference/masters/:kind?after=&limit=` lists current master resources of one kind (`entity`, `calendar`, `convention`, `rate_index`, `identifier`, ...) in identity order. `limit` defaults to 100, `next` is the cursor for the following page, and books keep `/api/v1/books`.
+- `GET /api/v1/reference/masters/:kind?after=&limit=` lists current master resources of one kind (`entity`, `calendar`, `convention`, `rate_index`, `identifier`, ...) in identity order. `limit` defaults to 100, `next` is the cursor for the following page, and books and their limits keep `/api/v1/books`.
 - `admin_ui_dir` (`CONVEX_ADMIN_UI_DIR`) serves a built admin app at `/admin`, falling back to its `index.html`. The repository's app is [`admin/`](../../admin/README.md); build it with `npm run build` and point the setting at `admin/dist`. List the page's own origin (for example `https://convex.example.com`, or `http://127.0.0.1:8080` locally) in `access.cors_origins`: browsers send it on the page's script and on every write, and the origin guard admits listed origins only. Startup refuses `admin_ui_dir` with no listed origin. Startup refuses a directory without one. The files are public static assets outside the API access layer. They are sent with a policy that loads scripts only from the server and forbids framing, because the page holds a pasted bearer token in memory. Unset, nothing is served there.
 
 ## Metrics

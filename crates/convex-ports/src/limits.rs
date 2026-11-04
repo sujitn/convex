@@ -1,10 +1,16 @@
-//! Book limits (P14, D82–D84): what a limit bounds, and what its evaluation reports.
+//! Book limits (P14, D82–D85): what a limit bounds, how a book's set of them is changed,
+//! and what an evaluation reports.
 //!
 //! A limit names one measure of one book, the member it bounds where the measure has
 //! members (one instrument or group, or each of them), and a lower bound, an upper bound
 //! or both, in the measure's unit. Amounts are in the book's reporting currency; there is
 //! no FX. The evaluation lives in the engine (`convex_engine::limits`); these are the
 //! types a limit set stores and a status reports.
+//!
+//! A book's limits are one versioned [`LimitSetDefinition`] (`MasterKey::LimitSet`) in the
+//! reference repository. One subject proposes a change ([`LimitProposalDefinition`],
+//! `MasterKey::LimitProposal`); a different subject approves it, which commits the set and
+//! closes the proposal in one transaction (D85).
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -15,10 +21,11 @@
 
 use std::collections::BTreeSet;
 
-use convex_core::contracts::{ExactDecimal, FactorTenor, InstrumentId, ReferenceDataId};
+use convex_core::contracts::{ExactDecimal, FactorTenor, InstrumentId, ReferenceDataId, Version};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use crate::reference_master::{BookId, EffectiveInterval, ReferenceProvenance};
 use crate::reference_repository::ReferenceError;
 
 /// Limits in one book's set.
@@ -29,6 +36,8 @@ pub const MAX_GROUP_KEY_BYTES: usize = 128;
 pub const MAX_LISTED_INSTRUMENTS: usize = 16;
 /// Bytes of an analyzer refusal a reason keeps.
 pub const MAX_REASON_DETAIL_BYTES: usize = 256;
+/// Bytes of a recorded subject: `access:` and a credential digest, or `local-development`.
+pub const MAX_SUBJECT_BYTES: usize = 128;
 
 /// Identity of a limit, unique in its book's set.
 pub type LimitId = ReferenceDataId;
@@ -201,6 +210,122 @@ pub fn validate_limits(limits: &[LimitDefinition]) -> Result<(), ReferenceError>
     Ok(())
 }
 
+fn subject(text: &str) -> Result<(), ReferenceError> {
+    if text.is_empty()
+        || text.len() > MAX_SUBJECT_BYTES
+        || !text.bytes().all(|b| b.is_ascii_graphic())
+    {
+        return Err(invalid(
+            "a recorded subject is 1 to 128 printable ASCII bytes",
+        ));
+    }
+    Ok(())
+}
+
+/// A book's approved limits, one versioned record per book (D82). Each version names who
+/// proposed it and who approved it, as configuration records an actor: `access:` and the
+/// credential digest, or `local-development`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LimitSetDefinition {
+    /// The book the limits bound.
+    pub book_id: BookId,
+    /// The limits, at most [`MAX_BOOK_LIMITS`], with unique ids. An empty set has none.
+    pub limits: Vec<LimitDefinition>,
+    /// Who proposed this version.
+    pub proposed_by: String,
+    /// Who approved it: the proposer only where a change commits in one step (local
+    /// development, D85).
+    pub approved_by: String,
+    /// The proposal version approved; absent where a change commits in one step.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proposal_version: Option<Version>,
+    /// From the commit; a limit set is never retired, and an empty set clears it.
+    pub effective: EffectiveInterval,
+    /// The request that committed it.
+    pub provenance: ReferenceProvenance,
+}
+
+impl LimitSetDefinition {
+    /// Validate the set on its own: its limits and its recorded subjects.
+    pub fn validate(&self) -> Result<(), ReferenceError> {
+        validate_limits(&self.limits)?;
+        subject(&self.proposed_by)?;
+        subject(&self.approved_by)?;
+        if self.effective.until.is_some() {
+            return Err(invalid(
+                "a limit set is not retired; an empty set clears it",
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// How a proposal was closed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", rename_all = "snake_case", deny_unknown_fields)]
+pub enum LimitProposalClosure {
+    /// A second subject approved it, committing this limit set version.
+    Approved {
+        /// The approver.
+        by: String,
+        /// The limit set version the approval committed.
+        limit_set_version: Version,
+    },
+    /// Closed without committing, by its proposer or another subject.
+    Withdrawn {
+        /// Who closed it.
+        by: String,
+    },
+}
+
+/// A proposed change to a book's limit set, one versioned record per book (D85). A new
+/// proposal replaces an open one; the history keeps every version.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LimitProposalDefinition {
+    /// The book whose limits would change.
+    pub book_id: BookId,
+    /// The limit set version the change replaces; absent proposes the book's first set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_version: Option<Version>,
+    /// The complete proposed limits.
+    pub limits: Vec<LimitDefinition>,
+    /// Who proposed it.
+    pub proposed_by: String,
+    /// How it was closed; absent while open.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub closed: Option<LimitProposalClosure>,
+    /// From the proposal; it ends when the proposal closes.
+    pub effective: EffectiveInterval,
+    /// The request that wrote this version.
+    pub provenance: ReferenceProvenance,
+}
+
+impl LimitProposalDefinition {
+    /// Validate the proposal on its own: its limits, its subjects, and that it ends
+    /// exactly when it is closed.
+    pub fn validate(&self) -> Result<(), ReferenceError> {
+        validate_limits(&self.limits)?;
+        subject(&self.proposed_by)?;
+        match &self.closed {
+            Some(LimitProposalClosure::Approved { by, .. })
+            | Some(LimitProposalClosure::Withdrawn { by }) => subject(by)?,
+            None => {}
+        }
+        if self.closed.is_some() != self.effective.until.is_some() {
+            return Err(invalid("a proposal ends exactly when it is closed"));
+        }
+        Ok(())
+    }
+
+    /// Whether the proposal awaits approval.
+    #[must_use]
+    pub fn is_open(&self) -> bool {
+        self.closed.is_none()
+    }
+}
+
 /// A limit's status, ordered by severity: `within` < `warning` < `unknown` < `breach`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -305,9 +430,9 @@ pub struct LimitEvaluation {
     pub limit_id: LimitId,
     /// Its status.
     pub status: LimitStatus,
-    /// The measured value, rounded half to even at Decimal precision; absent when
-    /// unknown, or when a limit on each member finds none. The status reads the exact
-    /// value, not this one.
+    /// The measured value, rounded half to even at Decimal precision, without trailing
+    /// zeros; absent when unknown, or when a limit on each member finds none. The status
+    /// reads the exact value, not this one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<ExactDecimal>,
     /// For a limit on each member, the member whose value set the status.
@@ -315,7 +440,8 @@ pub struct LimitEvaluation {
     pub member: Option<String>,
     /// The value over each bound that faces away from zero (an upper bound above 0, a
     /// lower bound below 0), the larger of the two. It is rounded half to even at Decimal
-    /// precision, then to eight places, so it is for display: the status never reads it.
+    /// precision, then to eight places, without trailing zeros, so it is for display: the
+    /// status never reads it.
     /// Absent when no bound faces away from zero.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub utilisation: Option<ExactDecimal>,
