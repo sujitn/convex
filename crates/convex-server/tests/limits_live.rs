@@ -2,7 +2,8 @@
 //! composition, fed by posted quote images. Status reads the same accepted results that
 //! analytics by book read, names the snapshots it read, and reports each reason a result
 //! leaves a limit unknown. `status_route_time_at_the_bounds` is the slice's measurement
-//! (`--ignored --nocapture`).
+//! (`--ignored --nocapture`). A pre-trade check (P14d) equals the status of the book with
+//! its changes committed.
 #[path = "support/live_server.rs"]
 mod live_server;
 #[path = "../../convex-engine/tests/support/runtime_setup.rs"]
@@ -1027,5 +1028,402 @@ async fn monitor_time_per_tick_at_the_bounds() {
             count - before_count
         );
     }
+    server.stop().await;
+}
+
+// =============================================================================
+// THE PRE-TRADE CHECK (P14d)
+// =============================================================================
+
+/// splitmix64: a small deterministic generator, so a failing case can be replayed.
+struct Draws(u64);
+
+impl Draws {
+    fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+
+    fn below(&mut self, n: usize) -> usize {
+        (self.next() % n as u64) as usize
+    }
+
+    /// A nonzero amount, a multiple of 25,000, sometimes with cents, either sign.
+    fn amount(&mut self) -> rust_decimal::Decimal {
+        let whole = rust_decimal::Decimal::from(25_000 * (1 + self.below(40) as i64));
+        let cents = if self.below(4) == 0 {
+            rust_decimal::Decimal::new(25, 2)
+        } else {
+            rust_decimal::Decimal::ZERO
+        };
+        let amount = whole + cents;
+        if self.below(2) == 0 {
+            -amount
+        } else {
+            amount
+        }
+    }
+}
+
+/// One position as the test's own reading of D89 keeps it.
+#[derive(Clone, Debug)]
+struct Held {
+    id: String,
+    quantity: rust_decimal::Decimal,
+    pin: Option<u64>,
+    rating: Option<&'static str>,
+}
+
+/// One proposed change: the instrument, the signed amount, the rating a new position takes.
+type Change = (String, rust_decimal::Decimal, Option<&'static str>);
+
+/// `held` with `changes` applied as D89 says, read independently of the server: each change
+/// is added to the held position, a position a change brings to exactly zero is dropped,
+/// and a new instrument follows the held positions in change order.
+fn apply(held: &[Held], changes: &[Change]) -> Vec<Held> {
+    let mut book: Vec<(Held, bool)> = held.iter().cloned().map(|p| (p, false)).collect();
+    let mut added = Vec::new();
+    for (id, amount, rating) in changes {
+        match book.iter_mut().find(|(p, _)| &p.id == id) {
+            Some((p, changed)) => {
+                p.quantity += amount;
+                *changed = true;
+            }
+            None => added.push(Held {
+                id: id.clone(),
+                quantity: *amount,
+                pin: None,
+                rating: *rating,
+            }),
+        }
+    }
+    book.into_iter()
+        .filter(|(p, changed)| !(*changed && p.quantity.is_zero()))
+        .map(|(p, _)| p)
+        .chain(added.into_iter().filter(|p| !p.quantity.is_zero()))
+        .collect()
+}
+
+fn snapshot(positions: &[Held]) -> Value {
+    let positions: Vec<Value> = positions
+        .iter()
+        .map(|p| {
+            let mut row = json!({"instrument_id": p.id, "quantity": p.quantity.to_string()});
+            if let Some(pin) = p.pin {
+                row["reference_version"] = json!(pin);
+            }
+            if let Some(rating) = p.rating {
+                row["rating"] = json!(rating);
+            }
+            row
+        })
+        .collect();
+    json!({"currency": "USD", "positions": positions})
+}
+
+/// Replace the book `id` at `version`; returns the version committed.
+async fn replace_book(server: &Running, id: &str, key: &str, version: u64, body: Value) -> u64 {
+    let response = server
+        .client
+        .put(format!("{}/api/v1/books/{id}", server.base))
+        .header("idempotency-key", key)
+        .header("if-match", version.to_string())
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    let status = response.status();
+    let body: Value = response.json().await.unwrap();
+    assert_eq!(status, StatusCode::OK, "{body}");
+    body["version"].as_u64().unwrap()
+}
+
+/// Map ISIN `value` to `instrument`.
+async fn map_isin(server: &Running, value: &str, instrument: &str) {
+    let key = format!("map-{value}");
+    let (status, body) = send(
+        server,
+        reqwest::Method::POST,
+        "/api/v1/reference/transactions",
+        Some(&key),
+        Some(json!({
+            "idempotency_key": key,
+            "changes": [],
+            "master_changes": [{
+                "expected_version": null,
+                "definition": {"kind": "identifier", "definition": {
+                    "mapping_id": format!("isin-{value}"),
+                    "identifier": {"kind": "isin", "value": value},
+                    "target": {"kind": "instrument", "instrument_id": instrument},
+                    "effective": {"from": "2000-01-01T00:00:00Z", "until": null},
+                    "provenance": {"source": "fictional-fixture", "evidence_reference": "test"}
+                }}
+            }]
+        })),
+    )
+    .await;
+    assert!(status.is_success(), "{status}: {body}");
+}
+
+/// D88's property: a check of changes equals the status of the book with those changes
+/// committed. Each case draws up to 16 changes among adding to a held position, selling it
+/// to exactly zero, flipping its sign, a new priced instrument and a new one outside the
+/// plan, some named by ISIN. The held `BOND-W002` has no rating, so a check that kept it
+/// at zero would leave the rating limits unknown where the committed book's are not. It checks, commits the book as `apply` reads D89, reads
+/// status, compares, and restores the book. No quote is posted meanwhile, so both read the
+/// same results.
+#[tokio::test]
+async fn a_check_equals_the_status_of_the_book_with_its_changes_committed() {
+    const CASES: u64 = 64;
+    const PRICED: usize = 12;
+    let (dir, live, instruments) = live(PRICED, 6, &MEASURES).await;
+    let server = started(&dir, live).await;
+    let isins = BTreeMap::from([
+        ("BOND-W002", "CHECK-W002"),
+        ("BOND-W005", "CHECK-W005"),
+        ("BOND-W014", "CHECK-W014"),
+    ]);
+    for (instrument, isin) in &isins {
+        map_isin(&server, isin, instrument).await;
+    }
+    let original = vec![
+        Held {
+            id: "BOND-001".into(),
+            quantity: "1000000".parse().unwrap(),
+            pin: None,
+            rating: Some("A"),
+        },
+        Held {
+            id: "BOND-W001".into(),
+            quantity: "-400000".parse().unwrap(),
+            pin: None,
+            rating: Some("BBB"),
+        },
+        Held {
+            id: "BOND-W002".into(),
+            quantity: "250000".parse().unwrap(),
+            pin: Some(1),
+            rating: None,
+        },
+        Held {
+            id: "BOND-W003".into(),
+            quantity: "600000".parse().unwrap(),
+            pin: None,
+            rating: Some("AA"),
+        },
+        Held {
+            id: "BOND-W004".into(),
+            quantity: "150000.50".parse().unwrap(),
+            pin: None,
+            rating: Some("A"),
+        },
+    ];
+    put(
+        &server,
+        "/api/v1/books/CHECK",
+        "book-check",
+        snapshot(&original),
+    )
+    .await;
+    let bounded = |id: &str, measure: Value, lower: Option<&str>, upper: &str| {
+        let mut limit = json!({"limit_id": id, "measure": measure, "upper": upper,
+                               "warning_fraction": "0.8"});
+        if let Some(lower) = lower {
+            limit["lower"] = json!(lower);
+        }
+        limit
+    };
+    let limits = json!({"limits": [
+        bounded("net", json!({"kind": "market_value"}), Some("-500000"), "1500000"),
+        bounded("gross", json!({"kind": "gross_market_value"}), None, "3000000"),
+        bounded("dv01", json!({"kind": "dv01"}), Some("-1500"), "1500"),
+        bounded("cs01", json!({"kind": "cs01"}), Some("-1500"), "1500"),
+        bounded("krd5", json!({"kind": "key_rate_dv01", "tenor": "5Y"}), Some("-800"), "800"),
+        bounded("duration", json!({"kind": "modified_duration"}), Some("-10"), "10"),
+        bounded("face-each", json!({"kind": "face", "instrument": "each"}), Some("-1000000"), "1200000"),
+        bounded("face-001", json!({"kind": "face", "instrument": {"one": "BOND-001"}}), Some("-500000"), "1500000"),
+        bounded("issuer", json!({"kind": "group_market_value", "by": "issuer", "group": "each"}), None, "2000000"),
+        bounded("rating", json!({"kind": "group_share", "by": "rating", "group": "each"}), None, "0.6"),
+        bounded("sector", json!({"kind": "group_market_value", "by": "sector", "group": "each"}), None, "2500000"),
+        bounded("us", json!({"kind": "group_share", "by": "country", "group": {"one": "US"}}), None, "0.9"),
+    ]});
+    put(
+        &server,
+        "/api/v1/books/CHECK/limits",
+        "limits-check",
+        limits,
+    )
+    .await;
+
+    let mut version = 1;
+    let mut statuses = BTreeMap::<String, usize>::new();
+    for case in 0..CASES {
+        let mut draws = Draws(0x5EED_0000 + case);
+        // An instrument outside the plan makes every market limit unknown, which would hide
+        // the rest of the comparison, so only one case in four may draw one.
+        let reach = if draws.below(4) == 0 {
+            instruments.len()
+        } else {
+            PRICED
+        };
+        let mut pool: Vec<&String> = instruments[..reach].iter().collect();
+        let count = 1 + draws.below(16.min(reach));
+        let mut changes: Vec<Change> = Vec::new();
+        let mut rows = Vec::new();
+        for _ in 0..count {
+            let id = pool.swap_remove(draws.below(pool.len())).clone();
+            let held = original.iter().find(|p| p.id == id);
+            let (amount, rating) = match held {
+                Some(p) => match draws.below(4) {
+                    0 => (-p.quantity, None),
+                    1 => (-p.quantity - p.quantity, None),
+                    _ => (draws.amount(), p.rating.filter(|_| draws.below(2) == 0)),
+                },
+                None if draws.below(8) == 0 => (rust_decimal::Decimal::ZERO, None),
+                None => {
+                    let rating = RATINGS[draws.below(RATINGS.len())];
+                    (draws.amount(), (draws.below(8) > 0).then_some(rating))
+                }
+            };
+            let mut row = match isins.get(id.as_str()) {
+                Some(isin) if draws.below(2) == 0 => {
+                    json!({"identifier": {"kind": "isin", "value": isin}, "quantity": amount.to_string()})
+                }
+                _ => json!({"instrument_id": id, "quantity": amount.to_string()}),
+            };
+            if let Some(rating) = rating {
+                row["rating"] = json!(rating);
+            }
+            rows.push(row);
+            let new_rating = if held.is_none() { rating } else { None };
+            changes.push((id, amount, new_rating));
+        }
+        let rows = json!(rows);
+        let (code, checked) = send(
+            &server,
+            reqwest::Method::POST,
+            "/api/v1/books/CHECK/limits/check",
+            None,
+            Some(json!({ "changes": rows })),
+        )
+        .await;
+        assert_eq!(code, StatusCode::OK, "case {case}: {rows}: {checked}");
+        assert_eq!(checked["book_version"], version, "case {case}: {checked}");
+
+        let applied = apply(&original, &changes);
+        version = replace_book(
+            &server,
+            "CHECK",
+            &format!("case-{case}-apply"),
+            version,
+            snapshot(&applied),
+        )
+        .await;
+        let (code, committed) = send(
+            &server,
+            reqwest::Method::GET,
+            "/api/v1/books/CHECK/limits/status",
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(code, StatusCode::OK, "case {case}: {committed}");
+        assert_eq!(
+            committed["book_version"], version,
+            "case {case}: {committed}"
+        );
+        assert_eq!(
+            checked["limits"], committed["limits"],
+            "case {case}: rows {rows}\napplied {applied:?}"
+        );
+        assert_eq!(
+            checked["snapshot_ids"], committed["snapshot_ids"],
+            "case {case}: rows {rows}"
+        );
+        assert_eq!(checked["limit_set_version"], committed["limit_set_version"]);
+        for limit in checked["limits"].as_array().unwrap() {
+            *statuses
+                .entry(limit["status"].as_str().unwrap().to_owned())
+                .or_default() += 1;
+        }
+        version = replace_book(
+            &server,
+            "CHECK",
+            &format!("case-{case}-restore"),
+            version,
+            snapshot(&original),
+        )
+        .await;
+    }
+    // The cases reach every status, so the comparison is not of one kind of answer.
+    for status in ["within", "warning", "breach", "unknown"] {
+        assert!(
+            statuses.contains_key(status),
+            "no case reached {status}: {statuses:?}"
+        );
+    }
+    server.stop().await;
+}
+
+/// P14d's measurement: `POST .../limits/check` with 256 rows into a 1,000-position book
+/// (256 priced) with 64 limits over every measure, beside status for the same book.
+#[tokio::test]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn check_route_time_at_the_bounds() {
+    const ROUNDS: usize = 40;
+    let (dir, live, instruments) = live(256, 744, &MEASURES).await;
+    let server = started(&dir, live).await;
+    put(
+        &server,
+        "/api/v1/books/BOUND",
+        "book-bound",
+        book(&instruments),
+    )
+    .await;
+    put(
+        &server,
+        "/api/v1/books/BOUND/limits",
+        "limits-bound",
+        every_measure(),
+    )
+    .await;
+    let rows: Vec<Value> = instruments[..256]
+        .iter()
+        .enumerate()
+        .map(|(i, id)| json!({"instrument_id": id, "quantity": if i % 2 == 0 { "25000" } else { "-25000" }}))
+        .collect();
+    let body = json!({ "changes": rows });
+    let (mut checks, mut statuses) = (Vec::new(), Vec::new());
+    for round in 0..ROUNDS + 5 {
+        let a = timed(
+            &server,
+            reqwest::Method::POST,
+            "/api/v1/books/BOUND/limits/check",
+            Some(body.clone()),
+        )
+        .await;
+        let b = timed(
+            &server,
+            reqwest::Method::GET,
+            "/api/v1/books/BOUND/limits/status",
+            None,
+        )
+        .await;
+        if round >= 5 {
+            checks.push(a);
+            statuses.push(b);
+        }
+    }
+    println!(
+        "limits/check, 256 rows into 1,000 positions (256 priced), 64 limits: {}",
+        summary(checks)
+    );
+    println!(
+        "limits/status, the same book:                                 {}",
+        summary(statuses)
+    );
     server.stop().await;
 }

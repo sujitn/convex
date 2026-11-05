@@ -40,7 +40,7 @@ use crate::reference::{
 };
 
 /// Rejected rows reported in one response; the request stops resolving after this many.
-const MAX_ROW_ERRORS: usize = 100;
+pub(crate) const MAX_ROW_ERRORS: usize = 100;
 /// Largest page of `GET /api/v1/books` and of book history.
 const MAX_BOOK_PAGE: usize = 500;
 /// Owning system recorded when a snapshot does not name one.
@@ -61,7 +61,7 @@ pub(crate) fn typed_error(status: StatusCode, code: &'static str, message: &str)
         .into_response()
 }
 
-fn too_large() -> Response {
+pub(crate) fn too_large() -> Response {
     typed_error(
         StatusCode::PAYLOAD_TOO_LARGE,
         "BOOK_TOO_LARGE",
@@ -69,13 +69,14 @@ fn too_large() -> Response {
     )
 }
 
-struct RowError {
-    index: usize,
-    code: &'static str,
-    reason: &'static str,
+pub(crate) struct RowError {
+    pub(crate) index: usize,
+    pub(crate) code: &'static str,
+    pub(crate) reason: &'static str,
 }
 
-fn rows_rejected(errors: &[RowError], truncated: bool) -> Response {
+/// `422 BOOK_ROWS_REJECTED` naming each rejected row; `error` says what was refused.
+pub(crate) fn rows_rejected(error: &str, errors: &[RowError], truncated: bool) -> Response {
     let rows: Vec<_> = errors
         .iter()
         .map(|e| serde_json::json!({"index":e.index, "code":e.code, "reason":e.reason}))
@@ -83,7 +84,7 @@ fn rows_rejected(errors: &[RowError], truncated: bool) -> Response {
     (
         StatusCode::UNPROCESSABLE_ENTITY,
         Json(serde_json::json!({
-            "error":"snapshot rejected; nothing was committed",
+            "error":error,
             "code":"BOOK_ROWS_REJECTED",
             "retryable":false,
             "rows":rows,
@@ -273,7 +274,7 @@ pub(crate) struct BookSnapshotRequest {
 /// A row names its instrument by internal ID or by an external identifier, never both.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RowRequest {
+pub(crate) struct RowRequest {
     instrument_id: Option<String>,
     identifier: Option<ExternalIdentifier>,
     quantity: ExactDecimal,
@@ -283,8 +284,15 @@ struct RowRequest {
     rating: Option<String>,
 }
 
-struct Resolved {
-    position: BookPosition,
+impl RowRequest {
+    /// The unit the row states, if it states one.
+    pub(crate) fn unit(&self) -> Option<QuantityUnit> {
+        self.unit
+    }
+}
+
+pub(crate) struct Resolved {
+    pub(crate) position: BookPosition,
     instrument_version: Version,
     mapping_version: Option<Version>,
 }
@@ -400,7 +408,7 @@ async fn resolve_row(
 }
 
 /// Resolve every row, collecting per-row errors; stops after `MAX_ROW_ERRORS`.
-async fn resolve_rows(
+pub(crate) async fn resolve_rows(
     repo: &dyn ReferenceRepository,
     lookup: ReferenceLookup,
     rows: Vec<RowRequest>,
@@ -524,7 +532,13 @@ async fn ingest(
     };
     let resolved = match resolve_rows(repo, lookup, request.positions).await {
         Ok(Ok(resolved)) => resolved,
-        Ok(Err((errors, truncated))) => return Err(rows_rejected(&errors, truncated)),
+        Ok(Err((errors, truncated))) => {
+            return Err(rows_rejected(
+                "snapshot rejected; nothing was committed",
+                &errors,
+                truncated,
+            ))
+        }
         Err(error) => return Err(reference_error(error)),
     };
     authorize_resolved(state, ctx, Action::BookWrite, &resolved)?;

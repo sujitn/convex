@@ -497,8 +497,10 @@ statuses are described in [the engine's limits guide](../convex-engine/LIMITS.md
 | `GET /api/v1/books/{book_id}/limits/history?from=&limit=` | Version summaries, oldest first, at most 500 per page |
 | `GET /api/v1/books/{book_id}/limits/proposal` | The latest proposal, open or closed, pinned in `ETag` |
 | `GET /api/v1/books/{book_id}/limits/status` | Each limit evaluated now against the current Live results |
+| `POST /api/v1/books/{book_id}/limits/check` | Each limit evaluated now as if proposed position changes were applied; nothing is stored ([the pre-trade check](#the-pre-trade-check)) |
 
 Every write needs `Idempotency-Key`, and the `risk_manager` role (see [access](ACCESS.md)).
+The pre-trade check writes nothing and needs neither.
 On `PUT`, `If-Match` names the limit set version the change replaces, and is absent only for
 a book's first set; the book must exist. The proposer and the approver each hold every
 instrument the new limits and the current set name, since a change drops any limit it
@@ -518,6 +520,9 @@ so a change commits in one step, recorded as `local-development`.
 | 409 `LIMIT_SET_CHANGED` | The set moved after the proposal was made |
 | 409 `LIMITED_BOOKS_EXCEEDED` | 64 other books already hold a non-empty set (the monitor's bound, D87); an empty set takes no place |
 | 403 `LIMITS_ROUTE_REQUIRED` | A reference transaction or import names a limit set or proposal, or a commit receipt read holds one: only these routes write and read them |
+| 413 `CHECK_TOO_LARGE` | A pre-trade check has more than 256 rows |
+| 413 `BOOK_TOO_LARGE` | A pre-trade check would leave the book with more than 1,000 positions, as committing it would |
+| 422 `BOOK_ROWS_REJECTED` | A pre-trade check row cannot be applied; `rows` names each one, as for a snapshot `PUT` |
 
 Status names the book and set versions, the time and the snapshots whose results it read.
 Each item carries the limit's measure and bounds beside its `status`, `value`, `member`,
@@ -573,6 +578,39 @@ measure), one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or
 instruments, since each holds every instrument: about 1.4 ms a book. Above about 11 ticks a
 second the monitor coalesces ticks. One instrument's valuation hop (quote in to WebSocket
 frame) stays at about 1.4 ms with the monitor busy.
+
+#### The pre-trade check
+
+`POST /api/v1/books/{book_id}/limits/check` answers what status would say if proposed
+changes were committed (D88). It stores nothing: no book version, audit entry or
+`limit_status` message, and no `Idempotency-Key` or `If-Match`.
+
+```json
+{"changes": [
+  {"instrument_id": "BOND-001", "quantity": "-250000"},
+  {"identifier": {"kind": "isin", "value": "US0000000001"}, "quantity": "1000000", "rating": "A"}
+]}
+```
+
+A row takes the grammar of a book snapshot row (`instrument_id` or `identifier`,
+`quantity`, and optional `unit`, `reference_version`, `sector`, `rating`), at most 256 of
+them, each instrument once. Its `quantity` is signed and added to the held position: it is
+a trade, not a new holding (D89).
+- A row for a held instrument changes only its quantity. A `unit`, `reference_version`,
+  `sector` or `rating` that differs from the held position's is refused (`INVALID_ROW`); the
+  same value may be restated.
+- A position a row brings to exactly zero is dropped.
+- A new instrument is added after the held positions, in row order, with the row's fields
+  (`unit` defaults to `face`). It must be stored, as for a snapshot. One without a Live
+  result makes the limits that read market data `unknown`, and a `face` limit still
+  evaluates.
+
+The response is the status route's, as if the changes were applied (D90): the book and set
+versions it read, `evaluated_at`, the snapshots read, and each limit. An empty `changes`
+gives the current status. Status and a check read the same accepted results, so a check of
+changes equals the status of the book once they are committed, while no quote arrives in
+between. The caller needs what status needs, plus `BookRead` on each instrument a row names,
+including one reached through an identifier (D91; see [access](ACCESS.md)).
 
 ## Reference schema and Rust migration
 

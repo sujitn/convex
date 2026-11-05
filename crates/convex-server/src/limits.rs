@@ -10,6 +10,9 @@
 //! Status is evaluated on request against the current Live results by
 //! `convex_engine::limits::evaluate_limits`. A position without an accepted result makes
 //! the limits that read market data `unknown`; it never refuses the request.
+//!
+//! A pre-trade check (P14d; D88–D91) evaluates a book with proposed changes applied the
+//! same way, and stores nothing.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -29,7 +32,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::{Extension, Json};
 use convex_core::contracts::{
-    InstrumentId, RequestId, SourceId, UtcTimestamp, ValuationSubject, Version,
+    ExactDecimal, InstrumentId, RequestId, SourceId, UtcTimestamp, ValuationSubject, Version,
 };
 use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::ports::limits::{
@@ -44,7 +47,10 @@ use convex_engine::ports::runtime::PublishedValuation;
 use serde::{Deserialize, Serialize};
 
 use crate::access::{recorded_subject, AccessContext, Action, DataScope, Resource, ResourceKind};
-use crate::books::{accepted_runtime_results, book_id, book_of, optional_expected, typed_error};
+use crate::books::{
+    accepted_runtime_results, book_id, book_of, optional_expected, resolve_rows, rows_rejected,
+    too_large, typed_error, Resolved, RowError, RowRequest, MAX_ROW_ERRORS,
+};
 use crate::handlers::AppState;
 use crate::reference::{expected_version, key, now, reference_error, with_reference_version};
 
@@ -54,6 +60,15 @@ pub(crate) const MAX_LIMITED_BOOKS: usize = convex_engine::configuration::MAX_PL
 const MAX_HISTORY_PAGE: usize = 500;
 /// Source recorded on every limit set and proposal.
 const LIMITS_API: &str = "limits-api";
+/// Rows one pre-trade check takes (D88).
+pub(crate) const MAX_CHECK_ROWS: usize = 256;
+/// What status and a check read: the book, its results and priced terms, and market values.
+const STATUS_DATA: &[DataScope] = &[
+    DataScope::Books,
+    DataScope::Results,
+    DataScope::Reference,
+    DataScope::Market,
+];
 
 // =============================================================================
 // ERRORS AND SHARED CHECKS
@@ -1014,22 +1029,24 @@ async fn status(
     let id = book_id(raw).map_err(reference_error)?;
     let set_record = read_master(state, &MasterKey::LimitSet(id.clone()), None).await?;
     let set = set_of(&set_record).map_err(reference_error)?;
-    let book_record = authorize_read(
-        state,
-        ctx,
-        &[
-            DataScope::Books,
-            DataScope::Results,
-            DataScope::Reference,
-            DataScope::Market,
-        ],
-        &id,
-        &set.limits,
-    )
-    .await?
-    .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    let book_record = authorize_read(state, ctx, STATUS_DATA, &id, &set.limits)
+        .await?
+        .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
     let book = book_of(&book_record).map_err(reference_error)?;
     let evaluated_at = now().map_err(reference_error)?;
+    let versions = (book_record.version, set_record.version);
+    evaluated(state, versions, &set.limits, book, evaluated_at).await
+}
+
+/// Evaluate `limits` on `book` against the current Live results, and answer in the status
+/// route's shape. `versions` are the book and limit set versions read.
+async fn evaluated(
+    state: &AppState,
+    versions: (Version, Version),
+    limits: &[LimitDefinition],
+    book: &BookDefinition,
+    evaluated_at: UtcTimestamp,
+) -> Result<Response, Response> {
     let accepted = accepted_runtime_results(state);
     let mut terms = PricedTerms::new();
     read_priced_terms(
@@ -1041,17 +1058,16 @@ async fn status(
     .await;
     let evaluation = evaluate_book(
         book,
-        &set.limits,
+        limits,
         &accepted,
         &terms,
         state.engine.runtime_settlement_date(),
     )
     .map_err(|error| {
-        tracing::error!(%error, "limit status: evaluation refused a stored book and limit set");
+        tracing::error!(%error, "limit status: evaluation refused a book and its limit set");
         reference_error(ReferenceError::Unavailable)
     })?;
-    let limits = set
-        .limits
+    let items = limits
         .iter()
         .zip(&evaluation.evaluations)
         .map(|(limit, evaluation)| StatusItem {
@@ -1063,14 +1079,191 @@ async fn status(
         })
         .collect();
     let view = StatusView {
-        book_id: &id,
-        book_version: book_record.version,
-        limit_set_version: set_record.version,
+        book_id: &book.book_id,
+        book_version: versions.0,
+        limit_set_version: versions.1,
         evaluated_at,
         snapshot_ids: evaluation.snapshot_ids,
-        limits,
+        limits: items,
     };
     Ok(Json(view).into_response())
+}
+
+// =============================================================================
+// PRE-TRADE CHECK (P14d)
+// =============================================================================
+
+/// What a refused check's rows response says.
+const CHECK_REJECTED: &str = "check rejected; nothing was evaluated";
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct CheckRequest {
+    changes: Vec<RowRequest>,
+}
+
+/// `POST /api/v1/books/{book_id}/limits/check`: each limit of the current set, evaluated
+/// now against the current Live results as if `changes` were applied to the book (D88).
+///
+/// Each row is a signed quantity added to the held position, in a book snapshot row's
+/// grammar (D89). A row for a held instrument changes only its quantity: one that states a
+/// different unit, reference version, sector or rating is refused. A position a row brings
+/// to exactly zero is dropped, and a new instrument follows the held positions, in row
+/// order. The response is the status route's (D90). Nothing is stored, so the route takes
+/// no `Idempotency-Key` or `If-Match`. The caller holds `BookRead` on the book, each
+/// instrument it holds, each one a limit names and each one a row names (D91).
+pub(crate) async fn check_limits(
+    State(state): State<Arc<AppState>>,
+    ctx: Option<Extension<AccessContext>>,
+    Path(raw): Path<String>,
+    payload: Result<Json<CheckRequest>, JsonRejection>,
+) -> Response {
+    let Ok(Json(request)) = payload else {
+        return reference_error(ReferenceError::InvalidInput("invalid limit check JSON"));
+    };
+    if request.changes.len() > MAX_CHECK_ROWS {
+        return typed_error(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "CHECK_TOO_LARGE",
+            "a check takes at most 256 rows",
+        );
+    }
+    match check(&state, &ctx, raw, request.changes).await {
+        Ok(response) | Err(response) => response,
+    }
+}
+
+async fn check(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    raw: String,
+    rows: Vec<RowRequest>,
+) -> Result<Response, Response> {
+    let id = book_id(raw).map_err(reference_error)?;
+    let set_record = read_master(state, &MasterKey::LimitSet(id.clone()), None).await?;
+    let set = set_of(&set_record).map_err(reference_error)?;
+    let book_record = authorize_read(state, ctx, STATUS_DATA, &id, &set.limits)
+        .await?
+        .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    let held = book_of(&book_record).map_err(reference_error)?;
+    let units: Vec<Option<QuantityUnit>> = rows.iter().map(RowRequest::unit).collect();
+    let evaluated_at = now().map_err(reference_error)?;
+    let lookup = ReferenceLookup {
+        as_of: evaluated_at,
+        known_at: evaluated_at,
+    };
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
+    let resolved = match resolve_rows(repo, lookup, rows)
+        .await
+        .map_err(reference_error)?
+    {
+        Ok(resolved) => resolved,
+        Err((errors, truncated)) => return Err(rows_rejected(CHECK_REJECTED, &errors, truncated)),
+    };
+    // The access layer read each `instrument_id` in the body; this also covers each
+    // instrument a row reached through an external identifier.
+    let proposed = resolved
+        .iter()
+        .map(|row| row.position.instrument_id.as_str().to_owned());
+    authorize(state, ctx, Action::BookRead, STATUS_DATA, &id, proposed)?;
+    let book = applied(held, &resolved, &units)?;
+    let versions = (book_record.version, set_record.version);
+    evaluated(state, versions, &set.limits, &book, evaluated_at).await
+}
+
+/// Why a row may not change a held position, if it may not: a row changes only the
+/// quantity, so a unit, reference version or classification it states must be the held one.
+fn differs(
+    held: &BookPosition,
+    row: &BookPosition,
+    unit: Option<QuantityUnit>,
+) -> Option<&'static str> {
+    if unit.is_some_and(|unit| unit != held.unit) {
+        return Some("a change keeps the held position's unit");
+    }
+    if row.reference_version.is_some() && row.reference_version != held.reference_version {
+        return Some("a change keeps the held position's reference version");
+    }
+    if row.sector.is_some() && row.sector != held.sector {
+        return Some("a change keeps the held position's sector");
+    }
+    if row.rating.is_some() && row.rating != held.rating {
+        return Some("a change keeps the held position's rating");
+    }
+    None
+}
+
+/// `held` with `rows` applied by D89's rule: each row's quantity is added to the held
+/// position, a position a row brings to exactly zero is dropped, and each new instrument
+/// follows the held positions in row order. `units` are the units the rows stated.
+fn applied(
+    held: &BookDefinition,
+    rows: &[Resolved],
+    units: &[Option<QuantityUnit>],
+) -> Result<BookDefinition, Response> {
+    let index: HashMap<&str, usize> = held
+        .positions
+        .iter()
+        .enumerate()
+        .map(|(at, position)| (position.instrument_id.as_str(), at))
+        .collect();
+    let mut book = held.clone();
+    let mut changed = vec![false; book.positions.len()];
+    let mut added = Vec::new();
+    let mut errors = Vec::new();
+    for (row_index, (row, unit)) in rows.iter().zip(units).enumerate() {
+        let row = &row.position;
+        let Some(&at) = index.get(row.instrument_id.as_str()) else {
+            added.push(row.clone());
+            continue;
+        };
+        let (Some(position), Some(flag)) = (book.positions.get_mut(at), changed.get_mut(at)) else {
+            return Err(reference_error(ReferenceError::Unavailable));
+        };
+        let refused = differs(position, row, *unit).or_else(|| {
+            match position
+                .quantity
+                .decimal()
+                .checked_add(row.quantity.decimal())
+            {
+                Some(sum) => {
+                    position.quantity = ExactDecimal::new(sum);
+                    *flag = true;
+                    None
+                }
+                None => Some("the changed quantity exceeds exact representation"),
+            }
+        });
+        if let Some(reason) = refused {
+            errors.push(RowError {
+                index: row_index,
+                code: "INVALID_ROW",
+                reason,
+            });
+        }
+    }
+    if !errors.is_empty() {
+        let truncated = errors.len() > MAX_ROW_ERRORS;
+        errors.truncate(MAX_ROW_ERRORS);
+        return Err(rows_rejected(CHECK_REJECTED, &errors, truncated));
+    }
+    let mut positions: Vec<BookPosition> = std::mem::take(&mut book.positions)
+        .into_iter()
+        .zip(changed)
+        .filter(|(position, changed)| !(*changed && position.quantity.decimal().is_zero()))
+        .map(|(position, _)| position)
+        .collect();
+    positions.extend(
+        added
+            .into_iter()
+            .filter(|position| !position.quantity.decimal().is_zero()),
+    );
+    if positions.len() > MAX_BOOK_POSITIONS {
+        return Err(too_large());
+    }
+    book.positions = positions;
+    book.validate().map_err(reference_error)?;
+    Ok(book)
 }
 
 // =============================================================================

@@ -1782,3 +1782,381 @@ async fn a_failed_append_is_retried_on_the_timer() {
     server.stop.send(()).unwrap();
     server.serving.await.unwrap().unwrap();
 }
+
+// =============================================================================
+// THE PRE-TRADE CHECK (P14d)
+// =============================================================================
+
+async fn check(
+    router: &Router,
+    token: Option<&str>,
+    book: &str,
+    changes: Value,
+) -> (StatusCode, Value) {
+    let (code, _, body) = call(
+        router,
+        "POST",
+        &format!("/api/v1/books/{book}/limits/check"),
+        token,
+        None,
+        None,
+        Some(json!({ "changes": changes })),
+    )
+    .await;
+    (code, body)
+}
+
+/// Store copies of the fixture bond under `ids`, and map ISIN `CHECK-ISIN` to the first.
+async fn store_copies(setup: &support::Setup, ids: &[String]) {
+    use convex_core::contracts::RequestId;
+    use convex_engine::ports::reference_repository::{
+        ReferenceChange, ReferenceCommand, MAX_REFERENCE_CHANGES,
+    };
+    let at = support::fixture::time("2025-01-01T00:00:00Z");
+    for (chunk, ids) in ids.chunks(MAX_REFERENCE_CHANGES).enumerate() {
+        let changes = ids
+            .iter()
+            .map(|id| {
+                let mut bond = support::fixture::bond();
+                bond.instrument_id = convex_core::ids::InstrumentId::new(id.as_str());
+                bond.isin = Some(format!("fixture-isin-{id}"));
+                bond.cusip = Some(format!("fixture-cusip-{id}"));
+                ReferenceChange::Create {
+                    bond: Box::new(bond),
+                }
+            })
+            .collect();
+        let command = ReferenceCommand {
+            idempotency_key: RequestId::new(format!("copies-{chunk}")).unwrap(),
+            changes,
+            master_changes: vec![],
+        };
+        setup.storage.bonds.commit(&command, at).await.unwrap();
+    }
+    let mapping = serde_json::from_value(json!({
+        "expected_version": null,
+        "definition": {"kind": "identifier", "definition": {
+            "mapping_id": "isin-check",
+            "identifier": {"kind": "isin", "value": "CHECK-ISIN"},
+            "target": {"kind": "instrument", "instrument_id": ids[0]},
+            "effective": {"from": "2000-01-01T00:00:00Z", "until": null},
+            "provenance": {"source": "fictional-fixture", "evidence_reference": "test"}
+        }}
+    }))
+    .unwrap();
+    let command = ReferenceCommand {
+        idempotency_key: RequestId::new("mapping-check").unwrap(),
+        changes: vec![],
+        master_changes: vec![mapping],
+    };
+    setup.storage.bonds.commit(&command, at).await.unwrap();
+}
+
+/// The current version a route reports in its `ETag`.
+async fn version(router: &Router, token: Option<&str>, path: &str) -> String {
+    let (code, etag, body) = call(router, "GET", path, token, None, None, None).await;
+    assert_eq!(code, StatusCode::OK, "{path}: {body}");
+    etag.unwrap()
+}
+
+#[tokio::test]
+async fn a_check_adds_each_row_to_the_held_position_and_refuses_what_a_commit_would() {
+    let (setup, router) = router(AccessControl::local_development()).await;
+    store_copies(&setup, &["BOND-C01".to_owned()]).await;
+    put_book(
+        &router,
+        None,
+        "BOOK-A",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": BOND, "quantity": "1000000", "rating": "A"}
+        ]}),
+    )
+    .await;
+    let one = json!([{"instrument_id": BOND, "quantity": "1"}]);
+    let (code, body) = check(&router, None, "BOOK-A", one.clone()).await;
+    assert_eq!(code, StatusCode::NOT_FOUND, "no limit set: {body}");
+    let (code, body) = check(&router, None, "BOOK-Z", one).await;
+    assert_eq!(code, StatusCode::NOT_FOUND, "no book: {body}");
+    commit_limits(
+        &router,
+        "BOOK-A",
+        "limits-a",
+        set(vec![
+            face("face", None, Some("2000000"), None),
+            limit(
+                "each",
+                json!({"kind": "face", "instrument": "each"}),
+                "1500000",
+            ),
+            limit("net", json!({"kind": "market_value"}), "1000000000"),
+        ]),
+    )
+    .await;
+    let book_etag = version(&router, None, "/api/v1/books/BOOK-A").await;
+    let set_etag = version(&router, None, "/api/v1/books/BOOK-A/limits").await;
+
+    // No rows: the current status.
+    let current = status(&router, None, "BOOK-A").await;
+    let (code, body) = check(&router, None, "BOOK-A", json!([])).await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    assert_eq!(body["limits"], current["limits"], "{body}");
+    assert_eq!(body["book_version"], 1, "{body}");
+    assert_eq!(body["limit_set_version"], 1, "{body}");
+
+    // A row adds to the held position; restating its rating is allowed.
+    let (code, body) = check(
+        &router,
+        None,
+        "BOOK-A",
+        json!([{"instrument_id": BOND, "quantity": "1500000", "rating": "A"}]),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    let limits = by_id(&body);
+    assert_eq!(limits["face"]["status"], "breach", "{}", limits["face"]);
+    assert_eq!(limits["face"]["value"], "2500000");
+    assert_eq!(limits["each"]["status"], "breach", "{}", limits["each"]);
+    assert_eq!(limits["each"]["member"], BOND);
+
+    // Selling the whole position drops it: nothing is missing, so net value is known.
+    let (code, body) = check(
+        &router,
+        None,
+        "BOOK-A",
+        json!([{"instrument_id": BOND, "quantity": "-1000000.00"}]),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    let limits = by_id(&body);
+    assert_eq!(limits["face"]["value"], "0", "{}", limits["face"]);
+    assert_eq!(limits["net"]["status"], "within", "{}", limits["net"]);
+    assert_eq!(limits["net"]["value"], "0", "{}", limits["net"]);
+    assert_eq!(current["limits"][2]["status"], "unknown", "{current}");
+
+    // A new instrument, named by its ISIN, follows the held position. It has no result
+    // here (no runtime), so net value is unknown; face limits still evaluate.
+    let (code, body) = check(
+        &router,
+        None,
+        "BOOK-A",
+        json!([{"identifier": {"kind": "isin", "value": "CHECK-ISIN"}, "quantity": "300000"}]),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    let limits = by_id(&body);
+    assert_eq!(
+        limits["net"]["reason"],
+        json!({"code": "missing_result", "instruments": {"count": 2, "first": [BOND, "BOND-C01"]}}),
+        "{}",
+        limits["net"]
+    );
+    assert_eq!(limits["face"]["value"], "1000000", "{}", limits["face"]);
+    assert_eq!(limits["each"]["member"], BOND, "{}", limits["each"]);
+
+    // Each refusal names the row; nothing is evaluated.
+    for (rows, index, code, reason) in [
+        (
+            json!([{"instrument_id": BOND, "quantity": "1"}, {"instrument_id": BOND, "quantity": "2"}]),
+            1,
+            "DUPLICATE_INSTRUMENT",
+            None,
+        ),
+        (
+            json!([{"instrument_id": "NO-SUCH", "quantity": "1"}]),
+            0,
+            "UNKNOWN_INSTRUMENT",
+            None,
+        ),
+        (
+            json!([{"identifier": {"kind": "isin", "value": "NO-SUCH"}, "quantity": "1"}]),
+            0,
+            "UNKNOWN_IDENTIFIER",
+            None,
+        ),
+        (
+            json!([{"instrument_id": BOND, "quantity": "1", "unit": "units"}]),
+            0,
+            "INVALID_ROW",
+            Some("a change keeps the held position's unit"),
+        ),
+        (
+            json!([{"instrument_id": BOND, "quantity": "1", "rating": "BBB"}]),
+            0,
+            "INVALID_ROW",
+            Some("a change keeps the held position's rating"),
+        ),
+        (
+            json!([{"instrument_id": BOND, "quantity": "1", "sector": "Utilities"}]),
+            0,
+            "INVALID_ROW",
+            Some("a change keeps the held position's sector"),
+        ),
+        (
+            json!([{"instrument_id": BOND, "quantity": "1", "reference_version": 1}]),
+            0,
+            "INVALID_ROW",
+            Some("a change keeps the held position's reference version"),
+        ),
+        (
+            json!([{"instrument_id": BOND, "quantity": "79228162514264337593543950335"}]),
+            0,
+            "INVALID_ROW",
+            Some("the changed quantity exceeds exact representation"),
+        ),
+    ] {
+        let (status, body) = check(&router, None, "BOOK-A", rows.clone()).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{rows}: {body}");
+        assert_eq!(body["code"], "BOOK_ROWS_REJECTED", "{rows}: {body}");
+        assert_eq!(body["rows"][0]["index"], index, "{rows}: {body}");
+        assert_eq!(body["rows"][0]["code"], code, "{rows}: {body}");
+        if let Some(reason) = reason {
+            assert_eq!(body["rows"][0]["reason"], reason, "{rows}: {body}");
+        }
+    }
+    let rows: Vec<Value> = (0..257)
+        .map(|_| json!({"instrument_id": BOND, "quantity": "1"}))
+        .collect();
+    let (code, body) = check(&router, None, "BOOK-A", json!(rows)).await;
+    assert_eq!(code, StatusCode::PAYLOAD_TOO_LARGE, "{body}");
+    assert_eq!(body["code"], "CHECK_TOO_LARGE", "{body}");
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BOOK-A/limits/check",
+        None,
+        None,
+        None,
+        Some(json!({"changes": [], "dry_run": true})),
+    )
+    .await;
+    assert!(code.is_client_error(), "{code}: {body}");
+
+    // A check stores nothing.
+    assert_eq!(
+        version(&router, None, "/api/v1/books/BOOK-A").await,
+        book_etag
+    );
+    assert_eq!(
+        version(&router, None, "/api/v1/books/BOOK-A/limits").await,
+        set_etag
+    );
+}
+
+/// A check whose applied book would exceed `MAX_BOOK_POSITIONS` is refused as committing
+/// that book would be; one that closes a position to make room is not.
+#[tokio::test]
+async fn a_check_past_the_position_bound_is_refused_as_its_commit_would_be() {
+    let (setup, router) = router(AccessControl::local_development()).await;
+    let ids: Vec<String> = (0..1_001).map(|i| format!("BOND-C{i:04}")).collect();
+    store_copies(&setup, &ids).await;
+    let positions: Vec<Value> = ids[..1_000]
+        .iter()
+        .map(|id| json!({"instrument_id": id, "quantity": "1000"}))
+        .collect();
+    put_book(
+        &router,
+        None,
+        "FULL",
+        json!({"currency": "USD", "positions": positions}),
+    )
+    .await;
+    commit_limits(
+        &router,
+        "FULL",
+        "limits-full",
+        set(vec![limit(
+            "each",
+            json!({"kind": "face", "instrument": "each"}),
+            "1000000",
+        )]),
+    )
+    .await;
+    let new = json!({"instrument_id": ids[1_000], "quantity": "1000"});
+    let (code, body) = check(&router, None, "FULL", json!([new.clone()])).await;
+    assert_eq!(code, StatusCode::PAYLOAD_TOO_LARGE, "{body}");
+    assert_eq!(body["code"], "BOOK_TOO_LARGE", "{body}");
+    let close = json!({"instrument_id": ids[0], "quantity": "-1000"});
+    let (code, body) = check(&router, None, "FULL", json!([close, new])).await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    assert_eq!(by_id(&body)["each"]["status"], "within", "{body}");
+}
+
+/// D91: a check needs `BookRead` on the book, each instrument it holds, each one a limit
+/// names, and each one a row names, by id or through an identifier.
+#[tokio::test]
+async fn a_check_needs_the_book_and_every_instrument_it_reads() {
+    let (_issuer, setup, router) = two_subjects().await;
+    store_copies(&setup, &["BOND-C01".to_owned()]).await;
+    let path = "/api/v1/books/BOOK-A/limits";
+    let body = set(vec![face("face", None, Some("2000000"), None)]);
+    let (code, _, response) = call(
+        &router,
+        "PUT",
+        path,
+        Some(RISK_A),
+        Some("p1"),
+        None,
+        Some(body),
+    )
+    .await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{response}");
+    let (code, _, response) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BOOK-A/limits/proposal/approve",
+        Some(RISK_B),
+        Some("a1"),
+        Some("1"),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{response}");
+    let book_etag = version(&router, Some(HUMAN_TOKEN), "/api/v1/books/BOOK-A").await;
+    let set_etag = version(&router, Some(RISK_A), path).await;
+
+    let held = json!([{"instrument_id": BOND, "quantity": "500000"}]);
+    let by_id_row = json!([{"instrument_id": "BOND-C01", "quantity": "1"}]);
+    let by_isin = json!([{"identifier": {"kind": "isin", "value": "CHECK-ISIN"}, "quantity": "1"}]);
+    let (code, body) = check(&router, Some(RISK_A), "BOOK-A", held.clone()).await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    assert_eq!(by_id(&body)["face"]["value"], "1500000", "{body}");
+    for (token, rows, why) in [
+        (SERVICE_TOKEN, json!([]), "no grant"),
+        (
+            OUTSIDER,
+            json!([]),
+            "the book holds an instrument it cannot read",
+        ),
+        (
+            RISK_A,
+            by_id_row.clone(),
+            "a row names an instrument it cannot read",
+        ),
+        (
+            RISK_A,
+            by_isin.clone(),
+            "an identifier reaches an instrument it cannot read",
+        ),
+    ] {
+        let (code, body) = check(&router, Some(token), "BOOK-A", rows).await;
+        assert_eq!(code, StatusCode::FORBIDDEN, "{why}: {body}");
+    }
+    for rows in [by_id_row, by_isin] {
+        let (code, body) = check(&router, Some(HUMAN_TOKEN), "BOOK-A", rows.clone()).await;
+        assert_eq!(code, StatusCode::OK, "{rows}: {body}");
+    }
+
+    // A check stores nothing.
+    assert_eq!(
+        version(&router, Some(HUMAN_TOKEN), "/api/v1/books/BOOK-A").await,
+        book_etag
+    );
+    assert_eq!(version(&router, Some(RISK_A), path).await, set_etag);
+    let audit = setup
+        .storage
+        .audit
+        .query(&AuditFilter::default(), &Pagination::new(0, 1))
+        .await
+        .unwrap();
+    assert_eq!(audit.total, 0);
+}

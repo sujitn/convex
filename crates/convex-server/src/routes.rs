@@ -322,7 +322,7 @@ pub fn create_router_with_access(
             "/api/v1/books/:book_id/history",
             get(books::get_book_history),
         )
-        // Book limits: two-subject changes (D85) and status on request
+        // Book limits: two-subject changes (D85), status on request and the pre-trade check
         .route(
             "/api/v1/books/:book_id/limits",
             get(limits::get_limits).put(limits::put_limits),
@@ -350,6 +350,11 @@ pub fn create_router_with_access(
         .route(
             "/api/v1/books/:book_id/limits/status",
             get(limits::get_limit_status),
+        )
+        // Pre-trade check (P14d): status as if proposed changes were applied; stores nothing
+        .route(
+            "/api/v1/books/:book_id/limits/check",
+            post(limits::check_limits),
         )
         // Portfolio alias over books (one release)
         .route(
