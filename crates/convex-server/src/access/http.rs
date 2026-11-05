@@ -360,8 +360,10 @@ fn requirement(
             req.data = vec![D::Books];
             req.body_required = false;
         }
-        // Status reads the book, its results and priced terms, and returns market values.
-        "/api/v1/books/:book_id/limits/status" => {
+        // Status reads the book, its results and priced terms, and returns market values. A
+        // pre-trade check reads the same and stores nothing; the body scan covers each
+        // proposed `instrument_id`, and the handler each instrument it resolves.
+        "/api/v1/books/:book_id/limits/status" | "/api/v1/books/:book_id/limits/check" => {
             exact(R::Book, "book_id")?;
             req.action = BookRead;
             req.data = vec![D::Books, D::Results, D::Reference, D::Market];
