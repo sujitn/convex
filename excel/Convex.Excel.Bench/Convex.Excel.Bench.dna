@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DnaLibrary Name="Convex Excel Bench" RuntimeVersion="v4.0">
+  <ExternalLibrary Path="Convex.Excel.Bench.dll" ExplicitExports="false" LoadFromBytes="true" Pack="true" />
+  <!-- X0 spike: can a native DLL be packed into a net472 .xll? CXB.NATIVE()
+       reports whether convex_ffi.dll loaded and from which path. -->
+  <Reference Path="convex_ffi.dll" Pack="true" />
+</DnaLibrary>

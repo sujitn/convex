@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- X0 measurement add-in (excel-plan): a synthetic RTD server, a latency
+       recorder and a main-thread probe. It also tests whether Excel-DNA 1.9.0 on
+       net472 can pack convex_ffi.dll into the .xll. Not shipped; not built by CI. -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>11.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Convex.Excel.Bench</AssemblyName>
+    <RootNamespace>Convex.Excel.Bench</RootNamespace>
+    <ExcelDnaCreate32BitAddIn>false</ExcelDnaCreate32BitAddIn>
+    <!-- Same default as the add-in; override with -p:NativeLibPath=... -->
+    <NativeLibPath Condition="'$(NativeLibPath)' == ''">..\..\target\excel\convex_ffi.dll</NativeLibPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ExcelDna.AddIn" Version="1.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Convex.Excel.Bench.dna">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- The .dna references convex_ffi.dll with Pack="true", so it must sit next
+       to the .dna before ExcelDnaBuild packs. -->
+  <Target Name="CopyNativeLibForPack" BeforeTargets="ExcelDnaBuild" Condition="Exists('$(NativeLibPath)')">
+    <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(OutDir)" />
+  </Target>
+</Project>
