@@ -20,7 +20,7 @@
 // Internal early-return errors are the finished HTTP response itself.
 #![allow(clippy::result_large_err)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use axum::extract::rejection::{JsonRejection, QueryRejection};
@@ -40,6 +40,7 @@ use convex_engine::ports::output::BondQuoteOutput;
 use convex_engine::ports::reference_data::BondReferenceData;
 use convex_engine::ports::reference_master::*;
 use convex_engine::ports::reference_repository::*;
+use convex_engine::ports::runtime::PublishedValuation;
 use serde::{Deserialize, Serialize};
 
 use crate::access::{recorded_subject, AccessContext, Action, DataScope, Resource, ResourceKind};
@@ -62,7 +63,7 @@ fn conflict(code: &'static str, message: &str) -> Response {
     typed_error(StatusCode::CONFLICT, code, message)
 }
 
-fn set_of(record: &MasterRecord) -> Result<&LimitSetDefinition, ReferenceError> {
+pub(crate) fn set_of(record: &MasterRecord) -> Result<&LimitSetDefinition, ReferenceError> {
     match &record.definition {
         MasterDefinition::LimitSet(set) => Ok(set),
         _ => Err(ReferenceError::Unsupported("not a limit set")),
@@ -97,7 +98,7 @@ pub(crate) fn limits_route_required() -> Response {
 }
 
 /// The instruments a limit names, which the response scan does not read.
-fn named_instruments(limits: &[LimitDefinition]) -> impl Iterator<Item = &InstrumentId> {
+pub(crate) fn named_instruments(limits: &[LimitDefinition]) -> impl Iterator<Item = &InstrumentId> {
     limits.iter().filter_map(|limit| match &limit.measure {
         LimitMeasure::Face {
             instrument: LimitMember::One(id),
@@ -988,12 +989,6 @@ struct StatusView<'a> {
     limits: Vec<StatusItem<'a>>,
 }
 
-/// A position's accepted result, read as an analyzer quote, with its priced bond terms.
-struct Read {
-    quote: BondQuoteOutput,
-    bond: BondReferenceData,
-}
-
 /// `GET /api/v1/books/{book_id}/limits/status`: each limit of the current set, evaluated
 /// now against the current Live results.
 ///
@@ -1035,84 +1030,30 @@ async fn status(
     .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
     let book = book_of(&book_record).map_err(reference_error)?;
     let evaluated_at = now().map_err(reference_error)?;
-    let settlement = state.engine.runtime_settlement_date();
-    let repo = state.engine.reference_repository();
-    let mut accepted = accepted_runtime_results(state);
-    let mut snapshots = BTreeSet::new();
-    let mut reads: Vec<Option<Read>> = Vec::with_capacity(book.positions.len());
-    for position in &book.positions {
-        let result = accepted
-            .get_mut(position.instrument_id.as_str())
-            .and_then(|versions| match position.reference_version {
-                Some(pin) => versions.remove(&pin.get()),
-                None => versions.pop_last().map(|(_, result)| result),
-            });
-        let (Some(valuation), Some(settlement)) = (result, settlement) else {
-            reads.push(None);
-            continue;
-        };
-        let provenance = valuation.result.provenance();
-        let ValuationSubject::InstrumentVersion { version, .. } = &provenance.subject else {
-            reads.push(None);
-            continue;
-        };
-        let priced = match repo
-            .get_version(
-                &convex_core::ids::InstrumentId::new(position.instrument_id.as_str()),
-                *version,
-            )
-            .await
-        {
-            Ok(priced) => priced,
-            Err(error) => {
-                tracing::warn!(instrument = %position.instrument_id, %error, "limit status: priced terms are unreadable");
-                reads.push(None);
-                continue;
-            }
-        };
-        let Some(bond) = priced.and_then(|record| record.bond) else {
-            reads.push(None);
-            continue;
-        };
-        match convex_engine::runtime_bond_quote(&valuation, settlement.date(), bond.currency) {
-            Ok(quote) => {
-                snapshots.insert(provenance.snapshot_id.as_str().to_owned());
-                reads.push(Some(Read { quote, bond }));
-            }
-            Err(error) => {
-                tracing::warn!(instrument = %position.instrument_id, %error, "limit status: runtime result is not a readable quote");
-                reads.push(None);
-            }
-        }
-    }
-    let positions: Vec<LimitPosition<'_>> = book
-        .positions
-        .iter()
-        .zip(&reads)
-        .map(|(position, read)| LimitPosition {
-            instrument_id: &position.instrument_id,
-            quantity: position.quantity.decimal(),
-            unit: position.unit,
-            rating: position.rating.as_deref(),
-            quote: read.as_ref().map(|r| &r.quote),
-            terms: read.as_ref().map(|r| LimitTerms::of(&r.bond)),
-        })
-        .collect();
-    let limit_book = LimitBook {
-        currency: book
-            .currency
-            .as_deref()
-            .and_then(convex_core::Currency::from_code),
-        positions: &positions,
-    };
-    let evaluations = evaluate_limits(&limit_book, &set.limits).map_err(|error| {
+    let accepted = accepted_runtime_results(state);
+    let mut terms = PricedTerms::new();
+    read_priced_terms(
+        state.engine.reference_repository().as_ref(),
+        book,
+        &accepted,
+        &mut terms,
+    )
+    .await;
+    let evaluation = evaluate_book(
+        book,
+        &set.limits,
+        &accepted,
+        &terms,
+        state.engine.runtime_settlement_date(),
+    )
+    .map_err(|error| {
         tracing::error!(%error, "limit status: evaluation refused a stored book and limit set");
         reference_error(ReferenceError::Unavailable)
     })?;
     let limits = set
         .limits
         .iter()
-        .zip(&evaluations)
+        .zip(&evaluation.evaluations)
         .map(|(limit, evaluation)| StatusItem {
             measure: &limit.measure,
             lower: limit.lower,
@@ -1126,8 +1067,140 @@ async fn status(
         book_version: book_record.version,
         limit_set_version: set_record.version,
         evaluated_at,
-        snapshot_ids: snapshots.into_iter().collect(),
+        snapshot_ids: evaluation.snapshot_ids,
         limits,
     };
     Ok(Json(view).into_response())
+}
+
+// =============================================================================
+// EVALUATION, SHARED WITH THE MONITOR
+// =============================================================================
+
+/// Complete accepted runtime results by instrument and priced version.
+pub(crate) type Accepted = BTreeMap<String, BTreeMap<u64, PublishedValuation>>;
+
+/// Priced bond terms by instrument and version. A version is immutable, so a kept entry
+/// never goes stale.
+pub(crate) type PricedTerms = HashMap<(InstrumentId, Version), Arc<BondReferenceData>>;
+
+/// The accepted result a position reads, by analytics by book's rule: the version it
+/// pins, or else the latest.
+fn position_result<'a>(
+    accepted: &'a Accepted,
+    position: &BookPosition,
+) -> Option<&'a PublishedValuation> {
+    let versions = accepted.get(position.instrument_id.as_str())?;
+    match position.reference_version {
+        Some(pin) => versions.get(&pin.get()),
+        None => versions.last_key_value().map(|(_, result)| result),
+    }
+}
+
+/// The instrument version a result priced.
+pub(crate) fn priced_version(valuation: &PublishedValuation) -> Option<(InstrumentId, Version)> {
+    match &valuation.result.provenance().subject {
+        ValuationSubject::InstrumentVersion {
+            instrument_id,
+            version,
+        } => Some((instrument_id.clone(), *version)),
+        _ => None,
+    }
+}
+
+/// Read into `terms` the priced terms of each position's result that `terms` lacks. A
+/// version that cannot be read is left out, with a warning logged, so its position counts
+/// as missing, and a later call reads it again.
+pub(crate) async fn read_priced_terms(
+    repo: &dyn ReferenceRepository,
+    book: &BookDefinition,
+    accepted: &Accepted,
+    terms: &mut PricedTerms,
+) {
+    for position in &book.positions {
+        let Some(key) = position_result(accepted, position).and_then(priced_version) else {
+            continue;
+        };
+        if terms.contains_key(&key) {
+            continue;
+        }
+        let id = convex_core::ids::InstrumentId::new(key.0.as_str());
+        match repo.get_version(&id, key.1).await {
+            Ok(Some(record)) => {
+                if let Some(bond) = record.bond {
+                    terms.insert(key, Arc::new(bond));
+                }
+            }
+            Ok(None) => {}
+            Err(error) => {
+                tracing::warn!(instrument = %position.instrument_id, %error, "limit status: priced terms are unreadable");
+            }
+        }
+    }
+}
+
+/// One evaluation of a book's limits, in set order, and the snapshots whose results it
+/// read.
+pub(crate) struct BookEvaluation {
+    pub(crate) evaluations: Vec<LimitEvaluation>,
+    pub(crate) snapshot_ids: Vec<String>,
+}
+
+/// Evaluate `limits` on `book` against `accepted` results and their priced `terms`.
+///
+/// A position without an accepted result (by analytics by book's rule) makes each limit
+/// that reads market data `unknown`, and so does one whose priced terms are not in `terms`
+/// or whose result cannot be read as an analyzer quote (with a warning logged).
+pub(crate) fn evaluate_book(
+    book: &BookDefinition,
+    limits: &[LimitDefinition],
+    accepted: &Accepted,
+    terms: &PricedTerms,
+    settlement: Option<convex_core::contracts::BusinessDate>,
+) -> Result<BookEvaluation, convex_engine::EngineError> {
+    let mut snapshots = BTreeSet::new();
+    let reads: Vec<Option<(BondQuoteOutput, &BondReferenceData)>> = book
+        .positions
+        .iter()
+        .map(|position| {
+            let valuation = position_result(accepted, position)?;
+            let settlement = settlement?;
+            let bond = terms.get(&priced_version(valuation)?)?;
+            match convex_engine::runtime_bond_quote(valuation, settlement.date(), bond.currency) {
+                Ok(quote) => {
+                    let snapshot = &valuation.result.provenance().snapshot_id;
+                    snapshots.insert(snapshot.as_str().to_owned());
+                    Some((quote, bond.as_ref()))
+                }
+                Err(error) => {
+                    tracing::warn!(instrument = %position.instrument_id, %error, "limit status: runtime result is not a readable quote");
+                    None
+                }
+            }
+        })
+        .collect();
+    let positions: Vec<LimitPosition<'_>> = book
+        .positions
+        .iter()
+        .zip(&reads)
+        .map(|(position, read)| LimitPosition {
+            instrument_id: &position.instrument_id,
+            quantity: position.quantity.decimal(),
+            unit: position.unit,
+            rating: position.rating.as_deref(),
+            quote: read.as_ref().map(|(quote, _)| quote),
+            terms: read.as_ref().map(|(_, bond)| LimitTerms::of(bond)),
+        })
+        .collect();
+    let limit_book = LimitBook {
+        currency: book
+            .currency
+            .as_deref()
+            .and_then(convex_core::Currency::from_code),
+        positions: &positions,
+    };
+    Ok(BookEvaluation {
+        evaluations: evaluate_limits(&limit_book, limits)?,
+        snapshot_ids: snapshots.into_iter().collect(),
+    })
 }

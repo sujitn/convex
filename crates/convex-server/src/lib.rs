@@ -32,6 +32,7 @@ mod curves;
 mod error;
 pub mod handlers;
 pub mod health;
+pub mod limit_monitor;
 mod limits;
 pub mod market;
 mod reference;
@@ -97,6 +98,7 @@ pub struct Server {
     access: Arc<access::AccessControl>,
     core: Option<Arc<convex_engine::core_workflow::CoreWorkflow>>,
     quotes: Option<Arc<market::QuoteIngress>>,
+    limits: Option<Arc<limit_monitor::LimitMonitor>>,
 }
 
 impl Server {
@@ -113,6 +115,7 @@ impl Server {
             access,
             core: None,
             quotes: None,
+            limits: None,
         }
     }
 
@@ -128,6 +131,7 @@ impl Server {
             access,
             core: None,
             quotes: None,
+            limits: None,
         }
     }
 
@@ -143,6 +147,16 @@ impl Server {
     /// Accept live quotes for the Live runtime over `POST /api/v1/market/quotes`.
     pub fn with_quote_ingress(mut self, quotes: Arc<market::QuoteIngress>) -> Self {
         self.quotes = Some(quotes);
+        self
+    }
+
+    /// Monitor each book's limits while serving, recording each status change in `audit`
+    /// and publishing it to `subscribe_limits` sessions (P14c, D86).
+    pub fn with_limit_monitor(
+        mut self,
+        audit: Arc<dyn convex_engine::ports::storage::AuditStore>,
+    ) -> Self {
+        self.limits = Some(limit_monitor::LimitMonitor::new(audit));
         self
     }
 
@@ -193,6 +207,9 @@ impl Server {
         }
         if let Some(quotes) = &self.quotes {
             router = router.layer(Extension(quotes.clone()));
+        }
+        if let Some(limits) = &self.limits {
+            router = router.layer(Extension(limits.feed()));
         }
         // HTTP configuration fixtures must prefix the replay this composition runs (D35).
         if let Some(quotes) = &self.config.quotes_file {
@@ -261,6 +278,15 @@ impl Server {
                 None
             };
         info!("Starting Convex server on {}", listener.local_addr()?);
+        // The limit monitor runs while the server serves, off the tick path, on a thread
+        // of its own: its evaluations and audit commits are synchronous work that would
+        // otherwise hold a worker serving requests, ticks and sessions.
+        let (monitor_stop, monitor_rx) = tokio::sync::watch::channel(false);
+        let monitor = self.limits.clone().map(|limits| {
+            let engine = self.engine.clone();
+            let handle = tokio::runtime::Handle::current();
+            tokio::task::spawn_blocking(move || handle.block_on(limits.run(engine, monitor_rx)))
+        });
         let engine = self.engine.clone();
         let shutdown_error = Arc::new(tokio::sync::Mutex::new(None));
         let captured = shutdown_error.clone();
@@ -273,8 +299,14 @@ impl Server {
             })
             .await;
         let _ = policy_stop.send(true);
+        let _ = monitor_stop.send(true);
         if let Some(task) = policy_task {
             task.await.map_err(|_| access::AccessError::Unavailable)?;
+        }
+        if let Some(task) = monitor {
+            if let Err(error) = task.await {
+                tracing::error!(%error, "Limit monitor task failed");
+            }
         }
         self.engine.shutdown().await?;
         if let Some(error) = shutdown_error.lock().await.take() {

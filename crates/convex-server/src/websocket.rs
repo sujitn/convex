@@ -1,8 +1,10 @@
 //! WebSocket streaming of canonical runtime results.
 //!
-//! The runtime results channel (`PricingEngine::subscribe_results`) is the only
-//! source of streamed data. A client opts in with `subscribe_valuations` and
-//! receives a `valuation` message for each published result of those instruments.
+//! The runtime results channel (`PricingEngine::subscribe_results`) is the source of
+//! streamed valuations. A client opts in with `subscribe_valuations` and receives a
+//! `valuation` message for each published result of those instruments. With
+//! `subscribe_limits` it receives a `limit_status` message for each recorded change of a
+//! book's limit status (P14c), as the limit monitor records it.
 //! REST calculators return their results in the response and never broadcast.
 //! Heartbeat and ping/pong keep the connection healthy.
 
@@ -25,7 +27,11 @@ use convex_core::ids::InstrumentId;
 use crate::access::http::WsAccess;
 use crate::access::{AccessError, Action, DataScope, Resource, ResourceKind};
 use crate::handlers::AppState;
+use crate::limit_monitor::{LimitFeed, LimitFrame, LimitStatusChange};
 use crate::ServerProfile;
+
+/// Books one session may follow: every book the monitor watches (D87).
+const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
 
 // =============================================================================
 // MESSAGE TYPES
@@ -41,6 +47,10 @@ pub enum ClientMessage {
     SubscribeValuations { instrument_ids: Vec<String> },
     /// Stop canonical valuation updates.
     UnsubscribeValuations { instrument_ids: Vec<String> },
+    /// Opt in to each recorded limit status change of these books.
+    SubscribeLimits { book_ids: Vec<String> },
+    /// Stop limit status changes of these books.
+    UnsubscribeLimits { book_ids: Vec<String> },
     /// Ping (client heartbeat)
     Ping { timestamp: i64 },
 }
@@ -73,6 +83,8 @@ pub enum ServerMessage {
     Heartbeat { server_time: i64 },
     /// Canonical durable result state from the pricing runtime.
     Valuation(Box<convex_engine::ports::runtime::PublishedValuation>),
+    /// A recorded change of one limit's status.
+    LimitStatus(Arc<LimitStatusChange>),
 }
 
 // =============================================================================
@@ -125,11 +137,12 @@ impl Default for WebSocketState {
 #[derive(Default)]
 struct ClientSession {
     valuation_subscriptions: HashSet<InstrumentId>,
+    limit_subscriptions: HashSet<String>,
 }
 
 impl ClientSession {
     fn topic_count(&self) -> usize {
-        self.valuation_subscriptions.len()
+        self.valuation_subscriptions.len() + self.limit_subscriptions.len()
     }
 }
 
@@ -143,15 +156,27 @@ pub(crate) async fn ws_handler(
     State(state): State<Arc<AppState>>,
     profile: Option<Extension<ServerProfile>>,
     authorization: Option<Extension<WsAccess>>,
+    limits: Option<Extension<LimitFeed>>,
 ) -> impl IntoResponse {
     let profile = profile.map_or(ServerProfile::Production, |Extension(profile)| profile);
     let Some(Extension(authorization)) = authorization else {
         return crate::access::http::response(AccessError::Unauthenticated);
     };
+    let limits = limits.map(|Extension(feed)| feed);
     ws.max_message_size(65536)
         .max_frame_size(65536)
-        .on_upgrade(move |socket| handle_socket(socket, state, profile, authorization))
+        .on_upgrade(move |socket| handle_socket(socket, state, profile, authorization, limits))
         .into_response()
+}
+
+/// The next recorded limit status change, or never without a monitor.
+async fn next_limit(
+    frames: &mut Option<broadcast::Receiver<Arc<LimitFrame>>>,
+) -> Result<Arc<LimitFrame>, broadcast::error::RecvError> {
+    match frames {
+        Some(frames) => frames.recv().await,
+        None => std::future::pending().await,
+    }
 }
 
 /// Handle an individual WebSocket connection.
@@ -160,6 +185,7 @@ async fn handle_socket(
     state: Arc<AppState>,
     profile: ServerProfile,
     mut authorization: WsAccess,
+    limits: Option<LimitFeed>,
 ) {
     let ws_state = &state.ws_state;
 
@@ -177,6 +203,8 @@ async fn handle_socket(
 
     // The runtime results channel is the only source of streamed messages.
     let mut valuation_rx = state.engine.subscribe_results();
+    let mut limit_rx = limits.as_ref().map(LimitFeed::subscribe);
+    let monitored = limit_rx.is_some();
     let mut shutdown_rx = state.engine.subscribe_shutdown();
 
     // Split socket into sender and receiver
@@ -238,17 +266,37 @@ async fn handle_socket(
                     Err(broadcast::error::RecvError::Closed) => break,
                 }
             }
+            frame = next_limit(&mut limit_rx) => {
+                match frame {
+                    Ok(frame) => {
+                        let book = frame.change.book_id.as_str();
+                        if session.limit_subscriptions.contains(book) {
+                            // As the status route: the book and every instrument it holds or a limit names.
+                            let message = if limit_permission(book, frame.instruments.iter(), &authorization).is_ok() {
+                                ServerMessage::LimitStatus(frame.change.clone())
+                            } else {
+                                ServerMessage::Error { code: "FORBIDDEN".into(), message: format!("limit status of book {book} needs read access to each instrument it holds or a limit names") }
+                            };
+                            if send_message(&mut sender, &message, profile, &authorization).await.is_err() { break; }
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(_)) => {
+                        if !session.limit_subscriptions.is_empty() && send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Read /api/v1/books/{book_id}/limits/status for each subscribed book".into() }, profile, &authorization).await.is_err() { break; }
+                    }
+                    Err(broadcast::error::RecvError::Closed) => limit_rx = None,
+                }
+            }
             // Handle incoming messages from client
             message = receiver.next() => {
                 let Some(msg) = message else { break; };
                 let admission = match authorization.access.admit_message(&authorization.context) { Ok(admission) => admission, Err(_) => { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; } };
                 match msg {
                     Ok(Message::Text(text)) => {
-                        if handle_client_payload(Ok(&text), &mut session, &mut sender, profile, &authorization).await.is_err() { break; }
+                        if handle_client_payload(Ok(&text), &mut session, &mut sender, profile, &authorization, monitored).await.is_err() { break; }
                     }
                     Ok(Message::Binary(data)) => {
                         let text = std::str::from_utf8(&data).map_err(|_| "INVALID_MESSAGE".to_owned());
-                        if handle_client_payload(text, &mut session, &mut sender, profile, &authorization).await.is_err() { break; }
+                        if handle_client_payload(text, &mut session, &mut sender, profile, &authorization, monitored).await.is_err() { break; }
                     }
                     Ok(Message::Ping(data)) => {
                         if !tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Pong(data))).await.is_ok_and(|r| r.is_ok()) {
@@ -296,9 +344,12 @@ async fn handle_client_payload(
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     profile: ServerProfile,
     authorization: &WsAccess,
+    monitored: bool,
 ) -> Result<(), axum::Error> {
     let result = match text {
-        Ok(text) => handle_client_message(text, session, sender, profile, authorization).await,
+        Ok(text) => {
+            handle_client_message(text, session, sender, profile, authorization, monitored).await
+        }
         Err(error) => Err(error),
     };
     if let Err(error) = result {
@@ -337,6 +388,7 @@ async fn handle_client_message(
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     profile: ServerProfile,
     authorization: &WsAccess,
+    monitored: bool,
 ) -> Result<(), String> {
     let msg: ClientMessage =
         serde_json::from_str(text).map_err(|_| "INVALID_MESSAGE".to_owned())?;
@@ -381,6 +433,42 @@ async fn handle_client_message(
                 count,
             }
         }
+        ClientMessage::SubscribeLimits { book_ids } => {
+            if !monitored {
+                return Err("this server does not monitor limits".into());
+            }
+            if book_ids.len() > MAX_LIMIT_SUBSCRIPTIONS
+                || session
+                    .limit_subscriptions
+                    .len()
+                    .saturating_add(book_ids.len())
+                    > MAX_LIMIT_SUBSCRIPTIONS
+            {
+                return Err("at most 64 limit subscriptions".into());
+            }
+            for id in &book_ids {
+                crate::books::book_id(id.clone()).map_err(|_| "invalid book identity")?;
+            }
+            let count = book_ids.len();
+            session.limit_subscriptions.extend(book_ids);
+            ServerMessage::Subscribed {
+                subscription_type: "limits".into(),
+                count,
+            }
+        }
+        ClientMessage::UnsubscribeLimits { book_ids } => {
+            if book_ids.len() > MAX_LIMIT_SUBSCRIPTIONS {
+                return Err("at most 64 limit subscriptions".into());
+            }
+            let count = book_ids.len();
+            for id in &book_ids {
+                session.limit_subscriptions.remove(id);
+            }
+            ServerMessage::Unsubscribed {
+                subscription_type: "limits".into(),
+                count,
+            }
+        }
         ClientMessage::Ping { timestamp } => ServerMessage::Pong {
             timestamp,
             server_time: current_timestamp(),
@@ -405,6 +493,32 @@ fn valuation_permission(id: &str, authorization: &WsAccess) -> Result<(), Access
         ],
     )
 }
+/// A limit topic needs book read, with books, results, reference and market data, on the
+/// book and on each of `instruments`, as the status route does. A subscription checks the
+/// book; each frame checks the instruments the book holds or a limit names when it is sent.
+fn limit_permission<'a>(
+    book: &str,
+    instruments: impl IntoIterator<Item = &'a String>,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    let mut resources = vec![Resource::new(ResourceKind::Book, book)];
+    resources.extend(
+        instruments
+            .into_iter()
+            .map(|id| Resource::new(ResourceKind::Instrument, id.as_str())),
+    );
+    authorization.access.authorize(
+        &authorization.context,
+        Action::BookRead,
+        &[
+            DataScope::Books,
+            DataScope::Results,
+            DataScope::Reference,
+            DataScope::Market,
+        ],
+        &resources,
+    )
+}
 fn session_authorized(
     session: &ClientSession,
     authorization: &WsAccess,
@@ -422,6 +536,9 @@ fn session_authorized(
     for id in &session.valuation_subscriptions {
         valuation_permission(id.as_str(), authorization)?;
     }
+    for book in &session.limit_subscriptions {
+        limit_permission(book, [], authorization)?;
+    }
     Ok(())
 }
 fn authorize_subscription(
@@ -436,6 +553,15 @@ fn authorize_subscription(
         ClientMessage::SubscribeValuations { instrument_ids } => instrument_ids,
         ClientMessage::UnsubscribeValuations { instrument_ids } => {
             if instrument_ids.len() > 256 {
+                return Err(AccessError::Quota);
+            }
+            return Ok(());
+        }
+        ClientMessage::SubscribeLimits { book_ids } => {
+            return authorize_limits(book_ids, session, authorization)
+        }
+        ClientMessage::UnsubscribeLimits { book_ids } => {
+            if book_ids.len() > MAX_LIMIT_SUBSCRIPTIONS {
                 return Err(AccessError::Quota);
             }
             return Ok(());
@@ -469,6 +595,38 @@ fn authorize_subscription(
     }
     Ok(())
 }
+fn authorize_limits(
+    ids: &[String],
+    session: &ClientSession,
+    authorization: &WsAccess,
+) -> Result<(), AccessError> {
+    if ids.len() > MAX_LIMIT_SUBSCRIPTIONS {
+        return Err(AccessError::Quota);
+    }
+    let mut prospective: HashSet<&str> = session
+        .limit_subscriptions
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let before = prospective.len();
+    for id in ids {
+        if !crate::access::policy::valid_id(id) || id == "*" {
+            return Err(AccessError::InvalidRequest);
+        }
+        limit_permission(id, [], authorization)?;
+        prospective.insert(id);
+    }
+    if session
+        .topic_count()
+        .saturating_add(prospective.len().saturating_sub(before))
+        > authorization
+            .access
+            .subscription_limit(&authorization.context)?
+    {
+        return Err(AccessError::Quota);
+    }
+    Ok(())
+}
 fn authorize_delivery(
     message: &ServerMessage,
     authorization: &WsAccess,
@@ -486,6 +644,9 @@ fn authorize_delivery(
             } => valuation_permission(instrument_id.as_str(), authorization)?,
             _ => return Err(AccessError::Forbidden),
         }
+    }
+    if let ServerMessage::LimitStatus(change) = message {
+        limit_permission(change.book_id.as_str(), [], authorization)?;
     }
     Ok(())
 }

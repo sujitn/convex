@@ -42,6 +42,7 @@ pub fn install() -> Option<&'static PrometheusHandle> {
                 for (name, help) in convex_engine::telemetry::HISTOGRAMS {
                     metrics::describe_histogram!(name, metrics::Unit::Seconds, help);
                 }
+                describe_limit_monitor();
                 Some(handle)
             }
             Err(error) => {
@@ -50,6 +51,29 @@ pub fn install() -> Option<&'static PrometheusHandle> {
             }
         })
         .as_ref()
+}
+
+/// The limit monitor's metrics (P14c). The gauges are labelled by watched book.
+fn describe_limit_monitor() {
+    use crate::limit_monitor as monitor;
+    metrics::describe_histogram!(
+        monitor::MONITOR_SECONDS,
+        metrics::Unit::Seconds,
+        "Limit monitor: time per evaluation pass over the books a trigger names"
+    );
+    metrics::describe_gauge!(
+        monitor::BREACHES,
+        "Limits of a watched book whose last recorded status is breach"
+    );
+    metrics::describe_gauge!(
+        monitor::UNKNOWNS,
+        "Limits of a watched book whose last recorded status is unknown"
+    );
+    metrics::describe_counter!(monitor::CHANGES, "Limit status changes recorded");
+    metrics::describe_counter!(
+        monitor::APPEND_FAILURES,
+        "Limit status changes that could not be recorded, and so were not published"
+    );
 }
 
 /// Build the recorder, start its upkeep thread for the life of the process, then

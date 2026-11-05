@@ -349,6 +349,62 @@ pub async fn audit_filter_count_and_pagination(store: Arc<dyn AuditStore>) {
     ));
 }
 
+/// `last_id` is the largest ID whatever the append order, and agrees with the default
+/// reading through `query`.
+pub async fn audit_last_id_is_the_largest(store: Arc<dyn AuditStore>) {
+    struct Queried(Arc<dyn AuditStore>);
+    #[async_trait::async_trait]
+    impl AuditStore for Queried {
+        async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+            self.0.append(entry).await
+        }
+        async fn query(
+            &self,
+            filter: &AuditFilter,
+            pagination: &Pagination,
+        ) -> Result<convex_ports::storage::Page<AuditEntry>, TraitError> {
+            self.0.query(filter, pagination).await
+        }
+    }
+    let queried = Queried(store.clone());
+    assert_eq!(store.last_id().await.unwrap(), None);
+    assert_eq!(queried.last_id().await.unwrap(), None);
+    for id in [40, 7, 90, 12] {
+        store
+            .append(&audit(id, 100, "write", "bond", "A", None))
+            .await
+            .unwrap();
+    }
+    assert_eq!(store.last_id().await.unwrap(), Some(90));
+    assert_eq!(queried.last_id().await.unwrap(), Some(90));
+
+    // An append between the default's reads moves the total; the default reads again
+    // rather than return the entry that was last before it.
+    struct Racing(Arc<dyn AuditStore>, std::sync::atomic::AtomicBool);
+    #[async_trait::async_trait]
+    impl AuditStore for Racing {
+        async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+            self.0.append(entry).await
+        }
+        async fn query(
+            &self,
+            filter: &AuditFilter,
+            pagination: &Pagination,
+        ) -> Result<convex_ports::storage::Page<AuditEntry>, TraitError> {
+            let page = self.0.query(filter, pagination).await;
+            if !self.1.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                self.0
+                    .append(&audit(95, 100, "write", "bond", "A", None))
+                    .await
+                    .unwrap();
+            }
+            page
+        }
+    }
+    let racing = Racing(store.clone(), std::sync::atomic::AtomicBool::new(false));
+    assert_eq!(racing.last_id().await.unwrap(), Some(95));
+}
+
 pub async fn audit_is_append_only(store: Arc<dyn AuditStore>) {
     let first = audit(7, 100, "fixture", "bond", "A", Some("alice"));
     store.append(&first).await.unwrap();

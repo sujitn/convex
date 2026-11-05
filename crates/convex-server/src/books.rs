@@ -1648,12 +1648,18 @@ fn gate_runtime_results(
 pub(crate) fn accepted_runtime_results(
     state: &AppState,
 ) -> BTreeMap<String, BTreeMap<u64, PublishedValuation>> {
-    let demo = state
-        .engine
+    accepted_results(&state.engine)
+}
+
+/// [`accepted_runtime_results`] of an engine, for readers outside a request.
+pub(crate) fn accepted_results(
+    engine: &convex_engine::PricingEngine,
+) -> BTreeMap<String, BTreeMap<u64, PublishedValuation>> {
+    let demo = engine
         .configuration_use_cases()
         .is_some_and(|cases| cases.accepts(DataQuality::Demo));
     let mut accepted: BTreeMap<String, BTreeMap<u64, PublishedValuation>> = BTreeMap::new();
-    for published in state.engine.runtime_results() {
+    for published in engine.runtime_results() {
         let envelope = &published.result;
         let quality = envelope.quality();
         if envelope.status() != ResultStatus::Complete

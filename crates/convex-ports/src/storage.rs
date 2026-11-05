@@ -861,6 +861,32 @@ pub trait AuditStore: Send + Sync {
         filter: &AuditFilter,
         pagination: &Pagination,
     ) -> Result<Page<AuditEntry>, TraitError>;
+
+    /// The largest entry ID in one read snapshot, or `None` when the log is empty: a
+    /// writer that assigns IDs takes the next one from it at start. The default reads it
+    /// through `query`; a store ordered by ID should read its last key instead.
+    ///
+    /// A page and its total come from one read snapshot, so the entry at `total - 1` of a
+    /// page whose total is the one asked for is that snapshot's largest. An append between
+    /// reads moves the total, and the default reads again, up to eight times.
+    async fn last_id(&self) -> Result<Option<u64>, TraitError> {
+        let all = AuditFilter::default();
+        let mut total = self.query(&all, &Pagination::new(0, 0)).await?.total;
+        for _ in 0..8 {
+            let Some(last) = total.checked_sub(1) else {
+                return Ok(None);
+            };
+            let offset = usize::try_from(last).map_err(|_| TraitError::CapacityExceeded)?;
+            let page = self.query(&all, &Pagination::new(offset, 1)).await?;
+            if page.total == total {
+                return Ok(page.items.last().map(|entry| entry.id));
+            }
+            total = page.total;
+        }
+        Err(TraitError::Conflict(
+            "the audit log grew on every read of its last entry",
+        ))
+    }
 }
 
 // =============================================================================

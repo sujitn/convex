@@ -41,6 +41,11 @@ async fn audit_filter_count_and_pagination() {
     conformance::audit_filter_count_and_pagination(s.audit).await;
 }
 #[tokio::test]
+async fn audit_last_id_is_the_largest() {
+    let (_directory, s) = storage();
+    conformance::audit_last_id_is_the_largest(s.audit).await;
+}
+#[tokio::test]
 async fn audit_is_append_only() {
     let (_directory, s) = storage();
     conformance::audit_is_append_only(s.audit).await;
