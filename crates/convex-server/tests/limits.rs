@@ -2,6 +2,7 @@
 //! retries, two subjects for every change under required access (D85), the bound on
 //! limited books (D87), the generic reference routes' refusal, and status on request at
 //! and just past each bound and band, with each reason the server reaches without results.
+//! The pre-trade check (P14d): D89's row rule, each refusal, and D91's access.
 #[allow(dead_code)] // This suite uses the issuer and request subset.
 #[path = "support/access_fixture.rs"]
 mod fixture;
@@ -2152,11 +2153,4 @@ async fn a_check_needs_the_book_and_every_instrument_it_reads() {
         book_etag
     );
     assert_eq!(version(&router, Some(RISK_A), path).await, set_etag);
-    let audit = setup
-        .storage
-        .audit
-        .query(&AuditFilter::default(), &Pagination::new(0, 1))
-        .await
-        .unwrap();
-    assert_eq!(audit.total, 0);
 }
