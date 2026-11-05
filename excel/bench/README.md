@@ -22,7 +22,10 @@ dotnet build excel/bench/WsDrain/WsDrain.csproj -c Release
 ```
 
 Add `-p:NativeLibPath=<path to convex_ffi.dll>` when cargo builds into a
-different target directory.
+different target directory. If the bench build fails with `Reference with Path:
+convex_ffi.dll ... NOT FOUND`, the native DLL has not been built (or
+`NativeLibPath` points elsewhere): the bench `.dna` packs it for the native
+check.
 
 ## Run
 
