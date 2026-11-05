@@ -405,6 +405,101 @@ pub async fn audit_last_id_is_the_largest(store: Arc<dyn AuditStore>) {
     assert_eq!(racing.last_id().await.unwrap(), Some(95));
 }
 
+/// `append_all` writes a batch in one transaction: every entry or none. An entry already
+/// stored, or repeated in the batch, with identical content counts as written; one with
+/// different content refuses the whole batch, as does a batch over 64 entries. The port's
+/// default appends in order and keeps what it wrote before a failure.
+pub async fn audit_append_all_is_all_or_nothing(store: Arc<dyn AuditStore>) {
+    let entry = |id: u64| audit(id, 100, "limit_status", "book", "BOOK-A", None);
+    let ids = |store: Arc<dyn AuditStore>| async move {
+        store
+            .query(&AuditFilter::default(), &Pagination::new(0, 100))
+            .await
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|e| e.id)
+            .collect::<Vec<u64>>()
+    };
+    store.append_all(&[]).await.unwrap();
+    assert_eq!(store.entry_count().await.unwrap(), 0);
+    store
+        .append_all(&[entry(1), entry(2), entry(3)])
+        .await
+        .unwrap();
+    assert_eq!(store.entry_count().await.unwrap(), 3);
+    // An identical retry writes nothing more.
+    store
+        .append_all(&[entry(1), entry(2), entry(3)])
+        .await
+        .unwrap();
+    assert_eq!(ids(store.clone()).await, [1, 2, 3]);
+
+    let mut changed = entry(2);
+    changed.action = "within".into();
+    assert!(matches!(
+        store.append_all(&[entry(4), changed.clone()]).await,
+        Err(TraitError::Conflict(_))
+    ));
+    assert_eq!(
+        ids(store.clone()).await,
+        [1, 2, 3],
+        "entry 4 is not written"
+    );
+
+    // The same ID twice in one batch: identical is one entry, different conflicts.
+    store.append_all(&[entry(5), entry(5)]).await.unwrap();
+    let mut other = entry(6);
+    other.action = "within".into();
+    assert!(matches!(
+        store.append_all(&[entry(6), other]).await,
+        Err(TraitError::Conflict(_))
+    ));
+    let many: Vec<AuditEntry> = (10..=10 + MAX_AUDIT_BATCH as u64).map(entry).collect();
+    assert!(matches!(
+        store.append_all(&many).await,
+        Err(TraitError::InvalidInput(_))
+    ));
+    store.append_all(&many[..MAX_AUDIT_BATCH]).await.unwrap();
+    assert_eq!(
+        store.entry_count().await.unwrap(),
+        4 + MAX_AUDIT_BATCH as u64
+    );
+
+    // The default: in order, not atomic, and `entry_count` through `query`.
+    struct Sequential(Arc<dyn AuditStore>);
+    #[async_trait::async_trait]
+    impl AuditStore for Sequential {
+        async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+            self.0.append(entry).await
+        }
+        async fn query(
+            &self,
+            filter: &AuditFilter,
+            pagination: &Pagination,
+        ) -> Result<convex_ports::storage::Page<AuditEntry>, TraitError> {
+            self.0.query(filter, pagination).await
+        }
+    }
+    let sequential = Sequential(store.clone());
+    assert!(matches!(
+        sequential.append_all(&[entry(7), changed]).await,
+        Err(TraitError::Conflict(_))
+    ));
+    assert!(
+        ids(store.clone()).await.contains(&7),
+        "the default keeps entry 7"
+    );
+    assert!(matches!(
+        sequential.append_all(&many).await,
+        Err(TraitError::InvalidInput(_))
+    ));
+    assert_eq!(
+        sequential.entry_count().await.unwrap(),
+        store.entry_count().await.unwrap()
+    );
+}
+
 pub async fn audit_is_append_only(store: Arc<dyn AuditStore>) {
     let first = audit(7, 100, "fixture", "bond", "A", Some("alice"));
     store.append(&first).await.unwrap();

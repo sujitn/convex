@@ -46,6 +46,11 @@ async fn audit_last_id_is_the_largest() {
     conformance::audit_last_id_is_the_largest(s.audit).await;
 }
 #[tokio::test]
+async fn audit_append_all_is_all_or_nothing() {
+    let (_directory, s) = storage();
+    conformance::audit_append_all_is_all_or_nothing(s.audit).await;
+}
+#[tokio::test]
 async fn audit_is_append_only() {
     let (_directory, s) = storage();
     conformance::audit_is_append_only(s.audit).await;

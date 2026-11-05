@@ -12,15 +12,17 @@
 //! on the latest results; it never queues. The server runs it on a thread of its own, so
 //! its evaluations and audit commits never hold a worker serving requests and ticks.
 //!
-//! A status *change* is recorded before it is published (D86): one `AuditStore` append per
+//! A status *change* is recorded before it is published (D86): one `AuditStore` record per
 //! limit whose status differs from its last recorded one, then one `limit_status` frame.
-//! A failed append keeps the last recorded status, so a later evaluation records the
-//! change again; a book with a failed append is evaluated again within a second, unless
-//! the store refused it for capacity, which a second later would not change. A restart
-//! begins with nothing recorded, so its first evaluation records every limit's status as
-//! a change from `unevaluated`, naming the start. A stop is seen between appends, so
-//! shutdown waits for one append at most; what was not recorded is recorded at the next
-//! start.
+//! One evaluation of a book writes all its records in one `append_all`, a single
+//! transaction (D92), so a restart's first pass is one commit a book rather than one a
+//! limit. A failed batch records none of the book's changes and keeps their last recorded
+//! statuses, so a later evaluation records them again; a book with a failed batch is
+//! evaluated again within a second, unless the store refused it for capacity, which a
+//! second later would not change. A restart begins with nothing recorded, so its first
+//! evaluation records every limit's status as a change from `unevaluated`, naming the
+//! start. A stop is seen between books, so shutdown waits for one book's commit at most;
+//! what was not recorded is recorded at the next start.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -40,7 +42,7 @@ use convex_engine::ports::limits::{
 use convex_engine::ports::reference_master::*;
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::runtime::PublishedValuation;
-use convex_engine::ports::storage::{AuditEntry, AuditStore};
+use convex_engine::ports::storage::{AuditEntry, AuditStore, MAX_AUDIT_BATCH};
 use convex_engine::ports::TraitError;
 use convex_engine::PricingEngine;
 use serde::Serialize;
@@ -66,6 +68,12 @@ pub const UNKNOWNS: &str = "convex_limit_unknown";
 pub const CHANGES: &str = "convex_limit_status_changes_total";
 /// Status changes that could not be recorded, and so were not published.
 pub const APPEND_FAILURES: &str = "convex_limit_status_append_failures_total";
+/// The entries the audit store holds, read when the monitor starts and after each commit.
+/// The store refuses every append at 1,000,000 (D98).
+pub const AUDIT_ENTRIES: &str = "convex_audit_entries";
+
+// One book's changes are one batch.
+const _: () = assert!(convex_engine::ports::limits::MAX_BOOK_LIMITS <= MAX_AUDIT_BATCH);
 
 /// Frames a slow subscriber may fall behind by: one evaluation of every watched book
 /// changes at most 64 × 64 limits.
@@ -360,7 +368,10 @@ impl Task {
     async fn work(&mut self) {
         if self.ledger.next_id.is_none() {
             match self.ledger.audit.last_id().await {
-                Ok(last) => self.ledger.next_id = Some(last.map_or(1, |id| id.saturating_add(1))),
+                Ok(last) => {
+                    self.ledger.next_id = Some(last.map_or(1, |id| id.saturating_add(1)));
+                    self.ledger.count_entries().await;
+                }
                 Err(error) => {
                     tracing::warn!(%error, "limit monitor: the audit store's last entry is unreadable");
                     self.stalled = true;
@@ -593,8 +604,7 @@ enum Recorded {
     All,
     /// Not every change; a second later may succeed.
     Retry,
-    /// The store refused a change for capacity; the rest of the book's changes were not
-    /// tried.
+    /// The store refused the book's changes for capacity; none was recorded.
     Full,
     /// A stop arrived; the rest were not tried.
     Stopped,
@@ -614,7 +624,18 @@ struct Ledger {
 }
 
 impl Ledger {
-    /// Record, then publish, each limit whose status differs from its last recorded one.
+    /// Publish how many entries the store holds; an unreadable count leaves the gauge.
+    async fn count_entries(&self) {
+        match self.audit.entry_count().await {
+            Ok(count) => metrics::gauge!(AUDIT_ENTRIES).set(count as f64),
+            Err(error) => {
+                tracing::debug!(%error, "limit monitor: the audit store's entry count is unreadable")
+            }
+        }
+    }
+
+    /// Record, then publish, each limit whose status differs from its last recorded one:
+    /// the book's records in one batch, then their frames in limit order.
     async fn record(
         &mut self,
         context: Context<'_>,
@@ -625,16 +646,16 @@ impl Ledger {
         recorded.retain(|id, _| limits.iter().any(|limit| limit.limit_id == *id));
         let snapshot_ids: Arc<[String]> = evaluation.snapshot_ids.into();
         let mut complete = true;
+        let mut entries = Vec::new();
+        let mut changes = Vec::new();
         for (limit, evaluation) in limits.iter().zip(evaluation.evaluations) {
             let previous = recorded.get(&limit.limit_id).copied();
             if previous == Some(evaluation.status) {
                 continue;
             }
-            if self.halt.requested() {
-                return Recorded::Stopped;
-            }
             let Some(record_id) = self.next_id else {
-                return Recorded::Retry;
+                complete = false;
+                break;
             };
             self.next_id = record_id.checked_add(1);
             let status = evaluation.status;
@@ -661,7 +682,7 @@ impl Ledger {
                     continue;
                 }
             };
-            let entry = AuditEntry {
+            entries.push(AuditEntry {
                 id: record_id,
                 timestamp: context.evaluated_at.datetime().timestamp_millis(),
                 event_type: LIMIT_STATUS_EVENT.into(),
@@ -670,31 +691,47 @@ impl Ledger {
                 user: None,
                 action: status_name(Some(status)).into(),
                 details: Some(details),
+            });
+            changes.push((limit.limit_id.clone(), status, change));
+        }
+        if entries.is_empty() {
+            return if complete {
+                Recorded::All
+            } else {
+                Recorded::Retry
             };
-            match self.audit.append(&entry).await {
-                Ok(()) => {
-                    self.full_reported = false;
-                    recorded.insert(limit.limit_id.clone(), status);
-                    metrics::counter!(CHANGES).increment(1);
+        }
+        if self.halt.requested() {
+            return Recorded::Stopped;
+        }
+        // Each change counts once, recorded or not.
+        let count = entries.len() as u64;
+        match self.audit.append_all(&entries).await {
+            Ok(()) => {
+                self.full_reported = false;
+                metrics::counter!(CHANGES).increment(count);
+                for (limit_id, status, change) in changes {
+                    recorded.insert(limit_id, status);
                     // No subscriber is not an error.
                     let _ = self.feed.send(Arc::new(LimitFrame {
                         change: Arc::new(change),
                         instruments: context.instruments.clone(),
                     }));
                 }
-                Err(TraitError::CapacityExceeded) => {
-                    metrics::counter!(APPEND_FAILURES).increment(1);
-                    if !self.full_reported {
-                        self.full_reported = true;
-                        tracing::error!(book = %context.book_id, "limit monitor: the audit store refuses status changes for capacity (it holds at most 1,000,000 entries and keeps them all); changes are neither recorded nor published until it accepts one");
-                    }
-                    return Recorded::Full;
+                self.count_entries().await;
+            }
+            Err(TraitError::CapacityExceeded) => {
+                metrics::counter!(APPEND_FAILURES).increment(count);
+                if !self.full_reported {
+                    self.full_reported = true;
+                    tracing::error!(book = %context.book_id, "limit monitor: the audit store refuses status changes for capacity (it holds at most 1,000,000 entries and keeps them all); changes are neither recorded nor published until it accepts one");
                 }
-                Err(error) => {
-                    tracing::warn!(book = %context.book_id, limit = %limit.limit_id, %error, "limit monitor: a status change could not be recorded");
-                    metrics::counter!(APPEND_FAILURES).increment(1);
-                    complete = false;
-                }
+                return Recorded::Full;
+            }
+            Err(error) => {
+                tracing::warn!(book = %context.book_id, changes = count, %error, "limit monitor: a book's status changes could not be recorded");
+                metrics::counter!(APPEND_FAILURES).increment(count);
+                complete = false;
             }
         }
         if complete {

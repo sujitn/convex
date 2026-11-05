@@ -547,31 +547,36 @@ While the server serves, a monitor watches every book with a non-empty limit set
 
 It records each status *change* in the audit store, then publishes it (D86): one audit
 entry per limit whose status differs from its last recorded one, then one `limit_status`
-WebSocket message. An evaluation that changes nothing records nothing. Each entry has
-`event_type` `limit_status`, `entity_type` `book`, the book id as `entity_id`, the new status
-as `action`, Unix milliseconds as `timestamp`, and the message's JSON as `details`. The
-message carries `record_id` (the entry's id), the book and set versions, `evaluated_at`,
-`previous` (the last recorded status, or `unevaluated`), the limit's measure and bounds, its
-evaluation (`limit_id`, `status`, `value`, `member`, `utilisation`, `reason`), the snapshot
-ids read and `monitor_started_at`. A failed append keeps the last recorded status, so the
-change is recorded by a later evaluation; a book with a failed append is evaluated again
-within a second, unless the store was full (below). Nothing reads these entries over HTTP
-yet.
+WebSocket message. One evaluation of a book writes its entries in one transaction (D92),
+all or nothing, and publishes them once it commits. An evaluation that changes nothing
+records nothing. Each entry has `event_type` `limit_status`, `entity_type` `book`, the book
+id as `entity_id`, the new status as `action`, Unix milliseconds as `timestamp`, and the
+message's JSON as `details`. The message carries `record_id` (the entry's id), the book and
+set versions, `evaluated_at`, `previous` (the last recorded status, or `unevaluated`), the
+limit's measure and bounds, its evaluation (`limit_id`, `status`, `value`, `member`,
+`utilisation`, `reason`), the snapshot ids read and `monitor_started_at`. A failed write
+records none of the book's changes and keeps their last recorded statuses, so a later
+evaluation records them; a book with a failed write is evaluated again within a second,
+unless the store was full (below). Nothing reads these entries over HTTP yet.
 
 The audit store holds at most 1,000,000 entries and keeps every one: nothing prunes it.
 A value that crosses a bound back and forth records a change each time (D86 has no
 hysteresis), at most once per evaluation per limit. Once the store is full, every change is
 refused: none is recorded or published, `convex_limit_status_append_failures_total` counts
-each refusal, and one error is logged until an append succeeds again. Alert on that
-counter. The monitor is the audit store's only writer today. A stop is seen between
-appends, so shutdown waits for one append at most; changes not yet recorded are restated
-at the next start.
+each change refused, and one error is logged until a write succeeds again. A book's write
+that would pass the cap is refused whole. `convex_audit_entries` reports the entries held:
+alert at 800,000, and on the failure counter. How long records must be kept is the
+operator's policy; nothing here archives them yet (D98). The monitor is the audit store's
+only writer today. A stop is seen between books, so shutdown waits for one book's commit at
+most; changes not yet recorded are restated at the next start.
 
 A restart records each limit's status again, as a change from `unevaluated`, with the new
-`monitor_started_at`: a standing breach is restated, not reported as a new one. Each entry
-is its own database commit, so at the bounds (64 books with 64 limits each) the first
-evaluation after a start records its 4,096 entries over 13 to 42 s here (`ci` profile,
-WSL2). Valuations are not slowed meanwhile, but changes in that window are recorded late.
+`monitor_started_at`: a standing breach is restated, not reported as a new one. Each book's
+entries are one database commit, so at the bounds (64 books with 64 limits each) the first
+evaluation after a start records its 4,096 entries within about 2.2 s here (`ci` profile,
+WSL2; 14 to 43 s when each entry was its own commit). Valuations are not slowed meanwhile,
+but changes in that window are recorded late. An entry's `details` is about 600 bytes, so a
+book's commit is about 40 KB.
 
 At the bounds (64 books, each holding all 256 priced instruments with 64 limits over every
 measure), one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or 256
@@ -652,8 +657,9 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 | `convex_quote_seconds` | One `POST /api/v1/quote` |
 | `convex_limit_monitor_seconds` | One limit monitor pass: evaluating the books a trigger names, then recording and publishing their changes |
 
-The limit monitor also keeps these. The two gauges are labelled `book_id`, one series per
-watched book, so a scraper sees the ids of watched books; a book no longer watched reads 0.
+The limit monitor also keeps these. The two book gauges are labelled `book_id`, one series
+per watched book, so a scraper sees the ids of watched books; a book no longer watched
+reads 0.
 
 | Metric | Meaning |
 |---|---|
@@ -661,6 +667,7 @@ watched book, so a scraper sees the ids of watched books; a book no longer watch
 | `convex_limit_unknown{book_id}` | Limits whose last recorded status is `unknown` |
 | `convex_limit_status_changes_total` | Status changes recorded |
 | `convex_limit_status_append_failures_total` | Status changes that could not be recorded, and so were not published |
+| `convex_audit_entries` | Entries the audit store holds, read when the monitor starts and after each write; every write is refused at 1,000,000 |
 
 On-demand fixed and zero-coupon quotes use the [shared bond quote route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from discount, swap and government inputs you pass in for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures return structured errors. Not yet covered: full historical contexts and live provider feeds.
 

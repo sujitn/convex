@@ -849,11 +849,43 @@ impl AuditFilter {
     }
 }
 
+/// The most entries one [`AuditStore::append_all`] takes: a book's limit set holds at most
+/// 64 limits, and the limit monitor writes one book's changes together.
+pub const MAX_AUDIT_BATCH: usize = 64;
+
 /// Audit log storage (append-only).
 #[async_trait]
 pub trait AuditStore: Send + Sync {
     /// Append an immutable entry; identical ID/content retries succeed, different content conflicts.
     async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError>;
+
+    /// Append up to [`MAX_AUDIT_BATCH`] entries in order, each as [`append`](Self::append)
+    /// would: an entry already stored with identical content counts as written, and one
+    /// with different content conflicts. This holds inside the batch too, so a repeated ID
+    /// with identical content is written once. A store that can should write them in one
+    /// transaction, all or nothing, and refuse the whole batch when any entry conflicts or
+    /// the batch would pass its capacity; redb does.
+    ///
+    /// The default appends one at a time and is not atomic: it stops at the first failure,
+    /// and the entries before it stay written.
+    async fn append_all(&self, entries: &[AuditEntry]) -> Result<(), TraitError> {
+        if entries.len() > MAX_AUDIT_BATCH {
+            return Err(TraitError::InvalidInput("audit batch exceeds 64 entries"));
+        }
+        for entry in entries {
+            self.append(entry).await?;
+        }
+        Ok(())
+    }
+
+    /// How many entries the log holds, in one read snapshot. The default counts through
+    /// `query`, which may read every entry; redb reads the table's length.
+    async fn entry_count(&self) -> Result<u64, TraitError> {
+        Ok(self
+            .query(&AuditFilter::default(), &Pagination::new(0, 0))
+            .await?
+            .total)
+    }
 
     /// Query matches and their total in one read snapshot, ordered by entry ID.
     async fn query(

@@ -1553,8 +1553,9 @@ use convex_engine::ports::storage::{AuditEntry, AuditFilter, AuditStore, Page, P
 use convex_engine::ports::TraitError;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// An audit store over the fixture's that delays each append, refuses some, or refuses
-/// all for capacity, as a test needs. It counts every append attempted.
+/// An audit store over the fixture's that delays each write, refuses some, or refuses all
+/// for capacity, as a test needs. A batch is one write, as it is one transaction in redb;
+/// it counts every write attempted.
 struct ScriptedAudit {
     inner: Arc<dyn AuditStore>,
     delay: std::time::Duration,
@@ -1585,11 +1586,9 @@ impl ScriptedAudit {
     fn attempts(&self) -> usize {
         self.attempts.load(Ordering::SeqCst)
     }
-}
 
-#[async_trait::async_trait]
-impl AuditStore for ScriptedAudit {
-    async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+    /// One write attempted: its delay, then the scripted refusal, if any.
+    async fn scripted(&self) -> Result<(), TraitError> {
         self.attempts.fetch_add(1, Ordering::SeqCst);
         tokio::time::sleep(self.delay).await;
         if self.full {
@@ -1602,7 +1601,24 @@ impl AuditStore for ScriptedAudit {
         {
             return Err(TraitError::DatabaseError("injected".into()));
         }
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl AuditStore for ScriptedAudit {
+    async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+        self.scripted().await?;
         self.inner.append(entry).await
+    }
+
+    async fn append_all(&self, entries: &[AuditEntry]) -> Result<(), TraitError> {
+        self.scripted().await?;
+        self.inner.append_all(entries).await
+    }
+
+    async fn entry_count(&self) -> Result<u64, TraitError> {
+        self.inner.entry_count().await
     }
 
     async fn query(
@@ -1619,8 +1635,8 @@ impl AuditStore for ScriptedAudit {
 }
 
 /// A local-development server over the fixture repository, no runtime, whose monitor
-/// records through `audit` into the fixture's audit store; `BOOK-A` holds the fixture
-/// bond and `count` face limits.
+/// records through `audit` into the fixture's audit store; `books` books (`BOOK-00`, ...)
+/// each hold the fixture bond and `count` face limits.
 struct Monitored {
     audit: Arc<ScriptedAudit>,
     stop: tokio::sync::oneshot::Sender<()>,
@@ -1628,7 +1644,7 @@ struct Monitored {
     setup: support::Setup,
 }
 
-async fn monitored(script: Script, count: usize) -> Monitored {
+async fn monitored(script: Script, books: usize, count: usize) -> Monitored {
     use convex_server::access::identity::{AccessMode, AccessSettings};
     use convex_server::{Server, ServerConfig, ServerProfile};
     let setup = support::setup().await;
@@ -1661,20 +1677,23 @@ async fn monitored(script: Script, count: usize) -> Monitored {
             .await
     });
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
-    for (path, key, body) in [
-        (
-            "/api/v1/books/BOOK-A",
-            "book-a",
-            json!({"currency": "USD", "positions": [position("1000000")]}),
-        ),
-        (
-            "/api/v1/books/BOOK-A/limits",
-            "limits-a",
-            set((0..count)
-                .map(|i| face(&format!("face-{i:02}"), None, Some("2000000"), None))
-                .collect()),
-        ),
-    ] {
+    let writes = (0..books).flat_map(|b| {
+        [
+            (
+                format!("/api/v1/books/BOOK-{b:02}"),
+                format!("book-{b:02}"),
+                json!({"currency": "USD", "positions": [position("1000000")]}),
+            ),
+            (
+                format!("/api/v1/books/BOOK-{b:02}/limits"),
+                format!("limits-{b:02}"),
+                set((0..count)
+                    .map(|i| face(&format!("face-{i:02}"), None, Some("2000000"), None))
+                    .collect()),
+            ),
+        ]
+    });
+    for (path, key, body) in writes {
         let response = client
             .put(format!("{base}{path}"))
             .header("idempotency-key", key)
@@ -1706,34 +1725,35 @@ async fn until(what: &str, condition: impl Fn() -> bool) {
     .unwrap_or_else(|_| panic!("never {what}"));
 }
 
-/// Shutdown waits for the append in progress, not for the rest of the pass: 64 changes at
-/// 200 ms each would hold it 12.8 s.
+/// Shutdown waits for the book's commit in progress, not for the rest of the pass: one
+/// batch a book (D92), and 16 books at 400 ms each would hold it 6.4 s.
 #[tokio::test]
 async fn shutdown_does_not_wait_for_the_monitors_pass() {
     let server = monitored(
         Script {
-            delay: std::time::Duration::from_millis(200),
+            delay: std::time::Duration::from_millis(400),
             ..Default::default()
         },
-        64,
+        16,
+        4,
     )
     .await;
     let audit = server.audit.clone();
-    until("an append started", || audit.attempts() >= 1).await;
+    until("a commit started", || audit.attempts() >= 1).await;
     let asked = std::time::Instant::now();
     server.stop.send(()).unwrap();
     server.serving.await.unwrap().unwrap();
     let waited = asked.elapsed();
     assert!(
         waited < std::time::Duration::from_secs(3),
-        "shutdown waited {waited:?} for {} appends",
+        "shutdown waited {waited:?} for {} commits",
         audit.attempts()
     );
-    assert!(audit.attempts() < 64, "{}", audit.attempts());
+    assert!(audit.attempts() < 16, "{}", audit.attempts());
 }
 
-/// A full store stays full: the change is tried at the book's next evaluation, not every
-/// second, and the rest of the book's changes are not tried.
+/// A full store stays full: the book's changes, one batch refused whole, are tried at its
+/// next evaluation, not every second.
 #[tokio::test]
 async fn a_full_audit_store_is_not_retried_on_a_timer() {
     let server = monitored(
@@ -1741,6 +1761,7 @@ async fn a_full_audit_store_is_not_retried_on_a_timer() {
             full: true,
             ..Default::default()
         },
+        1,
         2,
     )
     .await;
@@ -1760,6 +1781,7 @@ async fn a_failed_append_is_retried_on_the_timer() {
             transient: 1,
             ..Default::default()
         },
+        1,
         1,
     )
     .await;
