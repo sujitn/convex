@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Convex.Excel;
 using Convex.Excel.Live;
@@ -330,7 +331,17 @@ namespace Convex.Excel.Tests
                 hub.Connect(i, t, new Sink());
             }
             var over = Topic("OVER", "C");
-            Assert.Equal(ExcelError.ExcelErrorValue, hub.Connect(-1, over, new Sink()));
+            // The message must not depend on the user's culture (de-DE writes 20.000).
+            var culture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            try
+            {
+                Assert.Equal(ExcelError.ExcelErrorValue, hub.Connect(-1, over, new Sink()));
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = culture;
+            }
             Assert.True(hub.TryGetError(LocalSpec.KeyOf(over), out var e));
             Assert.Contains("20,000", e.Message);
             Assert.Equal(LiveHub.MaxTopics, hub.TopicCount);

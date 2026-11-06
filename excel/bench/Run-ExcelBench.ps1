@@ -96,7 +96,9 @@ function New-Excel {
 
 function Close-Excel($App) {
     if ($null -eq $App) { return }
-    $excelPid = $script:excelPids[$App.Hwnd]
+    # Excel may still be busy here; a failed lookup must not skip the cleanup.
+    $excelPid = $null
+    try { $excelPid = $script:excelPids[(Invoke-Com { $App.Hwnd })] } catch { }
     try { foreach ($wb in @($App.Workbooks)) { $wb.Close($false) } } catch { }
     try { $App.Quit() } catch { }
     [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($App)
@@ -252,7 +254,9 @@ try {
     }
 }
 finally {
-    Close-Excel $app
+    # The throttle setting is Excel-wide and persistent: restore it even if
+    # closing the bench instance fails.
+    try { Close-Excel $app } catch { Write-Warning "Closing the bench Excel failed: $_" }
     $restore = New-Excel
     $restore.RTD.ThrottleInterval = $originalThrottle
     Write-Host "Restored RTD.ThrottleInterval = $($restore.RTD.ThrottleInterval) ms"

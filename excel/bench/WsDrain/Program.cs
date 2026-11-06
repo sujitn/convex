@@ -52,7 +52,7 @@ internal static class Program
         double parseSeconds = sw.Elapsed.TotalSeconds;
 
         string F(double v, string f) => v.ToString(f, CultureInfo.InvariantCulture);
-        Console.WriteLine("{\"frames\":" + received + ",\"applied\":" + applied + ",\"instruments\":" + instruments +
+        Console.WriteLine("{\"frames\":" + received + ",\"frames_expected\":" + frames + ",\"applied\":" + applied + ",\"instruments\":" + instruments +
             ",\"avg_frame_bytes\":" + F((double)bytes / Math.Max(1, received), "F0") +
             ",\"seconds\":" + F(seconds, "F3") + ",\"frames_per_s\":" + F(received / seconds, "F0") +
             ",\"mb_per_s\":" + F(bytes / seconds / 1e6, "F1") +

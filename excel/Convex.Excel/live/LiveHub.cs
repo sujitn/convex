@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -179,7 +180,9 @@ namespace Convex.Excel.Live
             {
                 if (_byId.Count >= MaxTopics)
                     return Refuse(key, new ConvexException(
-                        $"live topic limit reached ({MaxTopics:N0} distinct live cells); " +
+                        "live topic limit reached (" +
+                        MaxTopics.ToString("N0", CultureInfo.InvariantCulture) +
+                        " distinct live cells); " +
                         "use the static CX functions for the rest"));
                 if (!_haveCursor)
                 {
