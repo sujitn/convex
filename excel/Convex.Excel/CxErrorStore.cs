@@ -39,8 +39,8 @@ namespace Convex.Excel
                 caller == null ? null : CxCaller.Describe(caller));
         }
 
-        // Overload for contexts with no live caller (timer-driven .LIVE
-        // pushes): the subscription passes the cell captured at Observe time.
+        // Overload for contexts with no calling cell (the live hub's
+        // background drains).
         public static void Record(Exception ex, string? key, string? address)
         {
             var code = ex is ConvexException cx ? cx.Code : CodeFor(ex);

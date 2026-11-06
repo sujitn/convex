@@ -18,16 +18,18 @@ namespace Convex.Excel.Forms
             Text = "Rebuild handles when the add-in loads",
             AutoSize = true,
         };
-        private readonly NumericUpDown _liveRefresh = new()
-        {
-            Minimum = 100, Maximum = 10_000, Increment = 50, Width = 90,
-        };
+        // Excel's RTD throttle, not a Convex setting: shown, and changed only
+        // on request (DX8), because it applies to every add-in.
+        private readonly Label _throttle = new() { AutoSize = true, Padding = new Padding(0, 6, 8, 0) };
+        private readonly Button _fastThrottle = new() { Text = "Use 250 ms", AutoSize = true };
+        private readonly Button _defaultThrottle = new() { Text = "Excel default", AutoSize = true };
+        private readonly ToolTip _tips = new();
         private readonly Label _status = new() { AutoSize = true, ForeColor = Color.Gray };
 
         public SettingsForm()
         {
             Text = "Convex — Settings";
-            Size = new Size(440, 280);
+            Size = new Size(520, 280);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = MinimizeBox = false;
@@ -43,7 +45,13 @@ namespace Convex.Excel.Forms
             _spreadType.SelectedItem = s.DefaultSpreadType;
             _currency.SelectedItem = s.DefaultCurrency;
             _autoRebuild.Checked = s.AutoRebuildOnOpen;
-            _liveRefresh.Value = Math.Min(Math.Max(s.LiveRefreshMs, 100), 10_000);
+            _fastThrottle.Click += (_, _) => SetThrottle(250);
+            _defaultThrottle.Click += (_, _) => SetThrottle(2000);
+            _tips.SetToolTip(_fastThrottle,
+                "Live cells update at most once per Excel RTD throttle interval (default 2,000 ms).\n" +
+                "This setting belongs to Excel: it applies to every add-in's live cells and\n" +
+                "persists after Excel restarts. Very low values can make Excel sluggish.");
+            ShowThrottle();
 
             var grid = new TableLayoutPanel
             {
@@ -58,7 +66,9 @@ namespace Convex.Excel.Forms
             AddRow(grid, 2, "Default spread:", _spreadType);
             AddRow(grid, 3, "Default currency:", _currency);
             AddRow(grid, 4, "On load:", _autoRebuild);
-            AddRow(grid, 5, "LIVE poll (ms):", _liveRefresh);
+            var throttleRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false };
+            throttleRow.Controls.AddRange(new Control[] { _throttle, _fastThrottle, _defaultThrottle });
+            AddRow(grid, 5, "Excel RTD throttle:", throttleRow);
 
             var bottom = new FlowLayoutPanel
             {
@@ -87,7 +97,6 @@ namespace Convex.Excel.Forms
                     DefaultSpreadType = (string)_spreadType.SelectedItem!,
                     DefaultCurrency = (string)_currency.SelectedItem!,
                     AutoRebuildOnOpen = _autoRebuild.Checked,
-                    LiveRefreshMs = (int)_liveRefresh.Value,
                 });
                 _status.Text = "Saved";
             }
@@ -102,8 +111,34 @@ namespace Convex.Excel.Forms
             _spreadType.SelectedItem = d.DefaultSpreadType;
             _currency.SelectedItem = d.DefaultCurrency;
             _autoRebuild.Checked = d.AutoRebuildOnOpen;
-            _liveRefresh.Value = d.LiveRefreshMs;
             _status.Text = "Reset (not saved)";
+        }
+
+        private void ShowThrottle()
+        {
+            try
+            {
+                int ms = (int)((dynamic)ExcelDna.Integration.ExcelDnaUtil.Application).RTD.ThrottleInterval;
+                _throttle.Text = $"{ms:N0} ms";
+                _fastThrottle.Enabled = ms != 250;
+                _defaultThrottle.Enabled = ms != 2000;
+            }
+            catch (Exception ex)
+            {
+                _throttle.Text = "unavailable: " + ex.Message;
+                _fastThrottle.Enabled = _defaultThrottle.Enabled = false;
+            }
+        }
+
+        private void SetThrottle(int ms)
+        {
+            try
+            {
+                ((dynamic)ExcelDna.Integration.ExcelDnaUtil.Application).RTD.ThrottleInterval = ms;
+                _status.Text = $"Excel RTD throttle set to {ms:N0} ms";
+            }
+            catch (Exception ex) { _status.Text = "ERROR: " + ex.Message; }
+            ShowThrottle();
         }
 
         private static void AddRow(TableLayoutPanel grid, int row, string label, Control control)

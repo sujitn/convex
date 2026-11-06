@@ -104,10 +104,27 @@ F2: =CX.SCENARIO(A1, B1, DATE(2025,4,15), "99.5C", {-50,0,50})     ' ladder; the
 
 ## Live cells (RTD)
 
-1. `G1: =CX.PRICE.LIVE(A1, DATE(2025,4,15), "99.5C")` — shows the price.
-2. Rebuild the same bond from the ribbon (New Bond, same ID, different
-   coupon) — `G1` updates within the poll interval with **no manual recalc**.
-3. `=CX.RELEASE(...)` the bond — `G1` flips to an error; rebuild — it heals.
+Use Automatic calculation. Live cells update once per Excel RTD throttle
+interval (Settings shows it; 2,000 ms by default).
+
+1. `G1: =CX.PRICE.LIVE("TEST10Y5", DATE(2025,4,15), "99.5C", , , "ytm")`:
+   shows the yield. The cell names the bond, so Excel does not know it
+   depends on `A1`.
+2. `G2: =CX.SPREAD.LIVE("TEST10Y5", "USD.SOFR", DATE(2025,4,15), "99.5C")`:
+   shows the Z-spread.
+3. `G3: =INDEX(CX.DIAG(), 6, 2)`: note the "Live computes" count.
+4. Change the coupon in `A1` to `0.055`: `G1` and `G2` update by themselves,
+   and `G3` rises by 2.
+5. Change a rate in `B1`'s curve: `G2` updates, `G1` does not, and `G3`
+   rises by 1 (only the cell that reads the curve recomputed).
+6. `G4: =CX.PRICE.LIVE(A1, DATE(2025,4,15), "99.5C", , , "grid")`:
+   `#VALUE!`, and `=CX.LASTERROR(G4)` names `CX.PRICE`.
+7. `=CX.RELEASE(A1)` in a spare cell: `G1` and `G2` turn to `#REF!`. Delete
+   that cell, then ribbon **Rebuild**: they heal.
+8. Switch to Manual calculation and change the coupon again: `G1` changes
+   only after F9.
+9. Settings → "Excel RTD throttle": "Use 250 ms" makes the live cells update
+   about four times sooner; "Excel default" restores 2,000 ms.
 
 ## Recalc-cascade cutoff (idempotent handles)
 

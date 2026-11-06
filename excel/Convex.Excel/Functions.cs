@@ -14,8 +14,8 @@ namespace Convex.Excel
     // Threading: stateless analytics are IsThreadSafe (the native registry
     // clones objects out under a short read lock); builders mutate the
     // registry and use xlfCaller, so they stay on the main calc thread.
-    // .LIVE variants go through ExcelAsyncUtil.Observe (RTD) and must NOT
-    // be IsThreadSafe.
+    // .LIVE variants read an RTD topic of the live hub (Live/LiveHub.cs) and
+    // must NOT be IsThreadSafe. They return one number each (DX3).
     public static class Functions
     {
         [ExcelFunction(Name = "CX.LIBRARY", IsThreadSafe = true,
@@ -214,7 +214,7 @@ namespace Convex.Excel
             [ExcelArgument("Mark: 99.5C, 99.5D, 4.65%, 4.65%@SA, +125bps@USD.SOFR, 99-16+")] object mark,
             [ExcelArgument("Curve handle or name (only required for spread marks)")] object curveRef,
             [ExcelArgument("Quote frequency for derived YTM, default SA")] object quoteFrequency,
-            [ExcelArgument("Field: clean (default) | dirty | accrued | ytm | z_spread | grid")] object field) =>
+            [ExcelArgument("Field: clean (default) | dirty | accrued | ytm | grid")] object field) =>
             Safe(() =>
             {
                 var req = BuildPriceRequest(bondRef, settlement, mark, curveRef, quoteFrequency);
@@ -223,8 +223,8 @@ namespace Convex.Excel
             });
 
         [ExcelFunction(Name = "CX.PRICE.LIVE",
-            Description = "Live CX.PRICE: the cell updates automatically whenever any referenced " +
-                          "bond or curve is rebuilt (RTD subscription, like BDP).",
+            Description = "Live CX.PRICE: one number that recalculates when a bond or curve it reads " +
+                          "is rebuilt, and only then (RTD).",
             Category = "Convex Pricing")]
         public static object CxPriceLive(
             [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
@@ -232,13 +232,9 @@ namespace Convex.Excel
             [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
             [ExcelArgument("Curve handle or name (only required for spread marks)")] object curveRef,
             [ExcelArgument("Quote frequency for derived YTM, default SA")] object quoteFrequency,
-            [ExcelArgument("Field: clean (default) | dirty | accrued | ytm | z_spread | grid")] object field) =>
-            Safe(() =>
-            {
-                var req = BuildPriceRequest(bondRef, settlement, mark, curveRef, quoteFrequency);
-                var f = AsString(field, "clean").ToLowerInvariant();
-                return CxLive.Observe("price", req, env => SelectPriceField(env, f));
-            });
+            [ExcelArgument("Field: clean (default) | dirty | accrued | ytm")] object field) =>
+            Safe(() => Live.LiveCells.Local("price", AsString(field, "clean"),
+                BuildPriceRequest(bondRef, settlement, mark, curveRef, quoteFrequency)));
 
         private static JObject BuildPriceRequest(
             object bondRef, DateTime settlement, object mark, object curveRef, object quoteFrequency)
@@ -273,23 +269,20 @@ namespace Convex.Excel
                 return SelectRiskField(result, AsString(metric, "grid").ToLowerInvariant());
             });
 
+        // No key-rate tenors argument: KRD is a grid, so it is not a live field.
         [ExcelFunction(Name = "CX.RISK.LIVE",
-            Description = "Live CX.RISK: updates automatically when referenced objects change (RTD).",
+            Description = "Live CX.RISK: one metric that recalculates when a bond or curve it reads " +
+                          "is rebuilt, and only then (RTD).",
             Category = "Convex Risk")]
         public static object CxRiskLive(
             [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
             DateTime settlement,
             [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
-            [ExcelArgument("Curve handle or name (spread marks + KRD only)")] object curveRef,
-            [ExcelArgument("Metric: grid (default) | mod_dur | mac_dur | convexity | dv01 | spread_dur | krd")] object metric,
-            [ExcelArgument("Quote frequency, default SA")] object quoteFrequency,
-            [ExcelArgument("Key-rate tenors (years) for KRD; range or csv string")] object keyRateTenors) =>
-            Safe(() =>
-            {
-                var req = BuildRiskRequest(bondRef, settlement, mark, curveRef, quoteFrequency, keyRateTenors);
-                var m = AsString(metric, "grid").ToLowerInvariant();
-                return CxLive.Observe("risk", req, env => SelectRiskField(env, m));
-            });
+            [ExcelArgument("Curve handle or name (spread marks only)")] object curveRef,
+            [ExcelArgument("Metric: mod_dur (default) | mac_dur | convexity | dv01 | spread_dur")] object metric,
+            [ExcelArgument("Quote frequency, default SA")] object quoteFrequency) =>
+            Safe(() => Live.LiveCells.Local("risk", AsString(metric, "mod_dur"),
+                BuildRiskRequest(bondRef, settlement, mark, curveRef, quoteFrequency, ExcelMissing.Value)));
 
         private static JObject BuildRiskRequest(
             object bondRef, DateTime settlement, object mark, object curveRef,
@@ -334,7 +327,8 @@ namespace Convex.Excel
             });
 
         [ExcelFunction(Name = "CX.SPREAD.LIVE",
-            Description = "Live CX.SPREAD: updates automatically when referenced objects change (RTD).",
+            Description = "Live CX.SPREAD: the spread in bps, recalculated when a bond or curve it " +
+                          "reads is rebuilt, and only then (RTD).",
             Category = "Convex Spreads")]
         public static object CxSpreadLive(
             [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
@@ -343,13 +337,9 @@ namespace Convex.Excel
             [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
             [ExcelArgument("Spread: Z (default) | G | I | OAS | DM | ASW | ASW_PROC | CREDIT")] object spreadType,
             [ExcelArgument("OAS volatility in percent (1 = 1% = 0.01 decimal vol); default 1")] object volatility,
-            [ExcelArgument("Field: bps (default) | grid")] object field) =>
-            Safe(() =>
-            {
-                var req = BuildSpreadRequest(bondRef, curveRef, settlement, mark, spreadType, volatility);
-                var f = AsString(field, "bps").ToLowerInvariant();
-                return CxLive.Observe("spread", req, env => SelectSpreadField(env, f));
-            });
+            [ExcelArgument("Field: bps (default)")] object field) =>
+            Safe(() => Live.LiveCells.Local("spread", AsString(field, "bps"),
+                BuildSpreadRequest(bondRef, curveRef, settlement, mark, spreadType, volatility)));
 
         private static JObject BuildSpreadRequest(
             object bondRef, object curveRef, DateTime settlement, object mark,
@@ -430,9 +420,10 @@ namespace Convex.Excel
                 return YasToGrid(Cx.Yas(req));
             });
 
+        // CX.YAS returns a grid, so its live form adds a field argument.
         [ExcelFunction(Name = "CX.YAS.LIVE",
-            Description = "Live CX.YAS: the analysis grid refreshes automatically when referenced " +
-                          "objects change (RTD).",
+            Description = "Live CX.YAS: one row of the analysis, recalculated when a bond or curve " +
+                          "it reads is rebuilt, and only then (RTD).",
             Category = "Convex Pricing")]
         public static object CxYasLive(
             [ExcelArgument("Bond handle, CUSIP, ISIN, or name")] object bondRef,
@@ -440,13 +431,12 @@ namespace Convex.Excel
             [ExcelArgument("Mark — see CX.PRICE for grammar")] object mark,
             [ExcelArgument("Spot/discount curve handle or name")] object curveRef,
             [ExcelArgument("Quote frequency, default SA")] object quoteFrequency,
-            [ExcelArgument("Swap curve for the asset-swap spread (optional)")] object swapCurveRef) =>
-            Safe(() =>
-            {
-                var req = BuildYasRequest(bondRef, settlement, mark, curveRef,
-                    quoteFrequency, swapCurveRef);
-                return CxLive.Observe("yas", req, YasToGrid);
-            });
+            [ExcelArgument("Swap curve for the asset-swap spread (optional)")] object swapCurveRef,
+            [ExcelArgument("Field: ytm (default) | clean | dirty | accrued | accrued_days | current_yield | " +
+                           "simple_yield | z_spread | mod_dur | mac_dur | convexity | dv01 | principal | " +
+                           "accrued_amount | settlement_amount")] object field) =>
+            Safe(() => Live.LiveCells.Local("yas", AsString(field, "ytm"),
+                BuildYasRequest(bondRef, settlement, mark, curveRef, quoteFrequency, swapCurveRef)));
 
         private static JObject BuildYasRequest(
             object bondRef, DateTime settlement, object mark, object curveRef,
@@ -692,11 +682,16 @@ namespace Convex.Excel
             int objects;
             try { objects = Cx.ObjectCount(); }
             catch { objects = -1; }
-            var grid = new object[4, 2];
+            var live = Live.LiveHub.Instance.Stats();
+            var grid = new object[8, 2];
             grid[0, 0] = "Native load";   grid[0, 1] = NativeLoader.GetLoadError();
             grid[1, 0] = "Engine";        grid[1, 1] = version;
             grid[2, 0] = "Objects";       grid[2, 1] = objects;
             grid[3, 0] = "Add-in";        grid[3, 1] = typeof(Functions).Assembly.GetName().Version?.ToString() ?? "?";
+            grid[4, 0] = "Live topics";   grid[4, 1] = live.Topics;
+            grid[5, 0] = "Live computes"; grid[5, 1] = (double)live.Computes;
+            grid[6, 0] = "Live pushes";   grid[6, 1] = (double)live.Pushes;
+            grid[7, 0] = "Last drain (ms)"; grid[7, 1] = live.LastDrainMs;
             return grid;
         }
 
@@ -742,7 +737,9 @@ namespace Convex.Excel
             return arr;
         }
 
-        private static object SelectPriceField(JToken result, string field)
+        // No Z-spread here: the price path does not compute it for most marks
+        // (GX16). CX.SPREAD returns Z for any mark.
+        internal static object SelectPriceField(JToken result, string field)
         {
             switch (field)
             {
@@ -750,20 +747,12 @@ namespace Convex.Excel
                 case "dirty": return (double?)result["dirty_price"] ?? throw new ConvexException("dirty missing");
                 case "accrued": return (double?)result["accrued"] ?? 0.0;
                 case "ytm": return ((double?)result["ytm_decimal"] ?? 0.0) * 100.0;
-                case "z_spread":
-                case "zspread":
-                case "z":
-                    {
-                        var v = (double?)result["z_spread_bps"];
-                        return v.HasValue ? (object)v.Value : ExcelError.ExcelErrorNA;
-                    }
                 case "grid":
-                    var grid = new object[5, 2];
+                    var grid = new object[4, 2];
                     grid[0, 0] = "Clean";    grid[0, 1] = (double?)result["clean_price"] ?? double.NaN;
                     grid[1, 0] = "Dirty";    grid[1, 1] = (double?)result["dirty_price"] ?? double.NaN;
                     grid[2, 0] = "Accrued";  grid[2, 1] = (double?)result["accrued"] ?? double.NaN;
                     grid[3, 0] = "YTM (%)";  grid[3, 1] = ((double?)result["ytm_decimal"] ?? 0.0) * 100.0;
-                    grid[4, 0] = "Z (bps)";  grid[4, 1] = (object?)((double?)result["z_spread_bps"]) ?? "n/a";
                     return grid;
                 default: throw new ConvexException("unknown CX.PRICE field " + field, ErrorCodes.UnknownToken);
             }
@@ -832,7 +821,7 @@ namespace Convex.Excel
             return scenarios;
         }
 
-        private static object SelectRiskField(JToken result, string metric)
+        internal static object SelectRiskField(JToken result, string metric)
         {
             switch (metric)
             {
@@ -875,7 +864,7 @@ namespace Convex.Excel
             }
         }
 
-        private static object SelectSpreadField(JToken result, string field)
+        internal static object SelectSpreadField(JToken result, string field)
         {
             switch (field)
             {

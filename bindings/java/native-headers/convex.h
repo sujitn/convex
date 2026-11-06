@@ -107,6 +107,19 @@ void convex_clear_all(void);
 uint64_t convex_generation(void);
 
 /**
+ * References whose resolution changed after `cursor` (a generation from
+ * [`convex_generation`] or from the previous call's `cursor`):
+ * `{"ok":"true","result":{"cursor":u64,"complete":bool,"names":[..],"handles":[..]}}`.
+ *
+ * `names` are slot names and aliases (what a request may name instead of a
+ * handle); `handles` stopped resolving. A host recomputes only the cells that
+ * read one of them. `complete:false` (the host fell more than 4,096 entries
+ * behind, the registry was cleared, or the cursor is unknown) means recompute
+ * everything. Free the returned pointer with [`convex_string_free`].
+ */
+char *convex_changes_since(uint64_t cursor);
+
+/**
  * Price a bond. Request: `PricingRequest`. Response: `PricingResponse`.
  *
  * # Safety

@@ -40,7 +40,18 @@ void        convex_release(uint64_t handle);
 int32_t     convex_object_count(void);
 const char* convex_list_objects(void);          // free with convex_string_free
 void        convex_clear_all(void);
+uint64_t    convex_generation(void);
+const char* convex_changes_since(uint64_t cursor); // free with convex_string_free
 ```
+
+`convex_generation` counts registry changes; an idempotent rebuild (same
+name, same content) does not count. `convex_changes_since(cursor)` returns
+`{"cursor", "complete", "names", "handles"}`: the names (slot names and
+aliases) and handles whose resolution changed after `cursor`, from a log of
+the last 4,096 changes. Pass the returned `cursor` to the next call. When
+`complete` is `false` (the caller fell behind the log, or the registry was
+cleared), treat everything as changed. The Excel add-in uses it to recompute
+only the live cells a change reaches.
 
 `convex_library(const char* request_json)` runs a complete `LibraryRequest`
 (see the [library API](../../docs/LIBRARY-API.md)). It needs no handles; free

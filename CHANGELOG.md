@@ -3,6 +3,34 @@
 Versions before 1.0 can break the API in any minor release. Each entry lists
 the changes that matter when you upgrade.
 
+## Unreleased
+
+### Excel add-in
+
+- **Live cells recompute only what a change reaches.** One RTD server
+  (`Convex.Rtd`) now backs every live cell. When a bond or curve is rebuilt
+  or released, only the live cells whose request names it recompute, and a
+  cell updates only when its number changed. The old layer recomputed every
+  live cell on any change.
+- **Breaking, with no compatibility layer:**
+  - `CX.PRICE.LIVE`, `CX.RISK.LIVE`, `CX.SPREAD.LIVE` and `CX.YAS.LIVE`
+    return one number. `grid` and `krd` give `#VALUE!` and name the static
+    function to use.
+  - `CX.RISK.LIVE` drops the key-rate tenors argument and defaults to
+    `mod_dur`. `CX.YAS.LIVE` adds a `field` argument (default `ytm`).
+  - `CX.PRICE` no longer has a `z_spread` field (it returned `#N/A` for most
+    marks); use `CX.SPREAD`. Its grid drops the Z row.
+  - The "LIVE poll (ms)" setting is gone. Settings shows Excel's RTD
+    throttle instead and can set 250 ms on request.
+- Excel-DNA 1.9.0 (was 1.7.0), still on .NET Framework 4.7.2, 64-bit only.
+- `CX.DIAG()` reports live topics, recomputes, pushes and the last drain
+  time.
+
+### convex-ffi
+
+- New C export `convex_changes_since(cursor)`: the names and handles whose
+  resolution changed after a registry generation, from a 4,096-entry log.
+
 ## 0.14.0
 
 This is the first crates.io release since 0.11.1. The v0.12.0 and v0.13.0 tags

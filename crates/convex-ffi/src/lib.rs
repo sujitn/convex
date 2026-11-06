@@ -267,6 +267,34 @@ pub extern "C" fn convex_generation() -> u64 {
     guard_value(0, registry::generation)
 }
 
+/// References whose resolution changed after `cursor` (a generation from
+/// [`convex_generation`] or from the previous call's `cursor`):
+/// `{"ok":"true","result":{"cursor":u64,"complete":bool,"names":[..],"handles":[..]}}`.
+///
+/// `names` are slot names and aliases (what a request may name instead of a
+/// handle); `handles` stopped resolving. A host recomputes only the cells that
+/// read one of them. `complete:false` (the host fell more than 4,096 entries
+/// behind, the registry was cleared, or the cursor is unknown) means recompute
+/// everything. Free the returned pointer with [`convex_string_free`].
+#[no_mangle]
+pub extern "C" fn convex_changes_since(cursor: u64) -> *mut c_char {
+    guard_envelope(|| {
+        let Some(c) = registry::changes_since(cursor) else {
+            return to_owned_c(err_envelope("unavailable", "registry unavailable"));
+        };
+        let body = serde_json::json!({
+            "ok": "true",
+            "result": {
+                "cursor": c.cursor,
+                "complete": c.complete,
+                "names": c.names,
+                "handles": c.handles,
+            },
+        });
+        to_owned_c(body.to_string())
+    })
+}
+
 // ============================================================================
 // Stateless analytics RPCs (JSON in, JSON out)
 // ============================================================================

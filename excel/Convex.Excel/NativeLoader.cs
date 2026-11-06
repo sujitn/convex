@@ -7,8 +7,9 @@ namespace Convex.Excel
 {
     /// <summary>
     /// Binds convex_ffi.dll by absolute path before any P/Invoke fires —
-    /// ExcelDna 1.7 cannot pack native libraries, so the DLL ships next to
-    /// the .xll. Load status: =CX.DIAG() / ribbon Diagnostics.
+    /// a packed native library fails to load on Excel-DNA 1.9 / net472, so
+    /// the DLL ships next to the .xll. Load status: =CX.DIAG() / ribbon
+    /// Diagnostics.
     /// </summary>
     public class NativeLoader : IExcelAddIn
     {

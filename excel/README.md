@@ -97,7 +97,7 @@ return `#REF!`.
 
 | UDF | Description |
 |---|---|
-| `CX.PRICE(bond, settle, mark, [curve], [quoteFreq], [field])` | Returns clean / dirty / accrued / YTM / Z-bps. `field`: `clean` (default), `dirty`, `accrued`, `ytm`, `z_spread`, `grid`. |
+| `CX.PRICE(bond, settle, mark, [curve], [quoteFreq], [field])` | Returns clean / dirty / accrued / YTM. `field`: `clean` (default), `dirty`, `accrued`, `ytm`, `grid`. For a Z-spread use `CX.SPREAD`. |
 | `CX.YAS(bond, settle, mark, curve, [quoteFreq], [swapCurve])` | Convenience yields, Z/ASW spreads, durations, convexity, DV01 and settlement invoice. |
 | `CX.RISK(bond, settle, mark, [curve], [metric], [quoteFreq], [krdTenors])` | `metric`: `grid` (default), `mod_dur`, `mac_dur`, `convexity`, `dv01`, `spread_dur`, `krd`. |
 | `CX.SPREAD(bond, curve, settle, mark, [type], [vol], [field])` | Z / G / I / ASW / ASW_PROC / OAS / DM / Credit. `field`: `bps` (default), `grid`. |
@@ -107,14 +107,56 @@ return `#REF!`.
 
 ### Live cells (RTD)
 
-`CX.PRICE.LIVE`, `CX.RISK.LIVE`, `CX.SPREAD.LIVE`, and `CX.YAS.LIVE` take
-the same arguments as their static counterparts but subscribe the cell via
-RTD: whenever any bond or curve is rebuilt or released — from the ribbon, a
-form, or another cell — every live cell recomputes and updates itself, no
-F9 required (the BDP-subscription feel). Poll interval: Settings → "LIVE
-poll (ms)", default 250. Live and static cells share the same response
-cache, so N live cells asking the same question cost one engine call per
-registry change.
+A live cell recalculates by itself when a bond or curve it reads is rebuilt
+or released (from a cell, a ribbon form or `CX.RELEASE`), and only then. No
+F9 is needed under Automatic calculation. Each live cell returns one number.
+
+| UDF | Field (default first) |
+|---|---|
+| `CX.PRICE.LIVE(bond, settle, mark, [curve], [quoteFreq], [field])` | `clean`, `dirty`, `accrued`, `ytm` |
+| `CX.RISK.LIVE(bond, settle, mark, [curve], [metric], [quoteFreq])` | `mod_dur`, `mac_dur`, `convexity`, `dv01`, `spread_dur` |
+| `CX.SPREAD.LIVE(bond, curve, settle, mark, [type], [vol], [field])` | `bps` |
+| `CX.YAS.LIVE(bond, settle, mark, curve, [quoteFreq], [swapCurve], [field])` | `ytm`, `clean`, `dirty`, `accrued`, `accrued_days`, `current_yield`, `simple_yield`, `z_spread`, `mod_dur`, `mac_dur`, `convexity`, `dv01`, `principal`, `accrued_amount`, `settlement_amount` |
+
+The arguments match the static functions, with two exceptions:
+`CX.RISK.LIVE` has no key-rate tenors argument, and `CX.YAS.LIVE` adds
+`field` because `CX.YAS` returns a grid. A grid field (`grid`, `krd`)
+returns `#VALUE!`, and `=CX.LASTERROR(cell)` names the static function to
+use instead.
+
+How a change reaches the sheet:
+
+1. The Rust registry records which names (CUSIP, ISIN, curve name, owning
+   cell) and handles each rebuild or release changed.
+2. The add-in's one RTD server (`Convex.Rtd`) recomputes only the live cells
+   whose request names one of them. It sends a value to Excel only when the
+   number changed.
+3. Excel recalculates every formula that reads a changed live cell, as for
+   any other cell.
+
+A cell that references a handle cell (`=CX.PRICE.LIVE(A1, …)` with `#CX#101`
+in `A1`) recalculates through Excel's own dependency graph. The registry's
+change log matters for cells that name a bond or curve, such as `"USD.SOFR"`
+or a CUSIP, which Excel cannot see. Identical live cells share one topic,
+and live and static cells share one response cache, so they cost one engine
+call per change.
+
+Limits and settings:
+
+- **Update rate.** Excel delivers changed live cells once per RTD throttle
+  interval: 2,000 ms by default. Settings → "Excel RTD throttle" can set
+  250 ms. That is Excel's own setting: it applies to every add-in and
+  persists after Excel restarts. The add-in never changes it by itself.
+- **Calculation mode.** Under Manual calculation, live cells update on F9.
+- **Size.** At most 20,000 distinct live cells per Excel process; beyond
+  that a cell returns `#VALUE!`.
+- **Diagnostics.** `=CX.DIAG()` shows the live topic count, the recomputes
+  and pushes so far, and the time the last change took.
+
+This replaces the earlier live layer, which recomputed every live cell on
+any registry change and had a "LIVE poll (ms)" setting. There is no
+compatibility layer: `CX.PRICE` no longer has a `z_spread` field (use
+`CX.SPREAD`), and the setting is gone.
 
 ### Hedge advisor
 
@@ -131,7 +173,7 @@ registry change.
 | `CX.MARK(text)` | Parse a textual mark and return its canonical JSON form. |
 | `CX.DESCRIBE(handle)` | Inspect a registered object's key fields. |
 | `CX.LASTERROR(cellRef)` | Full `[code] message` detail behind an error value in a cell. |
-| `CX.DIAG()` | Rust-library load status, engine version, object count. |
+| `CX.DIAG()` | Rust-library load status, engine version, object count, live topics and recomputes. |
 | `CX.VERSION()` | Library version. |
 | `CX.OBJECTS()` | Number of registered objects. |
 | `CX.RELEASE(handle)` | Release one handle. |
@@ -273,6 +315,10 @@ for the full list.
 
 Bonds and curves live in a thread-safe Rust registry behind opaque
 `u64` handles displayed in cells as `#CX#100`, `#CX#101`, ….
+`convex_generation` counts registry changes, and `convex_changes_since`
+returns the names and handles that changed after a given count, from a log
+of the last 4,096 changes. The live layer (`Live/LiveHub.cs`) reads that log
+to recompute only the live cells a change reaches.
 
 ## Errors
 
