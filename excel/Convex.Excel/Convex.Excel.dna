@@ -9,8 +9,9 @@
   <!-- In-grid function tooltips for CX.* UDFs. -->
   <Reference Path="ExcelDna.IntelliSense.dll" Pack="true" />
 
-  <!-- convex_ffi.dll ships next to the .xll (ExcelDna 1.7 cannot pack native
-       libraries); NativeLoader binds it at AutoOpen. Status: =CX.DIAG(). -->
+  <!-- convex_ffi.dll ships next to the .xll (a packed native library fails to
+       load on Excel-DNA 1.9 / net472); NativeLoader binds it at AutoOpen.
+       Status: =CX.DIAG(). -->
 
 
   <CustomUI>

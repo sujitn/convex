@@ -80,6 +80,62 @@ struct Tables {
     names: HashMap<String, Handle>,
     /// CUSIP/ISIN/free-name → handle; last write wins on collision.
     aliases: HashMap<String, Handle>,
+    changes: ChangeLog,
+}
+
+/// Entries kept by the change log. A caller that falls further behind is told
+/// to treat everything as changed.
+pub(crate) const CHANGE_LOG_CAPACITY: usize = 4_096;
+
+/// A reference whose resolution a mutation changed: a name (slot name or
+/// alias, as [`resolve_alias`] reads them) or a handle that stopped resolving.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ChangeKey {
+    Name(String),
+    Handle(Handle),
+}
+
+/// Bounded record of which references each mutation changed, keyed by the
+/// generation the mutation produced. It lives in [`Tables`], so it is written
+/// under the same lock as the maps it describes.
+#[derive(Default)]
+struct ChangeLog {
+    entries: std::collections::VecDeque<(u64, ChangeKey)>,
+    /// A cursor below this cannot be answered completely: a later entry was
+    /// evicted, or the registry was cleared.
+    floor: u64,
+}
+
+impl ChangeLog {
+    fn push(&mut self, generation: u64, key: ChangeKey) {
+        if self.entries.len() == CHANGE_LOG_CAPACITY {
+            if let Some((evicted, _)) = self.entries.pop_front() {
+                self.floor = self.floor.max(evicted);
+            }
+        }
+        self.entries.push_back((generation, key));
+    }
+
+    fn reset(&mut self, generation: u64) {
+        self.entries.clear();
+        self.floor = generation;
+    }
+}
+
+/// What changed after a cursor. See [`changes_since`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Changes {
+    /// The current generation: the cursor for the next call.
+    pub cursor: u64,
+    /// `false` when the log cannot say what changed (the caller fell more than
+    /// [`CHANGE_LOG_CAPACITY`] entries behind, the registry was cleared, or
+    /// the cursor is from the future). The caller must then treat every
+    /// reference as changed.
+    pub complete: bool,
+    /// Slot names and aliases whose resolution changed, sorted, unique.
+    pub names: Vec<String>,
+    /// Handles that stopped resolving, sorted, unique.
+    pub handles: Vec<Handle>,
 }
 
 struct Inner {
@@ -170,15 +226,23 @@ pub fn register<T: Any + Send + Sync>(
                         for a in &old.aliases {
                             if t.aliases.get(a) == Some(&existing) {
                                 t.aliases.remove(a);
+                                t.changes.push(next_generation, ChangeKey::Name(a.clone()));
                             }
                         }
                     }
                     t.names.remove(n);
+                    t.changes.push(next_generation, ChangeKey::Handle(existing));
                 }
             }
         }
     }
 
+    if let Some(ref n) = name {
+        t.changes.push(next_generation, ChangeKey::Name(n.clone()));
+    }
+    for a in aliases {
+        t.changes.push(next_generation, ChangeKey::Name(a.clone()));
+    }
     REGISTRY.next_handle.store(next_handle, Ordering::SeqCst);
     t.objects.insert(
         handle,
@@ -247,12 +311,15 @@ pub fn release(handle: Handle) -> bool {
         return false;
     };
     if let Some(entry) = t.objects.remove(&handle) {
+        t.changes.push(next_generation, ChangeKey::Handle(handle));
         if let Some(name) = entry.name {
             t.names.remove(&name);
+            t.changes.push(next_generation, ChangeKey::Name(name));
         }
         for a in &entry.aliases {
             if t.aliases.get(a) == Some(&handle) {
                 t.aliases.remove(a);
+                t.changes.push(next_generation, ChangeKey::Name(a.clone()));
             }
         }
         REGISTRY.generation.store(next_generation, Ordering::SeqCst);
@@ -295,7 +362,47 @@ pub fn clear_all() {
     t.objects.clear();
     t.names.clear();
     t.aliases.clear();
+    t.changes.reset(next_generation);
     REGISTRY.generation.store(next_generation, Ordering::SeqCst);
+}
+
+/// References whose resolution changed after `cursor`, a generation returned
+/// by an earlier call or by [`generation`]. Idempotent re-registration and
+/// refused registrations record nothing. `None` only after a poisoned lock.
+pub fn changes_since(cursor: u64) -> Option<Changes> {
+    let t = read_tables()?;
+    // Writers store the generation while holding the write lock, so it is
+    // consistent with the log under this read lock.
+    let current = generation();
+    if cursor > current || cursor < t.changes.floor {
+        return Some(Changes {
+            cursor: current,
+            complete: false,
+            names: Vec::new(),
+            handles: Vec::new(),
+        });
+    }
+    let mut names = std::collections::BTreeSet::new();
+    let mut handles = std::collections::BTreeSet::new();
+    for (g, key) in t.changes.entries.iter().rev() {
+        if *g <= cursor {
+            break;
+        }
+        match key {
+            ChangeKey::Name(n) => {
+                names.insert(n.clone());
+            }
+            ChangeKey::Handle(h) => {
+                handles.insert(*h);
+            }
+        }
+    }
+    Some(Changes {
+        cursor: current,
+        complete: true,
+        names: names.into_iter().collect(),
+        handles: handles.into_iter().collect(),
+    })
 }
 
 #[cfg(test)]
@@ -463,11 +570,133 @@ mod tests {
         let before = generation();
         assert_eq!(reg("over-capacity", 1), INVALID_HANDLE);
         assert_eq!(generation(), before);
+        let refused = changes_since(before).unwrap();
+        assert!(refused.complete && refused.names.is_empty() && refused.handles.is_empty());
         assert_eq!(object_count(), Some(MAX_OBJECTS));
         let replacement = reg("bounded-0", 99);
         assert_ne!(replacement, INVALID_HANDLE);
         assert_eq!(object_count(), Some(MAX_OBJECTS));
         assert_eq!(with_object::<u64, _, _>(replacement, |v| *v), Some(99));
+        clear_all();
+    }
+
+    fn names(c: &Changes) -> Vec<&str> {
+        c.names.iter().map(String::as_str).collect()
+    }
+
+    #[test]
+    fn change_log_records_new_slot_and_aliases_and_nothing_on_idempotent_rebuild() {
+        let _g = TEST_LOCK.lock().unwrap();
+        let cursor = generation();
+        let h = register(
+            1u64,
+            ObjectKind::Curve,
+            Some("log-cell".into()),
+            &["LOG.SOFR".into()],
+            30,
+        );
+        let c = changes_since(cursor).unwrap();
+        assert!(c.complete);
+        assert_eq!(c.cursor, generation());
+        assert_eq!(names(&c), ["LOG.SOFR", "log-cell"]);
+        assert!(c.handles.is_empty(), "a new handle cannot have readers yet");
+
+        let again = register(
+            1u64,
+            ObjectKind::Curve,
+            Some("log-cell".into()),
+            &["LOG.SOFR".into()],
+            30,
+        );
+        assert_eq!(again, h);
+        let idle = changes_since(c.cursor).unwrap();
+        assert_eq!(idle.cursor, c.cursor);
+        assert!(idle.complete && idle.names.is_empty() && idle.handles.is_empty());
+        release(h);
+    }
+
+    #[test]
+    fn change_log_rebuild_reports_old_handle_and_every_name_that_moved() {
+        let _g = TEST_LOCK.lock().unwrap();
+        let h1 = register(
+            1u64,
+            ObjectKind::Curve,
+            Some("rebuild-cell".into()),
+            &["OLD.ALIAS".into(), "KEPT.ALIAS".into()],
+            40,
+        );
+        let cursor = generation();
+        let h2 = register(
+            2u64,
+            ObjectKind::Curve,
+            Some("rebuild-cell".into()),
+            &["KEPT.ALIAS".into(), "NEW.ALIAS".into()],
+            41,
+        );
+        let c = changes_since(cursor).unwrap();
+        assert!(c.complete);
+        assert_eq!(
+            names(&c),
+            ["KEPT.ALIAS", "NEW.ALIAS", "OLD.ALIAS", "rebuild-cell"]
+        );
+        assert_eq!(c.handles, [h1]);
+        release(h2);
+    }
+
+    #[test]
+    fn change_log_release_reports_only_aliases_the_handle_owned() {
+        let _g = TEST_LOCK.lock().unwrap();
+        let h1 = register(
+            1u64,
+            ObjectKind::Curve,
+            Some("owner-1".into()),
+            &["SHARED.ALIAS".into()],
+            50,
+        );
+        let h2 = register(
+            2u64,
+            ObjectKind::Curve,
+            Some("owner-2".into()),
+            &["SHARED.ALIAS".into()],
+            51,
+        );
+        let cursor = generation();
+        release(h1);
+        let c = changes_since(cursor).unwrap();
+        assert!(c.complete);
+        assert_eq!(names(&c), ["owner-1"], "SHARED.ALIAS still resolves to h2");
+        assert_eq!(c.handles, [h1]);
+        let cursor = c.cursor;
+        assert!(!release(h1), "second release is a no-op");
+        assert!(changes_since(cursor).unwrap().names.is_empty());
+        release(h2);
+    }
+
+    #[test]
+    fn change_log_is_incomplete_after_clear_overflow_or_a_future_cursor() {
+        let _g = TEST_LOCK.lock().unwrap();
+        let before_clear = generation();
+        clear_all();
+        let c = changes_since(before_clear).unwrap();
+        assert!(!c.complete, "clear must force a full recompute");
+        assert!(changes_since(c.cursor).unwrap().complete);
+        assert!(!changes_since(c.cursor + 1).unwrap().complete);
+
+        let cursor = c.cursor;
+        let h = reg("overflow-cell", 0);
+        for i in 1..=CHANGE_LOG_CAPACITY as u64 {
+            assert_ne!(reg("overflow-cell", i), INVALID_HANDLE);
+        }
+        assert!(
+            !changes_since(cursor).unwrap().complete,
+            "a cursor older than the ring must be told to recompute everything"
+        );
+        let recent = generation() - 1;
+        let tail = changes_since(recent).unwrap();
+        assert!(tail.complete);
+        assert_eq!(names(&tail), ["overflow-cell"]);
+        assert_eq!(tail.handles.len(), 1);
+        assert!(kind_of(h).is_none());
         clear_all();
     }
 }

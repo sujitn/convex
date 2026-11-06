@@ -7,9 +7,8 @@ using Newtonsoft.Json.Linq;
 
 namespace Convex.Excel
 {
-    // P/Invoke + envelope-aware RPC. Twelve C symbols cover the entire
-    // FFI surface; everything below is a thin wrapper that forwards JSON
-    // strings to Rust and unwraps the response envelope.
+    // P/Invoke + envelope-aware RPC: everything below is a thin wrapper
+    // that forwards JSON strings to Rust and unwraps the response envelope.
     internal static class Cx
     {
         private const string Dll = "convex_ffi.dll";
@@ -97,12 +96,16 @@ namespace Convex.Excel
         [DllImport(Dll)]
         private static extern ulong convex_generation();
 
+        [DllImport(Dll)]
+        private static extern IntPtr convex_changes_since(ulong cursor);
+
         // ---- Construction --------------------------------------------------
 
         public static ulong BuildBond(JObject spec)
         {
             ApplyCallerKey(spec);
             ulong h = convex_bond_from_json(spec.ToString(Formatting.None));
+            Live.LiveHub.Instance.RequestDrain();
             if (h == InvalidHandle)
                 throw new ConvexException(LastError() ?? "bond build failed");
             return h;
@@ -112,6 +115,7 @@ namespace Convex.Excel
         {
             ApplyCallerKey(spec);
             ulong h = convex_curve_from_json(spec.ToString(Formatting.None));
+            Live.LiveHub.Instance.RequestDrain();
             if (h == InvalidHandle)
                 throw new ConvexException(LastError() ?? "curve build failed");
             return h;
@@ -128,12 +132,29 @@ namespace Convex.Excel
             if (key != null) spec["registry_key"] = key;
         }
 
-        public static void Release(ulong handle) => convex_release(handle);
+        // Every registry mutation asks the live hub to drain the change log,
+        // so live cells that read the changed name or handle recompute now.
+        public static void Release(ulong handle)
+        {
+            convex_release(handle);
+            Live.LiveHub.Instance.RequestDrain();
+        }
+
         public static int ObjectCount() => convex_object_count();
-        public static void ClearAll() => convex_clear_all();
+
+        public static void ClearAll()
+        {
+            convex_clear_all();
+            Live.LiveHub.Instance.RequestDrain();
+        }
 
         /// Registry mutation counter (stable across idempotent rebuilds).
         public static ulong Generation() => convex_generation();
+
+        /// Names and handles whose resolution changed after `cursor` (a
+        /// generation). `Complete == false` means recompute everything.
+        public static Live.ChangeSet ChangesSince(ulong cursor) =>
+            Live.ChangeSet.Parse(ParseEnvelope(ConsumeString(convex_changes_since(cursor))));
 
         public readonly struct ObjectEntry
         {
@@ -225,8 +246,8 @@ namespace Convex.Excel
             ["hedge"] = convex_hedge,
         };
 
-        /// Raw (cached) envelope for a verb + request JSON — the same key
-        /// shape CxLive topics use, so live and static cells share compute.
+        /// Raw (cached) envelope for a verb + request JSON. Live topics use the
+        /// same path, so live and static cells share compute.
         internal static string RawRpc(string verb, string requestJson)
         {
             if (!RpcByVerb.TryGetValue(verb, out var fn))
@@ -277,6 +298,7 @@ namespace Convex.Excel
         public const string Analytics = "analytics";
         public const string UnknownToken = "unknown_token";
         public const string Panic = "panic";
+        public const string ResourceLimit = "resource_limit";
     }
 
     // PtrToStringUTF8 only exists on .NET Core+; net472 needs a manual reader.

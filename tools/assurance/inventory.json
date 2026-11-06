@@ -7049,6 +7049,7 @@
     "convex_list_objects",
     "convex_clear_all",
     "convex_generation",
+    "convex_changes_since",
     "convex_price",
     "convex_risk",
     "convex_spread",

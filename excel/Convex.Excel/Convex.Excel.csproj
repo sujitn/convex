@@ -11,15 +11,17 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <ExcelDnaPackPath>$(NuGetPackageRoot)exceldna.addin\1.7.0\tools\ExcelDnaPack.exe</ExcelDnaPackPath>
-    <!-- Built with the `excel` cargo profile; see [profile.excel] in Cargo.toml. -->
-    <NativeLibPath>..\..\target\excel\convex_ffi.dll</NativeLibPath>
+    <!-- x64 only: convex_ffi.dll is a 64-bit library. -->
+    <ExcelDnaCreate32BitAddIn>false</ExcelDnaCreate32BitAddIn>
+    <!-- Built with the `excel` cargo profile; see [profile.excel] in Cargo.toml.
+         Override with -p:NativeLibPath=... when cargo builds elsewhere. -->
+    <NativeLibPath Condition="'$(NativeLibPath)' == ''">..\..\target\excel\convex_ffi.dll</NativeLibPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ExcelDna.AddIn" Version="1.7.0" />
-    <PackageReference Include="ExcelDna.Integration" Version="1.7.0" />
-    <PackageReference Include="ExcelDna.IntelliSense" Version="1.7.0" />
+    <PackageReference Include="ExcelDna.AddIn" Version="1.9.0" />
+    <PackageReference Include="ExcelDna.Integration" Version="1.9.0" />
+    <PackageReference Include="ExcelDna.IntelliSense" Version="1.9.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
@@ -42,9 +44,10 @@
     </AssemblyAttribute>
   </ItemGroup>
 
-  <!-- Copy native library next to both the loose and the packed .xll —
-       ExcelDna 1.7 cannot pack native DLLs, so convex_ffi.dll must ship
-       side-by-side (NativeLoader binds it by absolute path at AutoOpen). -->
+  <!-- Copy native library next to both the loose and the packed .xll.
+       convex_ffi.dll ships side by side: packing it into the .xll fails at
+       load on Excel-DNA 1.9 / net472 (measured in X0), so NativeLoader binds
+       it by absolute path at AutoOpen. -->
   <Target Name="CopyNativeLib" AfterTargets="Build" Condition="Exists('$(NativeLibPath)')">
     <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(OutputPath)" />
     <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(OutputPath)publish" />
