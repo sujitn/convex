@@ -918,7 +918,8 @@ async fn monitor_settled(server: &Running, after: u64) -> (f64, u64, u64) {
 
 /// P14c's measurement, at the bounds: 64 watched books, each holding all 256 priced
 /// instruments with 64 limits over every measure.
-/// - The first evaluation of every set records 4,096 changes, as a restart does.
+/// - The first evaluation of every set records 4,096 changes, as a restart does: one
+///   commit a book since P15a (D92). The records' sizes are read once the server stops.
 /// - One instrument's valuation hop: before any book is watched, while the monitor
 ///   records those first changes, and while it evaluates every book after each quote.
 /// - The monitor's time per tick with 1, 64 and 256 instruments revalued. Every book
@@ -930,7 +931,7 @@ async fn monitor_settled(server: &Running, after: u64) -> (f64, u64, u64) {
 async fn monitor_time_per_tick_at_the_bounds() {
     const ROUNDS: u64 = 20;
     let (dir, live, instruments) = live(256, 0, &MEASURES).await;
-    let server = started(&dir, live).await;
+    let server = started(&dir, live.clone()).await;
     let images: Vec<QuoteEvent> =
         serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap()).unwrap();
     let mut sequence = 1;
@@ -975,8 +976,9 @@ async fn monitor_time_per_tick_at_the_bounds() {
         .await;
         committed = Instant::now();
     }
-    // The same hop while the monitor records those first statuses: each record is one
-    // database commit, and the runtime's checkpoints share the database's one writer.
+    // The same hop while the monitor records those first statuses: each book's records
+    // are one database commit, and the runtime's checkpoints share the database's one
+    // writer.
     let recording = hops(&server, &mut session, &images[0], &mut sequence, pace).await;
     // Every limit's first status is a change from `unevaluated`.
     let behind = tokio::time::timeout(Duration::from_secs(120), async {
@@ -1029,6 +1031,18 @@ async fn monitor_time_per_tick_at_the_bounds() {
         );
     }
     server.stop().await;
+    let mut sizes: Vec<usize> = records(&live)
+        .await
+        .iter()
+        .map(|(_, details)| details.to_string().len())
+        .collect();
+    sizes.sort_unstable();
+    println!(
+        "record details: {} records, median {} bytes, largest {} bytes",
+        sizes.len(),
+        sizes[sizes.len() / 2],
+        sizes[sizes.len() - 1]
+    );
 }
 
 // =============================================================================
