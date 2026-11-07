@@ -240,10 +240,13 @@ instruments, as many as a runtime values; listing one it already follows does no
 again. The server first sends the current result of each listed instrument that has one,
 as a `valuation` message with its `runtime_id`, `revision` and result envelope, then the
 `subscribed` acknowledgement. So when the acknowledgement arrives, a listed instrument
-with no `valuation` has no result yet. Each later result arrives as another `valuation`.
+with neither a `valuation` nor a `RESULT_TOO_LARGE` error (below) has no result yet. Each later result arrives as another `valuation`.
 A result sent at subscription can be newer than one already on its way, so keep the newer
 by `(runtime_id, revision)`. After `RESYNC_REQUIRED`, subscribe again to the same
 instruments to receive their current results, or read `GET /api/v1/runtime/results`.
+A message is at most 64 KiB. A result larger than that, at subscription or later, arrives
+as a `RESULT_TOO_LARGE` error naming the instrument, `runtime_id` and `revision`; read
+the result from `GET /api/v1/runtime/results`. The session stays open.
 
 Send `{"type":"subscribe_limits","book_ids":[...]}` (at most 64 books) to receive a
 `limit_status` message for each change the limit monitor records for those books (see

@@ -4,7 +4,8 @@
 //! streamed valuations. A client opts in with `subscribe_valuations` and receives a
 //! `valuation` message for each published result of those instruments: first the current
 //! result of each instrument the request lists, then the `subscribed` acknowledgement, then
-//! each later result (D99). With
+//! each later result (D99). A result too large for one 64 KiB message arrives as a
+//! `RESULT_TOO_LARGE` error naming its instrument, and the session continues. With
 //! `subscribe_limits` it receives a `limit_status` message for each recorded change of a
 //! book's limit status (P14c), as the limit monitor records it.
 //! REST calculators return their results in the response and never broadcast.
@@ -36,6 +37,8 @@ use crate::ServerProfile;
 const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
 /// Instruments one session may follow: every instrument the runtime values (D100).
 const MAX_VALUATION_SUBSCRIPTIONS: usize = convex_engine::MAX_RUNTIME_INSTRUMENTS;
+/// The largest message the server sends or accepts, in bytes.
+const MAX_MESSAGE_BYTES: usize = 65536;
 
 // =============================================================================
 // MESSAGE TYPES
@@ -145,6 +148,7 @@ struct ClientSession {
 }
 
 impl ClientSession {
+    /// Topics followed: instruments and books together, as the subscription quota counts them.
     fn topic_count(&self) -> usize {
         self.valuation_subscriptions.len() + self.limit_subscriptions.len()
     }
@@ -167,8 +171,8 @@ pub(crate) async fn ws_handler(
         return crate::access::http::response(AccessError::Unauthenticated);
     };
     let limits = limits.map(|Extension(feed)| feed);
-    ws.max_message_size(65536)
-        .max_frame_size(65536)
+    ws.max_message_size(MAX_MESSAGE_BYTES)
+        .max_frame_size(MAX_MESSAGE_BYTES)
         .on_upgrade(move |socket| handle_socket(socket, state, profile, authorization, limits))
         .into_response()
 }
@@ -342,7 +346,7 @@ async fn handle_socket(
 /// Identical safe denial semantics for text and UTF-8 binary frames. The message's admission
 /// covers handling it, not sending the replies: a subscription can send up to 256 results,
 /// each with its own two-second budget. A reply that cannot be delivered ends the session, as
-/// a streamed frame does.
+/// a streamed frame does; a result too large for one message is not such a reply (`encode`).
 #[allow(clippy::too_many_arguments)]
 async fn handle_client_payload(
     text: Result<&str, String>,
@@ -424,9 +428,10 @@ fn handle_client_message(
                 convex_core::contracts::InstrumentId::new(id)
                     .map_err(|_| "invalid valuation identity")?;
             }
-            let count = instrument_ids.len();
             let listed: HashSet<InstrumentId> =
                 instrument_ids.iter().map(InstrumentId::new).collect();
+            // The distinct instruments listed; a repeated id counts once.
+            let count = listed.len();
             // Listing an instrument already followed resends its result and costs nothing.
             let added = listed
                 .iter()
@@ -572,6 +577,8 @@ fn limit_permission<'a>(
         &resources,
     )
 }
+
+/// Whether the session may still stream everything it follows under the current policy.
 fn session_authorized(
     session: &ClientSession,
     authorization: &WsAccess,
@@ -594,6 +601,8 @@ fn session_authorized(
     }
     Ok(())
 }
+
+/// Whether the session may make this subscription change, within its topic quota.
 fn authorize_subscription(
     message: &ClientMessage,
     session: &ClientSession,
@@ -648,6 +657,8 @@ fn authorize_subscription(
     }
     Ok(())
 }
+
+/// Whether the session may follow these books, within its topic quota.
 fn authorize_limits(
     ids: &[String],
     session: &ClientSession,
@@ -680,6 +691,8 @@ fn authorize_limits(
     }
     Ok(())
 }
+
+/// Whether the session may still receive this message when it is sent.
 fn authorize_delivery(
     message: &ServerMessage,
     authorization: &WsAccess,
@@ -704,7 +717,7 @@ fn authorize_delivery(
     Ok(())
 }
 
-/// Send a server message over WebSocket.
+/// Send a server message over WebSocket. An error ends the session.
 async fn send_message(
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     msg: &ServerMessage,
@@ -712,16 +725,37 @@ async fn send_message(
     authorization: &WsAccess,
 ) -> Result<(), axum::Error> {
     authorize_delivery(msg, authorization).map_err(axum::Error::new)?;
-    let json = serialize_message(msg, profile).map_err(axum::Error::new)?;
-    if json.len() > 65536 {
-        return Err(axum::Error::new(AccessError::Quota));
-    }
+    let json = encode(msg, profile)?;
     tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Text(json)))
         .await
         .map_err(axum::Error::new)?
         .map_err(axum::Error::new)
 }
 
+/// The JSON sent for a message. A valuation too large for one message is replaced by a
+/// `RESULT_TOO_LARGE` error naming its instrument, so the session continues. Any other
+/// message over the limit is refused.
+fn encode(msg: &ServerMessage, profile: ServerProfile) -> Result<String, axum::Error> {
+    let json = serialize_message(msg, profile).map_err(axum::Error::new)?;
+    if json.len() <= MAX_MESSAGE_BYTES {
+        return Ok(json);
+    }
+    let ServerMessage::Valuation(result) = msg else {
+        return Err(axum::Error::new(AccessError::Quota));
+    };
+    let instrument = valuation_instrument(result).map_or_else(String::new, |id| id.to_string());
+    let error = ServerMessage::Error {
+        code: "RESULT_TOO_LARGE".into(),
+        message: format!(
+            "The result of instrument {instrument} (runtime {}, revision {}) exceeds the \
+             {MAX_MESSAGE_BYTES}-byte message limit; read it from /api/v1/runtime/results",
+            result.runtime_id, result.revision
+        ),
+    };
+    serialize_message(&error, profile).map_err(axum::Error::new)
+}
+
+/// A message as JSON, with the demo labels when the profile is demo.
 fn serialize_message(
     msg: &ServerMessage,
     profile: ServerProfile,
@@ -773,6 +807,99 @@ pub async fn ws_status(State(state): State<Arc<AppState>>) -> impl IntoResponse 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A valuation of BOND-001 whose lineage lists `inputs` records with 128-character ids.
+    fn valuation(inputs: usize) -> convex_engine::ports::runtime::PublishedValuation {
+        use convex_core::contracts::*;
+        let at = UtcTimestamp::parse("2026-11-07T12:00:00Z").unwrap();
+        let long = |prefix: &str, n: usize| format!("{prefix}-{n:04}-{}", "x".repeat(118));
+        let input_versions = (0..inputs)
+            .map(|n| InputVersion {
+                kind: SourceId::new(long("kind", n)).unwrap(),
+                id: SourceId::new(long("id", n)).unwrap(),
+                version: Version::new(1).unwrap(),
+            })
+            .collect();
+        let error =
+            StructuredError::new(ErrorCode::MissingMarketData, None, "no quote", false).unwrap();
+        let result = ResultEnvelope::new(
+            RequestId::new("request-1").unwrap(),
+            ResultStatus::Failed,
+            DataQuality::Invalid,
+            std::collections::BTreeMap::new(),
+            vec![error],
+            Provenance {
+                subject: ValuationSubject::InstrumentVersion {
+                    instrument_id: convex_core::contracts::InstrumentId::new("BOND-001").unwrap(),
+                    version: Version::new(1).unwrap(),
+                },
+                snapshot_id: SnapshotId::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                configuration_version: Version::new(1).unwrap(),
+                valuation_time: at,
+                known_at: at,
+                calculated_at: at,
+                model_version: ModelId::new("model-1").unwrap(),
+                build_id: ModelId::new("build-1").unwrap(),
+                input_versions,
+            },
+        )
+        .unwrap();
+        convex_engine::ports::runtime::PublishedValuation {
+            runtime_id: SourceId::new("runtime-1").unwrap(),
+            revision: 7,
+            generation: Version::new(1).unwrap(),
+            context_key: "context".into(),
+            live_valid_until: None,
+            result,
+            last_good: None,
+            retained_quality: None,
+        }
+    }
+
+    #[test]
+    fn a_valuation_too_large_for_one_message_is_sent_as_an_error_naming_it() {
+        let fits = ServerMessage::Valuation(Box::new(valuation(8)));
+        let sent: serde_json::Value =
+            serde_json::from_str(&encode(&fits, ServerProfile::Production).unwrap()).unwrap();
+        assert_eq!(sent["type"], "valuation");
+
+        // 256 records with 128-character ids: the most a lineage holds, about 77 KiB.
+        let large = ServerMessage::Valuation(Box::new(valuation(256)));
+        assert!(
+            serialize_message(&large, ServerProfile::Production)
+                .unwrap()
+                .len()
+                > MAX_MESSAGE_BYTES
+        );
+        let sent = encode(&large, ServerProfile::Production).unwrap();
+        assert!(sent.len() < 1024);
+        let sent: serde_json::Value = serde_json::from_str(&sent).unwrap();
+        assert_eq!(sent["type"], "error");
+        assert_eq!(sent["code"], "RESULT_TOO_LARGE");
+        let message = sent["message"].as_str().unwrap();
+        for part in [
+            "BOND-001",
+            "runtime-1",
+            "revision 7",
+            "/api/v1/runtime/results",
+        ] {
+            assert!(message.contains(part), "{message}");
+        }
+
+        let demo: serde_json::Value =
+            serde_json::from_str(&encode(&large, ServerProfile::Demo).unwrap()).unwrap();
+        assert_eq!(demo["code"], "RESULT_TOO_LARGE");
+        assert_eq!(demo["data_quality"], "demo");
+    }
+
+    #[test]
+    fn any_other_message_too_large_for_one_message_is_refused() {
+        let error = ServerMessage::Error {
+            code: "INVALID_MESSAGE".into(),
+            message: "x".repeat(MAX_MESSAGE_BYTES),
+        };
+        assert!(encode(&error, ServerProfile::Production).is_err());
+    }
 
     #[test]
     fn test_client_message_subscribe_valuations() {

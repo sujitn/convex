@@ -45,6 +45,11 @@ the changes that matter when you upgrade.
   watches. Before, a session following 256 instruments could follow no book.
 - Clients should still keep the newer valuation by `(runtime_id, revision)`: a
   result sent at subscription can be newer than one already on its way.
+- **A result too large for one 64 KiB message no longer closes the session.** It
+  arrives as a `RESULT_TOO_LARGE` error naming the instrument, `runtime_id` and
+  `revision`; read the result from `GET /api/v1/runtime/results`.
+- The `subscribed` acknowledgement's `count` is the number of distinct instruments
+  listed; a repeated id counts once.
 
 ## 0.14.0
 

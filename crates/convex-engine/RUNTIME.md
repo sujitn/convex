@@ -284,7 +284,9 @@ sends the current record of each listed instrument that has one, then the
 `subscribed` acknowledgement, then each later record. It is the only
 WebSocket data message: REST calculators do not broadcast, and the bond, ETF and
 portfolio subscriptions are retired. Lag returns `RESYNC_REQUIRED`; subscribe
-again or read current results, and deduplicate by delivery key. The display channel is
+again or read current results, and deduplicate by delivery key. A record too large for
+one 64 KiB message arrives as `RESULT_TOO_LARGE` naming it; read it from current
+results. The display channel is
 transient; it does not guarantee durable catch-up. Joined shutdown closes sessions.
 
 The executable supports an explicit loopback-only `replay` profile. Supply a
