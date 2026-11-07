@@ -279,10 +279,12 @@ capacity is HTTP 429. This additive endpoint does not replace the planned v2 API
 
 WebSocket clients explicitly opt in with
 `{"type":"subscribe_valuations","instrument_ids":["BOND-001"]}`. A `valuation`
-message carries the canonical record and durable delivery key. It is the only
+message carries the canonical record and durable delivery key. The session first
+sends the current record of each listed instrument that has one, then the
+`subscribed` acknowledgement, then each later record. It is the only
 WebSocket data message: REST calculators do not broadcast, and the bond, ETF and
-portfolio subscriptions are retired. Lag returns `RESYNC_REQUIRED`;
-read current results and deduplicate by delivery key. The display channel is
+portfolio subscriptions are retired. Lag returns `RESYNC_REQUIRED`; subscribe
+again or read current results, and deduplicate by delivery key. The display channel is
 transient; it does not guarantee durable catch-up. Joined shutdown closes sessions.
 
 The executable supports an explicit loopback-only `replay` profile. Supply a

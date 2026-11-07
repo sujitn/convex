@@ -220,6 +220,146 @@ async fn actual_websocket_opt_in_publishes_lineage_and_sessions_close_during_joi
     assert_eq!(engine.runtime_health().phase, RuntimePhase::Stopped);
 }
 
+type Socket =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// The next text frame other than a heartbeat, as JSON.
+async fn next_frame(socket: &mut Socket) -> serde_json::Value {
+    use futures_util::StreamExt;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let message = socket.next().await.unwrap().unwrap();
+            if let tokio_tungstenite::tungstenite::Message::Text(text) = message {
+                let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+                if value["type"] != "heartbeat" {
+                    return value;
+                }
+            }
+        }
+    })
+    .await
+    .unwrap()
+}
+
+/// A `valuation` frame without its wire tags.
+fn published(mut frame: serde_json::Value) -> PublishedValuation {
+    assert_eq!(frame["type"], "valuation", "{frame}");
+    frame
+        .as_object_mut()
+        .unwrap()
+        .retain(|key, _| !["type", "profile", "data_quality"].contains(&key.as_str()));
+    serde_json::from_value(frame).unwrap()
+}
+
+/// Subscribe to `ids`; returns the valuations sent before the acknowledgement, and the ack.
+async fn subscribe(
+    socket: &mut Socket,
+    ids: &[&str],
+) -> (Vec<PublishedValuation>, serde_json::Value) {
+    use futures_util::SinkExt;
+    let request = serde_json::json!({"type": "subscribe_valuations", "instrument_ids": ids});
+    socket
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            request.to_string().into(),
+        ))
+        .await
+        .unwrap();
+    let mut seeded = Vec::new();
+    loop {
+        let frame = next_frame(socket).await;
+        if frame["type"] == "subscribed" {
+            return (seeded, frame);
+        }
+        seeded.push(published(frame));
+    }
+}
+
+/// D99 (Excel X2a): a subscription first receives the current result of each listed instrument
+/// that has one, then the acknowledgement, so a client needs no table read to seed. Listing an
+/// instrument already followed resends its current result, which is how a client resyncs.
+#[tokio::test]
+async fn a_subscription_receives_each_listed_instruments_current_result_before_its_ack() {
+    let s = setup().await;
+    let engine = make_engine(
+        &s,
+        archive(&s),
+        s.plan.clone(),
+        s.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    let current = |engine: &convex_engine::PricingEngine| {
+        engine
+            .runtime_results()
+            .into_iter()
+            .filter(|record| {
+                matches!(&record.result.provenance().subject,
+                    ValuationSubject::InstrumentVersion { instrument_id, .. }
+                        if instrument_id.as_str() == "BOND-001")
+            })
+            .collect::<Vec<_>>()
+    };
+    let first = current(&engine);
+    assert_eq!(first.len(), 1);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = Server::new(
+        ServerConfig {
+            profile: convex_server::ServerProfile::Demo,
+            access: convex_server::access::identity::AccessSettings {
+                mode: convex_server::access::identity::AccessMode::LocalDevelopment,
+                ..Default::default()
+            },
+            host: "127.0.0.1".into(),
+            port: address.port(),
+            ..Default::default()
+        },
+        engine.clone(),
+    );
+    let (shutdown, rx) = tokio::sync::oneshot::channel();
+    let task = tokio::spawn(async move {
+        server
+            .serve_until(listener, async {
+                let _ = rx.await;
+            })
+            .await
+    });
+    let (mut socket, _) = tokio_tungstenite::connect_async(format!("ws://{address}/ws"))
+        .await
+        .unwrap();
+    assert_eq!(next_frame(&mut socket).await["type"], "connected");
+
+    // An instrument with no result yet is followed but sends nothing.
+    let (seeded, ack) = subscribe(&mut socket, &["BOND-001", "BOND-NONE"]).await;
+    assert_eq!(seeded, first);
+    assert_eq!(ack["subscription_type"], "valuations");
+    assert_eq!(ack["count"], 2);
+
+    // Listing it again resends the current result.
+    let (seeded, ack) = subscribe(&mut socket, &["BOND-001"]).await;
+    assert_eq!(seeded, first);
+    assert_eq!(ack["count"], 1);
+
+    // Later results still stream, and a resubscribe then sends the newer one.
+    engine
+        .submit_update(event(2, 1, "98.25"), time(1), time(1))
+        .await
+        .unwrap();
+    let streamed = published(next_frame(&mut socket).await);
+    assert_eq!(streamed.generation.get(), 2);
+    assert!(streamed.revision > first[0].revision);
+    let (seeded, _) = subscribe(&mut socket, &["BOND-001"]).await;
+    assert_eq!(seeded, vec![streamed]);
+    assert_eq!(seeded, current(&engine));
+
+    shutdown.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(5), task)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+}
+
 #[cfg(unix)]
 #[tokio::test]
 async fn process_replay_sigterm_and_redb_reopen_preserve_exact_published_state() {

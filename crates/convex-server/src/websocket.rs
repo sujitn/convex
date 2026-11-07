@@ -2,7 +2,9 @@
 //!
 //! The runtime results channel (`PricingEngine::subscribe_results`) is the source of
 //! streamed valuations. A client opts in with `subscribe_valuations` and receives a
-//! `valuation` message for each published result of those instruments. With
+//! `valuation` message for each published result of those instruments: first the current
+//! result of each instrument the request lists, then the `subscribed` acknowledgement, then
+//! each later result (D99). With
 //! `subscribe_limits` it receives a `limit_status` message for each recorded change of a
 //! book's limit status (P14c), as the limit monitor records it.
 //! REST calculators return their results in the response and never broadcast.
@@ -32,6 +34,8 @@ use crate::ServerProfile;
 
 /// Books one session may follow: every book the monitor watches (D87).
 const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
+/// Instruments one session may follow: every instrument the runtime values (D100).
+const MAX_VALUATION_SUBSCRIPTIONS: usize = convex_engine::MAX_RUNTIME_INSTRUMENTS;
 
 // =============================================================================
 // MESSAGE TYPES
@@ -254,14 +258,11 @@ async fn handle_socket(
             result = valuation_rx.recv() => {
                 match result {
                     Ok(result) => {
-                        let subscribed = match &result.result.provenance().subject {
-                            convex_core::contracts::ValuationSubject::InstrumentVersion { instrument_id, .. } => session.valuation_subscriptions.contains(&InstrumentId::new(instrument_id.as_str())),
-                            _ => false,
-                        };
+                        let subscribed = valuation_instrument(&result).is_some_and(|id| session.valuation_subscriptions.contains(&id));
                         if subscribed && send_message(&mut sender, &ServerMessage::Valuation(Box::new(result)), profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {
-                        if send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Read /api/v1/runtime/results and resume by (runtime_id, revision)".into() }, profile, &authorization).await.is_err() { break; }
+                        if send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Subscribe again to receive each instrument's current result, or read /api/v1/runtime/results; keep the newer by (runtime_id, revision)".into() }, profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Closed) => break,
                 }
@@ -292,11 +293,11 @@ async fn handle_socket(
                 let admission = match authorization.access.admit_message(&authorization.context) { Ok(admission) => admission, Err(_) => { let _ = tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Close(None))).await; break; } };
                 match msg {
                     Ok(Message::Text(text)) => {
-                        if handle_client_payload(Ok(&text), &mut session, &mut sender, profile, &authorization, monitored).await.is_err() { break; }
+                        if handle_client_payload(Ok(&text), admission, &mut session, &mut sender, profile, &authorization, monitored, &state.engine).await.is_err() { break; }
                     }
                     Ok(Message::Binary(data)) => {
                         let text = std::str::from_utf8(&data).map_err(|_| "INVALID_MESSAGE".to_owned());
-                        if handle_client_payload(text, &mut session, &mut sender, profile, &authorization, monitored).await.is_err() { break; }
+                        if handle_client_payload(text, admission, &mut session, &mut sender, profile, &authorization, monitored, &state.engine).await.is_err() { break; }
                     }
                     Ok(Message::Ping(data)) => {
                         if !tokio::time::timeout(Duration::from_secs(2), sender.send(Message::Pong(data))).await.is_ok_and(|r| r.is_ok()) {
@@ -315,7 +316,8 @@ async fn handle_socket(
                         break;
                     }
                 }
-                drop(admission);
+                // A text or binary message releases its admission inside `handle_client_payload`;
+                // any other releases it here, at the end of this arm.
             }
 
             // Send heartbeat
@@ -337,90 +339,131 @@ async fn handle_socket(
     info!("WebSocket connection closed: {}", session_id);
 }
 
-/// Identical safe denial semantics for text and UTF-8 binary frames.
+/// Identical safe denial semantics for text and UTF-8 binary frames. The message's admission
+/// covers handling it, not sending the replies: a subscription can send up to 256 results,
+/// each with its own two-second budget. A reply that cannot be delivered ends the session, as
+/// a streamed frame does.
+#[allow(clippy::too_many_arguments)]
 async fn handle_client_payload(
     text: Result<&str, String>,
+    admission: crate::access::Admission,
     session: &mut ClientSession,
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     profile: ServerProfile,
     authorization: &WsAccess,
     monitored: bool,
+    engine: &convex_engine::PricingEngine,
 ) -> Result<(), axum::Error> {
-    let result = match text {
-        Ok(text) => {
-            handle_client_message(text, session, sender, profile, authorization, monitored).await
+    let result = text
+        .and_then(|text| handle_client_message(text, session, authorization, monitored, engine));
+    drop(admission);
+    match result {
+        Ok(replies) => {
+            for reply in &replies {
+                send_message(sender, reply, profile, authorization).await?;
+            }
         }
-        Err(error) => Err(error),
-    };
-    if let Err(error) = result {
-        let code = if [
-            "FORBIDDEN",
-            "UNAUTHENTICATED",
-            "ACCESS_UNAVAILABLE",
-            "ACCESS_QUOTA_EXCEEDED",
-            "INVALID_ACCESS_REQUEST",
-        ]
-        .contains(&error.as_str())
-        {
-            error.clone()
-        } else {
-            "INVALID_MESSAGE".into()
-        };
-        warn!(code = %code, "WebSocket message rejected");
-        send_message(
-            sender,
-            &ServerMessage::Error {
-                code,
-                message: error,
-            },
-            profile,
-            authorization,
-        )
-        .await?;
+        Err(error) => reject(error, sender, profile, authorization).await?,
     }
     Ok(())
 }
 
-/// Handle a client message.
-async fn handle_client_message(
-    text: &str,
-    session: &mut ClientSession,
+/// Send the typed error for a refused client message.
+async fn reject(
+    error: String,
     sender: &mut futures::stream::SplitSink<WebSocket, Message>,
     profile: ServerProfile,
     authorization: &WsAccess,
+) -> Result<(), axum::Error> {
+    let code = if [
+        "FORBIDDEN",
+        "UNAUTHENTICATED",
+        "ACCESS_UNAVAILABLE",
+        "ACCESS_QUOTA_EXCEEDED",
+        "INVALID_ACCESS_REQUEST",
+    ]
+    .contains(&error.as_str())
+    {
+        error.clone()
+    } else {
+        "INVALID_MESSAGE".into()
+    };
+    warn!(code = %code, "WebSocket message rejected");
+    send_message(
+        sender,
+        &ServerMessage::Error {
+            code,
+            message: error,
+        },
+        profile,
+        authorization,
+    )
+    .await
+}
+
+/// The replies to a client message, in order, or the reason it is refused.
+fn handle_client_message(
+    text: &str,
+    session: &mut ClientSession,
+    authorization: &WsAccess,
     monitored: bool,
-) -> Result<(), String> {
+    engine: &convex_engine::PricingEngine,
+) -> Result<Vec<ServerMessage>, String> {
     let msg: ClientMessage =
         serde_json::from_str(text).map_err(|_| "INVALID_MESSAGE".to_owned())?;
 
     authorize_subscription(&msg, session, authorization).map_err(|error| error.to_string())?;
     let response = match msg {
         ClientMessage::SubscribeValuations { instrument_ids } => {
-            if instrument_ids.len() > 256
-                || session
-                    .valuation_subscriptions
-                    .len()
-                    .saturating_add(instrument_ids.len())
-                    > 256
-            {
-                return Err("at most 256 valuation subscriptions".into());
+            let too_many =
+                || format!("at most {MAX_VALUATION_SUBSCRIPTIONS} valuation subscriptions");
+            if instrument_ids.len() > MAX_VALUATION_SUBSCRIPTIONS {
+                return Err(too_many());
             }
             for id in &instrument_ids {
                 convex_core::contracts::InstrumentId::new(id)
                     .map_err(|_| "invalid valuation identity")?;
             }
             let count = instrument_ids.len();
+            let listed: HashSet<InstrumentId> =
+                instrument_ids.iter().map(InstrumentId::new).collect();
+            // Listing an instrument already followed resends its result and costs nothing.
+            let added = listed
+                .iter()
+                .filter(|id| !session.valuation_subscriptions.contains(*id))
+                .count();
+            if session.valuation_subscriptions.len().saturating_add(added)
+                > MAX_VALUATION_SUBSCRIPTIONS
+            {
+                return Err(too_many());
+            }
             session
                 .valuation_subscriptions
-                .extend(instrument_ids.iter().map(InstrumentId::new));
-            ServerMessage::Subscribed {
+                .extend(listed.iter().cloned());
+            // D99: each listed instrument's current result, then the acknowledgement. The
+            // results are read after the subscription is in place, so a result published
+            // meanwhile is either in this read or follows on the stream. A frame still
+            // queued on the stream can be older than the one sent here; the client keeps
+            // the newer by (runtime_id, revision).
+            let mut replies: Vec<ServerMessage> = engine
+                .runtime_results()
+                .into_iter()
+                .filter(|result| {
+                    valuation_instrument(result).is_some_and(|id| listed.contains(&id))
+                })
+                .map(|result| ServerMessage::Valuation(Box::new(result)))
+                .collect();
+            replies.push(ServerMessage::Subscribed {
                 subscription_type: "valuations".into(),
                 count,
-            }
+            });
+            return Ok(replies);
         }
         ClientMessage::UnsubscribeValuations { instrument_ids } => {
-            if instrument_ids.len() > 256 {
-                return Err("at most 256 valuation subscriptions".into());
+            if instrument_ids.len() > MAX_VALUATION_SUBSCRIPTIONS {
+                return Err(format!(
+                    "at most {MAX_VALUATION_SUBSCRIPTIONS} valuation subscriptions"
+                ));
             }
             let count = instrument_ids.len();
             for id in &instrument_ids {
@@ -475,9 +518,19 @@ async fn handle_client_message(
         },
     };
 
-    send_message(sender, &response, profile, authorization)
-        .await
-        .map_err(|_| "WS_SEND_FAILED".to_owned())
+    Ok(vec![response])
+}
+
+/// The instrument a published valuation is for, if it is for one.
+fn valuation_instrument(
+    result: &convex_engine::ports::runtime::PublishedValuation,
+) -> Option<InstrumentId> {
+    match &result.result.provenance().subject {
+        convex_core::contracts::ValuationSubject::InstrumentVersion { instrument_id, .. } => {
+            Some(InstrumentId::new(instrument_id.as_str()))
+        }
+        _ => None,
+    }
 }
 
 /// A valuation topic needs result, reference and market read on the instrument.
@@ -552,7 +605,7 @@ fn authorize_subscription(
     let ids = match message {
         ClientMessage::SubscribeValuations { instrument_ids } => instrument_ids,
         ClientMessage::UnsubscribeValuations { instrument_ids } => {
-            if instrument_ids.len() > 256 {
+            if instrument_ids.len() > MAX_VALUATION_SUBSCRIPTIONS {
                 return Err(AccessError::Quota);
             }
             return Ok(());
@@ -568,7 +621,7 @@ fn authorize_subscription(
         }
         ClientMessage::Ping { .. } => return Ok(()),
     };
-    if ids.len() > 256 {
+    if ids.len() > MAX_VALUATION_SUBSCRIPTIONS {
         return Err(AccessError::Quota);
     }
     let mut prospective: HashSet<String> = session

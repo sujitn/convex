@@ -136,6 +136,11 @@ impl Resource {
         }
     }
 }
+/// Topics one WebSocket session can hold: every instrument a runtime values and every book
+/// the limit monitor watches (D100).
+pub const MAX_SESSION_TOPICS: usize =
+    convex_engine::MAX_RUNTIME_INSTRUMENTS + convex_engine::configuration::MAX_PLAN_BOOKS;
+
 /// Bounded quotas, per process and subject. Distributed quotas require a later shared adapter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -155,7 +160,7 @@ impl Default for Quotas {
             requests_per_minute: 600,
             concurrent_requests: 8,
             websocket_sessions: 4,
-            subscriptions: 256,
+            subscriptions: MAX_SESSION_TOPICS,
         }
     }
 }
@@ -164,7 +169,7 @@ impl Quotas {
         if !(1..=6000).contains(&self.requests_per_minute)
             || !(1..=64).contains(&self.concurrent_requests)
             || !(1..=32).contains(&self.websocket_sessions)
-            || !(1..=256).contains(&self.subscriptions)
+            || !(1..=MAX_SESSION_TOPICS).contains(&self.subscriptions)
         {
             return Err(AccessError::InvalidPolicy);
         }
