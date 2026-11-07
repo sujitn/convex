@@ -373,7 +373,6 @@ namespace Convex.Excel.Server
         internal void Tick()
         {
             if (Interlocked.Exchange(ref _ticking, 1) == 1) return;
-            bool rejected = false;
             try
             {
                 lock (_gate)
@@ -429,7 +428,6 @@ namespace Convex.Excel.Server
             finally
             {
                 Volatile.Write(ref _ticking, 0);
-                if (rejected) _tokens.Rejected();
                 Notify();
             }
         }
@@ -612,7 +610,7 @@ namespace Convex.Excel.Server
                     _changed.Add(id);
                     CompleteWaiters(inst);
                 }
-                if (session == _standby && session.PendingSubscribes == 0) Promote();
+                if (session == _standby && !session.IsClosed && session.PendingSubscribes == 0) Promote();
             }
             Notify();
         }
@@ -647,7 +645,7 @@ namespace Convex.Excel.Server
                     _changed.Add(inst.Id);
                     CompleteWaiters(inst);
                 }
-                if (session == _standby && session.PendingSubscribes == 0) Promote();
+                if (session == _standby && !session.IsClosed && session.PendingSubscribes == 0) Promote();
             }
             if (rejected) _tokens.Rejected();
             Notify();
@@ -708,7 +706,7 @@ namespace Convex.Excel.Server
                     bool wasPrimary = session == _primary;
                     _pendingPrimary = null;
                     _primary = null;
-                    if (_standby != null)
+                    if (_standby is { IsClosed: false, SessionId: not null })
                     {
                         Promote();
                     }

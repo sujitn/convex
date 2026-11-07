@@ -91,12 +91,16 @@ namespace Convex.Excel.Server
 
         /// Interactive sign-in in the system browser. Throws OidcException
         /// with a message for the user.
-        public static Task SignInAsync(CancellationToken ct)
+        public static async Task SignInAsync(CancellationToken ct)
         {
             OidcTokenProvider? oidc;
             lock (_lock) oidc = _oidc;
             if (oidc == null) throw new OidcException("this server link does not use single sign-on; see Server settings");
-            return oidc.SignInAsync(ct);
+            await oidc.SignInAsync(ct).ConfigureAwait(false);
+            // A sign-in may be a different user with other entitlements: try
+            // refused instruments again and connect now.
+            Source.Reconnect();
+            Resolver.Clear();
         }
 
         public static void SignOut()
