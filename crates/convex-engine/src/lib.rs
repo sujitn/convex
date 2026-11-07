@@ -86,7 +86,7 @@ pub use portfolio_analytics::{
 pub use pricing_router::{BatchPricingResult, PricingRouter};
 pub use runtime::{
     AcceptedUpdate, RuntimeError, RuntimeHealth, RuntimeInput, RuntimeMode, RuntimePhase,
-    RuntimePlan, RuntimeServices,
+    RuntimePlan, RuntimeServices, MAX_RUNTIME_INSTRUMENTS,
 };
 
 use std::sync::Arc;

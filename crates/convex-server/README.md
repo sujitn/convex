@@ -235,11 +235,18 @@ Router construction uses the engine’s configured reference repository. Provide
 
 `/ws` and `/api/v1/ws` stream canonical runtime results and recorded limit status
 changes, and nothing else. Send
-`{"type":"subscribe_valuations","instrument_ids":[...]}` (at most 256 instruments);
-each published result for those instruments arrives as a `valuation` message with
-its `runtime_id`, `revision` and result envelope. Seed the display from
-`GET /api/v1/runtime/results`. After `RESYNC_REQUIRED`, read it again and
-deduplicate by `(runtime_id, revision)`.
+`{"type":"subscribe_valuations","instrument_ids":[...]}`. A session follows at most 256
+instruments, as many as a runtime values; listing one it already follows does not count
+again. The server first sends the current result of each listed instrument that has one,
+as a `valuation` message with its `runtime_id`, `revision` and result envelope, then the
+`subscribed` acknowledgement. So when the acknowledgement arrives, a listed instrument
+with neither a `valuation` nor a `RESULT_TOO_LARGE` error (below) has no result yet. Each later result arrives as another `valuation`.
+A result sent at subscription can be newer than one already on its way, so keep the newer
+by `(runtime_id, revision)`. After `RESYNC_REQUIRED`, subscribe again to the same
+instruments to receive their current results, or read `GET /api/v1/runtime/results`.
+A message is at most 64 KiB. A result larger than that, at subscription or later, arrives
+as a `RESULT_TOO_LARGE` error naming the instrument, `runtime_id` and `revision`; read
+the result from `GET /api/v1/runtime/results`. The session stays open.
 
 Send `{"type":"subscribe_limits","book_ids":[...]}` (at most 64 books) to receive a
 `limit_status` message for each change the limit monitor records for those books (see

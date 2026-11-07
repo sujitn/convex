@@ -27,6 +27,9 @@ use tokio::sync::{broadcast, mpsc, oneshot, watch, Mutex};
 
 pub use convex_ports::configuration::RuntimeMode;
 
+/// Instruments one runtime values. A WebSocket session can follow at most this many.
+pub const MAX_RUNTIME_INSTRUMENTS: usize = 256;
+
 /// A bounded fixed-bullet universe over one exact quantitative configuration.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -63,7 +66,7 @@ impl RuntimePlan {
         if self.schema_version != 1
             || self.assembly.generation.get() != 1
             || self.assembly.instruments.is_empty()
-            || self.assembly.instruments.len() > 256
+            || self.assembly.instruments.len() > MAX_RUNTIME_INSTRUMENTS
             || self.assembly.quotes.len() != self.assembly.instruments.len()
             || self.seed_events.len() > MAX_RUNTIME_EVENTS
             || self.measures.is_empty()

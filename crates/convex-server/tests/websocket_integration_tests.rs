@@ -265,6 +265,41 @@ async fn test_websocket_unsubscribe_valuations() {
     assert_eq!(msg["subscription_type"], "valuations");
 }
 
+/// D100: a session follows at most as many instruments as a runtime values. Listing an
+/// instrument already followed does not count again, so a full session can resubscribe (D99).
+#[tokio::test]
+async fn test_websocket_valuation_cap_counts_only_new_instruments() {
+    let (addr, _engine) = start_test_server().await;
+    let (ws_stream, _) = connect_async(format!("ws://{addr}/ws"))
+        .await
+        .expect("Failed to connect");
+    let (mut write, mut read) = ws_stream.split();
+    let _ = recv_json(&mut read).await;
+
+    let ids: Vec<String> = (0..convex_engine::MAX_RUNTIME_INSTRUMENTS)
+        .map(|i| format!("BOND-{i:03}"))
+        .collect();
+    for _ in 0..2 {
+        let subscribe = json!({"type": "subscribe_valuations", "instrument_ids": ids});
+        write
+            .send(Message::Text(subscribe.to_string().into()))
+            .await
+            .unwrap();
+        let msg = recv_json_skip_heartbeats(&mut read).await.unwrap();
+        assert_eq!(msg["type"], "subscribed", "{msg}");
+        assert_eq!(msg["count"], 256);
+    }
+
+    let over = json!({"type": "subscribe_valuations", "instrument_ids": ["BOND-OVER"]});
+    write
+        .send(Message::Text(over.to_string().into()))
+        .await
+        .unwrap();
+    let msg = recv_json_skip_heartbeats(&mut read).await.unwrap();
+    assert_eq!(msg["type"], "error", "{msg}");
+    assert_eq!(msg["message"], "at most 256 valuation subscriptions");
+}
+
 /// The bond, ETF and portfolio subscriptions are retired with the REST broadcasts that fed them.
 #[tokio::test]
 async fn test_websocket_refuses_retired_subscriptions() {

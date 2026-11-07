@@ -638,6 +638,68 @@ async fn metric(server: &Running, line: &str) {
     .unwrap_or_else(|_| panic!("/metrics never showed {line}"))
 }
 
+/// The acknowledgement of the last request, failing on an error frame.
+async fn acknowledged(socket: &mut Socket) -> Value {
+    use futures_util::StreamExt;
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            match socket.next().await {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                    let value: Value = serde_json::from_str(&text).unwrap();
+                    match value["type"].as_str() {
+                        Some("subscribed") => return value,
+                        Some("error") => panic!("refused: {value}"),
+                        _ => {}
+                    }
+                }
+                Some(Ok(_)) => {}
+                other => panic!("socket ended: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("no acknowledgement")
+}
+
+/// D100: one session can follow every instrument a runtime values and every book the monitor
+/// watches. One quota of 256 topics used to cover both, so a session following 256
+/// instruments could follow no book.
+#[tokio::test]
+async fn one_session_follows_every_instrument_and_every_limited_book() {
+    use futures_util::SinkExt;
+    let (dir, live, _) = live(1, 0, &[]).await;
+    let server = started(&dir, live.clone()).await;
+    let (mut socket, _) = tokio_tungstenite::connect_async(server.ws_url())
+        .await
+        .unwrap();
+    frame(&mut socket, "connected").await;
+    let mut instruments = vec!["BOND-001".to_owned()];
+    instruments.extend((1..convex_engine::MAX_RUNTIME_INSTRUMENTS).map(|i| format!("ANY-{i:03}")));
+    let books: Vec<String> = (0..64).map(|i| format!("BOOK-{i:02}")).collect();
+    for (request, kind, count) in [
+        (
+            json!({"type": "subscribe_valuations", "instrument_ids": instruments}),
+            "valuations",
+            256,
+        ),
+        (
+            json!({"type": "subscribe_limits", "book_ids": books}),
+            "limits",
+            64,
+        ),
+    ] {
+        socket
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                request.to_string().into(),
+            ))
+            .await
+            .unwrap();
+        let ack = acknowledged(&mut socket).await;
+        assert_eq!(ack["subscription_type"], kind, "{ack}");
+        assert_eq!(ack["count"], count, "{ack}");
+    }
+}
+
 /// The monitor records a change when a limit set commits, when a tick moves a value past
 /// a bound, and when the book changes; it publishes each one after recording it; and a
 /// restart records each status afresh, from `unevaluated`, naming its start. A cleared

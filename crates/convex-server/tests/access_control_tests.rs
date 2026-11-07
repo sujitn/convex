@@ -970,6 +970,15 @@ async fn policy_replacement_has_one_winner_and_file_errors_do_not_retain_authori
         .resources
         .insert(ResourceKind::Book, vec!["*".into(), "BOOK-A".into()]);
     assert_eq!(bad.validate(), Err(AccessError::InvalidPolicy));
+    // D100: one session's topics cover every instrument a runtime values and every book the
+    // limit monitor watches, and that is both the default and the most a grant may set.
+    assert_eq!(MAX_SESSION_TOPICS, 256 + 64);
+    assert_eq!(Quotas::default().subscriptions, MAX_SESSION_TOPICS);
+    let mut full = policy();
+    full.grants[0].quotas.subscriptions = MAX_SESSION_TOPICS;
+    assert_eq!(full.validate(), Ok(()));
+    full.grants[0].quotas.subscriptions = MAX_SESSION_TOPICS + 1;
+    assert_eq!(full.validate(), Err(AccessError::InvalidPolicy));
     issuer.finish().await;
 }
 

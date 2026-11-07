@@ -31,6 +31,26 @@ the changes that matter when you upgrade.
 - New C export `convex_changes_since(cursor)`: the names and handles whose
   resolution changed after a registry generation, from a 4,096-entry log.
 
+### convex-server
+
+- **A valuation subscription sends current results first.** After
+  `subscribe_valuations`, the session sends the current result of each listed
+  instrument that has one, then the `subscribed` acknowledgement. A client no
+  longer needs to read `GET /api/v1/runtime/results` to seed. Subscribing again
+  to instruments already followed resends their results, which is how a client
+  recovers after `RESYNC_REQUIRED`.
+- **One session can follow every instrument and every limited book.** The
+  per-session topic quota is now 320 by default and at most (was 256): 256
+  instruments, as many as a runtime values, plus the 64 books the limit monitor
+  watches. Before, a session following 256 instruments could follow no book.
+- Clients should still keep the newer valuation by `(runtime_id, revision)`: a
+  result sent at subscription can be newer than one already on its way.
+- **A result too large for one 64 KiB message no longer closes the session.** It
+  arrives as a `RESULT_TOO_LARGE` error naming the instrument, `runtime_id` and
+  `revision`; read the result from `GET /api/v1/runtime/results`.
+- The `subscribed` acknowledgement's `count` is the number of distinct instruments
+  listed; a repeated id counts once.
+
 ## 0.14.0
 
 This is the first crates.io release since 0.11.1. The v0.12.0 and v0.13.0 tags
