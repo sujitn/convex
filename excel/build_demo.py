@@ -7,7 +7,8 @@ Run it whenever the cell API changes:
     python excel/build_demo.py
 
 Open the resulting workbook with the Convex add-in loaded; every formula
-should evaluate without #NAME? / #VALUE! errors.
+should evaluate without #NAME? / #VALUE! errors. The Live sheet needs a Convex
+server (ribbon Server); without one its cells show #N/A with the reason.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.worksheet.formula import ArrayFormula
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -78,6 +80,8 @@ def build_readme(wb: Workbook) -> None:
         "  • Spreads    — Z / I / ASW on a swap curve; G-spread on a separate gov curve.",
         "  • Scenarios  — parallel-shift bps ladder against the base bond.",
         "  • Schemas    — JSON wire format for any DTO via CX.SCHEMA.",
+        "  • Live       — live server cells (CX.LIVE, CX.LIVE.GRID, CX.SNAP, CX.STATUS);",
+        "                 needs a Convex server, e.g. the showcase at http://localhost:8080.",
         "",
         "Trader-mark grammar (forwarded to the Rust parser):",
         "  99.5            clean price (default)",
@@ -418,6 +422,67 @@ def build_schemas(wb: Workbook) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Live sheet (server cells)
+# ---------------------------------------------------------------------------
+
+LIVE_MEASURES = [
+    "clean_price_mid", "dirty_price_mid", "accrued_interest", "ytm_mid",
+    "modified_duration_mid", "convexity_mid", "dv01_mid", "z_spread_mid",
+]
+
+
+def build_live(wb: Workbook) -> None:
+    ws = wb.create_sheet("Live")
+    fit_columns(ws, [24, 18, 14, 12, 22, 4, 24, 16, 12])
+
+    section(ws, 1, "Live server cells: CX.LIVE follows the server's published results", span=9)
+    note(ws, 2,
+         "Set the server with ribbon Server (the showcase: http://localhost:8080, sign in with None). "
+         "Without one, the cells show #N/A and =CX.LASTERROR(cell) says why.", span=9)
+
+    status = [
+        ("Connection:", "=CX.STATUS()"),
+        ("User:", '=CX.STATUS("user")'),
+        ("Runtime:", '=CX.STATUS("runtime")'),
+        ("Last message (UTC):", '=CX.STATUS("last_message")'),
+        ("Calculation:", '=CX.STATUS("calculation")'),
+    ]
+    for i, (label, formula) in enumerate(status, start=4):
+        ws.cell(row=i, column=1, value=label)
+        ws.cell(row=i, column=2, value=formula)
+    ws.cell(row=7, column=2).number_format = "yyyy-mm-dd hh:mm:ss"
+
+    ws.cell(row=10, column=1, value="Instrument:").font = Font(bold=True)
+    ws.cell(row=10, column=2, value="INSTRUMENT-001")
+
+    header(ws, 12, ["Measure", "Value", "Quality", "Revision", "Calculated (UTC)"])
+    first = 13
+    for i, measure in enumerate(LIVE_MEASURES, start=first):
+        ws.cell(row=i, column=1, value=measure)
+        ws.cell(row=i, column=2, value=f"=CX.LIVE($B$10,A{i})")
+        ws.cell(row=i, column=3, value=f'=CX.LIVE($B$10,A{i},"quality")')
+        ws.cell(row=i, column=4, value=f'=CX.LIVE($B$10,A{i},"revision")')
+        calculated = ws.cell(row=i, column=5, value=f'=CX.LIVE($B$10,A{i},"calculated_at")')
+        calculated.number_format = "yyyy-mm-dd hh:mm:ss"
+    last = first + len(LIVE_MEASURES) - 1
+
+    ws.cell(row=last + 2, column=1, value="Twice the clean price:")
+    ws.cell(row=last + 2, column=2, value=f"=B{first}*2")
+    ws.cell(row=last + 3, column=1, value="Clean price, read once:")
+    ws.cell(row=last + 3, column=2, value='=CX.SNAP($B$10,"clean_price_mid")')
+    note(ws, last + 4,
+         "The first follows the live cell through Excel's calc chain; CX.SNAP does not update.", span=5)
+
+    # CX.LIVE.GRID reads the cache; its trigger (the live clean price) recalculates it.
+    ws.cell(row=11, column=7, value="CX.LIVE.GRID, recalculated by B13").font = SECTION_FONT
+    for j, label in enumerate(["Measure", "Value", "Quality"], start=7):
+        cell = ws.cell(row=12, column=j, value=label)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+    ws[f"G{first}"] = ArrayFormula(f"G{first}:I{last}", f"=CX.LIVE.GRID($B$10,A{first}:A{last},B{first})")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -429,6 +494,7 @@ def main() -> None:
     build_spreads(wb)
     build_scenarios(wb)
     build_schemas(wb)
+    build_live(wb)
     wb.save(OUTPUT)
     print(f"wrote {OUTPUT}")
 

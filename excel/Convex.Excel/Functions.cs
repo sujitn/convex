@@ -701,7 +701,7 @@ namespace Convex.Excel
 
         // Failures become native Excel errors (see ErrorMapper) with the full
         // message recorded per cell for =CX.LASTERROR / the ribbon error log.
-        private static object Safe(Func<object> body)
+        internal static object Safe(Func<object> body)
         {
             try { return body(); }
             catch (Exception ex)
@@ -711,9 +711,9 @@ namespace Convex.Excel
             }
         }
 
-        private static bool IsBlank(object value) => value is null or ExcelMissing or ExcelEmpty;
+        internal static bool IsBlank(object value) => value is null or ExcelMissing or ExcelEmpty;
 
-        private static string AsString(object value, string defaultValue)
+        internal static string AsString(object value, string defaultValue)
         {
             if (IsBlank(value)) return defaultValue;
             return value is string s ? s : value!.ToString() ?? defaultValue;

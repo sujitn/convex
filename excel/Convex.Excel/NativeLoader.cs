@@ -29,6 +29,11 @@ namespace Convex.Excel
             try { ExcelDna.IntelliSense.IntelliSenseServer.Install(); }
             catch { /* best-effort — never block the add-in */ }
 
+            // The server link (CX.LIVE): load %APPDATA%\Convex\server.json.
+            // A single sign-on link starts signed out until Sign in.
+            try { Server.ServerLink.Start(); }
+            catch (Exception ex) { CxErrorStore.Record(ex, "(server)", "server link"); }
+
             // Handles are process-lifetime, so a reopened workbook's cached
             // #CX# strings are stale until builder cells re-register. The
             // queued rebuild runs after the launching workbook has opened;
@@ -46,6 +51,8 @@ namespace Convex.Excel
         public void AutoClose()
         {
             try { ExcelDna.IntelliSense.IntelliSenseServer.Uninstall(); }
+            catch { }
+            try { Server.ServerLink.Source.Dispose(); }
             catch { }
         }
 

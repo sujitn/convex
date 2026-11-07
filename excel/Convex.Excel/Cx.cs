@@ -287,8 +287,23 @@ namespace Convex.Excel
     {
         public string Code { get; }
 
+        /// A value the add-in cannot show yet or at all (a server cell with no
+        /// result, a refused subscription): #N/A rather than an input error.
+        public bool NotAvailable { get; }
+
         public ConvexException(string message, string code = ErrorCodes.InvalidInput)
             : base(message) => Code = code;
+
+        private ConvexException(string message, string code, bool notAvailable)
+            : base(message)
+        {
+            Code = code;
+            NotAvailable = notAvailable;
+        }
+
+        /// #N/A with a reason for CX.LASTERROR; `code` is the server's error
+        /// code when the server gave one.
+        public static ConvexException Unavailable(string code, string message) => new(message, code, true);
     }
 
     internal static class ErrorCodes

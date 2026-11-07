@@ -126,6 +126,40 @@ interval (Settings shows it; 2,000 ms by default).
 9. Settings → "Excel RTD throttle": "Use 250 ms" makes the live cells update
    about four times sooner; "Excel default" restores 2,000 ms.
 
+## Live server cells
+
+Start the showcase (`docker build -t convex-showcase . && docker run -p
+8080:8080 convex-showcase` from the repository root). Its feed moves
+`INSTRUMENT-001` once a second. Use Automatic calculation.
+
+1. Ribbon **Server**: Server URL `http://localhost:8080`, Sign in with
+   *None*, **Save and connect**. The ribbon's connection button reads
+   **Connected**; `=CX.STATUS()` shows `Connected`.
+2. `H1: =CX.LIVE("INSTRUMENT-001", "clean_price_mid")`: a price near 99.5
+   that moves by itself. `H2: =CX.LIVE("INSTRUMENT-001", "clean_price_mid",
+   "quality")`: `Demo`. `H3: =CX.LIVE("INSTRUMENT-001", "ytm_mid",
+   "revision")`: rises with each update.
+3. `H4: =H1*2`: follows `H1` with no F9.
+4. `H5: =CX.LIVE("INSTRUMENT-001", "no_such_mid")`: `#N/A`;
+   `=CX.LASTERROR(H5)` lists the measures the result has.
+5. `H6: =CX.LIVE("UNKNOWN-1", "clean_price_mid")`: `#N/A`, and
+   `CX.LASTERROR` says the runtime has no result for it.
+6. `H7: =CX.LIVE.GRID("INSTRUMENT-001", , H1)`: measure, value and quality
+   rows that refresh with `H1`.
+7. `H8: =CX.SNAP("INSTRUMENT-001", "clean_price_mid")`: a price that stays
+   put while `H1` moves.
+8. Stop the container: within a few seconds the connection button reads
+   **Reconnecting**, `H2` turns `Stale`, and `H1` keeps its last price.
+   Start it again: the button returns to **Connected**, `H2` to `Demo`, and
+   `H1` moves again.
+9. Switch to Manual calculation: `H1` changes only on F9, and
+   `=CX.STATUS("calculation")` shows `Manual` after F9.
+
+Single sign-on needs an identity provider and a server with
+`[access.introspection]`; check that **Sign in** opens the browser, that
+`=CX.STATUS("user")` names you afterwards, and that **Sign out** turns
+`H2` to `Stale`.
+
 ## Recalc-cascade cutoff (idempotent handles)
 
 1. Build a builder cell + 10 dependent `CX.PRICE` cells.

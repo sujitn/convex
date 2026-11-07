@@ -72,11 +72,13 @@ namespace Convex.Excel
     //   #NAME?   unknown keyword (frequency / day count / spread type / field)
     //   #REF!    handle or ticker not found, wrong object kind
     //   #NUM!    solver failure, non-finite result, business-rule violation
-    //   #N/A     native library not loaded (see CX.DIAG)
+    //   #N/A     native library not loaded (see CX.DIAG), or a server cell
+    //            with nothing to show (ConvexException.Unavailable)
     internal static class ErrorMapper
     {
         public static object ToExcelError(Exception ex) => ex switch
         {
+            ConvexException { NotAvailable: true } => ExcelError.ExcelErrorNA,
             ConvexException cx => cx.Code switch
             {
                 ErrorCodes.InvalidHandle => ExcelError.ExcelErrorRef,

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Convex.Excel.Server;
 using ExcelDna.Integration;
 using ExcelDna.Integration.Rtd;
 using Newtonsoft.Json;
@@ -44,10 +45,22 @@ namespace Convex.Excel.Live
     /// changes, and then does no engine work: the hub already holds the value.
     internal static class LiveCells
     {
-        public static object Local(string verb, string field, JObject request)
+        public static object Local(string verb, string field, JObject request) =>
+            Read(LocalSpec.TopicStrings(verb, LiveFields.Validate(verb, field), request.ToString(Formatting.None)));
+
+        /// A CX.LIVE cell. The identifier is checked here, so a malformed one
+        /// is #VALUE! at once rather than a topic.
+        public static object ServerCell(string identifier, string measure, string field)
         {
-            var strings = LocalSpec.TopicStrings(verb, LiveFields.Validate(verb, field),
-                request.ToString(Formatting.None));
+            Identifiers.Classify(identifier);
+            return Read(ServerCells.TopicStrings(identifier, measure, field));
+        }
+
+        /// A CX.STATUS cell.
+        public static object StatusCell(string field) => Read(ServerCells.StatusTopicStrings(field));
+
+        private static object Read(string[] strings)
+        {
             var value = XlCall.RTD(LiveHub.ProgId, null, strings);
             if (value is ExcelError &&
                 LiveHub.Instance.TryGetError(LocalSpec.KeyOf(strings), out var error))

@@ -11,6 +11,7 @@ plan, not in this repository.
 | `../Convex.Excel.Bench/` | Bench add-in (`CXB.*` functions). It provides a synthetic RTD server, a recalculation recorder and a main-thread probe, and loads beside the real add-in. |
 | `Run-ExcelBench.ps1` | Driver. It starts a private, hidden Excel over COM, builds the sheets, runs each scenario and writes JSON results. |
 | `WsDrain/` | Console test. It measures how many valuation frames per second a `net472` `ClientWebSocket` can receive, parse and apply. |
+| `Run-ServerCells.ps1` | Live server cells (X3) in real Excel against a running convex-server: `CX.LIVE`, `CX.SNAP` and `CX.STATUS` while a feed moves the price, and, given `-StopServer` and `-StartServer`, values kept as `Stale` while the server is down and followed again after it restarts. It writes `%APPDATA%\Convex\server.json` for the run and restores it. |
 
 ## Build
 

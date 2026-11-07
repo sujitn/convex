@@ -16,6 +16,8 @@ IntelliSense tooltips document every argument in the grid; the pricing and sprea
 modeless so Excel stays interactive. On add-in load a full rebuild
 re-registers cell-built objects, so reopened workbooks heal automatically
 (Settings → "Rebuild handles on open"; manual: ribbon **Rebuild**).
+Connected to a Convex server, `CX.LIVE` cells follow the server's live
+results and update when the server publishes (see *Live server cells*).
 
 ## Installation
 
@@ -158,6 +160,81 @@ any registry change and had a "LIVE poll (ms)" setting. There is no
 compatibility layer: `CX.PRICE` no longer has a `z_spread` field (use
 `CX.SPREAD`), and the setting is gone.
 
+### Live server cells
+
+`CX.LIVE` shows a result that a Convex server publishes, and updates by
+itself when the server publishes a new one. Set up the connection first (see
+*Connecting to a Convex server*).
+
+| UDF | Returns |
+|---|---|
+| `CX.LIVE(identifier, measure, [field])` | One field of the server's current result for an instrument (RTD). |
+| `CX.LIVE.GRID(identifier, [measures], [trigger])` | Rows of measure, value and quality for an instrument that a `CX.LIVE` cell already follows, read from the add-in's cache. It is not live by itself: pass a `CX.LIVE` cell as `trigger` and the grid recalculates with that cell. |
+| `CX.SNAP(identifier, measure)` | The server's current value, read once. It does not update, and shows `#N/A` until the server answers. |
+| `CX.STATUS([field])` | The connection: `connection` (default), `user`, `server`, `runtime`, `last_message` (UTC), `instruments`, `topics`, `session`, `problem`, or `calculation` (Excel's calculation mode). |
+
+- **identifier**: a CUSIP or ISIN with a valid check digit is looked up in the
+  server's reference master (`POST /api/v1/reference/resolve`), which needs
+  reference read on every instrument. Anything else is used as the server's
+  instrument id, exactly as typed. Bond names are not accepted.
+- **measure**: a measure id the server's runtime publishes, such as
+  `clean_price_mid`, `dirty_price_mid`, `ytm_mid`, `modified_duration_mid`,
+  `dv01_mid` or `z_spread_mid`. The runtime's configuration chooses which;
+  for a missing one, `=CX.LASTERROR(cell)` lists those the result has.
+- **field**: `value` (default, a number), `quality` (`Valid`, `Indicative`,
+  `Delayed`, `Stale`, `Invalid` or `Demo`), `status` (`Complete`, `Partial`
+  or `Failed`), `revision`, `calculated_at` (an Excel date-time in UTC),
+  `snapshot_id` or `configuration_version`. The last four record exactly what
+  a number was computed from.
+
+Live values are for display only. They are not the server's official results.
+
+How a server result reaches the sheet:
+
+1. The server works out which instruments a quote or curve change reaches,
+   and publishes a new result for those only.
+2. The add-in keeps the newest result of each instrument, by runtime and
+   revision, and sends a cell's value to Excel only when it changed.
+3. Excel recalculates every formula that reads a changed cell.
+
+When there is nothing to show, the cell is `#N/A`, and `=CX.LASTERROR(cell)`
+says why:
+
+- no server is set, you are signed out, or the add-in is connecting or
+  reconnecting (with the reason);
+- the first result has not arrived yet, or the server's runtime has no
+  result for the instrument;
+- the identifier is unknown, or you are not entitled to the instrument
+  (`FORBIDDEN`). A refused instrument is not requested again until you
+  reconnect (click the connection button on the ribbon);
+- the result is larger than one 64 KiB message (`RESULT_TOO_LARGE`), so it
+  cannot be streamed. It is not requested again; a later result that fits
+  replaces it;
+- more than 256 instruments: one session follows at most 256, which is all
+  one server runtime values. The rest wait for a free slot.
+
+When the server's latest result failed but kept a last good result, `value`
+shows the last good value and `quality` the quality the server gives it.
+
+When the connection drops:
+
+- every value stays, and `quality` becomes `Stale` until the stream resumes.
+  A cell that never had a value shows `#N/A`;
+- the add-in reconnects by itself, after 0.5 s doubling to 30 s, and
+  receives every current result again. The server sends a heartbeat every
+  30 s, so 45 s of silence counts as a lost connection.
+
+Limits:
+
+- An instrument stays followed for 30 s after its last cell goes, so a
+  recalculation does not unsubscribe and resubscribe it. Subscription
+  changes go out in batches every 100 ms.
+- Server cells count towards the 20,000 live cells of an Excel process.
+- Under Manual calculation, server cells update on F9. A new server cell
+  shows `#N/A` until its result arrives, and under Manual calculation until
+  the F9 after that.
+- Excel's RTD throttle applies, as for local live cells.
+
 ### Hedge advisor
 
 | UDF | Description |
@@ -241,13 +318,16 @@ D3: =CX.SPREAD(D1, B1, DATE(2025,4,15), "100D", "DM")                    ' DM in
 
 ## Ribbon
 
-The Convex tab has five groups:
+The Convex tab has six groups:
 
 - **Bonds**: New Bond (tabbed: fixed-rate, callable, FRN, zero) · Pricing
   Ticket · Spread Ticket.
 - **Curves**: New Curve (tabbed: discrete, bootstrap) · Curve Viewer
   (chart of zero + 1Y forward).
 - **Scenarios**: Run Scenario (parallel shift bumps over a CSV bps list).
+- **Server**: the connection button (Connected, Connecting, Reconnecting,
+  Signed out or No server; click it for details and to reconnect) · Sign in
+  · Sign out · Server (see *Connecting to a Convex server*).
 - **Tools**: Objects (browse / inspect / paste handle / release) · Schemas
   (JSON schema viewer for any DTO) · Settings (default frequency, day count,
   spread family, currency persisted to `%APPDATA%\Convex\settings.json`) ·
@@ -256,6 +336,48 @@ The Convex tab has five groups:
 
 Every form routes through the same JSON RPC the cell UDFs use, so the
 ribbon and the worksheet can never disagree.
+
+## Connecting to a Convex server
+
+Ribbon **Server** sets the connection. It is saved in
+`%APPDATA%\Convex\server.json`; no token is ever written there.
+
+- **Server URL**: `https://host[:port]` of convex-server. Plain `http://` is
+  accepted only for this machine, so a sign-in token never crosses a network
+  unencrypted. The add-in connects to `/api/v1/ws` on that host.
+- **Sign in with**:
+  - *Single sign-on (OIDC)*: authorization code with PKCE in your browser,
+    returning to a loopback address on this machine (RFC 8252). Set the
+    issuer, the client id of a public client, the scope (default `openid
+    offline_access`), a `resource` if your identity provider needs one, and
+    the redirect host (`127.0.0.1` unless you choose `localhost`). Register
+    `http://127.0.0.1` with any port as a redirect URI. Ribbon **Sign in**
+    opens the browser.
+    Tokens stay in memory, so after Excel restarts you sign in again. The
+    add-in renews the token at 80% of its lifetime. The server reads a
+    WebSocket's token only when the connection opens, so a renewal opens a
+    second connection, subscribes it, and closes the first once the second
+    is current; cells do not go `Stale`.
+  - *Pasted token*: for development. The token is held in memory and never
+    renewed.
+  - *None*: a server in local development mode (`access.mode =
+    "local_development"`, loopback only), such as the showcase.
+- The server must accept the token (its `[access.introspection]` settings)
+  and grant you the `reader` role with result read on the instruments; see
+  the server's [ACCESS.md](../crates/convex-server/ACCESS.md).
+
+One Excel process holds one connection. The server counts HTTP requests and
+WebSocket messages against one admission window per user (600 a minute by
+default), so the add-in sends no WebSocket keep-alive frames (the server's
+heartbeat keeps the connection busy), batches subscription changes, caches
+identifier look-ups (up to 10,000) with at most 8 in flight, and waits for
+the time a 429 response's `Retry-After` gives.
+
+To try it against the showcase: `docker build -t convex-showcase . && docker
+run -p 8080:8080 convex-showcase` from the repository root, then Server URL
+`http://localhost:8080`, Sign in with *None*, and
+`=CX.LIVE("INSTRUMENT-001", "clean_price_mid")`. Its feed moves the price
+once a second, and every value's quality is `Demo`.
 
 ## DTOs and the wire format
 
@@ -320,6 +442,12 @@ returns the names and handles that changed after a given count, from a log
 of the last 4,096 changes. The live layer (`Live/LiveHub.cs`) reads that log
 to recompute only the live cells a change reaches.
 
+Server cells go through the same hub. `server/ServerSource.cs` holds the one
+WebSocket session with convex-server: it batches subscriptions, keeps each
+instrument's newest result, reconnects, and switches to a new session when
+the token is renewed. `server/ServerCells.cs` turns those results into the
+hub's server topics.
+
 ## Errors
 
 Stateless RPCs return a JSON envelope:
@@ -346,7 +474,7 @@ The cell UDFs surface these as **standard Excel errors** so `IFERROR` /
 | `#NAME?`  | unknown keyword — frequency, day count, spread type, field/metric name |
 | `#REF!`   | handle (or ticker) not registered, or wrong object kind |
 | `#NUM!`   | solver non-convergence or domain error |
-| `#N/A`    | Rust library not loaded — run `=CX.DIAG()` |
+| `#N/A`    | Rust library not loaded — run `=CX.DIAG()`; or a server cell with nothing to show yet (see *Live server cells*) |
 
 The full message behind any error is one call away:
 `=CX.LASTERROR(B2)` returns `[code] message` for the failing cell, and
