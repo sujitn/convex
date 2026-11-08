@@ -75,6 +75,8 @@ namespace Convex.Excel.Server
             tokens.Changed += () => Changed?.Invoke();
             Resolver.Clear();
             Source.Configure(config.Configured ? config : null, tokens);
+            // After Configure, so the lookups go to this server with this sign-in.
+            if (config.Configured) Cells.RetryFailedLookups();
             Changed?.Invoke();
         }
 
@@ -98,9 +100,10 @@ namespace Convex.Excel.Server
             if (oidc == null) throw new OidcException("this server link does not use single sign-on; see Server settings");
             await oidc.SignInAsync(ct).ConfigureAwait(false);
             // A sign-in may be a different user with other entitlements: try
-            // refused instruments again and connect now.
+            // refused instruments and failed lookups again, and connect now.
             Source.Reconnect();
             Resolver.Clear();
+            Cells.RetryFailedLookups();
         }
 
         public static void SignOut()

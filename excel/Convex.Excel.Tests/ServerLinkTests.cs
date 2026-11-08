@@ -323,6 +323,53 @@ namespace Convex.Excel.Tests
         }
 
         [Fact]
+        public async Task A_failed_lookup_is_tried_again_once_its_failure_expires_or_after_a_new_sign_in()
+        {
+            var now = DateTime.UtcNow;
+            var resolver = new IdentifierResolver(_source, new HttpClient(), Fast(), () => now);
+            var cells = new ServerCells(_source, resolver, retryEvery: TimeSpan.FromMilliseconds(50));
+            Cell LiveOn(string identifier)
+            {
+                var cell = new Cell();
+                cell.First = cells.Connect(Interlocked.Increment(ref _nextTopic),
+                    ServerCells.TopicStrings(identifier, "clean_price_mid", "value"), cell);
+                cell.Key = string.Join("\u001f", ServerCells.TopicStrings(identifier, "clean_price_mid", "value"));
+                return cell;
+            }
+            string? Why(Cell cell) => cells.TryGetError(cell.Key, out var e) ? e.Message : null;
+
+            _server.Publish(FakeConvexServer.Valuation("BOND-A", "rt-1", 5, Price(99.5)));
+            _server.Publish(FakeConvexServer.Valuation("BOND-B", "rt-1", 5, Price(101.25)));
+            Connect();
+            var byCusip = LiveOn("594918104");
+            await Eventually(() => Why(byCusip)?.Contains("the server has no CUSIP 594918104") == true);
+            Assert.Equal(1, _server.ResolveCalls);
+
+            // The server learns the CUSIP; the failure is held for 5 minutes, so
+            // the timer costs no call meanwhile.
+            _server.Resolutions["594918104"] = "BOND-A";
+            await Task.Delay(300);
+            Assert.Equal(1, _server.ResolveCalls);
+            Assert.Contains("the server has no CUSIP", Why(byCusip));
+
+            now += TimeSpan.FromMinutes(6);
+            await Eventually(() => byCusip.Last is 99.5);
+            Assert.Equal(2, _server.ResolveCalls);
+
+            // A refused lookup is tried again at once after a new sign-in, which
+            // clears the resolver.
+            _server.ResolveScript.Enqueue((403, null));
+            var byIsin = LiveOn("US5949181045");
+            await Eventually(() => Why(byIsin)?.Contains("your sign-in lacks") == true);
+            _server.Resolutions["US5949181045"] = "BOND-B";
+            resolver.Clear();
+            cells.RetryFailedLookups();
+            await Eventually(() => byIsin.Last is 101.25);
+            Assert.Equal(4, _server.ResolveCalls);
+            Assert.Equal(99.5, byCusip.Last); // a bound cell is left alone
+        }
+
+        [Fact]
         public async Task A_snapshot_follows_briefly_and_returns_the_current_result()
         {
             _server.Publish(FakeConvexServer.Valuation("BOND-A", "rt-1", 5, Price(99.5)));

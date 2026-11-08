@@ -48,7 +48,7 @@ namespace Convex.Excel.Forms
             tips.SetToolTip(_url, "https://host[:port] of convex-server (http:// only for this machine).");
             tips.SetToolTip(_resource, "Optional: sent as the OAuth `resource` parameter when your identity provider needs one.");
             tips.SetToolTip(_redirectHost, "Host of the loopback sign-in redirect: 127.0.0.1 (default) or localhost.");
-            tips.SetToolTip(_token, "Held in memory only; never saved.");
+            tips.SetToolTip(_token, "Held in memory only; never saved. Leave empty to keep the current token; Sign out clears it.");
 
             var grid = new TableLayoutPanel
             {
@@ -103,8 +103,11 @@ namespace Convex.Excel.Forms
                 if (config.Configured && config.SignIn == SignInMode.Oidc &&
                     (config.Issuer.Length == 0 || config.ClientId.Length == 0))
                     throw new ConvexException("single sign-on needs the issuer and the client id");
+                if (config.SignIn == SignInMode.Oidc) config.RedirectHost = OidcClient.RedirectHostOf(config.RedirectHost);
                 config.Save();
-                ServerLink.Apply(config, config.SignIn == SignInMode.Token ? _token.Text.Trim() : null);
+                // The box is never filled from memory: empty keeps the pasted token.
+                var pasted = _token.Text.Trim();
+                ServerLink.Apply(config, config.SignIn == SignInMode.Token && pasted.Length > 0 ? pasted : null);
                 _status.ForeColor = Color.Gray;
                 _status.Text = config.SignIn == SignInMode.Oidc ? "Saved. Use Sign in on the ribbon." : "Saved; connecting.";
             }

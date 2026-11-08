@@ -176,7 +176,9 @@ itself when the server publishes a new one. Set up the connection first (see
 - **identifier**: a CUSIP or ISIN with a valid check digit is looked up in the
   server's reference master (`POST /api/v1/reference/resolve`), which needs
   reference read on every instrument. Anything else is used as the server's
-  instrument id, exactly as typed. Bond names are not accepted.
+  instrument id, exactly as typed. Bond names are not accepted. A failed
+  look-up is tried again after 5 minutes, and at once after a sign-in or a
+  change of server.
 - **measure**: a measure id the server's runtime publishes, such as
   `clean_price_mid`, `dirty_price_mid`, `ytm_mid`, `modified_duration_mid`,
   `dv01_mid` or `z_spread_mid`. The runtime's configuration chooses which;
@@ -350,7 +352,9 @@ Ribbon **Server** sets the connection. It is saved in
     returning to a loopback address on this machine (RFC 8252). Set the
     issuer, the client id of a public client, the scope (default `openid
     offline_access`), a `resource` if your identity provider needs one, and
-    the redirect host (`127.0.0.1` unless you choose `localhost`). Register
+    the redirect host (`127.0.0.1` unless you choose `localhost`, for which
+    the add-in listens on both `127.0.0.1` and `::1`; no other host is
+    accepted). Register
     `http://127.0.0.1` with any port as a redirect URI. Ribbon **Sign in**
     opens the browser.
     Tokens stay in memory, so after Excel restarts you sign in again. The
@@ -359,7 +363,8 @@ Ribbon **Server** sets the connection. It is saved in
     second connection, subscribes it, and closes the first once the second
     is current; cells do not go `Stale`.
   - *Pasted token*: for development. The token is held in memory and never
-    renewed.
+    renewed. Saving with the Token box empty keeps the token you pasted;
+    ribbon **Sign out** clears it.
   - *None*: a server in local development mode (`access.mode =
     "local_development"`, loopback only), such as the showcase.
 - The server must accept the token (its `[access.introspection]` settings)

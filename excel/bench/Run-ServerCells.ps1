@@ -56,14 +56,16 @@ Add-Type -Namespace ServerCells -Name Win32 -MemberDefinition @'
 $configDir = Join-Path $env:APPDATA 'Convex'
 $configPath = Join-Path $configDir 'server.json'
 $backup = $null
-if (Test-Path $configPath) { $backup = Get-Content -Raw $configPath }
-New-Item -ItemType Directory -Force $configDir | Out-Null
-[IO.File]::WriteAllText($configPath, (@{ url = $Server; sign_in = 'none' } | ConvertTo-Json -Compress))
+# Bytes, so the restore is exact whatever the file's encoding.
+if (Test-Path $configPath) { $backup = [IO.File]::ReadAllBytes($configPath) }
 
 $app = $null
 [uint32] $excelPid = 0
 $result = [ordered]@{ server = $Server; instrument = $Instrument }
 try {
+    # Inside try, so finally restores the user's server.json if anything below fails.
+    New-Item -ItemType Directory -Force $configDir | Out-Null
+    [IO.File]::WriteAllText($configPath, (@{ url = $Server; sign_in = 'none' } | ConvertTo-Json -Compress))
     $app = New-Object -ComObject Excel.Application
     $app.Visible = [bool]$Visible
     $app.DisplayAlerts = $false
@@ -145,6 +147,6 @@ finally {
             if ($p -and -not $p.WaitForExit(5000)) { Stop-Process -Id $excelPid -Force }
         }
     }
-    if ($null -ne $backup) { [IO.File]::WriteAllText($configPath, $backup) } else { Remove-Item -Force $configPath -ErrorAction SilentlyContinue }
+    if ($null -ne $backup) { [IO.File]::WriteAllBytes($configPath, $backup) } else { Remove-Item -Force $configPath -ErrorAction SilentlyContinue }
 }
 $result | ConvertTo-Json -Depth 4

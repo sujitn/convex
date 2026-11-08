@@ -193,13 +193,18 @@ namespace Convex.Excel.Server
         private readonly Dictionary<string, HashSet<Cell>> _byInstrument = new(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<Cell>> _resolving = new(StringComparer.Ordinal);
         private readonly HashSet<Cell> _status = new();
+        private readonly Timer _retry; // held so the timer is not collected
 
-        public ServerCells(ServerSource source, IdentifierResolver resolver)
+        /// `retryEvery` is how often a failed lookup is checked for a retry
+        /// (default a minute); see RetryFailedLookups.
+        public ServerCells(ServerSource source, IdentifierResolver resolver, TimeSpan? retryEvery = null)
         {
             _source = source;
             _resolver = resolver;
             _source.InstrumentsChanged += OnInstrumentsChanged;
             _source.StatusChanged += OnStatusChanged;
+            var every = retryEvery ?? TimeSpan.FromMinutes(1);
+            _retry = new Timer(_ => RetryFailedLookups(), null, every, every);
         }
 
         public static bool Owns(IList<string> topicInfo) =>
@@ -343,6 +348,51 @@ namespace Convex.Excel.Server
                 }
             }
             foreach (var cell in cells) Evaluate(cell, push: true);
+        }
+
+        /// Look up again each CUSIP or ISIN cell whose lookup failed, once the
+        /// resolver no longer holds the failure: every one after a new server or
+        /// sign-in (which clears the resolver), and otherwise when its 5 minutes
+        /// pass, so reference data added on the server later is found. A held
+        /// failure costs no call. Runs from a timer, and from ServerLink.
+        public void RetryFailedLookups()
+        {
+            var start = new List<(IdentifierKind Kind, string Value)>();
+            var changed = new List<Cell>();
+            lock (_lock)
+            {
+                foreach (var cell in _byId.Values)
+                {
+                    if (cell.IsStatus || cell.ResolveError == null) continue;
+                    var (kind, value) = Identifiers.Classify(cell.Identifier);
+                    if (_resolver.TryGetCached(kind, value, out var id, out var error))
+                    {
+                        if (id != null)
+                        {
+                            cell.ResolveError = null;
+                            Bind(cell, id);
+                            changed.Add(cell);
+                        }
+                        else if (error != cell.ResolveError)
+                        {
+                            cell.ResolveError = error;
+                            changed.Add(cell);
+                        }
+                        continue;
+                    }
+                    cell.ResolveError = null;
+                    changed.Add(cell);
+                    if (!_resolving.TryGetValue(value, out var waiting))
+                    {
+                        _resolving[value] = waiting = new HashSet<Cell>();
+                        start.Add((kind, value));
+                    }
+                    waiting.Add(cell);
+                }
+            }
+            foreach (var (kind, value) in start)
+                _resolver.ResolveAsync(kind, value).ContinueWith(t => Resolved(value, t), TaskScheduler.Default);
+            foreach (var cell in changed) Evaluate(cell, push: true);
         }
 
         private void OnInstrumentsChanged(IReadOnlyCollection<string> ids)

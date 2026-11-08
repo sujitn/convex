@@ -98,9 +98,20 @@ namespace Convex.Excel.Server
             _signInTimeout = signInTimeout ?? TimeSpan.FromMinutes(5);
         }
 
+        /// The loopback redirect host, lowercased: 127.0.0.1, or localhost for an
+        /// identity provider that needs it. Any other host could send the
+        /// authorization code off this machine, so it is refused.
+        public static string RedirectHostOf(string? host)
+        {
+            var h = (host ?? "").Trim().ToLowerInvariant();
+            if (h == "127.0.0.1" || h == "localhost") return h;
+            throw new OidcException("The redirect host must be 127.0.0.1 or localhost; check Server settings.");
+        }
+
         /// Signs in through the user's browser and exchanges the returned code for tokens.
         public async Task<TokenSet> SignInAsync(CancellationToken ct)
         {
+            var host = RedirectHostOf(_settings.RedirectHost);
             var (authEndpoint, tokenEndpoint) = await DiscoverAsync(ct).ConfigureAwait(false);
 
             var verifier = Base64Url(RandomBytes(32));
@@ -109,12 +120,11 @@ namespace Convex.Excel.Server
                 challenge = Base64Url(sha.ComputeHash(Encoding.ASCII.GetBytes(verifier)));
             var state = Base64Url(RandomBytes(16));
 
-            var listener = new TcpListener(IPAddress.Loopback, 0);
-            listener.Start();
+            var listeners = LoopbackListeners(host);
             try
             {
-                var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-                var redirectUri = "http://" + _settings.RedirectHost + ":" + port.ToString(CultureInfo.InvariantCulture) + "/";
+                var port = ((IPEndPoint)listeners[0].LocalEndpoint).Port;
+                var redirectUri = "http://" + host + ":" + port.ToString(CultureInfo.InvariantCulture) + "/";
 
                 var query = new List<KeyValuePair<string, string>>
                 {
@@ -139,7 +149,7 @@ namespace Convex.Excel.Server
                     throw new OidcException("Could not open your web browser to sign in: " + ex.Message, ex);
                 }
 
-                var callback = await WaitForCallbackAsync(listener, ct).ConfigureAwait(false);
+                var callback = await WaitForCallbackAsync(listeners, ct).ConfigureAwait(false);
 
                 if (callback.TryGetValue("error", out var error) && !string.IsNullOrEmpty(error))
                 {
@@ -166,7 +176,7 @@ namespace Convex.Excel.Server
             }
             finally
             {
-                listener.Stop();
+                foreach (var listener in listeners) listener.Stop();
             }
         }
 
@@ -315,39 +325,98 @@ namespace Convex.Excel.Server
 
         // ---- loopback redirect ----
 
-        /// Accepts connections until one carries the redirect (GET /?...), answers it,
-        /// and returns its query parameters. Honours the sign-in timeout and ct.
-        private async Task<Dictionary<string, string>> WaitForCallbackAsync(TcpListener listener, CancellationToken ct)
+        /// Started listeners for the redirect: a free port on 127.0.0.1 and, for
+        /// localhost, the same port on ::1, because a browser may resolve
+        /// localhost to either. Without IPv6, localhost is 127.0.0.1 alone.
+        private static List<TcpListener> LoopbackListeners(string host)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                var v4 = new TcpListener(IPAddress.Loopback, 0);
+                v4.Start();
+                if (host != "localhost" || !Socket.OSSupportsIPv6) return new List<TcpListener> { v4 };
+                var v6 = new TcpListener(IPAddress.IPv6Loopback, ((IPEndPoint)v4.LocalEndpoint).Port);
+                try
+                {
+                    v6.Start();
+                    return new List<TcpListener> { v4, v6 };
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+                {
+                    // Another program holds this port on ::1, where the browser might
+                    // send the code: try another port.
+                    v4.Stop();
+                    if (attempt == 5)
+                        throw new OidcException("Could not listen for the sign-in response: no port is free on both 127.0.0.1 and ::1.", ex);
+                }
+                catch (SocketException)
+                {
+                    return new List<TcpListener> { v4 }; // no IPv6 loopback
+                }
+            }
+        }
+
+        /// Accepts connections on any of `listeners` until one carries the redirect
+        /// (GET /?...), answers it, and returns its query parameters. Honours the
+        /// sign-in timeout and ct.
+        private async Task<Dictionary<string, string>> WaitForCallbackAsync(IReadOnlyList<TcpListener> listeners, CancellationToken ct)
         {
             using var timeout = new CancellationTokenSource(_signInTimeout);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
-            // Stopping the listener is the only way to abort a pending accept on .NET Framework.
-            using var stopReg = linked.Token.Register(() => { try { listener.Stop(); } catch { } });
-
-            while (true)
+            // Stopping a listener is the only way to abort a pending accept on .NET Framework.
+            using var stopReg = linked.Token.Register(() =>
             {
-                TcpClient client;
-                try
+                foreach (var listener in listeners)
                 {
-                    client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
+                    try { listener.Stop(); } catch { }
                 }
-                catch (Exception ex) when (ex is ObjectDisposedException || ex is SocketException || ex is InvalidOperationException)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    if (linked.IsCancellationRequested)
-                        throw new OidcException("Sign-in timed out: the browser did not return to Convex. Try Sign in again.");
-                    throw new OidcException("Could not listen for the sign-in response: " + ex.Message, ex);
-                }
+            });
 
-                using (client)
+            var accepts = new Task<TcpClient>[listeners.Count];
+            for (var i = 0; i < accepts.Length; i++) accepts[i] = listeners[i].AcceptTcpClientAsync();
+            try
+            {
+                while (true)
                 {
-                    var result = await HandleConnectionAsync(client, linked.Token).ConfigureAwait(false);
-                    if (result != null) return result;
+                    var done = await Task.WhenAny(accepts).ConfigureAwait(false);
+                    var index = Array.IndexOf(accepts, done);
+                    TcpClient client;
+                    try
+                    {
+                        client = await done.ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is ObjectDisposedException || ex is SocketException || ex is InvalidOperationException)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (linked.IsCancellationRequested)
+                            throw new OidcException("Sign-in timed out: the browser did not return to Convex. Try Sign in again.");
+                        throw new OidcException("Could not listen for the sign-in response: " + ex.Message, ex);
+                    }
+
+                    using (client)
+                    {
+                        var result = await HandleConnectionAsync(client, linked.Token).ConfigureAwait(false);
+                        if (result != null) return result;
+                    }
+                    if (linked.IsCancellationRequested)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        throw new OidcException("Sign-in timed out: the browser did not return to Convex. Try Sign in again.");
+                    }
+                    accepts[index] = listeners[index].AcceptTcpClientAsync();
                 }
-                if (linked.IsCancellationRequested)
+            }
+            finally
+            {
+                // The other accepts end when the caller stops the listeners: close a
+                // connection one took meanwhile and observe their faults.
+                foreach (var accept in accepts)
                 {
-                    ct.ThrowIfCancellationRequested();
-                    throw new OidcException("Sign-in timed out: the browser did not return to Convex. Try Sign in again.");
+                    _ = accept.ContinueWith(t =>
+                    {
+                        if (t.Status == TaskStatus.RanToCompletion) t.Result.Close();
+                        else _ = t.Exception;
+                    }, TaskScheduler.Default);
                 }
             }
         }

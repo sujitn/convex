@@ -431,6 +431,50 @@ namespace Convex.Excel.Tests
             probe.Stop();
         }
 
+        /// A browser that resolves the redirect's host to `address`.
+        private Action<Uri> BrowserAt(string address) => authorize => _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var r = await _browserHttp.GetAsync(authorize).ConfigureAwait(false);
+                var loc = r.Headers.Location;
+                if (loc != null)
+                {
+                    var at = new Uri("http://" + address + ":" + loc.Port.ToString(CultureInfo.InvariantCulture) + loc.PathAndQuery);
+                    using var done = await _http.GetAsync(at).ConfigureAwait(false);
+                }
+            }
+            catch { }
+        });
+
+        [Theory]
+        [InlineData("127.0.0.1")]
+        [InlineData("[::1]")]
+        public async Task A_localhost_redirect_is_answered_on_either_loopback_address(string address)
+        {
+            if (address == "[::1]" && !Socket.OSSupportsIPv6) return;
+            var s = Settings();
+            s.RedirectHost = " LocalHost ";
+            var tokens = await new OidcClient(s, _http, BrowserAt(address), TimeSpan.FromSeconds(10)).SignInAsync(CancellationToken.None);
+            Assert.StartsWith("http://localhost:", _idp.LastAuthorize["redirect_uri"]);
+            Assert.Equal(_idp.LastAuthorize["redirect_uri"], _idp.LastTokenForm["redirect_uri"]);
+            Assert.StartsWith("access-", tokens.AccessToken);
+        }
+
+        [Theory]
+        [InlineData("login.example.com")]
+        [InlineData("127.0.0.2")]
+        [InlineData("")]
+        public async Task A_redirect_host_off_this_machine_is_refused_before_the_browser_opens(string host)
+        {
+            Uri? opened = null;
+            var s = Settings();
+            s.RedirectHost = host;
+            var ex = await Assert.ThrowsAsync<OidcException>(() => new OidcClient(s, _http, u => opened = u).SignInAsync(CancellationToken.None));
+            Assert.Contains("127.0.0.1 or localhost", ex.Message);
+            Assert.Null(opened);
+        }
+
         [Fact]
         public async Task Cancelling_sign_in_throws_operation_canceled_and_releases_the_port()
         {
