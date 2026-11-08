@@ -500,6 +500,116 @@ pub async fn audit_append_all_is_all_or_nothing(store: Arc<dyn AuditStore>) {
     );
 }
 
+/// A reader following one entity's entries by cursor sees each once, in ID order, while
+/// appends interleave; the scanning default returns the same pages.
+pub async fn audit_entity_page_follows_a_cursor(store: Arc<dyn AuditStore>) {
+    use convex_ports::storage::{EntityPage, MAX_ENTITY_PAGE};
+    let book = |id: u64, entity: &str| audit(id, 100, "limit_status", "book", entity, None);
+    let pages = |store: Arc<dyn AuditStore>, entity: &'static str, after: u64, limit: usize| async move {
+        store
+            .entity_page("book", entity, after, limit)
+            .await
+            .unwrap()
+    };
+    let ids = |page: &EntityPage| page.entries.iter().map(|e| e.id).collect::<Vec<u64>>();
+
+    let empty = pages(store.clone(), "BOOK-A", 0, 10).await;
+    assert_eq!((ids(&empty), empty.more), (vec![], false));
+
+    // Append to BOOK-A, BOOK-B and an entity of another type with BOOK-A's ID, three at a
+    // time, and read BOOK-A two at a time between the appends.
+    let mut next = 1;
+    let mut written = Vec::new();
+    let mut seen = Vec::new();
+    let mut cursor = 0;
+    for _ in 0..8 {
+        let batch = [
+            book(next, "BOOK-A"),
+            book(next + 1, "BOOK-B"),
+            audit(next + 2, 100, "write", "bond", "BOOK-A", None),
+        ];
+        store.append_all(&batch).await.unwrap();
+        written.push(next);
+        next += 3;
+        let page = pages(store.clone(), "BOOK-A", cursor, 2).await;
+        if let Some(last) = page.entries.last() {
+            cursor = last.id;
+        }
+        assert!(page
+            .entries
+            .iter()
+            .all(|e| e.entity_id == "BOOK-A" && e.entity_type == "book"));
+        seen.extend(ids(&page));
+    }
+    loop {
+        let page = pages(store.clone(), "BOOK-A", cursor, 2).await;
+        seen.extend(ids(&page));
+        match page.entries.last() {
+            Some(last) => cursor = last.id,
+            None => break,
+        }
+        if !page.more {
+            break;
+        }
+    }
+    assert_eq!(seen, written, "no gap and no repeat");
+
+    // `more` says whether entries follow the page, and nothing follows the largest ID.
+    let all = pages(store.clone(), "BOOK-A", 0, 8).await;
+    assert_eq!((all.entries.len(), all.more), (8, false));
+    let first = pages(store.clone(), "BOOK-A", 0, 7).await;
+    assert_eq!((first.entries.len(), first.more), (7, true));
+    let none = pages(store.clone(), "BOOK-A", 0, 0).await;
+    assert_eq!((none.entries.len(), none.more), (0, true));
+    let past = pages(store.clone(), "BOOK-A", u64::MAX, 10).await;
+    assert_eq!((past.entries.len(), past.more), (0, false));
+    assert!(matches!(
+        store
+            .entity_page("book", "BOOK-A", 0, MAX_ENTITY_PAGE + 1)
+            .await,
+        Err(TraitError::InvalidInput(_))
+    ));
+
+    // The default scans `query` a page of 1,000 at a time; past 1,000 entries it reads
+    // more than one, and its pages equal the store's.
+    struct Scanning(Arc<dyn AuditStore>);
+    #[async_trait::async_trait]
+    impl AuditStore for Scanning {
+        async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+            self.0.append(entry).await
+        }
+        async fn query(
+            &self,
+            filter: &AuditFilter,
+            pagination: &Pagination,
+        ) -> Result<convex_ports::storage::Page<AuditEntry>, TraitError> {
+            self.0.query(filter, pagination).await
+        }
+    }
+    let many: Vec<AuditEntry> = (next..next + 2400)
+        .map(|id| book(id, if id % 3 == 0 { "BOOK-B" } else { "BOOK-A" }))
+        .collect();
+    for chunk in many.chunks(convex_ports::storage::MAX_AUDIT_BATCH) {
+        store.append_all(chunk).await.unwrap();
+    }
+    let scanning: Arc<dyn AuditStore> = Arc::new(Scanning(store.clone()));
+    for (after, limit) in [(0, 1000), (0, 7), (next + 1500, 1000), (next + 2390, 1000)] {
+        for entity in ["BOOK-A", "BOOK-B"] {
+            let indexed = pages(store.clone(), entity, after, limit).await;
+            let scanned = pages(scanning.clone(), entity, after, limit).await;
+            assert_eq!(indexed, scanned, "{entity} after {after}, {limit}");
+            assert!(indexed.entries.windows(2).all(|w| w[0].id < w[1].id));
+            assert!(indexed.entries.iter().all(|e| e.id > after));
+        }
+    }
+    assert!(matches!(
+        scanning
+            .entity_page("book", "BOOK-A", 0, MAX_ENTITY_PAGE + 1)
+            .await,
+        Err(TraitError::InvalidInput(_))
+    ));
+}
+
 pub async fn audit_is_append_only(store: Arc<dyn AuditStore>) {
     let first = audit(7, 100, "fixture", "bond", "A", Some("alice"));
     store.append(&first).await.unwrap();

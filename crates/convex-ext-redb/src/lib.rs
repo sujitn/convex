@@ -93,7 +93,7 @@ pub fn open_redb_storage(path: impl AsRef<Path>) -> Result<RedbStorage, TraitErr
         curves: Arc::new(RedbCurveStore::new(db.clone())),
         configs,
         configuration: Arc::new(RedbConfigurationRepository::new(db.clone())?),
-        audit: Arc::new(RedbAuditStore::new(db)),
+        audit: Arc::new(RedbAuditStore::new(db)?),
     };
     Ok(RedbStorage {
         storage,

@@ -37,13 +37,14 @@ use convex_core::contracts::{
 use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::ports::limits::{
     validate_limits, LimitDefinition, LimitEvaluation, LimitMeasure, LimitMember,
-    LimitProposalClosure, LimitProposalDefinition, LimitSetDefinition,
+    LimitProposalClosure, LimitProposalDefinition, LimitSetDefinition, UnknownReason,
 };
 use convex_engine::ports::output::BondQuoteOutput;
 use convex_engine::ports::reference_data::BondReferenceData;
 use convex_engine::ports::reference_master::*;
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::runtime::PublishedValuation;
+use convex_engine::ports::storage::{AuditStore, MAX_ENTITY_PAGE};
 use serde::{Deserialize, Serialize};
 
 use crate::access::{recorded_subject, AccessContext, Action, DataScope, Resource, ResourceKind};
@@ -52,6 +53,7 @@ use crate::books::{
     too_large, typed_error, Resolved, RowError, RowRequest, MAX_ROW_ERRORS,
 };
 use crate::handlers::AppState;
+use crate::limit_monitor::{LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
 use crate::reference::{expected_version, key, now, reference_error, with_reference_version};
 
 /// Books with a non-empty limit set: the monitor watches each of them (D87).
@@ -1087,6 +1089,244 @@ async fn evaluated(
         limits: items,
     };
     Ok(Json(view).into_response())
+}
+
+// =============================================================================
+// RECORDS (P15b)
+// =============================================================================
+
+/// Records a page holds unless the request says otherwise.
+const DEFAULT_RECORDS_PAGE: usize = 100;
+/// A page stops before a record that would take it past either bound, so the access
+/// layer's response scan (4 MiB, 65,536 JSON values) always reads it whole. A record's
+/// JSON is at most 128 KiB, so one always fits.
+const MAX_RECORDS_PAGE_BYTES: usize = 3 * 1024 * 1024;
+const MAX_RECORDS_PAGE_VALUES: usize = 60_000;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RecordsQuery {
+    #[serde(default)]
+    after: u64,
+    #[serde(default = "default_records_page")]
+    limit: usize,
+}
+
+fn default_records_page() -> usize {
+    DEFAULT_RECORDS_PAGE
+}
+
+/// What a record names beyond the book: read with the record's types, so a new reason
+/// that names instruments must be listed in [`recorded_instruments`].
+#[derive(Deserialize)]
+struct RecordNames {
+    measure: LimitMeasure,
+    #[serde(default)]
+    member: Option<String>,
+    #[serde(default)]
+    reason: Option<UnknownReason>,
+}
+
+/// Each instrument a record names: a `face` limit's instrument, or for a `face` limit on
+/// each position the one that set the status, and each instrument its reason lists. A
+/// record can name an instrument the book no longer holds.
+fn recorded_instruments(names: &RecordNames) -> BTreeSet<&str> {
+    let mut instruments = BTreeSet::new();
+    if let LimitMeasure::Face { instrument } = &names.measure {
+        match instrument {
+            LimitMember::One(id) => {
+                instruments.insert(id.as_str());
+            }
+            LimitMember::Each => instruments.extend(names.member.as_deref()),
+        }
+    }
+    match &names.reason {
+        Some(
+            UnknownReason::UnsupportedQuantityUnit { instruments: list }
+            | UnknownReason::MissingResult { instruments: list }
+            | UnknownReason::ForeignCurrency { instruments: list }
+            | UnknownReason::MeasureNotComputed {
+                instruments: list, ..
+            }
+            | UnknownReason::MissingClassification {
+                instruments: list, ..
+            },
+        ) => instruments.extend(list.first.iter().map(InstrumentId::as_str)),
+        Some(UnknownReason::QuoteRefused { instrument, .. }) => {
+            instruments.insert(instrument.as_str());
+        }
+        Some(
+            UnknownReason::BookCurrencyRequired {}
+            | UnknownReason::ZeroNetValue {}
+            | UnknownReason::ZeroGrossValue {}
+            | UnknownReason::ArithmeticBound {},
+        )
+        | None => {}
+    }
+    instruments
+}
+
+/// The JSON values a response scan counts in `value`: it, and each value inside it.
+fn json_values(value: &serde_json::Value) -> usize {
+    1 + match value {
+        serde_json::Value::Object(map) => map.values().map(json_values).sum(),
+        serde_json::Value::Array(items) => items.iter().map(json_values).sum(),
+        _ => 0,
+    }
+}
+
+/// `GET /api/v1/books/{book_id}/limits/records?after=&limit=`: the book's recorded status
+/// changes with record IDs above `after`, oldest first, each as its `limit_status` frame
+/// says it (without `type`), and `next_after`, the cursor for the next page.
+///
+/// Access is status's read rule on the book, its current instruments and those its
+/// current set names, plus each instrument a returned record names. A record naming one
+/// the caller cannot read is left out and counted in `withheld`; the cursor still passes
+/// it, so a reader is never held behind a record it cannot see. So is a record whose
+/// measure or reason this server cannot read (one a newer server wrote), with an error
+/// logged.
+pub(crate) async fn get_limit_records(
+    State(state): State<Arc<AppState>>,
+    ctx: Option<Extension<AccessContext>>,
+    audit: Option<Extension<Arc<dyn AuditStore>>>,
+    Path(raw): Path<String>,
+    query: Result<Query<RecordsQuery>, QueryRejection>,
+) -> Response {
+    match records(&state, &ctx, audit, raw, query).await {
+        Ok(response) | Err(response) => response,
+    }
+}
+
+async fn records(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    audit: Option<Extension<Arc<dyn AuditStore>>>,
+    raw: String,
+    query: Result<Query<RecordsQuery>, QueryRejection>,
+) -> Result<Response, Response> {
+    let query = match query {
+        Ok(Query(query)) if query.limit > 0 && query.limit <= MAX_ENTITY_PAGE => query,
+        _ => {
+            return Err(reference_error(ReferenceError::InvalidInput(
+                "invalid records query",
+            )))
+        }
+    };
+    let id = book_id(raw).map_err(reference_error)?;
+    // A book can hold records with no current set: one emptied, or never committed.
+    let set_record = state
+        .engine
+        .reference_repository()
+        .get_master(&MasterKey::LimitSet(id.clone()))
+        .await
+        .map_err(reference_error)?;
+    let limits = match &set_record {
+        Some(record) => set_of(record).map_err(reference_error)?.limits.as_slice(),
+        None => &[],
+    };
+    authorize_read(state, ctx, STATUS_DATA, &id, limits)
+        .await?
+        .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    let Some(Extension(audit)) = audit else {
+        return Err(
+            crate::error::ApiError::unavailable("this server does not monitor limits")
+                .into_response(),
+        );
+    };
+    let page = audit
+        .entity_page(LIMIT_STATUS_ENTITY, id.as_str(), query.after, query.limit)
+        .await
+        .map_err(|error| {
+            tracing::error!(%error, book = %id, "limit records: the audit store refused a page");
+            reference_error(ReferenceError::Unavailable)
+        })?;
+
+    let mut readable: HashMap<String, bool> = HashMap::new();
+    let mut shown: Vec<&str> = Vec::new();
+    let (mut bytes, mut values, mut withheld) = (0usize, 0usize, 0usize);
+    let mut next_after = query.after;
+    let mut more = page.more;
+    for entry in &page.entries {
+        let details = match (entry.event_type.as_str(), &entry.details) {
+            (LIMIT_STATUS_EVENT, Some(details)) => details.as_str(),
+            // Not a status change: nothing to show, and the cursor passes it.
+            _ => {
+                next_after = entry.id;
+                continue;
+            }
+        };
+        // A record whose instruments cannot be read is withheld, as one the caller cannot
+        // read is, and the cursor passes it rather than refusing every page that holds it.
+        let parsed = serde_json::from_str::<serde_json::Value>(details).and_then(|value| {
+            let names = RecordNames::deserialize(&value)?;
+            Ok((value, names))
+        });
+        let (value, names) = match parsed {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                tracing::error!(%error, record = entry.id, book = %id, "limit records: a record's measure or reason cannot be read; it is withheld");
+                withheld += 1;
+                next_after = entry.id;
+                continue;
+            }
+        };
+        // Each distinct instrument is checked once a page, beside the book.
+        let allowed = recorded_instruments(&names).into_iter().all(|instrument| {
+            *readable.entry(instrument.to_owned()).or_insert_with(|| {
+                authorize(
+                    state,
+                    ctx,
+                    Action::BookRead,
+                    STATUS_DATA,
+                    &id,
+                    [instrument.to_owned()],
+                )
+                .is_ok()
+            })
+        });
+        if !allowed {
+            withheld += 1;
+            next_after = entry.id;
+            continue;
+        }
+        let cost = json_values(&value);
+        if !shown.is_empty()
+            && (bytes + details.len() > MAX_RECORDS_PAGE_BYTES
+                || values + cost > MAX_RECORDS_PAGE_VALUES)
+        {
+            more = true;
+            break;
+        }
+        bytes += details.len();
+        values += cost;
+        shown.push(details);
+        next_after = entry.id;
+    }
+
+    // Each record is the JSON the monitor stored, which its frame carried, unchanged.
+    let book =
+        serde_json::to_string(&id).map_err(|_| reference_error(ReferenceError::Unavailable))?;
+    let mut body = String::with_capacity(bytes + shown.len() + 128);
+    body.push_str("{\"book_id\":");
+    body.push_str(&book);
+    body.push_str(",\"records\":[");
+    for (index, record) in shown.iter().enumerate() {
+        if index > 0 {
+            body.push(',');
+        }
+        body.push_str(record);
+    }
+    body.push_str(&format!(
+        "],\"withheld\":{withheld},\"next_after\":{next_after},\"more\":{more}}}"
+    ));
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        )],
+        body,
+    )
+        .into_response())
 }
 
 // =============================================================================

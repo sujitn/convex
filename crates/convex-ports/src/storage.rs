@@ -853,6 +853,19 @@ impl AuditFilter {
 /// 64 limits, and the limit monitor writes one book's changes together.
 pub const MAX_AUDIT_BATCH: usize = 64;
 
+/// The most entries one [`AuditStore::entity_page`] returns, as [`Pagination`] bounds a
+/// query's page.
+pub const MAX_ENTITY_PAGE: usize = 1000;
+
+/// One entity's entries after a cursor, from [`AuditStore::entity_page`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct EntityPage {
+    /// The entries, in ID order.
+    pub entries: Vec<AuditEntry>,
+    /// Whether the entity had entries after the last one returned when it was read.
+    pub more: bool,
+}
+
 /// Audit log storage (append-only).
 #[async_trait]
 pub trait AuditStore: Send + Sync {
@@ -893,6 +906,53 @@ pub trait AuditStore: Send + Sync {
         filter: &AuditFilter,
         pagination: &Pagination,
     ) -> Result<Page<AuditEntry>, TraitError>;
+
+    /// Up to `limit` (at most [`MAX_ENTITY_PAGE`]) entries of one entity with IDs above
+    /// `after`, in ID order, and whether it has more. A reader following new entries
+    /// passes the last ID it has, so it never rereads what it has, and, since IDs are
+    /// assigned in order by the store's one writer, never misses an entry.
+    ///
+    /// A store that can should read one entity's entries without reading the others';
+    /// redb keeps an index by entity. The default scans through [`query`](Self::query), a
+    /// page of 1,000 at a time, so each call reads every entry before the cursor.
+    async fn entity_page(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+        after: u64,
+        limit: usize,
+    ) -> Result<EntityPage, TraitError> {
+        if limit > MAX_ENTITY_PAGE {
+            return Err(TraitError::InvalidInput("page limit exceeds 1000"));
+        }
+        let filter = AuditFilter {
+            entity_type: Some(entity_type.to_owned()),
+            entity_id: Some(entity_id.to_owned()),
+            ..AuditFilter::default()
+        };
+        let mut page = EntityPage {
+            entries: Vec::new(),
+            more: false,
+        };
+        let mut offset = 0;
+        loop {
+            let read = self
+                .query(&filter, &Pagination::new(offset, MAX_ENTITY_PAGE))
+                .await?;
+            let count = read.items.len();
+            for entry in read.items.into_iter().filter(|entry| entry.id > after) {
+                if page.entries.len() == limit {
+                    page.more = true;
+                    return Ok(page);
+                }
+                page.entries.push(entry);
+            }
+            if count < MAX_ENTITY_PAGE {
+                return Ok(page);
+            }
+            offset += count;
+        }
+    }
 
     /// The largest entry ID in one read snapshot, or `None` when the log is empty: a
     /// writer that assigns IDs takes the next one from it at start. The default reads it

@@ -51,6 +51,11 @@ async fn audit_append_all_is_all_or_nothing() {
     conformance::audit_append_all_is_all_or_nothing(s.audit).await;
 }
 #[tokio::test]
+async fn audit_entity_page_follows_a_cursor() {
+    let (_directory, s) = storage();
+    conformance::audit_entity_page_follows_a_cursor(s.audit).await;
+}
+#[tokio::test]
 async fn audit_is_append_only() {
     let (_directory, s) = storage();
     conformance::audit_is_append_only(s.audit).await;

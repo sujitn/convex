@@ -50,6 +50,26 @@ the changes that matter when you upgrade.
   `revision`; read the result from `GET /api/v1/runtime/results`.
 - The `subscribed` acknowledgement's `count` is the number of distinct instruments
   listed; a repeated id counts once.
+- **A book's recorded limit status changes can be read.**
+  `GET /api/v1/books/{book_id}/limits/records?after=&limit=` returns the changes
+  the limit monitor recorded for a book, oldest first, each as its
+  `limit_status` message carried it, with a cursor for the next page. A reader
+  following new records passes the last record id it has. It needs what status
+  needs, and a record naming an instrument the caller cannot read is left out
+  and counted. Without a limit monitor it answers 503.
+
+### convex-ports
+
+- `AuditStore::entity_page(entity_type, entity_id, after, limit)` returns up to
+  1,000 of one entity's entries after a cursor, and whether there are more. It
+  has a default that scans through `query`, so existing stores still compile.
+
+### convex-ext-redb
+
+- **Breaking:** `RedbAuditStore::new` returns `Result`. The audit store keeps
+  an index by entity, written with each entry. The first open of a store
+  written before it indexes every entry once (about 5 s for 1,000,000 entries);
+  later opens find nothing to index.
 
 ## 0.14.0
 

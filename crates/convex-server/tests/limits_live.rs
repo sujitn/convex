@@ -727,8 +727,10 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
     ]});
     put(&server, "/api/v1/books/WATCHED/limits", "set-1", first).await;
     let mut seen = BTreeMap::new();
+    let mut published = Vec::new();
     for _ in 0..2 {
         let change = frame(&mut socket, "limit_status").await;
+        published.push(change.clone());
         assert_eq!(change["previous"], "unevaluated", "{change}");
         assert_eq!(change["status"], "within", "{change}");
         assert_eq!(change["book_id"], "WATCHED");
@@ -769,6 +771,7 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
     );
     assert_eq!(change["limit_set_version"], 2);
     assert!(number(&change["value"]) > net, "{change}");
+    published.push(change.clone());
     metric(&server, "convex_limit_breaches{book_id=\"WATCHED\"} 1").await;
 
     // A book commit is evaluated too: a larger position breaches the face limit.
@@ -790,6 +793,18 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
     );
     assert_eq!(change["book_version"], 2);
     let started_first = change["monitor_started_at"].clone();
+    published.push(change);
+
+    // The records route returns each change as its frame carried it, oldest first (P15b).
+    let path = "/api/v1/books/WATCHED/limits/records";
+    let (status, page) = send(&server, reqwest::Method::GET, path, None, None).await;
+    assert_eq!(status, StatusCode::OK, "{page}");
+    published.sort_by_key(|frame| frame["record_id"].as_u64());
+    for frame in &mut published {
+        frame.as_object_mut().unwrap().remove("type");
+    }
+    assert_eq!(page["records"], Value::Array(published), "{page}");
+    assert_eq!(page["more"], false);
     drop(socket);
     server.stop().await;
 
@@ -855,10 +870,15 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
     )
     .await;
     tokio::time::sleep(Duration::from_millis(500)).await;
+    let (status, history) = send(&server, reqwest::Method::GET, path, None, None).await;
+    assert_eq!(status, StatusCode::OK, "{history}");
     drop(socket);
     server.stop().await;
 
     let after = records(&live).await;
+    // The route reads every record of a book whose set is now empty, across the restart.
+    let stored: Vec<Value> = after.iter().map(|(_, details)| details.clone()).collect();
+    assert_eq!(history["records"], Value::Array(stored));
     let restated: Vec<&Value> = after
         .iter()
         .filter(|(id, _)| *id > last_id)
@@ -1501,5 +1521,158 @@ async fn check_route_time_at_the_bounds() {
         "limits/status, the same book:                                 {}",
         summary(statuses)
     );
+    server.stop().await;
+}
+
+/// A record as the monitor writes one: about 600 bytes of `details`, as P15a measured.
+fn fixture_record(id: u64, book: &str) -> convex_engine::ports::storage::AuditEntry {
+    let details = json!({
+        "record_id": id,
+        "book_id": book,
+        "book_version": 3,
+        "limit_set_version": 2,
+        "evaluated_at": "2026-11-07T12:00:00.123456Z",
+        "monitor_started_at": "2026-11-07T08:00:00.000001Z",
+        "previous": "within",
+        "measure": {"kind": "group_market_value", "by": "sector", "group": {"one": "financials"}},
+        "lower": "-25000000",
+        "upper": "25000000",
+        "warning_fraction": "0.9",
+        "limit_id": format!("sector-financials-{:02}", id % 64),
+        "status": "warning",
+        "value": "23456789.123456",
+        "utilisation": "0.93827156",
+        "snapshot_ids": [
+            "live-2026-11-07T12:00:00.123456Z-000123",
+            "live-2026-11-07T11:59:59.987654Z-000122",
+            "live-2026-11-07T11:59:58.876543Z-000121",
+        ],
+    });
+    convex_engine::ports::storage::AuditEntry {
+        id,
+        timestamp: 1_794_484_800_123,
+        event_type: "limit_status".into(),
+        entity_type: "book".into(),
+        entity_id: book.into(),
+        user: None,
+        action: "warning".into(),
+        details: Some(details.to_string()),
+    }
+}
+
+/// P15b's measurement, with 1,000,000 records in the store (`MAX_HISTORY`), 64 books'
+/// worth written as the monitor writes them, a book's 64 a commit through `append_all`:
+/// - a page of 100 and of 1,000 of one book's records from the middle of its 15,616, by
+///   the index (`entity_page`), against `query` with the same filter and offset;
+/// - the store's reopen, with nothing to index;
+/// - the route, through the real composition, for the same pages.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn records_page_time_at_the_cap() {
+    use convex_engine::ports::storage::{AuditFilter, Pagination};
+    const ENTRIES: u64 = 1_000_000;
+    let (dir, live, _) = live(1, 0, &[]).await;
+    let book = "BOOK-17";
+    let mut pages = Vec::new();
+    {
+        let storage = convex_ext_redb::open_redb_storage(&live.storage_path).unwrap();
+        let audit = storage.storage.audit.clone();
+        let started = Instant::now();
+        let mut next = 1;
+        let mut sizes = Vec::new();
+        while next <= ENTRIES {
+            let owner = format!("BOOK-{:02}", (next / 64) % 64);
+            let batch: Vec<_> = (next..(next + 64).min(ENTRIES + 1))
+                .map(|id| fixture_record(id, &owner))
+                .collect();
+            if sizes.is_empty() {
+                sizes.push(batch[0].details.as_ref().unwrap().len());
+            }
+            audit.append_all(&batch).await.unwrap();
+            next += batch.len() as u64;
+        }
+        println!(
+            "fixture: {ENTRIES} records in {} commits of 64, {:.1} s; details {} bytes",
+            ENTRIES.div_ceil(64),
+            started.elapsed().as_secs_f64(),
+            sizes[0]
+        );
+        assert_eq!(audit.entry_count().await.unwrap(), ENTRIES);
+
+        let filter = AuditFilter {
+            entity_type: Some("book".into()),
+            entity_id: Some(book.into()),
+            ..AuditFilter::default()
+        };
+        for size in [100usize, 1000] {
+            let mut scans = Vec::new();
+            let mut scanned = None;
+            for _ in 0..3 {
+                let start = Instant::now();
+                let page = audit
+                    .query(&filter, &Pagination::new(7_812, size))
+                    .await
+                    .unwrap();
+                scans.push(start.elapsed());
+                scanned = Some(page);
+            }
+            let scanned = scanned.unwrap();
+            // Batch `b` belongs to book `b % 64`: 244 of the 15,625 are book 17's.
+            let share = (0..ENTRIES / 64).filter(|b| b % 64 == 17).count() as u64 * 64;
+            assert_eq!(scanned.total, share, "a book's share");
+            let after = scanned.items[0].id - 1;
+            let mut indexed = Vec::new();
+            for _ in 0..20 {
+                let start = Instant::now();
+                let page = audit.entity_page("book", book, after, size).await.unwrap();
+                indexed.push(start.elapsed());
+                assert_eq!(
+                    page.entries, scanned.items,
+                    "the index reads what the scan reads"
+                );
+                assert!(page.more);
+            }
+            println!(
+                "page of {size:>4}, entity_page:                            {}",
+                summary(indexed)
+            );
+            println!(
+                "page of {size:>4}, query with the same filter:             {}",
+                summary(scans)
+            );
+            pages.push((size, after));
+        }
+    }
+    let start = Instant::now();
+    drop(convex_ext_redb::open_redb_storage(&live.storage_path).unwrap());
+    println!(
+        "reopen with nothing to index:                              {:.1} ms",
+        start.elapsed().as_secs_f64() * 1e3
+    );
+
+    let server = started(&dir, live.clone()).await;
+    put(
+        &server,
+        &format!("/api/v1/books/{book}"),
+        "book-17",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "1000000"},
+        ]}),
+    )
+    .await;
+    for (size, after) in pages {
+        let path = format!("/api/v1/books/{book}/limits/records?after={after}&limit={size}");
+        let (status, page) = send(&server, reqwest::Method::GET, &path, None, None).await;
+        assert_eq!(status, StatusCode::OK, "{page}");
+        assert_eq!(page["records"].as_array().unwrap().len(), size);
+        let mut times = Vec::new();
+        for _ in 0..20 {
+            times.push(timed(&server, reqwest::Method::GET, &path, None).await);
+        }
+        println!(
+            "page of {size:>4}, GET .../limits/records (local development): {}",
+            summary(times)
+        );
+    }
     server.stop().await;
 }
