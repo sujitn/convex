@@ -90,13 +90,15 @@ namespace Convex.Excel.Forms
 
             _trades.Dock = DockStyle.Fill;
             _result.Dock = DockStyle.Fill;
-            var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 170 };
+            var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
             split.Panel1.Controls.Add(_trades);
             split.Panel2.Controls.Add(_result);
 
             Controls.Add(split);
             Controls.Add(buttons);
             Controls.Add(top);
+            // Set once laid out: in the initializer the container is still 150 x 100 and clamps it.
+            Load += (_, _) => split.SplitterDistance = 170;
             FormClosed += (_, _) => _running?.Cancel();
         }
 
