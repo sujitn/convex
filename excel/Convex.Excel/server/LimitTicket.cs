@@ -14,8 +14,11 @@ namespace Convex.Excel.Server
         public LimitItem? Now { get; set; }
         public LimitItem? After { get; set; }
 
-        /// The trade makes the limit's status more severe.
-        public bool Worse => LimitTicket.Severity(After?.Status) > LimitTicket.Severity(Now?.Status);
+        /// The trade makes the limit's status more severe. False when either
+        /// side is missing: the current status could not be read, or the set
+        /// changed between the two reads.
+        public bool Worse => Now != null && After != null &&
+                             LimitTicket.Severity(After.Status) > LimitTicket.Severity(Now.Status);
     }
 
     /// The pre-trade ticket's comparison: the book's status now beside what

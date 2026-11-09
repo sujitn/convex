@@ -439,7 +439,11 @@ namespace Convex.Excel.Tests
             Assert.True(rows[0].Worse);
             Assert.Equal("within", rows[0].Now!.Status);
             Assert.Null(rows[1].Now); // only after (the set changed between the reads)
+            Assert.False(rows[1].Worse);
             Assert.Null(rows[2].After);
+            Assert.False(rows[2].Worse);
+            // The current status could not be read: nothing is called worse.
+            Assert.All(LimitTicket.Compare(null, after), r => Assert.False(r.Worse));
             Assert.Equal("≤ 50,000", rows[0].Bounds);
             var both = new LimitItem { Lower = -50000, Upper = 50000, WarningFraction = 0.8 };
             Assert.Equal("[-50,000, 50,000] (warn 80%)", LimitTicket.Bounds(both));

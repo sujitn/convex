@@ -61,7 +61,8 @@ sh deploy/showcase/live.sh feed http://127.0.0.1:8081/api/v1/market/quotes INSTR
 
 Then give `SHOWCASE-BOOK` a limit set the feed crosses. Under local
 development a set commits at once: the first without `If-Match`, each
-replacement with `If-Match` naming the version it replaces.
+replacement with `If-Match` naming the version it replaces. Run these in
+PowerShell 7 (`pwsh`): Windows PowerShell 5.1 has no `-SkipHeaderValidation`.
 
 ```powershell
 $url = 'http://127.0.0.1:8081/api/v1/books/SHOWCASE-BOOK/limits'

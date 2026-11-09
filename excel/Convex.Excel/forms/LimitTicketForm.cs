@@ -44,7 +44,9 @@ namespace Convex.Excel.Forms
         private readonly Label _status = new() { AutoSize = true, ForeColor = Color.Gray, Padding = new Padding(0, 6, 0, 0) };
         private readonly Button _check;
         private CancellationTokenSource? _running;
+        // The limits in the result grid, and the book they were checked for.
         private List<LimitTicketRow> _shown = new();
+        private string _shownBook = "";
 
         public LimitTicketForm()
         {
@@ -83,7 +85,7 @@ namespace Convex.Excel.Forms
                 _check,
                 NewButton("From selection", (_, _) => FromSelection()),
                 NewButton("Stamp CX.LIMIT", (_, _) => Stamp()),
-                NewButton("Clear", (_, _) => { _trades.Rows.Clear(); _result.Rows.Clear(); _status.Text = ""; }),
+                NewButton("Clear", (_, _) => { _trades.Rows.Clear(); ClearResult(); _status.Text = ""; }),
                 NewButton("Close", (_, _) => Close()),
                 _status,
             });
@@ -150,7 +152,7 @@ namespace Convex.Excel.Forms
         private void ShowResult(string book, List<(int GridRow, LimitChangeRow Change)> rows, LimitAnswer now, LimitAnswer after)
         {
             foreach (DataGridViewRow r in _trades.Rows) r.ErrorText = "";
-            _result.Rows.Clear();
+            ClearResult();
             if (after.Status == HttpStatusCode.Unauthorized || now.Status == HttpStatusCode.Unauthorized)
                 ServerLink.Source.Tokens.Rejected();
             if (after.Read == null)
@@ -161,6 +163,7 @@ namespace Convex.Excel.Forms
                 return;
             }
             _shown = LimitTicket.Compare(now.Read, after.Read);
+            _shownBook = book;
             foreach (var row in _shown)
             {
                 int i = _result.Rows.Add(row.LimitId, row.Measure, row.Bounds,
@@ -183,6 +186,13 @@ namespace Convex.Excel.Forms
                 (worse > 0 ? $", {worse} worse" : "") +
                 (now.Read == null ? $" (current status: {now.Problem})" : "") +
                 (after.Read.Limits.Any(l => l.Demo) ? " — demo data" : "");
+        }
+
+        private void ClearResult()
+        {
+            _result.Rows.Clear();
+            _shown = new List<LimitTicketRow>();
+            _shownBook = "";
         }
 
         private static Color Colour(string? status) => status switch
@@ -259,8 +269,7 @@ namespace Convex.Excel.Forms
         }
 
         /// Live limit cells for the book at the selection: one row per limit
-        /// of the last check (or of a fresh status read), with its status,
-        /// value and utilisation.
+        /// of the check shown, with its status, value and utilisation.
         private void Stamp()
         {
             var book = _book.Text.Trim();
@@ -268,6 +277,8 @@ namespace Convex.Excel.Forms
             {
                 LimitFields.ValidateId(book, "book");
                 if (_shown.Count == 0) throw new ConvexException("check the book first, so its limits are known");
+                if (!string.Equals(_shownBook, book, StringComparison.Ordinal))
+                    throw new ConvexException($"the limits shown are book {_shownBook}'s; check book {book} first");
                 var grid = new object[_shown.Count + 1, 5];
                 var header = new[] { "Limit", "Status", "Value", "Utilisation", "Evaluated (UTC)" };
                 for (int c = 0; c < 5; c++) grid[0, c] = header[c];

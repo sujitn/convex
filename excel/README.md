@@ -318,8 +318,8 @@ is tried again after 1 s doubling to 30 s, and a 429 waits for its
    coloured by status, bold where the trades make it worse, with the reason
    of an `unknown` one as a tooltip. A trade row the server refuses is marked
    with its reason. With no trades, Check shows the current status.
-3. **Stamp CX.LIMIT** writes live `CX.LIMIT` cells for each of the book's
-   limits at the selection.
+3. **Stamp CX.LIMIT** writes live `CX.LIMIT` cells at the selection for each
+   limit the check shows. It needs a check of the book named in the Book box.
 
 The two reads are separate requests, so a quote can arrive between them.
 
