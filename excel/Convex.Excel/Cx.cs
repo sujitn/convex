@@ -101,9 +101,11 @@ namespace Convex.Excel
 
         // ---- Construction --------------------------------------------------
 
+        // The forms and the ribbon call these: the spec's own id is the key.
+        // They must not ask Excel for the calling cell. xlfCaller is valid only
+        // during a cell calculation, and from a form it does not return.
         public static ulong BuildBond(JObject spec)
         {
-            ApplyCallerKey(spec);
             ulong h = convex_bond_from_json(spec.ToString(Formatting.None));
             Live.LiveHub.Instance.RequestDrain();
             if (h == InvalidHandle)
@@ -113,7 +115,6 @@ namespace Convex.Excel
 
         public static ulong BuildCurve(JObject spec)
         {
-            ApplyCallerKey(spec);
             ulong h = convex_curve_from_json(spec.ToString(Formatting.None));
             Live.LiveHub.Instance.RequestDrain();
             if (h == InvalidHandle)
@@ -121,10 +122,22 @@ namespace Convex.Excel
             return h;
         }
 
+        // Worksheet functions only.
+        public static ulong BuildBondInCell(JObject spec)
+        {
+            ApplyCallerKey(spec);
+            return BuildBond(spec);
+        }
+
+        public static ulong BuildCurveInCell(JObject spec)
+        {
+            ApplyCallerKey(spec);
+            return BuildCurve(spec);
+        }
+
         // Scope the registry slot to the calling cell so two cells that
         // reference the same CUSIP / curve name don't evict each other's handle
-        // on recalc (Excel's calc order is nondeterministic). No-op outside a
-        // cell calculation (ribbon/forms) — there the spec's own id is the key.
+        // on recalc (Excel's calc order is nondeterministic).
         private static void ApplyCallerKey(JObject spec)
         {
             if (spec["registry_key"] != null) return;

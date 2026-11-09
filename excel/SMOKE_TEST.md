@@ -217,7 +217,9 @@ Viewer/Scenario/Objects/Error Log/Limit Check are MODELESS — verify Excel stay
 interactive (select cells, type) while each is open, and that re-clicking
 the button focuses the existing window instead of duplicating it:
 
-- **New Bond** → Fixed Rate tab → Build → status reads `OK — #CX#NNN`.
+- **New Bond** → Fixed Rate tab → Build → status reads `OK — #CX#NNN`. Then
+  **Build + paste handle** → the active cell holds the handle and Excel stays
+  responsive. Every label reads in full, also at 150% display scale.
 - **Pricing Ticket** → Refresh objects → pick the bond → mark `99.5C` →
   Compute → grid populates with finite numbers.
 - **Spread Ticket** → pick bond + curve → spread `Z` → Compute → finite bps.

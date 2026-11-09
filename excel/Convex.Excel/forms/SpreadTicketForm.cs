@@ -46,7 +46,7 @@ namespace Convex.Excel.Forms
                 Dock = DockStyle.Top, Height = 230,
                 ColumnCount = 2, RowCount = 6, Padding = new Padding(10),
             };
-            inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+            inputs.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             for (int i = 0; i < 6; i++) inputs.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
             AddRow(inputs, 0, "Bond:", _bond);

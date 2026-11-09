@@ -58,7 +58,7 @@ namespace Convex.Excel.Forms
                 Dock = DockStyle.Top, Height = 252,
                 ColumnCount = 2, RowCount = 6, Padding = new Padding(12),
             };
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             for (int i = 0; i < 6; i++) grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             AddRow(grid, 0, "Default frequency:", _frequency);

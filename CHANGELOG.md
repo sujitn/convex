@@ -81,6 +81,11 @@ the changes that matter when you upgrade.
   topics, frames received, frame-to-topic latency (p50 and p99, before Excel's
   throttle), the age of the last message, and the log file. Existing rows keep
   their positions.
+- **New Bond** and **New Curve** no longer hang or crash Excel. **Build** and
+  **Build + paste handle** asked Excel for the calling cell, which is valid only
+  during a cell calculation.
+- Form labels no longer wrap and clip at higher display scales: each label
+  column now fits its widest label.
 
 ### convex-ffi
 

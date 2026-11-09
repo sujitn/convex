@@ -45,7 +45,7 @@ namespace Convex.Excel
             [ExcelArgument("Day count (default Thirty360US)")] object dayCount,
             [ExcelArgument("Currency (default USD)")] object currency,
             [ExcelArgument("Face value (default 100)")] object faceValue) =>
-            Safe(() => CxParse.FormatHandle(Cx.BuildBond(BondSpecs.FixedRate(
+            Safe(() => CxParse.FormatHandle(Cx.BuildBondInCell(BondSpecs.FixedRate(
                 AsString(id, ""), couponDecimal,
                 CxParse.AsFrequency(frequency),
                 maturity, issue,
@@ -84,7 +84,7 @@ namespace Convex.Excel
                         ["price"] = prices[i],
                     });
                 double? mwSpread = IsBlank(makeWholeSpreadBps) ? (double?)null : AsDouble(makeWholeSpreadBps, 0.0);
-                return CxParse.FormatHandle(Cx.BuildBond(BondSpecs.Callable(
+                return CxParse.FormatHandle(Cx.BuildBondInCell(BondSpecs.Callable(
                     AsString(id, ""), couponDecimal,
                     CxParse.AsFrequency(frequency),
                     maturity, issue,
@@ -107,7 +107,7 @@ namespace Convex.Excel
             [ExcelArgument("Day count, default Act360")] object dayCount,
             [ExcelArgument("Cap (decimal, optional)")] object cap,
             [ExcelArgument("Floor (decimal, optional)")] object floor) =>
-            Safe(() => CxParse.FormatHandle(Cx.BuildBond(BondSpecs.Frn(
+            Safe(() => CxParse.FormatHandle(Cx.BuildBondInCell(BondSpecs.Frn(
                 AsString(id, ""), spreadBps, maturity, issue,
                 AsString(rateIndex, "sofr").ToLowerInvariant(),
                 CxParse.AsFrequency(frequency, "Quarterly"),
@@ -124,7 +124,7 @@ namespace Convex.Excel
             DateTime issue,
             [ExcelArgument("Compounding (default SemiAnnual)")] object compounding,
             [ExcelArgument("Day count (default ActActIcma)")] object dayCount) =>
-            Safe(() => CxParse.FormatHandle(Cx.BuildBond(BondSpecs.ZeroCoupon(
+            Safe(() => CxParse.FormatHandle(Cx.BuildBondInCell(BondSpecs.ZeroCoupon(
                 AsString(id, ""), maturity, issue,
                 AsString(compounding, "SemiAnnual"),
                 CxParse.AsDayCount(dayCount, "ActActIcma")))));
@@ -154,7 +154,7 @@ namespace Convex.Excel
                 if (t.Length != v.Length)
                     throw new ConvexException(
                         $"tenors ({t.Length}) and values ({v.Length}) must be the same length");
-                return CxParse.FormatHandle(Cx.BuildCurve(CurveSpecs.Discrete(
+                return CxParse.FormatHandle(Cx.BuildCurveInCell(CurveSpecs.Discrete(
                     AsString(name, ""), refDate,
                     ToJsonArray(t), ToJsonArray(v),
                     AsString(valueKind, "zero_rate").ToLowerInvariant(),
@@ -193,7 +193,7 @@ namespace Convex.Excel
                         ["tenor"] = ts[i],
                         ["rate"] = rs[i],
                     });
-                return CxParse.FormatHandle(Cx.BuildCurve(CurveSpecs.Bootstrap(
+                return CxParse.FormatHandle(Cx.BuildCurveInCell(CurveSpecs.Bootstrap(
                     AsString(name, ""), refDate,
                     AsString(method, "global_fit").ToLowerInvariant(),
                     insts,

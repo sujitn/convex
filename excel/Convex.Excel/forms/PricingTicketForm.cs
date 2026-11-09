@@ -57,15 +57,15 @@ namespace Convex.Excel.Forms
                 RowCount = 5,
                 Padding = new Padding(10),
             };
-            inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+            inputs.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             inputs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             for (int i = 0; i < 5; i++)
                 inputs.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            inputs.Controls.Add(new Label { Text = "Bond:", Anchor = AnchorStyles.Left }, 0, 0);
+            inputs.Controls.Add(new Label { Text = "Bond:", Anchor = AnchorStyles.Left, AutoSize = true }, 0, 0);
             inputs.Controls.Add(_bond, 1, 0);
-            inputs.Controls.Add(new Label { Text = "Curve (opt):", Anchor = AnchorStyles.Left }, 0, 1);
+            inputs.Controls.Add(new Label { Text = "Curve (opt):", Anchor = AnchorStyles.Left, AutoSize = true }, 0, 1);
             inputs.Controls.Add(_curve, 1, 1);
-            inputs.Controls.Add(new Label { Text = "Settlement:", Anchor = AnchorStyles.Left }, 0, 2);
+            inputs.Controls.Add(new Label { Text = "Settlement:", Anchor = AnchorStyles.Left, AutoSize = true }, 0, 2);
             inputs.Controls.Add(_settle, 1, 2);
             inputs.Controls.Add(
                 new Label
@@ -78,7 +78,7 @@ namespace Convex.Excel.Forms
             inputs.Controls.Add(_mark, 1, 3);
             // Hint label below the mark field — replaces .NET 5+ PlaceholderText.
             // (Lives in row 4 of `inputs`, just before the frequency row that follows.)
-            inputs.Controls.Add(new Label { Text = "Quote freq:", Anchor = AnchorStyles.Left }, 0, 4);
+            inputs.Controls.Add(new Label { Text = "Quote freq:", Anchor = AnchorStyles.Left, AutoSize = true }, 0, 4);
             inputs.Controls.Add(_frequency, 1, 4);
             _bond.Anchor = _curve.Anchor = _settle.Anchor = _mark.Anchor = _frequency.Anchor =
                 AnchorStyles.Left | AnchorStyles.Right;

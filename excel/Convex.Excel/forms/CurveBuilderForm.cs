@@ -118,7 +118,7 @@ namespace Convex.Excel.Forms
                     RowCount = 7,
                     Padding = new Padding(10),
                 };
-                g.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+                g.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
                 g.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
                 for (int i = 0; i < 7; i++) g.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 AddRow(g, 0, "Name (optional):", _name);
@@ -201,7 +201,7 @@ namespace Convex.Excel.Forms
                     RowCount = 6,
                     Padding = new Padding(10),
                 };
-                g.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+                g.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
                 g.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
                 for (int i = 0; i < 6; i++) g.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 AddRow(g, 0, "Name (optional):", _name);
