@@ -36,6 +36,7 @@
               <button id="btnSignIn"       label="Sign in"        size="normal" image="about"   getEnabled="GetSignInEnabled"  onAction="OnSignIn"  screentip="Sign in to the Convex server in your browser (single sign-on)." />
               <button id="btnSignOut"      label="Sign out"       size="normal" image="about"   getEnabled="GetSignOutEnabled" onAction="OnSignOut" screentip="Forget the sign-in; live server cells keep their last values, marked Stale." />
               <button id="btnServer"       label="Server"         size="normal" image="about"   onAction="OnServerSettings" screentip="Server URL and how to sign in." />
+              <button id="btnLimitTicket"  label="Limit Check"    size="normal" image="bond_analyze" onAction="OnLimitTicket" screentip="Check proposed trades against a book's limits on the server, before trading." />
             </group>
             <group id="ToolsGroup" label="Tools">
               <button id="btnObjects"      label="Objects"        size="large" image="objects"  onAction="OnObjectBrowser" screentip="Browse, paste, describe, or release registered handles." />

@@ -161,6 +161,12 @@ namespace Convex.Excel.Server
         void Valuation(ServerSession session, Valuation valuation);
         void Subscribed(ServerSession session, string[] ids);
         void SubscribeRefused(ServerSession session, string[] ids, string code, string message);
+        void LimitsSubscribed(ServerSession session, string[] bookIds);
+        void LimitsRefused(ServerSession session, string[] bookIds, string code, string message);
+        /// A recorded change of one limit's status.
+        void LimitStatus(ServerSession session, string bookId, LimitItem item);
+        /// A followed book changed and the session may not read it.
+        void LimitForbidden(ServerSession session, string bookId);
         /// RESYNC_REQUIRED, RESULT_TOO_LARGE, or an error that answers nothing.
         void StreamError(ServerSession session, string code, string message);
         void Closed(ServerSession session, string reason, LinkRefusedException? refusal);
@@ -171,10 +177,12 @@ namespace Convex.Excel.Server
     /// answers every client message, in order, with exactly one of
     /// `subscribed`, `unsubscribed` or an `error`. RESYNC_REQUIRED and
     /// RESULT_TOO_LARGE are stream events, not replies (RESULT_TOO_LARGE can
-    /// arrive inside a subscription's seed, before its `subscribed`).
+    /// arrive inside a subscription's seed, before its `subscribed`), and so
+    /// is a FORBIDDEN naming a followed book (DX19). A reply whose
+    /// subscription type is not its request's ends the session.
     internal sealed class ServerSession
     {
-        private enum RequestKind { Subscribe, Unsubscribe }
+        private enum RequestKind { Subscribe, Unsubscribe, SubscribeLimits, UnsubscribeLimits }
 
         private sealed class Request
         {
@@ -222,10 +230,10 @@ namespace Convex.Excel.Server
         public DateTime LastMessageUtc => new(Interlocked.Read(ref _lastMessageTicks), DateTimeKind.Utc);
         public bool IsClosed => Volatile.Read(ref _closed) != 0;
 
-        /// Requests sent and not yet answered.
+        /// Subscriptions (valuations or limits) sent and not yet answered.
         public int PendingSubscribes
         {
-            get { lock (_lock) return _pending.Count(r => r.Kind == RequestKind.Subscribe); }
+            get { lock (_lock) return _pending.Count(r => r.Kind is RequestKind.Subscribe or RequestKind.SubscribeLimits); }
         }
 
         /// Connect, then read until the server or Abort ends the session.
@@ -235,14 +243,25 @@ namespace Convex.Excel.Server
 
         public void Unsubscribe(IReadOnlyCollection<string> ids) => Send(RequestKind.Unsubscribe, ids);
 
+        public void SubscribeLimits(IReadOnlyCollection<string> bookIds) => Send(RequestKind.SubscribeLimits, bookIds);
+
+        public void UnsubscribeLimits(IReadOnlyCollection<string> bookIds) => Send(RequestKind.UnsubscribeLimits, bookIds);
+
         private void Send(RequestKind kind, IReadOnlyCollection<string> ids)
         {
             if (ids.Count == 0 || IsClosed) return;
             var array = ids.ToArray();
+            bool limits = kind is RequestKind.SubscribeLimits or RequestKind.UnsubscribeLimits;
             var json = new JObject
             {
-                ["type"] = kind == RequestKind.Subscribe ? "subscribe_valuations" : "unsubscribe_valuations",
-                ["instrument_ids"] = new JArray(array),
+                ["type"] = kind switch
+                {
+                    RequestKind.Subscribe => "subscribe_valuations",
+                    RequestKind.Unsubscribe => "unsubscribe_valuations",
+                    RequestKind.SubscribeLimits => "subscribe_limits",
+                    _ => "unsubscribe_limits",
+                },
+                [limits ? "book_ids" : "instrument_ids"] = new JArray(array),
             }.ToString(Formatting.None);
             // The pending queue and the outbox are filled in the same order,
             // and one loop sends the outbox, so replies match by position.
@@ -378,10 +397,28 @@ namespace Convex.Excel.Server
                     if (valuation != null) _events.Valuation(this, valuation);
                     break;
                 case "subscribed":
-                    if (Dequeue(RequestKind.Subscribe) is { } subscribed) _events.Subscribed(this, subscribed.Ids);
-                    break;
                 case "unsubscribed":
-                    Dequeue(RequestKind.Unsubscribe);
+                    bool subscribe = ServerJson.Text(message["type"]) == "subscribed";
+                    bool limits = ServerJson.Text(message["subscription_type"]) == "limits";
+                    var expected = (subscribe, limits) switch
+                    {
+                        (true, false) => RequestKind.Subscribe,
+                        (false, false) => RequestKind.Unsubscribe,
+                        (true, true) => RequestKind.SubscribeLimits,
+                        _ => RequestKind.UnsubscribeLimits,
+                    };
+                    var reply = Dequeue();
+                    if (reply == null || reply.Kind != expected)
+                    {
+                        // Every later reply would be matched to the wrong request.
+                        Fail("the server's replies no longer match the requests", null);
+                        return;
+                    }
+                    if (expected == RequestKind.Subscribe) _events.Subscribed(this, reply.Ids);
+                    else if (expected == RequestKind.SubscribeLimits) _events.LimitsSubscribed(this, reply.Ids);
+                    break;
+                case "limit_status":
+                    if (LimitItem.ParseChange(message) is { } change) _events.LimitStatus(this, change.BookId, change.Item);
                     break;
                 case "error":
                     var code = ServerJson.Text(message["code"]) ?? "";
@@ -391,25 +428,26 @@ namespace Convex.Excel.Server
                         _events.StreamError(this, code, text2);
                         break;
                     }
-                    Request? answered;
-                    lock (_lock) answered = _pending.Count > 0 ? _pending.Dequeue() : null;
+                    if (code == "FORBIDDEN" && LimitErrors.TryParseForbiddenBook(text2, out var book))
+                    {
+                        _events.LimitForbidden(this, book);
+                        break;
+                    }
+                    var answered = Dequeue();
                     if (answered is { Kind: RequestKind.Subscribe })
                         _events.SubscribeRefused(this, answered.Ids, code, text2);
+                    else if (answered is { Kind: RequestKind.SubscribeLimits })
+                        _events.LimitsRefused(this, answered.Ids, code, text2);
                     else if (answered == null)
                         _events.StreamError(this, code, text2);
                     break;
-                // heartbeat, pong and limit messages only refresh the watchdog.
+                // heartbeat and pong only refresh the watchdog.
             }
         }
 
-        private Request? Dequeue(RequestKind expected)
+        private Request? Dequeue()
         {
-            lock (_lock)
-            {
-                if (_pending.Count == 0) return null;
-                var head = _pending.Dequeue();
-                return head.Kind == expected ? head : null;
-            }
+            lock (_lock) return _pending.Count > 0 ? _pending.Dequeue() : null;
         }
     }
 }

@@ -171,7 +171,7 @@ itself when the server publishes a new one. Set up the connection first (see
 | `CX.LIVE(identifier, measure, [field])` | One field of the server's current result for an instrument (RTD). |
 | `CX.LIVE.GRID(identifier, [measures], [trigger])` | Rows of measure, value and quality for an instrument that a `CX.LIVE` cell already follows, read from the add-in's cache. It is not live by itself: pass a `CX.LIVE` cell as `trigger` and the grid recalculates with that cell. |
 | `CX.SNAP(identifier, measure)` | The server's current value, read once. It does not update, and shows `#N/A` until the server answers. |
-| `CX.STATUS([field])` | The connection: `connection` (default), `user`, `server`, `runtime`, `last_message` (UTC), `instruments`, `topics`, `session`, `problem`, or `calculation` (Excel's calculation mode). |
+| `CX.STATUS([field])` | The connection: `connection` (default), `user`, `server`, `runtime`, `last_message` (UTC), `instruments`, `books` (followed by `CX.LIMIT` cells), `topics`, `session`, `problem`, or `calculation` (Excel's calculation mode). |
 
 - **identifier**: a CUSIP or ISIN with a valid check digit is looked up in the
   server's reference master (`POST /api/v1/reference/resolve`), which needs
@@ -236,6 +236,92 @@ Limits:
   shows `#N/A` until its result arrives, and under Manual calculation until
   the F9 after that.
 - Excel's RTD throttle applies, as for local live cells.
+
+### Limits
+
+`CX.LIMIT` shows a limit of a book on the server, as the server's limit
+monitor evaluates it. Ribbon **Limit Check** checks proposed trades against a
+book's limits before trading. Both need a server with book limits (see the
+server's [book limits](../crates/convex-server/README.md#book-limits)) and
+the connection set up as for server cells.
+
+| UDF | Returns |
+|---|---|
+| `CX.LIMIT(book, limit, [field])` | One field of a limit in the book's current limit set (RTD). |
+
+- **book**: the server's book id. **limit**: the limit's id in the book's set.
+- **field**:
+  - `status` (default): `within`, `warning`, `unknown` or `breach`;
+  - `value`, `lower`, `upper`, `warning_fraction`: numbers in the measure's
+    unit (book currency, per bp, years, face or a fraction);
+  - `utilisation`: the value over the bound that faces away from zero (the
+    larger of two), so 1 is at the bound;
+  - `member`: for a limit on each member, the one that set the status;
+  - `measure`: `dv01`, `market_value`, `face BOND-1`, `key_rate_dv01 5Y`,
+    `group_share issuer each` and so on;
+  - `reason`: why the limit is `unknown`, such as
+    `missing_result: BOND-1, BOND-2 (3 in all)`;
+  - `previous`: the status before the last recorded change;
+  - `record_id`: the server's audit record of the last change;
+  - `evaluated_at`: when the value shown was evaluated (an Excel date-time in
+    UTC);
+  - `quality`: `Live`, `Demo` (a demonstration server) or `Stale`;
+  - `book_version`, `limit_set_version`.
+
+  Text fields that do not apply are empty; a number that does not apply is
+  `#N/A`.
+
+What updates, and when:
+
+- The server records a limit, and streams it, only when its **status**
+  changes. So `status` follows the server as it happens, but `value` and
+  `utilisation` are those of the evaluation shown: they hold still while the
+  status does. `evaluated_at` says how old they are. For current values,
+  click **Check** in Limit Check with no trades.
+- When a cell first follows a book, and again after a reconnect, the add-in
+  reads the book's current status (`GET /api/v1/books/{book}/limits/status`),
+  so every limit starts current.
+- A change under a newer limit set reads the book again, so a limit the new
+  set dropped goes to `#N/A`.
+
+When there is nothing to show, the cell is `#N/A`, and `=CX.LASTERROR(cell)`
+says why:
+
+- no server, signed out, connecting or reconnecting, or the book's status is
+  still being read;
+- the book has no limit set (the cell starts showing once one is committed),
+  or the set has no such limit;
+- you are not entitled to the book's limits (`FORBIDDEN`): they need read
+  access to the book, each instrument it holds and each one a limit names. A
+  refused book is not requested again until you reconnect;
+- the server does not monitor limits;
+- more than 64 books: one session follows at most 64, every book the server's
+  monitor watches. The rest wait for a free slot.
+
+When the connection drops, limits stay with `quality` `Stale`, and each book
+is read again once the add-in reconnects. A book stays followed for 30 s
+after its last cell goes. At most 4 status reads run at once; a failed read
+is tried again after 1 s doubling to 30 s, and a 429 waits for its
+`Retry-After`.
+
+**Limit Check** (ribbon Server group) is a pre-trade ticket:
+
+1. Enter the book and the proposed trades: an instrument id, CUSIP or ISIN
+   and a signed quantity in face, which is added to the held position (a
+   trade, not a new holding). Rating and sector apply only to an instrument
+   the book does not hold. **From selection** reads two to four columns
+   (identifier, quantity, rating, sector) from the sheet; a header row is
+   skipped.
+2. **Check** reads the book's status now and sends the trades to
+   `POST /api/v1/books/{book}/limits/check`, which stores nothing. Each limit
+   shows its status, value and utilisation now and after the trades:
+   coloured by status, bold where the trades make it worse, with the reason
+   of an `unknown` one as a tooltip. A trade row the server refuses is marked
+   with its reason. With no trades, Check shows the current status.
+3. **Stamp CX.LIMIT** writes live `CX.LIMIT` cells for each of the book's
+   limits at the selection.
+
+The two reads are separate requests, so a quote can arrive between them.
 
 ### Hedge advisor
 
@@ -329,7 +415,8 @@ The Convex tab has six groups:
 - **Scenarios**: Run Scenario (parallel shift bumps over a CSV bps list).
 - **Server**: the connection button (Connected, Connecting, Reconnecting,
   Signed out or No server; click it for details and to reconnect) · Sign in
-  · Sign out · Server (see *Connecting to a Convex server*).
+  · Sign out · Server (see *Connecting to a Convex server*) · Limit Check
+  (see *Limits*).
 - **Tools**: Objects (browse / inspect / paste handle / release) · Schemas
   (JSON schema viewer for any DTO) · Settings (default frequency, day count,
   spread family, currency persisted to `%APPDATA%\Convex\settings.json`) ·
@@ -369,14 +456,17 @@ Ribbon **Server** sets the connection. It is saved in
     "local_development"`, loopback only), such as the showcase.
 - The server must accept the token (its `[access.introspection]` settings)
   and grant you the `reader` role with result read on the instruments; see
-  the server's [ACCESS.md](../crates/convex-server/ACCESS.md).
+  the server's [ACCESS.md](../crates/convex-server/ACCESS.md). `CX.LIMIT`
+  and Limit Check also need book read on the book, each instrument it holds
+  and each one a limit names.
 
 One Excel process holds one connection. The server counts HTTP requests and
 WebSocket messages against one admission window per user (600 a minute by
 default), so the add-in sends no WebSocket keep-alive frames (the server's
 heartbeat keeps the connection busy), batches subscription changes, caches
 identifier look-ups (up to 10,000) with at most 8 in flight, and waits for
-the time a 429 response's `Retry-After` gives.
+the time a 429 response's `Retry-After` gives. Books are read when they are
+first followed and after a reconnect, not polled.
 
 To try it against the showcase: `docker build -t convex-showcase . && docker
 run -p 8080:8080 convex-showcase` from the repository root, then Server URL
@@ -451,7 +541,9 @@ Server cells go through the same hub. `server/ServerSource.cs` holds the one
 WebSocket session with convex-server: it batches subscriptions, keeps each
 instrument's newest result, reconnects, and switches to a new session when
 the token is renewed. `server/ServerCells.cs` turns those results into the
-hub's server topics.
+hub's server topics. Books follow on the same session
+(`server/ServerSource.Limits.cs`): each is read from the status route once
+subscribed, then changes as the server records status changes.
 
 ## Errors
 

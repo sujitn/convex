@@ -59,6 +59,10 @@ namespace Convex.Excel.Live
         /// A CX.STATUS cell.
         public static object StatusCell(string field) => Read(ServerCells.StatusTopicStrings(field));
 
+        /// A CX.LIMIT cell; a malformed book, limit or field is #VALUE! at once.
+        public static object LimitCell(string book, string limit, string field) =>
+            Read(ServerCells.LimitTopicStrings(book, limit, field));
+
         private static object Read(string[] strings)
         {
             var value = XlCall.RTD(LiveHub.ProgId, null, strings);

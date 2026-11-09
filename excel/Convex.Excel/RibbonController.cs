@@ -26,6 +26,7 @@ namespace Convex.Excel
         public void OnScenario(IRibbonControl _) => ShowModeless(() => new ScenarioForm());
         public void OnObjectBrowser(IRibbonControl _) => ShowModeless(() => new ObjectBrowserForm());
         public void OnErrorLog(IRibbonControl _) => ShowModeless(() => new ErrorLogForm());
+        public void OnLimitTicket(IRibbonControl _) => ShowModeless(() => new LimitTicketForm());
 
         // Builders and settings are short-lived edit dialogs — modal is fine.
         public void OnNewBond(IRibbonControl _) => Show(() => new BondBuilderForm());

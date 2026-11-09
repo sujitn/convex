@@ -248,10 +248,13 @@ A message is at most 64 KiB. A result larger than that, at subscription or later
 as a `RESULT_TOO_LARGE` error naming the instrument, `runtime_id` and `revision`; read
 the result from `GET /api/v1/runtime/results`. The session stays open.
 
-Send `{"type":"subscribe_limits","book_ids":[...]}` (at most 64 books) to receive a
-`limit_status` message for each change the limit monitor records for those books (see
-[book limits](#book-limits)). Seed the display from
-`GET /api/v1/books/{book_id}/limits/status`; after `RESYNC_REQUIRED`, read it again.
+Send `{"type":"subscribe_limits","book_ids":[...]}` to receive a `limit_status` message
+for each change the limit monitor records for those books (see
+[book limits](#book-limits)). A session follows at most 64 books; listing one it already
+follows does not count again, and `subscribed.count` is the distinct books listed. Nothing
+is sent on subscribe: seed the display from `GET /api/v1/books/{book_id}/limits/status`
+after the acknowledgement, and after `RESYNC_REQUIRED`, read it again. A limit's message
+arrives only when its status changes, so its `value` is as of that change.
 `unsubscribe_limits` takes the same shape. A session receives a book's changes only while
 it could read that book's status (see [access](ACCESS.md)). A session that holds the book
 but not every instrument it holds or a limit names receives each change as a `FORBIDDEN`
