@@ -186,6 +186,11 @@ impl LimitMonitor {
         LimitFeed(self.feed.clone())
     }
 
+    /// The store the monitor records in, which the records route reads (P15b).
+    pub(crate) fn records(&self) -> Arc<dyn AuditStore> {
+        self.audit.clone()
+    }
+
     /// Watch and evaluate until `stop` turns true or the engine shuts down.
     pub(crate) async fn run(
         self: Arc<Self>,

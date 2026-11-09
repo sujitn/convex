@@ -505,6 +505,7 @@ statuses are described in [the engine's limits guide](../convex-engine/LIMITS.md
 | `GET /api/v1/books/{book_id}/limits/proposal` | The latest proposal, open or closed, pinned in `ETag` |
 | `GET /api/v1/books/{book_id}/limits/status` | Each limit evaluated now against the current Live results |
 | `POST /api/v1/books/{book_id}/limits/check` | Each limit evaluated now as if proposed position changes were applied; nothing is stored ([the pre-trade check](#the-pre-trade-check)) |
+| `GET /api/v1/books/{book_id}/limits/records?after=&limit=` | The book's recorded status changes after a record id, oldest first, at most 1,000 a page ([records](#records)) |
 
 Every write needs `Idempotency-Key`, and the `risk_manager` role (see [access](ACCESS.md)).
 The pre-trade check writes nothing and needs neither.
@@ -564,7 +565,7 @@ limit's measure and bounds, its evaluation (`limit_id`, `status`, `value`, `memb
 `utilisation`, `reason`), the snapshot ids read and `monitor_started_at`. A failed write
 records none of the book's changes and keeps their last recorded statuses, so a later
 evaluation records them; a book with a failed write is evaluated again within a second,
-unless the store was full (below). Nothing reads these entries over HTTP yet.
+unless the store was full (below). The [records route](#records) reads them.
 
 The audit store holds at most 1,000,000 entries and keeps every one: nothing prunes it.
 A value that crosses a bound back and forth records a change each time (D86 has no
@@ -590,6 +591,41 @@ measure), one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or
 instruments, since each holds every instrument: about 1.4 ms a book. Above about 11 ticks a
 second the monitor coalesces ticks. One instrument's valuation hop (quote in to WebSocket
 frame) stays at about 1.4 ms with the monitor busy.
+
+#### Records
+
+`GET /api/v1/books/{book_id}/limits/records?after=&limit=` returns the book's recorded
+changes with record ids above `after` (default 0), oldest first, up to `limit` (default
+100, at most 1,000). Each record is the JSON of its `limit_status` message, as the monitor
+stored it, without `type`:
+
+```json
+{"book_id": "BOOK-A", "records": [{"record_id": 41, "limit_id": "net", "previous": "within",
+  "status": "breach", "...": "..."}], "withheld": 0, "next_after": 41, "more": false}
+```
+
+Pass `next_after` as the next `after`. A reader following new records keeps passing the
+last id it has: the monitor assigns ids in order, so it never sees a record twice or misses
+one. `more` says whether the book had records past the page when it was read. A page also
+stops before a record that would take it past 3 MiB or 60,000 JSON values, with `more`
+true, so that the access layer can check the response whole.
+
+The route needs what status needs (see [access](ACCESS.md)): the book, every instrument it
+holds and every instrument its current set names. A record can also name an instrument
+the book no longer holds: a `face` limit's instrument (on each position, the one that set
+the status) and the instruments its reason lists. A record naming one the caller cannot
+read is left out and counted in `withheld`, and `next_after` still passes it. A book whose
+set is empty, or was never committed, still has its records. Without a limit monitor the
+route answers 503.
+
+The audit store indexes each entry by book in the transaction that writes it, so a page
+reads only that book's records. With 1,000,000 entries in the store (64 books, about
+15,600 records each), a page of 100 from the middle of one book's records took 0.16 ms and
+a page of 1,000 took 1.78 ms; `query` with the same filter, which reads every entry,
+took 1.17 and 1.25 s. Through the route, under local development, the
+pages took 0.74 and 5.5 ms (`ci` profile, WSL2). The first open of a
+store written before the index indexes every entry once, 65,536 a transaction: 5.0 s for a
+full store, in 16 transactions. Later opens find nothing to index.
 
 #### The pre-trade check
 

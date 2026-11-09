@@ -1632,6 +1632,18 @@ impl AuditStore for ScriptedAudit {
     async fn last_id(&self) -> Result<Option<u64>, TraitError> {
         self.inner.last_id().await
     }
+
+    async fn entity_page(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+        after: u64,
+        limit: usize,
+    ) -> Result<convex_engine::ports::storage::EntityPage, TraitError> {
+        self.inner
+            .entity_page(entity_type, entity_id, after, limit)
+            .await
+    }
 }
 
 /// A local-development server over the fixture repository, no runtime, whose monitor
@@ -1639,6 +1651,7 @@ impl AuditStore for ScriptedAudit {
 /// each hold the fixture bond and `count` face limits.
 struct Monitored {
     audit: Arc<ScriptedAudit>,
+    base: String,
     stop: tokio::sync::oneshot::Sender<()>,
     serving: tokio::task::JoinHandle<Result<(), convex_server::StartupError>>,
     setup: support::Setup,
@@ -1709,6 +1722,7 @@ async fn monitored(script: Script, books: usize, count: usize) -> Monitored {
     }
     Monitored {
         audit,
+        base,
         stop,
         serving,
         setup,
@@ -2175,4 +2189,366 @@ async fn a_check_needs_the_book_and_every_instrument_it_reads() {
         book_etag
     );
     assert_eq!(version(&router, Some(RISK_A), path).await, set_etag);
+}
+
+// =============================================================================
+// THE RECORDS ROUTE (P15b)
+// =============================================================================
+
+/// The monitor's records of `book`, as stored, oldest first.
+async fn stored(audit: &Arc<dyn AuditStore>, book: &str) -> Vec<Value> {
+    let filter = AuditFilter {
+        entity_id: Some(book.into()),
+        ..AuditFilter::default()
+    };
+    let page = audit
+        .query(&filter, &Pagination::new(0, 100))
+        .await
+        .unwrap();
+    page.items
+        .iter()
+        .map(|entry| serde_json::from_str(entry.details.as_deref().unwrap()).unwrap())
+        .collect()
+}
+
+/// The route returns the monitor's records of one book, each unchanged from what it
+/// stored and its frame carried, oldest first; a reader following by cursor sees each
+/// new record once.
+#[tokio::test]
+async fn the_records_route_follows_the_monitors_records_by_cursor() {
+    let server = monitored(Script::default(), 2, 3).await;
+    let inner = server.setup.storage.audit.clone();
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while stored(&inner, "BOOK-00").await.len() < 3 || stored(&inner, "BOOK-01").await.len() < 3
+        {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("each first status is recorded");
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let base = server.base.clone();
+    let get = |query: String| {
+        let request = client.get(format!("{base}/api/v1/books/BOOK-00/limits/records{query}"));
+        async move {
+            let response = request.send().await.unwrap();
+            let code = response.status().as_u16();
+            (code, response.json::<Value>().await.unwrap())
+        }
+    };
+
+    let (code, first) = get("?limit=2".into()).await;
+    assert_eq!(code, 200, "{first}");
+    assert_eq!(
+        (&first["book_id"], &first["withheld"], &first["more"]),
+        (&json!("BOOK-00"), &json!(0), &json!(true)),
+        "{first}"
+    );
+    let (code, second) = get(format!("?after={}&limit=2", first["next_after"])).await;
+    assert_eq!(code, 200, "{second}");
+    assert_eq!(second["more"], false, "{second}");
+    let mut read: Vec<Value> = first["records"].as_array().unwrap().clone();
+    read.extend(second["records"].as_array().unwrap().iter().cloned());
+    assert_eq!(read, stored(&inner, "BOOK-00").await);
+    assert_eq!(second["next_after"], read[2]["record_id"]);
+    assert!(read
+        .iter()
+        .all(|r| r["book_id"] == "BOOK-00" && r["status"] == "within"));
+
+    // One limit breaches: one new record, and the cursor reads only it.
+    let cursor = second["next_after"].clone();
+    let current = client
+        .get(format!("{base}/api/v1/books/BOOK-00/limits"))
+        .send()
+        .await
+        .unwrap();
+    let etag = current.headers()["etag"].to_str().unwrap().to_owned();
+    let response = client
+        .put(format!("{base}/api/v1/books/BOOK-00/limits"))
+        .header("idempotency-key", "limits-00-breach")
+        .header("if-match", etag)
+        .json(&set(vec![
+            face("face-00", None, Some("2000000"), None),
+            face("face-01", None, Some("500000"), None),
+            face("face-02", None, Some("2000000"), None),
+        ]))
+        .send()
+        .await
+        .unwrap();
+    assert!(response.status().is_success(), "{}", response.status());
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while stored(&inner, "BOOK-00").await.len() < 4 {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the breach is recorded");
+    let (code, next) = get(format!("?after={cursor}")).await;
+    assert_eq!(code, 200, "{next}");
+    let records = next["records"].as_array().unwrap();
+    assert_eq!(records.len(), 1, "{next}");
+    assert_eq!(
+        (
+            &records[0]["limit_id"],
+            &records[0]["previous"],
+            &records[0]["status"]
+        ),
+        (&json!("face-01"), &json!("within"), &json!("breach"))
+    );
+    assert_eq!(records[0], stored(&inner, "BOOK-00").await[3]);
+    assert_eq!(
+        (&next["next_after"], &next["more"]),
+        (&records[0]["record_id"], &json!(false))
+    );
+    let (code, nothing) = get(format!("?after={}", next["next_after"])).await;
+    assert_eq!(code, 200, "{nothing}");
+    assert_eq!(
+        (
+            &nothing["records"],
+            &nothing["next_after"],
+            &nothing["more"]
+        ),
+        (&json!([]), &next["next_after"], &json!(false))
+    );
+
+    server.stop.send(()).unwrap();
+    server.serving.await.unwrap().unwrap();
+}
+
+/// A record as the monitor stores it, for `book`, with `fields` added.
+fn record(id: u64, book: &str, measure: Value, fields: Value) -> AuditEntry {
+    let mut details = json!({
+        "record_id": id,
+        "book_id": book,
+        "book_version": 1,
+        "limit_set_version": 1,
+        "evaluated_at": "2026-11-07T12:00:00Z",
+        "monitor_started_at": "2026-11-07T12:00:00Z",
+        "previous": "unevaluated",
+        "measure": measure,
+        "limit_id": format!("limit-{id}"),
+        "status": "unknown",
+        "snapshot_ids": [],
+    });
+    details
+        .as_object_mut()
+        .unwrap()
+        .extend(fields.as_object().unwrap().clone());
+    AuditEntry {
+        id,
+        timestamp: 0,
+        event_type: "limit_status".into(),
+        entity_type: "book".into(),
+        entity_id: book.into(),
+        user: None,
+        action: "unknown".into(),
+        details: Some(details.to_string()),
+    }
+}
+
+async fn records(
+    router: &Router,
+    token: Option<&str>,
+    book: &str,
+    query: &str,
+) -> (StatusCode, Value) {
+    let (code, _, body) = call(
+        router,
+        "GET",
+        &format!("/api/v1/books/{book}/limits/records{query}"),
+        token,
+        None,
+        None,
+        None,
+    )
+    .await;
+    (code, body)
+}
+
+fn ids(page: &Value) -> Vec<u64> {
+    page["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["record_id"].as_u64().unwrap())
+        .collect()
+}
+
+/// Reading records needs status's rule on the book now, and each instrument a record
+/// names: a record naming one the caller cannot read, though the book no longer holds
+/// it, is withheld and counted, and the cursor passes it.
+#[tokio::test]
+async fn a_record_naming_an_instrument_the_caller_cannot_read_is_withheld() {
+    let (_issuer, setup, router) = two_subjects().await;
+    let router = router.layer(axum::Extension(setup.storage.audit.clone()));
+    let face_on = |id: &str| json!({"kind": "face", "instrument": {"one": id}});
+    let each_face = json!({"kind": "face", "instrument": "each"});
+    let market_value = json!({"kind": "market_value"});
+    let mut other_event = record(6, "BOOK-A", market_value.clone(), json!({}));
+    other_event.event_type = "note".into();
+    setup
+        .storage
+        .audit
+        .append_all(&[
+            record(1, "BOOK-A", face_on(BOND), json!({"status": "breach", "value": "1000000"})),
+            record(
+                2,
+                "BOOK-A",
+                market_value.clone(),
+                json!({"reason": {"code": "missing_result", "instruments": {"count": 1, "first": ["BOND-002"]}}}),
+            ),
+            record(3, "BOOK-A", each_face, json!({"status": "breach", "member": "BOND-003"})),
+            record(
+                4,
+                "BOOK-A",
+                json!({"kind": "dv01"}),
+                json!({"reason": {"code": "quote_refused", "instrument": BOND, "detail": "stale"}}),
+            ),
+            record(5, "BOOK-B", face_on(BOND), json!({})),
+            other_event,
+        ])
+        .await
+        .unwrap();
+
+    // The book has no limit set now; its records are still read.
+    let (code, page) = records(&router, Some(RISK_A), "BOOK-A", "?limit=2").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(ids(&page), [1]);
+    assert_eq!(
+        (&page["withheld"], &page["next_after"], &page["more"]),
+        (&json!(1), &json!(2), &json!(true))
+    );
+    assert!(!page.to_string().contains("BOND-002"), "{page}");
+    let (code, page) = records(&router, Some(RISK_A), "BOOK-A", "?after=2&limit=2").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(ids(&page), [4]);
+    assert_eq!(
+        (&page["withheld"], &page["next_after"], &page["more"]),
+        (&json!(1), &json!(4), &json!(true))
+    );
+    // An entry that is not a status change is passed, and neither shown nor counted.
+    let (code, page) = records(&router, Some(RISK_A), "BOOK-A", "?after=4").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (
+            ids(&page),
+            &page["withheld"],
+            &page["next_after"],
+            &page["more"]
+        ),
+        (vec![], &json!(0), &json!(6), &json!(false))
+    );
+
+    // A subject holding every instrument sees each record of the book.
+    let (code, page) = records(&router, Some(HUMAN_TOKEN), "BOOK-A", "").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (ids(&page), &page["withheld"]),
+        (vec![1, 2, 3, 4], &json!(0))
+    );
+
+    // A record whose measure this server cannot read (one a newer server wrote) names
+    // instruments it cannot check: it is withheld from everyone, and the cursor passes it.
+    setup
+        .storage
+        .audit
+        .append(&record(
+            7,
+            "BOOK-A",
+            json!({"kind": "value_at_risk"}),
+            json!({}),
+        ))
+        .await
+        .unwrap();
+    let (code, page) = records(&router, Some(HUMAN_TOKEN), "BOOK-A", "?after=4").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (ids(&page), &page["withheld"], &page["next_after"]),
+        (vec![], &json!(1), &json!(7))
+    );
+
+    for (token, book, why) in [
+        (
+            OUTSIDER,
+            "BOOK-A",
+            "the book holds an instrument it cannot read",
+        ),
+        (SERVICE_TOKEN, "BOOK-A", "no grant"),
+        (RISK_A, "BOOK-B", "a book outside its grant"),
+    ] {
+        let (code, body) = records(&router, Some(token), book, "").await;
+        assert_eq!(code, StatusCode::FORBIDDEN, "{why}: {body}");
+        assert!(!body.to_string().contains("breach"), "{why}: {body}");
+    }
+    for query in ["?limit=0", "?limit=1001", "?after=-1", "?cursor=1"] {
+        let (code, body) = records(&router, Some(RISK_A), "BOOK-A", query).await;
+        assert_eq!(code, StatusCode::BAD_REQUEST, "{query}: {body}");
+    }
+}
+
+/// A page stops before a record that would take it past 60,000 JSON values, so the
+/// access layer's response scan (at most 65,536) reads it whole; the cursor reads the rest.
+#[tokio::test]
+async fn a_page_of_large_records_stops_where_the_response_scan_can_read_it() {
+    let (_issuer, setup, router) = two_subjects().await;
+    let router = router.layer(axum::Extension(setup.storage.audit.clone()));
+    let snapshots: Vec<String> = (0..1000).map(|i| format!("snap-{i:04}")).collect();
+    let large: Vec<AuditEntry> = (1..=100)
+        .map(|id| {
+            record(
+                id,
+                "BOOK-A",
+                json!({"kind": "market_value"}),
+                json!({"snapshot_ids": snapshots}),
+            )
+        })
+        .collect();
+    for chunk in large.chunks(64) {
+        setup.storage.audit.append_all(chunk).await.unwrap();
+    }
+    let mut cursor = 0;
+    let mut read = Vec::new();
+    let mut pages = 0;
+    loop {
+        let query = format!("?after={cursor}&limit=1000");
+        let (code, page) = records(&router, Some(HUMAN_TOKEN), "BOOK-A", &query).await;
+        assert_eq!(code, StatusCode::OK, "page {pages}: {page}");
+        pages += 1;
+        read.extend(ids(&page));
+        cursor = page["next_after"].as_u64().unwrap();
+        if page["more"] == false {
+            break;
+        }
+    }
+    assert_eq!(read, (1..=100).collect::<Vec<u64>>());
+    assert_eq!(pages, 2, "about 59 records of 1,013 values a page");
+}
+
+/// Without a monitor the route has no store to read; a book that does not exist is not
+/// found.
+#[tokio::test]
+async fn the_records_route_needs_a_monitor_and_the_book() {
+    let (setup, router) = router(AccessControl::local_development()).await;
+    put_book(
+        &router,
+        None,
+        "BOOK-A",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    let (code, body) = records(&router, None, "BOOK-A", "").await;
+    assert_eq!(code, StatusCode::SERVICE_UNAVAILABLE, "{body}");
+    assert!(
+        body.to_string().contains("does not monitor limits"),
+        "{body}"
+    );
+    let router = router.layer(axum::Extension(setup.storage.audit.clone()));
+    let (code, body) = records(&router, None, "BOOK-A", "").await;
+    assert_eq!(code, StatusCode::OK, "{body}");
+    assert_eq!(
+        (&body["records"], &body["next_after"], &body["more"]),
+        (&json!([]), &json!(0), &json!(false))
+    );
+    let (code, body) = records(&router, None, "BOOK-Z", "").await;
+    assert_eq!(code, StatusCode::NOT_FOUND, "{body}");
 }

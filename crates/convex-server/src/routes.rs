@@ -351,6 +351,11 @@ pub fn create_router_with_access(
             "/api/v1/books/:book_id/limits/status",
             get(limits::get_limit_status),
         )
+        // Recorded status changes (P15b), from the monitor's audit store, by cursor
+        .route(
+            "/api/v1/books/:book_id/limits/records",
+            get(limits::get_limit_records),
+        )
         // Pre-trade check (P14d): status as if proposed changes were applied; stores nothing
         .route(
             "/api/v1/books/:book_id/limits/check",

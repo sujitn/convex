@@ -209,7 +209,9 @@ impl Server {
             router = router.layer(Extension(quotes.clone()));
         }
         if let Some(limits) = &self.limits {
-            router = router.layer(Extension(limits.feed()));
+            router = router
+                .layer(Extension(limits.feed()))
+                .layer(Extension(limits.records()));
         }
         // HTTP configuration fixtures must prefix the replay this composition runs (D35).
         if let Some(quotes) = &self.config.quotes_file {
