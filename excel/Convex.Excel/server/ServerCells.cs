@@ -453,7 +453,8 @@ namespace Convex.Excel.Server
         private object Compute(Cell cell)
         {
             if (cell.IsStatus) return ServerFields.SelectStatus(_source.Status(), cell.Field, Count);
-            if (cell.ResolveError != null) throw cell.ResolveError;
+            // Read once: a retry may clear the field between a check and a throw.
+            if (cell.ResolveError is { } error) throw error;
             var id = cell.InstrumentId ?? throw ConvexException.Unavailable("RESOLVING",
                 $"looking up {cell.Identifier} on the server");
             return ServerFields.Select(_source.View(id), cell.Measure, cell.Field);
