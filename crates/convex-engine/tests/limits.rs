@@ -2,7 +2,7 @@
 //! P14a (D83, D84): each limit measure against a hand-computed book, each status at its
 //! bounds, and each reason a limit is unknown.
 
-use convex_core::contracts::{ExactDecimal, InstrumentId};
+use convex_core::contracts::{ExactDecimal, InstrumentId, UtcTimestamp};
 use convex_core::Currency;
 use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::portfolio_analytics::{Portfolio, PortfolioAnalyzer, Position};
@@ -67,8 +67,13 @@ fn limits(values: Value) -> Vec<LimitDefinition> {
     serde_json::from_value(values).unwrap()
 }
 
+/// The time every test without an excess evaluates at.
+fn at() -> UtcTimestamp {
+    UtcTimestamp::parse("2026-11-09T12:00:00Z").unwrap()
+}
+
 fn evaluate(book: &LimitBook<'_>, values: Value) -> Vec<LimitEvaluation> {
-    evaluate_limits(book, &limits(values)).unwrap()
+    evaluate_limits(book, &limits(values), at()).unwrap()
 }
 
 fn value(evaluation: &LimitEvaluation) -> Decimal {
@@ -528,14 +533,114 @@ fn input_outside_the_contract_is_refused() {
     let mut twice = book.positions();
     twice[1].instrument_id = &book.a;
     let dv01 = json!([{"limit_id":"dv01","measure":{"kind":"dv01"},"upper":"1"}]);
-    assert!(evaluate_limits(&usd(&twice), &limits(dv01.clone())).is_err());
+    assert!(evaluate_limits(&usd(&twice), &limits(dv01.clone()), at()).is_err());
 
     let ids: Vec<_> = (0..1001).map(|i| id(&format!("N{i}"))).collect();
     let many: Vec<_> = ids.iter().map(|i| position(i, "1", None, None)).collect();
-    assert!(evaluate_limits(&usd(&many), &limits(dv01.clone())).is_err());
-    assert!(evaluate_limits(&usd(&many[..1000]), &limits(dv01)).is_ok());
+    assert!(evaluate_limits(&usd(&many), &limits(dv01.clone()), at()).is_err());
+    assert!(evaluate_limits(&usd(&many[..1000]), &limits(dv01), at()).is_ok());
 
     let invalid = limits(json!([{"limit_id":"dv01","measure":{"kind":"dv01"}}]));
     let positions = book.positions();
-    assert!(evaluate_limits(&usd(&positions), &invalid).is_err());
+    assert!(evaluate_limits(&usd(&positions), &invalid, at()).is_err());
+}
+
+fn stamp(text: &str) -> UtcTimestamp {
+    UtcTimestamp::parse(text).unwrap()
+}
+
+/// P15d (D96): before its expiry a limit is judged against the excess and reports it; at
+/// and after it, against the limit's own bounds, and nothing of the excess.
+#[test]
+fn an_excess_applies_strictly_before_its_expiry() {
+    let instrument = id("A");
+    let positions = [position(&instrument, "120", None, None)];
+    let book = usd(&positions);
+    let set = limits(json!([{
+        "limit_id":"face","measure":{"kind":"face","instrument":{"one":"A"}},
+        "lower":"-100","upper":"100",
+        "excess":{"upper":"200","expires_at":"2026-11-09T12:00:00Z","reason":"mandate change"}
+    }]));
+    let evaluated = |time: &str| evaluate_limits(&book, &set, stamp(time)).unwrap().remove(0);
+
+    let before = evaluated("2026-11-09T11:59:59.999999Z");
+    assert_eq!(before.status, LimitStatus::Within, "{before:?}");
+    assert_eq!(before.utilisation.unwrap().decimal(), d("0.6"));
+    let excess = before.excess.as_ref().expect("the excess applied");
+    assert_eq!(excess.base_lower.unwrap().decimal(), d("-100"));
+    assert_eq!(excess.base_upper.unwrap().decimal(), d("100"));
+    assert_eq!(excess.expires_at, stamp("2026-11-09T12:00:00Z"));
+    assert_eq!(excess.reason, "mandate change");
+
+    for time in ["2026-11-09T12:00:00Z", "2026-11-09T12:00:00.000001Z"] {
+        let expired = evaluated(time);
+        assert_eq!(expired.status, LimitStatus::Breach, "{time}: {expired:?}");
+        assert_eq!(expired.utilisation.unwrap().decimal(), d("1.2"));
+        assert!(expired.excess.is_none(), "{time}: {expired:?}");
+    }
+}
+
+/// P15d (D96): the warning band and each bound read the excess's bounds where it names
+/// one and the limit's own where it does not, and an unknown limit still reports it.
+#[test]
+fn the_warning_band_and_each_side_read_the_bounds_in_force() {
+    let rule = |id: &str| {
+        json!({
+            "limit_id":id,"measure":{"kind":"face","instrument":{"one":"A"}},
+            "lower":"-100","upper":"100","warning_fraction":"0.8",
+            "excess":{"upper":"200","expires_at":"2026-11-09T13:00:00Z","reason":"mandate"}
+        })
+    };
+    let instrument = id("A");
+    for (quantity, status) in [
+        // Past the limit's own band and bound, and short of the excess's band.
+        ("150", LimitStatus::Within),
+        ("160", LimitStatus::Within),
+        // Past the band on the excess bound, and exactly at the bound.
+        ("160.01", LimitStatus::Warning),
+        ("200", LimitStatus::Warning),
+        ("200.01", LimitStatus::Breach),
+        // The excess names no lower bound, so the limit's own holds.
+        ("-80", LimitStatus::Within),
+        ("-80.01", LimitStatus::Warning),
+        ("-100", LimitStatus::Warning),
+        ("-100.01", LimitStatus::Breach),
+    ] {
+        let positions = [position(&instrument, quantity, None, None)];
+        let evaluated = evaluate(&usd(&positions), json!([rule("face")])).remove(0);
+        assert_eq!(evaluated.status, status, "{quantity}: {evaluated:?}");
+        assert!(evaluated.excess.is_some(), "{quantity}: {evaluated:?}");
+    }
+
+    // A limit on each member judges each against the excess.
+    let (a, b) = (id("A"), id("B"));
+    let positions = [
+        position(&a, "150", None, None),
+        position(&b, "90", None, None),
+    ];
+    let each = json!([{"limit_id":"each","measure":{"kind":"face","instrument":"each"},"upper":"100",
+        "excess":{"upper":"200","expires_at":"2026-11-09T13:00:00Z","reason":"mandate"}}]);
+    let within = evaluate(&usd(&positions), each.clone()).remove(0);
+    assert_eq!(within.status, LimitStatus::Within, "{within:?}");
+    assert_eq!(within.member.as_deref(), Some("A"));
+    let expired = evaluate_limits(
+        &usd(&positions),
+        &limits(each),
+        stamp("2026-11-09T13:00:00Z"),
+    )
+    .unwrap()
+    .remove(0);
+    assert_eq!(expired.status, LimitStatus::Breach, "{expired:?}");
+    assert_eq!(expired.member.as_deref(), Some("A"));
+
+    // A market limit with no result is unknown, and the excess is still in force.
+    let positions = [position(&a, "150", None, None)];
+    let unknown = evaluate(
+        &usd(&positions),
+        json!([{"limit_id":"net","measure":{"kind":"market_value"},"upper":"100",
+                "excess":{"upper":"200","expires_at":"2026-11-09T13:00:00Z","reason":"mandate"}}]),
+    )
+    .remove(0);
+    assert_eq!(unknown.status, LimitStatus::Unknown, "{unknown:?}");
+    assert!(unknown.excess.is_some(), "{unknown:?}");
 }

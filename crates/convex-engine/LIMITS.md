@@ -26,6 +26,9 @@ Each limit has these parts:
 - **An optional warning fraction**, strictly between 0 and 1. It applies only to bounds
   that face away from zero: an upper bound above 0, or a lower bound below 0. The band
   runs from the fraction of the bound to the bound.
+- **An optional temporary excess** (`excess`): a wider lower bound, a wider upper bound or
+  both, an `expires_at` and a `reason` of 1 to 1,024 bytes. Each bound it names widens one
+  the limit has, strictly and on its own side.
 
 Validation refuses anything else with a fixed reason, and infers no default.
 
@@ -70,6 +73,13 @@ rounded, half to even, and neither keeps trailing zeros:
 - `utilisation` is the value over each bound that faces away from zero, taking the
   larger. It is rounded at Decimal precision, then to eight places. It is for display.
 
+**A temporary excess** applies strictly before its `expires_at`, which
+`evaluate_limits` compares with the time it is given and reads from no clock. While it
+applies, the limit is judged against the excess bounds, with its warning band and utilisation
+on them, and a side the excess does not name keeps the limit's own bound. The evaluation
+reports `excess`, with the limit's own bounds, the expiry and the reason, whatever the
+status. From its expiry the limit is judged against its own bounds again.
+
 **A limit on each member** judges the largest and the smallest member and keeps the
 worse of the two. Severity decides first (`within` < `warning` < `unknown` < `breach`),
 then utilisation, then the earlier member. `member` names the one kept. A limit on each
@@ -111,13 +121,15 @@ positions, or an instrument held twice.
 
 ## Cost
 
-`limit_benchmarks` (`ci` profile, WSL2, 2026-11-03) measures a book at the bounds:
-1,000 positions, a third of them short, against 64 limits over every measure.
+`limit_benchmarks` (`ci` profile, WSL2) measures a book at the bounds: 1,000 positions, a
+third of them short, against 64 limits over every measure.
 
 | Case | Time |
 |---|---:|
-| `limits/evaluate`, 64 limits | 5.26 ms |
-| `limits/market_value`, one limit: admitting the market values | 0.88 ms |
+| `limits/evaluate`, 64 limits (2026-11-03, before the G48 arithmetic change) | 5.26 ms |
+| `limits/market_value`, one limit: admitting the market values (2026-11-03) | 0.88 ms |
+| `limits/evaluate`, 64 limits (2026-11-09) | 3.40–3.49 ms |
+| `limits/evaluate_excess`, 64 limits, each with an excess in force (2026-11-09) | 3.43–3.46 ms |
 
 Most of the cost is exact `BoundedDecimal` arithmetic. Key-rate DV01 at ten tenors takes
 about 3 ms, and DV01 with CS01 about 1 ms.

@@ -114,9 +114,24 @@ the changes that matter when you upgrade.
   under `.../acknowledgements`. New codes: 409 `LIMIT_NOT_ACKNOWLEDGEABLE`,
   404 `LIMIT_NOT_FOUND` and `LIMIT_ACKNOWLEDGEMENT_NOT_FOUND`, 422
   `LIMIT_RECORD_MISMATCH`.
+- **A limit can carry a temporary excess.** `excess` on a limit in a set gives wider
+  bounds until an expiry at most thirty days after the proposal, with a reason, through
+  the set's two-subject proposal. Until it expires the limit is judged against the excess
+  bounds, and status, the pre-trade check, records and `limit_status` messages show them
+  as `lower` and `upper`, with `excess` naming the limit's own bounds and the expiry. Its
+  approval and its expiry are recorded status changes, and the monitor wakes for an expiry
+  with no tick or commit. New code: 409 `LIMIT_EXCESS_EXPIRED`.
+
+### convex-engine
+
+- **Breaking:** `limits::evaluate_limits` takes the time of the evaluation, which decides
+  whether a temporary excess applies. It still reads no clock.
 
 ### convex-ports
 
+- **Breaking:** `LimitDefinition` gains `excess` (`LimitExcess`) and `LimitEvaluation`
+  gains `excess` (`ExcessApplied`), so a struct literal of either needs the new field.
+  Both are optional on the wire, and stored sets read as before.
 - `AuditStore::entity_page(entity_type, entity_id, after, limit)` returns up to
   1,000 of one entity's entries after a cursor, and whether there are more. It
   has a default that scans through `query`, so existing stores still compile.

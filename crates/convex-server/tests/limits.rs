@@ -3267,3 +3267,236 @@ async fn a_recorded_change_carries_the_acknowledgement_in_force() {
     server.stop.send(()).unwrap();
     server.serving.await.unwrap().unwrap();
 }
+
+// =============================================================================
+// TEMPORARY EXCESS (P15d)
+// =============================================================================
+
+/// `limit` with an upper-bound excess expiring at `expires_at`.
+fn excess(mut limit: Value, upper: &str, expires_at: &str) -> Value {
+    limit["excess"] = json!({"upper": upper, "expires_at": expires_at, "reason": "mandate change"});
+    limit
+}
+
+/// Wait until the wall clock is `margin` past `expires_at`: expiry is judged on it, and
+/// under WSL2 it steps back by over 2 s (see the acknowledgement expiry test).
+async fn wait_past(expires_at: &str, margin: i64) {
+    let expires_at: chrono::DateTime<chrono::Utc> = expires_at.parse().unwrap();
+    while chrono::Utc::now() < expires_at + chrono::Duration::seconds(margin) {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+}
+
+/// PUT `body` as BOOK-A's limits over `base`.
+async fn put_limits(
+    router: &Router,
+    token: Option<&str>,
+    key: &str,
+    base: Option<&str>,
+    body: Value,
+) -> (StatusCode, Value) {
+    let (code, _, response) = call(
+        router,
+        "PUT",
+        "/api/v1/books/BOOK-A/limits",
+        token,
+        Some(key),
+        base,
+        Some(body),
+    )
+    .await;
+    (code, response)
+}
+
+/// P15d (D96): an excess goes through the two-subject proposal. The proposal refuses one
+/// that does not widen, has expired or runs past thirty days; approval refuses one that has
+/// expired by then, and leaves the set as it was.
+#[tokio::test]
+async fn an_excess_is_proposed_and_approved_within_its_window() {
+    let (_issuer, _setup, router) = two_subjects().await;
+    let base = || face("net", None, Some("500000"), None);
+    approved(&router, "first", None, set(vec![base()])).await;
+
+    for (key, proposed) in [
+        ("narrower", excess(base(), "400000", &in_seconds(3600))),
+        ("expired", excess(base(), "2000000", &in_seconds(-60))),
+        (
+            "too-long",
+            excess(base(), "2000000", &in_seconds(30 * 24 * 3600 + 60)),
+        ),
+    ] {
+        let (code, response) =
+            put_limits(&router, Some(RISK_A), key, Some("1"), set(vec![proposed])).await;
+        assert_eq!(code, StatusCode::BAD_REQUEST, "{key}: {response}");
+    }
+
+    let thirty = in_seconds(29 * 24 * 3600);
+    let long = set(vec![excess(base(), "2000000", &thirty)]);
+    let (code, response) = put_limits(&router, Some(RISK_A), "long", Some("1"), long).await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{response}");
+
+    // One person cannot approve their own excess.
+    let version = response["version"].to_string();
+    let (code, _, refused) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BOOK-A/limits/proposal/approve",
+        Some(RISK_A),
+        Some("self"),
+        Some(&version),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{refused}");
+    assert_eq!(refused["code"], "LIMIT_SELF_APPROVAL");
+
+    // Expired between the proposal and its approval: refused, and the set is unchanged.
+    let soon = in_seconds(5);
+    let body = set(vec![excess(base(), "2000000", &soon)]);
+    let (code, proposal) =
+        put_limits(&router, Some(RISK_A), "short", Some("1"), body.clone()).await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{proposal}");
+    wait_past(&soon, 3).await;
+    let version = proposal["version"].to_string();
+    let (code, _, refused) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BOOK-A/limits/proposal/approve",
+        Some(RISK_B),
+        Some("late"),
+        Some(&version),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT, "{refused}");
+    assert_eq!(refused["code"], "LIMIT_EXCESS_EXPIRED");
+    let (code, current) = read(&router, Some(RISK_A), "/api/v1/books/BOOK-A/limits").await;
+    assert_eq!(code, StatusCode::OK, "{current}");
+    assert_eq!(current["version"], 1);
+
+    // An exact retry of the proposal returns what it wrote, though the excess has expired.
+    let (code, retried) = put_limits(&router, Some(RISK_A), "short", Some("1"), body).await;
+    assert_eq!((code, &retried), (StatusCode::ACCEPTED, &proposal));
+
+    // Approved in time: the set holds it, and status judges against it.
+    let later = in_seconds(3600);
+    approved(
+        &router,
+        "granted",
+        Some("1"),
+        set(vec![excess(base(), "2000000", &later)]),
+    )
+    .await;
+    let current = by_id(&status(&router, Some(RISK_A), "BOOK-A").await);
+    assert_eq!(current["net"]["status"], "within", "{}", current["net"]);
+    assert_eq!(current["net"]["upper"], "2000000");
+    assert_eq!(current["net"]["excess"]["base_upper"], "500000");
+    assert_eq!(current["net"]["excess"]["expires_at"], json!(later));
+    assert_eq!(current["net"]["excess"]["reason"], "mandate change");
+}
+
+/// P15d (D96): on request, an excess applies exactly while the response's `evaluated_at` is
+/// before its expiry, whichever way the clock moves. Granting one ends the limit's
+/// acknowledgement; an expired one carried forward unchanged is inert and refuses nothing,
+/// and changing it to one already expired is refused.
+#[tokio::test]
+async fn an_excess_applies_until_its_expiry_and_an_expired_one_can_be_carried_forward() {
+    let (_setup, router) = router(AccessControl::local_development()).await;
+    put_book(
+        &router,
+        None,
+        "BOOK-A",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    let breached = || face("granted", None, Some("500000"), None);
+    let other = |upper: &str| face("other", None, Some(upper), None);
+    commit_limits(
+        &router,
+        "BOOK-A",
+        "first",
+        set(vec![breached(), other("500000")]),
+    )
+    .await;
+    for (key, limit_id) in [("ack-granted", "granted"), ("ack-other", "other")] {
+        let body = acknowledgement(limit_id, 3600, "seen");
+        let (code, _, made) = acknowledge(&router, None, "BOOK-A", key, &body).await;
+        assert_eq!(code, StatusCode::CREATED, "{limit_id}: {made}");
+    }
+
+    // Granting the excess changes the limit's definition, so it ends its acknowledgement.
+    let expires_at = in_seconds(5);
+    let granted = excess(breached(), "2000000", &expires_at);
+    let (code, response) = put_limits(
+        &router,
+        None,
+        "grant",
+        Some("1"),
+        set(vec![granted.clone(), other("500000")]),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{response}");
+    let current = by_id(&status(&router, None, "BOOK-A").await);
+    assert!(current["granted"].get("acknowledgement").is_none());
+    assert!(current["other"]["acknowledgement"].is_object());
+
+    // Every response across the expiry: the excess and the time it was read at agree.
+    let expiry: chrono::DateTime<chrono::Utc> = expires_at.parse().unwrap();
+    let (mut applied, mut expired) = (0, 0);
+    while expired < 5 {
+        let view = status(&router, None, "BOOK-A").await;
+        let evaluated_at: chrono::DateTime<chrono::Utc> =
+            view["evaluated_at"].as_str().unwrap().parse().unwrap();
+        let item = by_id(&view).remove("granted").unwrap();
+        if evaluated_at < expiry {
+            applied += 1;
+            assert_eq!(item["status"], "within", "{item}");
+            assert_eq!(item["upper"], "2000000", "{item}");
+            assert_eq!(item["excess"]["base_upper"], "500000", "{item}");
+        } else {
+            expired += 1;
+            assert_eq!(item["status"], "breach", "{item}");
+            assert_eq!(item["upper"], "500000", "{item}");
+            assert!(item.get("excess").is_none(), "{item}");
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert!(applied > 0, "no response read the excess before its expiry");
+
+    // The expired excess stays in the set, inert. A new acknowledgement of the breach is
+    // kept when a later version carries the excess forward and changes another limit.
+    wait_past(&expires_at, 3).await;
+    let (code, held) = read(&router, None, "/api/v1/books/BOOK-A/limits").await;
+    assert_eq!(code, StatusCode::OK, "{held}");
+    assert_eq!(held["limits"][0]["excess"]["expires_at"], json!(expires_at));
+    let body = acknowledgement("granted", 3600, "seen at the limit's own bound");
+    let (code, _, made) = acknowledge(&router, None, "BOOK-A", "ack-again", &body).await;
+    assert_eq!(code, StatusCode::CREATED, "{made}");
+    let (code, response) = put_limits(
+        &router,
+        None,
+        "carry",
+        Some("2"),
+        set(vec![granted, other("600000")]),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{response}");
+    let current = by_id(&status(&router, None, "BOOK-A").await);
+    assert_eq!(current["granted"]["status"], "breach");
+    assert!(current["granted"]["acknowledgement"].is_object());
+    assert!(current["other"].get("acknowledgement").is_none());
+
+    // Changing it to another expired excess is a new one, and is refused.
+    let (code, response) = put_limits(
+        &router,
+        None,
+        "changed",
+        Some("3"),
+        set(vec![
+            excess(breached(), "3000000", &expires_at),
+            other("600000"),
+        ]),
+    )
+    .await;
+    assert_eq!(code, StatusCode::BAD_REQUEST, "{response}");
+}

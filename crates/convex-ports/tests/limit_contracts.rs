@@ -1,10 +1,10 @@
 #![forbid(unsafe_code)]
 //! P14a (D82–D84): the limit types' wire form and their validation.
 
-use convex_core::contracts::InstrumentId;
+use convex_core::contracts::{InstrumentId, UtcTimestamp};
 use convex_ports::limits::{
-    validate_limits, InstrumentList, LimitDefinition, LimitEvaluation, LimitStatus, UnknownReason,
-    MAX_BOOK_LIMITS, MAX_LISTED_INSTRUMENTS,
+    excess_expiry, validate_limits, ExcessApplied, InstrumentList, LimitDefinition,
+    LimitEvaluation, LimitStatus, UnknownReason, MAX_BOOK_LIMITS, MAX_LISTED_INSTRUMENTS,
 };
 use convex_ports::reference_repository::ReferenceError;
 use serde_json::json;
@@ -176,6 +176,7 @@ fn statuses_order_by_severity_and_reasons_list_a_bounded_prefix() {
             measure: "cs01_mid".into(),
             instruments: InstrumentList::collect(&ids[..1]).unwrap(),
         }),
+        excess: None,
     };
     let wire = json!({"limit_id":"cs01","status":"unknown","reason":{"code":"measure_not_computed",
         "measure":"cs01_mid","instruments":{"count":1,"first":["I00"]}}});
@@ -399,4 +400,173 @@ fn acknowledgements_have_their_own_key_and_wire_form_and_bounded_entries() {
     let mut unknown = record;
     unknown["acknowledgements"][0]["status"] = json!("breach");
     assert!(serde_json::from_value::<LimitAcknowledgementsDefinition>(unknown).is_err());
+}
+
+fn stamp(text: &str) -> UtcTimestamp {
+    UtcTimestamp::parse(text).unwrap()
+}
+
+fn with_excess(excess: serde_json::Value) -> serde_json::Value {
+    json!({"limit_id":"net","measure":{"kind":"market_value"},"lower":"-100","upper":"100",
+           "warning_fraction":"0.8","excess":excess})
+}
+
+/// P15d (D96): an excess names a bound, each bound it names widens one the limit has on
+/// that side, and it says why.
+#[test]
+fn an_excess_widens_a_bound_the_limit_has_and_says_why() {
+    const EXPIRY: &str = "2026-12-01T00:00:00Z";
+    for excess in [
+        json!({"upper":"100.01","expires_at":EXPIRY,"reason":"mandate"}),
+        json!({"lower":"-150","expires_at":EXPIRY,"reason":"mandate"}),
+        json!({"lower":"-150","upper":"150","expires_at":EXPIRY,"reason":"line one\nline two"}),
+    ] {
+        limit(with_excess(excess)).validate().unwrap();
+    }
+
+    const WIDENS: &str =
+        "each excess bound widens a bound the limit has: a lower one below it, an upper one above it";
+    const REASON: &str =
+        "an excess's reason is 1 to 1,024 bytes, not blank, without control characters other than line feeds";
+    for (excess, reason) in [
+        (
+            json!({"expires_at":EXPIRY,"reason":"mandate"}),
+            "an excess needs a lower or an upper bound",
+        ),
+        // Equal is not wider, and each side has its own direction.
+        (
+            json!({"upper":"100","expires_at":EXPIRY,"reason":"mandate"}),
+            WIDENS,
+        ),
+        (
+            json!({"lower":"-100","expires_at":EXPIRY,"reason":"mandate"}),
+            WIDENS,
+        ),
+        (
+            json!({"upper":"90","expires_at":EXPIRY,"reason":"mandate"}),
+            WIDENS,
+        ),
+        (
+            json!({"lower":"-90","expires_at":EXPIRY,"reason":"mandate"}),
+            WIDENS,
+        ),
+        (
+            json!({"lower":"-150","upper":"90","expires_at":EXPIRY,"reason":"mandate"}),
+            WIDENS,
+        ),
+        (
+            json!({"upper":"150","expires_at":EXPIRY,"reason":"  "}),
+            REASON,
+        ),
+        (
+            json!({"upper":"150","expires_at":EXPIRY,"reason":"a\tb"}),
+            REASON,
+        ),
+        (
+            json!({"upper":"150","expires_at":EXPIRY,"reason":"x".repeat(1025)}),
+            REASON,
+        ),
+    ] {
+        assert_eq!(refused(with_excess(excess.clone())), reason, "{excess}");
+    }
+    assert!(limit(with_excess(
+        json!({"upper":"150","expires_at":EXPIRY,"reason":"x".repeat(1024)})
+    ))
+    .validate()
+    .is_ok());
+
+    // A side the limit does not bound has nothing to widen.
+    assert_eq!(
+        refused(
+            json!({"limit_id":"net","measure":{"kind":"market_value"},"upper":"100",
+                       "excess":{"lower":"-150","expires_at":EXPIRY,"reason":"mandate"}})
+        ),
+        WIDENS
+    );
+
+    // An excess outside a set's limits is refused with them.
+    let mut limits = vec![limit(with_excess(
+        json!({"upper":"100","expires_at":EXPIRY,"reason":"mandate"}),
+    ))];
+    assert!(validate_limits(&limits).is_err());
+    limits[0].excess = None;
+    assert!(validate_limits(&limits).is_ok());
+
+    // Without one the wire form does not change, and an unknown field is refused.
+    let plain = limit(json!({"limit_id":"net","measure":{"kind":"market_value"},"upper":"100"}));
+    assert!(serde_json::to_value(&plain)
+        .unwrap()
+        .get("excess")
+        .is_none());
+    assert!(serde_json::from_value::<LimitDefinition>(with_excess(
+        json!({"upper":"150","expires_at":EXPIRY,"reason":"mandate","approved":true})
+    ))
+    .is_err());
+}
+
+/// P15d (D96): an expiry is after the proposal and at most thirty days after it, and an
+/// excess applies strictly before its expiry.
+#[test]
+fn an_excess_runs_at_most_thirty_days_and_applies_strictly_before_its_expiry() {
+    let proposed = stamp("2026-11-01T00:00:00Z");
+    for good in ["2026-11-01T00:00:00.000001Z", "2026-12-01T00:00:00Z"] {
+        excess_expiry(proposed, stamp(good)).unwrap();
+    }
+    for bad in [
+        "2026-11-01T00:00:00Z",
+        "2026-10-31T23:59:59.999999Z",
+        "2026-12-01T00:00:00.000001Z",
+    ] {
+        assert!(excess_expiry(proposed, stamp(bad)).is_err(), "{bad}");
+    }
+
+    let definition = limit(with_excess(
+        json!({"upper":"150","expires_at":"2026-11-09T12:00:00Z",
+                                              "reason":"mandate"}),
+    ));
+    assert!(definition
+        .excess_at(stamp("2026-11-09T11:59:59.999999Z"))
+        .is_some());
+    assert!(definition
+        .excess_at(stamp("2026-11-09T12:00:00Z"))
+        .is_none());
+    assert!(definition
+        .excess_at(stamp("2026-11-09T12:00:00.000001Z"))
+        .is_none());
+
+    // The bounds judged are the excess's only where the evaluation applied it, and a side
+    // it does not name stays the limit's own.
+    let mut evaluation = LimitEvaluation {
+        limit_id: definition.limit_id.clone(),
+        status: LimitStatus::Within,
+        value: None,
+        member: None,
+        utilisation: None,
+        reason: None,
+        excess: None,
+    };
+    let bounds = |evaluation: &LimitEvaluation| {
+        let (lower, upper) = definition.judged_bounds(evaluation);
+        (
+            lower.unwrap().decimal().to_string(),
+            upper.unwrap().decimal().to_string(),
+        )
+    };
+    assert_eq!(bounds(&evaluation), ("-100".into(), "100".into()));
+    evaluation.excess = Some(ExcessApplied {
+        base_lower: definition.lower,
+        base_upper: definition.upper,
+        expires_at: stamp("2026-11-09T12:00:00Z"),
+        reason: "mandate".into(),
+    });
+    assert_eq!(bounds(&evaluation), ("-100".into(), "150".into()));
+    let wire = serde_json::to_value(&evaluation).unwrap();
+    assert_eq!(
+        wire["excess"],
+        json!({"base_lower":"-100","base_upper":"100","expires_at":"2026-11-09T12:00:00Z","reason":"mandate"})
+    );
+    assert_eq!(
+        serde_json::from_value::<LimitEvaluation>(wire).unwrap(),
+        evaluation
+    );
 }

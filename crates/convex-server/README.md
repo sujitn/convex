@@ -534,6 +534,7 @@ so a change commits in one step, recorded as `local-development`.
 | 409 `VERSION_CONFLICT` | `If-Match` does not name the current set (on `PUT`) or the current proposal (on approve or withdraw), or the key was used with another body |
 | 409 `LIMIT_PROPOSAL_CLOSED` | The proposal was already approved or withdrawn |
 | 409 `LIMIT_SET_CHANGED` | The set moved after the proposal was made |
+| 409 `LIMIT_EXCESS_EXPIRED` | An excess the proposal adds or changes has expired by its approval |
 | 409 `LIMITED_BOOKS_EXCEEDED` | 64 other books already hold a non-empty set (the monitor's bound, D87); an empty set takes no place |
 | 403 `LIMITS_ROUTE_REQUIRED` | A reference transaction or import names a limit set, proposal or acknowledgements, or a commit receipt read holds one: only these routes write and read them |
 | 404 `LIMIT_NOT_FOUND` | An acknowledgement names a limit the current set does not hold |
@@ -545,9 +546,11 @@ so a change commits in one step, recorded as `local-development`.
 | 422 `BOOK_ROWS_REJECTED` | A pre-trade check row cannot be applied; `rows` names each one, as for a snapshot `PUT` |
 
 Status names the book and set versions, the time and the snapshots whose results it read.
-Each item carries the limit's measure and bounds beside its `status`, `value`, `member`,
-`utilisation` and, when `unknown`, its `reason`; a `breach` or `unknown` item also carries
-the [acknowledgement](#acknowledgements) in force for it, if there is one. It reads accepted runtime results as
+Each item carries the limit's measure and the bounds it was judged against beside its
+`status`, `value`, `member`, `utilisation` and, when `unknown`, its `reason`; a `breach` or
+`unknown` item also carries the [acknowledgement](#acknowledgements) in force for it, if
+there is one, and a limit with a [temporary excess](#temporary-excess) in force carries it
+as `excess`. It reads accepted runtime results as
 analytics by book do, but a missing input never refuses the request: a position without an
 accepted result, or with one that cannot be read as an analyzer quote, makes each limit that
 reads market data `unknown`, and a `face` limit still evaluates. With the configured
@@ -563,6 +566,7 @@ While the server serves, a monitor watches every book with a non-empty limit set
 64). It evaluates them as status does, on its own thread, off the tick path:
 - after each published tick, every watched book that holds a revalued instrument;
 - when a watched book, or any book's limit set, commits;
+- when a [temporary excess](#temporary-excess) on a watched limit expires;
 - every watched book once, on the latest results, when it falls behind either stream. It
   never queues.
 
@@ -574,8 +578,9 @@ records nothing. Each entry has `event_type` `limit_status`, `entity_type` `book
 id as `entity_id`, the new status as `action`, Unix milliseconds as `timestamp`, and the
 message's JSON as `details`. The message carries `record_id` (the entry's id), the book and
 set versions, `evaluated_at`, `previous` (the last recorded status, or `unevaluated`), the
-limit's measure and bounds, its evaluation (`limit_id`, `status`, `value`, `member`,
-`utilisation`, `reason`), the snapshot ids read and `monitor_started_at`, and for a `breach`
+limit's measure and the bounds it was judged against, its evaluation (`limit_id`, `status`,
+`value`, `member`, `utilisation`, `reason`, `excess`), the snapshot ids read and
+`monitor_started_at`, and for a `breach`
 or `unknown` change the [acknowledgement](#acknowledgements) in force when it was
 evaluated. A failed write
 records none of the book's changes and keeps their last recorded statuses, so a later
@@ -690,6 +695,41 @@ With 64 limits over every measure on a 256-position priced book, each in breach 
 acknowledged with a 1,024-byte note, status took 3.79 ms per request against 3.70 ms for
 the same positions with none acknowledged, in the same rounds (median, `ci` profile, WSL2
 loopback). The response grew from 15 KB to 91 KB.
+
+#### Temporary excess
+
+A limit may carry an excess: wider bounds until an expiry, with a reason.
+
+```json
+{"limit_id":"dv01","measure":{"kind":"dv01"},"lower":"-50000","upper":"50000",
+ "excess":{"upper":"65000","expires_at":"2026-12-01T00:00:00Z","reason":"index rebalance"}}
+```
+
+It is part of the limit, so it is changed through the set's proposal and takes two subjects,
+as widening a limit should.
+
+- Each bound it names widens one the limit has, strictly and on its own side.
+- An excess the proposal adds or changes must expire after the proposal and at most thirty
+  days after it, or the proposal is refused (400). If it has expired by the approval, the
+  approval is refused (409 `LIMIT_EXCESS_EXPIRED`).
+- An excess carried forward exactly as the current set holds it is not checked, even if it
+  has expired, because a set is replaced whole and a change to one limit carries the others.
+- Approving one changes the limit's definition, so it ends the limit's
+  [acknowledgement](#acknowledgements). Its expiry does not.
+
+Strictly before its expiry, the limit is judged against the excess bounds, with its warning
+band on them. A bound the excess does not name stays the limit's own. Status, the pre-trade
+check, records and `limit_status` messages then show the bounds judged as `lower` and
+`upper`, so they always sit beside the value they were compared with, and carry `excess`:
+`base_lower`, `base_upper` (the limit's own bounds), `expires_at` and `reason`. From its
+expiry the limit is judged against its own bounds and carries no `excess`. An expired excess
+stays in the set, inert, until a later version removes it.
+
+The status stays one of the four. Approving an excess on a breached limit is a status change
+(`breach` to `within` or `warning`), recorded and published with the excess as evidence, and
+its expiry is the change back: the monitor wakes for it, with no tick or commit. A wall clock
+that steps back would otherwise apply an expired excess again, so the monitor treats one it
+has seen expire as expired for the rest of its run.
 
 #### The pre-trade check
 
