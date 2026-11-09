@@ -15,7 +15,7 @@
 
 
   <CustomUI>
-    <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" loadImage="LoadImage">
+    <customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" loadImage="LoadImage" onLoad="OnRibbonLoad">
       <ribbon>
         <tabs>
           <tab id="ConvexTab" label="Convex">
@@ -30,6 +30,12 @@
             </group>
             <group id="ScenariosGroup" label="Scenarios">
               <button id="btnScenario"     label="Run Scenario"   size="large" image="bootstrap"   onAction="OnScenario"      screentip="Parallel shift, twist, and key-rate durations." />
+            </group>
+            <group id="ServerGroup" label="Server">
+              <button id="btnServerStatus" getLabel="GetServerLabel" getScreentip="GetServerTip" size="large" image="objects" onAction="OnServerStatus" />
+              <button id="btnSignIn"       label="Sign in"        size="normal" image="about"   getEnabled="GetSignInEnabled"  onAction="OnSignIn"  screentip="Sign in to the Convex server in your browser (single sign-on)." />
+              <button id="btnSignOut"      label="Sign out"       size="normal" image="about"   getEnabled="GetSignOutEnabled" onAction="OnSignOut" screentip="Forget the sign-in; live server cells keep their last values, marked Stale." />
+              <button id="btnServer"       label="Server"         size="normal" image="about"   onAction="OnServerSettings" screentip="Server URL and how to sign in." />
             </group>
             <group id="ToolsGroup" label="Tools">
               <button id="btnObjects"      label="Objects"        size="large" image="objects"  onAction="OnObjectBrowser" screentip="Browse, paste, describe, or release registered handles." />

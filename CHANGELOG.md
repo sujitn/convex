@@ -25,6 +25,26 @@ the changes that matter when you upgrade.
 - Excel-DNA 1.9.0 (was 1.7.0), still on .NET Framework 4.7.2, 64-bit only.
 - `CX.DIAG()` reports live topics, recomputes, pushes and the last drain
   time.
+- **Live cells from a Convex server.** `CX.LIVE(identifier, measure,
+  [field])` follows the server's published result for an instrument over one
+  WebSocket per Excel process, and updates when the server publishes.
+  - Fields: `value`, `quality`, `status`, `revision`, `calculated_at`,
+    `snapshot_id`, `configuration_version`.
+  - On disconnect values stay with quality `Stale`, and the add-in
+    reconnects and resubscribes by itself.
+  - A CUSIP or ISIN is looked up through `POST /api/v1/reference/resolve`;
+    any other identifier is the server's instrument id.
+  - `#N/A` with a `CX.LASTERROR` reason when there is nothing to show,
+    including `FORBIDDEN`, `RESULT_TOO_LARGE` and the 256-instrument session
+    limit.
+- `CX.LIVE.GRID` (cached measures of a followed instrument), `CX.SNAP` (one
+  read) and `CX.STATUS` (connection, user, runtime, last message, counts,
+  calculation mode).
+- Sign-in: single sign-on (OIDC authorization code with PKCE over a loopback
+  redirect, renewed at 80% of the token's lifetime without a gap in values),
+  a pasted token for development, or none for a local development server.
+  Ribbon **Server** group: connection status, Sign in, Sign out and the
+  server settings (`%APPDATA%\Convex\server.json`; tokens are never saved).
 
 ### convex-ffi
 

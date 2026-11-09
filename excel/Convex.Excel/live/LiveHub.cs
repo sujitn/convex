@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Convex.Excel.Server;
 using ExcelDna.Integration;
 using Newtonsoft.Json.Linq;
 
@@ -60,8 +61,10 @@ namespace Convex.Excel.Live
     /// The topic hub behind every live cell. It owns the topics, keeps each
     /// one's last value, and pushes a value to Excel only when it changed (the
     /// value cutoff). Local topics are recomputed only when the FFI change log
-    /// names a bond or curve reference they read. Excel's own calc chain then
-    /// recalculates the formulas downstream of the cells that changed.
+    /// names a bond or curve reference they read. Server topics (ServerCells)
+    /// change when the server stream brings their instrument's result. Excel's
+    /// own calc chain then recalculates the formulas downstream of the cells
+    /// that changed. Local and server topics share the topic ceiling.
     ///
     /// Pure C#: the Excel-DNA RTD server (ConvexRtdServer) is a thin adapter,
     /// so this class is tested headlessly.
@@ -80,7 +83,8 @@ namespace Convex.Excel.Live
             Cx.ChangesSince,
             work => ThreadPool.QueueUserWorkItem(_ => work()),
             Math.Max(1, Math.Min(4, Environment.ProcessorCount / 2)),
-            startPoll: true);
+            startPoll: true,
+            server: ServerLink.Cells);
 
         private sealed class Topic
         {
@@ -108,6 +112,7 @@ namespace Convex.Excel.Live
         private readonly Action<Action> _schedule;
         private readonly int _parallelism;
         private readonly bool _startPoll;
+        private readonly ServerCells? _server;
 
         private readonly object _lock = new();
         private readonly Dictionary<int, Topic> _byId = new();
@@ -115,6 +120,8 @@ namespace Convex.Excel.Live
         private readonly Dictionary<string, HashSet<Topic>> _byName = new(StringComparer.Ordinal);
         private readonly Dictionary<ulong, HashSet<Topic>> _byHandle = new();
         private readonly HashSet<Topic> _retry = new();
+        // Topic ids Excel connected to a server topic.
+        private readonly HashSet<int> _serverIds = new();
         // Errors for topic strings that never became a topic (bad spec, limit).
         private readonly Dictionary<string, Exception> _refused = new(StringComparer.Ordinal);
         private ulong _cursor;
@@ -135,7 +142,8 @@ namespace Convex.Excel.Live
             Func<ulong, ChangeSet> changesSince,
             Action<Action> schedule,
             int parallelism,
-            bool startPoll)
+            bool startPoll,
+            ServerCells? server = null)
         {
             _compute = compute;
             _generation = generation;
@@ -143,17 +151,18 @@ namespace Convex.Excel.Live
             _schedule = schedule;
             _parallelism = parallelism;
             _startPoll = startPoll;
+            _server = server;
         }
 
         public int TopicCount
         {
-            get { lock (_lock) return _byId.Count; }
+            get { lock (_lock) return _byId.Count + _serverIds.Count; }
         }
 
         public LiveStats Stats()
         {
             lock (_lock)
-                return new LiveStats(_byId.Count, Interlocked.Read(ref _computes),
+                return new LiveStats(_byId.Count + _serverIds.Count, Interlocked.Read(ref _computes),
                     Interlocked.Read(ref _pushes), Interlocked.Read(ref _drains),
                     Interlocked.Read(ref _lastDrainTicks) * 1000.0 / Stopwatch.Frequency);
         }
@@ -165,6 +174,7 @@ namespace Convex.Excel.Live
         public object Connect(int topicId, IList<string> topicInfo, ITopicSink sink)
         {
             string key = LocalSpec.KeyOf(topicInfo);
+            if (_server != null && ServerCells.Owns(topicInfo)) return ConnectServer(topicId, topicInfo, sink, key);
             LocalSpec spec;
             try
             {
@@ -178,12 +188,7 @@ namespace Convex.Excel.Live
             var topic = new Topic(topicId, key, spec, sink);
             lock (_lock)
             {
-                if (_byId.Count >= MaxTopics)
-                    return Refuse(key, new ConvexException(
-                        "live topic limit reached (" +
-                        MaxTopics.ToString("N0", CultureInfo.InvariantCulture) +
-                        " distinct live cells); " +
-                        "use the static CX functions for the rest"));
+                if (_byId.Count + _serverIds.Count >= MaxTopics) return Refuse(key, TopicLimit());
                 if (!_haveCursor)
                 {
                     _cursor = _generation();
@@ -202,9 +207,40 @@ namespace Convex.Excel.Live
             lock (topic.Gate) return topic.Value ?? ExcelError.ExcelErrorNA;
         }
 
+        private object ConnectServer(int topicId, IList<string> topicInfo, ITopicSink sink, string key)
+        {
+            lock (_lock)
+            {
+                if (_byId.Count + _serverIds.Count >= MaxTopics) return Refuse(key, TopicLimit());
+                _serverIds.Add(topicId);
+            }
+            try
+            {
+                var value = _server!.Connect(topicId, topicInfo, sink);
+                lock (_lock) _refused.Remove(key);
+                return value;
+            }
+            catch (Exception ex)
+            {
+                lock (_lock) _serverIds.Remove(topicId);
+                return Refuse(key, ex);
+            }
+        }
+
+        private static ConvexException TopicLimit() => new(
+            "live topic limit reached (" + MaxTopics.ToString("N0", CultureInfo.InvariantCulture) +
+            " distinct live cells); use the static CX functions for the rest");
+
         public void Disconnect(int topicId)
         {
             Timer? stop = null;
+            bool server;
+            lock (_lock) server = _serverIds.Remove(topicId);
+            if (server)
+            {
+                _server!.Disconnect(topicId);
+                return;
+            }
             lock (_lock)
             {
                 if (!_byId.TryGetValue(topicId, out var topic)) return;
@@ -237,8 +273,9 @@ namespace Convex.Excel.Live
                         return error != null;
                     }
                 }
-                return _refused.TryGetValue(key, out error!);
+                if (_refused.TryGetValue(key, out error!)) return true;
             }
+            return _server != null && _server.TryGetError(key, out error);
         }
 
         /// Ask for a drain of the change log. Single-flight: a request during a

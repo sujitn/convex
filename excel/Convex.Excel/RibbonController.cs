@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Convex.Excel.Forms;
 using Convex.Excel.Helpers;
+using Convex.Excel.Server;
+using LinkState = Convex.Excel.Server.LinkState;
 using ExcelDna.Integration;
 using ExcelDna.Integration.CustomUI;
 
@@ -28,6 +32,96 @@ namespace Convex.Excel
         public void OnNewCurve(IRibbonControl _) => Show(() => new CurveBuilderForm());
         public void OnSchemaBrowser(IRibbonControl _) => Show(() => new SchemaBrowserForm());
         public void OnSettings(IRibbonControl _) => Show(() => new SettingsForm());
+
+        // ---- Server link: an indicator that follows the connection, and sign-in.
+        private static IRibbonUI? _ribbon;
+
+        public void OnRibbonLoad(IRibbonUI ribbon)
+        {
+            _ribbon = ribbon;
+            ServerLink.Changed += () =>
+            {
+                // Ribbon calls belong on Excel's main thread.
+                try { ExcelAsyncUtil.QueueAsMacro(() => _ribbon?.Invalidate()); }
+                catch { /* Excel is closing */ }
+            };
+        }
+
+        public string GetServerLabel(IRibbonControl _) => ServerLink.Source.Status().Link switch
+        {
+            LinkState.Connected => "Connected",
+            LinkState.Connecting => "Connecting",
+            LinkState.Reconnecting => "Reconnecting",
+            LinkState.SignedOut => "Signed out",
+            _ => "No server",
+        };
+
+        public string GetServerTip(IRibbonControl _)
+        {
+            var s = ServerLink.Source.Status();
+            return s.Connection + (s.Server.Length > 0 ? "\n" + s.Server : "") + "\n" + s.User + "\nCalculation: " + CalculationMode();
+        }
+
+        public bool GetSignInEnabled(IRibbonControl _) => ServerLink.CanSignIn;
+        public bool GetSignOutEnabled(IRibbonControl _) => ServerLink.CanSignOut;
+
+        public void OnServerSettings(IRibbonControl _) => Show(() => new ServerSettingsForm());
+
+        public void OnServerStatus(IRibbonControl _)
+        {
+            var s = ServerLink.Source.Status();
+            var text =
+                "Connection: " + s.Connection +
+                "\nServer: " + (s.Server.Length > 0 ? s.Server : "(none)") +
+                "\nUser: " + s.User +
+                "\nRuntime: " + (s.Runtime ?? "(none yet)") +
+                "\nSession: " + (s.SessionId ?? "(none)") +
+                "\nInstruments followed: " + s.Instruments +
+                "\nLast message: " + (s.LastMessageUtc?.ToLocalTime().ToString("T") ?? "(none)") +
+                (s.Problem != null ? "\nLast server error: " + s.Problem : "") +
+                "\nCalculation: " + CalculationMode() +
+                "\n\nLive cells update by themselves only under Automatic calculation." +
+                "\n\nReconnect now? (Refused instruments are tried again.)";
+            if (MessageBox.Show(text, "Convex server", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                ServerLink.Source.Reconnect();
+        }
+
+        public void OnSignIn(IRibbonControl _)
+        {
+            SheetHelpers.Status("Convex: sign in in your browser…");
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await ServerLink.SignInAsync(CancellationToken.None).ConfigureAwait(false);
+                    ExcelAsyncUtil.QueueAsMacro(() => SheetHelpers.Status("Convex: signed in"));
+                }
+                catch (Exception ex)
+                {
+                    ExcelAsyncUtil.QueueAsMacro(() =>
+                    {
+                        SheetHelpers.Status("");
+                        MessageBox.Show("Sign-in failed: " + ex.Message, "Convex",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    });
+                }
+            });
+        }
+
+        public void OnSignOut(IRibbonControl _) => ServerLink.SignOut();
+
+        private static string CalculationMode()
+        {
+            try
+            {
+                int mode = (int)((dynamic)ExcelDnaUtil.Application).Calculation;
+                return mode == -4105 ? "Automatic" : mode == -4135 ? "Manual" : "Automatic except tables";
+            }
+            catch
+            {
+                return "unknown";
+            }
+        }
 
         public void OnClearAll(IRibbonControl _)
         {

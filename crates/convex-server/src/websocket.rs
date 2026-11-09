@@ -877,14 +877,14 @@ mod tests {
         assert_eq!(sent["type"], "error");
         assert_eq!(sent["code"], "RESULT_TOO_LARGE");
         let message = sent["message"].as_str().unwrap();
-        for part in [
-            "BOND-001",
-            "runtime-1",
-            "revision 7",
-            "/api/v1/runtime/results",
-        ] {
-            assert!(message.contains(part), "{message}");
-        }
+        // The Excel add-in reads the instrument, runtime and revision from this
+        // opening (excel/Convex.Excel/server/ServerWire.cs `TooLarge`).
+        assert!(
+            message
+                .starts_with("The result of instrument BOND-001 (runtime runtime-1, revision 7) "),
+            "{message}"
+        );
+        assert!(message.contains("/api/v1/runtime/results"), "{message}");
 
         let demo: serde_json::Value =
             serde_json::from_str(&encode(&large, ServerProfile::Demo).unwrap()).unwrap();
