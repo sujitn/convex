@@ -186,6 +186,9 @@ namespace Convex.Excel.Server
         /// changes every cell's quality) or only its details (false).
         public event Action<bool>? StatusChanged;
 
+        /// Frames received, and how long each took to reach its topics.
+        public Ops.FrameTimer Frames { get; } = new();
+
         /// Point the link at a server (or at none) with a token source. Every
         /// cached result is dropped; the cells stay and resubscribe.
         public void Configure(ServerConfig? config, ITokenProvider tokens)
@@ -228,6 +231,9 @@ namespace Convex.Excel.Server
                     _changed.Add(inst.Id);
                 }
                 ConfigureBooks();
+                Ops.CxLog.Connection(_uri != null ? "server set to " + _server
+                    : _configProblem != null ? "server not usable: " + _configProblem
+                    : "no server configured");
                 _link = (LinkState)(-1); // force a link notification
                 UpdateLink(null);
                 _timer ??= new Timer(_ => Tick(), null, _timings.Tick, _timings.Tick);
@@ -271,6 +277,7 @@ namespace Convex.Excel.Server
         {
             lock (_gate)
             {
+                Ops.CxLog.Connection("reconnect requested");
                 RetireAll();
                 LoseSession();
                 foreach (var inst in _instruments.Values)
@@ -544,6 +551,7 @@ namespace Convex.Excel.Server
                     _primary = session;
                     _hadSession = true;
                     _linkProblem = null;
+                    Ops.CxLog.Connection($"session {sessionId} open ({_server})");
                     UpdateLink(null);
                     Flush();
                     FlushBooks();
@@ -552,6 +560,7 @@ namespace Convex.Excel.Server
                 {
                     _pendingStandby = null;
                     _standby = session;
+                    Ops.CxLog.Connection($"renewal session {sessionId} open ({_server})");
                     var followed = _instruments.Values
                         .Where(i => i.Sub is Subscription.Sent or Subscription.Live)
                         .OrderBy(i => i.Seq).Select(i => i.Id).ToList();
@@ -575,6 +584,7 @@ namespace Convex.Excel.Server
                 {
                     var previous = _runtime;
                     _runtime = valuation.RuntimeId;
+                    Ops.CxLog.Connection("runtime " + (previous == null ? "" : previous + " -> ") + _runtime);
                     _linkChanged = true;
                     foreach (var id in _instruments.Keys) _changed.Add(id);
                     if (previous != null && now - _lastReseed >= _timings.ReseedInterval)
@@ -651,6 +661,8 @@ namespace Convex.Excel.Server
                 }
                 else if (ids.Length == 1 && _instruments.TryGetValue(ids[0], out var inst))
                 {
+                    // A quota refusal is retried each minute; say so once.
+                    if (inst.ProblemCode != code) Ops.CxLog.Connection($"instrument {ids[0]} refused: {code} {message}");
                     inst.Sub = Subscription.Refused;
                     inst.ProblemCode = code;
                     inst.ProblemMessage = Refusal(code, message, ids[0]);
@@ -674,6 +686,7 @@ namespace Convex.Excel.Server
                 _lastMessage = _now();
                 if (code == "RESYNC_REQUIRED")
                 {
+                    Ops.CxLog.Connection("resync required: " + message);
                     // Which stream lagged shows only in the text (DX19); an
                     // unknown text resyncs both.
                     bool limits = LimitErrors.IsLimitsResync(message);
@@ -692,6 +705,7 @@ namespace Convex.Excel.Server
                          (inst.Latest == null || inst.Latest.RuntimeId != runtime || revision > inst.Latest.Revision))
                 {
                     // Not resubscribed: that would only repeat the error.
+                    if (inst.ProblemCode != code) Ops.CxLog.Connection($"instrument {id} is too large to stream: {message}");
                     inst.TooLargeRuntime = runtime;
                     inst.TooLargeRevision = revision;
                     inst.ProblemCode = code;
@@ -704,6 +718,7 @@ namespace Convex.Excel.Server
                 else
                 {
                     _lastStreamError = code + ": " + message;
+                    Ops.CxLog.Connection("stream error " + _lastStreamError);
                     _infoChanged = true;
                 }
             }
@@ -718,6 +733,7 @@ namespace Convex.Excel.Server
                 var now = _now();
                 if (session == _pendingStandby || session == _standby)
                 {
+                    Ops.CxLog.Connection($"renewal session closed ({_server}): {reason}");
                     if (session == _pendingStandby) _pendingStandby = null;
                     if (session == _standby) _standby = null;
                     _standbyBackoff = Next(_standbyBackoff);
@@ -726,6 +742,7 @@ namespace Convex.Excel.Server
                 else if (session == _pendingPrimary || session == _primary)
                 {
                     bool wasPrimary = session == _primary;
+                    Ops.CxLog.Connection($"session closed ({_server}): {reason}");
                     _pendingPrimary = null;
                     _primary = null;
                     if (_standby is { IsClosed: false, SessionId: not null })
@@ -761,6 +778,7 @@ namespace Convex.Excel.Server
             _standby = null;
             _standbyBackoff = TimeSpan.Zero;
             old?.Retire();
+            Ops.CxLog.Connection($"renewal session took over ({_server})");
             _linkProblem = null;
             _linkChanged = true;
             UpdateLink(null);
@@ -800,6 +818,7 @@ namespace Convex.Excel.Server
             {
                 _link = link;
                 _linkChanged = true;
+                Ops.CxLog.Connection("link " + link + (problem != null ? ": " + problem : ""));
                 foreach (var id in _instruments.Keys) _changed.Add(id);
             }
             _infoChanged = true;

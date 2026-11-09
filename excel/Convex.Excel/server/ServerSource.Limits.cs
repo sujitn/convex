@@ -376,6 +376,7 @@ namespace Convex.Excel.Server
                     return false;
             }
             // 401, 429, 5xx or no answer: keep what is shown and read again.
+            if (book.ReadProblem != answer.Problem) Ops.CxLog.Connection($"book {book.Id} status read failed: {answer.Problem}");
             book.ReadProblem = answer.Problem;
             book.ReadWanted = true;
             if (answer.Status == (HttpStatusCode)429)
@@ -398,6 +399,8 @@ namespace Convex.Excel.Server
         private void Refuse(BookState book, string code, string message, bool retry, bool unsubscribe)
         {
             bool followed = unsubscribe && book.Sub is Subscription.Sent or Subscription.Live;
+            // A quota refusal is retried each minute; say so once.
+            if (book.ProblemCode != code) Ops.CxLog.Connection($"book {book.Id} refused: {code} {message}");
             book.Sub = Subscription.Refused;
             book.ProblemCode = code;
             book.ProblemMessage = message;

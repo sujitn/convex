@@ -479,6 +479,7 @@ namespace Convex.Excel.Server
             try
             {
                 cell.Sink.Push(value);
+                Ops.FrameTimer.Pushed();
             }
             catch (Exception ex)
             {

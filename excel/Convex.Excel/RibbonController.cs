@@ -18,6 +18,12 @@ namespace Convex.Excel
     {
         public override object LoadImage(string imageId) => IconAtlas.Get(imageId);
 
+        public override void OnBeginShutdown(ref Array custom)
+        {
+            NativeLoader.ExcelClosing();
+            base.OnBeginShutdown(ref custom);
+        }
+
         // Tickets and browsers are modeless (Excel stays interactive), one
         // instance per form type; re-clicking focuses the open one.
         public void OnPricingTicket(IRibbonControl _) => ShowModeless(() => new PricingTicketForm());
@@ -158,6 +164,7 @@ namespace Convex.Excel
                 "Native library: " + NativeLoader.GetLoadError() +
                 "\nEngine version: " + version +
                 "\nRegistered objects: " + objects +
+                "\nLog file: " + Ops.CxLog.FilePath +
                 "\n\nPer-cell error detail: =CX.LASTERROR(cell)",
                 "Convex Diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }

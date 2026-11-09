@@ -351,7 +351,7 @@ The two reads are separate requests, so a quote can arrive between them.
 | `CX.MARK(text)` | Parse a textual mark and return its canonical JSON form. |
 | `CX.DESCRIBE(handle)` | Inspect a registered object's key fields. |
 | `CX.LASTERROR(cellRef)` | Full `[code] message` detail behind an error value in a cell. |
-| `CX.DIAG()` | Rust-library load status, engine version, object count, live topics and recomputes. |
+| `CX.DIAG()` | A two-column grid: Rust-library load status, engine and add-in versions, object count, live topics and recomputes, then the server link (connection, session, instruments, books, topics, frames received, frame-to-topic latency, age of the last message) and the log file. |
 | `CX.VERSION()` | Library version. |
 | `CX.OBJECTS()` | Number of registered objects. |
 | `CX.RELEASE(handle)` | Release one handle. |
@@ -359,6 +359,23 @@ The two reads are separate requests, so a quote can arrive between them.
 | `CX.LIBRARY(requestJson)` | Run a complete `LibraryRequest` JSON; returns the result envelope as text. |
 | `CX.LIBRARY.RANGE(requestCells)` | Same, with the request split across text cells; returns the result in one-column chunks. |
 | `CX.MW(...)` | Make-whole call price for a callable bond with a make-whole spread. |
+
+**Frame-to-topic latency** in `CX.DIAG()` is the p50 and p99 of the last 1,024
+frames that changed a cell, from the frame's receipt to the last cell it
+changed. It stops before Excel's RTD throttle and recalculation, so a cell can
+show the value up to `RTD.ThrottleInterval` later.
+
+**Error Log** on the ribbon has two tabs. **Cells** lists each cell's latest
+error. **Connection** lists the last 500 connection events, newest first.
+
+**The log file** is `%LOCALAPPDATA%\Convex\Excel\logs\convex-excel.log`. It
+records the add-in's start (versions, paths, native load), Excel's exit and the
+connection events: link states and their reasons, sign-in and token renewal,
+stream errors, refusals, failed lookups and background faults. It rolls at
+10 MB and keeps five files. Cell errors are not written to it, because one
+recalculation can raise thousands. Anything that looks like a token is removed
+before a line is kept. A second Excel process writes
+`convex-excel-<pid>.log`; those files go after 14 days.
 
 ## Examples
 

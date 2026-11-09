@@ -224,6 +224,10 @@ the button focuses the existing window instead of duplicating it:
 - **Curve Viewer** → pick a curve → chart renders an upward yield curve.
 - **Object Browser** → handles match `=CX.OBJECTS()` → Describe shows
   bond fields (coupon, maturity, frequency, currency, face).
+- **Error Log** → Connection tab lists the link's events after a sign-in or
+  a reconnect. With a live server cell updating, `=CX.DIAG()` shows frames
+  received and both latencies, and the log file it names holds the same events
+  and no token.
 - **Schemas** → flip through types → JSON renders without error.
 - **Settings** → save → re-open → values persisted to
   `%APPDATA%\Convex\settings.json`.

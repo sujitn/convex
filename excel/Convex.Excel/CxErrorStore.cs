@@ -34,14 +34,22 @@ namespace Convex.Excel
         public static void Record(Exception ex)
         {
             var caller = CxCaller.TryGetCaller();
-            Record(ex,
+            Store(ex,
                 caller == null ? null : CxCaller.StableKey(caller),
                 caller == null ? null : CxCaller.Describe(caller));
         }
 
         // Overload for contexts with no calling cell (the live hub's
-        // background drains).
+        // background drains). These also reach the connection history and the
+        // log file, because one key here keeps only the latest; a cell's
+        // error does not, because one recalculation can raise thousands.
         public static void Record(Exception ex, string? key, string? address)
+        {
+            Store(ex, key, address);
+            Ops.CxLog.Connection((address ?? "add-in") + " fault: " + ex.GetType().Name + ": " + ex.Message);
+        }
+
+        private static void Store(Exception ex, string? key, string? address)
         {
             var code = ex is ConvexException cx ? cx.Code : CodeFor(ex);
             if (_byCell.Count >= Cap) _byCell.Clear();

@@ -73,6 +73,14 @@ the changes that matter when you upgrade.
 - The add-in carries the workspace version: `CX.DIAG()` and **About** show it
   (`CX.DIAG()` showed 1.0.0.0). Microsoft 365 Apps, 64-bit, is the stated
   minimum, not Excel 2016.
+- **A log file and connection history.** The add-in writes
+  `%LOCALAPPDATA%\Convex\Excel\logs\convex-excel.log` (10 MB, five files) with
+  its start, Excel's exit and every connection event, with tokens removed. The
+  ribbon **Error Log** gains a **Connection** tab with the last 500 events.
+- `CX.DIAG()` adds the server link: connection, session, instruments, books,
+  topics, frames received, frame-to-topic latency (p50 and p99, before Excel's
+  throttle), the age of the last message, and the log file. Existing rows keep
+  their positions.
 
 ### convex-ffi
 

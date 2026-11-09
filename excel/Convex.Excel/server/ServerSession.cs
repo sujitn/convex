@@ -9,6 +9,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Convex.Excel.Ops;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -157,6 +158,8 @@ namespace Convex.Excel.Server
     /// session's receive thread, one message at a time.
     internal interface ISessionEvents
     {
+        /// Times each frame, from its receipt to the last topic it changed.
+        FrameTimer Frames { get; }
         void Connected(ServerSession session, string sessionId);
         void Valuation(ServerSession session, Valuation valuation);
         void Subscribed(ServerSession session, string[] ids);
@@ -322,7 +325,9 @@ namespace Convex.Excel.Server
                         return;
                     }
                     Interlocked.Exchange(ref _lastMessageTicks, DateTime.UtcNow.Ticks);
+                    _events.Frames.Begin();
                     Handle(text);
+                    _events.Frames.End();
                 }
             }
             catch (LinkRefusedException refusal)

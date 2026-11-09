@@ -124,6 +124,7 @@ namespace Convex.Excel.Server
             }
             catch (ConvexException ex)
             {
+                Ops.CxLog.Connection($"identifier {value} not resolved: {ex.Message}");
                 lock (_lock)
                 {
                     if (_failures.Count >= CacheSize) _failures.Clear();
