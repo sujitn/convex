@@ -2552,3 +2552,636 @@ async fn the_records_route_needs_a_monitor_and_the_book() {
     let (code, body) = records(&router, None, "BOOK-Z", "").await;
     assert_eq!(code, StatusCode::NOT_FOUND, "{body}");
 }
+
+// =============================================================================
+// ACKNOWLEDGEMENTS (P15c)
+// =============================================================================
+
+const ACKNOWLEDGEMENTS: &str = "/api/v1/books/BOOK-A/limits/acknowledgements";
+
+/// A time `seconds` from now, as the routes write one.
+fn in_seconds(seconds: i64) -> String {
+    (chrono::Utc::now() + chrono::Duration::seconds(seconds))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
+}
+
+fn acknowledgement(limit_id: &str, seconds: i64, note: &str) -> Value {
+    json!({"limit_id": limit_id, "expires_at": in_seconds(seconds), "note": note})
+}
+
+async fn acknowledge(
+    router: &Router,
+    token: Option<&str>,
+    book: &str,
+    key: &str,
+    body: &Value,
+) -> (StatusCode, Option<String>, Value) {
+    call(
+        router,
+        "POST",
+        &format!("/api/v1/books/{book}/limits/acknowledgements"),
+        token,
+        Some(key),
+        None,
+        Some(body.clone()),
+    )
+    .await
+}
+
+async fn withdraw(
+    router: &Router,
+    token: Option<&str>,
+    book: &str,
+    key: &str,
+    limit_id: &str,
+) -> (StatusCode, Value) {
+    let (code, _, body) = call(
+        router,
+        "POST",
+        &format!("/api/v1/books/{book}/limits/acknowledgements/withdraw"),
+        token,
+        Some(key),
+        None,
+        Some(json!({ "limit_id": limit_id })),
+    )
+    .await;
+    (code, body)
+}
+
+async fn read(router: &Router, token: Option<&str>, path: &str) -> (StatusCode, Value) {
+    let (code, _, body) = call(router, "GET", path, token, None, None, None).await;
+    (code, body)
+}
+
+/// The limit ids of an acknowledgements view's entries.
+fn acknowledged(view: &Value) -> Vec<&str> {
+    view["acknowledgements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["limit_id"].as_str().unwrap())
+        .collect()
+}
+
+/// Commit `body` as BOOK-A's limits under required access: risk-a proposes, risk-b
+/// approves.
+async fn approved(router: &Router, key: &str, base: Option<&str>, body: Value) {
+    let (code, _, response) = call(
+        router,
+        "PUT",
+        "/api/v1/books/BOOK-A/limits",
+        Some(RISK_A),
+        Some(&format!("{key}-propose")),
+        base,
+        Some(body),
+    )
+    .await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{response}");
+    let version = response["version"].to_string();
+    let (code, _, response) = call(
+        router,
+        "POST",
+        "/api/v1/books/BOOK-A/limits/proposal/approve",
+        Some(RISK_B),
+        Some(&format!("{key}-approve")),
+        Some(&version),
+        None,
+    )
+    .await;
+    assert!(code.is_success(), "{response}");
+}
+
+/// P15c (D95): a risk manager with status's read rule acknowledges a limit in breach or
+/// unknown now; each refusal stores nothing, and a retry never acknowledges twice.
+#[tokio::test]
+async fn an_acknowledgement_needs_a_risk_manager_and_a_limit_in_breach_or_unknown() {
+    let (_issuer, _setup, router) = two_subjects().await;
+    approved(
+        &router,
+        "first",
+        None,
+        set(vec![
+            face("breach", None, Some("500000"), None),
+            face("within", None, Some("2000000"), None),
+            limit("value", json!({"kind": "market_value"}), "1"),
+        ]),
+    )
+    .await;
+    let body = acknowledgement("breach", 3600, "seen; the desk sells half today");
+
+    // A book writer is not a risk manager, and a risk manager who cannot read the book's
+    // instrument cannot see its status.
+    for (token, key) in [(HUMAN_TOKEN, "k-writer"), (OUTSIDER, "k-outsider")] {
+        let (code, _, response) = acknowledge(&router, Some(token), "BOOK-A", key, &body).await;
+        assert_eq!(code, StatusCode::FORBIDDEN, "{token}: {response}");
+    }
+    let refusals = [
+        (
+            acknowledgement("within", 3600, "x"),
+            StatusCode::CONFLICT,
+            "LIMIT_NOT_ACKNOWLEDGEABLE",
+        ),
+        (
+            acknowledgement("breach", 7 * 24 * 3600 + 60, "x"),
+            StatusCode::BAD_REQUEST,
+            "INVALID_INPUT",
+        ),
+        (
+            acknowledgement("breach", -60, "x"),
+            StatusCode::BAD_REQUEST,
+            "INVALID_INPUT",
+        ),
+        (
+            acknowledgement("breach", 3600, " "),
+            StatusCode::BAD_REQUEST,
+            "INVALID_INPUT",
+        ),
+        (
+            acknowledgement("none", 3600, "x"),
+            StatusCode::NOT_FOUND,
+            "LIMIT_NOT_FOUND",
+        ),
+        // Without a monitor there is no record to check a record id against.
+        (
+            json!({"limit_id": "breach", "expires_at": in_seconds(3600), "note": "x", "record_id": 1}),
+            StatusCode::SERVICE_UNAVAILABLE,
+            "",
+        ),
+        (
+            json!({"limit_id": "breach", "expires_at": in_seconds(3600), "note": "x", "status": "breach"}),
+            StatusCode::BAD_REQUEST,
+            "INVALID_INPUT",
+        ),
+    ];
+    for (index, (body, status, code)) in refusals.into_iter().enumerate() {
+        let (got, _, response) = acknowledge(
+            &router,
+            Some(RISK_A),
+            "BOOK-A",
+            &format!("bad-{index}"),
+            &body,
+        )
+        .await;
+        assert_eq!(got, status, "{index}: {response}");
+        if !code.is_empty() {
+            assert_eq!(response["code"], code, "{index}: {response}");
+        }
+    }
+    let (code, empty) = read(&router, Some(RISK_A), ACKNOWLEDGEMENTS).await;
+    assert_eq!(code, StatusCode::OK, "{empty}");
+    assert_eq!(
+        empty["acknowledgements"],
+        json!([]),
+        "nothing stored: {empty}"
+    );
+    assert!(empty.get("version").is_none(), "{empty}");
+
+    // A breach, and an unknown limit, are acknowledged; a retry returns the same version.
+    let (code, etag, made) = acknowledge(&router, Some(RISK_A), "BOOK-A", "k-1", &body).await;
+    assert_eq!(code, StatusCode::CREATED, "{made}");
+    assert_eq!(etag.as_deref(), Some("\"1\""));
+    assert_eq!(
+        made["change"],
+        json!({"action": "acknowledged", "limit_id": "breach"})
+    );
+    assert_eq!(acknowledged(&made), ["breach"]);
+    let entry = made["acknowledgements"][0].clone();
+    let risk_a = entry["acknowledged_by"].as_str().unwrap().to_owned();
+    assert!(risk_a.starts_with("access:"), "{made}");
+    assert_eq!(
+        (
+            &entry["note"],
+            &entry["expires_at"],
+            &entry["limit_set_version"]
+        ),
+        (&body["note"], &body["expires_at"], &json!(1))
+    );
+    assert_eq!(entry["limit"]["upper"], "500000");
+    let (code, _, retried) = acknowledge(&router, Some(RISK_A), "BOOK-A", "k-1", &body).await;
+    assert_eq!((code, &retried), (StatusCode::CREATED, &made));
+    let mut other = body.clone();
+    other["note"] = json!("another note");
+    let (code, _, response) = acknowledge(&router, Some(RISK_A), "BOOK-A", "k-1", &other).await;
+    assert_eq!(code, StatusCode::CONFLICT, "{response}");
+    let unknown = acknowledgement("value", 600, "no results yet");
+    let (code, _, made) = acknowledge(&router, Some(RISK_B), "BOOK-A", "k-2", &unknown).await;
+    assert_eq!(code, StatusCode::CREATED, "{made}");
+    assert_eq!(acknowledged(&made), ["breach", "value"]);
+
+    // Status carries each acknowledgement on its limit; a limit within carries none.
+    let limits = by_id(&status(&router, Some(RISK_B), "BOOK-A").await);
+    assert_eq!(limits["breach"]["status"], "breach");
+    assert_eq!(
+        limits["breach"]["acknowledgement"],
+        json!({"acknowledged_by": risk_a, "acknowledged_at": entry["acknowledged_at"],
+               "expires_at": body["expires_at"], "limit_set_version": 1, "note": body["note"]})
+    );
+    assert_eq!(limits["value"]["status"], "unknown");
+    assert_eq!(limits["value"]["acknowledgement"]["note"], "no results yet");
+    assert!(limits["within"].get("acknowledgement").is_none());
+
+    // Reads: a reader sees them; one who cannot read the book's instrument does not.
+    let (code, current) = read(&router, Some(HUMAN_TOKEN), ACKNOWLEDGEMENTS).await;
+    assert_eq!(code, StatusCode::OK, "{current}");
+    assert_eq!(acknowledged(&current), ["breach", "value"]);
+    assert_eq!(current["version"], 2);
+    let history = format!("{ACKNOWLEDGEMENTS}/history");
+    let (code, versions) = read(&router, Some(HUMAN_TOKEN), &history).await;
+    assert_eq!(code, StatusCode::OK, "{versions}");
+    assert_eq!(
+        versions["versions"][0],
+        json!({"version": 1, "recorded_at": versions["versions"][0]["recorded_at"],
+               "action": "acknowledged", "limit_id": "breach", "by": risk_a,
+               "acknowledgement_count": 1})
+    );
+    assert_eq!(versions["current_version"], 2);
+    let first = format!("{ACKNOWLEDGEMENTS}/versions/1");
+    let (code, version) = read(&router, Some(HUMAN_TOKEN), &first).await;
+    assert_eq!(code, StatusCode::OK, "{version}");
+    assert_eq!(acknowledged(&version), ["breach"]);
+    for path in [ACKNOWLEDGEMENTS, history.as_str(), first.as_str()] {
+        let (code, response) = read(&router, Some(OUTSIDER), path).await;
+        assert_eq!(code, StatusCode::FORBIDDEN, "{path}: {response}");
+    }
+    let (code, response) = withdraw(&router, Some(OUTSIDER), "BOOK-A", "w-0", "breach").await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{response}");
+    let (code, response) = withdraw(&router, Some(HUMAN_TOKEN), "BOOK-A", "w-0", "breach").await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{response}");
+}
+
+/// P15c (D94): each acknowledgement replaces only its own limit's entry, so two risk
+/// managers acknowledging different limits at once, on four threads, both keep theirs.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn two_subjects_acknowledging_different_limits_at_once_both_keep_theirs() {
+    let (_issuer, _setup, router) = two_subjects().await;
+    approved(
+        &router,
+        "first",
+        None,
+        set((0..8)
+            .map(|i| face(&format!("face-{i}"), None, Some("500000"), None))
+            .collect()),
+    )
+    .await;
+    let start = Arc::new(tokio::sync::Barrier::new(8));
+    let tasks: Vec<_> = (0..8)
+        .map(|i| {
+            let router = router.clone();
+            let start = start.clone();
+            let body = acknowledgement(&format!("face-{i}"), 3600, &format!("seen {i}"));
+            tokio::spawn(async move {
+                let token = if i % 2 == 0 { RISK_A } else { RISK_B };
+                start.wait().await;
+                acknowledge(&router, Some(token), "BOOK-A", &format!("k-{i}"), &body).await
+            })
+        })
+        .collect();
+    let mut made = Vec::new();
+    for task in tasks {
+        made.push(task.await.unwrap());
+    }
+    for (code, _, body) in &made {
+        assert_eq!(*code, StatusCode::CREATED, "{body}");
+    }
+    let (code, current) = read(&router, Some(RISK_A), ACKNOWLEDGEMENTS).await;
+    assert_eq!(code, StatusCode::OK, "{current}");
+    assert_eq!(current["version"], 8);
+    assert_eq!(
+        acknowledged(&current),
+        (0..8).map(|i| format!("face-{i}")).collect::<Vec<_>>()
+    );
+    let subjects: std::collections::BTreeSet<&str> = current["acknowledgements"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["acknowledged_by"].as_str().unwrap())
+        .collect();
+    assert_eq!(subjects.len(), 2, "{current}");
+}
+
+/// P15c (D95): an acknowledgement ends when it is withdrawn, when it expires, or when a
+/// set version changes its limit; one whose limit the set keeps stays. Entries no longer
+/// in force leave the record at its next version, and the history keeps them.
+#[tokio::test]
+async fn withdrawal_expiry_and_a_changed_limit_end_an_acknowledgement() {
+    let (_setup, router) = router(AccessControl::local_development()).await;
+    put_book(
+        &router,
+        None,
+        "BOOK-A",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    let limits = |changed: &str| {
+        set(vec![
+            face("kept", None, Some("500000"), None),
+            face("short", None, Some("500000"), None),
+            face("changed", None, Some(changed), None),
+            face("withdrawn", None, Some("500000"), None),
+        ])
+    };
+    commit_limits(&router, "BOOK-A", "limits-1", limits("500000")).await;
+    for (key, limit_id, seconds) in [
+        ("k-kept", "kept", 3600),
+        ("k-short", "short", 4),
+        ("k-changed", "changed", 3600),
+        ("k-withdrawn", "withdrawn", 3600),
+    ] {
+        let body = acknowledgement(limit_id, seconds, "seen");
+        let (code, _, made) = acknowledge(&router, None, "BOOK-A", key, &body).await;
+        assert_eq!(code, StatusCode::CREATED, "{limit_id}: {made}");
+    }
+
+    // Withdrawn: it leaves the next version, which names who withdrew it; a second
+    // withdrawal finds none, and a retry returns the same version.
+    let (code, withdrawn) = withdraw(&router, None, "BOOK-A", "w-1", "withdrawn").await;
+    assert_eq!(code, StatusCode::OK, "{withdrawn}");
+    assert_eq!(
+        withdrawn["change"],
+        json!({"action": "withdrawn", "limit_id": "withdrawn", "by": "local-development"})
+    );
+    assert_eq!(acknowledged(&withdrawn), ["kept", "short", "changed"]);
+    let (code, retried) = withdraw(&router, None, "BOOK-A", "w-1", "withdrawn").await;
+    assert_eq!((code, &retried), (StatusCode::OK, &withdrawn));
+    let (code, response) = withdraw(&router, None, "BOOK-A", "w-2", "withdrawn").await;
+    assert_eq!(code, StatusCode::NOT_FOUND, "{response}");
+    assert_eq!(response["code"], "LIMIT_ACKNOWLEDGEMENT_NOT_FOUND");
+
+    // A set version that changes one limit ends its acknowledgement only.
+    let (code, etag, _) = call(
+        &router,
+        "GET",
+        "/api/v1/books/BOOK-A/limits",
+        None,
+        None,
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    let (code, _, response) = call(
+        &router,
+        "PUT",
+        "/api/v1/books/BOOK-A/limits",
+        None,
+        Some("limits-2"),
+        etag.as_deref(),
+        Some(limits("600000")),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{response}");
+    let current = by_id(&status(&router, None, "BOOK-A").await);
+    assert!(current["kept"]["acknowledgement"].is_object());
+    assert!(current["changed"].get("acknowledgement").is_none());
+    assert_eq!(current["changed"]["status"], "breach");
+    assert!(current["withdrawn"].get("acknowledgement").is_none());
+    let (code, view) = read(&router, None, ACKNOWLEDGEMENTS).await;
+    assert_eq!(code, StatusCode::OK, "{view}");
+    assert_eq!(acknowledged(&view), ["kept", "short"]);
+
+    // Expired: status and the current view drop it at once. Expiry is judged on the wall
+    // clock and this wait is monotonic, so the margin covers the clock stepping back.
+    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+    let current = by_id(&status(&router, None, "BOOK-A").await);
+    assert!(current["short"].get("acknowledgement").is_none());
+    let (code, view) = read(&router, None, ACKNOWLEDGEMENTS).await;
+    assert_eq!(code, StatusCode::OK, "{view}");
+    assert_eq!(acknowledged(&view), ["kept"]);
+    assert_eq!(view["version"], 5);
+
+    // The stored version still holds what ended, until the next version drops it.
+    let (code, stored) = read(&router, None, &format!("{ACKNOWLEDGEMENTS}/versions/5")).await;
+    assert_eq!(code, StatusCode::OK, "{stored}");
+    assert_eq!(acknowledged(&stored), ["kept", "short", "changed"]);
+    let body = acknowledgement("changed", 3600, "seen again, at the new bound");
+    let (code, _, made) = acknowledge(&router, None, "BOOK-A", "k-again", &body).await;
+    assert_eq!(code, StatusCode::CREATED, "{made}");
+    assert_eq!(acknowledged(&made), ["kept", "changed"]);
+    assert_eq!(made["acknowledgements"][1]["limit_set_version"], 2);
+    let (code, history) = read(&router, None, &format!("{ACKNOWLEDGEMENTS}/history")).await;
+    assert_eq!(code, StatusCode::OK, "{history}");
+    let actions: Vec<(&str, &str)> = history["versions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| {
+            (
+                v["action"].as_str().unwrap(),
+                v["limit_id"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        actions,
+        [
+            ("acknowledged", "kept"),
+            ("acknowledged", "short"),
+            ("acknowledged", "changed"),
+            ("acknowledged", "withdrawn"),
+            ("withdrawn", "withdrawn"),
+            ("acknowledged", "changed"),
+        ]
+    );
+}
+
+/// P15c (D94): the generic reference routes neither write nor list acknowledgements, nor
+/// show a receipt that names them.
+#[tokio::test]
+async fn generic_reference_routes_refuse_acknowledgements() {
+    let (_setup, router) = router(AccessControl::local_development()).await;
+    put_book(
+        &router,
+        None,
+        "BOOK-A",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    commit_limits(
+        &router,
+        "BOOK-A",
+        "limits-1",
+        set(vec![face("breach", None, Some("500000"), None)]),
+    )
+    .await;
+    let definition = json!({
+        "book_id": "BOOK-A",
+        "acknowledgements": [],
+        "change": {"action": "withdrawn", "limit_id": "breach", "by": "access:x"},
+        "effective": {"from": "2026-01-01T00:00:00Z", "until": null},
+        "provenance": {"source": "elsewhere", "evidence_reference": "elsewhere"},
+    });
+    let command = json!({
+        "idempotency_key": "generic-acks",
+        "changes": [],
+        "master_changes": [{"definition": {"kind": "limit_acknowledgements", "definition": definition}}],
+    });
+    let (code, _, response) = call(
+        &router,
+        "POST",
+        "/api/v1/reference/transactions",
+        None,
+        Some("generic-acks"),
+        None,
+        Some(command),
+    )
+    .await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{response}");
+    assert_eq!(response["code"], "LIMITS_ROUTE_REQUIRED", "{response}");
+    let body = acknowledgement("breach", 3600, "seen");
+    let (code, _, made) = acknowledge(&router, None, "BOOK-A", "k-1", &body).await;
+    assert_eq!(code, StatusCode::CREATED, "{made}");
+    let (code, response) = read(
+        &router,
+        None,
+        "/api/v1/reference/masters/limit_acknowledgements",
+    )
+    .await;
+    assert_eq!(code, StatusCode::BAD_REQUEST, "{response}");
+    let (code, response) = read(&router, None, "/api/v1/reference/commits/k-1").await;
+    assert_eq!(code, StatusCode::FORBIDDEN, "{response}");
+    assert_eq!(response["code"], "LIMITS_ROUTE_REQUIRED", "{response}");
+}
+
+/// P15c (D97): a recorded change of a limit in breach or unknown carries the
+/// acknowledgement in force, and an acknowledgement records nothing of its own. A record
+/// id must name a status record of this book's limit.
+#[tokio::test]
+async fn a_recorded_change_carries_the_acknowledgement_in_force() {
+    let server = monitored(Script::default(), 2, 2).await;
+    let inner = server.setup.storage.audit.clone();
+    let wait = |book: &'static str, count: usize| {
+        let inner = inner.clone();
+        async move {
+            tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                while stored(&inner, book).await.len() < count {
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                }
+            })
+            .await
+            .unwrap_or_else(|_| panic!("{book} never had {count} records"));
+            stored(&inner, book).await
+        }
+    };
+    wait("BOOK-00", 2).await;
+    let other_book = wait("BOOK-01", 2).await[0]["record_id"].as_u64().unwrap();
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let base = server.base.clone();
+    let put = |path: &'static str, key: &'static str, body: Value| {
+        let request = client
+            .put(format!("{base}{path}"))
+            .header("idempotency-key", key)
+            .header("if-match", "\"1\"")
+            .json(&body);
+        async move {
+            let response = request.send().await.unwrap();
+            assert!(
+                response.status().is_success(),
+                "{path}: {}",
+                response.status()
+            );
+        }
+    };
+    let post = |body: Value, key: &'static str| {
+        let request = client
+            .post(format!(
+                "{base}/api/v1/books/BOOK-00/limits/acknowledgements"
+            ))
+            .header("idempotency-key", key)
+            .json(&body);
+        async move {
+            let response = request.send().await.unwrap();
+            let code = response.status().as_u16();
+            (code, response.json::<Value>().await.unwrap())
+        }
+    };
+
+    // face-01 breaches: one record, without an acknowledgement.
+    put(
+        "/api/v1/books/BOOK-00/limits",
+        "limits-00-breach",
+        set(vec![
+            face("face-00", None, Some("2000000"), None),
+            face("face-01", None, Some("500000"), None),
+        ]),
+    )
+    .await;
+    let records = wait("BOOK-00", 3).await;
+    let breach = records[2].clone();
+    assert_eq!(
+        (&breach["limit_id"], &breach["status"]),
+        (&json!("face-01"), &json!("breach"))
+    );
+    assert!(breach.get("acknowledgement").is_none(), "{breach}");
+    let within = records[0]["record_id"].as_u64().unwrap();
+    assert_eq!(records[0]["limit_id"], "face-00");
+
+    // A record id names a status record of this book's limit.
+    for (record_id, key) in [
+        (other_book, "k-other-book"),
+        (within, "k-other-limit"),
+        (999_999, "k-none"),
+    ] {
+        let body = json!({"limit_id": "face-01", "expires_at": in_seconds(3600),
+                          "note": "x", "record_id": record_id});
+        let (code, response) = post(body, key).await;
+        assert_eq!(code, 422, "{record_id}: {response}");
+        assert_eq!(response["code"], "LIMIT_RECORD_MISMATCH", "{response}");
+    }
+    let record_id = breach["record_id"].as_u64().unwrap();
+    let body = json!({"limit_id": "face-01", "expires_at": in_seconds(3600),
+                      "note": "seen; reducing", "record_id": record_id});
+    let (code, made) = post(body.clone(), "k-1").await;
+    assert_eq!(code, 201, "{made}");
+    assert_eq!(made["acknowledgements"][0]["record_id"], record_id);
+
+    // The acknowledgement records nothing: the monitor rereads it and finds no change.
+    let entries = inner.entry_count().await.unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    assert_eq!(inner.entry_count().await.unwrap(), entries);
+
+    // A position in units makes both limits unknown: face-01's record carries the
+    // acknowledgement, and face-00's, never acknowledged, carries none.
+    put(
+        "/api/v1/books/BOOK-00",
+        "book-00-units",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": BOND, "quantity": "10", "unit": "units"}
+        ]}),
+    )
+    .await;
+    let records = wait("BOOK-00", 5).await;
+    let latest = |limit: &str| {
+        records[3..]
+            .iter()
+            .find(|r| r["limit_id"] == limit)
+            .unwrap_or_else(|| panic!("{limit}: {records:?}"))
+            .clone()
+    };
+    let unknown = latest("face-01");
+    assert_eq!(
+        (&unknown["previous"], &unknown["status"]),
+        (&json!("breach"), &json!("unknown"))
+    );
+    let carried = &unknown["acknowledgement"];
+    assert_eq!(
+        (
+            &carried["note"],
+            &carried["record_id"],
+            &carried["limit_set_version"],
+            &carried["expires_at"]
+        ),
+        (
+            &json!("seen; reducing"),
+            &json!(record_id),
+            &json!(2),
+            &body["expires_at"]
+        ),
+        "{unknown}"
+    );
+    let other = latest("face-00");
+    assert_eq!(other["status"], "unknown");
+    assert!(other.get("acknowledgement").is_none(), "{other}");
+
+    server.stop.send(()).unwrap();
+    server.serving.await.unwrap().unwrap();
+}

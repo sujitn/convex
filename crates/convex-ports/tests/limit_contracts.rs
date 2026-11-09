@@ -295,3 +295,108 @@ fn limit_sets_and_proposals_have_their_own_keys_and_wire_forms() {
     unknown["closed"]["note"] = json!("x");
     assert!(serde_json::from_value::<LimitProposalDefinition>(unknown).is_err());
 }
+
+/// P15c (D94, D95): a book's acknowledgements are a master record of their own kind; each
+/// entry lasts at most seven days, and each version changes one limit's entry.
+#[test]
+fn acknowledgements_have_their_own_key_and_wire_form_and_bounded_entries() {
+    use convex_ports::limits::LimitAcknowledgementsDefinition;
+    use convex_ports::reference_master::{MasterDefinition, MasterKey, MasterKind};
+    let limit = json!({"limit_id": "face", "measure": {"kind": "face", "instrument": "each"}, "upper": "5"});
+    let record = json!({
+        "book_id": "BOOK-A",
+        "acknowledgements": [{
+            "limit": limit,
+            "limit_set_version": 3,
+            "acknowledged_by": "access:aaaa",
+            "acknowledged_at": "2026-11-09T00:00:00Z",
+            "expires_at": "2026-11-16T00:00:00Z",
+            "note": "seen; desk reducing\nby Friday",
+            "record_id": 42,
+        }],
+        "change": {"action": "acknowledged", "limit_id": "face"},
+        "effective": {"from": "2026-11-09T00:00:00Z", "until": null},
+        "provenance": {"source": "limits-api", "evidence_reference": "limits-api:k"},
+    });
+    let parsed: LimitAcknowledgementsDefinition = serde_json::from_value(record.clone()).unwrap();
+    parsed.validate().unwrap();
+    let definition = MasterDefinition::LimitAcknowledgements(Box::new(parsed.clone()));
+    let key = definition.key();
+    assert_eq!(key.storage_key(), "limit_acknowledgements/BOOK-A");
+    assert_eq!(key.kind(), MasterKind::LimitAcknowledgements);
+    assert_eq!(
+        MasterKind::LimitAcknowledgements.prefix(),
+        "limit_acknowledgements"
+    );
+    let book = convex_core::contracts::ReferenceDataId::new("BOOK-A").unwrap();
+    assert_ne!(
+        MasterKey::LimitAcknowledgements(book.clone()),
+        MasterKey::LimitSet(book)
+    );
+    let wire = serde_json::to_value(&definition).unwrap();
+    assert_eq!(wire["kind"], "limit_acknowledgements");
+    assert_eq!(wire["definition"], record);
+
+    // In force before its expiry, and only while the set holds the limit as acknowledged.
+    let entry = &parsed.acknowledgements[0];
+    let at = |text: &str| convex_core::contracts::UtcTimestamp::parse(text).unwrap();
+    let same: Vec<convex_ports::limits::LimitDefinition> =
+        vec![serde_json::from_value(limit.clone()).unwrap()];
+    let mut moved = limit.clone();
+    moved["upper"] = json!("6");
+    let moved: Vec<convex_ports::limits::LimitDefinition> =
+        vec![serde_json::from_value(moved).unwrap()];
+    assert!(entry.in_force(at("2026-11-15T23:59:59.999999999Z"), &same));
+    assert!(!entry.in_force(at("2026-11-16T00:00:00Z"), &same));
+    assert!(!entry.in_force(at("2026-11-10T00:00:00Z"), &moved));
+    assert!(!entry.in_force(at("2026-11-10T00:00:00Z"), &[]));
+
+    let refused = |edit: &dyn Fn(&mut serde_json::Value)| {
+        let mut value = record.clone();
+        edit(&mut value);
+        let parsed: LimitAcknowledgementsDefinition = serde_json::from_value(value).unwrap();
+        assert!(matches!(
+            parsed.validate(),
+            Err(ReferenceError::InvalidInput(_))
+        ));
+    };
+    // D95: at most seven days, and after it is made.
+    refused(&|v| v["acknowledgements"][0]["expires_at"] = json!("2026-11-16T00:00:00.000001Z"));
+    refused(&|v| v["acknowledgements"][0]["expires_at"] = json!("2026-11-09T00:00:00Z"));
+    refused(&|v| v["acknowledgements"][0]["expires_at"] = json!("2026-11-08T00:00:00Z"));
+    // A note is 1 to 1,024 bytes, not blank, with no control character but a line feed.
+    refused(&|v| v["acknowledgements"][0]["note"] = json!(""));
+    refused(&|v| v["acknowledgements"][0]["note"] = json!(" \n "));
+    refused(&|v| v["acknowledgements"][0]["note"] = json!("a\tb"));
+    refused(&|v| v["acknowledgements"][0]["note"] = json!("a".repeat(1025)));
+    refused(&|v| v["acknowledgements"][0]["acknowledged_by"] = json!("access: spaced"));
+    refused(&|v| v["acknowledgements"][0]["record_id"] = json!(0));
+    refused(&|v| v["acknowledgements"][0]["limit"]["upper"] = json!(null));
+    refused(&|v| v["effective"]["until"] = json!("2026-11-10T00:00:00Z"));
+    // One entry a limit, and a change that matches the entries.
+    refused(&|v| {
+        let entry = v["acknowledgements"][0].clone();
+        v["acknowledgements"].as_array_mut().unwrap().push(entry);
+    });
+    refused(&|v| v["change"] = json!({"action": "acknowledged", "limit_id": "other"}));
+    refused(&|v| {
+        v["change"] = json!({"action": "withdrawn", "limit_id": "face", "by": "access:bbbb"})
+    });
+    refused(&|v| v["change"] = json!({"action": "withdrawn", "limit_id": "other", "by": ""}));
+    let mut withdrawn = record.clone();
+    withdrawn["acknowledgements"] = json!([]);
+    withdrawn["change"] = json!({"action": "withdrawn", "limit_id": "face", "by": "access:bbbb"});
+    serde_json::from_value::<LimitAcknowledgementsDefinition>(withdrawn)
+        .unwrap()
+        .validate()
+        .unwrap();
+    let mut longest = record.clone();
+    longest["acknowledgements"][0]["note"] = json!("é".repeat(512));
+    serde_json::from_value::<LimitAcknowledgementsDefinition>(longest)
+        .unwrap()
+        .validate()
+        .unwrap();
+    let mut unknown = record;
+    unknown["acknowledgements"][0]["status"] = json!("breach");
+    assert!(serde_json::from_value::<LimitAcknowledgementsDefinition>(unknown).is_err());
+}

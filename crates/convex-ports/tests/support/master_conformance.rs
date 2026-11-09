@@ -990,3 +990,103 @@ pub async fn limit_sets_and_proposals_commit_together_and_list_by_kind(
         );
     }
 }
+
+fn acknowledgements_change(expected: Option<Version>, entries: usize) -> MasterChange {
+    let from = time("2025-01-06T00:00:00Z");
+    let acknowledgements = (0..entries)
+        .map(|i| {
+            let mut limit = limits("5").remove(0);
+            limit.limit_id = ReferenceDataId::new(format!("face-{i}")).unwrap();
+            convex_ports::limits::LimitAcknowledgement {
+                limit,
+                limit_set_version: version(1),
+                acknowledged_by: "access:risk".into(),
+                acknowledged_at: from,
+                expires_at: time("2025-01-07T00:00:00Z"),
+                note: "seen".into(),
+                record_id: None,
+            }
+        })
+        .collect();
+    MasterChange {
+        expected_version: expected,
+        definition: MasterDefinition::LimitAcknowledgements(Box::new(
+            convex_ports::limits::LimitAcknowledgementsDefinition {
+                book_id: ReferenceDataId::new("B-L1").unwrap(),
+                acknowledgements,
+                change: convex_ports::limits::LimitAcknowledgementChange::Acknowledged {
+                    limit_id: ReferenceDataId::new("face-0").unwrap(),
+                },
+                effective: EffectiveInterval { from, until: None },
+                provenance: ReferenceProvenance {
+                    source: SourceId::new("limits-api").unwrap(),
+                    evidence_reference: "limits-api:conformance".into(),
+                },
+            },
+        )),
+    }
+}
+
+/// P15c (D94): a book's acknowledgements are one compare-and-set record of their own kind,
+/// listed on their own, holding at most 64 entries.
+pub async fn limit_acknowledgements_compare_and_set_and_list_by_kind(
+    repository: Arc<dyn ReferenceRepository>,
+) {
+    let at = time("2025-01-06T00:00:00Z");
+    for (key, change) in [
+        ("acks-1", acknowledgements_change(None, 1)),
+        ("acks-2", acknowledgements_change(Some(version(1)), 2)),
+    ] {
+        repository
+            .commit(&command(key, vec![], vec![change]), at)
+            .await
+            .unwrap();
+    }
+    for (key, change, refused) in [
+        (
+            "acks-stale",
+            acknowledgements_change(Some(version(1)), 3),
+            "conflict",
+        ),
+        (
+            "acks-oversized",
+            acknowledgements_change(Some(version(2)), 65),
+            "invalid",
+        ),
+    ] {
+        let result = repository
+            .commit(&command(key, vec![], vec![change]), at)
+            .await;
+        assert!(
+            match refused {
+                "conflict" => matches!(result, Err(ReferenceError::Conflict(_))),
+                _ => matches!(result, Err(ReferenceError::InvalidInput(_))),
+            },
+            "{key}: {result:?}"
+        );
+    }
+    let key = MasterKey::LimitAcknowledgements(ReferenceDataId::new("B-L1").unwrap());
+    let current = repository.get_master(&key).await.unwrap().unwrap();
+    assert_eq!(current.version, version(2));
+    let first = repository
+        .get_master_version(&key, version(1))
+        .await
+        .unwrap()
+        .unwrap();
+    let MasterDefinition::LimitAcknowledgements(first) = &first.definition else {
+        panic!("not acknowledgements")
+    };
+    assert_eq!(first.acknowledgements.len(), 1);
+    assert_eq!(
+        repository
+            .list_masters(MasterKind::LimitAcknowledgements, None, 10)
+            .await
+            .unwrap(),
+        vec![current]
+    );
+    assert!(repository
+        .list_masters(MasterKind::LimitSet, None, 10)
+        .await
+        .unwrap()
+        .is_empty());
+}

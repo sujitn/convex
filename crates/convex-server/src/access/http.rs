@@ -372,6 +372,21 @@ fn requirement(
             req.action = BookRead;
             req.data = vec![D::Books, D::Results, D::Reference, D::Market];
         }
+        // Acknowledgements (P15c) reveal a limit's status, so each reads status's data, and
+        // each handler applies status's read rule. Acknowledging and withdrawing need
+        // `LimitWrite` on the book; the handler also checks it on the limit's instruments.
+        "/api/v1/books/:book_id/limits/acknowledgements"
+        | "/api/v1/books/:book_id/limits/acknowledgements/withdraw" => {
+            exact(R::Book, "book_id")?;
+            req.action = if read { BookRead } else { LimitWrite };
+            req.data = vec![D::Books, D::Results, D::Reference, D::Market];
+        }
+        "/api/v1/books/:book_id/limits/acknowledgements/versions/:version"
+        | "/api/v1/books/:book_id/limits/acknowledgements/history" => {
+            exact(R::Book, "book_id")?;
+            req.action = BookRead;
+            req.data = vec![D::Books, D::Results, D::Reference, D::Market];
+        }
         "/api/v1/portfolios" | "/api/v1/portfolios/batch" => {
             req.action = if read { BookRead } else { BookWrite };
             req.data = vec![D::Books];

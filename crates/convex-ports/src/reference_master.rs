@@ -589,6 +589,8 @@ pub enum MasterKey {
     LimitSet(BookId),
     /// A proposed change to a book's limits, awaiting a second subject (D85).
     LimitProposal(BookId),
+    /// A book's acknowledgements of breached or unknown limits (P15c, D94).
+    LimitAcknowledgements(BookId),
 }
 
 /// The kind of a master resource, named as its storage-key prefix.
@@ -621,6 +623,8 @@ pub enum MasterKind {
     LimitSet,
     /// Proposed book limit changes.
     LimitProposal,
+    /// Book limit acknowledgements.
+    LimitAcknowledgements,
 }
 
 impl MasterKind {
@@ -640,6 +644,7 @@ impl MasterKind {
             Self::RateIndex => "rate_index",
             Self::LimitSet => "limit_set",
             Self::LimitProposal => "limit_proposal",
+            Self::LimitAcknowledgements => "limit_acknowledgements",
         }
     }
 }
@@ -661,6 +666,7 @@ impl MasterKey {
             Self::RateIndex(_) => MasterKind::RateIndex,
             Self::LimitSet(_) => MasterKind::LimitSet,
             Self::LimitProposal(_) => MasterKind::LimitProposal,
+            Self::LimitAcknowledgements(_) => MasterKind::LimitAcknowledgements,
         }
     }
 
@@ -680,6 +686,9 @@ impl MasterKey {
             Self::RateIndex(id) => format!("rate_index/{}", id.as_str()),
             Self::LimitSet(id) => format!("limit_set/{}", id.as_str()),
             Self::LimitProposal(id) => format!("limit_proposal/{}", id.as_str()),
+            Self::LimitAcknowledgements(id) => {
+                format!("limit_acknowledgements/{}", id.as_str())
+            }
         }
     }
 }
@@ -719,6 +728,8 @@ pub enum MasterDefinition {
     LimitSet(Box<crate::limits::LimitSetDefinition>),
     /// A proposed change to a book's limits; written only through the book limit routes.
     LimitProposal(Box<crate::limits::LimitProposalDefinition>),
+    /// A book's limit acknowledgements; written only through the book limit routes.
+    LimitAcknowledgements(Box<crate::limits::LimitAcknowledgementsDefinition>),
 }
 
 impl MasterDefinition {
@@ -738,6 +749,7 @@ impl MasterDefinition {
             Self::RateIndex(v) => MasterKey::RateIndex(v.rate_index_id.clone()),
             Self::LimitSet(v) => MasterKey::LimitSet(v.book_id.clone()),
             Self::LimitProposal(v) => MasterKey::LimitProposal(v.book_id.clone()),
+            Self::LimitAcknowledgements(v) => MasterKey::LimitAcknowledgements(v.book_id.clone()),
         }
     }
     /// Economic validity.
@@ -756,6 +768,7 @@ impl MasterDefinition {
             Self::RateIndex(v) => v.effective,
             Self::LimitSet(v) => v.effective,
             Self::LimitProposal(v) => v.effective,
+            Self::LimitAcknowledgements(v) => v.effective,
         }
     }
     /// Validate complete bounded fields, independently of backend state.
@@ -831,6 +844,10 @@ impl MasterDefinition {
                 &v.provenance
             }
             Self::LimitProposal(v) => {
+                v.validate()?;
+                &v.provenance
+            }
+            Self::LimitAcknowledgements(v) => {
                 v.validate()?;
                 &v.provenance
             }

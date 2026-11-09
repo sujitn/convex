@@ -509,6 +509,11 @@ statuses are described in [the engine's limits guide](../convex-engine/LIMITS.md
 | `GET /api/v1/books/{book_id}/limits/status` | Each limit evaluated now against the current Live results |
 | `POST /api/v1/books/{book_id}/limits/check` | Each limit evaluated now as if proposed position changes were applied; nothing is stored ([the pre-trade check](#the-pre-trade-check)) |
 | `GET /api/v1/books/{book_id}/limits/records?after=&limit=` | The book's recorded status changes after a record id, oldest first, at most 1,000 a page ([records](#records)) |
+| `POST /api/v1/books/{book_id}/limits/acknowledgements` | Acknowledge one limit in breach or unknown, until an expiry: 201 ([acknowledgements](#acknowledgements)) |
+| `POST /api/v1/books/{book_id}/limits/acknowledgements/withdraw` | End the acknowledgement in force for one limit: 200 |
+| `GET /api/v1/books/{book_id}/limits/acknowledgements` | The acknowledgements in force now, with the current version in `ETag` |
+| `GET /api/v1/books/{book_id}/limits/acknowledgements/versions/{v}` | One version as written |
+| `GET /api/v1/books/{book_id}/limits/acknowledgements/history?from=&limit=` | Version summaries, oldest first, at most 500 per page |
 
 Every write needs `Idempotency-Key`, and the `risk_manager` role (see [access](ACCESS.md)).
 The pre-trade check writes nothing and needs neither.
@@ -530,14 +535,19 @@ so a change commits in one step, recorded as `local-development`.
 | 409 `LIMIT_PROPOSAL_CLOSED` | The proposal was already approved or withdrawn |
 | 409 `LIMIT_SET_CHANGED` | The set moved after the proposal was made |
 | 409 `LIMITED_BOOKS_EXCEEDED` | 64 other books already hold a non-empty set (the monitor's bound, D87); an empty set takes no place |
-| 403 `LIMITS_ROUTE_REQUIRED` | A reference transaction or import names a limit set or proposal, or a commit receipt read holds one: only these routes write and read them |
+| 403 `LIMITS_ROUTE_REQUIRED` | A reference transaction or import names a limit set, proposal or acknowledgements, or a commit receipt read holds one: only these routes write and read them |
+| 404 `LIMIT_NOT_FOUND` | An acknowledgement names a limit the current set does not hold |
+| 404 `LIMIT_ACKNOWLEDGEMENT_NOT_FOUND` | A withdrawal names a limit with no acknowledgement in force |
+| 409 `LIMIT_NOT_ACKNOWLEDGEABLE` | The limit, evaluated now, is `within` or `warning` |
+| 422 `LIMIT_RECORD_MISMATCH` | An acknowledgement's `record_id` is not a recorded status change of this book's limit |
 | 413 `CHECK_TOO_LARGE` | A pre-trade check has more than 256 rows |
 | 413 `BOOK_TOO_LARGE` | A pre-trade check would leave the book with more than 1,000 positions, as committing it would |
 | 422 `BOOK_ROWS_REJECTED` | A pre-trade check row cannot be applied; `rows` names each one, as for a snapshot `PUT` |
 
 Status names the book and set versions, the time and the snapshots whose results it read.
 Each item carries the limit's measure and bounds beside its `status`, `value`, `member`,
-`utilisation` and, when `unknown`, its `reason`. It reads accepted runtime results as
+`utilisation` and, when `unknown`, its `reason`; a `breach` or `unknown` item also carries
+the [acknowledgement](#acknowledgements) in force for it, if there is one. It reads accepted runtime results as
 analytics by book do, but a missing input never refuses the request: a position without an
 accepted result, or with one that cannot be read as an analyzer quote, makes each limit that
 reads market data `unknown`, and a `face` limit still evaluates. With the configured
@@ -565,7 +575,9 @@ id as `entity_id`, the new status as `action`, Unix milliseconds as `timestamp`,
 message's JSON as `details`. The message carries `record_id` (the entry's id), the book and
 set versions, `evaluated_at`, `previous` (the last recorded status, or `unevaluated`), the
 limit's measure and bounds, its evaluation (`limit_id`, `status`, `value`, `member`,
-`utilisation`, `reason`), the snapshot ids read and `monitor_started_at`. A failed write
+`utilisation`, `reason`), the snapshot ids read and `monitor_started_at`, and for a `breach`
+or `unknown` change the [acknowledgement](#acknowledgements) in force when it was
+evaluated. A failed write
 records none of the book's changes and keeps their last recorded statuses, so a later
 evaluation records them; a book with a failed write is evaluated again within a second,
 unless the store was full (below). The [records route](#records) reads them.
@@ -629,6 +641,54 @@ took 1.17 and 1.25 s. Through the route, under local development, the
 pages took 0.74 and 5.5 ms (`ci` profile, WSL2). The first open of a
 store written before the index indexes every entry once, 65,536 a transaction: 5.0 s for a
 full store, in 16 transactions. Later opens find nothing to index.
+
+#### Acknowledgements
+
+A risk manager acknowledges a limit in breach or unknown: the acknowledgement records who
+has seen it, until when and why, and changes no bound (D95). The limit stays in breach.
+
+```json
+{"limit_id": "net", "expires_at": "2026-11-12T17:00:00Z",
+ "note": "desk reducing by Thursday", "record_id": 41}
+```
+
+- The limit, evaluated now as status evaluates it, must be `breach` or `unknown`, so
+  nothing is acknowledged in advance.
+- The expiry is after the acknowledgement and at most seven days after it. The note is
+  1 to 1,024 bytes, not blank, with no control character but a line feed.
+- `record_id` is optional evidence: it must name a [record](#records) of this book's
+  limit, which needs the limit monitor (503 without one).
+- One acknowledgement is in force per limit; a new one replaces it.
+- It covers every `breach` or `unknown` status of the limit until it expires. It ends
+  sooner if it is withdrawn, or if a set version changes or drops the limit: each
+  acknowledgement keeps the limit as acknowledged, and is in force only while the current
+  set holds it exactly so. A limit dropped and later restored unchanged is covered again.
+- Status, the pre-trade check, [records](#records) and `limit_status` messages carry the
+  acknowledgement in force on each `breach` or `unknown` limit, as `acknowledgement`
+  (`acknowledged_by`, `acknowledged_at`, `expires_at`, `limit_set_version`, `note`,
+  `record_id`). An acknowledgement records and publishes nothing of its own (D97): a
+  screen sees it on its limit's next change, or by reading status.
+
+A book's acknowledgements are one versioned record per book
+(`MasterKey::LimitAcknowledgements`), in the reference repository as its limit set is
+(D94). Each version changes one limit's entry and says which, and who: `change` is
+`{"action": "acknowledged", "limit_id"}` or `{"action": "withdrawn", "limit_id", "by"}`.
+Entries no longer in force are dropped at the next version; the versions keep them.
+`GET .../acknowledgements` shows those in force now, with `in_force_at`. A book with none
+has an empty list and no version.
+
+Acknowledging and withdrawing need `Idempotency-Key` but no `If-Match`: each changes only
+its own limit's entry, so two risk managers acknowledging different limits do not refuse
+each other. Either needs what status needs, and `LimitWrite` (the `risk_manager` role) on
+the book and on each instrument the limit names; any such subject may withdraw any
+acknowledgement. Under local development both are recorded as `local-development`. Reads
+need what status needs, and a version's read also each instrument its entries' limits
+name.
+
+With 64 limits over every measure on a 256-position priced book, each in breach and
+acknowledged with a 1,024-byte note, status took 3.79 ms per request against 3.70 ms for
+the same positions with none acknowledged, in the same rounds (median, `ci` profile, WSL2
+loopback). The response grew from 15 KB to 91 KB.
 
 #### The pre-trade check
 

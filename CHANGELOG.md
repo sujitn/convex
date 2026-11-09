@@ -103,12 +103,27 @@ the changes that matter when you upgrade.
   following new records passes the last record id it has. It needs what status
   needs, and a record naming an instrument the caller cannot read is left out
   and counted. Without a limit monitor it answers 503.
+- **A breached limit can be acknowledged.**
+  `POST /api/v1/books/{book_id}/limits/acknowledgements` records that a risk
+  manager has seen a limit in breach or unknown, until an expiry at most seven
+  days ahead, with a note. It changes no bound. Status, the pre-trade check,
+  records and `limit_status` messages carry the acknowledgement in force on each
+  `breach` or `unknown` limit, as `acknowledgement`. It ends at its expiry, when
+  withdrawn (`.../acknowledgements/withdraw`), or when a set version changes the
+  limit. The current acknowledgements, each version and the history are read
+  under `.../acknowledgements`. New codes: 409 `LIMIT_NOT_ACKNOWLEDGEABLE`,
+  404 `LIMIT_NOT_FOUND` and `LIMIT_ACKNOWLEDGEMENT_NOT_FOUND`, 422
+  `LIMIT_RECORD_MISMATCH`.
 
 ### convex-ports
 
 - `AuditStore::entity_page(entity_type, entity_id, after, limit)` returns up to
   1,000 of one entity's entries after a cursor, and whether there are more. It
   has a default that scans through `query`, so existing stores still compile.
+- **Breaking:** `MasterKey`, `MasterKind` and `MasterDefinition` gain
+  `LimitAcknowledgements`, a book's limit acknowledgements
+  (`LimitAcknowledgementsDefinition`), so an exhaustive match on them needs a new
+  arm.
 
 ### convex-ext-redb
 

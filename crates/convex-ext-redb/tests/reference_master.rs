@@ -177,6 +177,22 @@ async fn older_serialized_versions_remain_exact_and_require_explicit_migration_f
 use conformance::reference_terms;
 
 #[tokio::test]
+async fn limit_acknowledgements_compare_and_set_and_survive_reopen() {
+    let (dir, repo) = repository();
+    conformance::limit_acknowledgements_compare_and_set_and_list_by_kind(repo.clone()).await;
+    let key = convex_ports::reference_master::MasterKey::LimitAcknowledgements(
+        convex_core::contracts::ReferenceDataId::new("B-L1").unwrap(),
+    );
+    let before = repo.get_master(&key).await.unwrap().unwrap();
+    drop(repo);
+    let reopened = RedbReferenceRepository::new(Arc::new(
+        redb::Database::open(dir.path().join("master.redb")).unwrap(),
+    ))
+    .unwrap();
+    assert_eq!(reopened.get_master(&key).await.unwrap(), Some(before));
+}
+
+#[tokio::test]
 async fn limit_sets_and_proposals_commit_together_and_survive_reopen() {
     let (dir, repo) = repository();
     conformance::limit_sets_and_proposals_commit_together_and_list_by_kind(repo.clone()).await;
