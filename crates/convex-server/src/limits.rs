@@ -36,8 +36,8 @@ use convex_core::contracts::{
 };
 use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::ports::limits::{
-    validate_limits, LimitDefinition, LimitEvaluation, LimitMeasure, LimitMember,
-    LimitProposalClosure, LimitProposalDefinition, LimitSetDefinition, UnknownReason,
+    validate_limits, LimitAcknowledgement, LimitDefinition, LimitEvaluation, LimitMeasure,
+    LimitMember, LimitProposalClosure, LimitProposalDefinition, LimitSetDefinition, UnknownReason,
 };
 use convex_engine::ports::output::BondQuoteOutput;
 use convex_engine::ports::reference_data::BondReferenceData;
@@ -53,19 +53,19 @@ use crate::books::{
     too_large, typed_error, Resolved, RowError, RowRequest, MAX_ROW_ERRORS,
 };
 use crate::handlers::AppState;
-use crate::limit_monitor::{LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
+use crate::limit_monitor::{AcknowledgementInForce, LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
 use crate::reference::{expected_version, key, now, reference_error, with_reference_version};
 
 /// Books with a non-empty limit set: the monitor watches each of them (D87).
 pub(crate) const MAX_LIMITED_BOOKS: usize = convex_engine::configuration::MAX_PLAN_BOOKS;
 /// Largest page of limit set or proposal history.
-const MAX_HISTORY_PAGE: usize = 500;
+pub(crate) const MAX_HISTORY_PAGE: usize = 500;
 /// Source recorded on every limit set and proposal.
 const LIMITS_API: &str = "limits-api";
 /// Rows one pre-trade check takes (D88).
 pub(crate) const MAX_CHECK_ROWS: usize = 256;
 /// What status and a check read: the book, its results and priced terms, and market values.
-const STATUS_DATA: &[DataScope] = &[
+pub(crate) const STATUS_DATA: &[DataScope] = &[
     DataScope::Books,
     DataScope::Results,
     DataScope::Reference,
@@ -76,7 +76,7 @@ const STATUS_DATA: &[DataScope] = &[
 // ERRORS AND SHARED CHECKS
 // =============================================================================
 
-fn conflict(code: &'static str, message: &str) -> Response {
+pub(crate) fn conflict(code: &'static str, message: &str) -> Response {
     typed_error(StatusCode::CONFLICT, code, message)
 }
 
@@ -94,23 +94,31 @@ fn proposal_of(record: &MasterRecord) -> Result<&LimitProposalDefinition, Refere
     }
 }
 
-/// Whether a master change writes a limit set or proposal, which only these routes may.
-pub(crate) fn writes_limits(changes: &[MasterChange]) -> bool {
-    changes.iter().any(|change| {
-        matches!(
-            change.definition,
-            MasterDefinition::LimitSet(_) | MasterDefinition::LimitProposal(_)
-        )
-    })
+/// Whether a master definition is a limit set, proposal or acknowledgements record, which
+/// only these routes write or read.
+pub(crate) fn is_limits(definition: &MasterDefinition) -> bool {
+    matches!(
+        definition,
+        MasterDefinition::LimitSet(_)
+            | MasterDefinition::LimitProposal(_)
+            | MasterDefinition::LimitAcknowledgements(_)
+    )
 }
 
-/// The refusal of a generic reference write, or commit read, that names a limit set or
-/// proposal: D85's two subjects and the limit routes' instrument checks hold only there.
+/// Whether a master change writes a limit set, proposal or acknowledgements, which only
+/// these routes may.
+pub(crate) fn writes_limits(changes: &[MasterChange]) -> bool {
+    changes.iter().any(|change| is_limits(&change.definition))
+}
+
+/// The refusal of a generic reference write, or commit read, that names a limit set,
+/// proposal or acknowledgements: D85's two subjects and the limit routes' instrument
+/// checks hold only there.
 pub(crate) fn limits_route_required() -> Response {
     typed_error(
         StatusCode::FORBIDDEN,
         "LIMITS_ROUTE_REQUIRED",
-        "limit sets and proposals are read and written only through /api/v1/books/{book_id}/limits",
+        "limit sets, proposals and acknowledgements are read and written only through /api/v1/books/{book_id}/limits",
     )
 }
 
@@ -126,7 +134,7 @@ pub(crate) fn named_instruments(limits: &[LimitDefinition]) -> impl Iterator<Ite
 
 /// A limit set or status names instruments in fields the access layer's response scan
 /// does not read, so the caller must hold the action on the book and on each instrument.
-fn authorize(
+pub(crate) fn authorize(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
     action: Action,
@@ -154,7 +162,7 @@ fn authorize(
 
 /// Reading limits needs `BookRead` on the book, each position's instrument and each
 /// instrument a limit names: a status names instruments, and so may a set.
-async fn authorize_read(
+pub(crate) async fn authorize_read(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
     data: &[DataScope],
@@ -183,7 +191,7 @@ async fn authorize_read(
 }
 
 /// Writing names each instrument the limits name, so the writer must hold each of them.
-fn authorize_write(
+pub(crate) fn authorize_write(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
     book: &BookId,
@@ -227,13 +235,13 @@ fn after(time: UtcTimestamp) -> Result<UtcTimestamp, ReferenceError> {
 
 /// The commit time: now, but never before a record the commit replaces, so a wall clock
 /// that steps back cannot refuse the write.
-fn commit_time(
+pub(crate) fn commit_time(
     floor: impl IntoIterator<Item = UtcTimestamp>,
 ) -> Result<UtcTimestamp, ReferenceError> {
     Ok(floor.into_iter().fold(now()?, UtcTimestamp::max))
 }
 
-fn evidence(idempotency_key: &RequestId) -> Result<ReferenceProvenance, ReferenceError> {
+pub(crate) fn evidence(idempotency_key: &RequestId) -> Result<ReferenceProvenance, ReferenceError> {
     Ok(ReferenceProvenance {
         source: SourceId::new(LIMITS_API)
             .map_err(|_| ReferenceError::InvalidInput("limits source"))?,
@@ -241,7 +249,7 @@ fn evidence(idempotency_key: &RequestId) -> Result<ReferenceProvenance, Referenc
     })
 }
 
-async fn current(
+pub(crate) async fn current(
     repo: &dyn ReferenceRepository,
     key: MasterKey,
 ) -> Result<Option<MasterRecord>, ReferenceError> {
@@ -295,7 +303,7 @@ fn too_many_books() -> Response {
     )
 }
 
-async fn commit(
+pub(crate) async fn commit(
     state: &AppState,
     idempotency_key: RequestId,
     master_changes: Vec<MasterChange>,
@@ -315,7 +323,7 @@ async fn commit(
 
 /// The record a retained receipt committed under `key`, if this idempotency key already
 /// committed one; a receipt for anything else is a payload conflict.
-async fn retained(
+pub(crate) async fn retained(
     repo: &dyn ReferenceRepository,
     idempotency_key: &RequestId,
     key: &MasterKey,
@@ -333,7 +341,7 @@ async fn retained(
         ))
 }
 
-fn different_payload() -> ReferenceError {
+pub(crate) fn different_payload() -> ReferenceError {
     ReferenceError::Conflict("idempotency key was used with a different payload")
 }
 
@@ -830,7 +838,7 @@ async fn withdraw(
 // READS
 // =============================================================================
 
-async fn read_master(
+pub(crate) async fn read_master(
     state: &AppState,
     key: &MasterKey,
     version: Option<Version>,
@@ -905,9 +913,9 @@ pub(crate) async fn get_limit_proposal(
 #[serde(deny_unknown_fields)]
 pub(crate) struct HistoryQuery {
     #[serde(default = "first_version")]
-    from: u64,
+    pub(crate) from: u64,
     #[serde(default = "default_page")]
-    limit: usize,
+    pub(crate) limit: usize,
 }
 
 fn first_version() -> u64 {
@@ -993,6 +1001,9 @@ struct StatusItem<'a> {
     warning_fraction: Option<convex_core::contracts::ExactDecimal>,
     #[serde(flatten)]
     evaluation: &'a LimitEvaluation,
+    /// The acknowledgement in force, for a `breach` or `unknown` limit (P15c).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    acknowledgement: Option<AcknowledgementInForce>,
 }
 
 #[derive(Serialize)]
@@ -1012,7 +1023,8 @@ struct StatusView<'a> {
 /// A position without an accepted result (by analytics by book's rule) makes each limit
 /// that reads market data `unknown`, and so does one whose result cannot be read as an
 /// analyzer quote or whose priced terms cannot be read. The response carries the book and
-/// set versions, the time and the snapshots read.
+/// set versions, the time and the snapshots read. A `breach` or `unknown` limit carries the
+/// acknowledgement in force for it, if there is one (P15c).
 pub(crate) async fn get_limit_status(
     State(state): State<Arc<AppState>>,
     ctx: Option<Extension<AccessContext>>,
@@ -1035,20 +1047,26 @@ async fn status(
         .await?
         .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
     let book = book_of(&book_record).map_err(reference_error)?;
+    let acknowledgements = acknowledgements_of(state, &id).await?;
     let evaluated_at = now().map_err(reference_error)?;
     let versions = (book_record.version, set_record.version);
-    evaluated(state, versions, &set.limits, book, evaluated_at).await
+    evaluated(
+        state,
+        versions,
+        &set.limits,
+        book,
+        &acknowledgements,
+        evaluated_at,
+    )
+    .await
 }
 
-/// Evaluate `limits` on `book` against the current Live results, and answer in the status
-/// route's shape. `versions` are the book and limit set versions read.
-async fn evaluated(
+/// Evaluate `limits` on `book` against the current Live results.
+pub(crate) async fn evaluate_now(
     state: &AppState,
-    versions: (Version, Version),
-    limits: &[LimitDefinition],
     book: &BookDefinition,
-    evaluated_at: UtcTimestamp,
-) -> Result<Response, Response> {
+    limits: &[LimitDefinition],
+) -> Result<BookEvaluation, Response> {
     let accepted = accepted_runtime_results(state);
     let mut terms = PricedTerms::new();
     read_priced_terms(
@@ -1058,7 +1076,7 @@ async fn evaluated(
         &mut terms,
     )
     .await;
-    let evaluation = evaluate_book(
+    evaluate_book(
         book,
         limits,
         &accepted,
@@ -1068,7 +1086,43 @@ async fn evaluated(
     .map_err(|error| {
         tracing::error!(%error, "limit status: evaluation refused a book and its limit set");
         reference_error(ReferenceError::Unavailable)
-    })?;
+    })
+}
+
+/// A book's acknowledgement entries, in force or not: none before its first.
+pub(crate) async fn acknowledgements_of(
+    state: &AppState,
+    id: &BookId,
+) -> Result<Vec<LimitAcknowledgement>, Response> {
+    let record = current(
+        state.engine.reference_repository().as_ref(),
+        MasterKey::LimitAcknowledgements(id.clone()),
+    )
+    .await
+    .map_err(reference_error)?;
+    match &record {
+        Some(record) => Ok(
+            crate::limit_acknowledgements::acknowledgements_of_record(record)
+                .map_err(reference_error)?
+                .acknowledgements
+                .clone(),
+        ),
+        None => Ok(Vec::new()),
+    }
+}
+
+/// Evaluate `limits` on `book` against the current Live results, and answer in the status
+/// route's shape, with the acknowledgement in force for each `breach` or `unknown` limit.
+/// `versions` are the book and limit set versions read.
+async fn evaluated(
+    state: &AppState,
+    versions: (Version, Version),
+    limits: &[LimitDefinition],
+    book: &BookDefinition,
+    acknowledgements: &[LimitAcknowledgement],
+    evaluated_at: UtcTimestamp,
+) -> Result<Response, Response> {
+    let evaluation = evaluate_now(state, book, limits).await?;
     let items = limits
         .iter()
         .zip(&evaluation.evaluations)
@@ -1078,6 +1132,12 @@ async fn evaluated(
             upper: limit.upper,
             warning_fraction: limit.warning_fraction,
             evaluation,
+            acknowledgement: AcknowledgementInForce::of(
+                acknowledgements,
+                evaluation,
+                evaluated_at,
+                limits,
+            ),
         })
         .collect();
     let view = StatusView {
@@ -1407,8 +1467,17 @@ async fn check(
         .map(|row| row.position.instrument_id.as_str().to_owned());
     authorize(state, ctx, Action::BookRead, STATUS_DATA, &id, proposed)?;
     let book = applied(held, &resolved, &units)?;
+    let acknowledgements = acknowledgements_of(state, &id).await?;
     let versions = (book_record.version, set_record.version);
-    evaluated(state, versions, &set.limits, &book, evaluated_at).await
+    evaluated(
+        state,
+        versions,
+        &set.limits,
+        &book,
+        &acknowledgements,
+        evaluated_at,
+    )
+    .await
 }
 
 /// Why a row may not change a held position, if it may not: a row changes only the

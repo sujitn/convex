@@ -23,6 +23,11 @@
 //! evaluation records every limit's status as a change from `unevaluated`, naming the
 //! start. A stop is seen between books, so shutdown waits for one book's commit at most;
 //! what was not recorded is recorded at the next start.
+//!
+//! A `breach` or `unknown` change carries the acknowledgement in force for its limit at
+//! the evaluation (P15c). The monitor rereads a watched book's acknowledgements when they
+//! commit, as it rereads its set; an acknowledgement changes no status, so it records and
+//! publishes nothing of its own (D97).
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -37,7 +42,7 @@ use std::time::{Duration, Instant};
 
 use convex_core::contracts::{ExactDecimal, UtcTimestamp, ValuationSubject, Version};
 use convex_engine::ports::limits::{
-    LimitDefinition, LimitEvaluation, LimitId, LimitMeasure, LimitStatus,
+    LimitAcknowledgement, LimitDefinition, LimitEvaluation, LimitId, LimitMeasure, LimitStatus,
 };
 use convex_engine::ports::reference_master::*;
 use convex_engine::ports::reference_repository::*;
@@ -121,6 +126,57 @@ pub struct LimitStatusChange {
     pub evaluation: LimitEvaluation,
     /// The distinct snapshots whose results the evaluation read.
     pub snapshot_ids: Arc<[String]>,
+    /// The acknowledgement in force for a `breach` or `unknown` limit when evaluated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub acknowledgement: Option<AcknowledgementInForce>,
+}
+
+/// The acknowledgement in force for a `breach` or `unknown` limit (P15c; D95, D97), as
+/// status, records and `limit_status` frames carry it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct AcknowledgementInForce {
+    /// Who acknowledged it.
+    pub acknowledged_by: String,
+    /// When.
+    pub acknowledged_at: UtcTimestamp,
+    /// When it ends, unless withdrawn or ended by a set change first.
+    pub expires_at: UtcTimestamp,
+    /// The limit set version acknowledged.
+    pub limit_set_version: Version,
+    /// Why.
+    pub note: String,
+    /// The recorded change it answers, if it names one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record_id: Option<u64>,
+}
+
+impl AcknowledgementInForce {
+    /// The entry in force at `at` for `evaluation`'s limit under the current `limits`, if
+    /// the limit is `breach` or `unknown`.
+    pub(crate) fn of(
+        entries: &[LimitAcknowledgement],
+        evaluation: &LimitEvaluation,
+        at: UtcTimestamp,
+        limits: &[LimitDefinition],
+    ) -> Option<Self> {
+        if !matches!(
+            evaluation.status,
+            LimitStatus::Breach | LimitStatus::Unknown
+        ) {
+            return None;
+        }
+        entries
+            .iter()
+            .find(|entry| entry.limit.limit_id == evaluation.limit_id && entry.in_force(at, limits))
+            .map(|entry| Self {
+                acknowledged_by: entry.acknowledged_by.clone(),
+                acknowledged_at: entry.acknowledged_at,
+                expires_at: entry.expires_at,
+                limit_set_version: entry.limit_set_version,
+                note: entry.note.clone(),
+                record_id: entry.record_id,
+            })
+    }
 }
 
 /// A recorded change on its way to subscribers.
@@ -301,11 +357,13 @@ impl Pending {
     }
 }
 
-/// What a watched book is evaluated on: its non-empty limit set and the book, replaced
-/// whole when either commits.
+/// What a watched book is evaluated on: its non-empty limit set, the book and its
+/// acknowledgements, replaced whole when any of them commits.
 struct Subject {
     set_version: Version,
     limits: Vec<LimitDefinition>,
+    /// Entries in force or not; each change reads those in force when evaluated.
+    acknowledgements: Vec<LimitAcknowledgement>,
     /// Absent while the book itself does not exist; nothing is evaluated then.
     book: Option<(Version, BookDefinition)>,
     instruments: Arc<[String]>,
@@ -350,7 +408,9 @@ impl Task {
         for key in keys {
             match key {
                 MasterKey::LimitSet(id) => Pending::add(&mut self.reload, id.clone()),
-                MasterKey::Book(id) if self.books.contains_key(id) => {
+                MasterKey::Book(id) | MasterKey::LimitAcknowledgements(id)
+                    if self.books.contains_key(id) =>
+                {
                     Pending::add(&mut self.reload, id.clone())
                 }
                 _ => {}
@@ -450,6 +510,15 @@ impl Task {
                 Some(record) => Some((record.version, book_of(&record)?.clone())),
                 None => None,
             };
+            let acknowledgements = match repo
+                .get_master(&MasterKey::LimitAcknowledgements(id.clone()))
+                .await?
+            {
+                Some(record) => crate::limit_acknowledgements::acknowledgements_of_record(&record)?
+                    .acknowledgements
+                    .clone(),
+                None => Vec::new(),
+            };
             let instruments: BTreeSet<String> = book
                 .iter()
                 .flat_map(|(_, book)| book.positions.iter())
@@ -467,6 +536,7 @@ impl Task {
                     subject: Arc::new(Subject {
                         set_version,
                         limits: set.limits.clone(),
+                        acknowledgements,
                         book,
                         instruments: instruments.into_iter().collect(),
                     }),
@@ -562,7 +632,13 @@ impl Task {
             };
             match self
                 .ledger
-                .record(context, &subject.limits, evaluation, &mut watched.recorded)
+                .record(
+                    context,
+                    &subject.limits,
+                    &subject.acknowledgements,
+                    evaluation,
+                    &mut watched.recorded,
+                )
                 .await
             {
                 // A full store stays full: the book's next evaluation tries again, not a
@@ -645,6 +721,7 @@ impl Ledger {
         &mut self,
         context: Context<'_>,
         limits: &[LimitDefinition],
+        acknowledgements: &[LimitAcknowledgement],
         evaluation: crate::limits::BookEvaluation,
         recorded: &mut HashMap<LimitId, LimitStatus>,
     ) -> Recorded {
@@ -664,6 +741,12 @@ impl Ledger {
             };
             self.next_id = record_id.checked_add(1);
             let status = evaluation.status;
+            let acknowledgement = AcknowledgementInForce::of(
+                acknowledgements,
+                &evaluation,
+                context.evaluated_at,
+                limits,
+            );
             let change = LimitStatusChange {
                 record_id,
                 book_id: context.book_id.clone(),
@@ -678,6 +761,7 @@ impl Ledger {
                 warning_fraction: limit.warning_fraction,
                 evaluation,
                 snapshot_ids: snapshot_ids.clone(),
+                acknowledgement,
             };
             let details = match serde_json::to_string(&change) {
                 Ok(details) => details,

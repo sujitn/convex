@@ -11,6 +11,10 @@
 //! reference repository. One subject proposes a change ([`LimitProposalDefinition`],
 //! `MasterKey::LimitProposal`); a different subject approves it, which commits the set and
 //! closes the proposal in one transaction (D85).
+//!
+//! A book's acknowledgements of breached or unknown limits are one versioned
+//! [`LimitAcknowledgementsDefinition`] (`MasterKey::LimitAcknowledgements`) per book (P15c,
+//! D94, D95): one subject may make one, and it changes no bound.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -21,7 +25,9 @@
 
 use std::collections::BTreeSet;
 
-use convex_core::contracts::{ExactDecimal, FactorTenor, InstrumentId, ReferenceDataId, Version};
+use convex_core::contracts::{
+    ExactDecimal, FactorTenor, InstrumentId, ReferenceDataId, UtcTimestamp, Version,
+};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -341,6 +347,170 @@ impl LimitProposalDefinition {
     #[must_use]
     pub fn is_open(&self) -> bool {
         self.closed.is_none()
+    }
+}
+
+/// Seconds an acknowledgement may last: seven days (D95).
+pub const MAX_ACKNOWLEDGEMENT_SECONDS: i64 = 7 * 24 * 60 * 60;
+/// Bytes in an acknowledgement's note.
+pub const MAX_ACKNOWLEDGEMENT_NOTE_BYTES: usize = 1024;
+
+/// One limit's acknowledgement (P15c; D94, D95): someone has seen its breach or unknown
+/// status, until a time. It changes no bound.
+///
+/// It is in force until it expires, unless it is withdrawn or the book's current set no
+/// longer holds the limit exactly as acknowledged ([`LimitAcknowledgement::in_force`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LimitAcknowledgement {
+    /// The limit as acknowledged: a set version that changes or drops it ends this.
+    pub limit: LimitDefinition,
+    /// The limit set version acknowledged.
+    pub limit_set_version: Version,
+    /// Who acknowledged it.
+    pub acknowledged_by: String,
+    /// When.
+    pub acknowledged_at: UtcTimestamp,
+    /// When it ends, at most seven days after `acknowledged_at`.
+    pub expires_at: UtcTimestamp,
+    /// Why, 1 to 1,024 bytes.
+    pub note: String,
+    /// The recorded status change it answers, as evidence only: a record of this book and
+    /// limit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub record_id: Option<u64>,
+}
+
+impl LimitAcknowledgement {
+    /// Whether it covers the limit at `at` under the book's current `limits`: it has not
+    /// expired, and they hold the limit exactly as acknowledged.
+    #[must_use]
+    pub fn in_force(&self, at: UtcTimestamp, limits: &[LimitDefinition]) -> bool {
+        at < self.expires_at && limits.contains(&self.limit)
+    }
+
+    /// Validate the entry on its own: its limit, its subject, its note and its expiry.
+    pub fn validate(&self) -> Result<(), ReferenceError> {
+        self.limit.validate()?;
+        subject(&self.acknowledged_by)?;
+        acknowledgement_note(&self.note)?;
+        acknowledgement_expiry(self.acknowledged_at, self.expires_at)?;
+        if self.record_id == Some(0) {
+            return Err(invalid("a record id is at least 1"));
+        }
+        Ok(())
+    }
+}
+
+/// Validate an acknowledgement's note: 1 to 1,024 bytes, not blank, without control
+/// characters other than line feeds.
+pub fn acknowledgement_note(note: &str) -> Result<(), ReferenceError> {
+    if note.trim().is_empty()
+        || note.len() > MAX_ACKNOWLEDGEMENT_NOTE_BYTES
+        || note.chars().any(|c| c.is_control() && c != '\n')
+    {
+        return Err(invalid(
+            "a note is 1 to 1,024 bytes, not blank, without control characters other than line feeds",
+        ));
+    }
+    Ok(())
+}
+
+/// Validate an expiry: after `at`, and at most seven days after it (D95).
+pub fn acknowledgement_expiry(
+    at: UtcTimestamp,
+    expires_at: UtcTimestamp,
+) -> Result<(), ReferenceError> {
+    let span = (expires_at.datetime() - at.datetime()).num_nanoseconds();
+    match span {
+        Some(span) if span > 0 && span <= MAX_ACKNOWLEDGEMENT_SECONDS * 1_000_000_000 => Ok(()),
+        _ => Err(invalid(
+            "an acknowledgement expires after it is made, and at most seven days after",
+        )),
+    }
+}
+
+/// What one version of a book's acknowledgements changed: one limit's entry, made or
+/// withdrawn.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+pub enum LimitAcknowledgementChange {
+    /// The limit's entry was made, or replaced: its `acknowledged_by` made it.
+    Acknowledged {
+        /// The limit.
+        limit_id: LimitId,
+    },
+    /// The limit's entry was withdrawn, and is in the previous version only.
+    Withdrawn {
+        /// The limit.
+        limit_id: LimitId,
+        /// Who withdrew it.
+        by: String,
+    },
+}
+
+/// A book's limit acknowledgements, one versioned record per book (D94). Each version
+/// changes one limit's entry; entries no longer in force are dropped at the next
+/// version, and the history keeps them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LimitAcknowledgementsDefinition {
+    /// The book.
+    pub book_id: BookId,
+    /// At most one entry a limit, so at most [`MAX_BOOK_LIMITS`].
+    pub acknowledgements: Vec<LimitAcknowledgement>,
+    /// What this version changed.
+    pub change: LimitAcknowledgementChange,
+    /// From the commit; the record is never retired, and an empty one holds none.
+    pub effective: EffectiveInterval,
+    /// The request that wrote this version.
+    pub provenance: ReferenceProvenance,
+}
+
+impl LimitAcknowledgementsDefinition {
+    /// Validate the record on its own: each entry, one a limit, and a change that names
+    /// the entry it made, or a limit it no longer holds.
+    pub fn validate(&self) -> Result<(), ReferenceError> {
+        if self.acknowledgements.len() > MAX_BOOK_LIMITS {
+            return Err(invalid("a book holds at most 64 acknowledgements"));
+        }
+        let mut ids = BTreeSet::new();
+        for entry in &self.acknowledgements {
+            entry.validate()?;
+            if !ids.insert(entry.limit.limit_id.as_str()) {
+                return Err(invalid("a book holds one acknowledgement a limit"));
+            }
+        }
+        if self.effective.until.is_some() {
+            return Err(invalid("acknowledgements are not retired"));
+        }
+        match &self.change {
+            LimitAcknowledgementChange::Acknowledged { limit_id }
+                if !ids.contains(limit_id.as_str()) =>
+            {
+                Err(invalid(
+                    "an acknowledgement's version holds the entry it made",
+                ))
+            }
+            LimitAcknowledgementChange::Withdrawn { limit_id, by } => {
+                subject(by)?;
+                if ids.contains(limit_id.as_str()) {
+                    return Err(invalid(
+                        "a withdrawal's version no longer holds the entry it withdrew",
+                    ));
+                }
+                Ok(())
+            }
+            LimitAcknowledgementChange::Acknowledged { .. } => Ok(()),
+        }
+    }
+
+    /// The entry for `limit_id`, in force or not.
+    #[must_use]
+    pub fn entry(&self, limit_id: &LimitId) -> Option<&LimitAcknowledgement> {
+        self.acknowledgements
+            .iter()
+            .find(|entry| entry.limit.limit_id == *limit_id)
     }
 }
 

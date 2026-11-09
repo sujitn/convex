@@ -9,6 +9,7 @@ use convex_engine::PricingEngine;
 
 use crate::books;
 use crate::handlers::{self, AppState};
+use crate::limit_acknowledgements;
 use crate::limits;
 use crate::reference;
 use crate::websocket::{self, WebSocketState};
@@ -350,6 +351,24 @@ pub fn create_router_with_access(
         .route(
             "/api/v1/books/:book_id/limits/status",
             get(limits::get_limit_status),
+        )
+        // Acknowledgements (P15c): who has seen a breach, until when; no bound changes
+        .route(
+            "/api/v1/books/:book_id/limits/acknowledgements",
+            get(limit_acknowledgements::get_acknowledgements)
+                .post(limit_acknowledgements::acknowledge_limit),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/acknowledgements/withdraw",
+            post(limit_acknowledgements::withdraw_acknowledgement),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/acknowledgements/versions/:version",
+            get(limit_acknowledgements::get_acknowledgements_version),
+        )
+        .route(
+            "/api/v1/books/:book_id/limits/acknowledgements/history",
+            get(limit_acknowledgements::get_acknowledgements_history),
         )
         // Recorded status changes (P15b), from the monitor's audit store, by cursor
         .route(

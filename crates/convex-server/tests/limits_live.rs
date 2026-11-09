@@ -508,6 +508,114 @@ async fn status_route_time_at_the_bounds() {
     server.stop().await;
 }
 
+/// P15c's measurement: `GET .../limits/status` for a book with 64 limits over every
+/// measure, each in breach and acknowledged with a note of 1,024 bytes, against the same
+/// book's positions under limits that are all within and none acknowledged, in the same
+/// rounds. Bounds of 10^15 to 2·10^15 put every value, zero included, in breach.
+#[tokio::test]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn status_route_time_with_acknowledgements_at_the_bounds() {
+    const ROUNDS: usize = 40;
+    let (dir, live, instruments) = live(256, 0, &MEASURES).await;
+    let server = started(&dir, live).await;
+    let mut breaching = every_measure();
+    for limit in breaching["limits"].as_array_mut().unwrap() {
+        let limit = limit.as_object_mut().unwrap();
+        limit.remove("warning_fraction");
+        limit.insert("lower".into(), json!("1000000000000000"));
+        limit.insert("upper".into(), json!("2000000000000000"));
+    }
+    for (id, limits) in [("PRICED", every_measure()), ("ACKED", breaching)] {
+        put(
+            &server,
+            &format!("/api/v1/books/{id}"),
+            &format!("book-{id}"),
+            book(&instruments),
+        )
+        .await;
+        put(
+            &server,
+            &format!("/api/v1/books/{id}/limits"),
+            &format!("limits-{id}"),
+            limits,
+        )
+        .await;
+    }
+    let expires_at = (chrono::Utc::now() + chrono::Duration::hours(1))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    for i in 0..64 {
+        let body = json!({"limit_id": format!("limit-{i:02}"), "expires_at": expires_at,
+                          "note": format!("{i:02}{}", "n".repeat(1022))});
+        let (code, response) = send(
+            &server,
+            reqwest::Method::POST,
+            "/api/v1/books/ACKED/limits/acknowledgements",
+            Some(&format!("ack-{i}")),
+            Some(body),
+        )
+        .await;
+        assert_eq!(code, StatusCode::CREATED, "limit-{i:02}: {response}");
+    }
+    let (code, status) = send(
+        &server,
+        reqwest::Method::GET,
+        "/api/v1/books/ACKED/limits/status",
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{status}");
+    let carried = by_id(&status)
+        .into_values()
+        .filter(|l| l["status"] == "breach" && l["acknowledgement"]["note"].is_string())
+        .count();
+    assert_eq!(
+        carried, 64,
+        "every limit breaches and carries its acknowledgement"
+    );
+    let (code, priced) = send(
+        &server,
+        reqwest::Method::GET,
+        "/api/v1/books/PRICED/limits/status",
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{priced}");
+    println!(
+        "response bytes: {} with 64 acknowledgements, {} without",
+        status.to_string().len(),
+        priced.to_string().len()
+    );
+
+    let (mut plain, mut acked) = (Vec::new(), Vec::new());
+    for round in 0..ROUNDS + 5 {
+        let paths = [
+            "/api/v1/books/PRICED/limits/status",
+            "/api/v1/books/ACKED/limits/status",
+        ];
+        // Alternate which goes first, so neither always follows the other.
+        let order = if round % 2 == 0 { [0, 1] } else { [1, 0] };
+        let mut times = [Duration::ZERO; 2];
+        for index in order {
+            times[index] = timed(&server, reqwest::Method::GET, paths[index], None).await;
+        }
+        if round >= 5 {
+            plain.push(times[0]);
+            acked.push(times[1]);
+        }
+    }
+    println!(
+        "limits/status, 256 positions priced, 64 limits, none acknowledged: {}",
+        summary(plain)
+    );
+    println!(
+        "limits/status, 256 positions priced, 64 limits in breach, 64 acknowledged: {}",
+        summary(acked)
+    );
+    server.stop().await;
+}
+
 // =============================================================================
 // THE MONITOR (P14c)
 // =============================================================================
@@ -1681,5 +1789,96 @@ async fn records_page_time_at_the_cap() {
             summary(times)
         );
     }
+    server.stop().await;
+}
+
+/// P15c (D95, D97): a value hovering at a bound needs one acknowledgement. The monitor
+/// rereads a book's acknowledgements when they commit, so a breach a tick causes carries
+/// one made since; making it records and publishes nothing.
+#[tokio::test]
+async fn a_breach_a_tick_causes_carries_the_acknowledgement_made_since() {
+    let (dir, live, _) = live(1, 0, &[]).await;
+    let server = started(&dir, live).await;
+    put(
+        &server,
+        "/api/v1/books/WATCHED",
+        "book-watched",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "1000000"},
+        ]}),
+    )
+    .await;
+    let mut socket = limit_session(&server, &["WATCHED"]).await;
+    let first = json!({"limits": [limit("net", json!({"kind": "market_value"}))]});
+    put(&server, "/api/v1/books/WATCHED/limits", "set-1", first).await;
+    let change = frame(&mut socket, "limit_status").await;
+    let net = number(&change["value"]);
+    let upper = format!("{:.2}", net * 1.005);
+    let second = json!({"limits": [
+        {"limit_id": "net", "measure": {"kind": "market_value"}, "upper": upper},
+    ]});
+    put_over(
+        &server,
+        "/api/v1/books/WATCHED/limits",
+        "set-2",
+        "1",
+        second,
+    )
+    .await;
+
+    // A tick breaches; the breach is acknowledged, which publishes nothing.
+    tick(&server, &dir, 2, "100.75").await;
+    let breach = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&breach["previous"], &breach["status"]),
+        (&json!("within"), &json!("breach")),
+        "{breach}"
+    );
+    assert!(breach.get("acknowledgement").is_none(), "{breach}");
+    let expires_at = (chrono::Utc::now() + chrono::Duration::hours(1))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let body = json!({"limit_id": "net", "expires_at": expires_at, "note": "hovering at the bound",
+                      "record_id": breach["record_id"]});
+    let (code, made) = send(
+        &server,
+        reqwest::Method::POST,
+        "/api/v1/books/WATCHED/limits/acknowledgements",
+        Some("ack-net"),
+        Some(body),
+    )
+    .await;
+    assert_eq!(code, StatusCode::CREATED, "{made}");
+
+    // Back within, then a breach again: the next frame is the return, not the
+    // acknowledgement, and the second breach carries it.
+    tick(&server, &dir, 3, "99.25").await;
+    let within = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&within["previous"], &within["status"]),
+        (&json!("breach"), &json!("within")),
+        "{within}"
+    );
+    assert!(within.get("acknowledgement").is_none(), "{within}");
+    tick(&server, &dir, 4, "100.75").await;
+    let again = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&again["previous"], &again["status"]),
+        (&json!("within"), &json!("breach")),
+        "{again}"
+    );
+    assert_eq!(
+        (
+            &again["acknowledgement"]["note"],
+            &again["acknowledgement"]["record_id"],
+            &again["acknowledgement"]["expires_at"]
+        ),
+        (
+            &json!("hovering at the bound"),
+            &breach["record_id"],
+            &json!(expires_at)
+        ),
+        "{again}"
+    );
+    drop(socket);
     server.stop().await;
 }
