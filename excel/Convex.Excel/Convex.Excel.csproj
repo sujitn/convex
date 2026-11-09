@@ -11,6 +11,12 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <!-- The add-in's version is the workspace's, so CX.DIAG and the release agree.
+         The release workflow checks the tag against the same line. -->
+    <Version>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\Cargo.toml')), '(?m)^version\s*=\s*&quot;([^&quot;]+)&quot;').Groups[1].Value)</Version>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <!-- x64 only: convex_ffi.dll is a 64-bit library. -->
     <ExcelDnaCreate32BitAddIn>false</ExcelDnaCreate32BitAddIn>
     <!-- Built with the `excel` cargo profile; see [profile.excel] in Cargo.toml.

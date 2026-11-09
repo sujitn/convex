@@ -3475,30 +3475,9 @@ jobs:
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release
 
-      - name: Copy native DLL
-        run: copy target\excel\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\
-
       - name: Create Add-in Package
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path convex-excel-addin
-          Copy-Item excel\Convex.Excel\bin\Release\net472\Convex.Excel64.xll convex-excel-addin\
-          Copy-Item excel\Convex.Excel\bin\Release\net472\convex_ffi.dll convex-excel-addin\
-          if (Test-Path excel\ConvexDemo.xlsx) {
-            Copy-Item excel\ConvexDemo.xlsx convex-excel-addin\
-          }
-          @"
-          Convex Excel Add-in
-          ===================
-
-          Installation:
-          1. Extract all files to a folder
-          2. Open Excel
-          3. File > Options > Add-ins > Go > Browse
-          4. Select Convex.Excel64.xll
-
-          Note: convex_ffi.dll must be in the same folder as the .xll file
-          "@ | Out-File -FilePath convex-excel-addin\README.txt -Encoding UTF8
+        run: excel/Package-AddIn.ps1 -OutDir convex-excel-addin
 
       - name: Upload Add-in Artifact
         uses: actions/upload-artifact@v7.0.1

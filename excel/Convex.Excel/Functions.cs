@@ -687,7 +687,7 @@ namespace Convex.Excel
             grid[0, 0] = "Native load";   grid[0, 1] = NativeLoader.GetLoadError();
             grid[1, 0] = "Engine";        grid[1, 1] = version;
             grid[2, 0] = "Objects";       grid[2, 1] = objects;
-            grid[3, 0] = "Add-in";        grid[3, 1] = typeof(Functions).Assembly.GetName().Version?.ToString() ?? "?";
+            grid[3, 0] = "Add-in";        grid[3, 1] = NativeLoader.AddInVersion;
             grid[4, 0] = "Live topics";   grid[4, 1] = live.Topics;
             grid[5, 0] = "Live computes"; grid[5, 1] = (double)live.Computes;
             grid[6, 0] = "Live pushes";   grid[6, 1] = (double)live.Pushes;

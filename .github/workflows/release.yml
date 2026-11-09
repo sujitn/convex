@@ -137,21 +137,9 @@ jobs:
       - name: Build Excel Add-in
         run: dotnet build excel/Convex.Excel/Convex.Excel.csproj --configuration Release
 
-      - name: Copy native DLL
-        run: copy target\excel\convex_ffi.dll excel\Convex.Excel\bin\Release\net472\
-
       - name: Create Add-in Package
         shell: pwsh
-        run: |
-          $version = "${{ needs.validate.outputs.version }}"
-          New-Item -ItemType Directory -Force -Path convex-excel-addin | Out-Null
-          Copy-Item excel\Convex.Excel\bin\Release\net472\Convex.Excel64.xll convex-excel-addin\
-          Copy-Item excel\Convex.Excel\bin\Release\net472\Convex.Excel64.dna convex-excel-addin\
-          Copy-Item excel\Convex.Excel\bin\Release\net472\Convex.Excel.dll convex-excel-addin\
-          Copy-Item excel\Convex.Excel\bin\Release\net472\convex_ffi.dll convex-excel-addin\
-          if (Test-Path excel\ConvexDemo.xlsx) { Copy-Item excel\ConvexDemo.xlsx convex-excel-addin\ }
-          "Convex Excel Add-in - Extract and load Convex.Excel64.xll in Excel" | Out-File convex-excel-addin\README.txt
-          Compress-Archive -Path convex-excel-addin\* -DestinationPath "convex-excel-addin-v$version.zip"
+        run: excel/Package-AddIn.ps1 -OutDir convex-excel-addin -Zip "convex-excel-addin-v${{ needs.validate.outputs.version }}.zip"
 
       - name: Upload Add-in Artifact
         uses: actions/upload-artifact@v7.0.1
@@ -320,8 +308,9 @@ jobs:
 
             ## Excel
 
-            Download `convex-excel-addin-v${{ needs.validate.outputs.version }}.zip`, extract it, and
-            load `Convex.Excel64.xll` in 64-bit Excel.
+            Download `convex-excel-addin-v${{ needs.validate.outputs.version }}.zip` and extract it.
+            Excel refuses a downloaded add-in, so run `Get-ChildItem <folder> | Unblock-File` first.
+            Then load `Convex.Excel64.xll` in Microsoft 365 Excel, 64-bit. The zip's `README.txt` has the steps.
           files: |
             ./artifacts/*.zip
             ./artifacts/*.tgz

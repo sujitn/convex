@@ -22,9 +22,18 @@ results and update when the server publishes (see *Live server cells*).
 ## Installation
 
 ### Prerequisites
-- Microsoft Excel 2016 or later (64-bit)
+- Microsoft 365 Apps for Windows, 64-bit (Current or Monthly Enterprise channel).
+  The grid functions need dynamic arrays.
 - .NET Framework 4.7.2 (Windows 10 +)
 - Visual Studio Build Tools or .NET SDK (only needed to build from source)
+
+### From a release
+
+1. Download `convex-excel-addin-v<version>.zip` from the GitHub release and
+   extract it to one folder. Keep `convex_ffi.dll` beside `Convex.Excel64.xll`.
+2. Excel refuses an add-in downloaded from the internet, so unblock the files
+   first: `Get-ChildItem <folder> | Unblock-File`.
+3. Load `Convex.Excel64.xll` as in *Loading the add-in*.
 
 ### Build from source
 
@@ -45,8 +54,12 @@ the build.
 
 1. Open Excel → File → Options → Add-ins.
 2. At the bottom, "Excel Add-ins" → Go.
-3. Browse to `excel/Convex.Excel/bin/Release/net472/publish/Convex.Excel64-packed.xll`.
+3. Browse to `Convex.Excel64.xll` from the release, or, from a source build, to
+   `excel/Convex.Excel/bin/Release/net472/publish/Convex.Excel64-packed.xll`.
 4. OK.
+
+`excel/Package-AddIn.ps1 -OutDir <folder>` stages a source build the way a
+release ships it.
 
 ## Trader marks
 

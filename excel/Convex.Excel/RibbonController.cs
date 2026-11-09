@@ -168,7 +168,8 @@ namespace Convex.Excel
             try { version = Cx.Version(); }
             catch (Exception ex) { version = "unknown (" + ex.Message + ")"; }
             MessageBox.Show(
-                "Convex Excel Add-In\n\nVersion: " + version +
+                "Convex Excel Add-In\n\nAdd-in: " + NativeLoader.AddInVersion +
+                "\nEngine: " + version +
                 "\n\nMark-driven fixed income analytics.\n\nType =CX.SCHEMA(\"Mark\") for the wire format.",
                 "About Convex", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }

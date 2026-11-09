@@ -66,6 +66,13 @@ the changes that matter when you upgrade.
   `POST /api/v1/books/{book_id}/limits/check`, and shows each limit now and
   after the trades. It stores nothing. **Stamp CX.LIMIT** writes live limit
   cells for the book.
+- **The release package loads.** The zip now holds the packed
+  `Convex.Excel64.xll` and `convex_ffi.dll`. It used to hold the unpacked
+  loader without two DLLs that loader needs. Excel refuses a downloaded add-in,
+  so unblock the files first (see the zip's `README.txt`).
+- The add-in carries the workspace version: `CX.DIAG()` and **About** show it
+  (`CX.DIAG()` showed 1.0.0.0). Microsoft 365 Apps, 64-bit, is the stated
+  minimum, not Excel 2016.
 
 ### convex-ffi
 

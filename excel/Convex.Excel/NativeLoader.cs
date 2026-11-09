@@ -22,6 +22,10 @@ namespace Convex.Excel
         private static string? _loadError;
         private static string? _loadedPath;
 
+        /// The workspace version the add-in was built at (major.minor.patch).
+        internal static string AddInVersion =>
+            typeof(NativeLoader).Assembly.GetName().Version?.ToString(3) ?? "?";
+
         public void AutoOpen()
         {
             Initialize();
