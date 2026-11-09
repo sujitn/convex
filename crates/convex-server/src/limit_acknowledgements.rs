@@ -227,6 +227,14 @@ async fn acknowledge(
     let book_record = authorize_read(state, ctx, STATUS_DATA, &id, &set.limits)
         .await?
         .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    let record_key = MasterKey::LimitAcknowledgements(id.clone());
+    // Before the set is consulted: it may since have changed or dropped the limit.
+    if let Some(record) = retained(repo, &idempotency_key, &record_key)
+        .await
+        .map_err(reference_error)?
+    {
+        return retried_acknowledgement(state, ctx, &id, &record, &request, &subject).await;
+    }
     let Some((index, limit)) = set
         .limits
         .iter()
@@ -240,26 +248,6 @@ async fn acknowledge(
         ));
     };
     authorize_write(state, ctx, &id, std::slice::from_ref(limit))?;
-    let record_key = MasterKey::LimitAcknowledgements(id.clone());
-    // An exact retry returns the retained version; any other reuse of the key conflicts.
-    if let Some(record) = retained(repo, &idempotency_key, &record_key)
-        .await
-        .map_err(reference_error)?
-    {
-        let stored = acknowledgements_of_record(&record).map_err(reference_error)?;
-        let made = matches!(&stored.change, LimitAcknowledgementChange::Acknowledged { limit_id } if *limit_id == request.limit_id);
-        let same = made
-            && stored.entry(&request.limit_id).is_some_and(|entry| {
-                entry.acknowledged_by == subject
-                    && entry.expires_at == request.expires_at
-                    && entry.note == request.note
-                    && entry.record_id == request.record_id
-            });
-        if !same {
-            return Err(reference_error(different_payload()));
-        }
-        return Ok(version_response(&record, StatusCode::CREATED));
-    }
     let existing = current(repo, record_key).await.map_err(reference_error)?;
     let at = commit_time(existing.iter().map(|r| r.recorded_at)).map_err(reference_error)?;
     acknowledgement_expiry(at, request.expires_at).map_err(reference_error)?;
@@ -310,6 +298,35 @@ async fn acknowledge(
     };
     let record = write(state, idempotency_key, existing.as_ref(), definition, at).await?;
     Ok(version_response(&record, StatusCode::CREATED))
+}
+
+/// An exact retry returns the version it wrote, whatever the set has since become; any
+/// other reuse of the key conflicts. The caller needs what acknowledging that limit needed
+/// and what reading that version needs.
+async fn retried_acknowledgement(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    id: &BookId,
+    record: &MasterRecord,
+    request: &AcknowledgeRequest,
+    subject: &str,
+) -> Result<Response, Response> {
+    let stored = acknowledgements_of_record(record).map_err(reference_error)?;
+    let made = matches!(&stored.change, LimitAcknowledgementChange::Acknowledged { limit_id } if *limit_id == request.limit_id);
+    let entry = stored.entry(&request.limit_id).filter(|_| made);
+    let written = entry.map(|entry| std::slice::from_ref(&entry.limit));
+    authorize_write(state, ctx, id, written.unwrap_or_default())?;
+    readable(state, ctx, id, &limits_named(stored)).await?;
+    let same = entry.is_some_and(|entry| {
+        entry.acknowledged_by == subject
+            && entry.expires_at == request.expires_at
+            && entry.note == request.note
+            && entry.record_id == request.record_id
+    });
+    if !same {
+        return Err(reference_error(different_payload()));
+    }
+    Ok(version_response(record, StatusCode::CREATED))
 }
 
 /// What a record must name to be evidence for an acknowledgement.
@@ -445,6 +462,7 @@ async fn withdraw(
         .map_err(reference_error)?
     {
         let stored = acknowledgements_of_record(&record).map_err(reference_error)?;
+        readable(state, ctx, &id, &limits_named(stored)).await?;
         let same = matches!(&stored.change, LimitAcknowledgementChange::Withdrawn { limit_id: withdrawn, by } if *withdrawn == limit_id && *by == subject);
         if !same {
             return Err(reference_error(different_payload()));
@@ -484,6 +502,15 @@ async fn withdraw(
 // =============================================================================
 // READS
 // =============================================================================
+
+/// The limits a stored version names, which the read rule covers when it is returned.
+fn limits_named(stored: &LimitAcknowledgementsDefinition) -> Vec<LimitDefinition> {
+    stored
+        .acknowledgements
+        .iter()
+        .map(|entry| entry.limit.clone())
+        .collect()
+}
 
 /// The book's current set's limits, and the read rule on them and on `also`.
 async fn readable(
@@ -585,12 +612,7 @@ pub(crate) async fn get_acknowledgements_version(
         )
         .await?;
         let stored = acknowledgements_of_record(&record).map_err(reference_error)?;
-        let named: Vec<LimitDefinition> = stored
-            .acknowledgements
-            .iter()
-            .map(|entry| entry.limit.clone())
-            .collect();
-        readable(&state, &ctx, &id, &named).await?;
+        readable(&state, &ctx, &id, &limits_named(stored)).await?;
         Ok::<_, Response>(version_response(&record, StatusCode::OK))
     };
     match read.await {

@@ -2759,6 +2759,11 @@ async fn an_acknowledgement_needs_a_risk_manager_and_a_limit_in_breach_or_unknow
     assert_eq!(entry["limit"]["upper"], "500000");
     let (code, _, retried) = acknowledge(&router, Some(RISK_A), "BOOK-A", "k-1", &body).await;
     assert_eq!((code, &retried), (StatusCode::CREATED, &made));
+    // A retry needs what acknowledging needs, so a retained version is no way around it.
+    for token in [HUMAN_TOKEN, OUTSIDER] {
+        let (code, _, response) = acknowledge(&router, Some(token), "BOOK-A", "k-1", &body).await;
+        assert_eq!(code, StatusCode::FORBIDDEN, "{token}: {response}");
+    }
     let mut other = body.clone();
     other["note"] = json!("another note");
     let (code, _, response) = acknowledge(&router, Some(RISK_A), "BOOK-A", "k-1", &other).await;
@@ -2883,7 +2888,7 @@ async fn withdrawal_expiry_and_a_changed_limit_end_an_acknowledgement() {
     commit_limits(&router, "BOOK-A", "limits-1", limits("500000")).await;
     for (key, limit_id, seconds) in [
         ("k-kept", "kept", 3600),
-        ("k-short", "short", 4),
+        ("k-short", "short", 10),
         ("k-changed", "changed", 3600),
         ("k-withdrawn", "withdrawn", 3600),
     ] {
@@ -2940,10 +2945,22 @@ async fn withdrawal_expiry_and_a_changed_limit_end_an_acknowledgement() {
     assert_eq!(acknowledged(&view), ["kept", "short"]);
 
     // Expired: status and the current view drop it at once. Expiry is judged on the wall
-    // clock and this wait is monotonic, so the margin covers the clock stepping back.
-    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+    // clock, so the wait is too: under WSL2 it steps back by over 2 s, every 30 s when memory
+    // is tight. A step during the wait lengthens it; the margin covers one just after.
+    let expires_at: chrono::DateTime<chrono::Utc> = view["acknowledgements"][1]["expires_at"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    while chrono::Utc::now() < expires_at + chrono::Duration::seconds(3) {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
     let current = by_id(&status(&router, None, "BOOK-A").await);
-    assert!(current["short"].get("acknowledgement").is_none());
+    assert!(
+        current["short"].get("acknowledgement").is_none(),
+        "{}",
+        current["short"]
+    );
     let (code, view) = read(&router, None, ACKNOWLEDGEMENTS).await;
     assert_eq!(code, StatusCode::OK, "{view}");
     assert_eq!(acknowledged(&view), ["kept"]);
@@ -2982,6 +2999,71 @@ async fn withdrawal_expiry_and_a_changed_limit_end_an_acknowledgement() {
             ("acknowledged", "changed"),
         ]
     );
+}
+
+/// P15c: an exact retry returns the version it wrote even after a set version has dropped
+/// the limit. The key still refuses a different body, and a new key finds no limit.
+#[tokio::test]
+async fn an_exact_retry_returns_its_version_after_the_set_drops_the_limit() {
+    let (_setup, router) = router(AccessControl::local_development()).await;
+    put_book(
+        &router,
+        None,
+        "BOOK-A",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    let stays = face("stays", None, Some("500000"), None);
+    let limits = set(vec![
+        stays.clone(),
+        face("dropped", None, Some("500000"), None),
+        face("withdrawn", None, Some("500000"), None),
+    ]);
+    commit_limits(&router, "BOOK-A", "limits-1", limits).await;
+    let body = acknowledgement("dropped", 3600, "seen");
+    let (code, _, made) = acknowledge(&router, None, "BOOK-A", "k-1", &body).await;
+    assert_eq!(code, StatusCode::CREATED, "{made}");
+    let ended = acknowledgement("withdrawn", 3600, "seen");
+    let (code, _, response) = acknowledge(&router, None, "BOOK-A", "k-2", &ended).await;
+    assert_eq!(code, StatusCode::CREATED, "{response}");
+    let (code, withdrawn) = withdraw(&router, None, "BOOK-A", "w-1", "withdrawn").await;
+    assert_eq!(code, StatusCode::OK, "{withdrawn}");
+
+    let (code, etag, _) = call(
+        &router,
+        "GET",
+        "/api/v1/books/BOOK-A/limits",
+        None,
+        None,
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK);
+    let (code, _, response) = call(
+        &router,
+        "PUT",
+        "/api/v1/books/BOOK-A/limits",
+        None,
+        Some("limits-2"),
+        etag.as_deref(),
+        Some(set(vec![stays])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{response}");
+
+    let (code, _, retried) = acknowledge(&router, None, "BOOK-A", "k-1", &body).await;
+    assert_eq!((code, &retried), (StatusCode::CREATED, &made));
+    let (code, retried) = withdraw(&router, None, "BOOK-A", "w-1", "withdrawn").await;
+    assert_eq!((code, &retried), (StatusCode::OK, &withdrawn));
+
+    let mut other = body.clone();
+    other["note"] = json!("another note");
+    let (code, _, response) = acknowledge(&router, None, "BOOK-A", "k-1", &other).await;
+    assert_eq!(code, StatusCode::CONFLICT, "{response}");
+    let (code, _, response) = acknowledge(&router, None, "BOOK-A", "k-new", &body).await;
+    assert_eq!(code, StatusCode::NOT_FOUND, "{response}");
+    assert_eq!(response["code"], "LIMIT_NOT_FOUND");
 }
 
 /// P15c (D94): the generic reference routes neither write nor list acknowledgements, nor

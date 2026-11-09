@@ -679,7 +679,8 @@ has an empty list and no version.
 
 Acknowledging and withdrawing need `Idempotency-Key` but no `If-Match`: each changes only
 its own limit's entry, so two risk managers acknowledging different limits do not refuse
-each other. Either needs what status needs, and `LimitWrite` (the `risk_manager` role) on
+each other. An exact retry returns the version it wrote, even after the set has changed or
+dropped the limit. Either needs what status needs, and `LimitWrite` (the `risk_manager` role) on
 the book and on each instrument the limit names; any such subject may withdraw any
 acknowledgement. Under local development both are recorded as `local-development`. Reads
 need what status needs, and a version's read also each instrument its entries' limits
