@@ -12,6 +12,7 @@ plan, not in this repository.
 | `Run-ExcelBench.ps1` | Driver. It starts a private, hidden Excel over COM, builds the sheets, runs each scenario and writes JSON results. |
 | `WsDrain/` | Console test. It measures how many valuation frames per second a `net472` `ClientWebSocket` can receive, parse and apply. |
 | `Run-ServerCells.ps1` | Live server cells (X3) in real Excel against a running convex-server: `CX.LIVE`, `CX.SNAP` and `CX.STATUS` while a feed moves the price, and, given `-StopServer` and `-StartServer`, values kept as `Stale` while the server is down and followed again after it restarts. It writes `%APPDATA%\Convex\server.json` for the run and restores it. |
+| `Run-LimitCells.ps1` | `CX.LIMIT` (X4) in real Excel against a running convex-server: a limit's status, value, record id and quality while a feed moves the book across its bounds, the `#N/A` reasons, and, given `-StopServer` and `-StartServer`, the status kept as `Stale` while the server is down and current again after it restarts. It writes `%APPDATA%\Convex\server.json` for the run and restores it. |
 
 ## Build
 
@@ -42,6 +43,40 @@ afterwards with `(New-Object -ComObject Excel.Application).RTD.ThrottleInterval`
 
 Each Excel instance the driver starts is stopped when its scenario ends, even
 if `Quit` leaves the process running (PowerShell holds COM references).
+
+### Limits against a local server
+
+`Run-LimitCells.ps1` needs a server that monitors limits and accepts a limit
+set, which the Docker showcase's edge refuses. Run the showcase natively
+instead (Git Bash; `$BIN` is the folder holding `convex-server`,
+`convex-config` and `convex-core-inputs`, `$DIR` a scratch folder):
+
+```sh
+$BIN/convex-core-inputs $DIR/convex.redb deploy/showcase/seed.json
+sh deploy/showcase/live.sh activate $DIR/convex.redb $BIN deploy/showcase $DIR/boot INSTRUMENT-001
+# deploy/showcase/server.toml with storage_path = "$DIR/convex.redb"
+$BIN/convex-server $DIR/server.toml &
+sh deploy/showcase/live.sh feed http://127.0.0.1:8081/api/v1/market/quotes INSTRUMENT-001 &
+```
+
+Then give `SHOWCASE-BOOK` a limit set the feed crosses. Under local
+development a set commits at once: the first without `If-Match`, each
+replacement with `If-Match` naming the version it replaces. Run these in
+PowerShell 7 (`pwsh`): Windows PowerShell 5.1 has no `-SkipHeaderValidation`.
+
+```powershell
+$url = 'http://127.0.0.1:8081/api/v1/books/SHOWCASE-BOOK/limits'
+$set = { param($upper) '{"limits":[{"limit_id":"mv","measure":{"kind":"market_value"},"upper":"' + $upper +
+    '","warning_fraction":"0.9998"},{"limit_id":"face","measure":{"kind":"face","instrument":{"one":"INSTRUMENT-001"}},"upper":"2000000","warning_fraction":"0.9"}]}' }
+Invoke-WebRequest -Method Put $url -Headers @{ 'Idempotency-Key' = 'set-1' } -ContentType application/json -Body (& $set 5000000)
+$mv = [decimal](((Invoke-WebRequest "$url/status").Content | ConvertFrom-Json).limits | Where-Object limit_id -eq mv).value
+Invoke-WebRequest -Method Put $url -Headers @{ 'Idempotency-Key' = 'set-2'; 'If-Match' = '1' } -SkipHeaderValidation `
+    -ContentType application/json -Body (& $set ([math]::Round($mv + 100)))
+excel/bench/Run-LimitCells.ps1 -Book SHOWCASE-BOOK -Limit mv
+```
+
+The feed moves the price by up to two cents a second, about 200 of the
+book's market value, so the `mv` limit changes status every few seconds.
 
 ## Scenarios and fields
 

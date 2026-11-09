@@ -687,6 +687,13 @@ async fn one_session_follows_every_instrument_and_every_limited_book() {
             "limits",
             64,
         ),
+        // Listing books already followed, one of them twice, takes no new place (Excel
+        // GX25): the session still follows 64 books, and the count is of distinct books.
+        (
+            json!({"type": "subscribe_limits", "book_ids": [&books[0], &books[63], &books[0]]}),
+            "limits",
+            2,
+        ),
     ] {
         socket
             .send(tokio_tungstenite::tungstenite::Message::Text(

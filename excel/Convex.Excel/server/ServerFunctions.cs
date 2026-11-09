@@ -64,12 +64,26 @@ namespace Convex.Excel.Server
             return result;
         }
 
+        [ExcelFunction(Name = "CX.LIMIT",
+            Description = "A book limit on the server: its status (default: within, warning, unknown or breach) or " +
+                          "a detail field. The status updates when the server records a change; value and " +
+                          "utilisation are as of the last evaluation shown (see evaluated_at) (RTD).",
+            Category = Category)]
+        public static object CxLimit(
+            [ExcelArgument("The server's book id")] object book,
+            [ExcelArgument("The limit id in the book's limit set")] object limit,
+            [ExcelArgument("status (default) | value | utilisation | lower | upper | warning_fraction | member | measure | " +
+                           "reason | previous | evaluated_at | record_id | quality | book_version | limit_set_version")]
+            object field) =>
+            Functions.Safe(() => LiveCells.LimitCell(Functions.AsString(book, ""), Functions.AsString(limit, ""),
+                Functions.AsString(field, "status")));
+
         [ExcelFunction(Name = "CX.STATUS",
             Description = "The server link: connection (default), user, server, runtime, last_message (UTC), " +
-                          "instruments, topics, session, problem, or calculation (Excel's calculation mode).",
+                          "instruments, books, topics, session, problem, or calculation (Excel's calculation mode).",
             Category = Category, IsVolatile = true)]
         public static object CxStatus(
-            [ExcelArgument("connection (default) | user | server | runtime | last_message | instruments | topics | session | problem | calculation")]
+            [ExcelArgument("connection (default) | user | server | runtime | last_message | instruments | books | topics | session | problem | calculation")]
             object field) =>
             Functions.Safe(() =>
             {

@@ -42,6 +42,28 @@ namespace Convex.Excel.Tests
         public ConcurrentQueue<(int Status, int? RetryAfter)> UpgradeScript { get; } = new();
         /// When set, only these bearer tokens may connect.
         public HashSet<string>? AcceptTokens { get; set; }
+
+        // ---- Limits (server P14b-P14d).
+        /// Each book's status read body; a book missing here answers 404.
+        public ConcurrentDictionary<string, JObject> LimitStatus { get; } = new();
+        /// Statuses the status route answers first, in order.
+        public ConcurrentQueue<(int Status, int? RetryAfter)> StatusScript { get; } = new();
+        /// When set, a status read waits for it before answering (with the body current then).
+        public TaskCompletionSource<bool>? StatusGate { get; set; }
+        /// A subscribe_limits listing one of these is refused with FORBIDDEN.
+        public ConcurrentDictionary<string, byte> ForbiddenBooks { get; } = new();
+        /// Without a monitor, subscribe_limits is refused as the server refuses it.
+        public volatile bool Monitored = true;
+        /// Answer subscribe_limits with the valuations subscription type (a broken server).
+        public volatile bool WrongLimitsReply;
+        /// Before answering the next subscribe_valuations, send this book's
+        /// stream FORBIDDEN (which answers no request).
+        public string? ForbidBookBeforeNextReply { get; set; }
+        /// Answers of the check route, by book; the request bodies arrive in CheckBodies.
+        public ConcurrentDictionary<string, (int Status, JObject Body)> CheckAnswers { get; } = new();
+        public ConcurrentQueue<(string Book, JObject Body)> CheckBodies { get; } = new();
+        /// Status reads, by book, in order.
+        public ConcurrentQueue<string> StatusReads { get; } = new();
         public volatile bool Heartbeats = true;
         public TimeSpan HeartbeatInterval { get; set; } = TimeSpan.FromMilliseconds(200);
 
@@ -79,6 +101,36 @@ namespace Convex.Excel.Tests
         public List<string[]> Unsubscribes() => Received
             .Where(r => (string?)r.Message["type"] == "unsubscribe_valuations")
             .Select(r => r.Message["instrument_ids"]!.Select(t => (string)t!).ToArray()).ToList();
+
+        public List<string[]> LimitSubscribes(int? session = null) => Received
+            .Where(r => (session == null || r.Session == session) && (string?)r.Message["type"] == "subscribe_limits")
+            .Select(r => r.Message["book_ids"]!.Select(t => (string)t!).ToArray()).ToList();
+
+        public List<string[]> LimitUnsubscribes() => Received
+            .Where(r => (string?)r.Message["type"] == "unsubscribe_limits")
+            .Select(r => r.Message["book_ids"]!.Select(t => (string)t!).ToArray()).ToList();
+
+        /// Stream a recorded limit status change to the book's followers.
+        public void PublishLimit(JObject change)
+        {
+            var book = (string)change["book_id"]!;
+            foreach (var session in Snapshot())
+                if (session.FollowsBook(book)) _ = session.SendAsync(change);
+        }
+
+        /// The stream FORBIDDEN a follower of `book` gets when it may not read a change.
+        public void ForbidBook(string book)
+        {
+            foreach (var session in Snapshot())
+                if (session.FollowsBook(book)) _ = session.SendAsync(BookForbidden(book));
+        }
+
+        private static JObject BookForbidden(string book) => Error("FORBIDDEN",
+            $"limit status of book {book} needs read access to each instrument it holds or a limit names");
+
+        public const string LimitsResyncText = "Read /api/v1/books/{book_id}/limits/status for each subscribed book";
+        public const string ValuationsResyncText =
+            "Subscribe again to receive each instrument's current result, or read /api/v1/runtime/results; keep the newer by (runtime_id, revision)";
 
         /// Set an instrument's current result and stream it to its followers.
         public void Publish(JObject valuation)
@@ -173,6 +225,56 @@ namespace Convex.Excel.Tests
             };
         }
 
+        /// One limit's evaluation, as a status item or inside a change.
+        public static JObject LimitEval(string limitId, string status, string? value, string? upper = "1000000",
+            string? utilisation = null, string measure = "dv01", string? member = null, JObject? reason = null)
+        {
+            var o = new JObject
+            {
+                ["measure"] = new JObject { ["kind"] = measure },
+                ["limit_id"] = limitId,
+                ["status"] = status,
+            };
+            if (upper != null) o["upper"] = upper;
+            if (value != null) o["value"] = value;
+            if (member != null) o["member"] = member;
+            if (utilisation != null) o["utilisation"] = utilisation;
+            if (reason != null) o["reason"] = reason;
+            return o;
+        }
+
+        /// A status read body.
+        public static JObject LimitStatusBody(string book, ulong bookVersion, ulong setVersion, string evaluatedAt,
+            params JObject[] limits) => new()
+        {
+            ["book_id"] = book,
+            ["book_version"] = bookVersion,
+            ["limit_set_version"] = setVersion,
+            ["evaluated_at"] = evaluatedAt,
+            ["snapshot_ids"] = new JArray("snap-7"),
+            ["limits"] = new JArray(limits.Cast<object>().ToArray()),
+        };
+
+        /// A `limit_status` message: a recorded change of one limit.
+        public static JObject LimitChange(string book, ulong recordId, string previous, JObject eval,
+            string evaluatedAt, ulong setVersion = 1, ulong bookVersion = 1)
+        {
+            var o = new JObject
+            {
+                ["type"] = "limit_status",
+                ["record_id"] = recordId,
+                ["book_id"] = book,
+                ["book_version"] = bookVersion,
+                ["limit_set_version"] = setVersion,
+                ["evaluated_at"] = evaluatedAt,
+                ["monitor_started_at"] = "2026-11-09T08:00:00Z",
+                ["previous"] = previous,
+                ["snapshot_ids"] = new JArray("snap-7"),
+            };
+            foreach (var p in eval.Properties()) o[p.Name] = p.Value.DeepClone();
+            return o;
+        }
+
         public void Dispose()
         {
             _stop.Cancel();
@@ -205,6 +307,10 @@ namespace Convex.Excel.Tests
                 var path = context.Request.Url!.AbsolutePath;
                 if (path == "/api/v1/ws") await WebSocketAsync(context).ConfigureAwait(false);
                 else if (path == "/api/v1/reference/resolve") await ResolveAsync(context).ConfigureAwait(false);
+                else if (path.StartsWith("/api/v1/books/", StringComparison.Ordinal) && path.EndsWith("/limits/status", StringComparison.Ordinal))
+                    await StatusAsync(context, Uri.UnescapeDataString(path.Substring(14, path.Length - 14 - 14))).ConfigureAwait(false);
+                else if (path.StartsWith("/api/v1/books/", StringComparison.Ordinal) && path.EndsWith("/limits/check", StringComparison.Ordinal))
+                    await CheckAsync(context, Uri.UnescapeDataString(path.Substring(14, path.Length - 14 - 13))).ConfigureAwait(false);
                 else Respond(context, 404, "{}", null);
             }
             catch
@@ -264,9 +370,46 @@ namespace Convex.Excel.Tests
         private async Task OnMessageAsync(Session session, JObject message)
         {
             var ids = (message["instrument_ids"] as JArray ?? new JArray()).Select(t => (string)t!).ToArray();
+            var books = (message["book_ids"] as JArray ?? new JArray()).Select(t => (string)t!).ToArray();
             switch ((string?)message["type"])
             {
+                case "subscribe_limits":
+                    if (!Monitored)
+                    {
+                        await session.SendAsync(Error("INVALID_MESSAGE", "this server does not monitor limits")).ConfigureAwait(false);
+                        return;
+                    }
+                    if (books.Any(ForbiddenBooks.ContainsKey))
+                    {
+                        await session.SendAsync(Error("FORBIDDEN", "FORBIDDEN")).ConfigureAwait(false);
+                        return;
+                    }
+                    if (session.BookCount(books) > 64)
+                    {
+                        await session.SendAsync(Error("INVALID_MESSAGE", "at most 64 limit subscriptions")).ConfigureAwait(false);
+                        return;
+                    }
+                    session.AddBooks(books);
+                    await session.SendAsync(new JObject
+                    {
+                        ["type"] = "subscribed",
+                        ["subscription_type"] = WrongLimitsReply ? "valuations" : "limits",
+                        ["count"] = books.Distinct().Count(),
+                    }).ConfigureAwait(false);
+                    break;
+                case "unsubscribe_limits":
+                    session.RemoveBooks(books);
+                    await session.SendAsync(new JObject
+                    {
+                        ["type"] = "unsubscribed", ["subscription_type"] = "limits", ["count"] = books.Length,
+                    }).ConfigureAwait(false);
+                    break;
                 case "subscribe_valuations":
+                    if (ForbidBookBeforeNextReply is { } forbid)
+                    {
+                        ForbidBookBeforeNextReply = null;
+                        await session.SendAsync(BookForbidden(forbid)).ConfigureAwait(false);
+                    }
                     if (ids.Any(Forbidden.ContainsKey))
                     {
                         await session.SendAsync(Error("FORBIDDEN", "FORBIDDEN")).ConfigureAwait(false);
@@ -342,6 +485,38 @@ namespace Convex.Excel.Tests
             }.ToString(Formatting.None), null);
         }
 
+        private async Task StatusAsync(HttpListenerContext context, string book)
+        {
+            StatusReads.Enqueue(book);
+            if (StatusGate is { } gate) await gate.Task.ConfigureAwait(false);
+            if (StatusScript.TryDequeue(out var scripted))
+            {
+                Respond(context, scripted.Status, "{\"error\":\"scripted\",\"code\":\"SCRIPTED\"}", scripted.RetryAfter);
+                return;
+            }
+            if (!LimitStatus.TryGetValue(book, out var body))
+            {
+                Respond(context, 404, "{\"error\":\"reference record not found\",\"code\":\"NOT_FOUND\"}", null);
+                return;
+            }
+            context.Response.Headers["x-convex-data-quality"] = "demo";
+            Respond(context, 200, body.ToString(Formatting.None), null);
+        }
+
+        private async Task CheckAsync(HttpListenerContext context, string book)
+        {
+            string text;
+            using (var reader = new System.IO.StreamReader(context.Request.InputStream, Encoding.UTF8)) text = await reader.ReadToEndAsync().ConfigureAwait(false);
+            CheckBodies.Enqueue((book, JObject.Parse(text)));
+            if (CheckAnswers.TryGetValue(book, out var answer))
+            {
+                if (answer.Status == 200) context.Response.Headers["x-convex-data-quality"] = "demo";
+                Respond(context, answer.Status, answer.Body.ToString(Formatting.None), null);
+                return;
+            }
+            Respond(context, 404, "{\"error\":\"reference record not found\",\"code\":\"NOT_FOUND\"}", null);
+        }
+
         private static void Respond(HttpListenerContext context, int status, string body, int? retryAfter)
         {
             context.Response.StatusCode = status;
@@ -383,6 +558,29 @@ namespace Convex.Excel.Tests
             public void Remove(IEnumerable<string> ids)
             {
                 lock (_follows) _follows.ExceptWith(ids);
+            }
+
+            private readonly HashSet<string> _books = new(StringComparer.Ordinal);
+
+            public bool FollowsBook(string id)
+            {
+                lock (_books) return _books.Contains(id);
+            }
+
+            /// Books followed if `ids` were added (distinct, as the server counts them).
+            public int BookCount(IEnumerable<string> ids)
+            {
+                lock (_books) return _books.Union(ids).Count();
+            }
+
+            public void AddBooks(IEnumerable<string> ids)
+            {
+                lock (_books) _books.UnionWith(ids);
+            }
+
+            public void RemoveBooks(IEnumerable<string> ids)
+            {
+                lock (_books) _books.ExceptWith(ids);
             }
 
             public async Task SendAsync(JObject message)

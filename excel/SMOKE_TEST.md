@@ -160,6 +160,41 @@ Single sign-on needs an identity provider and a server with
 `=CX.STATUS("user")` names you afterwards, and that **Sign out** turns
 `H2` to `Stale`.
 
+## Limits
+
+The Docker showcase refuses limit writes and the check route at its edge, so
+run a local-development server you can write to: the showcase natively, as
+in `excel/bench/README.md` (*Limits against a local server*), on
+`http://127.0.0.1:8081` with its feed running. Its `SHOWCASE-BOOK` holds
+1,000,000 face of `INSTRUMENT-001`. Point **Server** at that URL with Sign in
+*None*.
+
+1. `L1: =CX.LIMIT("SHOWCASE-BOOK", "mv")`: `#N/A`, and `=CX.LASTERROR(L1)`
+   says the server has no limit set for the book.
+2. Commit a limit set with an `mv` limit (`market_value`) whose upper bound
+   is about 100 above the book's market value and `warning_fraction`
+   `0.9998`, so the feed moves it across the band (the bench README has the
+   requests). Within a second or two `L1` shows `within`, `warning` or
+   `breach`, and changes by itself as the price moves.
+3. `L2: =CX.LIMIT("SHOWCASE-BOOK", "mv", "value")`: about 1,012,000, the
+   value of the evaluation shown; it moves only when the status changes.
+   `"utilisation"` is close to 1, `"upper"` the bound, `"measure"`
+   `market_value`, `"quality"` `Demo`, `"record_id"` rises with each change
+   (`#N/A` until the first one arrives), `"evaluated_at"` a UTC time.
+4. `L3: =IF(L1="breach", "STOP", "")`: follows `L1` with no F9.
+5. `=CX.LIMIT("SHOWCASE-BOOK", "nope")`: `#N/A`; `CX.LASTERROR` says the set
+   has no limit `nope`. `=CX.LIMIT("SHOWCASE-BOOK", "mv", "colour")`:
+   `#NAME?`. `=CX.STATUS("books")`: the books followed.
+6. Ribbon **Limit Check**: book `SHOWCASE-BOOK`, trade `INSTRUMENT-001`
+   `1000000`, **Check**: `mv` goes to `breach` (bold, red) and `face` to
+   `warning` if the set has a face limit at 2,000,000. Add a row
+   `NO-SUCH-BOND 1000`: the check is refused and that row is marked
+   `UNKNOWN_INSTRUMENT`. Delete the rows and **Check**: the current status.
+   Select an empty cell and **Stamp CX.LIMIT**: live cells for each limit.
+   Excel stays interactive while the ticket is open.
+7. Stop the server: `L1` keeps its status and `"quality"` turns `Stale`.
+   Start it again: `"quality"` returns to `Demo` and `L1` follows the feed.
+
 ## Recalc-cascade cutoff (idempotent handles)
 
 1. Build a builder cell + 10 dependent `CX.PRICE` cells.
@@ -178,7 +213,7 @@ Single sign-on needs an identity provider and a server with
 ## Ribbon
 
 Open the **Convex** tab. Smoke each form once. Pricing/Spread/Curve
-Viewer/Scenario/Objects/Error Log are MODELESS — verify Excel stays
+Viewer/Scenario/Objects/Error Log/Limit Check are MODELESS — verify Excel stays
 interactive (select cells, type) while each is open, and that re-clicking
 the button focuses the existing window instead of duplicating it:
 

@@ -45,6 +45,27 @@ the changes that matter when you upgrade.
   a pasted token for development, or none for a local development server.
   Ribbon **Server** group: connection status, Sign in, Sign out and the
   server settings (`%APPDATA%\Convex\server.json`; tokens are never saved).
+- **Book limits in cells.** `CX.LIMIT(book, limit, [field])` shows a limit
+  of a book on the server: `status` by default (`within`, `warning`,
+  `unknown` or `breach`), or `value`, `utilisation`, `lower`, `upper`,
+  `warning_fraction`, `member`, `measure`, `reason`, `previous`,
+  `evaluated_at`, `record_id`, `quality`, `book_version` or
+  `limit_set_version`.
+  - Books follow on the same connection. Each book is read once followed and
+    after a reconnect, then changes as the server records a status change.
+    The server records a limit only when its status changes, so `value` and
+    `utilisation` are as of `evaluated_at`.
+  - On disconnect limits stay with quality `Stale`. One connection follows
+    at most 64 books. `#N/A` with a `CX.LASTERROR` reason when there is
+    nothing to show (no limit set, no such limit, `FORBIDDEN`, no limit
+    monitor).
+  - `CX.STATUS("books")` counts the books followed.
+- **Pre-trade limit check.** Ribbon **Limit Check** checks proposed trades
+  (signed quantities by instrument id, CUSIP or ISIN, entered or read from
+  the selection) against a book's limits through
+  `POST /api/v1/books/{book_id}/limits/check`, and shows each limit now and
+  after the trades. It stores nothing. **Stamp CX.LIMIT** writes live limit
+  cells for the book.
 
 ### convex-ffi
 
@@ -70,6 +91,11 @@ the changes that matter when you upgrade.
   `revision`; read the result from `GET /api/v1/runtime/results`.
 - The `subscribed` acknowledgement's `count` is the number of distinct instruments
   listed; a repeated id counts once.
+- **Listing a book a session already follows no longer counts against its 64.**
+  `subscribe_limits` used to refuse when the books followed plus the books listed
+  passed 64, so listing a followed book again could be refused. It now counts
+  distinct new books, as valuations do, and `subscribed.count` is the distinct
+  books listed.
 - **A book's recorded limit status changes can be read.**
   `GET /api/v1/books/{book_id}/limits/records?after=&limit=` returns the changes
   the limit monitor recorded for a book, oldest first, each as its

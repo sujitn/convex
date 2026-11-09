@@ -53,6 +53,24 @@ namespace Convex.Excel.Helpers
             return anchor.Address;
         }
 
+        // Write a block of formulas (or values) at the selection's top-left
+        // cell; `formats` gives each column's number format (null: unchanged)
+        // for every row but the first (a header).
+        public static string WriteFormulasAtSelection(object[,] grid, string?[]? formats = null)
+        {
+            var app = ExcelDnaUtil.Application;
+            dynamic selection = ((dynamic)app).Selection;
+            int rows = grid.GetLength(0), cols = grid.GetLength(1);
+            dynamic anchor = selection.Cells[1, 1];
+            dynamic range = anchor.Resize(rows, cols);
+            range.Formula = grid;
+            if (formats != null && rows > 1)
+                for (int c = 0; c < Math.Min(cols, formats.Length); c++)
+                    if (formats[c] is { } format)
+                        anchor.Offset(1, c).Resize(rows - 1, 1).NumberFormat = format;
+            return range.Address;
+        }
+
         // Read the active selection as either a scalar or 2D array of objects.
         public static object ReadSelection()
         {

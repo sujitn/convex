@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -28,6 +29,9 @@ namespace Convex.Excel.Server
         public TimeSpan TooManyRequests { get; set; } = TimeSpan.FromSeconds(60);
         /// At most one resubscription for a runtime switch in this interval.
         public TimeSpan ReseedInterval { get; set; } = TimeSpan.FromSeconds(5);
+        /// A status read that failed (other than a 429) is retried after this,
+        /// doubling to BackoffMax.
+        public TimeSpan StatusRetry { get; set; } = TimeSpan.FromSeconds(1);
     }
 
     internal enum LinkState { NotConfigured, SignedOut, Connecting, Connected, Reconnecting }
@@ -78,6 +82,7 @@ namespace Convex.Excel.Server
         public string? Runtime { get; set; }
         public DateTime? LastMessageUtc { get; set; }
         public int Instruments { get; set; }
+        public int Books { get; set; }
         public string? SessionId { get; set; }
         public string? Problem { get; set; }
     }
@@ -99,7 +104,8 @@ namespace Convex.Excel.Server
     /// - A renewed token opens a second session, which takes over once it has
     ///   resubscribed everything (make-before-break, DX15): the server reads
     ///   a token only at the upgrade and closes a session when it expires.
-    internal sealed class ServerSource : ISessionEvents, IDisposable
+    /// - Books (CX.LIMIT) follow on the same session; see ServerSource.Limits.cs.
+    internal sealed partial class ServerSource : ISessionEvents, IDisposable
     {
         /// One session follows at most this many instruments (server D100).
         public const int MaxInstruments = 256;
@@ -164,11 +170,13 @@ namespace Convex.Excel.Server
         private DateTime? _lastMessage;
         private string? _lastStreamError;
 
-        public ServerSource(ILiveTransport transport, ServerTimings? timings = null, Func<DateTime>? utcNow = null)
+        public ServerSource(ILiveTransport transport, ServerTimings? timings = null, Func<DateTime>? utcNow = null,
+            HttpClient? http = null)
         {
             _transport = transport;
             _timings = timings ?? new ServerTimings();
             _now = utcNow ?? (() => DateTime.UtcNow);
+            _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         }
 
         /// Instruments whose view changed.
@@ -219,6 +227,7 @@ namespace Convex.Excel.Server
                         inst.Sub = Subscription.Wanted;
                     _changed.Add(inst.Id);
                 }
+                ConfigureBooks();
                 _link = (LinkState)(-1); // force a link notification
                 UpdateLink(null);
                 _timer ??= new Timer(_ => Tick(), null, _timings.Tick, _timings.Tick);
@@ -273,6 +282,7 @@ namespace Convex.Excel.Server
                         _changed.Add(inst.Id);
                     }
                 }
+                RetryRefusedBooks(all: true);
                 _backoff = TimeSpan.Zero;
                 _nextAttempt = _now();
                 UpdateLink(null);
@@ -325,6 +335,7 @@ namespace Convex.Excel.Server
                     Runtime = _runtime,
                     LastMessageUtc = _lastMessage,
                     Instruments = _instruments.Values.Count(i => i.Sub is Subscription.Sent or Subscription.Live),
+                    Books = _books.Values.Count(b => b.Sub is Subscription.Sent or Subscription.Live),
                     SessionId = _primary?.SessionId,
                     Problem = _lastStreamError,
                 };
@@ -387,6 +398,7 @@ namespace Convex.Excel.Server
                         }
                         UpdateLink(null);
                         ExpireLingering(now, unsubscribe: false);
+                        ExpireLingeringBooks(now, unsubscribe: false);
                         return;
                     }
 
@@ -419,6 +431,7 @@ namespace Convex.Excel.Server
                     }
                     PromoteOverCap();
                     Flush();
+                    TickBooks(now);
                 }
             }
             catch (Exception ex)
@@ -533,6 +546,7 @@ namespace Convex.Excel.Server
                     _linkProblem = null;
                     UpdateLink(null);
                     Flush();
+                    FlushBooks();
                 }
                 else if (session == _pendingStandby)
                 {
@@ -542,7 +556,8 @@ namespace Convex.Excel.Server
                         .Where(i => i.Sub is Subscription.Sent or Subscription.Live)
                         .OrderBy(i => i.Seq).Select(i => i.Id).ToList();
                     foreach (var chunk in Chunks(followed)) session.Subscribe(chunk);
-                    if (followed.Count == 0) Promote();
+                    int books = SubscribeFollowedBooks(session);
+                    if (followed.Count == 0 && books == 0) Promote();
                 }
             }
             Notify();
@@ -659,10 +674,17 @@ namespace Convex.Excel.Server
                 _lastMessage = _now();
                 if (code == "RESYNC_REQUIRED")
                 {
-                    // The stream lagged: resubscribing resends each current result.
-                    var live = _instruments.Values.Where(i => i.Sub == Subscription.Live)
-                        .OrderBy(i => i.Seq).Select(i => i.Id).ToList();
-                    foreach (var chunk in Chunks(live)) session.Subscribe(chunk);
+                    // Which stream lagged shows only in the text (DX19); an
+                    // unknown text resyncs both.
+                    bool limits = LimitErrors.IsLimitsResync(message);
+                    if (limits || !LimitErrors.IsValuationsResync(message)) ResyncBooks();
+                    if (!limits)
+                    {
+                        // The valuation stream lagged: resubscribing resends each current result.
+                        var live = _instruments.Values.Where(i => i.Sub == Subscription.Live)
+                            .OrderBy(i => i.Seq).Select(i => i.Id).ToList();
+                        foreach (var chunk in Chunks(live)) session.Subscribe(chunk);
+                    }
                 }
                 else if (code == "RESULT_TOO_LARGE" &&
                          TooLarge.TryParse(message, out var id, out var runtime, out var revision) &&
@@ -757,6 +779,7 @@ namespace Convex.Excel.Server
                 if (inst.ProblemCode == "RESULT_TOO_LARGE") ClearProblem(inst);
                 _changed.Add(inst.Id);
             }
+            LoseBookSession();
             _linkChanged = true;
         }
 
@@ -829,12 +852,14 @@ namespace Convex.Excel.Server
 
         private void Notify()
         {
-            string[] ids;
+            string[] ids, books;
             bool link, info;
             lock (_gate)
             {
                 ids = _changed.Count == 0 ? Array.Empty<string>() : _changed.ToArray();
                 _changed.Clear();
+                books = _changedBooks.Count == 0 ? Array.Empty<string>() : _changedBooks.ToArray();
+                _changedBooks.Clear();
                 link = _linkChanged;
                 info = _infoChanged;
                 _linkChanged = _infoChanged = false;
@@ -842,6 +867,7 @@ namespace Convex.Excel.Server
             try
             {
                 if (ids.Length > 0) InstrumentsChanged?.Invoke(ids);
+                if (books.Length > 0) BooksChanged?.Invoke(books);
                 if (link || info) StatusChanged?.Invoke(link);
             }
             catch (Exception ex)

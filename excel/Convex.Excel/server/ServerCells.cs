@@ -18,7 +18,7 @@ namespace Convex.Excel.Server
 
         public static readonly string[] Status =
         {
-            "connection", "user", "server", "runtime", "last_message", "instruments", "topics", "session",
+            "connection", "user", "server", "runtime", "last_message", "instruments", "books", "topics", "session",
             "problem",
         };
 
@@ -125,6 +125,7 @@ namespace Convex.Excel.Server
             "runtime" => status.Runtime ?? throw Missing("NO_RUNTIME", "no result has arrived yet, so the runtime is not known"),
             "last_message" => status.LastMessageUtc?.ToOADate() ?? throw Missing("NO_MESSAGE", "no message from the server yet"),
             "instruments" => (double)status.Instruments,
+            "books" => (double)status.Books,
             "topics" => (double)topics,
             "session" => status.SessionId ?? throw Missing("NO_SESSION", "not connected"),
             "problem" => status.Problem ?? "",
@@ -147,15 +148,16 @@ namespace Convex.Excel.Server
     }
 
     /// Server topics of the hub. A cell's topic strings are its request:
-    /// ["S1", identifier, measure, field], or ["S1S", field] for CX.STATUS,
-    /// so equal cells share a topic and a saved workbook reconnects with no
-    /// earlier state. A server cell has no value until the stream brings one,
-    /// so a new cell shows #N/A until its result arrives (under Manual
-    /// calculation, until the next F9).
+    /// ["S1", identifier, measure, field], ["S1L", book, limit, field] for
+    /// CX.LIMIT, or ["S1S", field] for CX.STATUS, so equal cells share a topic
+    /// and a saved workbook reconnects with no earlier state. A server cell
+    /// has no value until the server sends one, so a new cell shows #N/A until
+    /// it arrives (under Manual calculation, until the next F9).
     internal sealed class ServerCells
     {
         public const string Kind = "S1";
         public const string StatusKind = "S1S";
+        public const string LimitKind = "S1L";
 
         private sealed class Cell
         {
@@ -168,6 +170,8 @@ namespace Convex.Excel.Server
             public readonly ITopicSink Sink;
             public readonly object Gate = new();
             public string? InstrumentId;
+            /// A CX.LIMIT cell's book and limit (Identifier and Measure hold them).
+            public bool IsLimit;
             public Exception? ResolveError;
             public object? Value;
             public Exception? Error;
@@ -192,6 +196,7 @@ namespace Convex.Excel.Server
         private readonly Dictionary<string, Cell> _byKey = new(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<Cell>> _byInstrument = new(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<Cell>> _resolving = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, HashSet<Cell>> _byBook = new(StringComparer.Ordinal);
         private readonly HashSet<Cell> _status = new();
         private readonly Timer _retry; // held so the timer is not collected
 
@@ -202,13 +207,18 @@ namespace Convex.Excel.Server
             _source = source;
             _resolver = resolver;
             _source.InstrumentsChanged += OnInstrumentsChanged;
+            _source.BooksChanged += OnBooksChanged;
             _source.StatusChanged += OnStatusChanged;
             var every = retryEvery ?? TimeSpan.FromMinutes(1);
             _retry = new Timer(_ => RetryFailedLookups(), null, every, every);
         }
 
         public static bool Owns(IList<string> topicInfo) =>
-            topicInfo.Count > 0 && (topicInfo[0] == Kind || topicInfo[0] == StatusKind);
+            topicInfo.Count > 0 && (topicInfo[0] == Kind || topicInfo[0] == StatusKind || topicInfo[0] == LimitKind);
+
+        /// Topic strings of a CX.LIMIT cell.
+        public static string[] LimitTopicStrings(string book, string limit, string field) =>
+            new[] { LimitKind, LimitFields.ValidateId(book, "book"), LimitFields.ValidateId(limit, "limit"), LimitFields.Validate(field) };
 
         /// Topic strings of a CX.LIVE cell.
         public static string[] TopicStrings(string identifier, string measure, string field) =>
@@ -237,13 +247,18 @@ namespace Convex.Excel.Server
                 cell = new Cell(topicId, key, false, topicInfo[1], ServerFields.ValidateMeasure(topicInfo[2]),
                     ServerFields.ValidateCell(topicInfo[3]), sink);
             }
+            else if (topicInfo.Count == 4 && topicInfo[0] == LimitKind)
+            {
+                cell = new Cell(topicId, key, false, LimitFields.ValidateId(topicInfo[1], "book"),
+                    LimitFields.ValidateId(topicInfo[2], "limit"), LimitFields.Validate(topicInfo[3]), sink) { IsLimit = true };
+            }
             else
             {
                 throw new ConvexException("not a Convex server topic (rebuild the cell)");
             }
 
             // Classify before indexing: a bad identifier is refused with no state left behind.
-            var (kind, value) = cell.IsStatus ? (IdentifierKind.Instrument, "") : Identifiers.Classify(cell.Identifier);
+            var (kind, value) = cell.IsStatus || cell.IsLimit ? (IdentifierKind.Instrument, "") : Identifiers.Classify(cell.Identifier);
             bool resolve = false;
             lock (_lock)
             {
@@ -252,6 +267,13 @@ namespace Convex.Excel.Server
                 if (cell.IsStatus)
                 {
                     _status.Add(cell);
+                }
+                else if (cell.IsLimit)
+                {
+                    if (!_byBook.TryGetValue(cell.Identifier, out var cells))
+                        _byBook[cell.Identifier] = cells = new HashSet<Cell>();
+                    cells.Add(cell);
+                    _source.AcquireBook(cell.Identifier);
                 }
                 else
                 {
@@ -294,6 +316,12 @@ namespace Convex.Excel.Server
                 _byId.Remove(topicId);
                 if (_byKey.TryGetValue(cell.Key, out var current) && current == cell) _byKey.Remove(cell.Key);
                 _status.Remove(cell);
+                if (cell.IsLimit)
+                {
+                    if (_byBook.TryGetValue(cell.Identifier, out var books) && books.Remove(cell) && books.Count == 0)
+                        _byBook.Remove(cell.Identifier);
+                    _source.ReleaseBook(cell.Identifier);
+                }
                 foreach (var waiting in _resolving.Values) waiting.Remove(cell);
                 if (cell.InstrumentId is { } id)
                 {
@@ -404,6 +432,15 @@ namespace Convex.Excel.Server
             foreach (var cell in cells) Evaluate(cell, push: true);
         }
 
+        private void OnBooksChanged(IReadOnlyCollection<string> books)
+        {
+            var cells = new List<Cell>();
+            lock (_lock)
+                foreach (var book in books)
+                    if (_byBook.TryGetValue(book, out var set)) cells.AddRange(set);
+            foreach (var cell in cells) Evaluate(cell, push: true);
+        }
+
         private void OnStatusChanged(bool link)
         {
             Cell[] cells;
@@ -453,6 +490,7 @@ namespace Convex.Excel.Server
         private object Compute(Cell cell)
         {
             if (cell.IsStatus) return ServerFields.SelectStatus(_source.Status(), cell.Field, Count);
+            if (cell.IsLimit) return LimitFields.Select(_source.LimitView(cell.Identifier, cell.Measure), cell.Field);
             // Read once: a retry may clear the field between a check and a throw.
             if (cell.ResolveError is { } error) throw error;
             var id = cell.InstrumentId ?? throw ConvexException.Unavailable("RESOLVING",

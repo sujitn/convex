@@ -39,6 +39,42 @@ const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
 const MAX_VALUATION_SUBSCRIPTIONS: usize = convex_engine::MAX_RUNTIME_INSTRUMENTS;
 /// The largest message the server sends or accepts, in bytes.
 const MAX_MESSAGE_BYTES: usize = 65536;
+/// Why `subscribe_limits` is refused by a server without a limit monitor.
+const NOT_MONITORED: &str = "this server does not monitor limits";
+
+// The Excel add-in tells these errors apart by their text, since a limits error has the
+// same code as a valuations one (`excel/Convex.Excel/server/LimitWire.cs`, `LimitErrors`).
+// A test pins each opening.
+
+/// A subscribed book's change the session may not read: it lacks `BookRead` on an
+/// instrument the book holds or a limit names. It answers no client message.
+fn limit_forbidden(book: &str) -> ServerMessage {
+    ServerMessage::Error {
+        code: "FORBIDDEN".into(),
+        message: format!(
+            "limit status of book {book} needs read access to each instrument it holds or a \
+             limit names"
+        ),
+    }
+}
+
+/// The session fell behind the limit status stream.
+fn limits_resync() -> ServerMessage {
+    ServerMessage::Error {
+        code: "RESYNC_REQUIRED".into(),
+        message: "Read /api/v1/books/{book_id}/limits/status for each subscribed book".into(),
+    }
+}
+
+/// The session fell behind the valuation stream.
+fn valuations_resync() -> ServerMessage {
+    ServerMessage::Error {
+        code: "RESYNC_REQUIRED".into(),
+        message: "Subscribe again to receive each instrument's current result, or read \
+                  /api/v1/runtime/results; keep the newer by (runtime_id, revision)"
+            .into(),
+    }
+}
 
 // =============================================================================
 // MESSAGE TYPES
@@ -266,7 +302,7 @@ async fn handle_socket(
                         if subscribed && send_message(&mut sender, &ServerMessage::Valuation(Box::new(result)), profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {
-                        if send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Subscribe again to receive each instrument's current result, or read /api/v1/runtime/results; keep the newer by (runtime_id, revision)".into() }, profile, &authorization).await.is_err() { break; }
+                        if send_message(&mut sender, &valuations_resync(), profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Closed) => break,
                 }
@@ -280,13 +316,13 @@ async fn handle_socket(
                             let message = if limit_permission(book, frame.instruments.iter(), &authorization).is_ok() {
                                 ServerMessage::LimitStatus(frame.change.clone())
                             } else {
-                                ServerMessage::Error { code: "FORBIDDEN".into(), message: format!("limit status of book {book} needs read access to each instrument it holds or a limit names") }
+                                limit_forbidden(book)
                             };
                             if send_message(&mut sender, &message, profile, &authorization).await.is_err() { break; }
                         }
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {
-                        if !session.limit_subscriptions.is_empty() && send_message(&mut sender, &ServerMessage::Error { code: "RESYNC_REQUIRED".into(), message: "Read /api/v1/books/{book_id}/limits/status for each subscribed book".into() }, profile, &authorization).await.is_err() { break; }
+                        if !session.limit_subscriptions.is_empty() && send_message(&mut sender, &limits_resync(), profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Closed) => limit_rx = None,
                 }
@@ -483,22 +519,25 @@ fn handle_client_message(
         }
         ClientMessage::SubscribeLimits { book_ids } => {
             if !monitored {
-                return Err("this server does not monitor limits".into());
+                return Err(NOT_MONITORED.into());
             }
-            if book_ids.len() > MAX_LIMIT_SUBSCRIPTIONS
-                || session
-                    .limit_subscriptions
-                    .len()
-                    .saturating_add(book_ids.len())
-                    > MAX_LIMIT_SUBSCRIPTIONS
-            {
+            if book_ids.len() > MAX_LIMIT_SUBSCRIPTIONS {
                 return Err("at most 64 limit subscriptions".into());
             }
             for id in &book_ids {
                 crate::books::book_id(id.clone()).map_err(|_| "invalid book identity")?;
             }
-            let count = book_ids.len();
-            session.limit_subscriptions.extend(book_ids);
+            let listed: HashSet<String> = book_ids.into_iter().collect();
+            // The distinct books listed; listing a book already followed costs nothing.
+            let count = listed.len();
+            let added = listed
+                .iter()
+                .filter(|id| !session.limit_subscriptions.contains(*id))
+                .count();
+            if session.limit_subscriptions.len().saturating_add(added) > MAX_LIMIT_SUBSCRIPTIONS {
+                return Err("at most 64 limit subscriptions".into());
+            }
+            session.limit_subscriptions.extend(listed);
             ServerMessage::Subscribed {
                 subscription_type: "limits".into(),
                 count,
@@ -890,6 +929,30 @@ mod tests {
             serde_json::from_str(&encode(&large, ServerProfile::Demo).unwrap()).unwrap();
         assert_eq!(demo["code"], "RESULT_TOO_LARGE");
         assert_eq!(demo["data_quality"], "demo");
+    }
+
+    /// The Excel add-in reads these openings (`excel/Convex.Excel/server/LimitWire.cs`
+    /// `LimitErrors`): a limits error has the same code as a valuations one, and a
+    /// book's `FORBIDDEN` answers no client message, so only the text says which it is.
+    #[test]
+    fn the_limit_stream_errors_keep_the_text_the_excel_add_in_reads() {
+        let text = |message: ServerMessage| match message {
+            ServerMessage::Error { code, message } => (code, message),
+            other => panic!("{other:?}"),
+        };
+        let (code, message) = text(limit_forbidden("BOOK-A"));
+        assert_eq!(code, "FORBIDDEN");
+        assert!(
+            message.starts_with("limit status of book BOOK-A needs read access"),
+            "{message}"
+        );
+        let (code, message) = text(limits_resync());
+        assert_eq!(code, "RESYNC_REQUIRED");
+        assert!(message.starts_with("Read /api/v1/books/"), "{message}");
+        let (code, message) = text(valuations_resync());
+        assert_eq!(code, "RESYNC_REQUIRED");
+        assert!(message.starts_with("Subscribe again"), "{message}");
+        assert_eq!(NOT_MONITORED, "this server does not monitor limits");
     }
 
     #[test]

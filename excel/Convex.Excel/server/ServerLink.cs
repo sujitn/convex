@@ -16,7 +16,10 @@ namespace Convex.Excel.Server
         private static OidcTokenProvider? _oidc;
         private static string? _pastedToken;
 
-        public static ServerSource Source { get; } = new(new ClientWebSocketTransport());
+        public static ServerSource Source { get; } = new(new ClientWebSocketTransport(), http: Http);
+
+        /// The link's HttpClient, for the pre-trade ticket's reads.
+        public static HttpClient SharedHttp => Http;
         public static IdentifierResolver Resolver { get; } = new(Source, Http);
         public static ServerCells Cells { get; } = new(Source, Resolver);
 

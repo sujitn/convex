@@ -423,7 +423,7 @@ namespace Convex.Excel.Tests
             }
         }
 
-        private sealed class Cell : ITopicSink
+        internal sealed class Cell : ITopicSink
         {
             public object? First;
             public string Key = "";
@@ -433,7 +433,7 @@ namespace Convex.Excel.Tests
             public IEnumerable<object> Values => new[] { First! }.Concat(Pushed);
         }
 
-        private sealed class TestTokens : ITokenProvider
+        internal sealed class TestTokens : ITokenProvider
         {
             private string? _token;
             private int _rejections;
