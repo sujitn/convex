@@ -124,7 +124,9 @@ namespace Convex.Excel.Server
             }
             catch (ConvexException ex)
             {
-                Ops.CxLog.Connection($"identifier {value} not resolved: {ex.Message}");
+                // The file only: a sheet of unknown ids must not push the session
+                // and sign-in events out of the history. The cell has the reason.
+                Ops.CxLog.Info($"identifier {value} not resolved: {ex.Message}");
                 lock (_lock)
                 {
                     if (_failures.Count >= CacheSize) _failures.Clear();

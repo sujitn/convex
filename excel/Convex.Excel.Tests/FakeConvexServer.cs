@@ -30,7 +30,9 @@ namespace Convex.Excel.Tests
 
         /// Each instrument's current `valuation` message.
         public ConcurrentDictionary<string, JObject> Current { get; } = new();
-        /// A subscription listing one of these is refused with FORBIDDEN.
+        /// The code a subscription listing a forbidden instrument or book is refused with.
+        public string RefusalCode { get; set; } = "FORBIDDEN";
+        /// A subscription listing one of these is refused with RefusalCode.
         public ConcurrentDictionary<string, byte> Forbidden { get; } = new();
         /// These are sent as RESULT_TOO_LARGE instead of a valuation.
         public ConcurrentDictionary<string, byte> TooLarge { get; } = new();
@@ -50,7 +52,7 @@ namespace Convex.Excel.Tests
         public ConcurrentQueue<(int Status, int? RetryAfter)> StatusScript { get; } = new();
         /// When set, a status read waits for it before answering (with the body current then).
         public TaskCompletionSource<bool>? StatusGate { get; set; }
-        /// A subscribe_limits listing one of these is refused with FORBIDDEN.
+        /// A subscribe_limits listing one of these is refused with RefusalCode.
         public ConcurrentDictionary<string, byte> ForbiddenBooks { get; } = new();
         /// Without a monitor, subscribe_limits is refused as the server refuses it.
         public volatile bool Monitored = true;
@@ -381,7 +383,7 @@ namespace Convex.Excel.Tests
                     }
                     if (books.Any(ForbiddenBooks.ContainsKey))
                     {
-                        await session.SendAsync(Error("FORBIDDEN", "FORBIDDEN")).ConfigureAwait(false);
+                        await session.SendAsync(Error(RefusalCode, RefusalCode)).ConfigureAwait(false);
                         return;
                     }
                     if (session.BookCount(books) > 64)
@@ -412,7 +414,7 @@ namespace Convex.Excel.Tests
                     }
                     if (ids.Any(Forbidden.ContainsKey))
                     {
-                        await session.SendAsync(Error("FORBIDDEN", "FORBIDDEN")).ConfigureAwait(false);
+                        await session.SendAsync(Error(RefusalCode, RefusalCode)).ConfigureAwait(false);
                         return;
                     }
                     session.Add(ids);

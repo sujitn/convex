@@ -75,6 +75,9 @@ namespace Convex.Excel.Server
             public string? ProblemCode;
             public string? ProblemMessage;
             public DateTime? RetryAt;
+            /// The refusal already in the connection history. ClearProblem
+            /// leaves it, so a refusal retried each minute is said once.
+            public string? LoggedRefusal;
 
             public BookState(string id, long seq)
             {
@@ -242,6 +245,7 @@ namespace Convex.Excel.Server
                 book.SetVersion = 0;
                 book.ReadProblem = null;
                 book.ReadBackoff = TimeSpan.Zero;
+                book.LoggedRefusal = null;
                 if (book.Sub is Subscription.Sent or Subscription.Live or Subscription.Refused)
                 {
                     book.Sub = Subscription.Wanted;
@@ -257,6 +261,7 @@ namespace Convex.Excel.Server
             {
                 if (!all && book.RetryAt == null) continue;
                 book.Sub = Subscription.Wanted;
+                if (all) book.LoggedRefusal = null;
                 ClearProblem(book);
                 _changedBooks.Add(book.Id);
             }
@@ -400,7 +405,11 @@ namespace Convex.Excel.Server
         {
             bool followed = unsubscribe && book.Sub is Subscription.Sent or Subscription.Live;
             // A quota refusal is retried each minute; say so once.
-            if (book.ProblemCode != code) Ops.CxLog.Connection($"book {book.Id} refused: {code} {message}");
+            if (book.LoggedRefusal != code)
+            {
+                book.LoggedRefusal = code;
+                Ops.CxLog.Connection($"book {book.Id} refused: {code} {message}");
+            }
             book.Sub = Subscription.Refused;
             book.ProblemCode = code;
             book.ProblemMessage = message;
@@ -438,6 +447,7 @@ namespace Convex.Excel.Server
                     if (!_books.TryGetValue(id, out var book) || book.Sub != Subscription.Sent) continue;
                     // Subscribed first, then read: nothing recorded in between is missed.
                     book.Sub = Subscription.Live;
+                    book.LoggedRefusal = null;
                     book.ReadWanted = true;
                     book.ReadAt = _now();
                     _changedBooks.Add(id);

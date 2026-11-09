@@ -58,8 +58,8 @@ the build.
    `excel/Convex.Excel/bin/Release/net472/publish/Convex.Excel64-packed.xll`.
 4. OK.
 
-`excel/Package-AddIn.ps1 -OutDir <folder>` stages a source build the way a
-release ships it.
+From the repository root, `excel/Package-AddIn.ps1 -OutDir <folder>` stages a
+source build the way a release ships it.
 
 ## Trader marks
 
@@ -369,10 +369,10 @@ show the value up to `RTD.ThrottleInterval` later.
 error. **Connection** lists the last 500 connection events, newest first.
 
 **The log file** is `%LOCALAPPDATA%\Convex\Excel\logs\convex-excel.log`. It
-records the add-in's start (versions, paths, native load), Excel's exit and the
-connection events: link states and their reasons, sign-in and token renewal,
-stream errors, refusals, failed lookups and background faults. It rolls at
-10 MB and keeps five files. Cell errors are not written to it, because one
+records the add-in's start (versions, paths, native load), Excel's exit, failed
+identifier lookups and the connection events: link states and their reasons,
+sign-in and token renewal, stream errors, refusals and background faults. It
+rolls at 10 MB and keeps five files. Cell errors are not written to it, because one
 recalculation can raise thousands. Anything that looks like a token is removed
 before a line is kept. A second Excel process writes
 `convex-excel-<pid>.log`; those files go after 14 days.

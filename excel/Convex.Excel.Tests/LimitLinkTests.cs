@@ -28,10 +28,13 @@ namespace Convex.Excel.Tests
         private const string T1 = "2026-11-09T10:00:01Z";
         private const string T2 = "2026-11-09T10:00:02Z";
 
-        public LimitLinkTests()
+        public LimitLinkTests() : this(TimeSpan.FromSeconds(60)) { }
+
+        private LimitLinkTests(TimeSpan retryRefused)
         {
             var timings = new ServerTimings
             {
+                RetryRefused = retryRefused,
                 Tick = TimeSpan.FromMilliseconds(20),
                 Linger = TimeSpan.FromMilliseconds(300),
                 Watchdog = TimeSpan.FromSeconds(5),
@@ -201,6 +204,26 @@ namespace Convex.Excel.Tests
             // Remembered until Reconnect.
             _source.Reconnect();
             await Eventually(() => status.Last is "within");
+        }
+
+        [Fact]
+        public async Task A_book_refusal_retried_each_minute_is_said_once_until_a_reconnect()
+        {
+            using var test = new LimitLinkTests(TimeSpan.FromMilliseconds(60));
+            test._server.RefusalCode = "ACCESS_QUOTA_EXCEEDED";
+            // Two books, so neither line follows itself: the history skips an immediate repeat.
+            test._server.ForbiddenBooks["QUOTA-B1"] = 0;
+            test._server.ForbiddenBooks["QUOTA-B2"] = 0;
+            test.Limit("QUOTA-B1", "dv01");
+            test.Limit("QUOTA-B2", "dv01");
+            test.Connect();
+            int Said() => Ops.CxLog.Events.Snapshot().Count(e => e.Text.StartsWith("book QUOTA-B1 refused", StringComparison.Ordinal));
+
+            await Eventually(() => test._server.LimitSubscribes().Count(s => s.Contains("QUOTA-B1")) >= 6);
+            Assert.Equal(1, Said());
+
+            test._source.Reconnect();
+            await Eventually(() => Said() == 2);
         }
 
         [Fact]

@@ -123,6 +123,9 @@ namespace Convex.Excel.Server
             public string? ProblemCode;
             public string? ProblemMessage;
             public DateTime? RetryAt;
+            /// The refusal already in the connection history. ClearProblem
+            /// leaves it, so a refusal retried each minute is said once.
+            public string? LoggedRefusal;
             public string? TooLargeRuntime;
             public ulong TooLargeRevision;
             public readonly List<TaskCompletionSource<bool>> Waiters = new();
@@ -225,6 +228,7 @@ namespace Convex.Excel.Server
                     inst.Latest = null;
                     inst.Fresh = inst.Acked = false;
                     inst.TooLargeRuntime = null;
+                    inst.LoggedRefusal = null;
                     ClearProblem(inst);
                     if (inst.Sub is Subscription.Sent or Subscription.Live or Subscription.Refused)
                         inst.Sub = Subscription.Wanted;
@@ -285,6 +289,7 @@ namespace Convex.Excel.Server
                     if (inst.Sub == Subscription.Refused)
                     {
                         inst.Sub = Subscription.Wanted;
+                        inst.LoggedRefusal = null;
                         ClearProblem(inst);
                         _changed.Add(inst.Id);
                     }
@@ -631,6 +636,7 @@ namespace Convex.Excel.Server
                     if (!_instruments.TryGetValue(id, out var inst)) continue;
                     if (inst.Sub == Subscription.Sent) inst.Sub = Subscription.Live;
                     if (inst.Sub != Subscription.Live) continue;
+                    inst.LoggedRefusal = null;
                     inst.Acked = true;
                     _changed.Add(id);
                     CompleteWaiters(inst);
@@ -662,7 +668,11 @@ namespace Convex.Excel.Server
                 else if (ids.Length == 1 && _instruments.TryGetValue(ids[0], out var inst))
                 {
                     // A quota refusal is retried each minute; say so once.
-                    if (inst.ProblemCode != code) Ops.CxLog.Connection($"instrument {ids[0]} refused: {code} {message}");
+                    if (inst.LoggedRefusal != code)
+                    {
+                        inst.LoggedRefusal = code;
+                        Ops.CxLog.Connection($"instrument {ids[0]} refused: {code} {message}");
+                    }
                     inst.Sub = Subscription.Refused;
                     inst.ProblemCode = code;
                     inst.ProblemMessage = Refusal(code, message, ids[0]);
