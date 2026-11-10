@@ -252,7 +252,7 @@ async fn acknowledge(
     let at = commit_time(existing.iter().map(|r| r.recorded_at)).map_err(reference_error)?;
     acknowledgement_expiry(at, request.expires_at).map_err(reference_error)?;
     let book = book_of(&book_record).map_err(reference_error)?;
-    let evaluation = evaluate_now(state, book, &set.limits).await?;
+    let evaluation = evaluate_now(state, book, &set.limits, at).await?;
     let status = evaluation
         .evaluations
         .get(index)

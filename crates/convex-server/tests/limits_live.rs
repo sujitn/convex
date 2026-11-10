@@ -1447,15 +1447,25 @@ async fn a_check_equals_the_status_of_the_book_with_its_changes_committed() {
         }
         limit
     };
+    // P15d: some limits hold an excess not yet expired, so both read its bounds and report it.
+    let expires_at = (chrono::Utc::now() + chrono::Duration::days(1))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let widened = |mut limit: Value, lower: Option<&str>, upper: &str| {
+        limit["excess"] = json!({"upper": upper, "expires_at": expires_at, "reason": "mandate"});
+        if let Some(lower) = lower {
+            limit["excess"]["lower"] = json!(lower);
+        }
+        limit
+    };
     let limits = json!({"limits": [
-        bounded("net", json!({"kind": "market_value"}), Some("-500000"), "1500000"),
-        bounded("gross", json!({"kind": "gross_market_value"}), None, "3000000"),
-        bounded("dv01", json!({"kind": "dv01"}), Some("-1500"), "1500"),
+        widened(bounded("net", json!({"kind": "market_value"}), Some("-500000"), "1500000"), Some("-600000"), "1600000"),
+        widened(bounded("gross", json!({"kind": "gross_market_value"}), None, "3000000"), None, "3200000"),
+        widened(bounded("dv01", json!({"kind": "dv01"}), Some("-1500"), "1500"), None, "1700"),
         bounded("cs01", json!({"kind": "cs01"}), Some("-1500"), "1500"),
         bounded("krd5", json!({"kind": "key_rate_dv01", "tenor": "5Y"}), Some("-800"), "800"),
         bounded("duration", json!({"kind": "modified_duration"}), Some("-10"), "10"),
         bounded("face-each", json!({"kind": "face", "instrument": "each"}), Some("-1000000"), "1200000"),
-        bounded("face-001", json!({"kind": "face", "instrument": {"one": "BOND-001"}}), Some("-500000"), "1500000"),
+        widened(bounded("face-001", json!({"kind": "face", "instrument": {"one": "BOND-001"}}), Some("-500000"), "1500000"), Some("-750000"), "1750000"),
         bounded("issuer", json!({"kind": "group_market_value", "by": "issuer", "group": "each"}), None, "2000000"),
         bounded("rating", json!({"kind": "group_share", "by": "rating", "group": "each"}), None, "0.6"),
         bounded("sector", json!({"kind": "group_market_value", "by": "sector", "group": "each"}), None, "2500000"),
@@ -1471,6 +1481,7 @@ async fn a_check_equals_the_status_of_the_book_with_its_changes_committed() {
 
     let mut version = 1;
     let mut statuses = BTreeMap::<String, usize>::new();
+    let mut with_excess = BTreeMap::<String, usize>::new();
     for case in 0..CASES {
         let mut draws = Draws(0x5EED_0000 + case);
         // An instrument outside the plan makes every market limit unknown, which would hide
@@ -1559,6 +1570,11 @@ async fn a_check_equals_the_status_of_the_book_with_its_changes_committed() {
             *statuses
                 .entry(limit["status"].as_str().unwrap().to_owned())
                 .or_default() += 1;
+            if limit["excess"].is_object() {
+                *with_excess
+                    .entry(limit["status"].as_str().unwrap().to_owned())
+                    .or_default() += 1;
+            }
         }
         version = replace_book(
             &server,
@@ -1569,11 +1585,16 @@ async fn a_check_equals_the_status_of_the_book_with_its_changes_committed() {
         )
         .await;
     }
-    // The cases reach every status, so the comparison is not of one kind of answer.
+    // The cases reach every status, so the comparison is not of one kind of answer, and
+    // so do limits an excess applies to.
     for status in ["within", "warning", "breach", "unknown"] {
         assert!(
             statuses.contains_key(status),
             "no case reached {status}: {statuses:?}"
+        );
+        assert!(
+            with_excess.contains_key(status),
+            "no limit with an excess reached {status}: {with_excess:?}"
         );
     }
     server.stop().await;
@@ -1881,4 +1902,125 @@ async fn a_breach_a_tick_causes_carries_the_acknowledgement_made_since() {
     );
     drop(socket);
     server.stop().await;
+}
+
+/// P15d (D96): approving an excess on a breached limit is a status change, recorded and
+/// published with the excess as evidence. Its expiry is the change back, with no tick or
+/// commit to wake the monitor: the expiry does.
+#[tokio::test]
+async fn an_excess_is_recorded_when_approved_and_its_expiry_wakes_the_monitor() {
+    let (dir, live, _) = live(1, 0, &[]).await;
+    let server = started(&dir, live.clone()).await;
+    put(
+        &server,
+        "/api/v1/books/WATCHED",
+        "book-watched",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "1000000"},
+        ]}),
+    )
+    .await;
+    let mut socket = limit_session(&server, &["WATCHED"]).await;
+    let first = json!({"limits": [limit("net", json!({"kind": "market_value"}))]});
+    put(&server, "/api/v1/books/WATCHED/limits", "set-1", first).await;
+    let change = frame(&mut socket, "limit_status").await;
+    let net = number(&change["value"]);
+    let base = format!("{:.2}", net * 0.5);
+    let wider = format!("{:.2}", net * 2.0);
+    let tight = |excess: Option<Value>| {
+        let mut limit =
+            json!({"limit_id": "net", "measure": {"kind": "market_value"}, "upper": base});
+        if let Some(excess) = excess {
+            limit["excess"] = excess;
+        }
+        json!({"limits": [limit]})
+    };
+    put_over(
+        &server,
+        "/api/v1/books/WATCHED/limits",
+        "set-2",
+        "1",
+        tight(None),
+    )
+    .await;
+    let breach = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&breach["previous"], &breach["status"]),
+        (&json!("within"), &json!("breach")),
+        "{breach}"
+    );
+
+    let expires_at = (chrono::Utc::now() + chrono::Duration::seconds(4))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let excess = json!({"upper": wider, "expires_at": expires_at, "reason": "mandate change"});
+    put_over(
+        &server,
+        "/api/v1/books/WATCHED/limits",
+        "set-3",
+        "2",
+        tight(Some(excess)),
+    )
+    .await;
+    let granted = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&granted["previous"], &granted["status"]),
+        (&json!("breach"), &json!("within")),
+        "{granted}"
+    );
+    assert_eq!(
+        number(&granted["upper"]),
+        wider.parse::<f64>().unwrap(),
+        "{granted}"
+    );
+    assert_eq!(
+        number(&granted["excess"]["base_upper"]),
+        base.parse::<f64>().unwrap()
+    );
+    assert_eq!(granted["excess"]["expires_at"], json!(expires_at));
+    assert_eq!(granted["excess"]["reason"], "mandate change");
+
+    // No tick and no commit from here: only the expiry can wake the monitor.
+    let back = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&back["previous"], &back["status"]),
+        (&json!("within"), &json!("breach")),
+        "{back}"
+    );
+    assert_eq!(
+        number(&back["upper"]),
+        base.parse::<f64>().unwrap(),
+        "{back}"
+    );
+    assert!(back.get("excess").is_none(), "{back}");
+    let read: chrono::DateTime<chrono::Utc> =
+        back["evaluated_at"].as_str().unwrap().parse().unwrap();
+    let expiry: chrono::DateTime<chrono::Utc> = expires_at.parse().unwrap();
+    assert!(
+        read >= expiry,
+        "evaluated {read} before the expiry {expiry}"
+    );
+
+    drop(socket);
+    server.stop().await;
+    let stored = records(&live).await;
+    let changes: Vec<(&str, &str)> = stored
+        .iter()
+        .map(|(_, record)| {
+            (
+                record["previous"].as_str().unwrap(),
+                record["status"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        changes,
+        [
+            ("unevaluated", "within"),
+            ("within", "breach"),
+            ("breach", "within"),
+            ("within", "breach"),
+        ]
+    );
+    assert!(stored[2].1["excess"].is_object(), "{}", stored[2].1);
+    assert!(stored[3].1.get("excess").is_none(), "{}", stored[3].1);
 }

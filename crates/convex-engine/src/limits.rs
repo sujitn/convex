@@ -2,7 +2,8 @@
 //!
 //! [`evaluate_limits`] is a pure function of one book's positions, each position's
 //! accepted runtime result read as an analyzer quote, the priced bond's classifications,
-//! and the book's limit set. It reads no clock, store or runtime. Each aggregate is
+//! the book's limit set and the time of the evaluation, which decides whether a temporary
+//! excess applies (P15d, D96). It reads no clock, store or runtime. Each aggregate is
 //! computed once per evaluation, however many limits read it.
 //!
 //! Market values are admitted exactly as analytics by book admit them
@@ -22,7 +23,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 
-use convex_core::contracts::{ExactDecimal, FactorTenor, InstrumentId};
+use convex_core::contracts::{ExactDecimal, FactorTenor, InstrumentId, UtcTimestamp};
 use convex_core::{Currency, Date};
 use convex_math::decimal::BoundedDecimal;
 use rust_decimal::{Decimal, RoundingStrategy};
@@ -30,8 +31,8 @@ use rust_decimal::{Decimal, RoundingStrategy};
 use crate::error::EngineError;
 use crate::portfolio_analytics::admit_quote;
 use crate::ports::limits::{
-    validate_limits, InstrumentList, LimitDefinition, LimitEvaluation, LimitGroup, LimitMeasure,
-    LimitMember, LimitStatus, UnknownReason, MAX_REASON_DETAIL_BYTES,
+    validate_limits, ExcessApplied, InstrumentList, LimitDefinition, LimitEvaluation, LimitGroup,
+    LimitMeasure, LimitMember, LimitStatus, UnknownReason, MAX_REASON_DETAIL_BYTES,
 };
 use crate::ports::output::BondQuoteOutput;
 use crate::ports::reference_data::BondReferenceData;
@@ -170,11 +171,35 @@ impl Exact {
     }
 }
 
+/// A limit and the bounds it is judged against at the time of the evaluation.
+struct Judging<'a> {
+    definition: &'a LimitDefinition,
+    lower: Option<Decimal>,
+    upper: Option<Decimal>,
+}
+
+impl<'a> Judging<'a> {
+    /// The limit's own bounds, or on each side an excess in force names, the excess's.
+    fn at(definition: &'a LimitDefinition, at: UtcTimestamp) -> Self {
+        let excess = definition.excess_at(at);
+        Self {
+            definition,
+            lower: excess
+                .and_then(|e| e.lower)
+                .or(definition.lower)
+                .map(ExactDecimal::decimal),
+            upper: excess
+                .and_then(|e| e.upper)
+                .or(definition.upper)
+                .map(ExactDecimal::decimal),
+        }
+    }
+}
+
 /// A limit's status for one exact value, and the utilisation it reports.
-fn judge(limit: &LimitDefinition, value: &Exact) -> Judged<(LimitStatus, Option<Decimal>)> {
-    let lower = limit.lower.map(ExactDecimal::decimal);
-    let upper = limit.upper.map(ExactDecimal::decimal);
-    let fraction = limit.warning_fraction.map(ExactDecimal::decimal);
+fn judge(limit: &Judging<'_>, value: &Exact) -> Judged<(LimitStatus, Option<Decimal>)> {
+    let (lower, upper) = (limit.lower, limit.upper);
+    let fraction = limit.definition.warning_fraction.map(ExactDecimal::decimal);
     let past = |bound: Option<Decimal>, fraction: Option<Decimal>, side: Ordering| {
         bound
             .map(|b| value.against(b, fraction).map(|o| o == side))
@@ -213,7 +238,7 @@ struct Candidate {
     member: Option<String>,
 }
 
-fn candidate(limit: &LimitDefinition, value: Exact, member: Option<String>) -> Judged<Candidate> {
+fn candidate(limit: &Judging<'_>, value: Exact, member: Option<String>) -> Judged<Candidate> {
     let (status, utilisation) = judge(limit, &value)?;
     Ok(Candidate {
         status,
@@ -232,25 +257,28 @@ fn worse(a: Candidate, b: Candidate) -> Candidate {
     }
 }
 
-fn known(limit: &LimitDefinition, found: Option<Candidate>) -> Judged<LimitEvaluation> {
+fn known(limit: &Judging<'_>, found: Option<Candidate>) -> Judged<LimitEvaluation> {
+    let limit_id = limit.definition.limit_id.clone();
     let Some(found) = found else {
         // A limit on each member of a book that holds none.
         return Ok(LimitEvaluation {
-            limit_id: limit.limit_id.clone(),
+            limit_id,
             status: LimitStatus::Within,
             value: None,
             member: None,
             utilisation: None,
             reason: None,
+            excess: None,
         });
     };
     Ok(LimitEvaluation {
-        limit_id: limit.limit_id.clone(),
+        limit_id,
         status: found.status,
         value: Some(found.value.report()?),
         member: found.member,
         utilisation: found.utilisation.map(|u| ExactDecimal::new(u.normalize())),
         reason: None,
+        excess: None,
     })
 }
 
@@ -262,6 +290,7 @@ fn unknown(limit: &LimitDefinition, reason: UnknownReason) -> LimitEvaluation {
         member: None,
         utilisation: None,
         reason: Some(reason),
+        excess: None,
     }
 }
 
@@ -503,7 +532,7 @@ fn cached<T: Clone>(slot: &mut Option<T>, compute: impl FnOnce() -> T) -> T {
 /// there are none. `key` orders the members as their values do (every member shares one
 /// positive denominator), and only the two extremes are lifted to exact values.
 fn extremes<'m, K: Ord + Copy>(
-    limit: &LimitDefinition,
+    limit: &Judging<'_>,
     members: impl Iterator<Item = (K, &'m str)>,
     lift: impl Fn(K) -> Judged<Exact>,
 ) -> Judged<Option<Candidate>> {
@@ -533,7 +562,7 @@ fn face_value(position: &LimitPosition<'_>) -> Exact {
 }
 
 fn face<'a>(
-    limit: &LimitDefinition,
+    limit: &Judging<'_>,
     book: &LimitBook<'a>,
     by_instrument: &HashMap<&'a str, &'a LimitPosition<'a>>,
     instrument: &LimitMember<InstrumentId>,
@@ -583,7 +612,7 @@ fn face<'a>(
 }
 
 fn group(
-    limit: &LimitDefinition,
+    limit: &Judging<'_>,
     market: &Market<'_>,
     sums: &BTreeMap<&str, BoundedDecimal>,
     member: &LimitMember<String>,
@@ -612,7 +641,7 @@ fn group(
     }
 }
 
-fn whole_book(limit: &LimitDefinition, value: Judged<Exact>) -> Judged<LimitEvaluation> {
+fn whole_book(limit: &Judging<'_>, value: Judged<Exact>) -> Judged<LimitEvaluation> {
     known(limit, Some(candidate(limit, value?, None)?))
 }
 
@@ -626,8 +655,8 @@ struct Evaluation<'a, 'b> {
 }
 
 impl<'a> Evaluation<'a, '_> {
-    fn limit(&mut self, limit: &LimitDefinition) -> Judged<LimitEvaluation> {
-        if let LimitMeasure::Face { instrument } = &limit.measure {
+    fn limit(&mut self, limit: &Judging<'_>) -> Judged<LimitEvaluation> {
+        if let LimitMeasure::Face { instrument } = &limit.definition.measure {
             return face(limit, self.book, &self.by_instrument, instrument);
         }
         let (positions, currency) = (self.book.positions, self.book.currency);
@@ -639,7 +668,7 @@ impl<'a> Evaluation<'a, '_> {
             Err(reason) => return Err(reason.clone()),
         };
         let aggregates = &mut self.aggregates;
-        match &limit.measure {
+        match &limit.definition.measure {
             LimitMeasure::Face { instrument } => {
                 face(limit, self.book, &self.by_instrument, instrument)
             }
@@ -698,7 +727,10 @@ impl<'a> Evaluation<'a, '_> {
     }
 }
 
-/// Evaluate each limit of a book's set against the book, in set order.
+/// Evaluate each limit of a book's set against the book at `at`, in set order.
+///
+/// A limit with an excess not yet expired at `at` is judged against the excess bounds and
+/// reports the excess, whatever its status.
 ///
 /// Refuses (an error, not an `unknown` status) only input that breaks the contract: an
 /// invalid limit set, more than `MAX_BOOK_POSITIONS` positions, or an instrument held
@@ -707,6 +739,7 @@ impl<'a> Evaluation<'a, '_> {
 pub fn evaluate_limits<'a>(
     book: &LimitBook<'a>,
     limits: &[LimitDefinition],
+    at: UtcTimestamp,
 ) -> Result<Vec<LimitEvaluation>, EngineError> {
     validate_limits(limits)
         .map_err(|error| EngineError::ConfigError(format!("limit set: {error}")))?;
@@ -736,9 +769,16 @@ pub fn evaluate_limits<'a>(
     Ok(limits
         .iter()
         .map(|limit| {
-            evaluation
-                .limit(limit)
-                .unwrap_or_else(|reason| unknown(limit, reason))
+            let mut evaluated = evaluation
+                .limit(&Judging::at(limit, at))
+                .unwrap_or_else(|reason| unknown(limit, reason));
+            evaluated.excess = limit.excess_at(at).map(|excess| ExcessApplied {
+                base_lower: limit.lower,
+                base_upper: limit.upper,
+                expires_at: excess.expires_at,
+                reason: excess.reason.clone(),
+            });
+            evaluated
         })
         .collect())
 }

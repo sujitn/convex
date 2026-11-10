@@ -13,6 +13,11 @@
 //!
 //! A pre-trade check (P14d; D88–D91) evaluates a book with proposed changes applied the
 //! same way, and stores nothing.
+//!
+//! A limit may carry a temporary excess (P15d, D96), changed through the same proposal.
+//! Its expiry is checked here, against the time of the proposal and of the approval; an
+//! excess a change leaves exactly as the current set holds it is not, because a set is
+//! replaced whole and a change to one limit carries the others.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -36,8 +41,9 @@ use convex_core::contracts::{
 };
 use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::ports::limits::{
-    validate_limits, LimitAcknowledgement, LimitDefinition, LimitEvaluation, LimitMeasure,
-    LimitMember, LimitProposalClosure, LimitProposalDefinition, LimitSetDefinition, UnknownReason,
+    excess_expiry, validate_limits, LimitAcknowledgement, LimitDefinition, LimitEvaluation,
+    LimitExcess, LimitMeasure, LimitMember, LimitProposalClosure, LimitProposalDefinition,
+    LimitSetDefinition, UnknownReason,
 };
 use convex_engine::ports::output::BondQuoteOutput;
 use convex_engine::ports::reference_data::BondReferenceData;
@@ -225,6 +231,41 @@ fn authorize_replaced(
         ),
         None => Ok(()),
     }
+}
+
+/// Each excess `limits` adds or changes against the set they replace: one the current set
+/// does not hold on the same limit exactly so.
+fn new_excesses<'a>(
+    limits: &'a [LimitDefinition],
+    set: Option<&MasterRecord>,
+) -> Result<Vec<&'a LimitExcess>, Response> {
+    let replaced = match set {
+        Some(record) => set_of(record).map_err(reference_error)?.limits.as_slice(),
+        None => &[],
+    };
+    Ok(limits
+        .iter()
+        .filter_map(|limit| {
+            let excess = limit.excess.as_ref()?;
+            let kept = replaced
+                .iter()
+                .any(|old| old.limit_id == limit.limit_id && old.excess.as_ref() == Some(excess));
+            (!kept).then_some(excess)
+        })
+        .collect())
+}
+
+/// D96: each excess a proposal adds or changes expires after the proposal, and at most
+/// thirty days after it.
+fn check_new_excesses(
+    limits: &[LimitDefinition],
+    set: Option<&MasterRecord>,
+    at: UtcTimestamp,
+) -> Result<(), Response> {
+    for excess in new_excesses(limits, set)? {
+        excess_expiry(at, excess.expires_at).map_err(reference_error)?;
+    }
+    Ok(())
 }
 
 /// One microsecond after `time`: a closed proposal's end must follow its start.
@@ -435,7 +476,8 @@ pub(crate) struct LimitSetRequest {
 /// `PUT /api/v1/books/{book_id}/limits`: propose a complete limit set.
 ///
 /// `If-Match` names the limit set version the change replaces; absent proposes the book's
-/// first set. `Idempotency-Key` is required. Under required access the change is a
+/// first set. `Idempotency-Key` is required. Each excess the change adds or alters expires
+/// after the proposal and at most thirty days after it (D96). Under required access the change is a
 /// proposal, returned with `202 Accepted`, that a different subject approves. The caller
 /// holds each instrument the new limits and the current set name, since the change drops
 /// any limit it leaves out. A new proposal replaces an open one, which withdraws it, so
@@ -553,6 +595,7 @@ async fn propose(
             return Err(too_many_books());
         }
         let at = commit_time(set.iter().map(|r| r.recorded_at)).map_err(reference_error)?;
+        check_new_excesses(&limits, set.as_ref(), at)?;
         let definition = LimitSetDefinition {
             book_id: id,
             limits,
@@ -588,6 +631,7 @@ async fn propose(
         }
     }
     let at = commit_time(open.iter().map(|r| r.recorded_at)).map_err(reference_error)?;
+    check_new_excesses(&limits, set.as_ref(), at)?;
     let definition = LimitProposalDefinition {
         book_id: id,
         base_version: base,
@@ -651,7 +695,8 @@ async fn open_proposal(
 /// `If-Match` names the proposal version approved and `Idempotency-Key` is required. The
 /// approver must be a different subject from the proposer and hold each instrument the
 /// proposal and the current set name, and the limit set must still be the version the
-/// proposal replaces. The set and the closed proposal commit in one
+/// proposal replaces. An excess the proposal adds or changes must not have expired by then
+/// (409 `LIMIT_EXCESS_EXPIRED`). The set and the closed proposal commit in one
 /// transaction.
 pub(crate) async fn approve_limits(
     State(state): State<Arc<AppState>>,
@@ -723,6 +768,15 @@ async fn approve(
     ];
     let at = commit_time(floor.into_iter().chain(set.iter().map(|r| r.recorded_at)))
         .map_err(reference_error)?;
+    if new_excesses(&proposal.limits, set.as_ref())?
+        .iter()
+        .any(|excess| at >= excess.expires_at)
+    {
+        return Err(conflict(
+            "LIMIT_EXCESS_EXPIRED",
+            "an excess the proposal adds or changes has expired; propose again",
+        ));
+    }
     let set_version = Version::new(proposal.base_version.map_or(1, |v| v.get() + 1))
         .map_err(|_| reference_error(ReferenceError::Unavailable))?;
     let provenance = evidence(&idempotency_key).map_err(reference_error)?;
@@ -989,7 +1043,8 @@ pub(crate) async fn get_limits_history(
 // STATUS
 // =============================================================================
 
-/// One limit and its evaluation: the bounds beside the value they were judged against.
+/// One limit and its evaluation: the bounds beside the value they were judged against,
+/// which are an excess's while one applies (the evaluation then names the limit's own).
 #[derive(Serialize)]
 struct StatusItem<'a> {
     measure: &'a LimitMeasure,
@@ -1061,11 +1116,12 @@ async fn status(
     .await
 }
 
-/// Evaluate `limits` on `book` against the current Live results.
+/// Evaluate `limits` on `book` at `at` against the current Live results.
 pub(crate) async fn evaluate_now(
     state: &AppState,
     book: &BookDefinition,
     limits: &[LimitDefinition],
+    at: UtcTimestamp,
 ) -> Result<BookEvaluation, Response> {
     let accepted = accepted_runtime_results(state);
     let mut terms = PricedTerms::new();
@@ -1082,6 +1138,7 @@ pub(crate) async fn evaluate_now(
         &accepted,
         &terms,
         state.engine.runtime_settlement_date(),
+        at,
     )
     .map_err(|error| {
         tracing::error!(%error, "limit status: evaluation refused a book and its limit set");
@@ -1122,22 +1179,25 @@ async fn evaluated(
     acknowledgements: &[LimitAcknowledgement],
     evaluated_at: UtcTimestamp,
 ) -> Result<Response, Response> {
-    let evaluation = evaluate_now(state, book, limits).await?;
+    let evaluation = evaluate_now(state, book, limits, evaluated_at).await?;
     let items = limits
         .iter()
         .zip(&evaluation.evaluations)
-        .map(|(limit, evaluation)| StatusItem {
-            measure: &limit.measure,
-            lower: limit.lower,
-            upper: limit.upper,
-            warning_fraction: limit.warning_fraction,
-            evaluation,
-            acknowledgement: AcknowledgementInForce::of(
-                acknowledgements,
+        .map(|(limit, evaluation)| {
+            let (lower, upper) = limit.judged_bounds(evaluation);
+            StatusItem {
+                measure: &limit.measure,
+                lower,
+                upper,
+                warning_fraction: limit.warning_fraction,
                 evaluation,
-                evaluated_at,
-                limits,
-            ),
+                acknowledgement: AcknowledgementInForce::of(
+                    acknowledgements,
+                    evaluation,
+                    evaluated_at,
+                    limits,
+                ),
+            }
         })
         .collect();
     let view = StatusView {
@@ -1648,7 +1708,7 @@ pub(crate) struct BookEvaluation {
     pub(crate) snapshot_ids: Vec<String>,
 }
 
-/// Evaluate `limits` on `book` against `accepted` results and their priced `terms`.
+/// Evaluate `limits` on `book` at `at` against `accepted` results and their priced `terms`.
 ///
 /// A position without an accepted result (by analytics by book's rule) makes each limit
 /// that reads market data `unknown`, and so does one whose priced terms are not in `terms`
@@ -1659,6 +1719,7 @@ pub(crate) fn evaluate_book(
     accepted: &Accepted,
     terms: &PricedTerms,
     settlement: Option<convex_core::contracts::BusinessDate>,
+    at: UtcTimestamp,
 ) -> Result<BookEvaluation, convex_engine::EngineError> {
     let mut snapshots = BTreeSet::new();
     let reads: Vec<Option<(BondQuoteOutput, &BondReferenceData)>> = book
@@ -1702,7 +1763,7 @@ pub(crate) fn evaluate_book(
         positions: &positions,
     };
     Ok(BookEvaluation {
-        evaluations: evaluate_limits(&limit_book, limits)?,
+        evaluations: evaluate_limits(&limit_book, limits, at)?,
         snapshot_ids: snapshots.into_iter().collect(),
     })
 }

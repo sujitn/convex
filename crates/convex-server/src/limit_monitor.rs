@@ -28,6 +28,13 @@
 //! the evaluation (P15c). The monitor rereads a watched book's acknowledgements when they
 //! commit, as it rereads its set; an acknowledgement changes no status, so it records and
 //! publishes nothing of its own (D97).
+//!
+//! A temporary excess (P15d, D96) changes a status twice: when it is approved, which is a
+//! commit, and when it expires, which is nothing the streams report. So the earliest expiry
+//! still to come among the watched sets is a deadline beside the retry timer (amending
+//! D87), and the books holding it are evaluated when it passes. A wall clock that steps
+//! back would apply an expired excess again for the length of the step, so each book keeps
+//! the latest expiry this monitor has passed and reads its excesses no earlier than that.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -85,6 +92,9 @@ const _: () = assert!(convex_engine::ports::limits::MAX_BOOK_LIMITS <= MAX_AUDIT
 const FEED_CAPACITY: usize = MAX_LIMITED_BOOKS * convex_engine::ports::limits::MAX_BOOK_LIMITS;
 /// How soon a failed read or append is tried again.
 const RETRY: Duration = Duration::from_secs(1);
+/// The longest wait for an expiry. The wait runs on the monotonic clock and an expiry is on
+/// the wall clock, so a wall clock that steps forward is noticed within this.
+const MAX_EXPIRY_WAIT: Duration = Duration::from_secs(60);
 /// Kept priced terms beyond which those no current result reads are dropped: twice the
 /// instruments one runtime values.
 const MAX_TERMS: usize = 2 * convex_engine::ports::snapshot::MAX_SNAPSHOT_INSTRUMENTS;
@@ -112,10 +122,10 @@ pub struct LimitStatusChange {
     pub previous: &'static str,
     /// The limit's measure.
     pub measure: LimitMeasure,
-    /// Its lower bound.
+    /// The lower bound it was judged against: an excess's while one applies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lower: Option<ExactDecimal>,
-    /// Its upper bound.
+    /// The upper bound it was judged against: an excess's while one applies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upper: Option<ExactDecimal>,
     /// Its warning fraction.
@@ -292,7 +302,9 @@ impl LimitMonitor {
             if task.halt.requested() {
                 break;
             }
+            task.expire();
             task.work().await;
+            let expiry = task.next_expiry();
             tokio::select! {
                 biased;
                 changed = stop.changed() => {
@@ -304,6 +316,8 @@ impl LimitMonitor {
                 // Ahead of the streams: under steady ticks one is always ready, and a
                 // retry behind them would never run.
                 _ = timer.tick(), if task.waiting() => task.again(),
+                // The next pass of the loop reads the clock and finds what has expired.
+                _ = tokio::time::sleep(expiry.unwrap_or_default()), if expiry.is_some() => {}
                 notice = commits.recv() => {
                     let mut notice = notice;
                     loop {
@@ -373,6 +387,39 @@ struct Subject {
 struct Watched {
     subject: Arc<Subject>,
     recorded: HashMap<LimitId, LimitStatus>,
+    /// The latest excess expiry this monitor has passed for the book.
+    expired_through: Option<UtcTimestamp>,
+}
+
+/// The time to read `limits`' excesses at, given the wall clock's `at`: no earlier than the
+/// latest expiry already passed, so an excess once expired stays expired when the clock
+/// steps back. Only an expiry moves `through`, so a clock that jumps ahead and returns
+/// pins nothing but the excesses it passed.
+fn latch(
+    limits: &[LimitDefinition],
+    through: &mut Option<UtcTimestamp>,
+    at: UtcTimestamp,
+) -> UtcTimestamp {
+    let at = through.map_or(at, |passed| passed.max(at));
+    *through = limits
+        .iter()
+        .filter_map(|limit| limit.excess.as_ref().map(|excess| excess.expires_at))
+        .filter(|expires_at| *expires_at <= at)
+        .max()
+        .max(*through);
+    at
+}
+
+/// The earliest expiry `limits` hold that is later than the latest one passed.
+fn next_expiry_of(
+    limits: &[LimitDefinition],
+    through: Option<UtcTimestamp>,
+) -> Option<UtcTimestamp> {
+    limits
+        .iter()
+        .filter_map(|limit| limit.excess.as_ref().map(|excess| excess.expires_at))
+        .filter(|expires_at| through.is_none_or(|passed| *expires_at > passed))
+        .min()
 }
 
 struct Task {
@@ -402,6 +449,36 @@ impl Task {
         for id in std::mem::take(&mut self.retry) {
             Pending::add(&mut self.dirty, id);
         }
+    }
+
+    /// Evaluate again each book with an excess that has expired since the last look.
+    fn expire(&mut self) {
+        let Ok(at) = crate::reference::now() else {
+            return;
+        };
+        for (id, watched) in &mut self.books {
+            let before = watched.expired_through;
+            latch(&watched.subject.limits, &mut watched.expired_through, at);
+            if watched.expired_through != before {
+                Pending::add(&mut self.dirty, id.clone());
+            }
+        }
+    }
+
+    /// How long until the next excess expires, if one is still to expire.
+    fn next_expiry(&self) -> Option<Duration> {
+        let next = self
+            .books
+            .values()
+            .filter_map(|watched| next_expiry_of(&watched.subject.limits, watched.expired_through))
+            .min()?;
+        let at = crate::reference::now().ok()?;
+        Some(
+            (next.datetime() - at.datetime())
+                .to_std()
+                .unwrap_or_default()
+                .min(MAX_EXPIRY_WAIT),
+        )
     }
 
     fn committed(&mut self, keys: &[MasterKey]) {
@@ -525,10 +602,10 @@ impl Task {
                 .map(|p| p.instrument_id.as_str().to_owned())
                 .chain(named_instruments(&set.limits).map(|i| i.as_str().to_owned()))
                 .collect();
-            let recorded = self
+            let (recorded, expired_through) = self
                 .books
                 .remove(&id)
-                .map(|watched| watched.recorded)
+                .map(|watched| (watched.recorded, watched.expired_through))
                 .unwrap_or_default();
             self.books.insert(
                 id.clone(),
@@ -541,6 +618,7 @@ impl Task {
                         instruments: instruments.into_iter().collect(),
                     }),
                     recorded,
+                    expired_through,
                 },
             );
             Pending::add(&mut self.dirty, id);
@@ -607,21 +685,23 @@ impl Task {
                 continue;
             };
             read_priced_terms(repo.as_ref(), book, &accepted, &mut self.terms).await;
+            let Some(watched) = self.books.get_mut(id) else {
+                continue;
+            };
+            let excess_at = latch(&subject.limits, &mut watched.expired_through, evaluated_at);
             let evaluation = match evaluate_book(
                 book,
                 &subject.limits,
                 &accepted,
                 &self.terms,
                 settlement,
+                excess_at,
             ) {
                 Ok(evaluation) => evaluation,
                 Err(error) => {
                     tracing::error!(book = %id, %error, "limit monitor: evaluation refused a stored book and limit set");
                     continue;
                 }
-            };
-            let Some(watched) = self.books.get_mut(id) else {
-                continue;
             };
             let context = Context {
                 book_id: id,
@@ -741,6 +821,7 @@ impl Ledger {
             };
             self.next_id = record_id.checked_add(1);
             let status = evaluation.status;
+            let (lower, upper) = limit.judged_bounds(&evaluation);
             let acknowledgement = AcknowledgementInForce::of(
                 acknowledgements,
                 &evaluation,
@@ -756,8 +837,8 @@ impl Ledger {
                 monitor_started_at: self.started_at,
                 previous: status_name(previous),
                 measure: limit.measure.clone(),
-                lower: limit.lower,
-                upper: limit.upper,
+                lower,
+                upper,
                 warning_fraction: limit.warning_fraction,
                 evaluation,
                 snapshot_ids: snapshot_ids.clone(),
@@ -828,5 +909,92 @@ impl Ledger {
         } else {
             Recorded::Retry
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    fn stamp(text: &str) -> UtcTimestamp {
+        UtcTimestamp::parse(text).unwrap()
+    }
+
+    /// One limit per expiry.
+    fn limits(expiries: &[&str]) -> Vec<LimitDefinition> {
+        expiries
+            .iter()
+            .enumerate()
+            .map(|(index, expires_at)| {
+                serde_json::from_value(serde_json::json!({
+                    "limit_id": format!("limit-{index}"),
+                    "measure": {"kind": "market_value"},
+                    "upper": "100",
+                    "excess": {"upper": "200", "expires_at": expires_at, "reason": "mandate"},
+                }))
+                .unwrap()
+            })
+            .collect()
+    }
+
+    /// P15d: at, just before and just after an expiry, and after a clock that steps back
+    /// (WSL2's does, by over 2 s), which must not apply the excess again.
+    #[test]
+    fn an_excess_once_expired_stays_expired_when_the_clock_steps_back() {
+        const EXPIRY: &str = "2026-11-09T12:00:00Z";
+        let limits = limits(&[EXPIRY]);
+        let mut through = None;
+
+        let before = stamp("2026-11-09T11:59:59.999999Z");
+        assert_eq!(latch(&limits, &mut through, before), before);
+        assert!(through.is_none());
+        assert!(limits[0].excess_at(before).is_some());
+        assert_eq!(next_expiry_of(&limits, through), Some(stamp(EXPIRY)));
+
+        let at = latch(&limits, &mut through, stamp(EXPIRY));
+        assert_eq!(through, Some(stamp(EXPIRY)));
+        assert!(limits[0].excess_at(at).is_none());
+        assert_eq!(next_expiry_of(&limits, through), None);
+
+        let after = stamp("2026-11-09T12:00:00.000001Z");
+        assert_eq!(latch(&limits, &mut through, after), after);
+        assert_eq!(through, Some(stamp(EXPIRY)));
+
+        let stepped = latch(&limits, &mut through, stamp("2026-11-09T11:59:57.8Z"));
+        assert_eq!(stepped, stamp(EXPIRY));
+        assert!(limits[0].excess_at(stepped).is_none());
+        assert_eq!(next_expiry_of(&limits, through), None);
+    }
+
+    /// Only an expiry moves the latch: one still to come stays pending, and a clock that
+    /// jumps ahead and returns holds back only what it passed.
+    #[test]
+    fn the_latch_holds_only_expiries_passed() {
+        const FIRST: &str = "2026-11-09T12:00:00Z";
+        const SECOND: &str = "2026-11-09T18:00:00Z";
+        let limits = limits(&[SECOND, FIRST]);
+        let mut through = None;
+        assert_eq!(next_expiry_of(&limits, through), Some(stamp(FIRST)));
+
+        // Ahead to 13:00, past the first expiry only, then back.
+        latch(&limits, &mut through, stamp("2026-11-09T13:00:00Z"));
+        assert_eq!(through, Some(stamp(FIRST)));
+        let back = latch(&limits, &mut through, stamp("2026-11-09T11:00:00Z"));
+        assert_eq!(back, stamp(FIRST), "not the 13:00 the clock jumped to");
+        assert!(limits[0].excess_at(back).is_some());
+        assert!(limits[1].excess_at(back).is_none());
+        assert_eq!(next_expiry_of(&limits, through), Some(stamp(SECOND)));
+
+        // A set without an excess moves nothing.
+        let mut none = None;
+        let plain: Vec<LimitDefinition> = vec![serde_json::from_value(serde_json::json!({
+            "limit_id": "plain", "measure": {"kind": "market_value"}, "upper": "100",
+        }))
+        .unwrap()];
+        let at = stamp(FIRST);
+        assert_eq!(latch(&plain, &mut none, at), at);
+        assert!(none.is_none());
+        assert_eq!(next_expiry_of(&plain, none), None);
     }
 }

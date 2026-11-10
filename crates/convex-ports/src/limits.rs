@@ -15,6 +15,9 @@
 //! A book's acknowledgements of breached or unknown limits are one versioned
 //! [`LimitAcknowledgementsDefinition`] (`MasterKey::LimitAcknowledgements`) per book (P15c,
 //! D94, D95): one subject may make one, and it changes no bound.
+//!
+//! A limit may carry a temporary excess ([`LimitExcess`], P15d, D96): wider bounds until a
+//! time, changed through the set proposal as any change to a limit is.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -139,6 +142,99 @@ pub struct LimitDefinition {
     /// band runs from the fraction of the bound to the bound.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub warning_fraction: Option<ExactDecimal>,
+    /// Wider bounds until an expiry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub excess: Option<LimitExcess>,
+}
+
+/// Seconds after its proposal that an excess may run: thirty days (D96).
+pub const MAX_EXCESS_SECONDS: i64 = 30 * 24 * 60 * 60;
+/// Bytes in an excess's reason.
+pub const MAX_EXCESS_REASON_BYTES: usize = 1024;
+
+/// A temporary excess on a limit (P15d, D96): wider bounds until a time.
+///
+/// Before its expiry the limit is judged against these bounds, with its warning band on
+/// them, and a bound the excess does not name stays the limit's own. From its expiry the
+/// limit is judged against its own bounds again. An expired excess stays in the set,
+/// inert, until a later version removes it. It is changed through the set proposal, so it
+/// takes two subjects (D85).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LimitExcess {
+    /// A lower bound strictly below the limit's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lower: Option<ExactDecimal>,
+    /// An upper bound strictly above the limit's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upper: Option<ExactDecimal>,
+    /// When the limit's own bounds apply again.
+    pub expires_at: UtcTimestamp,
+    /// Why, 1 to 1,024 bytes.
+    pub reason: String,
+}
+
+impl LimitExcess {
+    /// Validate the excess against the limit's own bounds: it names a bound, each bound it
+    /// names widens the limit's on that side, and its reason is well formed.
+    fn validate(
+        &self,
+        lower: Option<Decimal>,
+        upper: Option<Decimal>,
+    ) -> Result<(), ReferenceError> {
+        if self.lower.is_none() && self.upper.is_none() {
+            return Err(invalid("an excess needs a lower or an upper bound"));
+        }
+        let below = match (self.lower.map(ExactDecimal::decimal), lower) {
+            (None, _) => true,
+            (Some(wider), Some(own)) => wider < own,
+            (Some(_), None) => false,
+        };
+        let above = match (self.upper.map(ExactDecimal::decimal), upper) {
+            (None, _) => true,
+            (Some(wider), Some(own)) => wider > own,
+            (Some(_), None) => false,
+        };
+        if !below || !above {
+            return Err(invalid(
+                "each excess bound widens a bound the limit has: a lower one below it, an upper one above it",
+            ));
+        }
+        if !free_text(&self.reason, MAX_EXCESS_REASON_BYTES) {
+            return Err(invalid(
+                "an excess's reason is 1 to 1,024 bytes, not blank, without control characters other than line feeds",
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Validate an excess's expiry against the time of its proposal: after it, and at most
+/// thirty days after it (D96).
+pub fn excess_expiry(at: UtcTimestamp, expires_at: UtcTimestamp) -> Result<(), ReferenceError> {
+    if lasts_at_most(at, expires_at, MAX_EXCESS_SECONDS) {
+        Ok(())
+    } else {
+        Err(invalid(
+            "an excess expires after it is proposed, and at most thirty days after",
+        ))
+    }
+}
+
+/// Whether `expires_at` is after `at`, and at most `seconds` after it.
+fn lasts_at_most(at: UtcTimestamp, expires_at: UtcTimestamp, seconds: i64) -> bool {
+    matches!(
+        (expires_at.datetime() - at.datetime()).num_nanoseconds(),
+        Some(span) if span > 0 && span <= seconds * 1_000_000_000
+    )
+}
+
+/// Whether `text` is 1 to `max` bytes, not blank, without control characters other than
+/// line feeds.
+fn free_text(text: &str, max: usize) -> bool {
+    !text.trim().is_empty()
+        && text.len() <= max
+        && !text.chars().any(|c| c.is_control() && c != '\n')
 }
 
 fn invalid(reason: &'static str) -> ReferenceError {
@@ -196,7 +292,32 @@ impl LimitDefinition {
                 ));
             }
         }
+        // An excess only moves a bound away from zero, so a band stays valid on it.
+        if let Some(excess) = &self.excess {
+            excess.validate(lower, upper)?;
+        }
         Ok(())
+    }
+
+    /// The excess that applies at `at`: one not yet expired. An excess applies strictly
+    /// before its expiry, as an acknowledgement does.
+    #[must_use]
+    pub fn excess_at(&self, at: UtcTimestamp) -> Option<&LimitExcess> {
+        self.excess.as_ref().filter(|excess| at < excess.expires_at)
+    }
+
+    /// The lower and upper bound `evaluation` of this limit was judged against: the
+    /// excess's, on each side it names, when the evaluation applied one, and otherwise the
+    /// limit's own.
+    #[must_use]
+    pub fn judged_bounds(
+        &self,
+        evaluation: &LimitEvaluation,
+    ) -> (Option<ExactDecimal>, Option<ExactDecimal>) {
+        match (&evaluation.excess, &self.excess) {
+            (Some(_), Some(excess)) => (excess.lower.or(self.lower), excess.upper.or(self.upper)),
+            _ => (self.lower, self.upper),
+        }
     }
 }
 
@@ -405,10 +526,7 @@ impl LimitAcknowledgement {
 /// Validate an acknowledgement's note: 1 to 1,024 bytes, not blank, without control
 /// characters other than line feeds.
 pub fn acknowledgement_note(note: &str) -> Result<(), ReferenceError> {
-    if note.trim().is_empty()
-        || note.len() > MAX_ACKNOWLEDGEMENT_NOTE_BYTES
-        || note.chars().any(|c| c.is_control() && c != '\n')
-    {
+    if !free_text(note, MAX_ACKNOWLEDGEMENT_NOTE_BYTES) {
         return Err(invalid(
             "a note is 1 to 1,024 bytes, not blank, without control characters other than line feeds",
         ));
@@ -421,12 +539,12 @@ pub fn acknowledgement_expiry(
     at: UtcTimestamp,
     expires_at: UtcTimestamp,
 ) -> Result<(), ReferenceError> {
-    let span = (expires_at.datetime() - at.datetime()).num_nanoseconds();
-    match span {
-        Some(span) if span > 0 && span <= MAX_ACKNOWLEDGEMENT_SECONDS * 1_000_000_000 => Ok(()),
-        _ => Err(invalid(
+    if lasts_at_most(at, expires_at, MAX_ACKNOWLEDGEMENT_SECONDS) {
+        Ok(())
+    } else {
+        Err(invalid(
             "an acknowledgement expires after it is made, and at most seven days after",
-        )),
+        ))
     }
 }
 
@@ -610,6 +728,23 @@ pub enum UnknownReason {
     ArithmeticBound {},
 }
 
+/// The temporary excess an evaluation applied (P15d, D96): the limit's status and
+/// utilisation read the excess bounds, and these are what apply again at its expiry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExcessApplied {
+    /// The limit's own lower bound.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_lower: Option<ExactDecimal>,
+    /// The limit's own upper bound.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_upper: Option<ExactDecimal>,
+    /// When the limit's own bounds apply again.
+    pub expires_at: UtcTimestamp,
+    /// Why the excess was approved.
+    pub reason: String,
+}
+
 /// One limit's evaluation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -626,8 +761,8 @@ pub struct LimitEvaluation {
     /// For a limit on each member, the member whose value set the status.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub member: Option<String>,
-    /// The value over each bound that faces away from zero (an upper bound above 0, a
-    /// lower bound below 0), the larger of the two. It is rounded half to even at Decimal
+    /// The value over each bound judged against that faces away from zero (an upper bound
+    /// above 0, a lower bound below 0), the larger of the two. It is rounded half to even at Decimal
     /// precision, then to eight places, without trailing zeros, so it is for display: the
     /// status never reads it.
     /// Absent when no bound faces away from zero.
@@ -636,4 +771,7 @@ pub struct LimitEvaluation {
     /// Why the status is `unknown`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<UnknownReason>,
+    /// The temporary excess in force when evaluated, whatever the status.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub excess: Option<ExcessApplied>,
 }

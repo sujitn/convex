@@ -7,7 +7,7 @@
 //! - `limits/market_value`: the same book against one net-value limit, the fixed cost of
 //!   admitting its market values.
 
-use convex_core::contracts::InstrumentId;
+use convex_core::contracts::{InstrumentId, UtcTimestamp};
 use convex_core::Currency;
 use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::ports::limits::{LimitDefinition, MAX_BOOK_LIMITS};
@@ -124,7 +124,8 @@ fn bench_limits(c: &mut Criterion) {
         positions: &positions,
     };
     let all = limits();
-    let evaluated = evaluate_limits(&book, &all).unwrap();
+    let at = UtcTimestamp::parse("2026-11-09T12:00:00Z").unwrap();
+    let evaluated = evaluate_limits(&book, &all, at).unwrap();
     assert!(
         evaluated.iter().all(|e| e.reason.is_none()),
         "{evaluated:?}"
@@ -135,12 +136,34 @@ fn bench_limits(c: &mut Criterion) {
         .cloned()
         .collect();
 
+    // P15d: an excess in force on every limit, so each is judged against the excess bounds
+    // and reports it.
+    let excess: Vec<LimitDefinition> = all
+        .iter()
+        .cloned()
+        .map(|mut limit| {
+            limit.excess = Some(
+                serde_json::from_value(json!({"lower":"-200000000000","upper":"200000000000",
+                    "expires_at":"2026-11-10T12:00:00Z","reason":"a temporary mandate change"}))
+                .unwrap(),
+            );
+            limit
+        })
+        .collect();
+    let widened = evaluate_limits(&book, &excess, at).unwrap();
+    assert!(widened.iter().all(|e| e.excess.is_some()), "{widened:?}");
+
     let mut group = c.benchmark_group("limits");
     group.bench_function("evaluate", |b| {
-        b.iter(|| evaluate_limits(black_box(&book), black_box(&all)).unwrap())
+        b.iter(|| evaluate_limits(black_box(&book), black_box(&all), black_box(at)).unwrap())
+    });
+    group.bench_function("evaluate_excess", |b| {
+        b.iter(|| evaluate_limits(black_box(&book), black_box(&excess), black_box(at)).unwrap())
     });
     group.bench_function("market_value", |b| {
-        b.iter(|| evaluate_limits(black_box(&book), black_box(&market_value)).unwrap())
+        b.iter(|| {
+            evaluate_limits(black_box(&book), black_box(&market_value), black_box(at)).unwrap()
+        })
     });
     group.finish();
 }
