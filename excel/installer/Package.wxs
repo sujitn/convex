@@ -13,6 +13,10 @@
 
     <Launch Condition="NOT EXCEL_RUNNING" Message="Close Excel, then run this again: Excel is holding the add-in open." />
 
+    <!-- UPDATECHECK=0 turns off the add-in's daily update check (DX27). Not remembered:
+         an upgrade that omits it removes the value with the old version. -->
+    <Property Id="UPDATECHECK" Secure="yes" />
+
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="ConvexFolder" Name="Convex">
         <Directory Id="ExcelFolder" Name="Excel">
@@ -31,6 +35,9 @@
         <RemoveFolder Id="RemoveVersionFolder" Directory="VersionFolder" On="uninstall" />
         <RemoveFolder Id="RemoveExcelFolder" Directory="ExcelFolder" On="uninstall" />
         <RemoveFolder Id="RemoveConvexFolder" Directory="ConvexFolder" On="uninstall" />
+      </Component>
+      <Component Id="UpdateCheckOff" Guid="40EF75E4-ACB7-4676-A43E-E35B12A1E406" Condition="UPDATECHECK = &quot;0&quot;">
+        <RegistryValue Root="HKCU" Key="Software\Convex\Excel" Name="UpdateCheck" Type="integer" Value="0" KeyPath="yes" />
       </Component>
     </ComponentGroup>
 

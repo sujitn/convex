@@ -91,6 +91,13 @@ the changes that matter when you upgrade.
   the add-in with Excel. It upgrades in place, refuses a downgrade, and refuses
   to run while Excel is open. It is not code-signed yet. See
   [Deploying the Excel add-in](docs/EXCEL-DEPLOYMENT.md).
+- **An update check.** Once a day the add-in reads where GitHub's
+  `releases/latest` redirects to. When a newer version is out, **Update**
+  appears in the ribbon's Help group and opens the release page. It never
+  downloads anything. Settings, the MSI property `UPDATECHECK=0` or the policy
+  value `HKCU\Software\Policies\Convex\Excel\UpdateCheck=0` turn it off, and
+  the feed can point at an internal mirror. `CX.DIAG()` gains an "Update check"
+  row at the end.
 
 ### convex-ffi
 

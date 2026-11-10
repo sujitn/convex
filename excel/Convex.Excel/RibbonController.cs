@@ -52,6 +52,33 @@ namespace Convex.Excel
                 try { ExcelAsyncUtil.QueueAsMacro(() => _ribbon?.Invalidate()); }
                 catch { /* Excel is closing */ }
             };
+            Ops.UpdateCheck.Changed += () =>
+            {
+                try { ExcelAsyncUtil.QueueAsMacro(() => _ribbon?.InvalidateControl("btnUpdate")); }
+                catch { /* Excel is closing */ }
+            };
+        }
+
+        // ---- Update check (DX27): the button shows only when a newer release is known.
+        public bool GetUpdateVisible(IRibbonControl _) => Ops.UpdateCheck.Status.Newer;
+
+        public string GetUpdateTip(IRibbonControl _)
+        {
+            var s = Ops.UpdateCheck.Status;
+            return "Convex " + s.Latest + " is available; this is " + s.AddInVersion +
+                   ". Opens the release page. Nothing is downloaded.";
+        }
+
+        public void OnUpdate(IRibbonControl _)
+        {
+            var page = Ops.UpdateCheck.Status.Page;
+            if (page == null || !Ops.UpdateFeed.IsWebPage(page)) return;
+            try { System.Diagnostics.Process.Start(page); }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Could not open " + page + ": " + ex.Message, "Convex",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         public string GetServerLabel(IRibbonControl _) => ServerLink.Source.Status().Link switch
@@ -177,6 +204,7 @@ namespace Convex.Excel
             MessageBox.Show(
                 "Convex Excel Add-In\n\nAdd-in: " + NativeLoader.AddInVersion +
                 "\nEngine: " + version +
+                "\nUpdate check: " + Ops.UpdateCheck.Status.Describe() +
                 "\n\nMark-driven fixed income analytics.\n\nType =CX.SCHEMA(\"Mark\") for the wire format.",
                 "About Convex", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }

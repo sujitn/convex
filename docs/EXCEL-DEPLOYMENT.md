@@ -47,8 +47,44 @@ msiexec /x convex-excel-addin-v<version>.msi /qn
 
 This removes the version's folder and the Excel entry, and moves any later
 add-ins in the list down one place. The logs in
-`%LOCALAPPDATA%\Convex\Excel\logs` and the server settings in
-`%APPDATA%\Convex\server.json` stay.
+`%LOCALAPPDATA%\Convex\Excel\logs`, the update check's last result in
+`%LOCALAPPDATA%\Convex\Excel\update-check.json` and the settings in
+`%APPDATA%\Convex` stay.
+
+## Update check
+
+The add-in looks for a newer release at most once a day, starting a minute after
+it loads. It sends one GET to the feed, by default
+`https://github.com/sujitn/convex/releases/latest`, through the system proxy,
+with the user's Windows credentials if the proxy asks for them. It reads where
+the feed redirects to and does not follow the redirect. The request's
+User-Agent is `Convex-Excel/<version>`. No user, machine or workbook data is
+sent. When a newer version is out, an **Update** button appears in the ribbon's
+Help group and opens the release page. Nothing is downloaded or installed.
+
+To turn it off, use any of these. The first that applies wins:
+
+| Where | Value | Set by |
+|---|---|---|
+| `HKCU\Software\Policies\Convex\Excel`, `UpdateCheck` | DWORD `0` | Group Policy or Intune |
+| The MSI property `UPDATECHECK=0` | writes DWORD `0` to `HKCU\Software\Convex\Excel`, `UpdateCheck` | whoever installs |
+| Settings > "Check once a day for a newer release" | unticked | the user |
+
+Settings greys out the box when policy or the installer has turned the check
+off. The MSI does not remember `UPDATECHECK` from one version to the next, so
+pass it to every install, upgrades included, or an upgrade turns the check back
+on. The policy value keeps it off whatever is installed.
+
+**An internal mirror.** Set the feed in Settings > "Update feed", or for a desk
+in `HKCU\Software\Policies\Convex\Excel`, `UpdateFeed` (a string), which wins
+over Settings. The feed must answer with a redirect (301, 302, 303, 307 or 308)
+to the latest release's page, whose last path segment is the version: for
+example `https://mirror.example/convex/0.15.0` or `.../tag/v0.15.0`. A GitHub
+Enterprise `releases/latest` address works as it is.
+
+`=CX.DIAG()`'s last row and About show the check's state: off and why, not
+checked yet, up to date, a newer version, or why it failed. A failed check also
+waits a day.
 
 ## Signing and trust
 
@@ -66,7 +102,8 @@ release page does need unblocking; its `README.txt` has the steps.
 
 The MSI is per-user, so deploy it in the user's context: in Intune, as a line-of-business
 app with the install context set to User; in Group Policy, under User
-Configuration. It takes no properties. Plan for the 1603 exit code when Excel is open.
+Configuration. Its one property is `UPDATECHECK=0` (see *Update check*). Plan
+for the 1603 exit code when Excel is open.
 
 So far the MSI has been tested with `msiexec` only, not through Intune or
 Group Policy.

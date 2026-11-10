@@ -319,6 +319,10 @@ jobs:
             To load it by hand, extract `convex-excel-addin-v${{ needs.validate.outputs.version }}.zip`.
             Excel refuses a downloaded add-in, so run `Get-ChildItem <folder> | Unblock-File` first.
             The zip's `README.txt` has the steps.
+
+            Once a day the add-in checks for a newer release and shows **Update** on the ribbon when there is one.
+            It never downloads anything. To turn it off, pass `UPDATECHECK=0` to the MSI or see
+            [Deploying the Excel add-in](https://github.com/sujitn/convex/blob/main/docs/EXCEL-DEPLOYMENT.md).
           files: |
             ./artifacts/*.zip
             ./artifacts/*.msi
