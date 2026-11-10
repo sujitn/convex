@@ -147,7 +147,17 @@ try {
     Check ((Ours).Count -eq 0) 'refused install: no OPEN value was written'
 }
 catch {
-    if ($script:log -and (Test-Path $script:log)) { Get-Content $script:log -Tail 60 }
+    if ($script:log -and (Test-Path $script:log)) {
+        # The end of a verbose log is only the property dump. What failed is the first
+        # action to return 3, and the custom-action host logs its own errors before that.
+        $lines = @(Get-Content $script:log)
+        $failed = $lines | Select-String -SimpleMatch 'Return value 3' | Select-Object -First 1
+        Write-Output "--- $script:log ---"
+        if ($failed) { $lines[[Math]::Max(0, $failed.LineNumber - 40)..($failed.LineNumber - 1)] }
+        else { $lines | Select-Object -Last 60 }
+        Write-Output '--- its errors ---'
+        $lines | Select-String 'SFXCA|Error \d{4}|error code|Exception' | ForEach-Object Line
+    }
     throw
 }
 finally {
