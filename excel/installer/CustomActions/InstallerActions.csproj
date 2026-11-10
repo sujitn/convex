@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>11.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>InstallerActions</AssemblyName>
+    <RootNamespace>Convex.Excel.Installer</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- The project owner accepted the WiX Open Source Maintenance Fee EULA on 2026-11-09. -->
+    <AcceptEula>wix7</AcceptEula>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Dtf.CustomAction" Version="7.0.1" />
+  </ItemGroup>
+</Project>
