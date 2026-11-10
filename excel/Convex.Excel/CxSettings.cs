@@ -5,7 +5,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Convex.Excel
 {
-    // Tiny user-settings store: {DefaultFrequency, DefaultDayCount, DefaultSpreadType}.
+    // Tiny user-settings store: defaults for omitted arguments, load behaviour and the update check.
     // Loaded lazily, written on Save(). Lives at %APPDATA%/Convex/settings.json.
     internal static class CxSettings
     {
@@ -17,6 +17,10 @@ namespace Convex.Excel
             public string DefaultCurrency { get; set; } = "USD";
             /// CalculateFullRebuild at add-in load, healing reopened workbooks.
             public bool AutoRebuildOnOpen { get; set; } = true;
+            /// Look for a newer release once a day (DX27). Policy and the installer can turn it off.
+            public bool CheckForUpdates { get; set; } = true;
+            /// Blank for GitHub's releases; else a mirror that redirects the same way.
+            public string UpdateFeed { get; set; } = "";
         }
 
         private static readonly object _lock = new();
@@ -61,6 +65,8 @@ namespace Convex.Excel
                     DefaultSpreadType = (string?)node["DefaultSpreadType"] ?? "Z",
                     DefaultCurrency = (string?)node["DefaultCurrency"] ?? "USD",
                     AutoRebuildOnOpen = (bool?)node["AutoRebuildOnOpen"] ?? true,
+                    CheckForUpdates = (bool?)node["CheckForUpdates"] ?? true,
+                    UpdateFeed = (string?)node["UpdateFeed"] ?? "",
                 };
             }
             catch { return null; }
@@ -77,6 +83,8 @@ namespace Convex.Excel
                     ["DefaultSpreadType"] = snap.DefaultSpreadType,
                     ["DefaultCurrency"] = snap.DefaultCurrency,
                     ["AutoRebuildOnOpen"] = snap.AutoRebuildOnOpen,
+                    ["CheckForUpdates"] = snap.CheckForUpdates,
+                    ["UpdateFeed"] = snap.UpdateFeed,
                 };
                 File.WriteAllText(Path, node.ToString(Formatting.None));
                 _cached = snap;

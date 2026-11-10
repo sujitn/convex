@@ -46,6 +46,10 @@ namespace Convex.Excel
             try { Server.ServerLink.Start(); }
             catch (Exception ex) { CxErrorStore.Record(ex, "(server)", "server link"); }
 
+            // At most once a day, and never during load: the first look is a minute in.
+            try { UpdateCheck.Start(); }
+            catch (Exception ex) { CxErrorStore.Record(ex, "(update)", "update check"); }
+
             // Handles are process-lifetime, so a reopened workbook's cached
             // #CX# strings are stale until builder cells re-register. The
             // queued rebuild runs after the launching workbook has opened;
@@ -65,6 +69,8 @@ namespace Convex.Excel
             try { ExcelDna.IntelliSense.IntelliSenseServer.Uninstall(); }
             catch { }
             try { Server.ServerLink.Source.Dispose(); }
+            catch { }
+            try { UpdateCheck.Stop(); }
             catch { }
             try
             {

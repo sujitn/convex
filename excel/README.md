@@ -361,7 +361,7 @@ The two reads are separate requests, so a quote can arrive between them.
 | `CX.MARK(text)` | Parse a textual mark and return its canonical JSON form. |
 | `CX.DESCRIBE(handle)` | Inspect a registered object's key fields. |
 | `CX.LASTERROR(cellRef)` | Full `[code] message` detail behind an error value in a cell. |
-| `CX.DIAG()` | A two-column grid: Rust-library load status, engine and add-in versions, object count, live topics and recomputes, then the server link (connection, session, instruments, books, topics, frames received, frame-to-topic latency, age of the last message) and the log file. |
+| `CX.DIAG()` | A two-column grid: Rust-library load status, engine and add-in versions, object count, live topics and recomputes, then the server link (connection, session, instruments, books, topics, frames received, frame-to-topic latency, age of the last message), the log file and the update check. |
 | `CX.VERSION()` | Library version. |
 | `CX.OBJECTS()` | Number of registered objects. |
 | `CX.RELEASE(handle)` | Release one handle. |
@@ -386,6 +386,18 @@ rolls at 10 MB and keeps five files. Cell errors are not written to it, because 
 recalculation can raise thousands. Anything that looks like a token is removed
 before a line is kept. A second Excel process writes
 `convex-excel-<pid>.log`; those files go after 14 days.
+
+**The update check** looks for a newer release at most once a day, starting a
+minute after Excel opens. It reads where
+`https://github.com/sujitn/convex/releases/latest` redirects to, without
+following the redirect, through the system proxy. The request carries the
+add-in's version in its User-Agent and nothing else. When a newer version is
+out, an **Update** button appears in the ribbon's Help group and opens the
+release page. Nothing is downloaded or installed. Settings can turn the check
+off or point it at an internal mirror. `CX.DIAG()` and About show its state,
+and the result is kept in `%LOCALAPPDATA%\Convex\Excel\update-check.json`, so a
+restart does not ask again within the day. An administrator can turn it off for
+a desk: see [Deploying the Excel add-in](../docs/EXCEL-DEPLOYMENT.md).
 
 ## Examples
 
@@ -459,9 +471,10 @@ The Convex tab has six groups:
   (see *Limits*).
 - **Tools**: Objects (browse / inspect / paste handle / release) · Schemas
   (JSON schema viewer for any DTO) · Settings (default frequency, day count,
-  spread family, currency persisted to `%APPDATA%\Convex\settings.json`) ·
-  Clear All.
-- **Help**: About.
+  spread family, currency and the update check, persisted to
+  `%APPDATA%\Convex\settings.json`) · Clear All.
+- **Help**: About · Update (shown only when a newer release is out; see *The
+  update check*).
 
 Every form routes through the same JSON RPC the cell UDFs use, so the
 ribbon and the worksheet can never disagree.

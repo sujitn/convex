@@ -41,6 +41,34 @@ cannot see, because its runner has no Excel.
 3. Close Excel and uninstall from Apps & features. Open Excel: the **Convex** tab
    has gone and there is no missing add-in message.
 
+## Update check
+
+1. A minute after Excel opens, the last row of `=CX.DIAG()` reads `up to date`
+   (or names a newer release), and About says the same.
+   `%LOCALAPPDATA%\Convex\Excel\update-check.json` holds the result. **Update**
+   is not on the Help group unless a newer release is out.
+2. Start a fake mirror that redirects to a later version, and leave it running:
+
+   ```powershell
+   $l = [Net.HttpListener]::new(); $l.Prefixes.Add('http://localhost:8765/'); $l.Start()
+   while ($true) { $c = $l.GetContext(); $c.Response.RedirectLocation = 'https://github.com/sujitn/convex/releases/tag/99.0.0'; $c.Response.StatusCode = 302; $c.Response.Close() }
+   ```
+
+   In Settings, set "Update feed" to `http://localhost:8765/latest` and Save.
+   Within seconds **Update** appears; its tip names 99.0.0, and clicking it opens
+   that page in the browser.
+3. Untick "Check once a day for a newer release" and Save: **Update** goes, and
+   `=CX.DIAG()` reads `off (Settings)`. Clear the feed, tick the box and Save.
+4. In an elevated PowerShell, set the policy value and restart Excel (a running
+   Excel sees it within the hour). In Settings the box is greyed out "(turned off
+   by policy)", and `=CX.DIAG()` reads `off (policy)`. Remove the value afterwards.
+
+   ```powershell
+   New-Item 'HKCU:\Software\Policies\Convex\Excel' -Force | Out-Null
+   Set-ItemProperty 'HKCU:\Software\Policies\Convex\Excel' UpdateCheck 0 -Type DWord
+   Remove-ItemProperty 'HKCU:\Software\Policies\Convex\Excel' UpdateCheck
+   ```
+
 ## Test matrix
 
 Paste into `A1:A8` on a fresh sheet. Replace `A1` first; the rest reference it.

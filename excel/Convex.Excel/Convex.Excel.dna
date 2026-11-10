@@ -49,6 +49,7 @@
             </group>
             <group id="HelpGroup" label="Help">
               <button id="btnAbout"        label="About"          size="normal" image="about"   onAction="OnAbout"         screentip="About this add-in." />
+              <button id="btnUpdate"       label="Update"         size="normal" image="about"   getVisible="GetUpdateVisible" getScreentip="GetUpdateTip" onAction="OnUpdate" />
             </group>
           </tab>
         </tabs>

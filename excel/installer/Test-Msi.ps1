@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    Installs, upgrades and uninstalls the MSI, checking the files and Excel's OPEN values.
+    Installs, upgrades and uninstalls the MSI, checking the files, Excel's OPEN values and
+    the value UPDATECHECK=0 writes.
 
 .DESCRIPTION
     This changes the current user's Excel add-in list, so it runs only in CI, where
@@ -57,6 +58,15 @@ function Open-Values {
 
 function Ours { @((Open-Values).GetEnumerator() | Where-Object { $_.Value -like "*$root\*" }) }
 
+# What UPDATECHECK=0 writes: null when there is no value.
+$convexKey = 'HKCU:\Software\Convex\Excel'
+function Update-Check {
+    if (-not (Test-Path $convexKey)) { return $null }
+    $key = Get-Item $convexKey
+    if ($key.GetValueNames() -notcontains 'UpdateCheck') { return $null }
+    [pscustomobject]@{ Kind = $key.GetValueKind('UpdateCheck').ToString(); Value = $key.GetValue('UpdateCheck') }
+}
+
 function Entries {
     @(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
         Where-Object { $_.DisplayName -eq 'Convex Excel Add-in' })
@@ -95,15 +105,18 @@ try {
     Check ($values['OPEN'] -eq $otherA) 'install: the add-in before ours is untouched'
     Check ($values['OPEN1'] -eq $otherB) 'install: the add-in after the stale value moved down'
     Check ($values.Contains('OPEN2')) 'install: ours took the next index'
+    Check ($null -eq (Update-Check)) 'install: no UpdateCheck value without UPDATECHECK'
 
     $nextStage = Join-Path $env:RUNNER_TEMP 'next-stage'
     $nextMsi = Join-Path $env:RUNNER_TEMP 'next.msi'
     & (Join-Path $PSScriptRoot '..\Package-AddIn.ps1') -OutDir $nextStage -Msi $nextMsi -Version $nextVersion
 
-    $code = Run-Msi @('/i', "`"$nextMsi`"")
+    $code = Run-Msi @('/i', "`"$nextMsi`"", 'UPDATECHECK=0')
     Check ($code -eq 0) "upgrade exits 0 (exit $code)"
     Check-Installed $nextVersion 'upgrade'
     Check ((Open-Values).Count -eq 3) 'upgrade: the other add-ins are still listed'
+    $update = Update-Check
+    Check ($null -ne $update -and $update.Kind -eq 'DWord' -and $update.Value -eq 0) "upgrade with UPDATECHECK=0: UpdateCheck is DWORD 0 (found $($update.Kind) $($update.Value))"
 
     $code = Run-Msi @('/i', "`"$Msi`"")
     Check ($code -ne 0) "a downgrade is refused (exit $code)"
@@ -125,6 +138,7 @@ try {
     $values = Open-Values
     Check ($values.Count -eq 2 -and $values['OPEN'] -eq $otherA -and $values['OPEN1'] -eq $otherB) 'uninstall: the other add-ins stay, with no gap'
     Check ((Entries).Count -eq 0) 'uninstall: Apps & features has no entry'
+    Check ($null -eq (Update-Check)) 'uninstall: the UpdateCheck value is gone'
 
     $excel = Start-Process $excelCopy -ArgumentList '-n', '600', '127.0.0.1' -WindowStyle Hidden -PassThru
     $code = Run-Msi @('/i', "`"$Msi`"")

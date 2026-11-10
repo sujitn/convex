@@ -697,6 +697,7 @@ namespace Convex.Excel
             };
             rows.AddRange(ServerDiagnostics());
             rows.Add(("Log file", Ops.CxLog.FilePath));
+            rows.Add(("Update check", Ops.UpdateCheck.Status.Describe()));
             var grid = new object[rows.Count, 2];
             for (int i = 0; i < rows.Count; i++)
             {
