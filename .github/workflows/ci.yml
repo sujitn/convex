@@ -3475,15 +3475,31 @@ jobs:
       - name: Test Excel Add-in (headless and native P/Invoke)
         run: dotnet test excel/Convex.Excel.Tests/Convex.Excel.Tests.csproj --configuration Release
 
-      - name: Create Add-in Package
+      - name: Make a signing certificate trusted only on this runner
+        id: signing
         shell: pwsh
-        run: excel/Package-AddIn.ps1 -OutDir convex-excel-addin
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Convex CI test' -CertStoreLocation Cert:\CurrentUser\My
+          $file = Join-Path $env:RUNNER_TEMP 'convex-ci.cer'
+          Export-Certificate -Cert $cert -FilePath $file | Out-Null
+          Import-Certificate -FilePath $file -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          "thumbprint=$($cert.Thumbprint)" >> $env:GITHUB_OUTPUT
+
+      - name: Create Add-in Package and installer
+        shell: pwsh
+        run: excel/Package-AddIn.ps1 -OutDir convex-excel-addin -Msi convex-excel-addin.msi -Thumbprint ${{ steps.signing.outputs.thumbprint }}
+
+      - name: Test the installer
+        shell: pwsh
+        run: excel/installer/Test-Msi.ps1 -Stage convex-excel-addin -Msi convex-excel-addin.msi
 
       - name: Upload Add-in Artifact
         uses: actions/upload-artifact@v7.0.1
         with:
           name: convex-excel-addin
-          path: convex-excel-addin/
+          path: |
+            convex-excel-addin/
+            convex-excel-addin.msi
           retention-days: 30
 
   windows-server:

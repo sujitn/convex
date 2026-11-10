@@ -29,6 +29,18 @@ Launch Excel with the add-in:
 start excel /x "excel\Convex.Excel\bin\Release\net472\publish\Convex.Excel64-packed.xll"
 ```
 
+## Install from the MSI
+
+This changes your Excel add-in list. CI runs the install, upgrade and uninstall
+checks on every PR (`excel/installer/Test-Msi.ps1`); the steps here are what CI
+cannot see, because its runner has no Excel.
+
+1. With Excel closed, run the MSI. Open Excel: the **Convex** tab is there and
+   `=CX.DIAG()` shows the path under `%LOCALAPPDATA%\Convex\Excel\<version>\`.
+2. With Excel open, run the MSI again: it refuses and asks you to close Excel.
+3. Close Excel and uninstall from Apps & features. Open Excel: the **Convex** tab
+   has gone and there is no missing add-in message.
+
 ## Test matrix
 
 Paste into `A1:A8` on a fresh sheet. Replace `A1` first; the rest reference it.

@@ -1,6 +1,6 @@
 # Convex Excel Add-In
 
-Mark-driven fixed income analytics for Microsoft Excel, using the Rust library through `convex-ffi`. The add-in lives in `excel/` (C# project `excel/Convex.Excel`) and ships as a zip on the GitHub releases page; this page also covers building it from source.
+Mark-driven fixed income analytics for Microsoft Excel, using the Rust library through `convex-ffi`. The add-in lives in `excel/` (C# project `excel/Convex.Excel`) and ships as an installer and a zip on the GitHub releases page; this page also covers building it from source.
 
 The add-in is small: a compact C FFI surface, a typed JSON
 wire format, about 30 cell functions (UDFs), and a ribbon. Adding a new bond shape, spread
@@ -29,8 +29,16 @@ results and update when the server publishes (see *Live server cells*).
 
 ### From a release
 
-1. Download `convex-excel-addin-v<version>.zip` from the GitHub release and
-   extract it to one folder. Keep `convex_ffi.dll` beside `Convex.Excel64.xll`.
+Close Excel and run `convex-excel-addin-v<version>.msi` from the GitHub release.
+It installs for the current user, needs no administrator rights, and Excel loads
+the add-in the next time it starts. It is not code-signed yet, so SmartScreen may
+warn. [Deploying the Excel add-in](../docs/EXCEL-DEPLOYMENT.md) covers upgrades,
+removal, silent installs and trust.
+
+To load it by hand instead:
+
+1. Download `convex-excel-addin-v<version>.zip` and extract it to one folder.
+   Keep `convex_ffi.dll` beside `Convex.Excel64.xll`.
 2. Excel refuses an add-in downloaded from the internet, so unblock the files
    first: `Get-ChildItem <folder> | Unblock-File`.
 3. Load `Convex.Excel64.xll` as in *Loading the add-in*.
@@ -59,7 +67,9 @@ the build.
 4. OK.
 
 From the repository root, `excel/Package-AddIn.ps1 -OutDir <folder>` stages a
-source build the way a release ships it.
+source build the way a release ships it. Add `-Msi <file>` to build the installer
+too. It uses WiX 7, restored from NuGet; the project accepts WiX's Open Source
+Maintenance Fee EULA, which applies to anyone building it.
 
 ## Trader marks
 

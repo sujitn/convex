@@ -1,0 +1,64 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Convex Excel Add-in" Manufacturer="Convex" Version="$(Version)"
+           UpgradeCode="FC49B004-7766-45E6-AD06-9D1E7902F305" Scope="perUser" Compressed="yes">
+    <SummaryInformation Description="Convex fixed income analytics for Microsoft Excel" />
+
+    <!-- The old version goes first, so its OPEN value and its folder are gone before ours arrive.
+         This schedule keeps both in one transaction: a failed upgrade puts the old version back. -->
+    <MajorUpgrade Schedule="afterInstallInitialize" AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of the Convex Excel add-in is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/sujitn/convex" />
+
+    <Launch Condition="NOT EXCEL_RUNNING" Message="Close Excel, then run this again: Excel is holding the add-in open." />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ConvexFolder" Name="Convex">
+        <Directory Id="ExcelFolder" Name="Excel">
+          <Directory Id="VersionFolder" Name="$(Version)" />
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- A per-user component needs a registry key path, and each folder a RemoveFolder.
+         The Excel folder also holds the logs, so it stays until they are removed. -->
+    <ComponentGroup Id="AddInFiles" Directory="VersionFolder">
+      <Component Id="AddIn" Guid="A3A2EF4D-C575-4CE0-B42F-A4C3CDCE9FCD">
+        <RegistryValue Root="HKCU" Key="Software\Convex\Excel" Name="InstalledVersion" Type="string" Value="$(Version)" KeyPath="yes" />
+        <File Id="ConvexXll" Source="$(Stage)\Convex.Excel64.xll" />
+        <File Id="ConvexFfi" Source="$(Stage)\convex_ffi.dll" />
+        <RemoveFolder Id="RemoveVersionFolder" Directory="VersionFolder" On="uninstall" />
+        <RemoveFolder Id="RemoveExcelFolder" Directory="ExcelFolder" On="uninstall" />
+        <RemoveFolder Id="RemoveConvexFolder" Directory="ConvexFolder" On="uninstall" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="AddInFiles" />
+    </Feature>
+
+    <Binary Id="InstallerActionsBinary" SourceFile="$(InstallerActions.TargetDir)$(InstallerActions.TargetName).CA.dll" />
+    <CustomAction Id="SetExcelRunning" BinaryRef="InstallerActionsBinary" DllEntry="SetExcelRunning" Execute="immediate" Return="check" />
+    <CustomAction Id="SnapshotOpen" BinaryRef="InstallerActionsBinary" DllEntry="SnapshotOpen" Execute="immediate" Return="check" />
+    <CustomAction Id="RestoreOpen" BinaryRef="InstallerActionsBinary" DllEntry="RestoreOpen" Execute="rollback" Impersonate="yes" Return="check" />
+    <CustomAction Id="RegisterOpen" BinaryRef="InstallerActionsBinary" DllEntry="RegisterOpen" Execute="deferred" Impersonate="yes" Return="check" />
+    <CustomAction Id="UnregisterOpen" BinaryRef="InstallerActionsBinary" DllEntry="UnregisterOpen" Execute="deferred" Impersonate="yes" Return="check" />
+
+    <SetProperty Id="RegisterOpen" Value="XLL=[VersionFolder]Convex.Excel64.xll;ROOT=[ExcelFolder]" Before="RegisterOpen" Sequence="execute" />
+    <SetProperty Id="UnregisterOpen" Value="ROOT=[ExcelFolder]" Before="UnregisterOpen" Sequence="execute" />
+
+    <InstallUISequence>
+      <Custom Action="SetExcelRunning" Before="LaunchConditions" />
+    </InstallUISequence>
+
+    <InstallExecuteSequence>
+      <Custom Action="SetExcelRunning" Before="LaunchConditions" />
+      <Custom Action="SnapshotOpen" Before="RestoreOpen" />
+      <Custom Action="RestoreOpen" Before="RemoveFiles" />
+      <Custom Action="RegisterOpen" After="RestoreOpen" Condition="NOT (REMOVE=&quot;ALL&quot;)" />
+      <!-- In an upgrade the new version replaces the value, and its rollback restores it. -->
+      <Custom Action="UnregisterOpen" After="RegisterOpen" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>
