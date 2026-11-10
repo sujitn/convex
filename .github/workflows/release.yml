@@ -139,13 +139,16 @@ jobs:
 
       - name: Create Add-in Package
         shell: pwsh
-        run: excel/Package-AddIn.ps1 -OutDir convex-excel-addin -Zip "convex-excel-addin-v${{ needs.validate.outputs.version }}.zip"
+        # Unsigned until the repository variable names a certificate.
+        run: excel/Package-AddIn.ps1 -OutDir convex-excel-addin -Zip "convex-excel-addin-v${{ needs.validate.outputs.version }}.zip" -Msi "convex-excel-addin-v${{ needs.validate.outputs.version }}.msi" -Thumbprint "${{ vars.EXCEL_SIGN_THUMBPRINT }}" -TimestampUrl "${{ vars.EXCEL_SIGN_TIMESTAMP_URL }}"
 
       - name: Upload Add-in Artifact
         uses: actions/upload-artifact@v7.0.1
         with:
           name: convex-excel-addin
-          path: convex-excel-addin-v*.zip
+          path: |
+            convex-excel-addin-v*.zip
+            convex-excel-addin-v*.msi
           retention-days: 5
 
   # The WebAssembly engine is not on crates.io (it depends on the unpublished
@@ -308,11 +311,17 @@ jobs:
 
             ## Excel
 
-            Download `convex-excel-addin-v${{ needs.validate.outputs.version }}.zip` and extract it.
+            For Microsoft 365 Excel, 64-bit. Close Excel, then run
+            `convex-excel-addin-v${{ needs.validate.outputs.version }}.msi`. It installs for the current
+            user, needs no administrator rights, and registers the add-in with Excel.
+            ${{ vars.EXCEL_SIGN_THUMBPRINT == '' && 'This installer is not code-signed yet, so Windows SmartScreen may warn about the download.' || '' }}
+
+            To load it by hand, extract `convex-excel-addin-v${{ needs.validate.outputs.version }}.zip`.
             Excel refuses a downloaded add-in, so run `Get-ChildItem <folder> | Unblock-File` first.
-            Then load `Convex.Excel64.xll` in Microsoft 365 Excel, 64-bit. The zip's `README.txt` has the steps.
+            The zip's `README.txt` has the steps.
           files: |
             ./artifacts/*.zip
+            ./artifacts/*.msi
             ./artifacts/*.tgz
           draft: false
           prerelease: false

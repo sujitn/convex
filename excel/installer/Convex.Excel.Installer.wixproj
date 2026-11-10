@@ -1,0 +1,17 @@
+<Project Sdk="WixToolset.Sdk/7.0.1">
+  <PropertyGroup>
+    <!-- The project owner accepted the WiX Open Source Maintenance Fee EULA on 2026-11-09. -->
+    <AcceptEula>wix7</AcceptEula>
+    <OutputName>convex-excel-addin</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!-- The workspace version, as in Convex.Excel.csproj. CI overrides it to test an upgrade. -->
+    <Version Condition="'$(Version)' == ''">$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\Cargo.toml')), '(?m)^version\s*=\s*&quot;([^&quot;]+)&quot;').Groups[1].Value)</Version>
+    <!-- The folder Package-AddIn.ps1 staged, so the MSI holds files already signed. -->
+    <StageDir Condition="'$(StageDir)' == ''">$(MSBuildThisFileDirectory)..\..\convex-excel-addin</StageDir>
+    <DefineConstants>Version=$(Version);Stage=$(StageDir)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="CustomActions\InstallerActions.csproj" />
+  </ItemGroup>
+</Project>

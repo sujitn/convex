@@ -26,6 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\installer\CustomActions\OpenRegistration.cs" Link="OpenRegistration.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Convex.Excel\Convex.Excel.csproj" />
   </ItemGroup>
 </Project>

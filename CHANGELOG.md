@@ -86,6 +86,11 @@ the changes that matter when you upgrade.
   during a cell calculation.
 - Form labels no longer wrap and clip at higher display scales: each label
   column now fits its widest label.
+- **An installer.** Each release adds a per-user MSI that needs no administrator
+  rights, installs under `%LOCALAPPDATA%\Convex\Excel\<version>\` and registers
+  the add-in with Excel. It upgrades in place, refuses a downgrade, and refuses
+  to run while Excel is open. It is not code-signed yet. See
+  [Deploying the Excel add-in](docs/EXCEL-DEPLOYMENT.md).
 
 ### convex-ffi
 

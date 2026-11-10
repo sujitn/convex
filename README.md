@@ -152,7 +152,7 @@ convex = { git = "https://github.com/sujitn/convex", tag = "v0.14.0" }
 | | How to get it | Docs |
 |---|---|---|
 | WebAssembly | npm tarballs (`web` and `nodejs`) on each [GitHub release](https://github.com/sujitn/convex/releases), or build with `wasm-pack` | [crates/convex-wasm](crates/convex-wasm/README.md) |
-| Excel add-in | Zip on each GitHub release; load `Convex.Excel64.xll` in 64-bit Excel. Functions are named `CX.*` (`CX.BOND`, `CX.PRICE`, `CX.YAS`, ...) | [excel/](excel/README.md) |
+| Excel add-in | Per-user MSI on each GitHub release, for Microsoft 365 Excel, 64-bit (or a zip to load by hand). Functions are named `CX.*` (`CX.BOND`, `CX.PRICE`, `CX.YAS`, ...) | [excel/](excel/README.md) |
 | Java | Build from source; needs JDK 22+ (uses the Foreign Function & Memory API). Not on Maven Central yet | [bindings/java](bindings/java/README.md) |
 | C | `convex-ffi` builds a shared library with a JSON-in, JSON-out C interface | [crates/convex-ffi](crates/convex-ffi/README.md) |
 | MCP server | `cargo run -p convex-mcp --bin convex-mcp-server` | [crates/convex-mcp](crates/convex-mcp/README.md) |

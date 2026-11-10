@@ -106,7 +106,7 @@ repository root after `python3 tools/fixtures.py materialize` (see
 
 - Pricing runtime: [crates/convex-engine/RUNTIME.md](../crates/convex-engine/RUNTIME.md)
 - Server: [crates/convex-server/README.md](../crates/convex-server/README.md)
-- Excel add-in: [excel/README.md](../excel/README.md)
+- Excel add-in: [excel/README.md](../excel/README.md); [deployment](EXCEL-DEPLOYMENT.md)
 - Java binding: [bindings/java/README.md](../bindings/java/README.md)
 - Browser app: [www/README.md](../www/README.md)
 - WebAssembly package: [crates/convex-wasm/README.md](../crates/convex-wasm/README.md)
