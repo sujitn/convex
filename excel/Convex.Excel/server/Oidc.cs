@@ -571,6 +571,7 @@ namespace Convex.Excel.Server
                 _retryDelay = RetryStart;
                 Install(tokens);
             }
+            Ops.CxLog.Connection("signed in as " + tokens.User);
             RaiseChanged();
         }
 
@@ -587,6 +588,7 @@ namespace Convex.Excel.Server
                 _user = "(not signed in)";
                 _problem = "signed out";
             }
+            Ops.CxLog.Connection("signed out");
             RaiseChanged();
         }
 
@@ -611,7 +613,11 @@ namespace Convex.Excel.Server
                     signedOut = true;
                 }
             }
-            if (signedOut) RaiseChanged();
+            if (signedOut)
+            {
+                Ops.CxLog.Connection("the server refused the sign-in");
+                RaiseChanged();
+            }
         }
 
         /// Stops the renewal timer.
@@ -688,10 +694,12 @@ namespace Convex.Excel.Server
             try
             {
                 fresh = await _client.RefreshAsync(refreshToken, CancellationToken.None).ConfigureAwait(false);
+                Ops.CxLog.Connection("token renewed for " + fresh.User);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 // handled below as a failed renewal
+                Ops.CxLog.Connection("token renewal failed: " + ex.Message);
             }
 
             var raise = false;
@@ -730,6 +738,7 @@ namespace Convex.Excel.Server
             _timer = null;
             _tokens = null;
             _problem = "your Convex sign-in expired: sign in again";
+            Ops.CxLog.Connection("the sign-in expired");
         }
 
         private void RaiseChanged()

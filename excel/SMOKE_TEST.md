@@ -217,13 +217,19 @@ Viewer/Scenario/Objects/Error Log/Limit Check are MODELESS — verify Excel stay
 interactive (select cells, type) while each is open, and that re-clicking
 the button focuses the existing window instead of duplicating it:
 
-- **New Bond** → Fixed Rate tab → Build → status reads `OK — #CX#NNN`.
+- **New Bond** → Fixed Rate tab → Build → status reads `OK — #CX#NNN`. Then
+  **Build + paste handle** → the active cell holds the handle and Excel stays
+  responsive. Every label reads in full, also at 150% display scale.
 - **Pricing Ticket** → Refresh objects → pick the bond → mark `99.5C` →
   Compute → grid populates with finite numbers.
 - **Spread Ticket** → pick bond + curve → spread `Z` → Compute → finite bps.
 - **Curve Viewer** → pick a curve → chart renders an upward yield curve.
 - **Object Browser** → handles match `=CX.OBJECTS()` → Describe shows
   bond fields (coupon, maturity, frequency, currency, face).
+- **Error Log** → Connection tab lists the link's events after a sign-in or
+  a reconnect. With a live server cell updating, `=CX.DIAG()` shows frames
+  received and both latencies, and the log file it names holds the same events
+  and no token.
 - **Schemas** → flip through types → JSON renders without error.
 - **Settings** → save → re-open → values persisted to
   `%APPDATA%\Convex\settings.json`.

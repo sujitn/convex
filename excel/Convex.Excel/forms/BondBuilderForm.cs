@@ -106,7 +106,7 @@ namespace Convex.Excel.Forms
                     RowCount = rows,
                     Padding = new Padding(10),
                 };
-                t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+                t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
                 t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
                 for (int i = 0; i < rows; i++)
                     t.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));

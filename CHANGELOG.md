@@ -66,6 +66,26 @@ the changes that matter when you upgrade.
   `POST /api/v1/books/{book_id}/limits/check`, and shows each limit now and
   after the trades. It stores nothing. **Stamp CX.LIMIT** writes live limit
   cells for the book.
+- **The release package loads.** The zip now holds the packed
+  `Convex.Excel64.xll` and `convex_ffi.dll`. It used to hold the unpacked
+  loader without two DLLs that loader needs. Excel refuses a downloaded add-in,
+  so unblock the files first (see the zip's `README.txt`).
+- The add-in carries the workspace version: `CX.DIAG()` and **About** show it
+  (`CX.DIAG()` showed 1.0.0.0). Microsoft 365 Apps, 64-bit, is the stated
+  minimum, not Excel 2016.
+- **A log file and connection history.** The add-in writes
+  `%LOCALAPPDATA%\Convex\Excel\logs\convex-excel.log` (10 MB, five files) with
+  its start, Excel's exit and every connection event, with tokens removed. The
+  ribbon **Error Log** gains a **Connection** tab with the last 500 events.
+- `CX.DIAG()` adds the server link: connection, session, instruments, books,
+  topics, frames received, frame-to-topic latency (p50 and p99, before Excel's
+  throttle), the age of the last message, and the log file. Existing rows keep
+  their positions.
+- **New Bond** and **New Curve** no longer hang or crash Excel. **Build** and
+  **Build + paste handle** asked Excel for the calling cell, which is valid only
+  during a cell calculation.
+- Form labels no longer wrap and clip at higher display scales: each label
+  column now fits its widest label.
 
 ### convex-ffi
 

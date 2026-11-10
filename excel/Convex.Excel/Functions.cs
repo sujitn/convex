@@ -45,7 +45,7 @@ namespace Convex.Excel
             [ExcelArgument("Day count (default Thirty360US)")] object dayCount,
             [ExcelArgument("Currency (default USD)")] object currency,
             [ExcelArgument("Face value (default 100)")] object faceValue) =>
-            Safe(() => CxParse.FormatHandle(Cx.BuildBond(BondSpecs.FixedRate(
+            Safe(() => CxParse.FormatHandle(Cx.BuildBondInCell(BondSpecs.FixedRate(
                 AsString(id, ""), couponDecimal,
                 CxParse.AsFrequency(frequency),
                 maturity, issue,
@@ -84,7 +84,7 @@ namespace Convex.Excel
                         ["price"] = prices[i],
                     });
                 double? mwSpread = IsBlank(makeWholeSpreadBps) ? (double?)null : AsDouble(makeWholeSpreadBps, 0.0);
-                return CxParse.FormatHandle(Cx.BuildBond(BondSpecs.Callable(
+                return CxParse.FormatHandle(Cx.BuildBondInCell(BondSpecs.Callable(
                     AsString(id, ""), couponDecimal,
                     CxParse.AsFrequency(frequency),
                     maturity, issue,
@@ -107,7 +107,7 @@ namespace Convex.Excel
             [ExcelArgument("Day count, default Act360")] object dayCount,
             [ExcelArgument("Cap (decimal, optional)")] object cap,
             [ExcelArgument("Floor (decimal, optional)")] object floor) =>
-            Safe(() => CxParse.FormatHandle(Cx.BuildBond(BondSpecs.Frn(
+            Safe(() => CxParse.FormatHandle(Cx.BuildBondInCell(BondSpecs.Frn(
                 AsString(id, ""), spreadBps, maturity, issue,
                 AsString(rateIndex, "sofr").ToLowerInvariant(),
                 CxParse.AsFrequency(frequency, "Quarterly"),
@@ -124,7 +124,7 @@ namespace Convex.Excel
             DateTime issue,
             [ExcelArgument("Compounding (default SemiAnnual)")] object compounding,
             [ExcelArgument("Day count (default ActActIcma)")] object dayCount) =>
-            Safe(() => CxParse.FormatHandle(Cx.BuildBond(BondSpecs.ZeroCoupon(
+            Safe(() => CxParse.FormatHandle(Cx.BuildBondInCell(BondSpecs.ZeroCoupon(
                 AsString(id, ""), maturity, issue,
                 AsString(compounding, "SemiAnnual"),
                 CxParse.AsDayCount(dayCount, "ActActIcma")))));
@@ -154,7 +154,7 @@ namespace Convex.Excel
                 if (t.Length != v.Length)
                     throw new ConvexException(
                         $"tenors ({t.Length}) and values ({v.Length}) must be the same length");
-                return CxParse.FormatHandle(Cx.BuildCurve(CurveSpecs.Discrete(
+                return CxParse.FormatHandle(Cx.BuildCurveInCell(CurveSpecs.Discrete(
                     AsString(name, ""), refDate,
                     ToJsonArray(t), ToJsonArray(v),
                     AsString(valueKind, "zero_rate").ToLowerInvariant(),
@@ -193,7 +193,7 @@ namespace Convex.Excel
                         ["tenor"] = ts[i],
                         ["rate"] = rs[i],
                     });
-                return CxParse.FormatHandle(Cx.BuildCurve(CurveSpecs.Bootstrap(
+                return CxParse.FormatHandle(Cx.BuildCurveInCell(CurveSpecs.Bootstrap(
                     AsString(name, ""), refDate,
                     AsString(method, "global_fit").ToLowerInvariant(),
                     insts,
@@ -683,16 +683,46 @@ namespace Convex.Excel
             try { objects = Cx.ObjectCount(); }
             catch { objects = -1; }
             var live = Live.LiveHub.Instance.Stats();
-            var grid = new object[8, 2];
-            grid[0, 0] = "Native load";   grid[0, 1] = NativeLoader.GetLoadError();
-            grid[1, 0] = "Engine";        grid[1, 1] = version;
-            grid[2, 0] = "Objects";       grid[2, 1] = objects;
-            grid[3, 0] = "Add-in";        grid[3, 1] = typeof(Functions).Assembly.GetName().Version?.ToString() ?? "?";
-            grid[4, 0] = "Live topics";   grid[4, 1] = live.Topics;
-            grid[5, 0] = "Live computes"; grid[5, 1] = (double)live.Computes;
-            grid[6, 0] = "Live pushes";   grid[6, 1] = (double)live.Pushes;
-            grid[7, 0] = "Last drain (ms)"; grid[7, 1] = live.LastDrainMs;
+            // Bench scripts read rows by position: add new ones at the end.
+            var rows = new System.Collections.Generic.List<(string Name, object Value)>
+            {
+                ("Native load", NativeLoader.GetLoadError()),
+                ("Engine", version),
+                ("Objects", objects),
+                ("Add-in", NativeLoader.AddInVersion),
+                ("Live topics", live.Topics),
+                ("Live computes", (double)live.Computes),
+                ("Live pushes", (double)live.Pushes),
+                ("Last drain (ms)", live.LastDrainMs),
+            };
+            rows.AddRange(ServerDiagnostics());
+            rows.Add(("Log file", Ops.CxLog.FilePath));
+            var grid = new object[rows.Count, 2];
+            for (int i = 0; i < rows.Count; i++)
+            {
+                grid[i, 0] = rows[i].Name;
+                grid[i, 1] = rows[i].Value;
+            }
             return grid;
+        }
+
+        private static System.Collections.Generic.List<(string Name, object Value)> ServerDiagnostics()
+        {
+            var source = Server.ServerLink.Source;
+            var status = source.Status();
+            object Optional(double? value) => value is { } v ? v : "";
+            return new System.Collections.Generic.List<(string Name, object Value)>
+            {
+                ("Server connection", status.Connection),
+                ("Server session", status.SessionId ?? ""),
+                ("Server instruments", status.Instruments),
+                ("Server books", status.Books),
+                ("Server topics", Server.ServerLink.Cells.Count),
+                ("Frames received", (double)source.Frames.Count),
+                ("Frame to topic p50 (ms, before Excel's throttle)", Optional(source.Frames.Latency.Percentile(0.5))),
+                ("Frame to topic p99 (ms, before Excel's throttle)", Optional(source.Frames.Latency.Percentile(0.99))),
+                ("Last message age (s)", Optional((DateTime.UtcNow - status.LastMessageUtc)?.TotalSeconds)),
+            };
         }
 
         // ===================================================================

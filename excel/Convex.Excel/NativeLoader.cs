@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using Convex.Excel.Ops;
 using ExcelDna.Integration;
 
 namespace Convex.Excel
@@ -22,9 +23,20 @@ namespace Convex.Excel
         private static string? _loadError;
         private static string? _loadedPath;
 
+        /// The workspace version the add-in was built at (major.minor.patch).
+        internal static string AddInVersion =>
+            typeof(NativeLoader).Assembly.GetName().Version?.ToString(3) ?? "?";
+
         public void AutoOpen()
         {
             Initialize();
+
+            try
+            {
+                CxLog.Start();
+                CxLog.Info(StartLine());
+            }
+            catch (Exception ex) { CxErrorStore.Record(ex, "(log)", "log file"); }
 
             try { ExcelDna.IntelliSense.IntelliSenseServer.Install(); }
             catch { /* best-effort — never block the add-in */ }
@@ -54,6 +66,28 @@ namespace Convex.Excel
             catch { }
             try { Server.ServerLink.Source.Dispose(); }
             catch { }
+            try
+            {
+                CxLog.Info("add-in removed");
+                CxLog.Stop();
+            }
+            catch { }
+        }
+
+        /// Excel is exiting. The ribbon's COM add-in hears this; AutoClose runs
+        /// only when the add-in is removed. The log's writer has flushed what
+        /// it holds whenever its queue is empty, so the file needs no closing.
+        internal static void ExcelClosing() => CxLog.Info("Excel closing");
+
+        private static string StartLine()
+        {
+            string engine, build;
+            try { engine = Cx.Version(); }
+            catch (Exception ex) { engine = "unavailable: " + ex.Message; }
+            try { build = Convert.ToString(((dynamic)ExcelDnaUtil.Application).Build, System.Globalization.CultureInfo.InvariantCulture); }
+            catch (Exception) { build = "?"; }
+            return $"add-in {AddInVersion} loaded; engine {engine}; Excel {ExcelDnaUtil.ExcelVersion:0.0} build {build}; " +
+                   $"{ExcelDnaUtil.XllPath}; native library: {GetLoadError()}";
         }
 
         internal static void Initialize()

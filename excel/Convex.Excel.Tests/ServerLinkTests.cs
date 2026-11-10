@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Convex.Excel;
 using Convex.Excel.Live;
+using Convex.Excel.Ops;
 using Convex.Excel.Server;
 using ExcelDna.Integration;
 using Newtonsoft.Json.Linq;
@@ -344,6 +345,7 @@ namespace Convex.Excel.Tests
             var byCusip = LiveOn("594918104");
             await Eventually(() => Why(byCusip)?.Contains("the server has no CUSIP 594918104") == true);
             Assert.Equal(1, _server.ResolveCalls);
+            Assert.False(History("identifier 594918104 not resolved")); // the file only: the cell has the reason
 
             // The server learns the CUSIP; the failure is held for 5 minutes, so
             // the timer costs no call meanwhile.
@@ -410,6 +412,69 @@ namespace Convex.Excel.Tests
             Assert.Equal(new[] { "S1", "BOND-A", "clean_price_mid", "quality" },
                 ServerCells.TopicStrings(" BOND-A ", " Clean_Price_Mid ", "QUALITY"));
         }
+
+        [Fact]
+        public async Task A_frame_is_timed_to_the_topics_it_changed_and_one_that_changed_none_is_not()
+        {
+            _server.Publish(FakeConvexServer.Valuation("BOND-A", "rt-1", 5, Price(99.5)));
+            var a = Live("BOND-A");
+            Connect();
+            await Eventually(() => a.Last is 99.5);
+            await Eventually(() => _source.Frames.Count >= 3); // the hello, the seed, the acknowledgement
+            await Task.Delay(100);
+            int timed = _source.Frames.Latency.Count;
+            Assert.True(timed >= 1);
+            Assert.NotNull(_source.Frames.Latency.Percentile(0.5));
+
+            _server.Publish(FakeConvexServer.Valuation("BOND-A", "rt-1", 4, Price(98.0))); // older: ignored
+            _server.Publish(FakeConvexServer.Valuation("BOND-A", "rt-1", 6, Price(100.25)));
+            await Eventually(() => a.Last is 100.25);
+            await Task.Delay(100);
+            Assert.Equal(timed + 1, _source.Frames.Latency.Count);
+        }
+
+        [Fact]
+        public async Task The_connection_history_shows_a_session_open_and_lost()
+        {
+            var a = Live("BOND-A");
+            Connect();
+            await Eventually(() => History($"session ws-1 open ({_server.Url})"));
+            _server.DropAll();
+            await Eventually(() => History($"session closed ({_server.Url})"));
+            await Eventually(() => History($"session ws-2 open ({_server.Url})"));
+            Assert.Contains(CxLog.Events.Snapshot(), e => e.Text == "server set to " + _server.Url);
+        }
+
+        [Fact]
+        public async Task A_refusal_retried_each_minute_is_said_once_until_a_reconnect_or_a_success()
+        {
+            var timings = Fast();
+            timings.RetryRefused = TimeSpan.FromMilliseconds(60);
+            using var test = new ServerLinkTests(timings);
+            test._server.RefusalCode = "ACCESS_QUOTA_EXCEEDED";
+            // Two ids, so neither line follows itself: the history skips an immediate repeat.
+            test._server.Forbidden["QUOTA-A"] = 0;
+            test._server.Forbidden["QUOTA-B"] = 0;
+            var a = test.Live("QUOTA-A");
+            test.Live("QUOTA-B");
+            test.Connect();
+            int Said() => CxLog.Events.Snapshot().Count(e => e.Text.StartsWith("instrument QUOTA-A refused", StringComparison.Ordinal));
+
+            await Eventually(() => test._server.Subscribes().Count(s => s.Contains("QUOTA-A")) >= 6);
+            Assert.Equal(1, Said());
+
+            test._source.Reconnect();
+            await Eventually(() => Said() == 2);
+
+            test._server.Forbidden.Clear();
+            await Eventually(() => test.Detail(a)?.Contains("has no result for QUOTA-A yet") == true);
+            test._server.Forbidden["QUOTA-A"] = 0;
+            test._server.Forbidden["QUOTA-B"] = 0;
+            test._server.DropAll();
+            await Eventually(() => Said() == 3);
+        }
+
+        private static bool History(string start) => CxLog.Events.Snapshot().Any(e => e.Text.StartsWith(start, StringComparison.Ordinal));
 
         // ------------------------------------------------------------------
 

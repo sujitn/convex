@@ -54,7 +54,7 @@ namespace Convex.Excel.Forms
             {
                 Dock = DockStyle.Top, Height = 340, ColumnCount = 2, RowCount = 8, Padding = new Padding(12),
             };
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             for (int i = 0; i < 8; i++) grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             AddRow(grid, 0, "Server URL:", _url);

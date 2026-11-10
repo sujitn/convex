@@ -22,9 +22,18 @@ results and update when the server publishes (see *Live server cells*).
 ## Installation
 
 ### Prerequisites
-- Microsoft Excel 2016 or later (64-bit)
+- Microsoft 365 Apps for Windows, 64-bit (Current or Monthly Enterprise channel).
+  The grid functions need dynamic arrays.
 - .NET Framework 4.7.2 (Windows 10 +)
 - Visual Studio Build Tools or .NET SDK (only needed to build from source)
+
+### From a release
+
+1. Download `convex-excel-addin-v<version>.zip` from the GitHub release and
+   extract it to one folder. Keep `convex_ffi.dll` beside `Convex.Excel64.xll`.
+2. Excel refuses an add-in downloaded from the internet, so unblock the files
+   first: `Get-ChildItem <folder> | Unblock-File`.
+3. Load `Convex.Excel64.xll` as in *Loading the add-in*.
 
 ### Build from source
 
@@ -45,8 +54,12 @@ the build.
 
 1. Open Excel → File → Options → Add-ins.
 2. At the bottom, "Excel Add-ins" → Go.
-3. Browse to `excel/Convex.Excel/bin/Release/net472/publish/Convex.Excel64-packed.xll`.
+3. Browse to `Convex.Excel64.xll` from the release, or, from a source build, to
+   `excel/Convex.Excel/bin/Release/net472/publish/Convex.Excel64-packed.xll`.
 4. OK.
+
+From the repository root, `excel/Package-AddIn.ps1 -OutDir <folder>` stages a
+source build the way a release ships it.
 
 ## Trader marks
 
@@ -338,7 +351,7 @@ The two reads are separate requests, so a quote can arrive between them.
 | `CX.MARK(text)` | Parse a textual mark and return its canonical JSON form. |
 | `CX.DESCRIBE(handle)` | Inspect a registered object's key fields. |
 | `CX.LASTERROR(cellRef)` | Full `[code] message` detail behind an error value in a cell. |
-| `CX.DIAG()` | Rust-library load status, engine version, object count, live topics and recomputes. |
+| `CX.DIAG()` | A two-column grid: Rust-library load status, engine and add-in versions, object count, live topics and recomputes, then the server link (connection, session, instruments, books, topics, frames received, frame-to-topic latency, age of the last message) and the log file. |
 | `CX.VERSION()` | Library version. |
 | `CX.OBJECTS()` | Number of registered objects. |
 | `CX.RELEASE(handle)` | Release one handle. |
@@ -346,6 +359,23 @@ The two reads are separate requests, so a quote can arrive between them.
 | `CX.LIBRARY(requestJson)` | Run a complete `LibraryRequest` JSON; returns the result envelope as text. |
 | `CX.LIBRARY.RANGE(requestCells)` | Same, with the request split across text cells; returns the result in one-column chunks. |
 | `CX.MW(...)` | Make-whole call price for a callable bond with a make-whole spread. |
+
+**Frame-to-topic latency** in `CX.DIAG()` is the p50 and p99 of the last 1,024
+frames that changed a cell, from the frame's receipt to the last cell it
+changed. It stops before Excel's RTD throttle and recalculation, so a cell can
+show the value up to `RTD.ThrottleInterval` later.
+
+**Error Log** on the ribbon has two tabs. **Cells** lists each cell's latest
+error. **Connection** lists the last 500 connection events, newest first.
+
+**The log file** is `%LOCALAPPDATA%\Convex\Excel\logs\convex-excel.log`. It
+records the add-in's start (versions, paths, native load), Excel's exit, failed
+identifier lookups and the connection events: link states and their reasons,
+sign-in and token renewal, stream errors, refusals and background faults. It
+rolls at 10 MB and keeps five files. Cell errors are not written to it, because one
+recalculation can raise thousands. Anything that looks like a token is removed
+before a line is kept. A second Excel process writes
+`convex-excel-<pid>.log`; those files go after 14 days.
 
 ## Examples
 
