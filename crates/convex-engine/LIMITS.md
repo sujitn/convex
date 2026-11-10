@@ -73,6 +73,12 @@ rounded, half to even, and neither keeps trailing zeros:
 - `utilisation` is the value over each bound that faces away from zero, taking the
   larger. It is rounded at Decimal precision, then to eight places. It is for display.
 
+**Status is a function of its inputs, not of its history.** The same book, set, results
+and time give the same status, whatever the status before. The server's limit monitor
+damps a value hovering at a bound in what it *records*, by holding a change to a less
+severe status for a while; status and the pre-trade check are unaffected (see the server
+README, "The clear hold").
+
 **A temporary excess** applies strictly before its `expires_at`, which
 `evaluate_limits` compares with the time it is given and reads from no clock. While it
 applies, the limit is judged against the excess bounds, with its warning band and utilisation

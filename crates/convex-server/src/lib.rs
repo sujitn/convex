@@ -55,7 +55,7 @@ use tracing::info;
 use convex_engine::PricingEngine;
 
 pub use composition::{compose, Composition};
-pub use config::{ConfigError, ServerConfig, ServerProfile};
+pub use config::{ConfigError, LimitSettings, ServerConfig, ServerProfile};
 
 /// Startup failures preserve configuration and listener error classifications.
 #[derive(Debug, Error)]
@@ -152,12 +152,14 @@ impl Server {
     }
 
     /// Monitor each book's limits while serving, recording each status change in `audit`
-    /// and publishing it to `subscribe_limits` sessions (P14c, D86).
+    /// and publishing it to `subscribe_limits` sessions (P14c, D86), under the
+    /// configuration's clear hold (P18, D106).
     pub fn with_limit_monitor(
         mut self,
         audit: Arc<dyn convex_engine::ports::storage::AuditStore>,
     ) -> Self {
-        self.limits = Some(limit_monitor::LimitMonitor::new(audit));
+        let hold = std::time::Duration::from_secs(self.config.limits.clear_hold_seconds);
+        self.limits = Some(limit_monitor::LimitMonitor::new(audit, hold));
         self
     }
 
