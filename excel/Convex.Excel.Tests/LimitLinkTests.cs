@@ -88,10 +88,13 @@ namespace Convex.Excel.Tests
             Connect();
 
             await Eventually(() => status.Last is "within" && value.Last is 12000.0);
-            Assert.Equal("Demo", quality.Last); // the demo server labels its responses
-            Assert.Equal("BOND-1", member.Last);
-            Assert.Equal(ExcelError.ExcelErrorNA, record.Last);
-            Assert.Contains("a status read carries no record id", Detail(record));
+            await Eventually(() => // each cell is pushed on its own
+            {
+                Assert.Equal("Demo", quality.Last); // the demo server labels its responses
+                Assert.Equal("BOND-1", member.Last);
+                Assert.Equal(ExcelError.ExcelErrorNA, record.Last);
+                Assert.Contains("a status read carries no record id", Detail(record));
+            });
             // Subscribed first, then read: the read came after the acknowledgement.
             Assert.Equal(new[] { new[] { "BOOK-A" } }, _server.LimitSubscribes());
             Assert.Equal(new[] { "BOOK-A" }, _server.StatusReads.ToArray());
@@ -116,15 +119,18 @@ namespace Convex.Excel.Tests
                 .ToDictionary(f => f, f => Limit("BOOK-A", "krd", f));
             Connect();
             await Eventually(() => fields["upper"].Last is 500.0);
-            Assert.Equal("key_rate_dv01 5Y", fields["measure"].Last);
-            Assert.Equal("missing_result: BOND-1, BOND-2 (3 in all)", fields["reason"].Last);
-            Assert.Equal(new DateTime(2026, 11, 9, 10, 0, 0, DateTimeKind.Utc).ToOADate(), fields["evaluated_at"].Last);
-            Assert.Equal(3.0, fields["book_version"].Last);
-            Assert.Equal(2.0, fields["limit_set_version"].Last);
-            Assert.Equal(ExcelError.ExcelErrorNA, fields["lower"].Last);
-            Assert.Contains("has no lower bound", Detail(fields["lower"]));
-            Assert.Equal(ExcelError.ExcelErrorNA, fields["value"].Last);
-            Assert.Contains("is unknown: missing_result", Detail(fields["value"]));
+            await Eventually(() => // each cell is pushed on its own
+            {
+                Assert.Equal("key_rate_dv01 5Y", fields["measure"].Last);
+                Assert.Equal("missing_result: BOND-1, BOND-2 (3 in all)", fields["reason"].Last);
+                Assert.Equal(new DateTime(2026, 11, 9, 10, 0, 0, DateTimeKind.Utc).ToOADate(), fields["evaluated_at"].Last);
+                Assert.Equal(3.0, fields["book_version"].Last);
+                Assert.Equal(2.0, fields["limit_set_version"].Last);
+                Assert.Equal(ExcelError.ExcelErrorNA, fields["lower"].Last);
+                Assert.Contains("has no lower bound", Detail(fields["lower"]));
+                Assert.Equal(ExcelError.ExcelErrorNA, fields["value"].Last);
+                Assert.Contains("is unknown: missing_result", Detail(fields["value"]));
+            });
         }
 
         [Fact]
@@ -215,7 +221,7 @@ namespace Convex.Excel.Tests
                 ServerCells.TopicStrings("BOND-A", "clean_price_mid", "value"), price);
             await Eventually(() => price.Last is 99.5);
             await Eventually(() => Detail(status)?.Contains("not entitled to the limits of book BOOK-A") == true);
-            Assert.Equal(ExcelError.ExcelErrorNA, status.Last);
+            await Eventually(() => Assert.Equal(ExcelError.ExcelErrorNA, status.Last)); // the detail is set before the push
             await Eventually(() => _server.LimitUnsubscribes().Any(u => u.Contains("BOOK-A")));
             Assert.Equal(1, _server.SessionsOpened); // the session went on
 
