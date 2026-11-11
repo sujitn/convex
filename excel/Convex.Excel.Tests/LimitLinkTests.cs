@@ -227,6 +227,29 @@ namespace Convex.Excel.Tests
         }
 
         [Fact]
+        public async Task A_reconnect_while_a_book_refusal_is_being_retried_says_the_refusal_again()
+        {
+            using var test = new LimitLinkTests(TimeSpan.FromMilliseconds(60));
+            test._server.RefusalCode = "ACCESS_QUOTA_EXCEEDED";
+            test._server.ForbiddenBooks["QUOTA-BR"] = 0;
+            test.Limit("QUOTA-BR", "dv01");
+            test.Connect();
+            int Said() => Ops.CxLog.Events.Snapshot().Count(e => e.Text.StartsWith("book QUOTA-BR refused", StringComparison.Ordinal));
+            int Sent() => test._server.LimitSubscribes().Count(s => s.Contains("QUOTA-BR"));
+            await Eventually(() => Said() == 1);
+
+            // Hold the next retry's answer, so the reconnect lands while it is in flight.
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            test._server.SubscribeGate = gate;
+            int before = Sent();
+            await Eventually(() => Sent() > before);
+            test._source.Reconnect();
+            test._server.SubscribeGate = null;
+            gate.SetResult(true);
+            await Eventually(() => Said() == 2);
+        }
+
+        [Fact]
         public async Task A_refused_batch_of_books_is_split_until_the_refused_book_stands_alone()
         {
             foreach (var book in new[] { "B1", "B2", "B3" })

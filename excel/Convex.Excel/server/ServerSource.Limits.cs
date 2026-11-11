@@ -257,11 +257,12 @@ namespace Convex.Excel.Server
 
         private void RetryRefusedBooks(bool all)
         {
-            foreach (var book in _books.Values.Where(b => b.Sub == Subscription.Refused))
+            foreach (var book in _books.Values)
             {
-                if (!all && book.RetryAt == null) continue;
-                book.Sub = Subscription.Wanted;
+                // All of them: every refusal is forgotten, including one whose retry is in flight.
                 if (all) book.LoggedRefusal = null;
+                if (book.Sub != Subscription.Refused || (!all && book.RetryAt == null)) continue;
+                book.Sub = Subscription.Wanted;
                 ClearProblem(book);
                 _changedBooks.Add(book.Id);
             }

@@ -474,6 +474,31 @@ namespace Convex.Excel.Tests
             await Eventually(() => Said() == 3);
         }
 
+        [Fact]
+        public async Task A_reconnect_while_a_refusal_is_being_retried_says_the_refusal_again()
+        {
+            var timings = Fast();
+            timings.RetryRefused = TimeSpan.FromMilliseconds(60);
+            using var test = new ServerLinkTests(timings);
+            test._server.RefusalCode = "ACCESS_QUOTA_EXCEEDED";
+            test._server.Forbidden["QUOTA-R"] = 0;
+            test.Live("QUOTA-R");
+            test.Connect();
+            int Said() => CxLog.Events.Snapshot().Count(e => e.Text.StartsWith("instrument QUOTA-R refused", StringComparison.Ordinal));
+            int Sent() => test._server.Subscribes().Count(s => s.Contains("QUOTA-R"));
+            await Eventually(() => Said() == 1);
+
+            // Hold the next retry's answer, so the reconnect lands while it is in flight.
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            test._server.SubscribeGate = gate;
+            int before = Sent();
+            await Eventually(() => Sent() > before);
+            test._source.Reconnect();
+            test._server.SubscribeGate = null;
+            gate.SetResult(true);
+            await Eventually(() => Said() == 2);
+        }
+
         private static bool History(string start) => CxLog.Events.Snapshot().Any(e => e.Text.StartsWith(start, StringComparison.Ordinal));
 
         // ------------------------------------------------------------------
