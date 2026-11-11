@@ -13,4 +13,9 @@
   <ItemGroup>
     <PackageReference Include="WixToolset.Dtf.CustomAction" Version="7.0.1" />
   </ItemGroup>
+
+  <!-- Content items are packed into InstallerActions.CA.dll. This one makes SfxCA load CLR 4. -->
+  <ItemGroup>
+    <Content Include="CustomAction.config" />
+  </ItemGroup>
 </Project>
