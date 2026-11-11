@@ -67,9 +67,14 @@ function Update-Check {
     [pscustomobject]@{ Kind = $key.GetValueKind('UpdateCheck').ToString(); Value = $key.GetValue('UpdateCheck') }
 }
 
+# Apps & features entries for this user's MSI products. Windows Installer keeps a per-user
+# product's entry under the user's SID in its own UserData key, not under HKCU's Uninstall
+# key, which holds only other installers' entries. SystemComponent 1 would hide it.
+$userData = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\$([Security.Principal.WindowsIdentity]::GetCurrent().User.Value)\Products"
 function Entries {
-    @(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
-        Where-Object { $_.DisplayName -eq 'Convex Excel Add-in' })
+    @(Get-ChildItem $userData -ErrorAction SilentlyContinue |
+        ForEach-Object { Get-ItemProperty "$($_.PSPath)\InstallProperties" -ErrorAction SilentlyContinue } |
+        Where-Object { $_.DisplayName -eq 'Convex Excel Add-in' -and $_.SystemComponent -ne 1 })
 }
 
 function Check-Installed([string] $expected, [string] $when) {
@@ -81,7 +86,9 @@ function Check-Installed([string] $expected, [string] $when) {
     $ours = @(Ours)
     Check ($ours.Count -eq 1) "$when`: exactly one OPEN value is ours (found $($ours.Count))"
     Check ($ours[0].Value -eq "/R `"$folder\Convex.Excel64.xll`"") "$when`: it points at the $expected .xll (it is $($ours[0].Value))"
-    Check ((Entries).Count -eq 1) "$when`: Apps & features has one entry"
+    $entries = @(Entries)
+    Check ($entries.Count -eq 1) "$when`: Apps & features has one entry (found $($entries.Count))"
+    Check ($entries[0].DisplayVersion -eq $expected) "$when`: it shows version $expected (it shows $($entries[0].DisplayVersion))"
 }
 
 $excel = $null
