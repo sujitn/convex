@@ -482,5 +482,15 @@ namespace Convex.Excel.Tests
             var client = new OidcClient(Settings(), _http, _ => { }, TimeSpan.FromSeconds(30));
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.SignInAsync(cts.Token));
         }
+
+        [Fact]
+        public async Task A_cancel_as_the_browser_opens_throws_operation_canceled()
+        {
+            // Cancelled before the wait for the redirect starts: the listeners are stopped
+            // before their first accept.
+            using var cts = new CancellationTokenSource();
+            var client = new OidcClient(Settings(), _http, _ => cts.Cancel(), TimeSpan.FromSeconds(30));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.SignInAsync(cts.Token));
+        }
     }
 }

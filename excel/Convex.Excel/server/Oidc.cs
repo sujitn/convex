@@ -372,8 +372,16 @@ namespace Convex.Excel.Server
                 }
             });
 
+            // A listener the cancel has already stopped throws at once instead of failing
+            // the accept: make that a failed accept too, so the loop maps it to the cancel.
+            static Task<TcpClient> Accept(TcpListener listener)
+            {
+                try { return listener.AcceptTcpClientAsync(); }
+                catch (Exception ex) { return Task.FromException<TcpClient>(ex); }
+            }
+
             var accepts = new Task<TcpClient>[listeners.Count];
-            for (var i = 0; i < accepts.Length; i++) accepts[i] = listeners[i].AcceptTcpClientAsync();
+            for (var i = 0; i < accepts.Length; i++) accepts[i] = Accept(listeners[i]);
             try
             {
                 while (true)
@@ -403,7 +411,7 @@ namespace Convex.Excel.Server
                         ct.ThrowIfCancellationRequested();
                         throw new OidcException("Sign-in timed out: the browser did not return to Convex. Try Sign in again.");
                     }
-                    accepts[index] = listeners[index].AcceptTcpClientAsync();
+                    accepts[index] = Accept(listeners[index]);
                 }
             }
             finally
