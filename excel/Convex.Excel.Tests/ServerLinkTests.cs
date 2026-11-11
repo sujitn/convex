@@ -518,7 +518,18 @@ namespace Convex.Excel.Tests
             public object? First;
             public string Key = "";
             public readonly ConcurrentQueue<object> Pushed = new();
-            public void Push(object value) => Pushed.Enqueue(value);
+            /// When set, the first push it matches waits on its thread until Release is set.
+            public Func<object, bool>? Hold;
+            public readonly ManualResetEventSlim Held = new(), Release = new();
+            public void Push(object value)
+            {
+                if (Hold is { } hold && hold(value) && Interlocked.CompareExchange(ref Hold, null, hold) == hold)
+                {
+                    Held.Set();
+                    Release.Wait(TimeSpan.FromSeconds(10));
+                }
+                Pushed.Enqueue(value);
+            }
             public object? Last => Pushed.LastOrDefault() ?? First;
             public IEnumerable<object> Values => new[] { First! }.Concat(Pushed);
         }

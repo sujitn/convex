@@ -148,6 +148,24 @@ namespace Convex.Excel.Tests
         }
 
         [Fact]
+        public async Task A_push_held_up_on_one_thread_does_not_hide_a_newer_value()
+        {
+            _server.LimitStatus["BOOK-A"] = FakeConvexServer.LimitStatusBody("BOOK-A", 1, 1, T1, Dv01("within", "40000"));
+            var status = Limit("BOOK-A", "dv01");
+            // The read's "within" stalls on its way to Excel, on the thread that read it.
+            status.Hold = v => v is "within";
+            Connect();
+            await Eventually(() => status.Held.IsSet);
+            // Meanwhile a newer change is evaluated on the receive thread.
+            _server.PublishLimit(FakeConvexServer.LimitChange("BOOK-A", 7, "within", Dv01("breach", "52000"), T2));
+            await Task.Delay(300);
+            status.Release.Set();
+            await Eventually(() => status.Last is "breach");
+            await Task.Delay(300);
+            Assert.Equal("breach", status.Last);
+        }
+
+        [Fact]
         public async Task A_book_with_no_limit_set_waits_for_one_and_a_limit_not_in_the_set_says_so()
         {
             var status = Limit("BOOK-A", "dv01");
