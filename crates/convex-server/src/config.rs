@@ -25,6 +25,28 @@ pub enum ServerProfile {
     Live,
 }
 
+/// The longest clear hold (D106): five minutes.
+pub const MAX_CLEAR_HOLD_SECONDS: u64 = 300;
+
+/// The limit monitor's settings (P18).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct LimitSettings {
+    /// How long, in seconds, a limit must stay less severe than its recorded status before
+    /// the monitor records the change (D106). A more severe status is recorded at once. 0
+    /// records every change at once, as before P18; at most
+    /// [`MAX_CLEAR_HOLD_SECONDS`].
+    pub clear_hold_seconds: u64,
+}
+
+impl Default for LimitSettings {
+    fn default() -> Self {
+        Self {
+            clear_hold_seconds: 5,
+        }
+    }
+}
+
 /// Configuration failures never include input values, file contents or paths.
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -103,6 +125,8 @@ pub struct ServerConfig {
     pub bonds_file: Option<String>,
     /// Built admin app served at `/admin`; unset serves nothing there.
     pub admin_ui_dir: Option<String>,
+    /// The limit monitor's settings.
+    pub limits: LimitSettings,
 }
 
 impl Default for ServerConfig {
@@ -122,6 +146,7 @@ impl Default for ServerConfig {
             fixings_file: None,
             bonds_file: None,
             admin_ui_dir: None,
+            limits: LimitSettings::default(),
         }
     }
 }
@@ -157,6 +182,8 @@ pub struct EffectiveConfig<'a> {
     pub bonds_file: Option<&'static str>,
     /// Redacted optional admin app directory.
     pub admin_ui_dir: Option<&'static str>,
+    /// The limit monitor's settings.
+    pub limits: LimitSettings,
 }
 
 impl fmt::Debug for ServerConfig {
@@ -316,6 +343,13 @@ impl ServerConfig {
                 "CONVEX_FIXINGS_FILE" => candidate.fixings_file = Some(value),
                 "CONVEX_BONDS_FILE" => candidate.bonds_file = Some(value),
                 "CONVEX_ADMIN_UI_DIR" => candidate.admin_ui_dir = Some(value),
+                "CONVEX_LIMITS_CLEAR_HOLD_SECONDS" => {
+                    candidate.limits.clear_hold_seconds =
+                        value.parse().map_err(|_| ConfigError::InvalidValue {
+                            field: "limits.clear_hold_seconds",
+                            expected: "an integer in 0..=300",
+                        })?
+                }
                 _ => return Err(ConfigError::UnknownEnvironment { name }),
             }
         }
@@ -362,6 +396,12 @@ impl ServerConfig {
             return Err(ConfigError::InvalidValue {
                 field: "admin_ui_dir",
                 expected: "a nonempty directory path without NUL",
+            });
+        }
+        if self.limits.clear_hold_seconds > MAX_CLEAR_HOLD_SECONDS {
+            return Err(ConfigError::InvalidValue {
+                field: "limits.clear_hold_seconds",
+                expected: "an integer in 0..=300",
             });
         }
         for (field, configured) in [
@@ -538,6 +578,7 @@ impl ServerConfig {
             fixings_file: self.fixings_file.as_ref().map(|_| REDACTED),
             bonds_file: self.bonds_file.as_ref().map(|_| REDACTED),
             admin_ui_dir: self.admin_ui_dir.as_ref().map(|_| REDACTED),
+            limits: self.limits,
         }
     }
 
@@ -560,6 +601,7 @@ impl ServerConfig {
             "CONVEX_FIXINGS_FILE",
             "CONVEX_BONDS_FILE",
             "CONVEX_ADMIN_UI_DIR",
+            "CONVEX_LIMITS_CLEAR_HOLD_SECONDS",
         ]
     }
 }
@@ -593,6 +635,49 @@ mod tests {
             ServerConfig::parse_file("profile = 'unknown'"),
             Err(ConfigError::FileParse)
         ));
+    }
+
+    /// P18 (D106): the clear hold is 5 s unless set, 0 to 300, from the file or the
+    /// environment.
+    #[test]
+    fn the_clear_hold_defaults_to_five_seconds_and_is_bounded() {
+        assert_eq!(
+            ServerConfig::parse_file("")
+                .unwrap()
+                .limits
+                .clear_hold_seconds,
+            5
+        );
+        for hold in [0, 300] {
+            let config =
+                ServerConfig::parse_file(&format!("[limits]\nclear_hold_seconds = {hold}"))
+                    .unwrap();
+            assert_eq!(config.limits.clear_hold_seconds, hold);
+        }
+        assert!(matches!(
+            ServerConfig::parse_file("[limits]\nclear_hold_seconds = 301"),
+            Err(ConfigError::InvalidValue {
+                field: "limits.clear_hold_seconds",
+                ..
+            })
+        ));
+        assert!(matches!(
+            ServerConfig::parse_file("[limits]\nretention = 1"),
+            Err(ConfigError::FileParse)
+        ));
+        let mut config = ServerConfig::default();
+        overrides(&mut config, &[("CONVEX_LIMITS_CLEAR_HOLD_SECONDS", "0")]).unwrap();
+        assert_eq!(config.limits.clear_hold_seconds, 0);
+        for bad in ["301", "-1", "5s"] {
+            assert!(
+                overrides(&mut config, &[("CONVEX_LIMITS_CLEAR_HOLD_SECONDS", bad)]).is_err(),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            config.limits.clear_hold_seconds, 0,
+            "a refusal changes nothing"
+        );
     }
 
     #[test]

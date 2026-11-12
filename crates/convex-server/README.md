@@ -217,6 +217,7 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | fixings_file | CONVEX_FIXINGS_FILE | Rejected: file provider composition is not implemented |
 | bonds_file | CONVEX_BONDS_FILE | Rejected: file provider composition is not implemented |
 | admin_ui_dir | CONVEX_ADMIN_UI_DIR | Optional built admin app served at `/admin`; must hold `index.html` |
+| limits.clear_hold_seconds | CONVEX_LIMITS_CLEAR_HOLD_SECONDS | Integer 0–300; default 5. How long the [limit monitor](#the-monitor) waits before recording a change to a less severe status; 0 records every change at once |
 | access.mode | CONVEX_ACCESS_MODE | Required by default; explicit local_development only for isolated loopback |
 | access.policy_file | CONVEX_ACCESS_POLICY_FILE | Bounded versioned grants, atomically reloaded each second |
 | access.tls_boundary | CONVEX_TLS_BOUNDARY | local_only or proxy; executable upstream stays loopback |
@@ -571,9 +572,10 @@ While the server serves, a monitor watches every book with a non-empty limit set
   never queues.
 
 It records each status *change* in the audit store, then publishes it (D86): one audit
-entry per limit whose status differs from its last recorded one, then one `limit_status`
-WebSocket message. One evaluation of a book writes its entries in one transaction (D92),
-all or nothing, and publishes them once it commits. An evaluation that changes nothing
+entry per limit whose status differs from its last recorded one, under the
+[clear hold](#the-clear-hold), then one `limit_status` WebSocket message. One evaluation
+of a book writes its entries in one transaction (D92), all or nothing, and publishes them
+once it commits. An evaluation that changes nothing
 records nothing. Each entry has `event_type` `limit_status`, `entity_type` `book`, the book
 id as `entity_id`, the new status as `action`, Unix milliseconds as `timestamp`, and the
 message's JSON as `details`. The message carries `record_id` (the entry's id), the book and
@@ -588,8 +590,8 @@ evaluation records them; a book with a failed write is evaluated again within a 
 unless the store was full (below). The [records route](#records) reads them.
 
 The audit store holds at most 1,000,000 entries and keeps every one: nothing prunes it.
-A value that crosses a bound back and forth records a change each time (D86 has no
-hysteresis), at most once per evaluation per limit. Once the store is full, every change is
+With no hold, a value that crosses a bound back and forth records a change each time, at
+most once per evaluation per limit. Once the store is full, every change is
 refused: none is recorded or published, `convex_limit_status_append_failures_total` counts
 each change refused, and one error is logged until a write succeeds again. A book's write
 that would pass the cap is refused whole. `convex_audit_entries` reports the entries held:
@@ -611,6 +613,32 @@ measure), one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or
 instruments, since each holds every instrument: about 1.4 ms a book. Above about 11 ticks a
 second the monitor coalesces ticks. One instrument's valuation hop (quote in to WebSocket
 frame) stays at about 1.4 ms with the monitor busy.
+
+#### The clear hold
+
+A value hovering at a bound would otherwise record, and publish, a change at every
+crossing. So the monitor records a change to a *more* severe status (`within` < `warning` <
+`unknown` < `breach`), or a limit's first status, at once, and a change to a *less* severe
+one only once the limit has stayed less severe than its recorded status for the hold
+(`limits.clear_hold_seconds`, 5 s by default, at most 300). It then records the status of
+its first evaluation at or after the hold's end, which may be any less severe status the
+limit reached meanwhile. Any evaluation at the recorded status, or one more severe, ends
+the hold, and the next clearing waits a whole hold again. The monitor wakes for a hold's
+end with no tick or commit, as it does for an excess's expiry; holds run on the monotonic
+clock, so a wall clock that steps does not shorten them.
+
+- Status and the pre-trade check read no record, so they show the status of the moment.
+  The `limit_status` messages, the records, and the `convex_limit_breaches` and
+  `convex_limit_unknown` gauges show a breach until it has stayed clear for the hold.
+- Approving an [excess](#temporary-excess) on a breached limit is a clearing, so it is
+  recorded once it has held. Its expiry is a breach, recorded at once.
+- A restart records every limit at its first evaluation, as before: any status is a change
+  from `unevaluated`.
+- A hold of 0 records every change at once, as before P18.
+
+Measured (`ci` profile, WSL2): a value crossing a bound about three times a second for 60 s
+(178 ticks) recorded 179 changes with no hold, and 2 with the default 5 s (its first
+status and the breach), since no return lasted the hold.
 
 #### Records
 

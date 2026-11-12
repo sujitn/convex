@@ -35,6 +35,15 @@
 //! D87), and the books holding it are evaluated when it passes. A wall clock that steps
 //! back would apply an expired excess again for the length of the step, so each book keeps
 //! the latest expiry this monitor has passed and reads its excesses no earlier than that.
+//!
+//! A clear hold (P18, D106) damps a value hovering at a bound. A change to a more severe
+//! status (`within` < `warning` < `unknown` < `breach`) is recorded at once. A change to a
+//! less severe one is recorded once the limit has stayed less severe than its recorded
+//! status for the hold: the monitor records the status of its first evaluation at or after
+//! the hold's end, and a return to the recorded status, or past it, starts the hold afresh
+//! next time. The hold's end is a deadline beside an excess's expiry. Status and the
+//! pre-trade check read no record, so they still show the status of the moment. A hold of
+//! zero records every change at once.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -238,13 +247,16 @@ impl Stop {
 pub(crate) struct LimitMonitor {
     audit: Arc<dyn AuditStore>,
     feed: broadcast::Sender<Arc<LimitFrame>>,
+    /// The clear hold (D106).
+    hold: Duration,
 }
 
 impl LimitMonitor {
-    pub(crate) fn new(audit: Arc<dyn AuditStore>) -> Arc<Self> {
+    pub(crate) fn new(audit: Arc<dyn AuditStore>, hold: Duration) -> Arc<Self> {
         Arc::new(Self {
             audit,
             feed: broadcast::channel(FEED_CAPACITY).0,
+            hold,
         })
     }
 
@@ -285,6 +297,7 @@ impl LimitMonitor {
                 started_at,
                 halt: halt.clone(),
                 full_reported: false,
+                hold: self.hold,
             },
             halt,
             books: BTreeMap::new(),
@@ -303,8 +316,13 @@ impl LimitMonitor {
                 break;
             }
             task.expire();
+            task.release();
             task.work().await;
-            let expiry = task.next_expiry();
+            let expiry = task
+                .next_expiry()
+                .into_iter()
+                .chain(task.next_release())
+                .min();
             tokio::select! {
                 biased;
                 changed = stop.changed() => {
@@ -316,7 +334,8 @@ impl LimitMonitor {
                 // Ahead of the streams: under steady ticks one is always ready, and a
                 // retry behind them would never run.
                 _ = timer.tick(), if task.waiting() => task.again(),
-                // The next pass of the loop reads the clock and finds what has expired.
+                // The next pass of the loop reads the clocks and finds what has expired and
+                // which holds have ended.
                 _ = tokio::time::sleep(expiry.unwrap_or_default()), if expiry.is_some() => {}
                 notice = commits.recv() => {
                     let mut notice = notice;
@@ -389,6 +408,85 @@ struct Watched {
     recorded: HashMap<LimitId, LimitStatus>,
     /// The latest excess expiry this monitor has passed for the book.
     expired_through: Option<UtcTimestamp>,
+    /// Its limits' changes to a less severe status, waiting out the hold.
+    held: Holds,
+}
+
+/// When a limit's change to a less severe status began to wait out the hold, and whether
+/// the monitor has woken for the hold's end.
+#[derive(Debug, Clone, Copy)]
+struct Hold {
+    since: Instant,
+    woken: bool,
+}
+
+/// One book's holds, by limit (D106).
+#[derive(Debug, Default)]
+struct Holds(HashMap<LimitId, Hold>);
+
+impl Holds {
+    /// Whether to record `status` now, given the limit's last recorded status. A more severe
+    /// status, or a first one, is recorded at once. A less severe one is recorded once the
+    /// limit has been less severe than `previous` at every evaluation for `hold`; its hold
+    /// is kept until the record is written, so a refused write is tried again at once. The
+    /// recorded status itself, or one more severe, ends the hold.
+    fn records(
+        &mut self,
+        limit_id: &LimitId,
+        previous: Option<LimitStatus>,
+        status: LimitStatus,
+        now: Instant,
+        hold: Duration,
+    ) -> bool {
+        match previous {
+            Some(previous) if status == previous => {
+                self.0.remove(limit_id);
+                false
+            }
+            Some(previous) if status < previous && !hold.is_zero() => {
+                let since = self
+                    .0
+                    .entry(limit_id.clone())
+                    .or_insert(Hold {
+                        since: now,
+                        woken: false,
+                    })
+                    .since;
+                now.saturating_duration_since(since) >= hold
+            }
+            _ => {
+                self.0.remove(limit_id);
+                true
+            }
+        }
+    }
+
+    /// Drop the holds of limits no longer in the set.
+    fn retain(&mut self, limits: &[LimitDefinition]) {
+        self.0
+            .retain(|id, _| limits.iter().any(|limit| limit.limit_id == *id));
+    }
+
+    /// Mark each hold that has ended as woken, and say whether one has.
+    fn wake(&mut self, now: Instant, hold: Duration) -> bool {
+        let mut woke = false;
+        for entry in self.0.values_mut() {
+            if !entry.woken && now.saturating_duration_since(entry.since) >= hold {
+                entry.woken = true;
+                woke = true;
+            }
+        }
+        woke
+    }
+
+    /// When the next hold not yet woken for ends.
+    fn next_end(&self, hold: Duration) -> Option<Instant> {
+        self.0
+            .values()
+            .filter(|entry| !entry.woken)
+            .map(|entry| entry.since + hold)
+            .min()
+    }
 }
 
 /// The time to read `limits`' excesses at, given the wall clock's `at`: no earlier than the
@@ -479,6 +577,27 @@ impl Task {
                 .unwrap_or_default()
                 .min(MAX_EXPIRY_WAIT),
         )
+    }
+
+    /// Evaluate again each book with a hold that has ended since the last look. A hold is
+    /// woken for once, so a write that keeps failing is tried on the timer, not in a loop.
+    fn release(&mut self) {
+        let now = Instant::now();
+        for (id, watched) in &mut self.books {
+            if watched.held.wake(now, self.ledger.hold) {
+                Pending::add(&mut self.dirty, id.clone());
+            }
+        }
+    }
+
+    /// How long until the next hold ends, if one is waiting.
+    fn next_release(&self) -> Option<Duration> {
+        let next = self
+            .books
+            .values()
+            .filter_map(|watched| watched.held.next_end(self.ledger.hold))
+            .min()?;
+        Some(next.saturating_duration_since(Instant::now()))
     }
 
     fn committed(&mut self, keys: &[MasterKey]) {
@@ -602,10 +721,10 @@ impl Task {
                 .map(|p| p.instrument_id.as_str().to_owned())
                 .chain(named_instruments(&set.limits).map(|i| i.as_str().to_owned()))
                 .collect();
-            let (recorded, expired_through) = self
+            let (recorded, expired_through, held) = self
                 .books
                 .remove(&id)
-                .map(|watched| (watched.recorded, watched.expired_through))
+                .map(|watched| (watched.recorded, watched.expired_through, watched.held))
                 .unwrap_or_default();
             self.books.insert(
                 id.clone(),
@@ -619,6 +738,7 @@ impl Task {
                     }),
                     recorded,
                     expired_through,
+                    held,
                 },
             );
             Pending::add(&mut self.dirty, id);
@@ -709,6 +829,7 @@ impl Task {
                 set_version: subject.set_version,
                 evaluated_at,
                 instruments: &subject.instruments,
+                now: started,
             };
             match self
                 .ledger
@@ -718,6 +839,7 @@ impl Task {
                     &subject.acknowledgements,
                     evaluation,
                     &mut watched.recorded,
+                    &mut watched.held,
                 )
                 .await
             {
@@ -757,6 +879,8 @@ struct Context<'a> {
     set_version: Version,
     evaluated_at: UtcTimestamp,
     instruments: &'a Arc<[String]>,
+    /// The monotonic time of the evaluation, which holds are measured on.
+    now: Instant,
 }
 
 /// How one book's changes were recorded.
@@ -782,6 +906,8 @@ struct Ledger {
     halt: Stop,
     /// A capacity refusal has been logged since the last append that succeeded.
     full_reported: bool,
+    /// The clear hold (D106).
+    hold: Duration,
 }
 
 impl Ledger {
@@ -795,8 +921,9 @@ impl Ledger {
         }
     }
 
-    /// Record, then publish, each limit whose status differs from its last recorded one:
-    /// the book's records in one batch, then their frames in limit order.
+    /// Record, then publish, each limit whose status differs from its last recorded one,
+    /// under the clear hold: the book's records in one batch, then their frames in limit
+    /// order.
     async fn record(
         &mut self,
         context: Context<'_>,
@@ -804,15 +931,23 @@ impl Ledger {
         acknowledgements: &[LimitAcknowledgement],
         evaluation: crate::limits::BookEvaluation,
         recorded: &mut HashMap<LimitId, LimitStatus>,
+        held: &mut Holds,
     ) -> Recorded {
         recorded.retain(|id, _| limits.iter().any(|limit| limit.limit_id == *id));
+        held.retain(limits);
         let snapshot_ids: Arc<[String]> = evaluation.snapshot_ids.into();
         let mut complete = true;
         let mut entries = Vec::new();
         let mut changes = Vec::new();
         for (limit, evaluation) in limits.iter().zip(evaluation.evaluations) {
             let previous = recorded.get(&limit.limit_id).copied();
-            if previous == Some(evaluation.status) {
+            if !held.records(
+                &limit.limit_id,
+                previous,
+                evaluation.status,
+                context.now,
+                self.hold,
+            ) {
                 continue;
             }
             let Some(record_id) = self.next_id else {
@@ -881,6 +1016,7 @@ impl Ledger {
                 self.full_reported = false;
                 metrics::counter!(CHANGES).increment(count);
                 for (limit_id, status, change) in changes {
+                    held.0.remove(&limit_id);
                     recorded.insert(limit_id, status);
                     // No subscriber is not an error.
                     let _ = self.feed.send(Arc::new(LimitFrame {
@@ -965,6 +1101,95 @@ mod tests {
         assert_eq!(stepped, stamp(EXPIRY));
         assert!(limits[0].excess_at(stepped).is_none());
         assert_eq!(next_expiry_of(&limits, through), None);
+    }
+
+    const HOLD: Duration = Duration::from_secs(5);
+
+    fn ms(ms: u64) -> Duration {
+        Duration::from_millis(ms)
+    }
+
+    /// P18 (D106): a first status, and a more severe one, are recorded at once; a less
+    /// severe one only after the hold, and at once with no hold.
+    #[test]
+    fn a_clearing_waits_out_the_hold_and_a_worsening_does_not() {
+        use LimitStatus::*;
+        let id = LimitId::new("net").unwrap();
+        let t0 = Instant::now();
+        let mut held = Holds::default();
+
+        assert!(held.records(&id, None, Within, t0, HOLD), "a first status");
+        assert!(held.records(&id, Some(Within), Breach, t0, HOLD));
+        assert!(held.records(&id, Some(Warning), Unknown, t0, HOLD));
+        assert!(
+            !held.records(&id, Some(Breach), Breach, t0, HOLD),
+            "no change"
+        );
+        assert!(held.0.is_empty());
+
+        assert!(
+            held.records(&id, Some(Breach), Within, t0, Duration::ZERO),
+            "no hold"
+        );
+        assert!(held.0.is_empty());
+
+        assert!(!held.records(&id, Some(Breach), Within, t0, HOLD));
+        assert!(!held.records(&id, Some(Breach), Within, t0 + HOLD - ms(1), HOLD));
+        // Less severe throughout, though not the same status: the hold runs on.
+        assert!(!held.records(&id, Some(Breach), Warning, t0 + ms(2_000), HOLD));
+        assert!(held.records(&id, Some(Breach), Warning, t0 + HOLD, HOLD));
+        // Not yet written (a refused write): still due at the next evaluation.
+        assert!(held.records(&id, Some(Breach), Within, t0 + HOLD + ms(1), HOLD));
+    }
+
+    /// A return to the recorded status, or past it, ends the hold; the next clearing waits
+    /// a whole hold again.
+    #[test]
+    fn a_flap_within_the_hold_starts_it_afresh() {
+        use LimitStatus::*;
+        let id = LimitId::new("net").unwrap();
+        let t0 = Instant::now();
+        let mut held = Holds::default();
+        assert!(!held.records(&id, Some(Breach), Within, t0, HOLD));
+        assert!(!held.records(&id, Some(Breach), Breach, t0 + ms(1_000), HOLD));
+        assert!(held.0.is_empty());
+        assert!(!held.records(&id, Some(Breach), Within, t0 + ms(2_000), HOLD));
+        assert!(
+            !held.records(&id, Some(Breach), Within, t0 + HOLD, HOLD),
+            "3 s, not 5"
+        );
+        assert!(held.records(&id, Some(Breach), Within, t0 + ms(7_000), HOLD));
+
+        // Past it: a warning recorded, then a clearing held, then a breach recorded at once.
+        assert!(!held.records(&id, Some(Warning), Within, t0, HOLD));
+        assert!(held.records(&id, Some(Warning), Breach, t0 + ms(1), HOLD));
+        assert!(held.0.is_empty());
+    }
+
+    /// The monitor wakes once for each hold's end, and drops the holds of removed limits.
+    #[test]
+    fn the_monitor_wakes_once_for_a_holds_end() {
+        use LimitStatus::*;
+        let (net, face) = (LimitId::new("net").unwrap(), LimitId::new("face").unwrap());
+        let t0 = Instant::now();
+        let mut held = Holds::default();
+        assert!(!held.records(&net, Some(Breach), Within, t0, HOLD));
+        assert!(!held.records(&face, Some(Breach), Within, t0 + ms(1_000), HOLD));
+        assert_eq!(held.next_end(HOLD), Some(t0 + HOLD));
+
+        assert!(!held.wake(t0 + HOLD - ms(1), HOLD));
+        assert!(held.wake(t0 + HOLD, HOLD));
+        assert!(!held.wake(t0 + HOLD, HOLD), "once");
+        assert_eq!(held.next_end(HOLD), Some(t0 + ms(6_000)));
+
+        let face_only: Vec<LimitDefinition> = vec![serde_json::from_value(serde_json::json!({
+            "limit_id": "face", "measure": {"kind": "market_value"}, "upper": "100",
+        }))
+        .unwrap()];
+        held.retain(&face_only);
+        assert!(!held.0.contains_key(&net));
+        assert!(held.wake(t0 + ms(6_000), HOLD));
+        assert_eq!(held.next_end(HOLD), None);
     }
 
     /// Only an expiry moves the latch: one still to come stays pending, and a clock that

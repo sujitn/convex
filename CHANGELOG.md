@@ -146,6 +146,15 @@ the changes that matter when you upgrade.
   under `.../acknowledgements`. New codes: 409 `LIMIT_NOT_ACKNOWLEDGEABLE`,
   404 `LIMIT_NOT_FOUND` and `LIMIT_ACKNOWLEDGEMENT_NOT_FOUND`, 422
   `LIMIT_RECORD_MISMATCH`.
+- **A clear hold on recorded limit status changes.** The limit monitor records a change
+  to a more severe status at once, and one to a less severe status only once the limit has
+  stayed less severe for `limits.clear_hold_seconds` (`CONVEX_LIMITS_CLEAR_HOLD_SECONDS`,
+  default 5, 0 to 300; 0 records every change at once, as before). A value hovering at a
+  bound records its breach once rather than at every crossing. Status and the pre-trade
+  check are unchanged; `limit_status` messages, the records and the breach and unknown
+  gauges show a breach until it has stayed clear for the hold. **Breaking:**
+  `ServerConfig` gains `limits` (`LimitSettings`), so a struct literal of it needs the
+  field or `..Default::default()`.
 - **A limit can carry a temporary excess.** `excess` on a limit in a set gives wider
   bounds until an expiry at most thirty days after the proposal, with a reason, through
   the set's two-subject proposal. Until it expires the limit is judged against the excess

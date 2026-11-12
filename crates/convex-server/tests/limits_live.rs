@@ -2024,3 +2024,270 @@ async fn an_excess_is_recorded_when_approved_and_its_expiry_wakes_the_monitor() 
     assert!(stored[2].1["excess"].is_object(), "{}", stored[2].1);
     assert!(stored[3].1.get("excess").is_none(), "{}", stored[3].1);
 }
+
+/// Wait until status on request shows the book's limit `net` as `want`.
+async fn until_status(server: &Running, book: &str, want: &str) {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let (code, status) = send(
+                server,
+                reqwest::Method::GET,
+                &format!("/api/v1/books/{book}/limits/status"),
+                None,
+                None,
+            )
+            .await;
+            if code == StatusCode::OK && by_id(&status)["net"]["status"] == want {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("status never showed {want}"))
+}
+
+/// Fail on any `limit_status` frame for `wait`.
+async fn quiet(socket: &mut Socket, wait: Duration) {
+    use futures_util::StreamExt;
+    let heard = tokio::time::timeout(wait, async {
+        loop {
+            match socket.next().await {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                    let value: Value = serde_json::from_str(&text).unwrap();
+                    if value["type"] == "limit_status" {
+                        return value;
+                    }
+                }
+                Some(Ok(_)) => {}
+                other => panic!("socket ended: {other:?}"),
+            }
+        }
+    })
+    .await;
+    if let Ok(frame) = heard {
+        panic!("recorded during the hold: {frame}");
+    }
+}
+
+/// A book holding the fixture bond, watched by a session, under a limit `net` whose upper
+/// bound is `upper(value)` for the value its first evaluation records.
+async fn watched_net(server: &Running, upper: impl Fn(f64) -> String) -> (Socket, f64) {
+    put(
+        server,
+        "/api/v1/books/WATCHED",
+        "book-watched",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "1000000"},
+        ]}),
+    )
+    .await;
+    let mut socket = limit_session(server, &["WATCHED"]).await;
+    let first = json!({"limits": [limit("net", json!({"kind": "market_value"}))]});
+    put(server, "/api/v1/books/WATCHED/limits", "set-1", first).await;
+    let change = frame(&mut socket, "limit_status").await;
+    let net = number(&change["value"]);
+    let second = json!({"limits": [
+        {"limit_id": "net", "measure": {"kind": "market_value"}, "upper": upper(net)},
+    ]});
+    put_over(server, "/api/v1/books/WATCHED/limits", "set-2", "1", second).await;
+    (socket, net)
+}
+
+/// The recorded changes, as (previous, status).
+async fn changes(live: &ServerConfig) -> Vec<(String, String)> {
+    records(live)
+        .await
+        .into_iter()
+        .map(|(_, record)| {
+            (
+                record["previous"].as_str().unwrap().to_owned(),
+                record["status"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect()
+}
+
+/// P18a (D106): under a clear hold, a breach is recorded at once; a return within the hold
+/// records nothing, and the hold it ended records nothing when its time comes; a clearing is
+/// recorded once it has held, while status on request shows it at once.
+#[tokio::test]
+async fn a_clearing_is_recorded_once_it_has_held_and_a_flap_within_the_hold_records_nothing() {
+    const HOLD: Duration = Duration::from_secs(3);
+    let (dir, mut live, _) = live(1, 0, &[]).await;
+    live.limits.clear_hold_seconds = HOLD.as_secs();
+    let server = started(&dir, live.clone()).await;
+    let (mut socket, _) = watched_net(&server, |net| format!("{:.2}", net * 1.005)).await;
+
+    tick(&server, &dir, 2, "100.75").await;
+    let breach = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&breach["previous"], &breach["status"]),
+        (&json!("within"), &json!("breach")),
+        "{breach}"
+    );
+
+    // Within, then a breach again, inside the hold.
+    let flap = Instant::now();
+    tick(&server, &dir, 3, "99.25").await;
+    until_status(&server, "WATCHED", "within").await;
+    // The monitor reads the same results; let it evaluate them.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    tick(&server, &dir, 4, "100.75").await;
+    until_status(&server, "WATCHED", "breach").await;
+    assert!(flap.elapsed() < HOLD, "the flap outlasted the hold");
+    quiet(
+        &mut socket,
+        (flap + HOLD + Duration::from_secs(1)).saturating_duration_since(Instant::now()),
+    )
+    .await;
+
+    // A clearing: status shows it at once, the stream once it has held.
+    let cleared = Instant::now();
+    tick(&server, &dir, 5, "99.25").await;
+    until_status(&server, "WATCHED", "within").await;
+    let shown = cleared.elapsed();
+    let within = frame(&mut socket, "limit_status").await;
+    let recorded = cleared.elapsed();
+    assert_eq!(
+        (&within["previous"], &within["status"]),
+        (&json!("breach"), &json!("within")),
+        "{within}"
+    );
+    assert!(shown < HOLD, "status showed the clearing after {shown:?}");
+    assert!(
+        recorded >= HOLD,
+        "recorded after {recorded:?}, inside the {HOLD:?} hold"
+    );
+
+    drop(socket);
+    server.stop().await;
+    assert_eq!(
+        changes(&live).await,
+        [
+            ("unevaluated".into(), "within".into()),
+            ("within".into(), "breach".into()),
+            ("breach".into(), "within".into()),
+        ]
+    );
+}
+
+/// P18a (D106): approving an excess on a breached limit is a clearing, recorded once it
+/// has held; its expiry is a breach, recorded at once.
+#[tokio::test]
+async fn an_excess_approval_waits_out_the_hold_and_its_expiry_does_not() {
+    const HOLD: Duration = Duration::from_secs(2);
+    let (dir, mut live, _) = live(1, 0, &[]).await;
+    live.limits.clear_hold_seconds = HOLD.as_secs();
+    let server = started(&dir, live.clone()).await;
+    let (mut socket, net) = watched_net(&server, |net| format!("{:.2}", net * 0.5)).await;
+    let breach = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&breach["previous"], &breach["status"]),
+        (&json!("within"), &json!("breach")),
+        "{breach}"
+    );
+
+    let expires_at = (chrono::Utc::now() + chrono::Duration::seconds(6))
+        .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
+    let excess = json!({"limits": [{
+        "limit_id": "net", "measure": {"kind": "market_value"},
+        "upper": format!("{:.2}", net * 0.5),
+        "excess": {"upper": format!("{:.2}", net * 2.0), "expires_at": expires_at,
+                   "reason": "mandate change"},
+    }]});
+    let approved = Instant::now();
+    put_over(
+        &server,
+        "/api/v1/books/WATCHED/limits",
+        "set-3",
+        "2",
+        excess,
+    )
+    .await;
+    let granted = frame(&mut socket, "limit_status").await;
+    let waited = approved.elapsed();
+    assert_eq!(
+        (&granted["previous"], &granted["status"]),
+        (&json!("breach"), &json!("within")),
+        "{granted}"
+    );
+    assert!(
+        waited >= HOLD,
+        "recorded after {waited:?}, inside the {HOLD:?} hold"
+    );
+
+    let back = frame(&mut socket, "limit_status").await;
+    assert_eq!(
+        (&back["previous"], &back["status"]),
+        (&json!("within"), &json!("breach")),
+        "{back}"
+    );
+    let read: chrono::DateTime<chrono::Utc> =
+        back["evaluated_at"].as_str().unwrap().parse().unwrap();
+    let expiry: chrono::DateTime<chrono::Utc> = expires_at.parse().unwrap();
+    assert!(
+        read >= expiry,
+        "evaluated {read} before the expiry {expiry}"
+    );
+    assert!(
+        (read - expiry).to_std().unwrap() < HOLD,
+        "the breach at {read} waited on the hold after the expiry {expiry}"
+    );
+
+    drop(socket);
+    server.stop().await;
+    assert_eq!(
+        changes(&live).await,
+        [
+            ("unevaluated".into(), "within".into()),
+            ("within".into(), "breach".into()),
+            ("breach".into(), "within".into()),
+            ("within".into(), "breach".into()),
+        ]
+    );
+}
+
+/// P18a's measurement (D106): a value hovering at a bound, crossing it about three times a
+/// second for 60 s, with no hold and with the default of 5 s. Each return lasts about a
+/// third of a second, so no clearing outlasts the hold.
+#[tokio::test]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn records_while_a_value_hovers_at_a_bound() {
+    const RUN: Duration = Duration::from_secs(60);
+    const PACE: Duration = Duration::from_millis(333);
+    for hold in [0, 5] {
+        let (dir, mut live, _) = live(1, 0, &[]).await;
+        live.limits.clear_hold_seconds = hold;
+        let server = started(&dir, live.clone()).await;
+        let (socket, _) = watched_net(&server, |net| format!("{:.2}", net * 1.005)).await;
+        // Only the stored records are read.
+        drop(socket);
+        let images: Vec<QuoteEvent> =
+            serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap())
+                .unwrap();
+        let run = Instant::now();
+        let (mut ticks, mut refused) = (0u64, 0u64);
+        while run.elapsed() < RUN {
+            ticks += 1;
+            let price = if ticks % 2 == 1 { "100.75" } else { "99.25" };
+            let mut event = steady_image(ticks + 1, price);
+            event.key = images[0].key.clone();
+            // A WSL2 clock that steps back leaves these stamps ahead of the server's clock
+            // for a moment; such a quote is refused, and counted rather than fatal.
+            if !server.post_quotes(vec![event]).await.status().is_success() {
+                refused += 1;
+            }
+            tokio::time::sleep(PACE).await;
+        }
+        server.stop().await;
+        let changes = changes(&live).await;
+        let breaches = changes.iter().filter(|(_, s)| s == "breach").count();
+        println!(
+            "hold {hold} s: {ticks} ticks ({refused} refused) in {:.1} s, {} records ({breaches} breaches), first {:?}",
+            run.elapsed().as_secs_f64(),
+            changes.len(),
+            &changes[..changes.len().min(4)]
+        );
+    }
+}

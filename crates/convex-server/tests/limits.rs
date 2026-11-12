@@ -1423,6 +1423,10 @@ async fn a_limit_status_frame_needs_what_the_status_route_needs() {
             cors_origins: vec![],
             tls_boundary: TlsBoundary::LocalOnly,
         },
+        // Every change at once, as before P18 (D106).
+        limits: convex_server::LimitSettings {
+            clear_hold_seconds: 0,
+        },
         ..Default::default()
     };
     let server =
@@ -1674,6 +1678,10 @@ async fn monitored(script: Script, books: usize, count: usize) -> Monitored {
         access: AccessSettings {
             mode: AccessMode::LocalDevelopment,
             ..Default::default()
+        },
+        // Every change at once, as before P18 (D106).
+        limits: convex_server::LimitSettings {
+            clear_hold_seconds: 0,
         },
         ..Default::default()
     };
