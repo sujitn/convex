@@ -67,8 +67,23 @@ function Update-Check {
     [pscustomobject]@{ Kind = $key.GetValueKind('UpdateCheck').ToString(); Value = $key.GetValue('UpdateCheck') }
 }
 
+# Windows Installer registers a per-user product under the user's SID in its UserData key.
+# It writes the product's Apps & features entry to HKLM's Uninstall key under the product
+# code, marked WindowsInstaller 1, in the 32-bit view for this x86 package, and Apps & features
+# shows it only to the users who have the product. HKCU's Uninstall key holds only other
+# installers' entries, but it is searched too, so an entry anywhere counts.
+$userData = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\$([Security.Principal.WindowsIdentity]::GetCurrent().User.Value)\Products"
+$uninstallKeys = @(
+    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall',
+    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+    'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall')
+function Registrations {
+    @(Get-ChildItem $userData -ErrorAction SilentlyContinue |
+        ForEach-Object { Get-ItemProperty "$($_.PSPath)\InstallProperties" -ErrorAction SilentlyContinue } |
+        Where-Object { $_.DisplayName -eq 'Convex Excel Add-in' })
+}
 function Entries {
-    @(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+    @($uninstallKeys | ForEach-Object { Get-ItemProperty "$_\*" -ErrorAction SilentlyContinue } |
         Where-Object { $_.DisplayName -eq 'Convex Excel Add-in' })
 }
 
@@ -81,7 +96,15 @@ function Check-Installed([string] $expected, [string] $when) {
     $ours = @(Ours)
     Check ($ours.Count -eq 1) "$when`: exactly one OPEN value is ours (found $($ours.Count))"
     Check ($ours[0].Value -eq "/R `"$folder\Convex.Excel64.xll`"") "$when`: it points at the $expected .xll (it is $($ours[0].Value))"
-    Check ((Entries).Count -eq 1) "$when`: Apps & features has one entry"
+    $registered = @(Registrations)
+    Check ($registered.Count -eq 1 -and $registered[0].DisplayVersion -eq $expected) "$when`: Windows Installer has $expected registered for this user (found: $(($registered | ForEach-Object DisplayVersion) -join ', '))"
+    $code = [regex]::Match([string]$registered[0].UninstallString, '\{[0-9A-Fa-f-]{36}\}').Value
+    $entries = @(Entries)
+    Check ($entries.Count -eq 1) "$when`: Apps & features has one entry (found $($entries.Count): $(($entries | ForEach-Object { "$($_.PSParentPath -replace '^.*::', '')\$($_.PSChildName)" }) -join '; '))"
+    $entry = $entries[0]
+    Check ($entry.PSChildName -eq $code) "$when`: the entry is under the registered product code $code (it is under $($entry.PSChildName))"
+    Check ($entry.WindowsInstaller -eq 1 -and $entry.SystemComponent -ne 1) "$when`: the entry is Windows Installer's and shown (WindowsInstaller $($entry.WindowsInstaller), SystemComponent $($entry.SystemComponent))"
+    Check ($entry.DisplayVersion -eq $expected) "$when`: it shows version $expected (it shows $($entry.DisplayVersion))"
 }
 
 $excel = $null
@@ -137,6 +160,7 @@ try {
     Check ((Ours).Count -eq 0) 'uninstall: no OPEN value is ours'
     $values = Open-Values
     Check ($values.Count -eq 2 -and $values['OPEN'] -eq $otherA -and $values['OPEN1'] -eq $otherB) 'uninstall: the other add-ins stay, with no gap'
+    Check ((Registrations).Count -eq 0) 'uninstall: Windows Installer has nothing registered for this user'
     Check ((Entries).Count -eq 0) 'uninstall: Apps & features has no entry'
     Check ($null -eq (Update-Check)) 'uninstall: the UpdateCheck value is gone'
 
@@ -147,7 +171,17 @@ try {
     Check ((Ours).Count -eq 0) 'refused install: no OPEN value was written'
 }
 catch {
-    if ($script:log -and (Test-Path $script:log)) { Get-Content $script:log -Tail 60 }
+    if ($script:log -and (Test-Path $script:log)) {
+        # The end of a verbose log is only the property dump. What failed is the first
+        # action to return 3, and the custom-action host logs its own errors before that.
+        $lines = @(Get-Content $script:log)
+        $failed = $lines | Select-String -SimpleMatch 'Return value 3' | Select-Object -First 1
+        Write-Output "--- $script:log ---"
+        if ($failed) { $lines[[Math]::Max(0, $failed.LineNumber - 40)..($failed.LineNumber - 1)] }
+        else { $lines | Select-Object -Last 60 }
+        Write-Output '--- its errors ---'
+        $lines | Select-String 'SFXCA|Error \d{4}|error code|Exception' | ForEach-Object Line
+    }
     throw
 }
 finally {

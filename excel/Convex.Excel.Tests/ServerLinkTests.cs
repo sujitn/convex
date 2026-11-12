@@ -82,7 +82,7 @@ namespace Convex.Excel.Tests
             Connect();
 
             await Eventually(() => a.Last is 99.5);
-            Assert.Equal("Valid", quality.Last);
+            await Eventually(() => Assert.Equal("Valid", quality.Last)); // each cell is pushed on its own
             await Eventually(() => Detail(b)?.Contains("has no result for BOND-B yet") == true);
             Assert.Equal(ExcelError.ExcelErrorNA, b.Last);
             // One batch, both instruments; the bearer token went on the upgrade with no Origin.
@@ -112,12 +112,15 @@ namespace Convex.Excel.Tests
             var missing = Live("BOND-A", measure: "dv01_mid");
             Connect();
             await Eventually(() => revision.Last is 5.0);
-            Assert.Equal("Complete", status.Last);
-            Assert.Equal(new DateTime(2026, 11, 7, 10, 0, 1, DateTimeKind.Utc).AddTicks(1234567).ToOADate(), (double)calculated.Last!, 9);
-            Assert.Equal("snap-7", snapshot.Last);
-            Assert.Equal(3.0, version.Last);
-            Assert.Equal(ExcelError.ExcelErrorNA, missing.Last);
-            Assert.Contains("no measure dv01_mid; it has clean_price_mid, ytm_mid", Detail(missing));
+            await Eventually(() => // each cell is pushed on its own
+            {
+                Assert.Equal("Complete", status.Last);
+                Assert.Equal(new DateTime(2026, 11, 7, 10, 0, 1, DateTimeKind.Utc).AddTicks(1234567).ToOADate(), Assert.IsType<double>(calculated.Last), 9);
+                Assert.Equal("snap-7", snapshot.Last);
+                Assert.Equal(3.0, version.Last);
+                Assert.Equal(ExcelError.ExcelErrorNA, missing.Last);
+                Assert.Contains("no measure dv01_mid; it has clean_price_mid, ytm_mid", Detail(missing));
+            });
         }
 
         [Fact]
@@ -316,7 +319,7 @@ namespace Convex.Excel.Tests
             var byIsin = Live("us0378331005");
             await Eventually(() => byIsin.Last is 99.5);
             Assert.Equal(3, _server.ResolveCalls); // one 429, then one per identifier
-            Assert.Equal("Valid", byLowercase.Last);
+            await Eventually(() => Assert.Equal("Valid", byLowercase.Last)); // each cell is pushed on its own
             Assert.Single(_server.Subscribes(), s => s.Contains("BOND-A"));
 
             var unknown = Live("594918104"); // a valid CUSIP the server does not know
@@ -397,7 +400,7 @@ namespace Convex.Excel.Tests
             Assert.Equal("Not configured", connection.First);
             Connect();
             await Eventually(() => connection.Last is "Connected");
-            Assert.Equal("tester", user.Last ?? user.First);
+            await Eventually(() => Assert.Equal("tester", user.Last ?? user.First)); // each cell is pushed on its own
             _source.Configure(null, _tokens);
             await Eventually(() => connection.Last is "Not configured");
         }
@@ -474,6 +477,31 @@ namespace Convex.Excel.Tests
             await Eventually(() => Said() == 3);
         }
 
+        [Fact]
+        public async Task A_reconnect_while_a_refusal_is_being_retried_says_the_refusal_again()
+        {
+            var timings = Fast();
+            timings.RetryRefused = TimeSpan.FromMilliseconds(60);
+            using var test = new ServerLinkTests(timings);
+            test._server.RefusalCode = "ACCESS_QUOTA_EXCEEDED";
+            test._server.Forbidden["QUOTA-R"] = 0;
+            test.Live("QUOTA-R");
+            test.Connect();
+            int Said() => CxLog.Events.Snapshot().Count(e => e.Text.StartsWith("instrument QUOTA-R refused", StringComparison.Ordinal));
+            int Sent() => test._server.Subscribes().Count(s => s.Contains("QUOTA-R"));
+            await Eventually(() => Said() == 1);
+
+            // Hold the next retry's answer, so the reconnect lands while it is in flight.
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            test._server.SubscribeGate = gate;
+            int before = Sent();
+            await Eventually(() => Sent() > before);
+            test._source.Reconnect();
+            test._server.SubscribeGate = null;
+            gate.SetResult(true);
+            await Eventually(() => Said() == 2);
+        }
+
         private static bool History(string start) => CxLog.Events.Snapshot().Any(e => e.Text.StartsWith(start, StringComparison.Ordinal));
 
         // ------------------------------------------------------------------
@@ -488,12 +516,41 @@ namespace Convex.Excel.Tests
             }
         }
 
+        /// Retry assertions until they all hold. Each cell is pushed on its own,
+        /// so one cell's value says nothing yet about its neighbours'. At the
+        /// deadline the last failure is thrown, so its message survives.
+        internal static async Task Eventually(Action assertions, TimeSpan? timeout = null)
+        {
+            var until = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(4));
+            while (true)
+            {
+                try
+                {
+                    assertions();
+                    return;
+                }
+                catch (Xunit.Sdk.XunitException) when (DateTime.UtcNow <= until) { }
+                await Task.Delay(20);
+            }
+        }
+
         internal sealed class Cell : ITopicSink
         {
             public object? First;
             public string Key = "";
             public readonly ConcurrentQueue<object> Pushed = new();
-            public void Push(object value) => Pushed.Enqueue(value);
+            /// When set, the first push it matches waits on its thread until Release is set.
+            public Func<object, bool>? Hold;
+            public readonly ManualResetEventSlim Held = new(), Release = new();
+            public void Push(object value)
+            {
+                if (Hold is { } hold && hold(value) && Interlocked.CompareExchange(ref Hold, null, hold) == hold)
+                {
+                    Held.Set();
+                    Release.Wait(TimeSpan.FromSeconds(10));
+                }
+                Pushed.Enqueue(value);
+            }
             public object? Last => Pushed.LastOrDefault() ?? First;
             public IEnumerable<object> Values => new[] { First! }.Concat(Pushed);
         }

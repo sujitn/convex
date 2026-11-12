@@ -286,10 +286,11 @@ namespace Convex.Excel.Server
                 LoseSession();
                 foreach (var inst in _instruments.Values)
                 {
+                    // Every refusal is forgotten, including one whose retry is in flight.
+                    inst.LoggedRefusal = null;
                     if (inst.Sub == Subscription.Refused)
                     {
                         inst.Sub = Subscription.Wanted;
-                        inst.LoggedRefusal = null;
                         ClearProblem(inst);
                         _changed.Add(inst.Id);
                     }

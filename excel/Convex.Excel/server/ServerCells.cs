@@ -169,6 +169,8 @@ namespace Convex.Excel.Server
             public readonly string Field;
             public readonly ITopicSink Sink;
             public readonly object Gate = new();
+            /// One push at a time. Only Evaluate takes it, and never while holding Gate.
+            public readonly object PushGate = new();
             public string? InstrumentId;
             /// A CX.LIMIT cell's book and limit (Identifier and Measure hold them).
             public bool IsLimit;
@@ -476,14 +478,25 @@ namespace Convex.Excel.Server
                 cell.Value = value;
             }
             if (!push) return value;
-            try
+            // Two threads can evaluate one cell, and a push made after Gate is
+            // released could land after a newer one: Excel would keep the older
+            // value, and the cutoff above would never push again. So push one at a
+            // time, and push the value held now, not the one computed here: the
+            // last push then always carries the latest value.
+            lock (cell.PushGate)
             {
-                cell.Sink.Push(value);
-                Ops.FrameTimer.Pushed();
-            }
-            catch (Exception ex)
-            {
-                CxErrorStore.Record(ex, "(server)", "server cell push");
+                object? current;
+                lock (cell.Gate) current = cell.Value;
+                if (current == null) return value;
+                try
+                {
+                    cell.Sink.Push(current);
+                    Ops.FrameTimer.Pushed();
+                }
+                catch (Exception ex)
+                {
+                    CxErrorStore.Record(ex, "(server)", "server cell push");
+                }
             }
             return value;
         }

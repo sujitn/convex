@@ -88,10 +88,13 @@ namespace Convex.Excel.Tests
             Connect();
 
             await Eventually(() => status.Last is "within" && value.Last is 12000.0);
-            Assert.Equal("Demo", quality.Last); // the demo server labels its responses
-            Assert.Equal("BOND-1", member.Last);
-            Assert.Equal(ExcelError.ExcelErrorNA, record.Last);
-            Assert.Contains("a status read carries no record id", Detail(record));
+            await Eventually(() => // each cell is pushed on its own
+            {
+                Assert.Equal("Demo", quality.Last); // the demo server labels its responses
+                Assert.Equal("BOND-1", member.Last);
+                Assert.Equal(ExcelError.ExcelErrorNA, record.Last);
+                Assert.Contains("a status read carries no record id", Detail(record));
+            });
             // Subscribed first, then read: the read came after the acknowledgement.
             Assert.Equal(new[] { new[] { "BOOK-A" } }, _server.LimitSubscribes());
             Assert.Equal(new[] { "BOOK-A" }, _server.StatusReads.ToArray());
@@ -116,15 +119,18 @@ namespace Convex.Excel.Tests
                 .ToDictionary(f => f, f => Limit("BOOK-A", "krd", f));
             Connect();
             await Eventually(() => fields["upper"].Last is 500.0);
-            Assert.Equal("key_rate_dv01 5Y", fields["measure"].Last);
-            Assert.Equal("missing_result: BOND-1, BOND-2 (3 in all)", fields["reason"].Last);
-            Assert.Equal(new DateTime(2026, 11, 9, 10, 0, 0, DateTimeKind.Utc).ToOADate(), fields["evaluated_at"].Last);
-            Assert.Equal(3.0, fields["book_version"].Last);
-            Assert.Equal(2.0, fields["limit_set_version"].Last);
-            Assert.Equal(ExcelError.ExcelErrorNA, fields["lower"].Last);
-            Assert.Contains("has no lower bound", Detail(fields["lower"]));
-            Assert.Equal(ExcelError.ExcelErrorNA, fields["value"].Last);
-            Assert.Contains("is unknown: missing_result", Detail(fields["value"]));
+            await Eventually(() => // each cell is pushed on its own
+            {
+                Assert.Equal("key_rate_dv01 5Y", fields["measure"].Last);
+                Assert.Equal("missing_result: BOND-1, BOND-2 (3 in all)", fields["reason"].Last);
+                Assert.Equal(new DateTime(2026, 11, 9, 10, 0, 0, DateTimeKind.Utc).ToOADate(), fields["evaluated_at"].Last);
+                Assert.Equal(3.0, fields["book_version"].Last);
+                Assert.Equal(2.0, fields["limit_set_version"].Last);
+                Assert.Equal(ExcelError.ExcelErrorNA, fields["lower"].Last);
+                Assert.Contains("has no lower bound", Detail(fields["lower"]));
+                Assert.Equal(ExcelError.ExcelErrorNA, fields["value"].Last);
+                Assert.Contains("is unknown: missing_result", Detail(fields["value"]));
+            });
         }
 
         [Fact]
@@ -143,6 +149,24 @@ namespace Convex.Excel.Tests
             Assert.Equal("breach", status.Last);
             // A change older than what is shown is ignored.
             _server.PublishLimit(FakeConvexServer.LimitChange("BOOK-A", 6, "within", Dv01("warning", "41000"), T0));
+            await Task.Delay(300);
+            Assert.Equal("breach", status.Last);
+        }
+
+        [Fact]
+        public async Task A_push_held_up_on_one_thread_does_not_hide_a_newer_value()
+        {
+            _server.LimitStatus["BOOK-A"] = FakeConvexServer.LimitStatusBody("BOOK-A", 1, 1, T1, Dv01("within", "40000"));
+            var status = Limit("BOOK-A", "dv01");
+            // The read's "within" stalls on its way to Excel, on the thread that read it.
+            status.Hold = v => v is "within";
+            Connect();
+            await Eventually(() => status.Held.IsSet);
+            // Meanwhile a newer change is evaluated on the receive thread.
+            _server.PublishLimit(FakeConvexServer.LimitChange("BOOK-A", 7, "within", Dv01("breach", "52000"), T2));
+            await Task.Delay(300);
+            status.Release.Set();
+            await Eventually(() => status.Last is "breach");
             await Task.Delay(300);
             Assert.Equal("breach", status.Last);
         }
@@ -197,7 +221,7 @@ namespace Convex.Excel.Tests
                 ServerCells.TopicStrings("BOND-A", "clean_price_mid", "value"), price);
             await Eventually(() => price.Last is 99.5);
             await Eventually(() => Detail(status)?.Contains("not entitled to the limits of book BOOK-A") == true);
-            Assert.Equal(ExcelError.ExcelErrorNA, status.Last);
+            await Eventually(() => Assert.Equal(ExcelError.ExcelErrorNA, status.Last)); // the detail is set before the push
             await Eventually(() => _server.LimitUnsubscribes().Any(u => u.Contains("BOOK-A")));
             Assert.Equal(1, _server.SessionsOpened); // the session went on
 
@@ -223,6 +247,29 @@ namespace Convex.Excel.Tests
             Assert.Equal(1, Said());
 
             test._source.Reconnect();
+            await Eventually(() => Said() == 2);
+        }
+
+        [Fact]
+        public async Task A_reconnect_while_a_book_refusal_is_being_retried_says_the_refusal_again()
+        {
+            using var test = new LimitLinkTests(TimeSpan.FromMilliseconds(60));
+            test._server.RefusalCode = "ACCESS_QUOTA_EXCEEDED";
+            test._server.ForbiddenBooks["QUOTA-BR"] = 0;
+            test.Limit("QUOTA-BR", "dv01");
+            test.Connect();
+            int Said() => Ops.CxLog.Events.Snapshot().Count(e => e.Text.StartsWith("book QUOTA-BR refused", StringComparison.Ordinal));
+            int Sent() => test._server.LimitSubscribes().Count(s => s.Contains("QUOTA-BR"));
+            await Eventually(() => Said() == 1);
+
+            // Hold the next retry's answer, so the reconnect lands while it is in flight.
+            var gate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            test._server.SubscribeGate = gate;
+            int before = Sent();
+            await Eventually(() => Sent() > before);
+            test._source.Reconnect();
+            test._server.SubscribeGate = null;
+            gate.SetResult(true);
             await Eventually(() => Said() == 2);
         }
 

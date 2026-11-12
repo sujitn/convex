@@ -52,6 +52,9 @@ namespace Convex.Excel.Tests
         public ConcurrentQueue<(int Status, int? RetryAfter)> StatusScript { get; } = new();
         /// When set, a status read waits for it before answering (with the body current then).
         public TaskCompletionSource<bool>? StatusGate { get; set; }
+        /// When set, a subscribe_valuations or subscribe_limits waits for it before answering,
+        /// so the add-in holds the subscription as sent.
+        public TaskCompletionSource<bool>? SubscribeGate { get; set; }
         /// A subscribe_limits listing one of these is refused with RefusalCode.
         public ConcurrentDictionary<string, byte> ForbiddenBooks { get; } = new();
         /// Without a monitor, subscribe_limits is refused as the server refuses it.
@@ -373,6 +376,8 @@ namespace Convex.Excel.Tests
         {
             var ids = (message["instrument_ids"] as JArray ?? new JArray()).Select(t => (string)t!).ToArray();
             var books = (message["book_ids"] as JArray ?? new JArray()).Select(t => (string)t!).ToArray();
+            if ((string?)message["type"] is "subscribe_valuations" or "subscribe_limits" && SubscribeGate is { } gate)
+                await gate.Task.ConfigureAwait(false);
             switch ((string?)message["type"])
             {
                 case "subscribe_limits":
