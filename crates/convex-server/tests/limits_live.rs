@@ -184,7 +184,7 @@ async fn status_reads_live_results_and_names_the_snapshots_it_read() {
         None,
     )
     .await;
-    let result = &results[0]["result"]["results"];
+    let result = &results["results"][0]["result"]["results"];
     let dirty = number(&result["clean_price_mid"]["value"]["value"])
         + number(&result["accrued_interest"]["value"]["value"]);
 

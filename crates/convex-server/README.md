@@ -244,10 +244,21 @@ as a `valuation` message with its `runtime_id`, `revision` and result envelope, 
 with neither a `valuation` nor a `RESULT_TOO_LARGE` error (below) has no result yet. Each later result arrives as another `valuation`.
 A result sent at subscription can be newer than one already on its way, so keep the newer
 by `(runtime_id, revision)`. After `RESYNC_REQUIRED`, subscribe again to the same
-instruments to receive their current results, or read `GET /api/v1/runtime/results`.
+instruments to receive their current results, or read `GET /api/v1/runtime/results`
+(below).
 A message is at most 64 KiB. A result larger than that, at subscription or later, arrives
 as a `RESULT_TOO_LARGE` error naming the instrument, `runtime_id` and `revision`; read
 the result from `GET /api/v1/runtime/results`. The session stays open.
+
+`GET /api/v1/runtime/results` returns the runtime's current results a page at a time, in
+instrument ID order: `{"results":[...],"next_after":"BOND-W255","more":true}`. A page
+holds at most `limit` results, 256 unless asked and at most 1,024, after the instrument
+`after`, which need not be one the runtime values. Read the next page with
+`?after=<next_after>` while `more` is true; on the last page `next_after` is `null`. Pages
+are read at different times, so keep the newer record by `(runtime_id, revision)`, as for
+the stream. A bad `limit` or `after`, or any other query parameter, is 400. The route needs
+the `ResultRead` action and wildcard grants on instruments, curves and sources; its output
+is not inspected again, since a runtime record names only instruments and curves.
 
 Send `{"type":"subscribe_limits","book_ids":[...]}` to receive a `limit_status` message
 for each change the limit monitor records for those books (see

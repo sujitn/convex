@@ -790,7 +790,20 @@ impl Task {
             return;
         }
         let started = Instant::now();
-        let accepted: Accepted = accepted_results(&self.engine);
+        // The results of the books evaluated, from one table. Every book's are those of
+        // the watched instruments, each listed once.
+        let every = subjects.len() == self.books.len();
+        let accepted: Accepted = if every {
+            accepted_results(&self.engine, self.holders.keys().map(String::as_str))
+        } else {
+            accepted_results(
+                &self.engine,
+                subjects
+                    .iter()
+                    .filter_map(|(_, subject)| subject.book.as_ref())
+                    .flat_map(|(_, book)| book.positions.iter().map(|p| p.instrument_id.as_str())),
+            )
+        };
         let settlement = self.engine.runtime_settlement_date();
         let Ok(evaluated_at) = crate::reference::now() else {
             tracing::error!("limit monitor: the clock is outside the supported range");
@@ -855,8 +868,15 @@ impl Task {
             gauges(id, &watched.recorded);
         }
         if self.terms.len() > MAX_TERMS {
-            self.terms.retain(|(instrument, version), _| {
+            // Kept for every watched instrument's priced version, not only this pass's
+            // books', so no other book reads its terms again.
+            let watched = if every {
                 accepted
+            } else {
+                accepted_results(&self.engine, self.holders.keys().map(String::as_str))
+            };
+            self.terms.retain(|(instrument, version), _| {
+                watched
                     .get(instrument.as_str())
                     .is_some_and(|versions| versions.contains_key(&version.get()))
             });

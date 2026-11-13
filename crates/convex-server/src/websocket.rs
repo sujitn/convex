@@ -125,7 +125,8 @@ pub enum ServerMessage {
     /// Server heartbeat
     Heartbeat { server_time: i64 },
     /// Canonical durable result state from the pricing runtime.
-    Valuation(Box<convex_engine::ports::runtime::PublishedValuation>),
+    /// Shared with the runtime, so a frame to many sessions copies no record.
+    Valuation(Arc<convex_engine::ports::runtime::PublishedValuation>),
     /// A recorded change of one limit's status.
     LimitStatus(Arc<LimitStatusChange>),
 }
@@ -299,7 +300,7 @@ async fn handle_socket(
                 match result {
                     Ok(result) => {
                         let subscribed = valuation_instrument(&result).is_some_and(|id| session.valuation_subscriptions.contains(&id));
-                        if subscribed && send_message(&mut sender, &ServerMessage::Valuation(Box::new(result)), profile, &authorization).await.is_err() { break; }
+                        if subscribed && send_message(&mut sender, &ServerMessage::Valuation(result), profile, &authorization).await.is_err() { break; }
                     }
                     Err(broadcast::error::RecvError::Lagged(_)) => {
                         if send_message(&mut sender, &valuations_resync(), profile, &authorization).await.is_err() { break; }
@@ -487,12 +488,9 @@ fn handle_client_message(
             // queued on the stream can be older than the one sent here; the client keeps
             // the newer by (runtime_id, revision).
             let mut replies: Vec<ServerMessage> = engine
-                .runtime_results()
+                .runtime_results_of(listed.iter().map(InstrumentId::as_str))
                 .into_iter()
-                .filter(|result| {
-                    valuation_instrument(result).is_some_and(|id| listed.contains(&id))
-                })
-                .map(|result| ServerMessage::Valuation(Box::new(result)))
+                .map(ServerMessage::Valuation)
                 .collect();
             replies.push(ServerMessage::Subscribed {
                 subscription_type: "valuations".into(),
@@ -897,13 +895,13 @@ mod tests {
 
     #[test]
     fn a_valuation_too_large_for_one_message_is_sent_as_an_error_naming_it() {
-        let fits = ServerMessage::Valuation(Box::new(valuation(8)));
+        let fits = ServerMessage::Valuation(Arc::new(valuation(8)));
         let sent: serde_json::Value =
             serde_json::from_str(&encode(&fits, ServerProfile::Production).unwrap()).unwrap();
         assert_eq!(sent["type"], "valuation");
 
         // 256 records with 128-character ids: the most a lineage holds, about 77 KiB.
-        let large = ServerMessage::Valuation(Box::new(valuation(256)));
+        let large = ServerMessage::Valuation(Arc::new(valuation(256)));
         assert!(
             serialize_message(&large, ServerProfile::Production)
                 .unwrap()

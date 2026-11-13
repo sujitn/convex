@@ -65,7 +65,7 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
         .await
         .unwrap();
     assert_eq!(ready.status(), StatusCode::OK);
-    let results: Vec<Value> = server
+    let page: Value = server
         .client
         .get(format!("{}/api/v1/runtime/results", server.base))
         .send()
@@ -74,6 +74,7 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
         .json()
         .await
         .unwrap();
+    let results = page["results"].as_array().unwrap();
     assert_eq!(results.len(), 1);
     assert!(results[0]["live_valid_until"].is_string(), "{}", results[0]);
     server.stop().await;

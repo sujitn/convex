@@ -86,7 +86,7 @@ pub use portfolio_analytics::{
 pub use pricing_router::{BatchPricingResult, PricingRouter};
 pub use runtime::{
     AcceptedUpdate, RuntimeError, RuntimeHealth, RuntimeInput, RuntimeMode, RuntimePhase,
-    RuntimePlan, RuntimeServices, MAX_RUNTIME_INSTRUMENTS,
+    RuntimePlan, RuntimeResultsPage, RuntimeServices, MAX_RUNTIME_INSTRUMENTS,
 };
 
 use std::sync::Arc;
@@ -367,9 +367,27 @@ impl PricingEngine {
         self.runtime.subscribe_shutdown()
     }
 
-    /// Canonical persisted result states with original last-good timestamps.
+    /// Canonical persisted result states with original last-good timestamps. Copies every
+    /// record; a reader of some instruments uses [`Self::runtime_results_of`], and a
+    /// reader of all of them pages with [`Self::runtime_results_page`].
     pub fn runtime_results(&self) -> Vec<ports::runtime::PublishedValuation> {
         self.runtime.results()
+    }
+
+    /// The current records of the listed instruments, shared and in the runtime's order,
+    /// all from one table. An instrument outside the plan, or not yet valued, has none.
+    pub fn runtime_results_of<'a>(
+        &self,
+        instruments: impl IntoIterator<Item = &'a str>,
+    ) -> Vec<Arc<ports::runtime::PublishedValuation>> {
+        self.runtime.results_of(instruments)
+    }
+
+    /// At most `limit` (at least one) current records in instrument ID order, after the
+    /// instrument `after`. Pages are read at different times, so a reader keeps the newer
+    /// record by `(runtime_id, revision)` (D103).
+    pub fn runtime_results_page(&self, after: Option<&str>, limit: usize) -> RuntimeResultsPage {
+        self.runtime.results_page(after, limit)
     }
 
     /// Settlement date of the composed runtime plan; every runtime result is valued for it.
@@ -377,10 +395,11 @@ impl PricingEngine {
         self.runtime.settlement_date()
     }
 
-    /// Transient display stream. Lag is explicit; resync through runtime_results.
+    /// Transient display stream of shared records. Lag is explicit; resync through
+    /// runtime_results_page or runtime_results_of.
     pub fn subscribe_results(
         &self,
-    ) -> tokio::sync::broadcast::Receiver<ports::runtime::PublishedValuation> {
+    ) -> tokio::sync::broadcast::Receiver<Arc<ports::runtime::PublishedValuation>> {
         self.runtime.subscribe()
     }
 

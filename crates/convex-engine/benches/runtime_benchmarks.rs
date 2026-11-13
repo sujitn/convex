@@ -343,9 +343,9 @@ impl Quotes {
 /// newest generation matters here.
 fn wait_for(
     rt: &tokio::runtime::Runtime,
-    updates: &mut tokio::sync::broadcast::Receiver<PublishedValuation>,
+    updates: &mut tokio::sync::broadcast::Receiver<std::sync::Arc<PublishedValuation>>,
     generation: u64,
-) -> PublishedValuation {
+) -> std::sync::Arc<PublishedValuation> {
     use tokio::sync::broadcast::error::RecvError;
     rt.block_on(async {
         tokio::time::timeout(Duration::from_secs(120), async {

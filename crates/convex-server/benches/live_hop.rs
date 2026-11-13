@@ -11,7 +11,10 @@
 //! - `batch256/256`: one `POST` of 256 quotes, one per bond, until the frame of the tick
 //!   that admitted the last; reported as quotes/s.
 //! - `burst1/256/sessions8`: one quote until each of eight sessions holds its frame. Each
-//!   session serializes its own copy of the record.
+//!   session serializes the record, which the sessions share (P17a).
+//! - `subscribe/256`: a `subscribe_valuations` of every bond until its `subscribed`
+//!   acknowledgement, which follows the 256 results it seeds (D99). Listing followed bonds
+//!   again resends their results, so one session repeats it (P17a).
 //!
 //! An error frame, such as `RESYNC_REQUIRED` after a lagging session (G38), fails the case.
 //!
@@ -247,6 +250,23 @@ impl Live {
         elapsed
     }
 
+    /// Subscribe `socket` to every bond again and return the time until the
+    /// acknowledgement that follows the seed of each bond's result.
+    async fn subscribe(&mut self, socket: &mut Socket) -> Duration {
+        self.pacer.wait(1).await;
+        let subscribe = serde_json::json!({
+            "type": "subscribe_valuations",
+            "instrument_ids": self.ids(),
+        });
+        let started = Instant::now();
+        socket
+            .send(Message::Text(subscribe.to_string().into()))
+            .await
+            .unwrap();
+        until(socket, |f| f.kind == "subscribed").await;
+        started.elapsed()
+    }
+
     async fn stop(self, sockets: Vec<Socket>) {
         for mut socket in sockets {
             let _ = socket.close(None).await;
@@ -322,6 +342,20 @@ fn bench_live_hop(c: &mut Criterion) {
             })
         },
     );
+    // No tick runs, so the other sessions wait idle.
+    group.throughput(Throughput::Elements(WIDE as u64));
+    group.bench_function(BenchmarkId::new("subscribe", WIDE), |b| {
+        b.iter_custom(|iterations| {
+            rt.block_on(async {
+                let mut total = Duration::ZERO;
+                for _ in 0..iterations {
+                    total += wide.subscribe(&mut sockets[0]).await;
+                }
+                total
+            })
+        })
+    });
+    group.throughput(Throughput::Elements(1));
     rt.block_on(wide.stop(sockets));
 
     let mut one = rt.block_on(Live::start(1));

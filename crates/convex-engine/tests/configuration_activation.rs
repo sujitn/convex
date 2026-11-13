@@ -418,7 +418,7 @@ async fn cvx010_ac2_override_expiry_is_exclusive_preserves_history_last_good_and
     let restarted = support::engine(&setup, service);
     restarted.start().await.unwrap();
     assert!(!restarted.runtime_health().ready);
-    assert_eq!(restarted.runtime_results(), [expired]);
+    assert_eq!(restarted.runtime_results(), [(*expired).clone()]);
     restarted.shutdown().await.unwrap();
 }
 
@@ -739,7 +739,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
         .unwrap()
         .unwrap();
     assert_eq!(expired.result.status(), ResultStatus::Failed);
-    assert_eq!(expired.last_good, Some(good.result));
+    assert_eq!(expired.last_good, Some(good.result.clone()));
     assert!(!engine.runtime_health().ready);
     // The refresh ran at the expiry under the 50 ms base age, so the two-second-old quote is
     // stale. Live snapshots are not stored.

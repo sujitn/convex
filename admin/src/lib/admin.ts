@@ -1,4 +1,5 @@
 import { parse as parseExact, stringify as stringifyExact } from 'lossless-json'
+import type { PublishedValuation, RuntimeResultsPage } from './types'
 
 // Pure helpers shared by the screens. Nothing here validates domain data: the
 // server's strict decoders are the only validators (D40).
@@ -10,6 +11,24 @@ import { parse as parseExact, stringify as stringifyExact } from 'lossless-json'
 /** Parse a response keeping every number exactly as written. */
 export function readExact(text: string): unknown {
   return parseExact(text)
+}
+
+/**
+ * Every runtime result, read a page at a time from the start (D103). The cursor only
+ * moves forward, so each instrument is on one page of the walk and the pages join
+ * without duplicates.
+ */
+export async function readAllPages(
+  read: (after: string | null) => Promise<RuntimeResultsPage>,
+): Promise<PublishedValuation[]> {
+  const results: PublishedValuation[] = []
+  let after: string | null = null
+  for (;;) {
+    const page = await read(after)
+    results.push(...page.results)
+    if (!page.more || page.next_after === null) return results
+    after = page.next_after
+  }
 }
 
 /** Render a value read with `readExact`, numbers unchanged, indented for an editor. */

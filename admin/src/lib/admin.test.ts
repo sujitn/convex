@@ -10,11 +10,41 @@ import {
   masterLabel,
   newIdempotencyKey,
   rawObject,
+  readAllPages,
   readExact,
   restartState,
   writeExact,
   type MasterRecord,
 } from './admin'
+
+describe('readAllPages', () => {
+  const record = (id: string, revision: number) =>
+    ({ runtime_id: 'R', revision, result: { provenance: { subject: { instrument_id: id } } } }) as never
+
+  it('walks from the start until no more follow, resuming after each page', async () => {
+    const asked: (string | null)[] = []
+    const pages = new Map([
+      [null, { results: [record('A', 3), record('B', 1)], next_after: 'B', more: true }],
+      ['B', { results: [record('C', 2)], next_after: null, more: false }],
+    ])
+    const all = await readAllPages(async (after) => {
+      asked.push(after)
+      return pages.get(after as never)!
+    })
+    expect(asked).toEqual([null, 'B'])
+    expect(all.map((r) => (r as { revision: number }).revision)).toEqual([3, 1, 2])
+  })
+
+  it('reads one page of a runtime with no results', async () => {
+    let reads = 0
+    const all = await readAllPages(async () => {
+      reads += 1
+      return { results: [], next_after: null, more: false }
+    })
+    expect(all).toEqual([])
+    expect(reads).toBe(1)
+  })
+})
 
 const calendar: MasterRecord = {
   version: 3,

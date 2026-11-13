@@ -41,7 +41,7 @@ async fn update(
         .unwrap()
         .unwrap();
     assert_eq!(result.generation, receipt.generation);
-    result
+    std::sync::Arc::unwrap_or_clone(result)
 }
 #[tokio::test]
 async fn cvx005_ac1_actual_quote_to_snapshot_graph_and_durable_publication() {
@@ -843,16 +843,16 @@ async fn a_live_restart_after_a_delivery_loss_is_ready_after_one_accepted_result
 
 /// The two records one tick of a two-bond plan publishes, in plan order.
 async fn two_bond_tick(
-    updates: &mut tokio::sync::broadcast::Receiver<PublishedValuation>,
+    updates: &mut tokio::sync::broadcast::Receiver<std::sync::Arc<PublishedValuation>>,
 ) -> [PublishedValuation; 2] {
     let mut records = Vec::with_capacity(2);
     for _ in 0..2 {
-        records.push(
+        records.push(std::sync::Arc::unwrap_or_clone(
             tokio::time::timeout(Duration::from_secs(5), updates.recv())
                 .await
                 .unwrap()
                 .unwrap(),
-        );
+        ));
     }
     assert_eq!(records[0].generation, records[1].generation);
     records.try_into().unwrap()
@@ -909,7 +909,7 @@ async fn live_judges_each_bond_only_on_its_own_inputs() {
         .all(|e| e.code() == ErrorCode::StaleInput));
     assert_eq!(aged.retained_quality, Some(DataQuality::Stale));
     assert_eq!(aged.last_good.as_ref(), Some(&both[1].result));
-    assert_eq!(engine.runtime_results(), [both[0].clone(), aged.clone()]);
+    assert_eq!(engine.runtime_results(), [both[0].clone(), (*aged).clone()]);
     let health = engine.runtime_health();
     assert_eq!(health.generation, aged.generation.get());
     assert!(health.ready, "{health:?}");
@@ -923,6 +923,82 @@ async fn live_judges_each_bond_only_on_its_own_inputs() {
             .is_err()
     );
     assert_eq!(engine.runtime_health().generation, health.generation);
+    engine.shutdown().await.unwrap();
+}
+
+/// The instrument a runtime record values.
+fn instrument_of(record: &PublishedValuation) -> String {
+    match &record.result.provenance().subject {
+        ValuationSubject::InstrumentVersion { instrument_id, .. } => {
+            instrument_id.as_str().to_owned()
+        }
+        other => panic!("not an instrument: {other:?}"),
+    }
+}
+fn instruments_of(records: &[Arc<PublishedValuation>]) -> Vec<String> {
+    records.iter().map(|record| instrument_of(record)).collect()
+}
+
+/// D103: readers share the runtime's records. A read by instrument returns each listed
+/// instrument's current record once, in the plan's order; a page reads in instrument ID
+/// order after a cursor, which need not be an instrument of the plan. Neither has a record
+/// before the runtime starts. The plan here lists its bonds against ID order.
+#[tokio::test]
+async fn live_results_are_shared_and_read_by_instrument_or_by_page() {
+    let s = setup().await;
+    let mut plan = live_plan(&s);
+    widen(&s, &mut plan, 3).await;
+    plan.assembly.instruments.reverse();
+    plan.assembly.quotes.reverse();
+    let source = Arc::new(SubscriptionSource::new());
+    let engine = live_engine(&s, plan, s.store.clone(), source.clone());
+    let empty = RuntimeResultsPage {
+        results: Vec::new(),
+        next_after: None,
+        more: false,
+    };
+    assert!(engine.runtime_results_of(["BOND-001"]).is_empty());
+    assert_eq!(engine.runtime_results_page(None, 2), empty);
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    for id in ["BOND-W002", "BOND-001", "BOND-W001"] {
+        let stamp = monotone_stamp();
+        let mut event = fixture::event(1, stamp, stamp, "99.25");
+        event.key.instrument_id = convex_core::ids::InstrumentId::new(id);
+        source.send(event);
+    }
+    // The latest record published for each bond. This current-thread test runs the actor
+    // only while it awaits, so nothing is published between the last receive and the reads.
+    let mut published = std::collections::BTreeMap::new();
+    while published.len() < 3 || !updates.is_empty() {
+        let record = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(record.result.status(), ResultStatus::Complete);
+        published.insert(instrument_of(&record), record);
+    }
+
+    let listed = engine.runtime_results_of(["BOND-001", "BOND-W002", "BOND-001", "NOT-PLANNED"]);
+    assert_eq!(instruments_of(&listed), ["BOND-W002", "BOND-001"]);
+    for record in &listed {
+        assert!(Arc::ptr_eq(record, &published[&instrument_of(record)]));
+    }
+    let first = engine.runtime_results_page(None, 2);
+    assert_eq!(instruments_of(&first.results), ["BOND-001", "BOND-W001"]);
+    assert_eq!(first.next_after.as_deref(), Some("BOND-W001"));
+    assert!(first.more);
+    let last = engine.runtime_results_page(first.next_after.as_deref(), 2);
+    assert_eq!(instruments_of(&last.results), ["BOND-W002"]);
+    assert_eq!((last.next_after, last.more), (None, false));
+    for record in first.results.iter().chain(&last.results) {
+        assert!(Arc::ptr_eq(record, &published[&instrument_of(record)]));
+    }
+    let between = engine.runtime_results_page(Some("BOND-0"), 1);
+    assert_eq!(instruments_of(&between.results), ["BOND-001"]);
+    assert_eq!(engine.runtime_results_page(Some("BOND-W002"), 2), empty);
+    // A limit of zero reads one.
+    assert_eq!(engine.runtime_results_page(None, 0).results.len(), 1);
     engine.shutdown().await.unwrap();
 }
 
@@ -962,7 +1038,10 @@ async fn live_values_only_the_bonds_whose_inputs_changed() {
             single.result.provenance().snapshot_id,
             both[1].result.provenance().snapshot_id
         );
-        assert_eq!(engine.runtime_results(), [single.clone(), both[1].clone()]);
+        assert_eq!(
+            engine.runtime_results(),
+            [(*single).clone(), both[1].clone()]
+        );
         let health = engine.runtime_health();
         assert!(health.ready, "{health:?}");
         assert_eq!(health.generation, single.generation.get());

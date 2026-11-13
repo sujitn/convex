@@ -122,9 +122,12 @@ async fn liveness_is_separate_from_readiness_and_rest_matches_the_actual_runtime
         )
         .await
         .unwrap();
-    let states: Vec<PublishedValuation> =
+    let page: serde_json::Value =
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
-    assert_eq!(states, vec![failed]);
+    assert_eq!(page["more"], false, "{page}");
+    assert!(page["next_after"].is_null(), "{page}");
+    let states: Vec<PublishedValuation> = serde_json::from_value(page["results"].clone()).unwrap();
+    assert_eq!(states, vec![(*failed).clone()]);
     engine.shutdown().await.unwrap();
 }
 #[tokio::test]
@@ -277,17 +280,21 @@ async fn subscribe(
 /// D99 (Excel X2a): a subscription first receives the current result of each listed instrument
 /// that has one, then the acknowledgement, so a client needs no table read to seed. Listing an
 /// instrument already followed resends its current result, which is how a client resyncs.
+/// The runtime values a second bond, which no subscription lists and none receives (D103).
 #[tokio::test]
 async fn a_subscription_receives_each_listed_instruments_current_result_before_its_ack() {
     let s = setup().await;
+    let mut plan = s.plan.clone();
+    widen(&s, &mut plan, 2).await;
     let engine = make_engine(
         &s,
         archive(&s),
-        s.plan.clone(),
+        plan,
         s.store.clone(),
         RuntimeInput::Captured,
     );
     engine.start().await.unwrap();
+    assert_eq!(engine.runtime_results().len(), 2);
     let current = |engine: &convex_engine::PricingEngine| {
         engine
             .runtime_results()
@@ -448,7 +455,7 @@ async fn process_replay_sigterm_and_redb_reopen_preserve_exact_published_state()
         })
         .await
         .unwrap();
-        let values: Vec<PublishedValuation> = client
+        let page: serde_json::Value = client
             .get(format!("http://{address}/api/v1/runtime/results"))
             .send()
             .await
@@ -456,6 +463,8 @@ async fn process_replay_sigterm_and_redb_reopen_preserve_exact_published_state()
             .json()
             .await
             .unwrap();
+        let values: Vec<PublishedValuation> =
+            serde_json::from_value(page["results"].clone()).unwrap();
         if run == 0 {
             previous = Some(values.clone());
         } else {
