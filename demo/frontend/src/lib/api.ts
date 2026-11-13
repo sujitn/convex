@@ -599,9 +599,12 @@ export async function getRuntimeResults(): Promise<PublishedValuation[]> {
   let after: string | null = null;
   for (;;) {
     const cursor: string = after === null ? '' : `&after=${encodeURIComponent(after)}`;
-    const page: RuntimeResultsPage = await fetchJson<RuntimeResultsPage>(
+    const page = await fetchJson<RuntimeResultsPage | PublishedValuation[]>(
       `/api/v1/runtime/results?limit=${RESULTS_PAGE}${cursor}`,
     );
+    // A server from before P17a ignores the query and returns every result as an array.
+    // The demo deploys on merge, before the server it reads is redeployed.
+    if (Array.isArray(page)) return page;
     results.push(...page.results);
     if (!page.more || page.next_after === null) return results;
     after = page.next_after;
