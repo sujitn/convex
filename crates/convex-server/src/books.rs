@@ -13,7 +13,7 @@
 // Internal early-return errors are the finished HTTP response itself.
 #![allow(clippy::result_large_err)]
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use axum::extract::rejection::{JsonRejection, QueryRejection};
@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::access::{AccessContext, Action, DataScope, Resource, ResourceKind};
 use crate::handlers::AppState;
+use crate::limits::Accepted;
 use crate::reference::{
     expected_version, key, now, reference_error, with_consumed_reference_version,
     with_reference_version,
@@ -1609,7 +1610,7 @@ fn gate_runtime_results(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
     record: &MasterRecord,
-) -> Result<Vec<PublishedValuation>, BookRefusal> {
+) -> Result<Vec<Arc<PublishedValuation>>, BookRefusal> {
     let book = book_of(record).map_err(refused_reference)?;
     let resources: Vec<Resource> = book
         .positions
@@ -1625,7 +1626,7 @@ fn gate_runtime_results(
         .access
         .authorize(ctx, Action::BookRead, &[DataScope::Books], &resources)
         .map_err(|_| forbidden())?;
-    let mut accepted = accepted_runtime_results(state);
+    let mut accepted = accepted_runtime_results(state, book);
     let mut found = Vec::with_capacity(book.positions.len());
     let mut missing = Vec::new();
     for p in &book.positions {
@@ -1656,24 +1657,28 @@ fn gate_runtime_results(
     ))
 }
 
-/// Complete runtime results by instrument and priced version. `Valid` is always accepted;
-/// `Demo` only in an explicit demonstration composition, the switch that also lets the
-/// runtime value and serve Demo inputs.
-pub(crate) fn accepted_runtime_results(
-    state: &AppState,
-) -> BTreeMap<String, BTreeMap<u64, PublishedValuation>> {
-    accepted_results(&state.engine)
+/// The complete runtime results of a book's instruments, by instrument and priced version.
+/// `Valid` is always accepted; `Demo` only in an explicit demonstration composition, the
+/// switch that also lets the runtime value and serve Demo inputs.
+pub(crate) fn accepted_runtime_results(state: &AppState, book: &BookDefinition) -> Accepted {
+    accepted_results(
+        &state.engine,
+        book.positions.iter().map(|p| p.instrument_id.as_str()),
+    )
 }
 
-/// [`accepted_runtime_results`] of an engine, for readers outside a request.
-pub(crate) fn accepted_results(
+/// [`accepted_runtime_results`] of an engine's listed instruments, for readers outside a
+/// request. The results are shared and read from one table, so none is from a later tick
+/// than another.
+pub(crate) fn accepted_results<'a>(
     engine: &convex_engine::PricingEngine,
-) -> BTreeMap<String, BTreeMap<u64, PublishedValuation>> {
+    instruments: impl IntoIterator<Item = &'a str>,
+) -> Accepted {
     let demo = engine
         .configuration_use_cases()
         .is_some_and(|cases| cases.accepts(DataQuality::Demo));
-    let mut accepted: BTreeMap<String, BTreeMap<u64, PublishedValuation>> = BTreeMap::new();
-    for published in engine.runtime_results() {
+    let mut accepted = Accepted::new();
+    for published in engine.runtime_results_of(instruments) {
         let envelope = &published.result;
         let quality = envelope.quality();
         if envelope.status() != ResultStatus::Complete

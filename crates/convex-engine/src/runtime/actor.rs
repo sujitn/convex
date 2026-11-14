@@ -24,7 +24,7 @@ pub(super) struct Actor {
     live: Option<StreamReceiver<QuoteEvent>>,
     health: Arc<parking_lot::RwLock<RuntimeHealth>>,
     results: Arc<parking_lot::RwLock<Arc<[Arc<PublishedValuation>]>>>,
-    updates: broadcast::Sender<PublishedValuation>,
+    updates: broadcast::Sender<Arc<PublishedValuation>>,
     live_source: Option<Arc<dyn convex_ports::market_data::QuoteSource>>,
     data_deadline: Option<tokio::time::Instant>,
     needs_images: std::collections::HashSet<convex_ports::quote_event::QuoteKey>,
@@ -47,7 +47,7 @@ impl Actor {
         engine: &crate::PricingEngine,
         health: Arc<parking_lot::RwLock<RuntimeHealth>>,
         results: Arc<parking_lot::RwLock<Arc<[Arc<PublishedValuation>]>>>,
-        updates: broadcast::Sender<PublishedValuation>,
+        updates: broadcast::Sender<Arc<PublishedValuation>>,
     ) -> Result<Self, RuntimeError> {
         let digest = services.plan.digest()?;
         let input_matches = matches!(
@@ -663,7 +663,7 @@ impl Actor {
             self.save(next).await?;
             self.refresh_health();
             for record in delivered.iter() {
-                let _ = self.updates.send(PublishedValuation::clone(record));
+                let _ = self.updates.send(record.clone());
             }
         }
         Ok(())

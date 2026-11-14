@@ -581,8 +581,34 @@ export async function getRuntimeHealth() {
   return fetchJson<RuntimeHealth>('/api/v1/runtime');
 }
 
-export async function getRuntimeResults() {
-  return fetchJson<PublishedValuation[]>('/api/v1/runtime/results');
+// One page of GET /api/v1/runtime/results, in instrument ID order.
+export interface RuntimeResultsPage {
+  results: PublishedValuation[];
+  next_after: string | null;
+  more: boolean;
+}
+
+// The most results the server returns a page.
+const RESULTS_PAGE = 1024;
+
+// Every current result, a page at a time. The cursor only moves forward, so each
+// instrument is on one page; pages are read at different times, and a newer streamed
+// revision still wins over a page's.
+export async function getRuntimeResults(): Promise<PublishedValuation[]> {
+  const results: PublishedValuation[] = [];
+  let after: string | null = null;
+  for (;;) {
+    const cursor: string = after === null ? '' : `&after=${encodeURIComponent(after)}`;
+    const page = await fetchJson<RuntimeResultsPage | PublishedValuation[]>(
+      `/api/v1/runtime/results?limit=${RESULTS_PAGE}${cursor}`,
+    );
+    // A server from before P17a ignores the query and returns every result as an array.
+    // The demo deploys on merge, before the server it reads is redeployed.
+    if (Array.isArray(page)) return page;
+    results.push(...page.results);
+    if (!page.more || page.next_after === null) return results;
+    after = page.next_after;
+  }
 }
 
 // =============================================================================

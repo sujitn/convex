@@ -1123,7 +1123,7 @@ pub(crate) async fn evaluate_now(
     limits: &[LimitDefinition],
     at: UtcTimestamp,
 ) -> Result<BookEvaluation, Response> {
-    let accepted = accepted_runtime_results(state);
+    let accepted = accepted_runtime_results(state, book);
     let mut terms = PricedTerms::new();
     read_priced_terms(
         state.engine.reference_repository().as_ref(),
@@ -1640,7 +1640,7 @@ fn applied(
 // =============================================================================
 
 /// Complete accepted runtime results by instrument and priced version.
-pub(crate) type Accepted = BTreeMap<String, BTreeMap<u64, PublishedValuation>>;
+pub(crate) type Accepted = BTreeMap<String, BTreeMap<u64, Arc<PublishedValuation>>>;
 
 /// Priced bond terms by instrument and version. A version is immutable, so a kept entry
 /// never goes stale.
@@ -1657,6 +1657,7 @@ fn position_result<'a>(
         Some(pin) => versions.get(&pin.get()),
         None => versions.last_key_value().map(|(_, result)| result),
     }
+    .map(Arc::as_ref)
 }
 
 /// The instrument version a result priced.

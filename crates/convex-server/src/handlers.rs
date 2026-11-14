@@ -129,11 +129,44 @@ pub async fn runtime_health(
 ) -> Json<convex_engine::RuntimeHealth> {
     Json(state.engine.runtime_health())
 }
-/// Canonical display resynchronization, including explicit errors and stale retained values.
+/// Results a page of `GET /api/v1/runtime/results` holds unless the reader asks (D103).
+const DEFAULT_RESULTS_PAGE: usize = 256;
+/// The most results one page holds; a page is about 3.7 KiB a result.
+const MAX_RESULTS_PAGE: usize = 1024;
+
+/// A page of the runtime's results: at most `limit` instruments after `after`.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResultsPageQuery {
+    after: Option<String>,
+    limit: Option<usize>,
+}
+
+/// Canonical display resynchronization, including explicit errors and stale retained
+/// values: one page in instrument ID order, resumed with `next_after` while `more`.
+/// Pages are read at different times, so a reader keeps the newer record by
+/// `(runtime_id, revision)`.
 pub async fn runtime_results(
     State(state): State<Arc<AppState>>,
-) -> Json<Vec<convex_engine::ports::runtime::PublishedValuation>> {
-    Json(state.engine.runtime_results())
+    query: Result<axum::extract::Query<ResultsPageQuery>, axum::extract::rejection::QueryRejection>,
+) -> Result<Json<convex_engine::RuntimeResultsPage>, crate::error::ApiError> {
+    use crate::error::ApiError;
+    let axum::extract::Query(query) = query.map_err(|e| ApiError::invalid(e.body_text()))?;
+    let limit = query.limit.unwrap_or(DEFAULT_RESULTS_PAGE);
+    if !(1..=MAX_RESULTS_PAGE).contains(&limit) {
+        return Err(ApiError::invalid(format!(
+            "limit must be 1..={MAX_RESULTS_PAGE}"
+        )));
+    }
+    if let Some(after) = &query.after {
+        convex_core::contracts::InstrumentId::new(after)
+            .map_err(|_| ApiError::invalid("after must be an instrument ID"))?;
+    }
+    Ok(Json(
+        state
+            .engine
+            .runtime_results_page(query.after.as_deref(), limit),
+    ))
 }
 /// Supplied-context request uses precisely the runtime's quantitative path.
 #[derive(Deserialize)]

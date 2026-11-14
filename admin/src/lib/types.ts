@@ -48,6 +48,13 @@ export interface PublishedValuation {
   }
 }
 
+/** One page of `GET /api/v1/runtime/results`, in instrument ID order. */
+export interface RuntimeResultsPage {
+  results: PublishedValuation[]
+  next_after: string | null
+  more: boolean
+}
+
 export interface BondPage {
   bonds: Record<string, unknown>[]
   versions: { instrument_id: string; version: number }[]

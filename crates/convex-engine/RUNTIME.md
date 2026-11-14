@@ -238,6 +238,8 @@ becomes zero, par, Empty-success or a current timestamp on an old value.
 | Retained accepted trace | 100,000 normalized events; Live retains none |
 | Checkpoint | 32 MiB; one atomic image/outbox, schema 1 |
 | Results and output batch | 256 records each |
+| Results stream | 512 records (two per instrument) |
+| Results page | 256 records unless asked, at most 1,024 |
 | Local checkpoint namespaces | 64 |
 | Local result archive | 256 MiB, 100,000 delivery keys, 512 KiB per record |
 | CPU jobs | 1 through 64 per budget, default 4 |
@@ -271,7 +273,12 @@ The server provides `/live` and the compatible `/health` liveness response.
 `/ready` returns 200 only for ready analytics and 503 otherwise.
 `/api/v1/runtime` exposes phase, mode, quality, snapshot/generation, durable revision,
 undelivered count, replay completion and failure classification.
-`/api/v1/runtime/results` returns canonical result state for display resynchronization.
+`/api/v1/runtime/results` returns canonical result state for display resynchronization,
+a page at a time in instrument ID order (see the server README). The runtime holds each
+record once: the stream, a page and a read of some instruments
+(`PricingEngine::runtime_results_of`) share it rather than copy it. The stream holds two
+records per instrument the runtime can value, so a tick that publishes every instrument
+overruns no reader that keeps up.
 `POST /api/v1/runtime/valuation` takes a verified snapshot, complete context,
 request identity and explicit calculation time, and uses the same bounded
 quantitative path as runtime workers. It rejects a different configured build;

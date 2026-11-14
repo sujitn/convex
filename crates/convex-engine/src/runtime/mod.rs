@@ -30,6 +30,21 @@ pub use convex_ports::configuration::RuntimeMode;
 /// Instruments one runtime values. A WebSocket session can follow at most this many.
 pub const MAX_RUNTIME_INSTRUMENTS: usize = 256;
 
+/// Records the results broadcast holds: a tick that publishes every instrument, twice
+/// over, overruns no reader that keeps up (D103).
+const RESULT_BROADCAST: usize = 2 * MAX_RUNTIME_INSTRUMENTS;
+
+/// One page of a runtime's current results, in instrument ID order (D103).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RuntimeResultsPage {
+    /// The current record of each instrument on the page, shared with the runtime.
+    pub results: Vec<Arc<PublishedValuation>>,
+    /// The page's last instrument when more follow; the next page starts after it.
+    pub next_after: Option<String>,
+    /// More instruments follow this page.
+    pub more: bool,
+}
+
 /// A bounded fixed-bullet universe over one exact quantitative configuration.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -317,13 +332,36 @@ pub(crate) struct RuntimeController {
     lifecycle: Mutex<Lifecycle>,
     health: Arc<parking_lot::RwLock<RuntimeHealth>>,
     results: Arc<parking_lot::RwLock<Arc<[Arc<PublishedValuation>]>>>,
-    updates: broadcast::Sender<PublishedValuation>,
+    /// The plan's instruments in ID order, each with its place in the results table,
+    /// which is in pin order.
+    by_instrument: Box<[(String, usize)]>,
+    updates: broadcast::Sender<Arc<PublishedValuation>>,
     demo: bool,
     stopped: watch::Sender<bool>,
     build_id: Option<ModelId>,
     settlement_date: Option<BusinessDate>,
     configuration_id: Option<SourceId>,
     interactive_slots: Arc<tokio::sync::Semaphore>,
+}
+/// The record of instrument `id`, which the plan pins at `place`. The table is in pin
+/// order, as each tick's merge requires; a record found elsewhere is still the
+/// instrument's.
+fn record_of<'t>(
+    table: &'t [Arc<PublishedValuation>],
+    place: usize,
+    id: &str,
+) -> Option<&'t Arc<PublishedValuation>> {
+    let values = |record: &&Arc<PublishedValuation>| {
+        matches!(
+            &record.result.provenance().subject,
+            ValuationSubject::InstrumentVersion { instrument_id, .. }
+                if instrument_id.as_str() == id
+        )
+    };
+    table
+        .get(place)
+        .filter(values)
+        .or_else(|| table.iter().find(values))
 }
 impl RuntimeController {
     pub(crate) fn new(services: Option<RuntimeServices>, demo: bool, concurrency: usize) -> Self {
@@ -332,7 +370,20 @@ impl RuntimeController {
         let configuration_id = services
             .as_ref()
             .map(|s| s.plan.assembly.configuration.id.clone());
-        let (updates, _) = broadcast::channel(256);
+        let mut by_instrument: Vec<(String, usize)> = services
+            .as_ref()
+            .map(|s| {
+                s.plan
+                    .assembly
+                    .instruments
+                    .iter()
+                    .enumerate()
+                    .map(|(at, pin)| (pin.instrument_id.as_str().to_owned(), at))
+                    .collect()
+            })
+            .unwrap_or_default();
+        by_instrument.sort_unstable();
+        let (updates, _) = broadcast::channel(RESULT_BROADCAST);
         let (stopped, _) = watch::channel(false);
         Self {
             lifecycle: Mutex::new(Lifecycle {
@@ -344,6 +395,7 @@ impl RuntimeController {
             }),
             health: Arc::new(parking_lot::RwLock::new(RuntimeHealth::default())),
             results: Arc::new(parking_lot::RwLock::new(Arc::default())),
+            by_instrument: by_instrument.into(),
             updates,
             demo,
             stopped,
@@ -429,13 +481,72 @@ impl RuntimeController {
             .map(|record| PublishedValuation::clone(record))
             .collect()
     }
+    /// The current records of the listed instruments, in table order, all read from one
+    /// table so that none is from a later tick than another. An instrument outside the
+    /// plan, or not yet valued, has none.
+    pub(crate) fn results_of<'a>(
+        &self,
+        instruments: impl IntoIterator<Item = &'a str>,
+    ) -> Vec<Arc<PublishedValuation>> {
+        let table = self.results.read().clone();
+        if table.is_empty() {
+            return Vec::new();
+        }
+        let mut places: Vec<(usize, &str)> = instruments
+            .into_iter()
+            .filter_map(|id| {
+                let at = self
+                    .by_instrument
+                    .binary_search_by(|(held, _)| held.as_str().cmp(id))
+                    .ok()?;
+                let (id, place) = &self.by_instrument[at];
+                Some((*place, id.as_str()))
+            })
+            .collect();
+        places.sort_unstable();
+        places.dedup();
+        places
+            .into_iter()
+            .filter_map(|(place, id)| record_of(&table, place, id).cloned())
+            .collect()
+    }
+    /// At most `limit` (at least one) current records, in instrument ID order, starting
+    /// after the instrument `after`, which need not be in the plan. Before the first tick
+    /// there are none.
+    pub(crate) fn results_page(&self, after: Option<&str>, limit: usize) -> RuntimeResultsPage {
+        let table = self.results.read().clone();
+        let start = after.map_or(0, |after| {
+            self.by_instrument
+                .partition_point(|(id, _)| id.as_str() <= after)
+        });
+        let end = start
+            .saturating_add(limit.max(1))
+            .min(self.by_instrument.len());
+        if table.is_empty() || start >= end {
+            return RuntimeResultsPage {
+                results: Vec::new(),
+                next_after: None,
+                more: false,
+            };
+        }
+        let page = &self.by_instrument[start..end];
+        let more = end < self.by_instrument.len();
+        RuntimeResultsPage {
+            results: page
+                .iter()
+                .filter_map(|(id, place)| record_of(&table, *place, id).cloned())
+                .collect(),
+            next_after: more.then(|| page[page.len() - 1].0.clone()),
+            more,
+        }
+    }
     pub(crate) fn settlement_date(&self) -> Option<BusinessDate> {
         self.settlement_date
     }
     pub(crate) fn configuration_id(&self) -> Option<&SourceId> {
         self.configuration_id.as_ref()
     }
-    pub(crate) fn subscribe(&self) -> broadcast::Receiver<PublishedValuation> {
+    pub(crate) fn subscribe(&self) -> broadcast::Receiver<Arc<PublishedValuation>> {
         self.updates.subscribe()
     }
     pub(crate) async fn start(&self, engine: &crate::PricingEngine) -> Result<(), EngineError> {

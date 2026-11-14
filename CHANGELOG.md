@@ -106,6 +106,19 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **Breaking: `GET /api/v1/runtime/results` returns pages.** It returns
+  `{results, next_after, more}`: at most `limit` results (256 unless asked, at most
+  1,024) in instrument ID order, after the instrument `after`. Read the next page with
+  `?after=<next_after>` while `more` is true. Pages are read at different times, so keep
+  the newer record by `(runtime_id, revision)`. A bad `limit` or `after`, or another
+  query parameter, is 400. The admin app and the demo frontend read every page.
+- **The results route works outside local development at any width.** The access layer
+  inspected its output and refused a response naming more than 1,024 resources, which a
+  runtime of more than about 170 instruments passes. The route already requires wildcard
+  grants on instruments, curves and sources, so its output is no longer inspected.
+- **Readers no longer copy the runtime's results.** A valuation subscription, the limit
+  monitor, limit status and the pre-trade check read only the instruments they need,
+  and every WebSocket session shares each streamed record.
 - **A valuation subscription sends current results first.** After
   `subscribe_valuations`, the session sends the current result of each listed
   instrument that has one, then the `subscribed` acknowledgement. A client no
@@ -165,6 +178,13 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Breaking:** `PricingEngine::subscribe_results` streams shared records,
+  `Arc<PublishedValuation>`, and holds two records per instrument the runtime can value
+  (512, was 256).
+- `PricingEngine::runtime_results_of` reads the current records of the listed
+  instruments, and `runtime_results_page` a page in instrument ID order
+  (`RuntimeResultsPage`). Both share the runtime's records; `runtime_results` still
+  copies every one.
 - **Breaking:** `limits::evaluate_limits` takes the time of the evaluation, which decides
   whether a temporary excess applies. It still reads no clock.
 

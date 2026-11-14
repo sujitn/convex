@@ -3,9 +3,9 @@ import { useState } from 'react'
 import { PendingRestart } from '../components/PendingRestart'
 import { Badge, ErrorNotice, JsonBlock, Panel, Table } from '../components/ui'
 import { formatMeasure } from '../lib/admin'
-import { useRuntimeHealth } from '../lib/queries'
+import { useRuntimeHealth, useRuntimeResults } from '../lib/queries'
 import { useSession } from '../lib/session'
-import type { Dependencies, PublishedValuation } from '../lib/types'
+import type { Dependencies } from '../lib/types'
 
 export function RuntimePage() {
   const { call } = useSession()
@@ -15,11 +15,7 @@ export function RuntimePage() {
     queryFn: async () => (await call<Dependencies>('/api/v1/dependencies')).data,
     refetchInterval: 5000,
   })
-  const results = useQuery({
-    queryKey: ['runtime-results'],
-    queryFn: async () => (await call<PublishedValuation[]>('/api/v1/runtime/results')).data,
-    refetchInterval: 5000,
-  })
+  const results = useRuntimeResults()
   const [selected, setSelected] = useState<number | null>(null)
   const runtime = health.data
   const valuations = results.data ?? []

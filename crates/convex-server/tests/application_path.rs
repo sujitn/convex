@@ -483,12 +483,12 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     let now = chrono::Utc::now().timestamp_millis();
     post_image(&server, image(&instrument, 1, now, 0, "99.5")).await;
     let first = wait_ready(&server).await;
-    let results: Value = get(&server, "/api/v1/runtime/results")
+    let page: Value = get(&server, "/api/v1/runtime/results")
         .await
         .json()
         .await
         .unwrap();
-    let results = results.as_array().unwrap();
+    let results = page["results"].as_array().unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0]["runtime_id"], "SHOWCASE-USD-v1");
     assert!(results[0]["live_valid_until"].is_string(), "{}", results[0]);
@@ -723,8 +723,8 @@ async fn demo_profile_runs_the_showcase_configuration_live_on_labelled_demo_data
     assert_eq!(ready["quality"], "Demo", "{ready}");
     let response = get(&server, "/api/v1/runtime/results").await;
     assert_eq!(response.headers()["x-convex-data-quality"], "demo");
-    let results: Value = response.json().await.unwrap();
-    let result = &results[0];
+    let page: Value = response.json().await.unwrap();
+    let result = &page["results"][0];
     assert_eq!(result["runtime_id"], "SHOWCASE-USD-v1", "{result}");
     assert_eq!(result["result"]["status"], "Complete", "{result}");
     assert_eq!(result["result"]["quality"], "Demo");
@@ -935,12 +935,12 @@ async fn save_curve(server: &Running, recipe: &Value) {
 
 /// The curve revisions the first runtime result consumed, as `id@version`.
 async fn streamed_curves(server: &Running) -> Vec<String> {
-    let results: Value = get(server, "/api/v1/runtime/results")
+    let page: Value = get(server, "/api/v1/runtime/results")
         .await
         .json()
         .await
         .unwrap();
-    results[0]["result"]["provenance"]["input_versions"]
+    page["results"][0]["result"]["provenance"]["input_versions"]
         .as_array()
         .unwrap()
         .iter()

@@ -1,14 +1,31 @@
 import { useQuery } from '@tanstack/react-query'
+import { readAllPages } from './admin'
 import { useSession } from './session'
-import type { HistoryPage, RuntimeHealth } from './types'
+import type { HistoryPage, RuntimeHealth, RuntimeResultsPage } from './types'
 
 const RECENT_ACTIVATIONS = 20
+/** The most results the server returns a page. */
+const RESULTS_PAGE = 1024
 
 export function useRuntimeHealth() {
   const { call } = useSession()
   return useQuery({
     queryKey: ['runtime'],
     queryFn: async () => (await call<RuntimeHealth>('/api/v1/runtime')).data,
+    refetchInterval: 5000,
+  })
+}
+
+/** Every runtime result, in instrument ID order, a page at a time. */
+export function useRuntimeResults() {
+  const { call } = useSession()
+  return useQuery({
+    queryKey: ['runtime-results'],
+    queryFn: () =>
+      readAllPages(async (after) => {
+        const cursor = after === null ? '' : `&after=${encodeURIComponent(after)}`
+        return (await call<RuntimeResultsPage>(`/api/v1/runtime/results?limit=${RESULTS_PAGE}${cursor}`)).data
+      }),
     refetchInterval: 5000,
   })
 }

@@ -254,6 +254,11 @@ fn requirement(
         "/api/v1/runtime/results" => {
             req.action = ResultRead;
             req.data = vec![D::Results, D::Market, D::Reference];
+            // A runtime record names only instruments and curves, and every one already
+            // requires a wildcard grant, so inspection could refuse nothing the grant
+            // allows. It would refuse a page over about 170 records: each names six
+            // resources (D103a).
+            req.inspect_output_resources = false;
             req.resources.extend([
                 Resource::new(R::Instrument, "*"),
                 Resource::new(R::Curve, "*"),
