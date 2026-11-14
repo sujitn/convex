@@ -13,6 +13,27 @@ struct LiveState {
     reserved: RuntimeCheckpoint,
     /// The selection's configuration and references, resolved once per activation (D56).
     pinned: Option<crate::snapshot::PinnedInputs>,
+    /// The tick's request, kept from tick to tick while its selection holds (P17c-i).
+    request: Option<LiveRequest>,
+    /// Counts the requests captured; it names the selection of the one kept.
+    epoch: u64,
+}
+/// A Live tick's request and what it was captured for. While the selection is the same, a
+/// tick changes only the request's cutoffs, generation and curve records, so it is not
+/// captured again, and its 4,096 pins and requirements are not copied.
+struct LiveRequest {
+    selection: Selection,
+    request: SnapshotAssembly,
+}
+/// What a Live request's instruments, requirements and capture depend on besides its
+/// cutoffs: the activation selected, whether it is in force at the cutoff, and which of
+/// its overrides apply. An override sets its key's age limit while it applies, and the
+/// capture lists only those that apply (D58).
+#[derive(PartialEq)]
+struct Selection {
+    activation: Option<Version>,
+    in_force: bool,
+    applying: Vec<bool>,
 }
 pub(super) struct Actor {
     services: RuntimeServices,
@@ -185,6 +206,8 @@ impl Actor {
                 last_receive_ms: None,
                 reserved,
                 pinned: None,
+                request: None,
+                epoch: 0,
             })
         } else {
             None
@@ -376,35 +399,95 @@ impl Actor {
         snapshot
     }
     async fn resolve_snapshot(&mut self) -> Result<Arc<MarketSnapshot>, RuntimeError> {
-        let mut request = self.request()?;
-        if let Some(store) = &self.stored_curves {
-            // A re-marked curve reaches the stream at the next tick or data deadline.
-            request.curve_recipes = bounded(crate::curve_resolution::live_curve_records(
-                store.as_ref(),
-                &request.required_curves,
-                request.known_at,
-            ))
-            .await?;
+        if self.live_state.is_none() {
+            let mut request = self.request()?;
+            read_curves(self.stored_curves.as_ref(), &mut request).await?;
+            let snapshot =
+                bounded(self.assembler.assemble(&request, &self.checkpoint.events)).await?;
+            return Ok(Arc::new(snapshot));
         }
-        let snapshot = match self.live_state.as_mut() {
-            Some(live) => {
-                let pinned = match live.pinned.take() {
-                    Some(pinned) if pinned.serves(&request) => pinned,
-                    // A refresh or restart selects another activation and re-resolves.
-                    _ => bounded(self.assembler.pin(&request)).await?,
-                };
-                let snapshot = bounded(self.assembler.resolve_ingested(
-                    &request,
-                    &pinned,
-                    &mut live.quotes,
-                ))
-                .await;
-                live.pinned = Some(pinned);
-                snapshot?
-            }
-            None => bounded(self.assembler.assemble(&request, &self.checkpoint.events)).await?,
+        self.keep_live_request()?;
+        let Some(LiveState {
+            quotes,
+            pinned,
+            request: Some(LiveRequest { request, .. }),
+            epoch,
+            ..
+        }) = self.live_state.as_mut()
+        else {
+            return Err(RuntimeError::State("live request unavailable"));
         };
-        Ok(Arc::new(snapshot))
+        read_curves(self.stored_curves.as_ref(), request).await?;
+        let kept = pinned
+            .take()
+            .and_then(|mut inputs| inputs.serves_epoch(request, *epoch).then_some(inputs));
+        let mut inputs = match kept {
+            Some(inputs) => inputs,
+            // A refresh or restart selects another activation and re-resolves.
+            None => bounded(self.assembler.pin(request)).await?,
+        };
+        let snapshot =
+            bounded(
+                self.assembler
+                    .resolve_ingested(request, *epoch, &mut inputs, quotes),
+            )
+            .await;
+        *pinned = Some(inputs);
+        Ok(Arc::new(snapshot?))
+    }
+    /// Bring the kept Live request to this tick: captured again, under a new epoch, when its
+    /// selection differs at the tick's cutoffs, else given the tick's cutoffs and
+    /// generation. Either way it is what `request` returns, but for the curve records the
+    /// tick reads.
+    fn keep_live_request(&mut self) -> Result<(), RuntimeError> {
+        let (as_of, known_at) = (self.checkpoint.as_of, self.checkpoint.known_at);
+        let selection = match &self.selected {
+            None => Selection {
+                activation: None,
+                in_force: true,
+                applying: Vec::new(),
+            },
+            Some(selected) => Selection {
+                activation: Some(selected.activation.revision),
+                in_force: selected.activation.command.activated_at <= known_at,
+                applying: selected
+                    .staged
+                    .document
+                    .overrides
+                    .iter()
+                    .map(|o| o.applies_at(as_of, known_at))
+                    .collect(),
+            },
+        };
+        let kept = self
+            .live_state
+            .as_ref()
+            .and_then(|live| live.request.as_ref())
+            .is_some_and(|kept| kept.selection == selection);
+        let generation = self.checkpoint.generation;
+        if kept {
+            if let Some(LiveRequest { request, .. }) = self
+                .live_state
+                .as_mut()
+                .and_then(|live| live.request.as_mut())
+            {
+                request.as_of = as_of;
+                request.known_at = known_at;
+                request.generation = generation;
+            }
+            return Ok(());
+        }
+        let request = self.request()?;
+        let live = self
+            .live_state
+            .as_mut()
+            .ok_or(RuntimeError::State("live request unavailable"))?;
+        live.epoch = live
+            .epoch
+            .checked_add(1)
+            .ok_or(RuntimeError::CapacityExceeded)?;
+        live.request = Some(LiveRequest { selection, request });
+        Ok(())
     }
     async fn restore_dependencies(&mut self) -> Result<(), RuntimeError> {
         let snapshot = match self.checkpoint.snapshot_id.clone() {
@@ -1121,6 +1204,22 @@ impl Actor {
                 .map(|a| a.revision),
         })
     }
+}
+/// Read the curves of a plan that pins none from `store` at `request`'s cutoff.
+async fn read_curves(
+    store: Option<&Arc<dyn convex_ports::storage::CurveStore>>,
+    request: &mut SnapshotAssembly,
+) -> Result<(), RuntimeError> {
+    if let Some(store) = store {
+        // A re-marked curve reaches the stream at the next tick or data deadline.
+        request.curve_recipes = bounded(crate::curve_resolution::live_curve_records(
+            store.as_ref(),
+            &request.required_curves,
+            request.known_at,
+        ))
+        .await?;
+    }
+    Ok(())
 }
 /// Stored Live image: counters a block ahead of use, without market state or results.
 /// It never stores a delivery loss: a restart is a fresh start (D71).

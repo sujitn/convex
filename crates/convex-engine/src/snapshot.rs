@@ -14,7 +14,7 @@ use convex_ports::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::Arc,
 };
 
@@ -313,20 +313,30 @@ impl SnapshotAssembler {
             instruments: request.instruments.clone(),
             configuration,
             references,
+            epoch: None,
         })
     }
     /// Resolve over quote state the caller already ingested and inputs it pinned, without
     /// publishing. Live mode keeps both in memory; market data is not stored. Fixings are
     /// read at this request's cutoff. The quote entries that did not change since the
     /// last snapshot are shared with it.
+    ///
+    /// `epoch` names `request`'s selection. The caller changes it whenever the request's
+    /// instruments, requirements, configuration or capture may have changed; otherwise
+    /// only the request's cutoffs, generation and curve records change (P17c-i). Within
+    /// one epoch, the instruments the pinned inputs were checked against are not compared
+    /// again, and only the quote entries that may have changed are looked at.
     pub(crate) async fn resolve_ingested(
         &self,
         request: &SnapshotAssembly,
-        pinned: &PinnedInputs,
+        epoch: u64,
+        pinned: &mut PinnedInputs,
         quotes: &mut IngestedQuotes,
     ) -> Result<MarketSnapshot, TraitError> {
-        validate_request(request, &[])?;
-        if !pinned.serves(request) {
+        // The instruments are distinct: `pin` checked them, and the pinned inputs serve
+        // only the same instruments.
+        validate_frame(request, &[])?;
+        if !pinned.serves_epoch(request, epoch) {
             return Err(TraitError::Conflict(
                 "pinned inputs belong to another selection",
             ));
@@ -335,7 +345,7 @@ impl SnapshotAssembler {
             request,
             pinned.configuration.clone(),
             pinned.references.clone(),
-            quotes.quotes(&request.quotes, capture_ms(request)),
+            quotes.live_quotes(&request.quotes, epoch, capture_ms(request)),
         )
         .await
     }
@@ -377,21 +387,119 @@ impl SnapshotAssembler {
 /// trace for each snapshot; Live keeps one instance for the life of the process.
 pub(crate) struct IngestedQuotes {
     assembler: MarketDataAssembler,
+    /// How long the assembler keeps an observation fresh. A key's state changes without
+    /// an event of its own only as its observations age past it, or by a capacity overflow.
+    stale_after_ms: i64,
     delivered: HashMap<QuoteKey, QuoteEvent>,
     /// The snapshot entry each selected key last resolved to, shared by every snapshot
     /// until it changes (P13b-ii). At most one per requirement of the last request.
     entries: HashMap<QuoteKey, SharedQuote>,
+    /// The keys an event changed since the last Live list, while there is one. Live admits
+    /// only selected keys, so at most one per requirement.
+    changed: HashSet<QuoteKey>,
+    /// The last list a Live selection resolved, so the next looks only at what may have
+    /// changed (P17c-i). None before the first, and after a capacity overflow.
+    last: Option<LiveList>,
 }
+
+/// One Live selection's last entries, in requirement order, and when each may next
+/// change without an event of its own.
+struct LiveList {
+    epoch: u64,
+    capture_ms: i64,
+    quotes: Vec<SharedQuote>,
+    positions: HashMap<QuoteKey, usize>,
+    /// Each position's next turn, if it has one ([`turn`]), and the same pairs ordered by
+    /// time: at most one each per requirement.
+    turns: Vec<Option<i64>>,
+    due: BTreeSet<(i64, usize)>,
+}
+
+impl LiveList {
+    /// The list of `quotes`, resolved at `capture_ms`, or None when two requirements
+    /// share a key; such a selection walks every requirement at every call.
+    fn new(
+        epoch: u64,
+        capture_ms: i64,
+        quotes: &[SharedQuote],
+        stale_after_ms: i64,
+    ) -> Option<Self> {
+        let mut list = Self {
+            epoch,
+            capture_ms,
+            quotes: quotes.to_vec(),
+            positions: HashMap::with_capacity(quotes.len()),
+            turns: vec![None; quotes.len()],
+            due: BTreeSet::new(),
+        };
+        for (position, quote) in quotes.iter().enumerate() {
+            if list
+                .positions
+                .insert(quote.requirement.key.clone(), position)
+                .is_some()
+            {
+                return None;
+            }
+            list.set(position, quote.clone(), capture_ms, stale_after_ms);
+        }
+        Some(list)
+    }
+    /// Put `quote`, resolved at `capture_ms`, at `position`, and queue its next turn.
+    fn set(&mut self, position: usize, quote: SharedQuote, capture_ms: i64, stale_after_ms: i64) {
+        if let Some(at) = self.turns[position].take() {
+            self.due.remove(&(at, position));
+        }
+        if let Some(at) = turn(&quote, capture_ms, stale_after_ms) {
+            self.turns[position] = Some(at);
+            self.due.insert((at, position));
+        }
+        self.quotes[position] = quote;
+    }
+}
+
+/// The first capture time after `capture_ms` at which the state of `quote`'s key may
+/// differ from its image's without an event, by `effective_state`: when a field received
+/// after the capture is no longer ahead of it, or when a field's observation first ages
+/// past `stale_after_ms`. None without an image, and once a field has aged, since the
+/// state then stays stale until an event. A turn may come early; it must never come late.
+fn turn(quote: &SnapshotQuote, capture_ms: i64, stale_after_ms: i64) -> Option<i64> {
+    let image = quote.image.as_ref()?;
+    let mut turn: Option<i64> = None;
+    for field in image.fields.values() {
+        let aged = field
+            .source_time_ms
+            .min(field.receive_time_ms)
+            .saturating_add(stale_after_ms)
+            .saturating_add(1);
+        if aged <= capture_ms {
+            return None;
+        }
+        let next = if field.receive_time_ms > capture_ms {
+            field.receive_time_ms.min(aged)
+        } else {
+            aged
+        };
+        turn = Some(turn.map_or(next, |at| at.min(next)));
+    }
+    turn
+}
+
 impl IngestedQuotes {
     pub(crate) fn new() -> Result<Self, TraitError> {
+        Self::with_policy(IngestionPolicy {
+            max_keys: MAX_SNAPSHOT_INSTRUMENTS,
+            stale_after_ms: 86_400_000,
+            future_tolerance_ms: 0,
+        })
+    }
+    fn with_policy(policy: IngestionPolicy) -> Result<Self, TraitError> {
         Ok(Self {
-            assembler: MarketDataAssembler::new(IngestionPolicy {
-                max_keys: MAX_SNAPSHOT_INSTRUMENTS,
-                stale_after_ms: 86_400_000,
-                future_tolerance_ms: 0,
-            })?,
+            assembler: MarketDataAssembler::new(policy)?,
+            stale_after_ms: policy.stale_after_ms,
             delivered: HashMap::new(),
             entries: HashMap::new(),
+            changed: HashSet::new(),
+            last: None,
         })
     }
     /// Apply one event at the capture time it was accepted under. A duplicate or
@@ -402,9 +510,16 @@ impl IngestedQuotes {
         let outcome = self.assembler.ingest(event.clone(), capture_ms);
         match outcome.outcome {
             IngestionOutcome::Duplicate | IngestionOutcome::OutOfOrder => return,
-            IngestionOutcome::CapacityExceeded => self.entries.clear(),
+            IngestionOutcome::CapacityExceeded => {
+                self.entries.clear();
+                self.changed.clear();
+                self.last = None;
+            }
             _ => {
                 self.entries.remove(&event.key);
+                if self.last.is_some() {
+                    self.changed.insert(event.key.clone());
+                }
             }
         }
         self.delivered.insert(event.key.clone(), event);
@@ -415,31 +530,10 @@ impl IngestedQuotes {
     /// a clock regression); only then is it built again, unchecked and unhashed. An entry
     /// holds its fields in the snapshot's order, so normalizing a snapshot copies none.
     fn quotes(&mut self, requirements: &[QuoteRequirement], capture_ms: i64) -> Vec<SharedQuote> {
-        let mut quotes = Vec::with_capacity(requirements.len());
-        for requirement in requirements {
-            let key = &requirement.key;
-            let current = self.entries.get(key).filter(|entry| {
-                same_requirement(&entry.requirement, requirement)
-                    && entry.image.as_ref().is_none_or(|image| {
-                        self.assembler.state(key, capture_ms) == Some(image.state)
-                    })
-            });
-            let entry = match current {
-                Some(entry) => entry.clone(),
-                None => {
-                    let mut requirement = requirement.clone();
-                    requirement.fields.sort();
-                    let entry = SharedQuote::new(SnapshotQuote {
-                        requirement,
-                        delivery_watermark: self.delivered.get(key).cloned(),
-                        image: self.assembler.snapshot(key, capture_ms),
-                    });
-                    self.entries.insert(key.clone(), entry.clone());
-                    entry
-                }
-            };
-            quotes.push(entry);
-        }
+        let quotes: Vec<_> = requirements
+            .iter()
+            .map(|requirement| self.resolve(requirement, capture_ms))
+            .collect();
         // Keys the selection no longer holds are dropped, so at most one entry is kept for
         // each requirement.
         if self.entries.len() > requirements.len() {
@@ -447,6 +541,77 @@ impl IngestedQuotes {
                 .retain(|key, _| requirements.iter().any(|r| &r.key == key));
         }
         quotes
+    }
+    /// What [`IngestedQuotes::quotes`] returns, for a Live selection whose requirements
+    /// do not change while `epoch` does not (P17c-i). Only the entries of keys that
+    /// ingested an event since the last call, and of keys whose state may have turned with
+    /// time, are looked at again; `quotes` would keep every other entry, so it is kept
+    /// without a look. A new epoch, a capture earlier than the last or a capacity
+    /// overflow walks every requirement, as `quotes` does.
+    pub(crate) fn live_quotes(
+        &mut self,
+        requirements: &[QuoteRequirement],
+        epoch: u64,
+        capture_ms: i64,
+    ) -> Vec<SharedQuote> {
+        let current = self.last.take().filter(|last| {
+            last.epoch == epoch
+                && capture_ms >= last.capture_ms
+                && last.quotes.len() == requirements.len()
+        });
+        let Some(mut last) = current else {
+            let quotes = self.quotes(requirements, capture_ms);
+            self.changed.clear();
+            self.last = LiveList::new(epoch, capture_ms, &quotes, self.stale_after_ms);
+            return quotes;
+        };
+        let mut looked: Vec<usize> = self
+            .changed
+            .drain()
+            .filter_map(|key| last.positions.get(&key).copied())
+            .collect();
+        while let Some(&(at, position)) = last.due.first() {
+            if at > capture_ms {
+                break;
+            }
+            last.due.pop_first();
+            last.turns[position] = None;
+            looked.push(position);
+        }
+        looked.sort_unstable();
+        looked.dedup();
+        for position in looked {
+            let quote = self.resolve(&requirements[position], capture_ms);
+            last.set(position, quote, capture_ms, self.stale_after_ms);
+        }
+        last.capture_ms = capture_ms;
+        let quotes = last.quotes.clone();
+        self.last = Some(last);
+        quotes
+    }
+    /// One requirement's entry at `capture_ms`: the kept one while it holds, else one built
+    /// from the state, then kept.
+    fn resolve(&mut self, requirement: &QuoteRequirement, capture_ms: i64) -> SharedQuote {
+        let key = &requirement.key;
+        let current = self.entries.get(key).filter(|entry| {
+            same_requirement(&entry.requirement, requirement)
+                && entry
+                    .image
+                    .as_ref()
+                    .is_none_or(|image| self.assembler.state(key, capture_ms) == Some(image.state))
+        });
+        if let Some(entry) = current {
+            return entry.clone();
+        }
+        let mut requirement = requirement.clone();
+        requirement.fields.sort();
+        let entry = SharedQuote::new(SnapshotQuote {
+            delivery_watermark: self.delivered.get(key).cloned(),
+            image: self.assembler.snapshot(key, capture_ms),
+            requirement,
+        });
+        self.entries.insert(key.clone(), entry.clone());
+        entry
     }
 }
 
@@ -486,6 +651,8 @@ pub(crate) struct PinnedInputs {
     instruments: Vec<InstrumentPin>,
     configuration: convex_ports::storage::BondPricingConfig,
     references: SnapshotReferences,
+    /// The Live selection epoch these inputs last served (P17c-i).
+    epoch: Option<u64>,
 }
 impl PinnedInputs {
     /// Whether these inputs were resolved for `request`'s activation, configuration and
@@ -494,6 +661,19 @@ impl PinnedInputs {
         self.activation == activation_revision(request)
             && self.configuration_pin == request.configuration
             && self.instruments == request.instruments
+    }
+    /// [`PinnedInputs::serves`] for a Live request of selection `epoch`. A request of the
+    /// epoch these inputs last served has the same activation, configuration and pins, so
+    /// it is not compared again.
+    pub(crate) fn serves_epoch(&mut self, request: &SnapshotAssembly, epoch: u64) -> bool {
+        if self.epoch == Some(epoch) {
+            return true;
+        }
+        let serves = self.serves(request);
+        if serves {
+            self.epoch = Some(epoch);
+        }
+        serves
     }
 }
 
@@ -526,6 +706,29 @@ fn reference_error(error: convex_ports::reference_repository::ReferenceError) ->
 }
 
 fn validate_request(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result<(), TraitError> {
+    validate_frame(request, events)?;
+    let mut ids = BTreeSet::new();
+    for pin in &request.instruments {
+        if !ids.insert(&pin.instrument_id) {
+            return Err(TraitError::InvalidInput("duplicate requested reference"));
+        }
+    }
+    let mut prior_receive = None;
+    for event in events {
+        event.validate()?;
+        if prior_receive.is_some_and(|time| time > event.receive_time_ms) {
+            return Err(TraitError::InvalidInput(
+                "replay must retain recorded delivery order",
+            ));
+        }
+        prior_receive = Some(event.receive_time_ms);
+    }
+    Ok(())
+}
+
+/// What [`validate_request`] checks except that the instruments are distinct and the
+/// events valid and in order: the request's bounds, and its curves at its cutoffs.
+fn validate_frame(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result<(), TraitError> {
     if request.instruments.is_empty()
         || request.instruments.len() > MAX_SNAPSHOT_INSTRUMENTS
         || request.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
@@ -556,22 +759,6 @@ fn validate_request(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result
     .map_err(TraitError::from)?;
     for record in &request.curves {
         BuiltCurve::from_snapshot(record)?;
-    }
-    let mut ids = BTreeSet::new();
-    for pin in &request.instruments {
-        if !ids.insert(&pin.instrument_id) {
-            return Err(TraitError::InvalidInput("duplicate requested reference"));
-        }
-    }
-    let mut prior_receive = None;
-    for event in events {
-        event.validate()?;
-        if prior_receive.is_some_and(|time| time > event.receive_time_ms) {
-            return Err(TraitError::InvalidInput(
-                "replay must retain recorded delivery order",
-            ));
-        }
-        prior_receive = Some(event.receive_time_ms);
     }
     Ok(())
 }
@@ -1763,5 +1950,184 @@ mod tests {
         let (gap, shared) = resolve(&mut ingested, &requirements[..1], later, &sixth);
         assert_eq!(shared, [false]);
         assert_eq!(gap[0].image.as_ref().unwrap().state, DataState::Gap);
+    }
+
+    /// A small deterministic generator, so every run follows the same script.
+    struct Script(u64);
+    impl Script {
+        fn next(&mut self, bound: u64) -> u64 {
+            self.0 = self
+                .0
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (self.0 >> 33) % bound
+        }
+        fn price(&mut self) -> FieldUpdate {
+            FieldUpdate::Set(QuoteValue {
+                value: rust_decimal::Decimal::new(9_900 + self.next(100) as i64, 2),
+                unit: QuoteUnit::PricePer100,
+            })
+        }
+    }
+
+    fn event(
+        instrument: &str,
+        session: &str,
+        sequence: u64,
+        times: (i64, i64),
+        kind: QuoteEventKind,
+    ) -> QuoteEvent {
+        let mut event = image(instrument, sequence, times.1);
+        event.session = session.into();
+        event.source_time_ms = times.0;
+        event.event = kind;
+        event
+    }
+
+    /// P17c-i: a Live selection's list, looking again only at the entries that may have
+    /// changed, equals a full walk's at every capture, entry by entry, and shares exactly
+    /// the entries the full walk shares, so the snapshots it makes are the same. The
+    /// script mixes images, deltas, retries, earlier events, heartbeats, gaps, closures
+    /// and resets; captures that hold, advance a little, pass every field's freshness, or
+    /// fall below the latest receipts; a capacity overflow; and a new epoch with another
+    /// requirement.
+    #[test]
+    fn live_quotes_equal_a_full_walk_at_every_capture() {
+        let policy = IngestionPolicy {
+            max_keys: 6,
+            stale_after_ms: 1_000,
+            future_tolerance_ms: 0,
+        };
+        let mut live = IngestedQuotes::with_policy(policy).unwrap();
+        let mut full = IngestedQuotes::with_policy(policy).unwrap();
+        let instruments = ["BOND-A", "BOND-B", "BOND-C", "BOND-D", "BOND-E"];
+        let mut requirements: Vec<_> = instruments.iter().map(|i| requirement(i)).collect();
+        let mut script = Script(17);
+        let mut sequences = [0u64; 5];
+        let mut sessions = [0u32; 5];
+        let mut sent: Vec<Option<QuoteEvent>> = vec![None; 5];
+        let (mut capture, mut epoch) = (START_MS, 1);
+        let (mut live_last, mut full_last) = (Vec::new(), Vec::new());
+        let (mut looked_again, mut walked, mut stale, mut fresh) = (0, 0, 0, 0);
+        for step in 0..4_000 {
+            for _ in 0..script.next(4) {
+                let k = script.next(5) as usize;
+                let session = format!("session-{}", sessions[k]);
+                let times = (capture - script.next(600) as i64, capture);
+                let event = match script.next(10) {
+                    0..=2 => {
+                        sequences[k] += 1;
+                        let mut fields = vec![QuoteChange {
+                            field: QuoteField::MidPrice,
+                            update: script.price(),
+                        }];
+                        if script.next(2) == 0 {
+                            fields.push(QuoteChange {
+                                field: QuoteField::BidPrice,
+                                update: script.price(),
+                            });
+                        }
+                        let kind = QuoteEventKind::Image { fields };
+                        event(instruments[k], &session, sequences[k], times, kind)
+                    }
+                    3 | 4 => {
+                        sequences[k] += 1;
+                        let fields = vec![QuoteChange {
+                            field: QuoteField::MidPrice,
+                            update: script.price(),
+                        }];
+                        let kind = QuoteEventKind::Delta { fields };
+                        event(instruments[k], &session, sequences[k], times, kind)
+                    }
+                    5 => match &sent[k] {
+                        Some(retry) => retry.clone(),
+                        None => continue,
+                    },
+                    6 => match &sent[k] {
+                        Some(earlier) => {
+                            let mut earlier = earlier.clone();
+                            earlier.sequence = earlier.sequence.saturating_sub(1).max(1);
+                            earlier
+                        }
+                        None => continue,
+                    },
+                    7 => {
+                        let kind = QuoteEventKind::Heartbeat;
+                        event(instruments[k], &session, sequences[k], times, kind)
+                    }
+                    8 => {
+                        sequences[k] += 1;
+                        let kind = if script.next(2) == 0 {
+                            QuoteEventKind::Gap
+                        } else {
+                            QuoteEventKind::Closed
+                        };
+                        event(instruments[k], &session, sequences[k], times, kind)
+                    }
+                    _ => {
+                        sessions[k] += 1;
+                        sequences[k] = 0;
+                        let session = format!("session-{}", sessions[k]);
+                        event(instruments[k], &session, 0, times, QuoteEventKind::Reset)
+                    }
+                };
+                sent[k] = Some(event.clone());
+                live.ingest(event.clone(), capture);
+                full.ingest(event, capture);
+            }
+            if step == 2_000 {
+                // A sixth key fills the key set and a seventh overflows it.
+                for (i, other) in ["BOND-X", "BOND-Y"].iter().enumerate() {
+                    let event = image(other, i as u64 + 1, capture);
+                    live.ingest(event.clone(), capture);
+                    full.ingest(event, capture);
+                }
+            }
+            if step == 3_000 {
+                epoch += 1;
+                requirements[2].max_age_ms = 30_000;
+            }
+            let list_capture = match script.next(12) {
+                0 => capture,
+                1 => capture + 1_000 + script.next(500) as i64,
+                2 => capture - 1 - script.next(300) as i64,
+                _ => capture + script.next(400) as i64,
+            };
+            capture = capture.max(list_capture);
+            let incremental = live
+                .last
+                .as_ref()
+                .is_some_and(|last| last.epoch == epoch && list_capture >= last.capture_ms);
+            if incremental {
+                looked_again += 1;
+            } else {
+                walked += 1;
+            }
+            let live_now = live.live_quotes(&requirements, epoch, list_capture);
+            let full_now = full.quotes(&requirements, list_capture);
+            assert_eq!(live_now.len(), full_now.len());
+            for (i, (now, walk)) in live_now.iter().zip(&full_now).enumerate() {
+                assert_eq!(**now, **walk, "step {step}, position {i}");
+                if let (Some(before), Some(walked_before)) = (live_last.get(i), full_last.get(i)) {
+                    assert_eq!(
+                        now.ptr_eq(before),
+                        walk.ptr_eq(walked_before),
+                        "sharing at step {step}, position {i}"
+                    );
+                }
+                match walk.image.as_ref().map(|image| image.state) {
+                    Some(DataState::Stale) => stale += 1,
+                    Some(DataState::Live) => fresh += 1,
+                    _ => {}
+                }
+            }
+            (live_last, full_last) = (live_now, full_now);
+        }
+        assert!(looked_again > 3_000, "{looked_again} incremental lists");
+        assert!(walked > 10, "{walked} full walks");
+        assert!(
+            stale > 1_000 && fresh > 1_000,
+            "{stale} stale, {fresh} live"
+        );
     }
 }
