@@ -1159,6 +1159,182 @@ async fn monitor_settled(server: &Running, after: u64) -> (f64, u64, u64) {
     .expect("the monitor settles")
 }
 
+/// This process's resident memory, in MiB.
+fn resident_mib() -> f64 {
+    let out = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+        .output()
+        .unwrap();
+    String::from_utf8(out.stdout)
+        .unwrap()
+        .trim()
+        .parse::<f64>()
+        .unwrap()
+        / 1024.0
+}
+
+/// Read `socket`, a session following every instrument, until each of `width` has a
+/// `valuation` of `generation` or later; the time since `since`.
+async fn every_valuation(
+    socket: &mut Socket,
+    width: usize,
+    generation: u64,
+    since: Instant,
+) -> Duration {
+    use futures_util::StreamExt;
+    let mut seen = std::collections::BTreeSet::new();
+    tokio::time::timeout(Duration::from_secs(120), async {
+        while seen.len() < width {
+            match socket.next().await {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                    let value: Value = serde_json::from_str(&text).unwrap();
+                    match value["type"].as_str() {
+                        Some("valuation")
+                            if value["generation"].as_u64() >= Some(generation)
+                                && value["result"]["status"] == "Complete" =>
+                        {
+                            seen.insert(
+                                value["result"]["provenance"]["subject"]["instrument_id"]
+                                    .as_str()
+                                    .unwrap()
+                                    .to_owned(),
+                            );
+                        }
+                        Some("error") => panic!("session told {value}"),
+                        _ => {}
+                    }
+                }
+                Some(Ok(_)) => {}
+                other => panic!("socket ended: {other:?}"),
+            }
+        }
+    })
+    .await
+    .expect("every instrument is revalued");
+    since.elapsed()
+}
+
+/// P17b's measurement at 4,096 Live instruments (`--ignored --nocapture`, under the ci
+/// profile), with one session following every instrument:
+/// - a refresh of every quote, 4,096 images in 16 `POST`s, until the session has every
+///   new result;
+/// - the limit monitor with 64 watched books of 1,000 positions over the 4,096
+///   instruments (each book holds the 188 the limits name and 812 more; every other
+///   instrument is in about 13 books), 64 limits each over every measure: its time a
+///   pass when a tick revalues 1, 256 or all 4,096;
+/// - the process's resident memory.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn monitor_and_refresh_at_4096_instruments() {
+    use futures_util::SinkExt;
+    const WIDTH: usize = 4096;
+    let before = resident_mib();
+    let (dir, live, instruments) = live(WIDTH, 0, &MEASURES).await;
+    let server = started(&dir, live.clone()).await;
+    let images: Vec<QuoteEvent> =
+        serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap()).unwrap();
+    let (mut session, _) = tokio_tungstenite::connect_async(server.ws_url())
+        .await
+        .unwrap();
+    frame(&mut session, "connected").await;
+    for ids in instruments.chunks(256) {
+        let subscribe = json!({"type": "subscribe_valuations", "instrument_ids": ids});
+        session
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                subscribe.to_string().into(),
+            ))
+            .await
+            .unwrap();
+        acknowledged(&mut session).await;
+    }
+    println!(
+        "resident memory: {before:.0} MiB before the server, {:.0} MiB with 4,096 results",
+        resident_mib()
+    );
+    let mut sequence = 1;
+    let refresh = |sequence: u64, price: &str| -> Vec<QuoteEvent> {
+        images
+            .iter()
+            .map(|image_event| {
+                let mut event = steady_image(sequence, price);
+                event.key = image_event.key.clone();
+                event
+            })
+            .collect()
+    };
+    for round in 0..3 {
+        sequence += 1;
+        let events = refresh(sequence, if round % 2 == 0 { "99.30" } else { "99.25" });
+        let generation = server.runtime().await["generation"].as_u64().unwrap() + 1;
+        let started = Instant::now();
+        server.post_all_quotes(&events).await;
+        let posted = started.elapsed();
+        let all = every_valuation(&mut session, WIDTH, generation, started).await;
+        println!(
+            "refresh of 4,096 quotes in 16 POSTs, no watched book: {:.0} ms posting, {:.0} ms to every result",
+            posted.as_secs_f64() * 1e3,
+            all.as_secs_f64() * 1e3
+        );
+    }
+
+    let (_, before_books, _) = monitor_counts(&server).await;
+    let named = 188;
+    for i in 0..64 {
+        let mut held: Vec<String> = instruments[..named].to_vec();
+        let others = WIDTH - named;
+        held.extend((0..1000 - named).map(|k| instruments[named + (i * 61 + k) % others].clone()));
+        let id = format!("MON-{i:02}");
+        put(
+            &server,
+            &format!("/api/v1/books/{id}"),
+            &format!("book-{id}"),
+            book(&held),
+        )
+        .await;
+        put(
+            &server,
+            &format!("/api/v1/books/{id}/limits"),
+            &format!("limits-{id}"),
+            every_measure(),
+        )
+        .await;
+    }
+    let (_, mut passes, _) = monitor_settled(&server, before_books).await;
+    for revalued in [1usize, 256, WIDTH] {
+        let (before_sum, before_count, _) = monitor_counts(&server).await;
+        let rounds = if revalued == WIDTH { 3 } else { 10 };
+        let mut total = Duration::ZERO;
+        for round in 0..rounds {
+            sequence += 1;
+            let price = if round % 2 == 0 { "99.30" } else { "99.25" };
+            let start = if revalued == 1 { 2048 } else { 0 };
+            let events: Vec<QuoteEvent> = refresh(sequence, price)
+                .into_iter()
+                .skip(start)
+                .take(revalued)
+                .collect();
+            let generation = server.runtime().await["generation"].as_u64().unwrap() + 1;
+            let started = Instant::now();
+            server.post_all_quotes(&events).await;
+            total += every_valuation(&mut session, revalued, generation, started).await;
+            passes = monitor_settled(&server, passes).await.1;
+        }
+        let (sum, count, _) = monitor_counts(&server).await;
+        let per_pass = (sum - before_sum) / (count - before_count) as f64 * 1e3;
+        println!(
+            "monitor, {revalued:>4} revalued, 64 books x 1,000 positions x 64 limits over 4,096: \
+             {per_pass:.1} ms a pass, {} passes for {rounds} ticks; {:.0} ms to every result",
+            count - before_count,
+            total.as_secs_f64() * 1e3 / rounds as f64
+        );
+    }
+    println!(
+        "resident memory with the monitor: {:.0} MiB",
+        resident_mib()
+    );
+    server.stop().await;
+}
+
 /// P14c's measurement, at the bounds: 64 watched books, each holding all 256 priced
 /// instruments with 64 limits over every measure.
 /// - The first evaluation of every set records 4,096 changes, as a restart does: one
