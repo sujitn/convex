@@ -210,7 +210,8 @@ the changes that matter when you upgrade.
   SnapshotBounds::Live)` makes one, identified within `MAX_LIVE_IDENTITY_BYTES`
   (128 MiB) rather than `MAX_SNAPSHOT_BYTES` (16 MiB); its `next` keeps its bounds.
   `MarketSnapshot::new`, deserialization and storage keep 256 instruments and 16 MiB.
-  4,096 instruments with every text at its validator's bound write 125.2 MiB.
+  4,096 instruments with every text at its validator's bound write 125.2 MiB with a small
+  frame.
 - `RuntimeMode::max_instruments` (4,096 Live, 256 Captured or Replay) and
   `RuntimeMode::snapshot_bounds`. A `ConfigurationDocument` holds up to 4,096 instruments
   for a Live runtime; the configuration JSON schema's `maxItems` is 4,096.

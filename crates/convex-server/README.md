@@ -619,11 +619,19 @@ WSL2; 14 to 43 s when each entry was its own commit). Valuations are not slowed 
 but changes in that window are recorded late. An entry's `details` is about 600 bytes, so a
 book's commit is about 40 KB.
 
-At the bounds (64 books, each holding all 256 priced instruments with 64 limits over every
-measure), one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or 256
-instruments, since each holds every instrument: about 1.4 ms a book. Above about 11 ticks a
-second the monitor coalesces ticks. One instrument's valuation hop (quote in to WebSocket
-frame) stays at about 1.4 ms with the monitor busy.
+With 64 books, each holding all 256 priced instruments with 64 limits over every measure,
+one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or 256 instruments,
+since each holds every instrument: about 1.4 ms a book. Above about 11 ticks a second the
+monitor coalesces ticks. One instrument's valuation hop (quote in to WebSocket frame)
+stays at about 1.4 ms with the monitor busy (`ci` profile, WSL2).
+
+At 4,096 Live instruments with 64 books of 1,000 positions (the most a book holds) and 64
+limits each, a pass over every book takes 0.3 to 0.58 s, about 5 ms a book, and one over
+the 13 or so books that hold one instrument 63 to 173 ms (`ci` profile, macOS). By that
+arithmetic the monitor coalesces ticks above about two a second, and a limit's status
+can trail its valuation by a pass. One instrument's hop stays at 0.76 to 0.82 ms (median)
+while the monitor evaluates all 64 books after each quote, against 0.63 to 0.68 ms with
+no book watched.
 
 #### The clear hold
 

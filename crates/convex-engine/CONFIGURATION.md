@@ -308,10 +308,11 @@ runtime accepts no fixing-dependent instruments and at most four measures.
 Validation admits one control operation per use-case instance, one to eight
 fixtures, 4,096 aggregate trace events and 8,192 expectations; the warmed
 valuation cache keeps up to 4,096 contexts of one fixture snapshot and releases them
-at the next snapshot. A Live document of 4,096 instruments with ten-character ids
-and one field each is about 0.6 MB, and a fixture of one image and one expectation
-an instrument about 2.1 MB: within the 4 MiB configuration request, but close to the
-CLI's 2 MiB file bound. CLI JSON input/output is bounded and history
+at the next snapshot. A Live document of 4,096 instruments fits 2 MiB with twelve
+fields a quote and ids of 32 characters (1.42 MB), not of 128 (2.6 MB). Every
+instrument needs an expectation, and the trace bound admits one fixture of an image
+an instrument at 4,096: about 2.1 MB with short ids, within the 4 MiB configuration
+request but close to the CLI's 2 MiB file bound. CLI JSON input/output is bounded and history
 uses the existing page limit of 1,000.
 
 The redb repository adds five `configuration_*_v1` tables and the independent

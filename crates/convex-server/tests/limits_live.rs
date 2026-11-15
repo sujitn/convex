@@ -1222,6 +1222,8 @@ async fn every_valuation(
 ///   instruments (each book holds the 188 the limits name and 812 more; every other
 ///   instrument is in about 13 books), 64 limits each over every measure: its time a
 ///   pass when a tick revalues 1, 256 or all 4,096;
+/// - one instrument's valuation hop, quotes 50 ms apart, before any book is watched and
+///   while the monitor evaluates the 64 books that hold it after each quote;
 /// - the process's resident memory.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
@@ -1277,6 +1279,10 @@ async fn monitor_and_refresh_at_4096_instruments() {
         );
     }
 
+    let pace = Duration::from_millis(50);
+    let idle = hops(&server, &mut session, &images[0], &mut sequence, pace).await;
+    println!("valuation hop, 1 instrument, quotes 50 ms apart, no watched book: {idle}");
+
     let (_, before_books, _) = monitor_counts(&server).await;
     let named = 188;
     for i in 0..64 {
@@ -1300,6 +1306,10 @@ async fn monitor_and_refresh_at_4096_instruments() {
         .await;
     }
     let (_, mut passes, _) = monitor_settled(&server, before_books).await;
+    // Every book holds the first instrument, so each quote starts a pass over all 64.
+    let busy = hops(&server, &mut session, &images[0], &mut sequence, pace).await;
+    println!("valuation hop, same, the monitor evaluating 64 books after each quote: {busy}");
+    passes = monitor_settled(&server, passes).await.1;
     for revalued in [1usize, 256, WIDTH] {
         let (before_sum, before_count, _) = monitor_counts(&server).await;
         let rounds = if revalued == WIDTH { 3 } else { 10 };

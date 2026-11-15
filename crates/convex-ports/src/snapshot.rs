@@ -36,8 +36,10 @@ pub const MAX_SNAPSHOT_INSTRUMENTS: usize = 256;
 /// stored (D101).
 pub const MAX_LIVE_SNAPSHOT_INSTRUMENTS: usize = 4096;
 /// The JSON a Live snapshot's identity hashes (D109). 4,096 instruments with every text
-/// at the bound its validator sets write 125.2 MiB, so a running plan does not reach it.
-/// Live snapshots are never stored, and the JSON streams into the hash.
+/// at the bound its validator sets write 125.2 MiB with a small frame, which leaves
+/// 2.8 MiB for the rest of the frame; a frame at its own bounds is not counted. Past
+/// it, every tick fails with `CapacityExceeded`. Live snapshots are never stored, and
+/// the JSON streams into the hash.
 pub const MAX_LIVE_IDENTITY_BYTES: usize = 128 * 1024 * 1024;
 /// Maximum explicitly required fixings in one information set.
 pub const MAX_SNAPSHOT_FIXINGS: usize = 1024;

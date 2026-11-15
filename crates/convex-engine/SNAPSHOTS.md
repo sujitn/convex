@@ -116,7 +116,9 @@ fixings, 64 total original/complete curves and **4,096 total original pillars,
 observations, helpers or segments**. A Live runtime's snapshots, which are never
 stored, hold up to 4,096 instruments and selected quote keys, and their identity hashes
 up to 128 MiB (`SnapshotBounds::Live`, D101, D109): 4,096 instruments with every text at
-its validator's bound write 125.2 MiB. Each quote has at most 12
+its validator's bound write 125.2 MiB with a small frame. A frame at its own bounds (64
+curves, 256 overrides, 1,024 fixings) is not counted; past the bound, every tick fails
+with `CapacityExceeded`. Each quote has at most 12
 fields. Quote and curve age budgets are explicit, between 1 ms and one day;
 source skew is between 0 ms and one day. Product owners must choose their actual
 budgets; these bounds do not certify a trading latency target.
