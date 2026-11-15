@@ -11,10 +11,14 @@ use convex_core::contracts::*;
 use convex_ports::{
     configuration::InstrumentPin,
     runtime::{PublishedValuation, RuntimeCheckpoint},
-    snapshot::{InputSet, MarketSnapshot, QualityWindow, SnapshotIssueKind, SnapshotQuality},
+    snapshot::{
+        InputSet, MarketSnapshot, QualityWindow, SnapshotIssueKind, SnapshotQuality,
+        SnapshotReferences,
+    },
 };
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
+    ops::Bound,
     sync::Arc,
 };
 
@@ -112,14 +116,17 @@ pub(super) fn activate(
     Ok(built)
 }
 /// Bind a Live tick's snapshot, built once, and reset only the pins it values (D55);
-/// every other pin keeps its committed result.
+/// every other pin keeps its committed result. The callable bound reads only the
+/// reference section, so it is counted again only when the section is not `checked`, the
+/// one last counted within it (P17c-iii).
 pub(super) fn rebind(
     graph: &CalculationGraph,
     plan: &RuntimePlan,
     snapshot: Arc<MarketSnapshot>,
     selected: &[usize],
+    checked: &mut Option<SnapshotReferences>,
 ) -> Result<Arc<BuiltSnapshot>, RuntimeError> {
-    check_callables(&snapshot)?;
+    check_callables_once(&snapshot.content().references, checked)?;
     let revalue: Vec<_> = selected
         .iter()
         .map(|&index| NodeId::BondPrice {
@@ -143,6 +150,11 @@ pub(super) struct Baseline {
     reads: Reads,
     qualities: Vec<SnapshotQuality>,
     windows: Vec<QualityWindow>,
+    /// The windows, by plan index, ordered by the millisecond each ends at and by the
+    /// time each was judged at, so a tick finds the pins whose window it left without
+    /// walking every window (P17c-iii).
+    ends: BTreeSet<(i64, usize)>,
+    starts: BTreeSet<(UtcTimestamp, usize)>,
 }
 /// What each pin's valuation reads while the frame and the pinned reference section hold
 /// (G31): its curves, by plan index. They follow from the pin's model, the plan's
@@ -212,19 +224,72 @@ impl Baseline {
         if reads.curves.len() != pins.len() {
             return Err(RuntimeError::RecoveryConflict);
         }
-        let (qualities, windows) = pins
+        let (qualities, windows): (_, Vec<QualityWindow>) = pins
             .iter()
             .enumerate()
             .map(|(index, pin)| {
                 snapshot.judge(&snapshot.inputs(pin.instrument_id.as_str(), &reads.curves(index)))
             })
             .unzip();
-        Ok(Self {
+        let mut baseline = Self {
             snapshot: snapshot.clone(),
             reads,
             qualities,
-            windows,
-        })
+            windows: Vec::new(),
+            ends: BTreeSet::new(),
+            starts: BTreeSet::new(),
+        };
+        for window in windows {
+            baseline.index(baseline.windows.len(), &window);
+            baseline.windows.push(window);
+        }
+        Ok(baseline)
+    }
+    /// Order pin `index`'s `window` by its end and by when it was judged.
+    fn index(&mut self, index: usize, window: &QualityWindow) {
+        if let Some(until) = window.until_ms() {
+            self.ends.insert((until, index));
+        }
+        self.starts.insert((window.judged_at(), index));
+    }
+    /// Give pin `index` its new `window`, ordered in place of its last one.
+    fn set_window(&mut self, index: usize, window: QualityWindow) -> Result<(), RuntimeError> {
+        let last = self
+            .windows
+            .get_mut(index)
+            .ok_or(RuntimeError::RecoveryConflict)?;
+        if *last == window {
+            return Ok(());
+        }
+        let last = std::mem::replace(last, window);
+        if let Some(until) = last.until_ms() {
+            self.ends.remove(&(until, index));
+        }
+        self.starts.remove(&(last.judged_at(), index));
+        self.index(index, &window);
+        Ok(())
+    }
+    /// The pins whose window `snapshot`'s time has left, as `MarketSnapshot::within` judges
+    /// it: their window ends by that millisecond, or was judged after it. Each is named
+    /// once, by plan index.
+    fn left(&self, snapshot: &MarketSnapshot) -> BTreeSet<usize> {
+        let now = snapshot.quality_time();
+        let ended = self
+            .ends
+            .range(..=(now.datetime().timestamp_millis(), usize::MAX))
+            .map(|&(_, index)| index);
+        let later = self
+            .starts
+            .range((Bound::Excluded((now, usize::MAX)), Bound::Unbounded))
+            .map(|&(_, index)| index);
+        ended
+            .chain(later)
+            .filter(|&index| {
+                self.windows
+                    .get(index)
+                    .is_none_or(|window| !snapshot.within(window))
+            })
+            .collect()
     }
     /// Move to `snapshot`, which shares this baseline's frame (D55), and select the pins
     /// it values. With `listed`, the instruments whose quotes changed by
@@ -247,26 +312,32 @@ impl Baseline {
         {
             return Err(RuntimeError::RecoveryConflict);
         }
-        let mut judge = vec![listed.is_none(); count];
-        if let Some(instruments) = listed {
-            for instrument in instruments {
-                let index = self
-                    .reads
-                    .pin(pins, instrument)
-                    .ok_or(RuntimeError::RecoveryConflict)?;
-                judge[index] = true;
-            }
-            for (index, window) in self.windows.iter().enumerate() {
-                if !snapshot.within(window) {
-                    judge[index] = true;
+        // In plan order: every pin, or the listed ones and those whose window was left.
+        let judged: Vec<usize> = match listed {
+            None => (0..count).collect(),
+            Some(instruments) => {
+                let mut judge = self.left(snapshot);
+                // Every test build checks the ordered windows against every window.
+                debug_assert!(self
+                    .windows
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, window)| !snapshot.within(window))
+                    .map(|(index, _)| index)
+                    .eq(judge.iter().copied()));
+                for instrument in instruments {
+                    judge.insert(
+                        self.reads
+                            .pin(pins, instrument)
+                            .ok_or(RuntimeError::RecoveryConflict)?,
+                    );
                 }
+                judge.into_iter().collect()
             }
-        }
+        };
         let mut valued = Vec::new();
-        for (index, pin) in pins.iter().enumerate() {
-            if !judge[index] {
-                continue;
-            }
+        for index in judged {
+            let pin = pins.get(index).ok_or(RuntimeError::RecoveryConflict)?;
             check(index)?;
             let instrument = pin.instrument_id.as_str();
             let curves = self.reads.curves(index);
@@ -277,7 +348,7 @@ impl Baseline {
                 valued.push(index);
             }
             self.qualities[index] = quality;
-            self.windows[index] = window;
+            self.set_window(index, window)?;
         }
         self.snapshot = snapshot.clone();
         Ok(valued)
@@ -325,13 +396,34 @@ pub(super) fn changed(
 }
 /// The plan pins only identities; product types are known once references resolve.
 pub(super) fn check_callables(snapshot: &MarketSnapshot) -> Result<(), RuntimeError> {
-    if crate::optional_valuation::within_callable_bound(snapshot) {
+    callable_bound(&snapshot.content().references)
+}
+fn callable_bound(references: &SnapshotReferences) -> Result<(), RuntimeError> {
+    if crate::optional_valuation::references_within_callable_bound(references) {
         Ok(())
     } else {
         Err(RuntimeError::Configuration(
             "a runtime plan values at most 8 callables",
         ))
     }
+}
+/// [`check_callables`] for a Live tick: the bound reads only the reference section, so it
+/// is counted only when `references` is not `checked`, the section it last held for
+/// (P17c-iii). A refused section is not kept.
+fn check_callables_once(
+    references: &SnapshotReferences,
+    checked: &mut Option<SnapshotReferences>,
+) -> Result<(), RuntimeError> {
+    if checked
+        .as_ref()
+        .is_some_and(|section| section.ptr_eq(references))
+    {
+        return Ok(());
+    }
+    *checked = None;
+    callable_bound(references)?;
+    *checked = Some(references.clone());
+    Ok(())
 }
 fn failed(
     context: &ValuationContext,
@@ -871,6 +963,42 @@ mod tests {
             field.receive_time_ms = at;
             field.sequence = image.watermark.sequence;
         }
+    }
+
+    /// P17c-iii: a Live tick counts the callables again whenever its reference section is
+    /// not the one last found within the bound, even an equal copy of it, and a refused
+    /// section is never kept as counted.
+    #[test]
+    fn the_callable_bound_is_counted_for_every_section_but_the_one_last_found_within_it() {
+        let bullet = fixture::content().references[0].clone();
+        let callable = |index: usize| {
+            let mut reference = bullet.clone();
+            reference.record.instrument_id =
+                convex_core::ids::InstrumentId::new(format!("CALLABLE-{index}"));
+            let bond = reference.record.bond.as_mut().unwrap();
+            bond.instrument_id = reference.record.instrument_id.clone();
+            bond.bond_type = convex_ports::reference_data::BondType::FixedCallable;
+            reference
+        };
+        let bound = crate::optional_valuation::MAX_RUNTIME_CALLABLES;
+        let within = SnapshotReferences::new((0..bound).map(callable).collect());
+        let over = SnapshotReferences::new((0..=bound).map(callable).collect());
+        let mut checked = None;
+
+        check_callables_once(&within, &mut checked).unwrap();
+        assert!(checked.as_ref().is_some_and(|s| s.ptr_eq(&within)));
+        check_callables_once(&within, &mut checked).unwrap();
+        // Another section is counted, and refused; it is not kept.
+        assert!(check_callables_once(&over, &mut checked).is_err());
+        assert!(checked.is_none());
+        assert!(check_callables_once(&over, &mut checked).is_err());
+        // An equal copy of the section within the bound is counted again.
+        check_callables_once(&within, &mut checked).unwrap();
+        let copy = SnapshotReferences::new(over.to_vec());
+        assert!(check_callables_once(&copy, &mut checked).is_err());
+        // A section within the bound after one over it is counted, and kept.
+        check_callables_once(&within, &mut checked).unwrap();
+        assert!(checked.as_ref().is_some_and(|s| s.ptr_eq(&within)));
     }
 
     /// P13b-iii (D81): a Live tick that judges only the pins whose quotes changed, and

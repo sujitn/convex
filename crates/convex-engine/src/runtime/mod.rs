@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 
 mod actor;
+mod summary;
 mod worker;
 use crate::{
     context::NumericalSettings,

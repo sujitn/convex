@@ -104,13 +104,13 @@ pub fn product_measures(model: &str) -> &'static [&'static str] {
 
 /// Every generation reprices each callable on HW1F trees, so their number stays bounded.
 pub fn within_callable_bound(snapshot: &convex_ports::snapshot::MarketSnapshot) -> bool {
-    within_bound(
-        snapshot
-            .content()
-            .references
-            .iter()
-            .filter_map(|r| r.record.bond.as_ref()),
-    )
+    references_within_callable_bound(&snapshot.content().references)
+}
+/// [`within_callable_bound`] for one reference section, which is all it reads.
+pub(crate) fn references_within_callable_bound(
+    references: &convex_ports::snapshot::SnapshotReferences,
+) -> bool {
+    within_bound(references.iter().filter_map(|r| r.record.bond.as_ref()))
 }
 fn within_bound<'a>(bonds: impl Iterator<Item = &'a BondReferenceData>) -> bool {
     bonds

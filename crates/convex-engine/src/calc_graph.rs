@@ -1131,6 +1131,9 @@ impl CalculationGraph {
             status: ResultStatus::Complete,
             quality: DataQuality::Valid,
         });
+        if let Some(deadline) = cached.valid_until {
+            state.hold_deadline(deadline);
+        }
         let root = &mut state.nodes[i];
         root.cached = Some(cached.clone());
         root.last_good = Some(cached);
@@ -1348,6 +1351,7 @@ impl CalculationGraph {
         let attempt = next(state.next_attempt)?;
         state.next_attempt = attempt;
         state.nodes[i].attempt = Some((attempt, deadline));
+        state.hold_deadline(deadline);
         Ok(CalculationTicket {
             owner: self.owner.clone(),
             node_id: state.dag.nodes[i].id.clone(),
@@ -1508,6 +1512,9 @@ impl CalculationGraph {
                     quality,
                 });
                 state.result_revision = revision;
+                if let Some(deadline) = cached.valid_until {
+                    state.hold_deadline(deadline);
+                }
                 let node = &mut state.nodes[i];
                 node.revision = revision;
                 node.dirty = false;

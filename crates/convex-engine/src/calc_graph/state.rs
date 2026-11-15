@@ -55,6 +55,12 @@ pub(super) struct GraphState {
     pub(super) snapshot: Option<Arc<MarketSnapshot>>,
     pub(super) snapshot_pending: bool,
     pub(super) suspended: bool,
+    /// No deadline `maintain` can expire is earlier than this: an attempt's, or the
+    /// `valid_until` of a cached value it can expire. `None` when no node holds one. While
+    /// `now` is not past it, `maintain` expires nothing and walks no node (P17c-iii). Only
+    /// [`GraphState::hold_deadline`] lowers it, at each write that gives a node such a
+    /// deadline, and each walk sets it again.
+    pub(super) deadline_floor: Option<Instant>,
 }
 impl GraphState {
     pub(super) fn empty() -> Self {
@@ -68,7 +74,12 @@ impl GraphState {
             snapshot: None,
             snapshot_pending: false,
             suspended: false,
+            deadline_floor: None,
         }
+    }
+    /// Note a deadline a node now holds that `maintain` can expire.
+    pub(super) fn hold_deadline(&mut self, deadline: Instant) {
+        self.deadline_floor = Some(self.deadline_floor.map_or(deadline, |f| f.min(deadline)));
     }
     pub(super) fn advance_generation(&mut self) -> Result<u64, GraphError> {
         self.generation = next(self.generation)?;
@@ -140,6 +151,35 @@ impl GraphState {
         Ok(())
     }
     pub(super) fn maintain(&mut self, now: Instant) -> Result<(), GraphError> {
+        if self.deadline_floor.is_none_or(|floor| now <= floor) {
+            // Every test build checks that the walk would expire nothing.
+            debug_assert!(self.expired(now).is_empty());
+            return Ok(());
+        }
+        let expired = self.expired(now);
+        if !expired.is_empty() {
+            self.fail_many(expired)?;
+        }
+        self.deadline_floor = self
+            .nodes
+            .iter()
+            .filter_map(|node| {
+                let attempt = node.attempt.map(|(_, deadline)| deadline);
+                let cached = node
+                    .cached
+                    .as_ref()
+                    .filter(|v| {
+                        node.failure.is_none() && !node.dirty && v.generation == node.generation
+                    })
+                    .and_then(|v| v.valid_until);
+                attempt.into_iter().chain(cached).min()
+            })
+            .min();
+        Ok(())
+    }
+    /// The nodes `maintain` fails at `now`: an attempt past its deadline, or a settled
+    /// value past the freshness deadline of what it consumed.
+    fn expired(&self, now: Instant) -> Vec<(usize, CalculationFailure)> {
         let mut expired = Vec::new();
         for i in 0..self.nodes.len() {
             if self.nodes[i]
@@ -169,10 +209,7 @@ impl GraphState {
                 ));
             }
         }
-        if !expired.is_empty() {
-            self.fail_many(expired)?;
-        }
-        Ok(())
+        expired
     }
     pub(super) fn ready(&self, now: Instant, limit: usize) -> Vec<usize> {
         if self.suspended || self.snapshot_pending {

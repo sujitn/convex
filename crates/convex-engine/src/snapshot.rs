@@ -1295,11 +1295,11 @@ type Measures = (BTreeMap<MeasureId, MeasureResult>, Vec<StructuredError>);
 /// none; its valuation reports why.
 fn required_fixings(
     request: &SnapshotAssembly,
-    references: &[ResolvedBondReference],
+    references: &SnapshotReferences,
 ) -> Result<Vec<convex_ports::fixing::FixingKey>, TraitError> {
     let as_of = convex_core::Date::from(request.as_of.datetime().date_naive());
     let mut keys = request.fixings.iter().cloned().collect::<BTreeSet<_>>();
-    for reference in references.iter().filter(|r| r.floating.is_some()) {
+    for reference in references.floating() {
         let due = crate::floating_valuation::FloatingNote::new(reference)
             .and_then(|note| note.due_fixings(as_of, request.known_at));
         if let Ok(due) = due {

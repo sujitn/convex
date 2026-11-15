@@ -368,3 +368,49 @@ fn a_checked_section_refuses_the_lookups_its_records_refuse() {
     }
     drop(checked);
 }
+
+/// P17c-iii: a section's floating records, found once, are exactly the records that carry
+/// a floating index, in order, and a changed section finds them again.
+#[test]
+fn a_section_lists_its_floating_records_in_order_and_again_after_a_change() {
+    let base = content();
+    let floating_of = |reference: &convex_ports::reference_master::ResolvedBondReference| {
+        convex_ports::reference_master::ResolvedFloating {
+            index: reference.issuer.clone(),
+            calendar: reference.calendar.clone(),
+        }
+    };
+    let mut records = base.references.to_vec();
+    assert!(
+        records.len() >= 3,
+        "the script's content holds several bonds"
+    );
+    for position in [0, 2] {
+        records[position].floating = Some(floating_of(&records[position]));
+    }
+    let mut section = SnapshotReferences::new(records);
+    let expected = |section: &SnapshotReferences| {
+        section
+            .iter()
+            .filter(|r| r.floating.is_some())
+            .map(|r| r.record.instrument_id.as_str().to_owned())
+            .collect::<Vec<_>>()
+    };
+    let listed = |section: &SnapshotReferences| {
+        section
+            .floating()
+            .map(|r| r.record.instrument_id.as_str().to_owned())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(listed(&section), expected(&section));
+    assert_eq!(listed(&section).len(), 2);
+    // Read again, from the positions found the first time.
+    assert_eq!(listed(&section), expected(&section));
+    // A change finds them again: one note loses its index and another gains one.
+    let records = section.make_mut();
+    records[0].floating = None;
+    let last = records.len() - 1;
+    records[last].floating = Some(floating_of(&records[last]));
+    assert_eq!(listed(&section), expected(&section));
+    assert_eq!(listed(&section).len(), 2);
+}

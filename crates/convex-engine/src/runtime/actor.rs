@@ -58,6 +58,11 @@ pub(super) struct Actor {
     /// The last Live tick's snapshot and qualities; the next tick values only the pins
     /// whose inputs changed (D55). None at start, after a delivery loss and on refresh.
     baseline: Option<worker::Baseline>,
+    /// What the deadline and health read from the results, kept up by the ticks that
+    /// change them (P17c-iii). It applies only while it describes the checkpoint's results.
+    summary: Option<super::summary::ResultSummary>,
+    /// The reference section a Live tick last found within the callable bound.
+    callables_checked: Option<convex_ports::snapshot::SnapshotReferences>,
     /// A Live plan that pins no curve data reads its curves here at each snapshot's
     /// cutoff: the store request-time pricing reads (D50).
     stored_curves: Option<Arc<dyn convex_ports::storage::CurveStore>>,
@@ -268,6 +273,8 @@ impl Actor {
             selected,
             live_state,
             baseline: None,
+            summary: None,
+            callables_checked: None,
             stored_curves,
         };
         // Reopen replay from the beginning, verify its accepted prefix, and only then continue.
@@ -675,7 +682,13 @@ impl Actor {
         let (selected, baseline) =
             worker::changed(plan, &snapshot, previous, &self.checkpoint.results)?;
         let built = if rebinding {
-            worker::rebind(&self.graph, plan, snapshot, &selected)?
+            worker::rebind(
+                &self.graph,
+                plan,
+                snapshot,
+                &selected,
+                &mut self.callables_checked,
+            )?
         } else {
             worker::activate(&self.graph, plan, snapshot)?
         };
@@ -703,6 +716,7 @@ impl Actor {
         .await;
         crate::telemetry::observe(crate::telemetry::CALCULATE_SECONDS, started);
         let produced: Arc<[Arc<PublishedValuation>]> = produced?.into();
+        let previous = self.checkpoint.results.clone();
         let mut next = self.checkpoint.clone();
         next.result_revision = produced.last().map_or(next.result_revision, |p| p.revision);
         // A Live tick that values some pins merges their records into the kept ones,
@@ -724,6 +738,13 @@ impl Actor {
         next.pending = false;
         next.snapshot_id = Some(snapshot.id().clone());
         self.save(next).await?;
+        let results = self.checkpoint.results.clone();
+        self.summary = Some(match self.summary.take() {
+            Some(summary) if selected.len() < previous.len() => {
+                summary.advance(&previous, results, selected)
+            }
+            _ => super::summary::ResultSummary::new(results, self.demo()),
+        });
         self.set_deadline(&snapshot);
         *self.results.write() = self.checkpoint.results.clone();
         Ok(())
@@ -769,12 +790,8 @@ impl Actor {
             tokio::time::Instant::now() + delta
         };
         let data = self
-            .checkpoint
-            .results
-            .iter()
-            .filter(|r| self.accepts(r.result.quality()))
-            .filter_map(|r| r.live_valid_until)
-            .min()
+            .result_view()
+            .expiry
             .map(|expiry| at(expiry) + Duration::from_nanos(1));
         let overrides = snapshot
             .content()
@@ -828,33 +845,36 @@ impl Actor {
             .as_ref()
             .is_some_and(|cases| cases.accepts(DataQuality::Demo))
     }
-    fn accepts(&self, quality: DataQuality) -> bool {
-        worker::accepted(quality, self.demo())
+    /// What the deadline and health read from the results: kept up by the ticks while the
+    /// summary describes them, else every record walked.
+    fn result_view(&self) -> super::summary::ResultView {
+        let demo = self.demo();
+        match &self.summary {
+            Some(summary) if summary.describes(&self.checkpoint.results, demo) => {
+                let view = summary.view();
+                // Every test build checks the summary against the walk at each read.
+                debug_assert_eq!(
+                    view,
+                    super::summary::ResultView::walk(&self.checkpoint.results, demo)
+                );
+                view
+            }
+            _ => super::summary::ResultView::walk(&self.checkpoint.results, demo),
+        }
     }
     fn refresh_health(&self) {
         let expired = self
             .data_deadline
             .is_some_and(|deadline| tokio::time::Instant::now() >= deadline);
+        let view = self.result_view();
+        // The first refused quality, else Demo if any result is Demo.
         let quality = if expired {
             DataQuality::Stale
         } else {
-            // The first refused quality, else Demo if any accepted result is Demo.
-            let qualities = self.checkpoint.results.iter().map(|r| r.result.quality());
-            qualities
-                .clone()
-                .find(|q| !self.accepts(*q))
-                .or_else(|| qualities.clone().find(|q| *q == DataQuality::Demo))
-                .unwrap_or(DataQuality::Valid)
+            view.quality
         };
         // Readiness needs one accepted result, not every one (D58a).
-        let accepted = self
-            .checkpoint
-            .results
-            .iter()
-            .filter(|r| {
-                r.result.status() == ResultStatus::Complete && self.accepts(r.result.quality())
-            })
-            .count();
+        let accepted = view.accepted;
         let mut health = self.health.write();
         let accepted_activation = self
             .checkpoint

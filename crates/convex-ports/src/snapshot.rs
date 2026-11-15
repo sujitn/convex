@@ -459,6 +459,8 @@ struct ReferenceSection {
     checked: OnceLock<()>,
     /// What the cutoff checks of checked `records` compare, computed once (P17c-ii).
     bounds: OnceLock<Option<ReferenceBounds>>,
+    /// The positions of the records that carry a floating index, found once (P17c-iii).
+    floating: OnceLock<Box<[usize]>>,
 }
 
 /// The times a checked section's cutoff checks compare (P17c-ii). A record and each of
@@ -533,6 +535,7 @@ impl ReferenceSection {
             digest: OnceLock::new(),
             checked: OnceLock::new(),
             bounds: OnceLock::new(),
+            floating: OnceLock::new(),
         }
     }
 }
@@ -559,6 +562,7 @@ impl SnapshotReferences {
         section.digest.take();
         section.checked.take();
         section.bounds.take();
+        section.floating.take();
         &mut section.records
     }
     /// Sort by instrument id, copying only when the records are out of order. A shared
@@ -571,6 +575,23 @@ impl SnapshotReferences {
         {
             self.make_mut().sort_by(by_instrument);
         }
+    }
+    /// The records that carry a floating index, in order. Their positions are found once
+    /// per section, so a Live tick does not walk every record for them (P17c-iii).
+    pub fn floating(&self) -> impl Iterator<Item = &ResolvedBondReference> {
+        let records = &self.0.records;
+        self.0
+            .floating
+            .get_or_init(|| {
+                records
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, record)| record.floating.is_some())
+                    .map(|(position, _)| position)
+                    .collect()
+            })
+            .iter()
+            .filter_map(|&position| records.get(position))
     }
     /// Whether both hold one section, so their records are the same without comparing
     /// them. Every snapshot of a Live activation shares its pinned section.
@@ -1091,7 +1112,7 @@ impl MarketSnapshot {
                 .is_none_or(|until| now.datetime().timestamp_millis() < until)
     }
     /// The time quality is judged at: the later of the two cutoffs.
-    fn quality_time(&self) -> UtcTimestamp {
+    pub fn quality_time(&self) -> UtcTimestamp {
         self.0.content.as_of.max(self.0.content.known_at)
     }
     /// The instruments whose quote entries are not shared with `previous`'s, in snapshot
