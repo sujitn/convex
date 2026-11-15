@@ -18,8 +18,10 @@ use crate::fixing::{FixingKey, PublishedFixing};
 use crate::quote_event::{
     DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
 };
+#[cfg(doc)]
+use crate::reference_master::validate_resolved_bond_at;
 use crate::reference_master::{
-    validate_resolved_bond, validate_resolved_bond_at, MasterDefinition, ReferenceLookup,
+    validate_resolved_bond, EffectiveInterval, MasterDefinition, ReferenceLookup,
     ResolvedBondReference,
 };
 use crate::storage::BondPricingConfig;
@@ -455,6 +457,65 @@ struct ReferenceSection {
     digest: OnceLock<SectionDigest>,
     /// Set once `records` pass the checks that read no cutoff.
     checked: OnceLock<()>,
+    /// What the cutoff checks of checked `records` compare, computed once (P17c-ii).
+    bounds: OnceLock<Option<ReferenceBounds>>,
+}
+
+/// The times a checked section's cutoff checks compare (P17c-ii). A record and each of
+/// its resources must be recorded by the lookup's `known_at` and effective at its
+/// `as_of`, so every one is exactly when the latest recording is by `known_at` and
+/// `as_of` lies from the latest start to before the earliest end. `None` in a field means
+/// no record bounds it. A section holding a record without terms has no bounds, since
+/// that record fails at every lookup.
+#[derive(Clone, Copy)]
+struct ReferenceBounds {
+    from: Option<UtcTimestamp>,
+    until: Option<UtcTimestamp>,
+    recorded_at: Option<UtcTimestamp>,
+}
+
+impl ReferenceBounds {
+    fn of(records: &[ResolvedBondReference]) -> Option<Self> {
+        let mut bounds = Self {
+            from: None,
+            until: None,
+            recorded_at: None,
+        };
+        let mut add = |recorded_at: UtcTimestamp, effective: EffectiveInterval| {
+            bounds.recorded_at = bounds.recorded_at.max(Some(recorded_at));
+            bounds.from = bounds.from.max(Some(effective.from));
+            if let Some(until) = effective.until {
+                bounds.until = Some(bounds.until.map_or(until, |earliest| earliest.min(until)));
+            }
+        };
+        for reference in records {
+            let terms = reference.record.bond.as_ref()?.contractual_terms.as_ref()?;
+            add(reference.record.recorded_at, terms.effective);
+            let floating = reference
+                .floating
+                .iter()
+                .flat_map(|floating| [&floating.index, &floating.calendar]);
+            for record in [
+                &reference.issuer,
+                &reference.calendar,
+                &reference.convention,
+            ]
+            .into_iter()
+            .chain(floating)
+            {
+                add(record.recorded_at, record.definition.effective());
+            }
+        }
+        Some(bounds)
+    }
+    /// Whether every record passes [`validate_resolved_bond_at`] at `lookup`.
+    fn hold_at(&self, lookup: ReferenceLookup) -> bool {
+        self.from.is_none_or(|from| from <= lookup.as_of)
+            && self.until.is_none_or(|until| lookup.as_of < until)
+            && self
+                .recorded_at
+                .is_none_or(|recorded_at| recorded_at <= lookup.known_at)
+    }
 }
 
 /// SHA-256 of a section's canonical JSON under its schema-4 domain, and the length of
@@ -471,6 +532,7 @@ impl ReferenceSection {
             json: OnceLock::new(),
             digest: OnceLock::new(),
             checked: OnceLock::new(),
+            bounds: OnceLock::new(),
         }
     }
 }
@@ -489,13 +551,14 @@ impl SnapshotReferences {
         Self(Arc::new(ReferenceSection::new(records)))
     }
     /// The records to change, copied first when another holder shares them. The checks,
-    /// canonical JSON and digest are dropped; the next snapshot sorts, checks and hashes
-    /// again.
+    /// their bounds, canonical JSON and digest are dropped; the next snapshot sorts,
+    /// checks and hashes again.
     pub fn make_mut(&mut self) -> &mut Vec<ResolvedBondReference> {
         let section = Arc::make_mut(&mut self.0);
         section.json.take();
         section.digest.take();
         section.checked.take();
+        section.bounds.take();
         &mut section.records
     }
     /// Sort by instrument id, copying only when the records are out of order. A shared
@@ -523,17 +586,22 @@ impl SnapshotReferences {
             .map(|i| &records[i])
     }
     /// Check sorted records at `lookup`. The checks that read the records alone run
-    /// once per section; the cutoff checks run at every call.
+    /// once per section. The cutoff checks run at every call, once checked in O(1) from
+    /// the section's bounds (P17c-ii).
     fn validate(&self, lookup: ReferenceLookup) -> Result<(), TraitError> {
         use crate::reference_repository::validate_reference_id;
         let invalid = |_| TraitError::InvalidInput("invalid resolved snapshot reference");
         if self.0.checked.get().is_some() {
-            return self
+            let bounds = self
                 .0
-                .records
-                .iter()
-                .try_for_each(|reference| validate_resolved_bond_at(reference, lookup))
-                .map_err(invalid);
+                .bounds
+                .get_or_init(|| ReferenceBounds::of(&self.0.records));
+            return match bounds {
+                Some(bounds) if bounds.hold_at(lookup) => Ok(()),
+                _ => Err(TraitError::InvalidInput(
+                    "invalid resolved snapshot reference",
+                )),
+            };
         }
         let mut resources = std::collections::BTreeMap::new();
         for (i, reference) in self.0.records.iter().enumerate() {
@@ -746,12 +814,24 @@ impl QualityWindow {
 }
 
 /// Verified immutable content-addressed information set, schema 1 to 4. Every value
-/// is verified when it is made: [`MarketSnapshot::new`] derives the identity and quality,
-/// deserialization re-derives and compares them, and no method mutates one. Holders do not
-/// re-verify it (D67).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// is verified when it is made: [`MarketSnapshot::new`] derives the identity,
+/// [`MarketSnapshot::next`] returns what `new` would, deserialization re-derives the
+/// identity and quality and compares them, and no method mutates one. Holders do not
+/// re-verify it (D67). The whole snapshot's quality is derived from its content when first
+/// read (P17c-ii): by [`MarketSnapshot::quality`], serializing, verifying or comparing.
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(try_from = "SnapshotWire", into = "SnapshotWire")]
-pub struct MarketSnapshot(SnapshotWire);
+pub struct MarketSnapshot(Snapshot);
+
+/// A snapshot as held.
+#[derive(Clone)]
+struct Snapshot {
+    snapshot_id: SnapshotId,
+    content: SnapshotContent,
+    /// The whole snapshot's quality, derived from `content` when first read. A
+    /// deserialized snapshot holds its wire's, which `verify` compares.
+    quality: OnceLock<SnapshotQuality>,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -761,22 +841,95 @@ struct SnapshotWire {
     quality: SnapshotQuality,
 }
 
+impl PartialEq for MarketSnapshot {
+    /// Equal identities, content and quality. Comparing derives the quality of each.
+    fn eq(&self, other: &Self) -> bool {
+        self.0.snapshot_id == other.0.snapshot_id
+            && self.0.content == other.0.content
+            && self.quality() == other.quality()
+    }
+}
+
+impl std::fmt::Debug for MarketSnapshot {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MarketSnapshot")
+            .field("snapshot_id", &self.0.snapshot_id)
+            .field("content", &self.0.content)
+            .field("quality", self.quality())
+            .finish()
+    }
+}
+
 impl MarketSnapshot {
-    /// Normalize unordered manifests, validate supplied values and derive identity/quality.
+    /// Normalize unordered manifests, validate supplied values and derive the identity.
     pub fn new(mut content: SnapshotContent) -> Result<Self, TraitError> {
         normalize(&mut content)?;
         validate_content(&content)?;
-        let (quality, _) = derive_quality(
-            &content,
-            content.as_of.max(content.known_at),
-            &InputSet::all(&content),
-        );
         let id = identity(&content)?;
-        Ok(Self(SnapshotWire {
-            snapshot_id: id,
+        Ok(Self::made(id, content))
+    }
+    fn made(snapshot_id: SnapshotId, content: SnapshotContent) -> Self {
+        Self(Snapshot {
+            snapshot_id,
             content,
-            quality,
-        }))
+            quality: OnceLock::new(),
+        })
+    }
+    /// What [`MarketSnapshot::new`] returns for `content`, derived from this snapshot
+    /// when `content` follows it ([`MarketSnapshot::follows`]; P17c-ii, D108). A Live
+    /// tick's content is its last snapshot's but for the cutoffs, the generation, the
+    /// curve records, the fixings and the entries rebuilt since.
+    ///
+    /// Then only what can differ is checked, as `new` checks it: the configuration and
+    /// its capture at these cutoffs, the references at these cutoffs in O(1) from their
+    /// section's bounds, each quote entry not shared with this snapshot, and the fixings
+    /// and curves. A shared entry passed its cutoff checks here, at cutoffs no later than
+    /// these, and they compare its times with the cutoffs only, so it passes them again.
+    /// A rebuilt entry has its position's requirement, so the quotes keep their order and
+    /// keys, each key its reference, and each override its quote. Otherwise, or when a
+    /// check fails, this is `new`.
+    pub fn next(&self, mut content: SnapshotContent) -> Result<Self, TraitError> {
+        let Some(rebuilt) = self.rebuilt(&content) else {
+            return Self::new(content);
+        };
+        if derive(&mut content, &rebuilt).is_err() {
+            return Self::new(content);
+        }
+        match identity(&content) {
+            Ok(id) => Ok(Self::made(id, content)),
+            Err(_) => Self::new(content),
+        }
+    }
+    /// Whether [`MarketSnapshot::next`] derives `content` from this snapshot: neither
+    /// cutoff is earlier than this snapshot's, the reference section is this snapshot's
+    /// and so is the configuration capture, and at each position the quote entry is this
+    /// snapshot's or has its requirement.
+    pub fn follows(&self, content: &SnapshotContent) -> bool {
+        self.rebuilt(content).is_some()
+    }
+    /// The positions whose entries `content` does not share with this snapshot, when it
+    /// follows it. Shared entries are found by pointer, so they are not read.
+    fn rebuilt(&self, content: &SnapshotContent) -> Option<Vec<usize>> {
+        let then = &self.0.content;
+        if content.as_of < then.as_of
+            || content.known_at < then.known_at
+            || !content.references.ptr_eq(&then.references)
+            || content.quotes.len() != then.quotes.len()
+            || content.configuration_capture != then.configuration_capture
+        {
+            return None;
+        }
+        let mut rebuilt = Vec::new();
+        for (position, (quote, prior)) in content.quotes.iter().zip(&then.quotes).enumerate() {
+            if quote.ptr_eq(prior) {
+                continue;
+            }
+            if quote.requirement != prior.requirement {
+                return None;
+            }
+            rebuilt.push(position);
+        }
+        Some(rebuilt)
     }
     /// Content hash identity.
     pub fn id(&self) -> &SnapshotId {
@@ -795,9 +948,17 @@ impl MarketSnapshot {
     pub fn content(&self) -> &SnapshotContent {
         &self.0.content
     }
-    /// Derived quality at capture time, never refreshed by reading a cache.
+    /// Derived quality at capture time, never refreshed by reading a cache. It is derived
+    /// from the content when first read, and kept.
     pub fn quality(&self) -> &SnapshotQuality {
-        &self.0.quality
+        self.0.quality.get_or_init(|| {
+            derive_quality(
+                &self.0.content,
+                self.quality_time(),
+                &InputSet::all(&self.0.content),
+            )
+            .0
+        })
     }
     /// The resolved reference of one instrument. Every snapshot holds its references
     /// sorted by instrument id without duplicates, so this is a binary search.
@@ -1013,8 +1174,8 @@ impl MarketSnapshot {
     ) -> Result<(), TraitError> {
         if decision_time < self.0.content.known_at
             || decision_time < self.0.content.as_of
-            || !self.0.quality.complete
-            || self.0.quality.quality != DataQuality::Valid
+            || !self.quality().complete
+            || self.quality().quality != DataQuality::Valid
             || !derive_quality(
                 &self.0.content,
                 decision_time,
@@ -1205,15 +1366,25 @@ impl<'a> CanonicalContent<'a> {
 
 impl TryFrom<SnapshotWire> for MarketSnapshot {
     type Error = TraitError;
+    /// The wire's quality is kept, so `verify` compares it with the derived one.
     fn try_from(value: SnapshotWire) -> Result<Self, Self::Error> {
-        let result = Self(value);
+        let result = Self(Snapshot {
+            snapshot_id: value.snapshot_id,
+            content: value.content,
+            quality: OnceLock::from(value.quality),
+        });
         result.verify()?;
         Ok(result)
     }
 }
 impl From<MarketSnapshot> for SnapshotWire {
     fn from(value: MarketSnapshot) -> Self {
-        value.0
+        let quality = value.quality().clone();
+        Self {
+            snapshot_id: value.0.snapshot_id,
+            content: value.0.content,
+            quality,
+        }
     }
 }
 
@@ -1244,7 +1415,34 @@ pub trait SnapshotRepository: Send + Sync {
 fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
     if content.references.len() > MAX_SNAPSHOT_INSTRUMENTS
         || content.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
-        || content.fixings.len() > MAX_SNAPSHOT_FIXINGS
+    {
+        return Err(TraitError::CapacityExceeded);
+    }
+    normalize_inputs(content)?;
+    content.references.sort();
+    content.quotes.sort_by(|a, b| {
+        (
+            a.requirement.key.instrument_id.as_str(),
+            &a.requirement.key.source,
+        )
+            .cmp(&(
+                b.requirement.key.instrument_id.as_str(),
+                &b.requirement.key.source,
+            ))
+    });
+    for quote in &mut content.quotes {
+        // Only an entry whose fields are out of order is copied; a shared one is sorted.
+        if !quote.requirement.fields.is_sorted() {
+            quote.make_mut().requirement.fields.sort();
+        }
+    }
+    Ok(())
+}
+
+/// [`normalize`] for what does not grow with the instruments: the bounds and order of the
+/// fixings, curves, recipes and calibration.
+fn normalize_inputs(content: &mut SnapshotContent) -> Result<(), TraitError> {
+    if content.fixings.len() > MAX_SNAPSHOT_FIXINGS
         || content.curves.len()
             + content.curve_recipes.len()
             + content.calibration.as_ref().map_or(0, |c| c.curves.len())
@@ -1263,23 +1461,6 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
             > MAX_SNAPSHOT_PILLARS
     {
         return Err(TraitError::CapacityExceeded);
-    }
-    content.references.sort();
-    content.quotes.sort_by(|a, b| {
-        (
-            a.requirement.key.instrument_id.as_str(),
-            &a.requirement.key.source,
-        )
-            .cmp(&(
-                b.requirement.key.instrument_id.as_str(),
-                &b.requirement.key.source,
-            ))
-    });
-    for quote in &mut content.quotes {
-        // Only an entry whose fields are out of order is copied; a shared one is sorted.
-        if !quote.requirement.fields.is_sorted() {
-            quote.make_mut().requirement.fields.sort();
-        }
     }
     content.fixings.sort_by(|a, b| a.key.cmp(&b.key));
     if let Some(calibration) = &mut content.calibration {
@@ -1304,6 +1485,58 @@ fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
 }
 
 fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
+    validate_configuration(content, true)?;
+    content.references.validate(ReferenceLookup {
+        as_of: content.as_of,
+        known_at: content.known_at,
+    })?;
+    let as_of_ms = content.as_of.datetime().timestamp_millis();
+    let known_at_ms = content.known_at.datetime().timestamp_millis();
+    for (i, quote) in content.quotes.iter().enumerate() {
+        quote.check()?;
+        let key = &quote.requirement.key;
+        // `normalize` sorted the quotes by instrument, then source, so a repeat is adjacent.
+        if content
+            .references
+            .find(key.instrument_id.as_str())
+            .is_none()
+            || (i > 0 && content.quotes[i - 1].requirement.key == *key)
+        {
+            return Err(TraitError::InvalidInput(
+                "invalid/duplicate quote requirement",
+            ));
+        }
+        check_quote_at(quote, as_of_ms, known_at_ms)?;
+    }
+    validate_inputs(content)
+}
+
+/// [`MarketSnapshot::next`]'s checks of `content`, whose quote entries at `rebuilt` are
+/// not its last snapshot's: [`validate_content`]'s, in its order, but for what holds
+/// because `content` follows that snapshot. It reads the references' bounds and the
+/// rebuilt entries, and nothing else that grows with the instruments.
+fn derive(content: &mut SnapshotContent, rebuilt: &[usize]) -> Result<(), TraitError> {
+    normalize_inputs(content)?;
+    validate_configuration(content, false)?;
+    content.references.validate(ReferenceLookup {
+        as_of: content.as_of,
+        known_at: content.known_at,
+    })?;
+    let as_of_ms = content.as_of.datetime().timestamp_millis();
+    let known_at_ms = content.known_at.datetime().timestamp_millis();
+    for &position in rebuilt {
+        let quote = &content.quotes[position];
+        quote.check()?;
+        check_quote_at(quote, as_of_ms, known_at_ms)?;
+    }
+    validate_inputs(content)
+}
+
+/// The checks of the schema, the configuration and its capture at the cutoffs. With
+/// `match_quotes`, each applied override must name a selected quote at its age limit, a
+/// walk of every quote; [`derive`] skips it, since its quotes have their last snapshot's
+/// requirements and its capture is that snapshot's.
+fn validate_configuration(content: &SnapshotContent, match_quotes: bool) -> Result<(), TraitError> {
     if !((content.schema_version == 1
         && content.curve_recipes.is_empty()
         && content.calibration.is_none())
@@ -1342,10 +1575,11 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
             override_.validate()?;
             if !override_.applies_at(content.as_of, content.known_at)
                 || !scopes.insert(&override_.scope)
-                || !content.quotes.iter().any(|q| {
-                    q.requirement.key == override_.scope
-                        && q.requirement.max_age_ms == override_.max_age_ms
-                })
+                || (match_quotes
+                    && !content.quotes.iter().any(|q| {
+                        q.requirement.key == override_.scope
+                            && q.requirement.max_age_ms == override_.max_age_ms
+                    }))
             {
                 return Err(TraitError::InvalidInput(
                     "expired or mismatched captured override",
@@ -1358,29 +1592,11 @@ fn validate_content(content: &SnapshotContent) -> Result<(), TraitError> {
         .configuration
         .applies_to
         .validate()
-        .map_err(TraitError::InvalidInput)?;
-    content.references.validate(ReferenceLookup {
-        as_of: content.as_of,
-        known_at: content.known_at,
-    })?;
-    let as_of_ms = content.as_of.datetime().timestamp_millis();
-    let known_at_ms = content.known_at.datetime().timestamp_millis();
-    for (i, quote) in content.quotes.iter().enumerate() {
-        quote.check()?;
-        let key = &quote.requirement.key;
-        // `normalize` sorted the quotes by instrument, then source, so a repeat is adjacent.
-        if content
-            .references
-            .find(key.instrument_id.as_str())
-            .is_none()
-            || (i > 0 && content.quotes[i - 1].requirement.key == *key)
-        {
-            return Err(TraitError::InvalidInput(
-                "invalid/duplicate quote requirement",
-            ));
-        }
-        check_quote_at(quote, as_of_ms, known_at_ms)?;
-    }
+        .map_err(TraitError::InvalidInput)
+}
+
+/// The checks of the fixings, required curves, curve records, recipes and calibration.
+fn validate_inputs(content: &SnapshotContent) -> Result<(), TraitError> {
     let mut fixing_keys = BTreeSet::new();
     for selected in &content.fixings {
         if !fixing_keys.insert(&selected.key)

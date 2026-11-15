@@ -440,6 +440,17 @@ pub(crate) fn value_floating(
     })
 }
 
+// The ports suites' snapshot fixtures, as the worker's tests load them.
+#[cfg(test)]
+#[allow(
+    clippy::duplicate_mod,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic
+)]
+#[path = "../../convex-ports/tests/support/snapshot_fixtures.rs"]
+mod snapshot_fixture;
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
@@ -800,5 +811,65 @@ mod tests {
             "{}",
             error.message
         );
+    }
+
+    /// P17c-ii: a checked section's cutoff checks, read from its bounds, read a floating
+    /// note's rate index and index calendar as a new section's full checks do. The index
+    /// is recorded a second after the fixture's cutoff and ends a minute after it.
+    #[test]
+    fn a_floating_notes_index_bounds_the_cutoffs_its_snapshots_pass() {
+        let time = |text: &str| UtcTimestamp::parse(text).unwrap();
+        let mut reference = reference(frn(), index(sofr()));
+        let floating = reference.floating.as_mut().unwrap();
+        floating.index.recorded_at = time("2026-10-02T15:00:01Z");
+        if let MasterDefinition::RateIndex(index) = &mut floating.index.definition {
+            index.effective.until = Some(time("2026-10-02T15:01:00Z"));
+        }
+        let mut content = super::snapshot_fixture::content();
+        content.schema_version = convex_ports::snapshot::SNAPSHOT_SCHEMA;
+        content.references = convex_ports::snapshot::SnapshotReferences::new(vec![reference]);
+        (content.as_of, content.known_at) =
+            (time("2026-10-02T15:00:02Z"), time("2026-10-02T15:00:02Z"));
+        let checked = convex_ports::snapshot::MarketSnapshot::new(content.clone()).unwrap();
+        for (as_of, known_at, passes) in [
+            (
+                "2026-10-02T15:00:02Z",
+                "2026-10-02T15:00:00.999999999Z",
+                false,
+            ),
+            ("2026-10-02T15:00:02Z", "2026-10-02T15:00:01Z", true),
+            (
+                "2026-10-02T15:00:02Z",
+                "2026-10-02T15:00:01.000000001Z",
+                true,
+            ),
+            (
+                "2026-10-02T15:00:59.999999999Z",
+                "2026-10-02T15:00:30Z",
+                true,
+            ),
+            ("2026-10-02T15:01:00Z", "2026-10-02T15:00:30Z", false),
+            (
+                "2026-10-02T15:01:00.000000001Z",
+                "2026-10-02T15:00:30Z",
+                false,
+            ),
+        ] {
+            let mut content = content.clone();
+            (content.as_of, content.known_at) = (time(as_of), time(known_at));
+            let shared = convex_ports::snapshot::MarketSnapshot::new(content.clone())
+                .map(|s| s.id().clone());
+            content.references =
+                convex_ports::snapshot::SnapshotReferences::new(content.references.to_vec());
+            let fresh =
+                convex_ports::snapshot::MarketSnapshot::new(content).map(|s| s.id().clone());
+            assert_eq!(
+                format!("{shared:?}"),
+                format!("{fresh:?}"),
+                "{as_of}, {known_at}"
+            );
+            assert_eq!(shared.is_ok(), passes, "{as_of}, {known_at}");
+        }
+        drop(checked);
     }
 }
