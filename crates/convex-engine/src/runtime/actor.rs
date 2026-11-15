@@ -433,7 +433,7 @@ impl Actor {
             )
             .await;
         *pinned = Some(inputs);
-        Ok(Arc::new(snapshot?))
+        snapshot
     }
     /// Bring the kept Live request to this tick: captured again, under a new epoch, when its
     /// selection differs at the tick's cutoffs, else given the tick's cutoffs and

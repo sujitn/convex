@@ -314,6 +314,7 @@ impl SnapshotAssembler {
             configuration,
             references,
             epoch: None,
+            last: None,
         })
     }
     /// Resolve over quote state the caller already ingested and inputs it pinned, without
@@ -326,13 +327,16 @@ impl SnapshotAssembler {
     /// only the request's cutoffs, generation and curve records change (P17c-i). Within
     /// one epoch, the instruments the pinned inputs were checked against are not compared
     /// again, and only the quote entries that may have changed are looked at.
+    ///
+    /// The snapshot is derived from the last one these inputs resolved, which is what
+    /// `MarketSnapshot::new` would return for it (P17c-ii, D108).
     pub(crate) async fn resolve_ingested(
         &self,
         request: &SnapshotAssembly,
         epoch: u64,
         pinned: &mut PinnedInputs,
         quotes: &mut IngestedQuotes,
-    ) -> Result<MarketSnapshot, TraitError> {
+    ) -> Result<Arc<MarketSnapshot>, TraitError> {
         // The instruments are distinct: `pin` checked them, and the pinned inputs serve
         // only the same instruments.
         validate_frame(request, &[])?;
@@ -341,13 +345,20 @@ impl SnapshotAssembler {
                 "pinned inputs belong to another selection",
             ));
         }
-        self.build(
-            request,
-            pinned.configuration.clone(),
-            pinned.references.clone(),
-            quotes.live_quotes(&request.quotes, epoch, capture_ms(request)),
-        )
-        .await
+        let content = self
+            .content(
+                request,
+                pinned.configuration.clone(),
+                pinned.references.clone(),
+                quotes.live_quotes(&request.quotes, epoch, capture_ms(request)),
+            )
+            .await?;
+        let snapshot = Arc::new(match &pinned.last {
+            Some(last) => last.next(content)?,
+            None => MarketSnapshot::new(content)?,
+        });
+        pinned.last = Some(snapshot.clone());
+        Ok(snapshot)
     }
     async fn build(
         &self,
@@ -356,13 +367,27 @@ impl SnapshotAssembler {
         references: SnapshotReferences,
         quotes: Vec<SharedQuote>,
     ) -> Result<MarketSnapshot, TraitError> {
+        MarketSnapshot::new(
+            self.content(request, configuration, references, quotes)
+                .await?,
+        )
+    }
+    /// A snapshot's content: the request's frame, the given inputs and quote entries, and
+    /// the fixings its references require, read at its cutoff.
+    async fn content(
+        &self,
+        request: &SnapshotAssembly,
+        configuration: convex_ports::storage::BondPricingConfig,
+        references: SnapshotReferences,
+        quotes: Vec<SharedQuote>,
+    ) -> Result<SnapshotContent, TraitError> {
         let keys = required_fixings(request, &references)?;
         let mut fixings = Vec::with_capacity(keys.len());
         for key in keys {
             let fixing = self.fixings.get_at(&key, request.known_at).await?;
             fixings.push(SnapshotFixing { key, fixing });
         }
-        let snapshot = MarketSnapshot::new(SnapshotContent {
+        Ok(SnapshotContent {
             // The sectioned identity, whatever the curves (D79).
             schema_version: SNAPSHOT_SCHEMA,
             as_of: request.as_of,
@@ -378,8 +403,7 @@ impl SnapshotAssembler {
             curve_recipes: request.curve_recipes.clone(),
             calibration: request.calibration.clone(),
             max_source_skew_ms: request.max_source_skew_ms,
-        })?;
-        Ok(snapshot)
+        })
     }
 }
 
@@ -402,12 +426,17 @@ pub(crate) struct IngestedQuotes {
     last: Option<LiveList>,
 }
 
-/// One Live selection's last entries, in requirement order, and when each may next
-/// change without an event of its own.
+/// One Live selection's last entries, in snapshot order, and when each may next change
+/// without an event of its own.
 struct LiveList {
     epoch: u64,
     capture_ms: i64,
+    /// By instrument, then source, as `MarketSnapshot::new` orders them, so the snapshot
+    /// keeps each entry at its position and `MarketSnapshot::next` finds the rebuilt ones
+    /// by position (P17c-ii).
     quotes: Vec<SharedQuote>,
+    /// Each position's index in the request's requirements.
+    requirements: Vec<usize>,
     positions: HashMap<QuoteKey, usize>,
     /// Each position's next turn, if it has one ([`turn`]), and the same pairs ordered by
     /// time: at most one each per requirement.
@@ -416,23 +445,31 @@ struct LiveList {
 }
 
 impl LiveList {
-    /// The list of `quotes`, resolved at `capture_ms`, or None when two requirements
-    /// share a key; such a selection walks every requirement at every call.
+    /// The list of `quotes`, given in requirement order and resolved at `capture_ms`, or
+    /// None when two requirements share a key; such a selection walks every requirement at
+    /// every call.
     fn new(
         epoch: u64,
         capture_ms: i64,
         quotes: &[SharedQuote],
         stale_after_ms: i64,
     ) -> Option<Self> {
+        let mut requirements: Vec<usize> = (0..quotes.len()).collect();
+        requirements.sort_by(|&a, &b| {
+            let (a, b) = (&quotes[a].requirement.key, &quotes[b].requirement.key);
+            (a.instrument_id.as_str(), &a.source).cmp(&(b.instrument_id.as_str(), &b.source))
+        });
         let mut list = Self {
             epoch,
             capture_ms,
-            quotes: quotes.to_vec(),
+            quotes: requirements.iter().map(|&i| quotes[i].clone()).collect(),
+            requirements,
             positions: HashMap::with_capacity(quotes.len()),
             turns: vec![None; quotes.len()],
             due: BTreeSet::new(),
         };
-        for (position, quote) in quotes.iter().enumerate() {
+        for position in 0..list.quotes.len() {
+            let quote = list.quotes[position].clone();
             if list
                 .positions
                 .insert(quote.requirement.key.clone(), position)
@@ -440,7 +477,7 @@ impl LiveList {
             {
                 return None;
             }
-            list.set(position, quote.clone(), capture_ms, stale_after_ms);
+            list.set(position, quote, capture_ms, stale_after_ms);
         }
         Some(list)
     }
@@ -542,12 +579,13 @@ impl IngestedQuotes {
         }
         quotes
     }
-    /// What [`IngestedQuotes::quotes`] returns, for a Live selection whose requirements
-    /// do not change while `epoch` does not (P17c-i). Only the entries of keys that
-    /// ingested an event since the last call, and of keys whose state may have turned with
-    /// time, are looked at again; `quotes` would keep every other entry, so it is kept
-    /// without a look. A new epoch, a capture earlier than the last or a capacity
-    /// overflow walks every requirement, as `quotes` does.
+    /// What [`IngestedQuotes::quotes`] returns, in snapshot order, for a Live selection
+    /// whose requirements do not change while `epoch` does not (P17c-i). Only the entries
+    /// of keys that ingested an event since the last call, and of keys whose state may
+    /// have turned with time, are looked at again; `quotes` would keep every other entry,
+    /// so it is kept without a look. A new epoch, a capture earlier than the last or a
+    /// capacity overflow walks every requirement, as `quotes` does. A selection with two
+    /// requirements of one key keeps no list, so its entries come in requirement order.
     pub(crate) fn live_quotes(
         &mut self,
         requirements: &[QuoteRequirement],
@@ -563,7 +601,10 @@ impl IngestedQuotes {
             let quotes = self.quotes(requirements, capture_ms);
             self.changed.clear();
             self.last = LiveList::new(epoch, capture_ms, &quotes, self.stale_after_ms);
-            return quotes;
+            return match &self.last {
+                Some(last) => last.quotes.clone(),
+                None => quotes,
+            };
         };
         let mut looked: Vec<usize> = self
             .changed
@@ -581,7 +622,8 @@ impl IngestedQuotes {
         looked.sort_unstable();
         looked.dedup();
         for position in looked {
-            let quote = self.resolve(&requirements[position], capture_ms);
+            let requirement = &requirements[last.requirements[position]];
+            let quote = self.resolve(requirement, capture_ms);
             last.set(position, quote, capture_ms, self.stale_after_ms);
         }
         last.capture_ms = capture_ms;
@@ -653,6 +695,10 @@ pub(crate) struct PinnedInputs {
     references: SnapshotReferences,
     /// The Live selection epoch these inputs last served (P17c-i).
     epoch: Option<u64>,
+    /// The last Live snapshot these inputs resolved; the next is derived from it
+    /// (P17c-ii). Any earlier snapshot serves, since `MarketSnapshot::next` compares
+    /// what it shares with it.
+    last: Option<Arc<MarketSnapshot>>,
 }
 impl PinnedInputs {
     /// Whether these inputs were resolved for `request`'s activation, configuration and
@@ -1803,6 +1849,12 @@ fn snapshot_mid_value(
     }
 }
 
+// The ports suites' snapshot fixtures, as the worker's tests load them.
+#[cfg(test)]
+#[allow(clippy::duplicate_mod)]
+#[path = "../../convex-ports/tests/support/snapshot_fixtures.rs"]
+mod snapshot_fixture;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1990,7 +2042,10 @@ mod tests {
     /// script mixes images, deltas, retries, earlier events, heartbeats, gaps, closures
     /// and resets; captures that hold, advance a little, pass every field's freshness, or
     /// fall below the latest receipts; a capacity overflow; and a new epoch with another
-    /// requirement.
+    /// requirement. The requirements are not in snapshot order, and the list is.
+    ///
+    /// P17c-ii: each tick's snapshot of the list, derived from the last one, is the
+    /// snapshot `new` builds, value or error.
     #[test]
     fn live_quotes_equal_a_full_walk_at_every_capture() {
         let policy = IngestionPolicy {
@@ -2000,8 +2055,26 @@ mod tests {
         };
         let mut live = IngestedQuotes::with_policy(policy).unwrap();
         let mut full = IngestedQuotes::with_policy(policy).unwrap();
-        let instruments = ["BOND-A", "BOND-B", "BOND-C", "BOND-D", "BOND-E"];
+        let instruments = ["BOND-C", "BOND-A", "BOND-E", "BOND-B", "BOND-D"];
         let mut requirements: Vec<_> = instruments.iter().map(|i| requirement(i)).collect();
+        let mut frame = super::snapshot_fixture::content();
+        frame.schema_version = SNAPSHOT_SCHEMA;
+        (frame.required_curves, frame.curves) = (Vec::new(), Vec::new());
+        let reference = frame.references[0].clone();
+        frame.references = SnapshotReferences::new(
+            instruments
+                .iter()
+                .map(|id| {
+                    let mut reference = reference.clone();
+                    reference.record.instrument_id = convex_core::ids::InstrumentId::new(*id);
+                    let bond = reference.record.bond.as_mut().unwrap();
+                    bond.instrument_id = reference.record.instrument_id.clone();
+                    reference
+                })
+                .collect(),
+        );
+        let mut snapshot: Option<MarketSnapshot> = None;
+        let (mut derived, mut refused) = (0, 0);
         let mut script = Script(17);
         let mut sequences = [0u64; 5];
         let mut sessions = [0u32; 5];
@@ -2104,7 +2177,11 @@ mod tests {
                 walked += 1;
             }
             let live_now = live.live_quotes(&requirements, epoch, list_capture);
-            let full_now = full.quotes(&requirements, list_capture);
+            let mut full_now = full.quotes(&requirements, list_capture);
+            full_now.sort_by(|a, b| {
+                let (a, b) = (&a.requirement.key, &b.requirement.key);
+                (a.instrument_id.as_str(), &a.source).cmp(&(b.instrument_id.as_str(), &b.source))
+            });
             assert_eq!(live_now.len(), full_now.len());
             for (i, (now, walk)) in live_now.iter().zip(&full_now).enumerate() {
                 assert_eq!(**now, **walk, "step {step}, position {i}");
@@ -2121,8 +2198,44 @@ mod tests {
                     _ => {}
                 }
             }
+            let cutoff = UtcTimestamp::from_datetime(
+                chrono::DateTime::from_timestamp_millis(list_capture).unwrap(),
+            )
+            .unwrap();
+            let content = SnapshotContent {
+                as_of: cutoff,
+                known_at: cutoff,
+                generation: Version::new(step + 1).unwrap(),
+                quotes: live_now.clone(),
+                ..frame.clone()
+            };
+            let built = MarketSnapshot::new(content.clone());
+            if let Some(last) = &snapshot {
+                match (last.follows(&content), &built) {
+                    (true, Ok(_)) => derived += 1,
+                    (true, Err(_)) => refused += 1,
+                    _ => {}
+                }
+                let next = last.next(content);
+                let id = |result: &Result<MarketSnapshot, TraitError>| {
+                    format!("{:?}", result.as_ref().map(|s| s.id().clone()))
+                };
+                assert_eq!(id(&next), id(&built), "snapshot at step {step}");
+                if let (Ok(next), Ok(built)) = (&next, &built) {
+                    assert_eq!(next, built, "snapshot at step {step}");
+                }
+                if let Ok(next) = next {
+                    snapshot = Some(next);
+                }
+            } else {
+                snapshot = built.ok();
+            }
             (live_last, full_last) = (live_now, full_now);
         }
+        assert!(
+            derived > 2_000 && refused > 100,
+            "{derived} derived, {refused} refused"
+        );
         assert!(looked_again > 3_000, "{looked_again} incremental lists");
         assert!(walked > 10, "{walked} full walks");
         assert!(
