@@ -368,3 +368,89 @@ fn a_checked_section_refuses_the_lookups_its_records_refuse() {
     }
     drop(checked);
 }
+
+/// P17c-iii: a section's floating records, found once, are exactly the records that carry
+/// a floating index, in order, and a changed section finds them again.
+#[test]
+fn a_section_lists_its_floating_records_in_order_and_again_after_a_change() {
+    let base = content();
+    let floating_of = |reference: &convex_ports::reference_master::ResolvedBondReference| {
+        convex_ports::reference_master::ResolvedFloating {
+            index: reference.issuer.clone(),
+            calendar: reference.calendar.clone(),
+        }
+    };
+    let mut records = base.references.to_vec();
+    assert!(
+        records.len() >= 3,
+        "the script's content holds several bonds"
+    );
+    for position in [0, 2] {
+        records[position].floating = Some(floating_of(&records[position]));
+    }
+    let mut section = SnapshotReferences::new(records);
+    let expected = |section: &SnapshotReferences| {
+        section
+            .iter()
+            .filter(|r| r.floating.is_some())
+            .map(|r| r.record.instrument_id.as_str().to_owned())
+            .collect::<Vec<_>>()
+    };
+    let listed = |section: &SnapshotReferences| {
+        section
+            .floating()
+            .map(|r| r.record.instrument_id.as_str().to_owned())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(listed(&section), expected(&section));
+    assert_eq!(listed(&section).len(), 2);
+    // Read again, from the positions found the first time.
+    assert_eq!(listed(&section), expected(&section));
+    // A change finds them again: one note loses its index and another gains one.
+    let records = section.make_mut();
+    records[0].floating = None;
+    let last = records.len() - 1;
+    records[last].floating = Some(floating_of(&records[last]));
+    assert_eq!(listed(&section), expected(&section));
+    assert_eq!(listed(&section).len(), 2);
+}
+
+/// P17c-iv: a derived snapshot reuses its last one's quote digests only under schema 4.
+/// Content under another schema that follows it is identified from its whole JSON, as
+/// `new` identifies it.
+#[test]
+fn a_derived_snapshot_under_another_schema_is_identified_as_new_identifies_it() {
+    let mut base = content();
+    (base.as_of, base.known_at) = (at(start_ms() + 2_000, 0), at(start_ms() + 2_000, 0));
+    let first = MarketSnapshot::new(base.clone()).unwrap();
+    let mut accepted = 0;
+    for schema in [1, 2, 3] {
+        let mut next = base.clone();
+        next.schema_version = schema;
+        // One rebuilt entry: the same requirement, a later observation.
+        let requirement = next.quotes[0].requirement.clone();
+        next.quotes[0] = entry(
+            &requirement.key,
+            requirement.max_age_ms,
+            2,
+            start_ms() - 400,
+            start_ms() - 400,
+        );
+        assert!(first.follows(&next));
+        let expected = MarketSnapshot::new(next.clone());
+        let derived = first.next(next);
+        match (derived, expected) {
+            (Ok(derived), Ok(expected)) => {
+                assert_eq!(derived.id(), expected.id(), "schema {schema}");
+                assert_eq!(derived, expected);
+                accepted += 1;
+            }
+            (derived, expected) => assert_eq!(
+                format!("{:?}", derived.map(|s| s.id().clone())),
+                format!("{:?}", expected.map(|s| s.id().clone())),
+                "schema {schema}"
+            ),
+        }
+    }
+    assert!(accepted > 0, "some earlier schema admits this content");
+}

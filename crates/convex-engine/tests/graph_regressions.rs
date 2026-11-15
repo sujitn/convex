@@ -573,6 +573,60 @@ fn input_and_job_expiry_cannot_publish_or_keep_capacity_claimed_indefinitely() {
     assert_eq!(graph.in_flight_count(), 0);
 }
 
+/// P17c-iii: `maintain` skips its walk only while no deadline it can expire has passed.
+/// An attempt's job deadline alone, with no input deadline beside it, still expires the
+/// attempt at the next walk.
+#[test]
+fn an_attempt_deadline_alone_is_expired_by_the_next_maintenance() {
+    let graph = CalculationGraph::with_limits(GraphLimits {
+        max_job_lifetime: Duration::from_millis(1),
+        ..GraphLimits::default()
+    })
+    .unwrap();
+    let a = curve("A");
+    graph
+        .activate(vec![NodeSpec::calculation(a.clone(), vec![])])
+        .unwrap();
+    let _ticket = graph.begin_calculation(&a).unwrap();
+    assert_eq!(graph.in_flight_count(), 1);
+    std::thread::sleep(Duration::from_millis(3));
+    graph.get_nodes_to_calculate().unwrap();
+    assert_eq!(graph.in_flight_count(), 0);
+    assert_eq!(
+        graph.inspect_node(&a).unwrap().failure.unwrap().code,
+        ErrorCode::DeadlineExceeded
+    );
+}
+
+/// P17c-iii: a published input's freshness deadline alone, with no attempt in flight,
+/// still expires the input and blocks its dependents at the next walk.
+#[test]
+fn an_input_freshness_deadline_alone_is_expired_by_the_next_maintenance() {
+    let graph = CalculationGraph::new();
+    let a = curve("A");
+    let b = curve("B");
+    graph
+        .activate(vec![
+            NodeSpec::input(a.clone()),
+            NodeSpec::calculation(b.clone(), vec![a.clone()]),
+        ])
+        .unwrap();
+    graph
+        .publish_input_until(
+            &a,
+            value(0.04),
+            Some(Instant::now() + Duration::from_millis(1)),
+        )
+        .unwrap();
+    std::thread::sleep(Duration::from_millis(3));
+    assert!(graph.get_nodes_to_calculate().unwrap().is_empty());
+    // The walk recorded the expiry: the dependent holds a failure revision of its own.
+    let view = graph.inspect_node(&b).unwrap();
+    assert!(view.revision > 0);
+    assert_eq!(view.phase, NodePhase::Stale);
+    assert_eq!(view.failure.unwrap().code, ErrorCode::StaleInput);
+}
+
 #[test]
 fn unavailable_invalid_and_unversioned_outputs_never_become_numeric_success() {
     let graph = CalculationGraph::new();

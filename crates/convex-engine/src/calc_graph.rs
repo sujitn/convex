@@ -1131,6 +1131,9 @@ impl CalculationGraph {
             status: ResultStatus::Complete,
             quality: DataQuality::Valid,
         });
+        if let Some(deadline) = cached.valid_until {
+            state.hold_deadline(deadline);
+        }
         let root = &mut state.nodes[i];
         root.cached = Some(cached.clone());
         root.last_good = Some(cached);
@@ -1348,6 +1351,7 @@ impl CalculationGraph {
         let attempt = next(state.next_attempt)?;
         state.next_attempt = attempt;
         state.nodes[i].attempt = Some((attempt, deadline));
+        state.hold_deadline(deadline);
         Ok(CalculationTicket {
             owner: self.owner.clone(),
             node_id: state.dag.nodes[i].id.clone(),
@@ -1508,6 +1512,9 @@ impl CalculationGraph {
                     quality,
                 });
                 state.result_revision = revision;
+                if let Some(deadline) = cached.valid_until {
+                    state.hold_deadline(deadline);
+                }
                 let node = &mut state.nodes[i];
                 node.revision = revision;
                 node.dirty = false;
@@ -1840,6 +1847,54 @@ fn node_shard_key(node: &NodeId) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// P17c-iii: a walk sets the bound again from the deadlines still held, so a later
+    /// deadline passing after an earlier one was expired is still expired by the next
+    /// walk. The walks run at chosen times, so no sleep or scheduler decides the order.
+    #[test]
+    fn a_later_deadline_is_expired_after_an_earlier_one_was() {
+        let graph = CalculationGraph::new();
+        let curve = |id: &str| NodeId::Curve {
+            curve_id: id.into(),
+        };
+        let (a, b, c, d) = (curve("A"), curve("B"), curve("C"), curve("D"));
+        graph
+            .activate(vec![
+                NodeSpec::input(a.clone()),
+                NodeSpec::calculation(b.clone(), vec![a.clone()]),
+                NodeSpec::input(c.clone()),
+                NodeSpec::calculation(d.clone(), vec![c.clone()]),
+            ])
+            .unwrap();
+        let value = NodeValue::Curve {
+            points: vec![(365, 0.04), (730, 0.04)],
+        };
+        let start = Instant::now();
+        let early = start + Duration::from_secs(60);
+        let late = start + Duration::from_secs(120);
+        graph
+            .publish_input_until(&a, value.clone(), Some(early))
+            .unwrap();
+        graph.publish_input_until(&c, value, Some(late)).unwrap();
+        let revision = |id: &NodeId| graph.inspect_node(id).unwrap().revision;
+        let maintain = |now: Instant| graph.state.lock().maintain(now).unwrap();
+
+        maintain(early);
+        assert_eq!(
+            (revision(&b), revision(&d)),
+            (0, 0),
+            "nothing has expired yet"
+        );
+        maintain(early + Duration::from_nanos(1));
+        assert!(revision(&b) > 0, "A has expired");
+        assert_eq!(revision(&d), 0, "C is still fresh");
+        maintain(late + Duration::from_nanos(1));
+        assert!(revision(&d) > 0, "C has expired");
+        assert_eq!(
+            graph.inspect_node(&d).unwrap().failure.unwrap().code,
+            ErrorCode::StaleInput
+        );
+    }
 
     #[test]
     fn test_add_node_and_invalidate() {

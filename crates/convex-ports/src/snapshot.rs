@@ -459,6 +459,8 @@ struct ReferenceSection {
     checked: OnceLock<()>,
     /// What the cutoff checks of checked `records` compare, computed once (P17c-ii).
     bounds: OnceLock<Option<ReferenceBounds>>,
+    /// The positions of the records that carry a floating index, found once (P17c-iii).
+    floating: OnceLock<Box<[usize]>>,
 }
 
 /// The times a checked section's cutoff checks compare (P17c-ii). A record and each of
@@ -533,6 +535,7 @@ impl ReferenceSection {
             digest: OnceLock::new(),
             checked: OnceLock::new(),
             bounds: OnceLock::new(),
+            floating: OnceLock::new(),
         }
     }
 }
@@ -559,6 +562,7 @@ impl SnapshotReferences {
         section.digest.take();
         section.checked.take();
         section.bounds.take();
+        section.floating.take();
         &mut section.records
     }
     /// Sort by instrument id, copying only when the records are out of order. A shared
@@ -571,6 +575,23 @@ impl SnapshotReferences {
         {
             self.make_mut().sort_by(by_instrument);
         }
+    }
+    /// The records that carry a floating index, in order. Their positions are found once
+    /// per section, so a Live tick does not walk every record for them (P17c-iii).
+    pub fn floating(&self) -> impl Iterator<Item = &ResolvedBondReference> {
+        let records = &self.0.records;
+        self.0
+            .floating
+            .get_or_init(|| {
+                records
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, record)| record.floating.is_some())
+                    .map(|(position, _)| position)
+                    .collect()
+            })
+            .iter()
+            .filter_map(|&position| records.get(position))
     }
     /// Whether both hold one section, so their records are the same without comparing
     /// them. Every snapshot of a Live activation shares its pinned section.
@@ -831,6 +852,9 @@ struct Snapshot {
     /// The whole snapshot's quality, derived from `content` when first read. A
     /// deserialized snapshot holds its wire's, which `verify` compares.
     quality: OnceLock<SnapshotQuality>,
+    /// Schema 4's quote digests in snapshot order, set by `new` and `next` (P17c-iv); a
+    /// deserialized snapshot has none, and its next is identified from every entry.
+    digests: OnceLock<Arc<QuoteDigests>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -865,14 +889,21 @@ impl MarketSnapshot {
     pub fn new(mut content: SnapshotContent) -> Result<Self, TraitError> {
         normalize(&mut content)?;
         validate_content(&content)?;
-        let id = identity(&content)?;
-        Ok(Self::made(id, content))
+        let (id, digests) = identity_and_digests(&content)?;
+        Ok(Self::made(id, content, digests))
     }
-    fn made(snapshot_id: SnapshotId, content: SnapshotContent) -> Self {
+    fn made(
+        snapshot_id: SnapshotId,
+        content: SnapshotContent,
+        digests: Option<QuoteDigests>,
+    ) -> Self {
         Self(Snapshot {
             snapshot_id,
             content,
             quality: OnceLock::new(),
+            digests: digests
+                .map(Arc::new)
+                .map_or_else(OnceLock::new, OnceLock::from),
         })
     }
     /// What [`MarketSnapshot::new`] returns for `content`, derived from this snapshot
@@ -895,10 +926,28 @@ impl MarketSnapshot {
         if derive(&mut content, &rebuilt).is_err() {
             return Self::new(content);
         }
-        match identity(&content) {
-            Ok(id) => Ok(Self::made(id, content)),
+        match self.derived_identity(&content, &rebuilt) {
+            Ok((id, digests)) => Ok(Self::made(id, content, digests)),
             Err(_) => Self::new(content),
         }
+    }
+    /// `content`'s identity, as `new` derives it. Under schema 4 its quote digests are
+    /// this snapshot's with the `rebuilt` positions' replaced, so the 32 bytes of each
+    /// shared entry are copied, not read from the entry (P17c-iv). The bytes hashed are
+    /// the same, so the identity is.
+    fn derived_identity(
+        &self,
+        content: &SnapshotContent,
+        rebuilt: &[usize],
+    ) -> Result<(SnapshotId, Option<QuoteDigests>), TraitError> {
+        let Some(previous) = self.0.digests.get().filter(|_| content.schema_version == 4) else {
+            return identity_and_digests(content);
+        };
+        let digests = previous.patched(&self.0.content.quotes, &content.quotes, rebuilt)?;
+        let id = hash_sections(content, &digests)?;
+        // Every test build checks the patched digests against every entry's.
+        debug_assert!(QuoteDigests::of(&content.quotes, &mut 0).is_ok_and(|all| all == digests));
+        Ok((id, Some(digests)))
     }
     /// Whether [`MarketSnapshot::next`] derives `content` from this snapshot: neither
     /// cutoff is earlier than this snapshot's, the reference section is this snapshot's
@@ -1091,7 +1140,7 @@ impl MarketSnapshot {
                 .is_none_or(|until| now.datetime().timestamp_millis() < until)
     }
     /// The time quality is judged at: the later of the two cutoffs.
-    fn quality_time(&self) -> UtcTimestamp {
+    pub fn quality_time(&self) -> UtcTimestamp {
         self.0.content.as_of.max(self.0.content.known_at)
     }
     /// The instruments whose quote entries are not shared with `previous`'s, in snapshot
@@ -1206,19 +1255,22 @@ impl MarketSnapshot {
 /// Schemas 1–3: SHA-256 under the schema's domain over the canonical JSON of normalized
 /// content, the bytes `serde_json::to_vec` writes for it. They stream into the hash,
 /// bounded as they go, and the references are written from their section's cached JSON
-/// (D68). Schema 4 hashes by section ([`sectioned_identity`]).
-fn identity(content: &SnapshotContent) -> Result<SnapshotId, TraitError> {
+/// (D68). Schema 4 hashes by section ([`sectioned_identity`]), and returns its quote
+/// digests for the snapshot to keep.
+fn identity_and_digests(
+    content: &SnapshotContent,
+) -> Result<(SnapshotId, Option<QuoteDigests>), TraitError> {
     let domain: &[u8] = match content.schema_version {
         1 => b"convex.snapshot.v1\0",
         2 => b"convex.snapshot.v2\0",
         3 => b"convex.snapshot.v3\0",
-        4 => return sectioned_identity(content),
+        4 => return sectioned_identity(content).map(|(id, digests)| (id, Some(digests))),
         _ => return Err(TraitError::InvalidInput("unsupported snapshot schema")),
     };
     let canonical = CanonicalContent::new(content, true)?;
     let mut hash = Sha256::new();
     hash.update(domain);
-    snapshot_id(hash_json(hash, &canonical, &mut 0)?)
+    Ok((snapshot_id(hash_json(hash, &canonical, &mut 0)?)?, None))
 }
 
 /// Schema 4 (P13b-ii, D68 B): SHA-256 under `convex.snapshot.v4\0` over, in order,
@@ -1235,9 +1287,28 @@ fn identity(content: &SnapshotContent) -> Result<SnapshotId, TraitError> {
 /// Every part before the frame has a fixed or stated length, and the frame runs to the
 /// end, so one byte string names one content. The JSON hashed for the three sections
 /// stays within [`MAX_SNAPSHOT_BYTES`] together, as schemas 1–3's whole content does.
-fn sectioned_identity(content: &SnapshotContent) -> Result<SnapshotId, TraitError> {
+/// The quote digests are gathered in order into one buffer, which the snapshot keeps.
+fn sectioned_identity(content: &SnapshotContent) -> Result<(SnapshotId, QuoteDigests), TraitError> {
+    let mut written = content.references.digest()?.len;
+    let digests = QuoteDigests::of(&content.quotes, &mut written)?;
+    Ok((hash_sections(content, &digests)?, digests))
+}
+
+/// Schema 4's identity of `content` over `digests`, its quote digests in order.
+fn hash_sections(
+    content: &SnapshotContent,
+    digests: &QuoteDigests,
+) -> Result<SnapshotId, TraitError> {
     let references = content.references.digest()?;
-    let mut written = references.len;
+    if digests.bytes.len() != content.quotes.len().saturating_mul(DIGEST_BYTES) {
+        return Err(TraitError::InvalidInput(
+            "quote digests do not match the quotes",
+        ));
+    }
+    let mut written = references.len.saturating_add(digests.len);
+    if written > MAX_SNAPSHOT_BYTES {
+        return Err(TraitError::CapacityExceeded);
+    }
     let mut hash = Sha256::new();
     hash.update(SCHEMA_FOUR);
     hash.update(references.digest);
@@ -1246,16 +1317,76 @@ fn sectioned_identity(content: &SnapshotContent) -> Result<SnapshotId, TraitErro
             .map_err(|_| TraitError::CapacityExceeded)?
             .to_be_bytes(),
     );
-    for quote in &content.quotes {
-        let quote = quote.digest()?;
-        written = written.saturating_add(quote.len);
-        if written > MAX_SNAPSHOT_BYTES {
-            return Err(TraitError::CapacityExceeded);
-        }
-        hash.update(quote.digest);
-    }
+    hash.update(&digests.bytes);
     let frame = CanonicalContent::new(content, false)?;
     snapshot_id(hash_json(hash, &frame, &mut written)?)
+}
+
+/// The length of one SHA-256 digest.
+const DIGEST_BYTES: usize = 32;
+
+/// Schema 4's quote digests in snapshot order, one after another, and the summed length
+/// of the JSON they hash (P17c-iv). Identity hashes these exact bytes, so a snapshot
+/// derived from another copies them and replaces only its rebuilt entries'.
+#[derive(Debug, PartialEq)]
+struct QuoteDigests {
+    bytes: Box<[u8]>,
+    len: usize,
+}
+
+impl QuoteDigests {
+    /// Every entry's digest, in order. `written` counts the JSON one identity has hashed
+    /// so far, and the walk fails once it passes [`MAX_SNAPSHOT_BYTES`], as identity does.
+    fn of(quotes: &[SharedQuote], written: &mut usize) -> Result<Self, TraitError> {
+        let mut bytes = Vec::with_capacity(quotes.len().saturating_mul(DIGEST_BYTES));
+        let mut len = 0usize;
+        for quote in quotes {
+            let digest = quote.digest()?;
+            *written = written.saturating_add(digest.len);
+            if *written > MAX_SNAPSHOT_BYTES {
+                return Err(TraitError::CapacityExceeded);
+            }
+            len = len.saturating_add(digest.len);
+            bytes.extend_from_slice(&digest.digest);
+        }
+        Ok(Self {
+            bytes: bytes.into(),
+            len,
+        })
+    }
+    /// These digests, of `previous`, with the entries at `rebuilt` replaced by those of
+    /// `quotes`, which holds `previous`'s entries everywhere else.
+    fn patched(
+        &self,
+        previous: &[SharedQuote],
+        quotes: &[SharedQuote],
+        rebuilt: &[usize],
+    ) -> Result<Self, TraitError> {
+        let size = previous.len().saturating_mul(DIGEST_BYTES);
+        if self.bytes.len() != size || quotes.len() != previous.len() {
+            return Err(TraitError::InvalidInput(
+                "quote digests do not match the quotes",
+            ));
+        }
+        let mut bytes = self.bytes.clone();
+        let mut len = self.len;
+        for &position in rebuilt {
+            let (Some(old), Some(new)) = (previous.get(position), quotes.get(position)) else {
+                return Err(TraitError::InvalidInput("rebuilt position out of range"));
+            };
+            let (old, new) = (old.digest()?, new.digest()?);
+            len = len
+                .checked_sub(old.len)
+                .and_then(|len| len.checked_add(new.len))
+                .ok_or(TraitError::CapacityExceeded)?;
+            let start = position.saturating_mul(DIGEST_BYTES);
+            bytes
+                .get_mut(start..start.saturating_add(DIGEST_BYTES))
+                .ok_or(TraitError::InvalidInput("rebuilt position out of range"))?
+                .copy_from_slice(&new.digest);
+        }
+        Ok(Self { bytes, len })
+    }
 }
 
 /// Stream `value`'s canonical JSON into `hash`. `written` counts the JSON bytes one
@@ -1372,6 +1503,7 @@ impl TryFrom<SnapshotWire> for MarketSnapshot {
             snapshot_id: value.snapshot_id,
             content: value.content,
             quality: OnceLock::from(value.quality),
+            digests: OnceLock::new(),
         });
         result.verify()?;
         Ok(result)
