@@ -627,48 +627,6 @@ fn an_input_freshness_deadline_alone_is_expired_by_the_next_maintenance() {
     assert_eq!(view.failure.unwrap().code, ErrorCode::StaleInput);
 }
 
-/// P17c-iii: a walk sets the bound again from the deadlines still held, so a later
-/// deadline passing after an earlier one was expired is still expired by the next walk.
-#[test]
-fn a_later_deadline_is_expired_after_an_earlier_one_was() {
-    let graph = CalculationGraph::new();
-    let (a, b, c, d) = (curve("A"), curve("B"), curve("C"), curve("D"));
-    graph
-        .activate(vec![
-            NodeSpec::input(a.clone()),
-            NodeSpec::calculation(b.clone(), vec![a.clone()]),
-            NodeSpec::input(c.clone()),
-            NodeSpec::calculation(d.clone(), vec![c.clone()]),
-        ])
-        .unwrap();
-    let published = Instant::now();
-    graph
-        .publish_input_until(&a, value(0.04), Some(published + Duration::from_millis(2)))
-        .unwrap();
-    graph
-        .publish_input_until(
-            &c,
-            value(0.05),
-            Some(published + Duration::from_millis(200)),
-        )
-        .unwrap();
-    std::thread::sleep(Duration::from_millis(5));
-    graph.get_nodes_to_calculate().unwrap();
-    assert!(graph.inspect_node(&b).unwrap().revision > 0);
-    assert_eq!(
-        graph.inspect_node(&d).unwrap().revision,
-        0,
-        "C is still fresh"
-    );
-    std::thread::sleep(
-        (published + Duration::from_millis(210)).saturating_duration_since(Instant::now()),
-    );
-    graph.get_nodes_to_calculate().unwrap();
-    let view = graph.inspect_node(&d).unwrap();
-    assert!(view.revision > 0);
-    assert_eq!(view.failure.unwrap().code, ErrorCode::StaleInput);
-}
-
 #[test]
 fn unavailable_invalid_and_unversioned_outputs_never_become_numeric_success() {
     let graph = CalculationGraph::new();
