@@ -260,6 +260,10 @@ fn bench_live_tick(c: &mut Criterion) {
 
 /// Instrument counts for the P10a cases; 256 is `MAX_SNAPSHOT_INSTRUMENTS`.
 const WIDTHS: [usize; 3] = [1, 16, 256];
+/// Live widths past a request snapshot's 256, up to `MAX_RUNTIME_INSTRUMENTS` (P17b).
+const LIVE_WIDTHS: [usize; 2] = [1024, 4096];
+/// Events the bench's source holds, as the server's ingress queue does.
+const QUEUE: usize = 1024;
 /// Quotes sent per measured burst, well inside the 1,024-event queue.
 const BURST: u64 = 64;
 /// A burst at 256 instruments larger than the ~300 quotes one conflated tick must admit
@@ -371,23 +375,36 @@ fn bench_live_throughput(c: &mut Criterion) {
     let cases = WIDTHS
         .map(|width| (width, BURST))
         .into_iter()
-        .chain([(256, SATURATING_BURST), (256, SINGLE)]);
+        .chain([(256, SATURATING_BURST), (256, SINGLE)])
+        .chain(
+            LIVE_WIDTHS
+                .into_iter()
+                .flat_map(|width| [(width, BURST), (width, SINGLE)]),
+        );
     for (width, burst) in cases {
         let (s, plan) = rt.block_on(wide_setup(width));
         let mut quotes = Quotes::new(&plan);
-        let (sender, _) = tokio::sync::broadcast::channel(1024);
+        let (sender, _) = tokio::sync::broadcast::channel(QUEUE);
         let source = Arc::new(WideSource { sender });
         let engine = live_engine(&s, plan, source.clone());
         rt.block_on(engine.start()).unwrap();
         let mut updates = engine.subscribe_results();
         let mut generation = engine.runtime_health().generation;
-        // Every instrument needs its first image before its results are complete.
-        for _ in 0..width {
-            source.sender.send(quotes.next()).unwrap();
+        // Every instrument needs its first image before its results are complete, sent a
+        // queue at a time.
+        let mut warm = None;
+        for start in (0..width).step_by(QUEUE) {
+            let count = QUEUE.min(width - start);
+            for _ in 0..count {
+                source.sender.send(quotes.next()).unwrap();
+            }
+            generation += count as u64;
+            warm = Some(wait_for(&rt, &mut updates, generation));
         }
-        generation += width as u64;
-        let warm = wait_for(&rt, &mut updates, generation);
-        assert_eq!(warm.result.status(), ResultStatus::Complete);
+        assert_eq!(
+            warm.map(|record| record.result.status()),
+            Some(ResultStatus::Complete)
+        );
         let id = if burst == BURST {
             BenchmarkId::from_parameter(width)
         } else {

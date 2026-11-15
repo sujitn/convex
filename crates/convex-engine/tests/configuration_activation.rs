@@ -854,6 +854,107 @@ async fn live_runtime_applies_an_activation_at_refresh_not_at_the_next_quote() {
     restarted.shutdown().await.unwrap();
 }
 
+/// D101: a Live configuration of 4,096 instruments passes its dry run, which values every
+/// instrument, is staged and activated, and a Live runtime starts on it. As a Captured or
+/// Replay configuration it is refused past 256 instruments.
+#[tokio::test]
+async fn a_live_configuration_of_4096_instruments_is_checked_staged_and_activated() {
+    let setup = runtime::setup().await;
+    let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    let mut staged = fixture::staged(1);
+    staged.staged_at = now;
+    let document = &mut staged.document;
+    document.runtime.mode = RuntimeMode::Live;
+    document.providers[0]
+        .capabilities
+        .push(ProviderCapability::LiveImages);
+    document.assembly.as_of = now;
+    document.assembly.known_at = now;
+    document.assembly.quotes[0].max_age_ms = 600_000;
+    document.assembly.curves[0].source_time = now;
+    document.assembly.curves[0].recorded_at = now;
+    document.assembly.curves[0].max_age_ms = 600_000;
+    let mut wide = plan(document, vec![]);
+    runtime::widen(&setup, &mut wide, convex_engine::MAX_RUNTIME_INSTRUMENTS).await;
+    document.assembly.instruments = wide.assembly.instruments;
+    document.assembly.quotes = wide.assembly.quotes;
+    assert_eq!(document.assembly.instruments.len(), 4096);
+    document.validate().unwrap();
+    for mode in [RuntimeMode::Captured, RuntimeMode::Replay] {
+        let mut stored = document.clone();
+        stored.runtime.mode = mode;
+        assert!(stored.validate().is_err(), "{mode:?}");
+    }
+
+    let stamp = now.datetime().timestamp_millis();
+    let mut case = fixtures(&setup).remove(0);
+    case.as_of = now;
+    case.known_at = now;
+    case.events = document
+        .assembly
+        .quotes
+        .iter()
+        .map(|quote| {
+            let mut event = fixture::snapshot::event(1, stamp, stamp, "99.25");
+            event.key = quote.key.clone();
+            event
+        })
+        .collect();
+    let expected = case.expected[0].clone();
+    case.expected = document
+        .assembly
+        .instruments
+        .iter()
+        .map(|pin| ExpectedConfigurationMeasure {
+            instrument_id: pin.instrument_id.clone(),
+            ..expected.clone()
+        })
+        .collect();
+    let cases = vec![case];
+    let doc = &staged.document;
+    let service = std::sync::Arc::new(ConfigurationUseCases::new(
+        setup.storage.configuration.clone(),
+        setup.storage.bonds.clone(),
+        setup.storage.configs.clone(),
+        setup.storage.curves.clone(),
+        std::sync::Arc::new(convex_ext_file::JsonFixingRepository::empty()),
+        setup.snapshots.clone(),
+        ConfigurationCapabilities {
+            build_id: doc.runtime.build_id.clone(),
+            storage: doc.process.storage.clone(),
+            durable: true,
+            atomic_activation: true,
+            shared_writers: false,
+            result_transport: doc.process.result_transport.clone(),
+            providers: doc.providers.clone(),
+            demo: false,
+        },
+    ));
+    let report = service.validate(doc, &cases).await.unwrap();
+    assert!(report.valid, "{:?}", report.issues);
+    service.stage(&staged, &cases).await.unwrap();
+    let mut command = fixture::activate(1, 0, "live-wide");
+    command.activated_at = now;
+    service.activate(&command, &cases).await.unwrap();
+
+    let source = std::sync::Arc::new(subscription_source::SubscriptionSource::new());
+    let engine = convex_engine::PricingEngineBuilder::new()
+        .with_storage(setup.storage.clone())
+        .with_configuration_use_cases(service)
+        .with_runtime(convex_engine::RuntimeServices {
+            plan: plan(&staged.document, vec![]),
+            snapshots: setup.snapshots.clone(),
+            fixings: std::sync::Arc::new(convex_ext_file::JsonFixingRepository::empty()),
+            store: setup.store.clone(),
+            publisher: runtime::display_only(),
+            input: convex_engine::RuntimeInput::Live(source),
+        })
+        .build()
+        .unwrap();
+    engine.start().await.unwrap();
+    engine.shutdown().await.unwrap();
+}
+
 /// A Live selection staged and activated at `now` as revision 1, with the fixtures it was
 /// checked against and the use cases that hold it.
 async fn live_selection(

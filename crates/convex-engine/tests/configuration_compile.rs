@@ -268,3 +268,117 @@ async fn refuses_inputs_it_cannot_pin() {
         Err(ConfigurationError::Invalid(_))
     ));
 }
+
+/// Store `count` copies of the seed's bond, `WIDE-0000`..., and books of at most 1,000
+/// positions holding them, `WIDE-BOOK-0`...; returns the books.
+async fn wide(storage: &StorageAdapter, count: usize) -> Vec<ReferenceDataId> {
+    let seed = seed();
+    let template = seed["references"][0]["command"]["changes"][0].clone();
+    let ids: Vec<String> = (0..count).map(|i| format!("WIDE-{i:04}")).collect();
+    for (chunk, ids) in ids.chunks(256).enumerate() {
+        let changes: Vec<Value> = ids
+            .iter()
+            .map(|id| {
+                let mut change = template.clone();
+                change["bond"]["instrument_id"] = json!(id);
+                change["bond"]["isin"] = json!(format!("ISIN-{id}"));
+                change
+            })
+            .collect();
+        let command: ReferenceCommand = serde_json::from_value(json!({
+            "idempotency_key": format!("wide-{chunk}"),
+            "changes": changes,
+            "master_changes": []
+        }))
+        .unwrap();
+        storage.bonds.commit(&command, at(CAPTURE)).await.unwrap();
+    }
+    let mut books = Vec::new();
+    for (n, ids) in ids.chunks(1000).enumerate() {
+        let id = format!("WIDE-BOOK-{n}");
+        let positions: Vec<Value> = ids
+            .iter()
+            .map(|instrument| {
+                json!({
+                    "instrument_id": instrument,
+                    "quantity": "1000000",
+                    "unit": "face",
+                    "reference_version": null,
+                    "source_identifier": null,
+                    "sector": null,
+                    "rating": null
+                })
+            })
+            .collect();
+        let definition: BookDefinition = serde_json::from_value(json!({
+            "book_id": id,
+            "owning_system": "test-bms",
+            "name": null,
+            "currency": null,
+            "description": null,
+            "effective": {"from": "2026-10-07T13:00:00Z", "until": null},
+            "positions": positions,
+            "provenance": {"source": "test-bms", "evidence_reference": format!("test:{id}")}
+        }))
+        .unwrap();
+        storage
+            .bonds
+            .commit(
+                &ReferenceCommand {
+                    idempotency_key: RequestId::new(format!("book-{id}")).unwrap(),
+                    changes: vec![],
+                    master_changes: vec![MasterChange {
+                        expected_version: None,
+                        definition: MasterDefinition::Book(Box::new(definition)),
+                    }],
+                },
+                at("2026-10-07T13:00:00Z"),
+            )
+            .await
+            .unwrap();
+        books.push(ReferenceDataId::new(id).unwrap());
+    }
+    books
+}
+
+/// D101: books holding 4,096 instruments compile to a Live document that validates; the
+/// same books are refused as a Replay universe, past 256, and one more instrument is
+/// refused as a Live one.
+#[tokio::test]
+async fn a_live_universe_compiles_up_to_4096_instruments_and_a_replay_one_up_to_256() {
+    let dir = tempfile::tempdir().unwrap();
+    let (storage, _) = storage(&dir).await;
+    let books = wide(&storage, 4096).await;
+    let mut live = selection();
+    live.books = books.clone();
+    let document = compile(&storage, &live, "showcase-feed").await.unwrap();
+    assert_eq!(document.assembly.instruments.len(), 4096);
+    assert_eq!(document.assembly.quotes.len(), 4096);
+    document.validate().unwrap();
+
+    let mut replay = live.clone();
+    replay.mode = RuntimeMode::Replay;
+    let mut replay_capabilities = capabilities("showcase-feed");
+    replay_capabilities.providers[0]
+        .capabilities
+        .push(ProviderCapability::Replay);
+    assert!(matches!(
+        assemble_from_repository(
+            &replay,
+            storage.bonds.as_ref(),
+            storage.configs.as_ref(),
+            storage.curves.as_ref(),
+            &replay_capabilities,
+        )
+        .await,
+        Err(ConfigurationError::CapacityExceeded)
+    ));
+
+    let mut over = live;
+    over.books
+        .push(ReferenceDataId::new("SHOWCASE-BOOK").unwrap());
+    assert!(matches!(
+        compile(&storage, &over, "showcase-feed").await,
+        Err(ConfigurationError::CapacityExceeded)
+    ));
+}

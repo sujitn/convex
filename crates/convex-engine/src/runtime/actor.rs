@@ -207,7 +207,9 @@ impl Actor {
                 .map_err(|_| RuntimeError::CapacityExceeded)?;
             }
             Some(LiveState {
-                quotes: crate::snapshot::IngestedQuotes::new()?,
+                quotes: crate::snapshot::IngestedQuotes::new(
+                    convex_ports::snapshot::SnapshotBounds::Live,
+                )?,
                 last_receive_ms: None,
                 reserved,
                 pinned: None,
@@ -250,10 +252,11 @@ impl Actor {
             .iter()
             .map(|q| q.key.clone())
             .collect();
+        // The cache holds one snapshot's contexts, one an instrument (G58).
         let mut actor = Self {
             valuator: Arc::new(crate::snapshot::SnapshotValuator::new(
                 services.plan.build_id.clone(),
-                256,
+                services.plan.assembly.instruments.len(),
             )?),
             services,
             assembler,

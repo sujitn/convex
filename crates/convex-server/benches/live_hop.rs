@@ -43,8 +43,11 @@ use tokio_tungstenite::tungstenite::Message;
 type Socket =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
-/// 256 bonds, `MAX_SNAPSHOT_INSTRUMENTS`; also the most events one `POST` carries.
+/// 256 bonds, `MAX_SNAPSHOT_INSTRUMENTS`; also the most events one `POST` carries, and the
+/// most instruments one subscription lists (D104).
 const WIDE: usize = 256;
+/// Live widths past 256, up to `MAX_RUNTIME_INSTRUMENTS` (P17b).
+const LIVE_WIDTHS: [usize; 2] = [1024, 4096];
 /// Sessions in the fan-out case.
 const SESSIONS: usize = 8;
 /// Requests and inbound WebSocket messages per second: P13a's rate, kept so the cases
@@ -156,9 +159,13 @@ impl Live {
             },
             _dir: dir,
         };
-        let images = live.quotes(width);
-        live.post(images).await;
-        live.settle().await;
+        // A POST carries at most 256 events, and the ingress queues 1,024, so each batch
+        // settles before the next.
+        for _ in 0..width.div_ceil(WIDE) {
+            let images = live.quotes(width.min(WIDE));
+            live.post(images).await;
+            live.settle().await;
+        }
         live.server.wait_ready().await;
         live
     }
@@ -213,15 +220,18 @@ impl Live {
             .await
             .unwrap();
         until(&mut socket, |f| f.kind == "connected").await;
-        let subscribe = serde_json::json!({
-            "type": "subscribe_valuations",
-            "instrument_ids": self.ids(),
-        });
-        socket
-            .send(Message::Text(subscribe.to_string().into()))
-            .await
-            .unwrap();
-        until(&mut socket, |f| f.kind == "subscribed").await;
+        // 256 instruments a message (D104).
+        for ids in self.ids().chunks(WIDE) {
+            let subscribe = serde_json::json!({
+                "type": "subscribe_valuations",
+                "instrument_ids": ids,
+            });
+            socket
+                .send(Message::Text(subscribe.to_string().into()))
+                .await
+                .unwrap();
+            until(&mut socket, |f| f.kind == "subscribed").await;
+        }
         socket
     }
 
@@ -372,6 +382,25 @@ fn bench_live_hop(c: &mut Criterion) {
         })
     });
     rt.block_on(one.stop(sockets));
+
+    // One quote until its frame at 1,024 and 4,096 bonds, with one session following every
+    // bond.
+    for width in LIVE_WIDTHS {
+        let mut live = rt.block_on(Live::start(width));
+        let mut sockets = vec![rt.block_on(live.session())];
+        group.bench_function(BenchmarkId::new("burst1", width), |b| {
+            b.iter_custom(|iterations| {
+                rt.block_on(async {
+                    let mut total = Duration::ZERO;
+                    for _ in 0..iterations {
+                        total += live.hop(&mut sockets, 1, false).await;
+                    }
+                    total
+                })
+            })
+        });
+        rt.block_on(live.stop(sockets));
+    }
     group.finish();
 }
 

@@ -116,8 +116,7 @@ async fn started(dir: &tempfile::TempDir, live: ServerConfig) -> Running {
     let server = Running::start(live).await;
     let events: Vec<QuoteEvent> =
         serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap()).unwrap();
-    let posted = server.post_quotes(events).await;
-    assert!(posted.status().is_success(), "{}", posted.status());
+    server.post_all_quotes(&events).await;
     server.wait_ready().await;
     server
 }
@@ -769,27 +768,33 @@ async fn acknowledged(socket: &mut Socket) -> Value {
     .expect("no acknowledgement")
 }
 
-/// D100: one session can follow every instrument a runtime values and every book the monitor
-/// watches. One quota of 256 topics used to cover both, so a session following 256
-/// instruments could follow no book.
+/// D100, D104: one session follows every instrument a Live runtime values, 4,096 in 16
+/// messages of 256, and every book the monitor watches. Every instrument's first result
+/// reaches it, though the first tick publishes all 4,096: the results broadcast holds
+/// twice as many, so a session that keeps up is not told to resubscribe.
 #[tokio::test]
 async fn one_session_follows_every_instrument_and_every_limited_book() {
-    use futures_util::SinkExt;
-    let (dir, live, _) = live(1, 0, &[]).await;
-    let server = started(&dir, live.clone()).await;
+    use futures_util::{SinkExt, StreamExt};
+    let width = convex_engine::MAX_RUNTIME_INSTRUMENTS;
+    let (dir, live, instruments) = live(width, 0, &[]).await;
+    assert_eq!(instruments.len(), 4096);
+    let server = Running::start(live).await;
     let (mut socket, _) = tokio_tungstenite::connect_async(server.ws_url())
         .await
         .unwrap();
     frame(&mut socket, "connected").await;
-    let mut instruments = vec!["BOND-001".to_owned()];
-    instruments.extend((1..convex_engine::MAX_RUNTIME_INSTRUMENTS).map(|i| format!("ANY-{i:03}")));
     let books: Vec<String> = (0..64).map(|i| format!("BOOK-{i:02}")).collect();
-    for (request, kind, count) in [
-        (
-            json!({"type": "subscribe_valuations", "instrument_ids": instruments}),
-            "valuations",
-            256,
-        ),
+    let mut requests: Vec<_> = instruments
+        .chunks(256)
+        .map(|ids| {
+            (
+                json!({"type": "subscribe_valuations", "instrument_ids": ids}),
+                "valuations",
+                256,
+            )
+        })
+        .collect();
+    requests.extend([
         (
             json!({"type": "subscribe_limits", "book_ids": books}),
             "limits",
@@ -802,7 +807,8 @@ async fn one_session_follows_every_instrument_and_every_limited_book() {
             "limits",
             2,
         ),
-    ] {
+    ]);
+    for (request, kind, count) in requests {
         socket
             .send(tokio_tungstenite::tungstenite::Message::Text(
                 request.to_string().into(),
@@ -813,6 +819,46 @@ async fn one_session_follows_every_instrument_and_every_limited_book() {
         assert_eq!(ack["subscription_type"], kind, "{ack}");
         assert_eq!(ack["count"], count, "{ack}");
     }
+    // Nothing is priced before the images, so the subscriptions seeded nothing. The
+    // session reads while the images are posted.
+    let reader = tokio::spawn(async move {
+        let mut complete = std::collections::BTreeSet::new();
+        let mut frames = 0usize;
+        while complete.len() < width {
+            match socket.next().await {
+                Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                    let value: Value = serde_json::from_str(&text).unwrap();
+                    match value["type"].as_str() {
+                        Some("valuation") => {
+                            frames += 1;
+                            if value["result"]["status"] == "Complete" {
+                                complete.insert(
+                                    value["result"]["provenance"]["subject"]["instrument_id"]
+                                        .as_str()
+                                        .unwrap()
+                                        .to_owned(),
+                                );
+                            }
+                        }
+                        Some("error") => panic!("session told {value}"),
+                        _ => {}
+                    }
+                }
+                Some(Ok(_)) => {}
+                other => panic!("socket ended: {other:?}"),
+            }
+        }
+        frames
+    });
+    let events: Vec<QuoteEvent> =
+        serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap()).unwrap();
+    assert_eq!(events.len(), width);
+    server.post_all_quotes(&events).await;
+    let frames = tokio::time::timeout(Duration::from_secs(60), reader)
+        .await
+        .expect("every instrument is valued")
+        .unwrap();
+    assert!(frames >= width, "{frames}");
 }
 
 /// The monitor records a change when a limit set commits, when a tick moves a value past

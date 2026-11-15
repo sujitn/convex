@@ -9,8 +9,9 @@ This implementation does not certify a live provider or any production release g
 
 ## Supported operating scope
 
-A `RuntimePlan` supplies one immutable quantitative configuration, up to 256 exact
-instrument versions, one selected quote source per instrument, supplied curve
+A `RuntimePlan` supplies one immutable quantitative configuration, exact instrument
+versions (up to 4,096 for a Live runtime, 256 for a Captured or Replay one), one
+selected quote source per instrument, supplied curve
 revisions, explicit settlement, compiled numerical policy, build identity and
 requested measures. The implemented measures are the price, yield, yield-risk,
 spread, curve-risk and key-rate measures listed in `SNAPSHOTS.md`
@@ -233,12 +234,14 @@ becomes zero, par, Empty-success or a current timestamp on an old value.
 
 | Resource | Bound |
 | --- | --- |
-| Runtime universe | 256 instruments, one exact configuration |
+| Runtime universe | 4,096 instruments Live, 256 Captured or Replay; one exact configuration |
 | Captured command queue | 128; explicit capacity error |
 | Retained accepted trace | 100,000 normalized events; Live retains none |
 | Checkpoint | 32 MiB; one atomic image/outbox, schema 1 |
-| Results and output batch | 256 records each |
-| Results stream | 512 records (two per instrument) |
+| Results and output batch | one record per instrument each; a stored checkpoint holds 256 (Captured and Replay store every result, Live none) |
+| Results stream | 8,192 records (two per instrument) |
+| Valuation cache | one snapshot's contexts, one per plan instrument |
+| Live snapshot | 4,096 instruments, identity JSON 128 MiB; never stored (`SNAPSHOTS.md`) |
 | Results page | 256 records unless asked, at most 1,024 |
 | Local checkpoint namespaces | 64 |
 | Local result archive | 256 MiB, 100,000 delivery keys, 512 KiB per record |

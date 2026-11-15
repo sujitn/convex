@@ -312,6 +312,7 @@ impl ConfigurationUseCases {
                 &assembly,
                 &fixture.events,
                 document.pricing.clone(),
+                document.runtime.mode.snapshot_bounds(),
             ))
             .await
             {
@@ -339,9 +340,10 @@ impl ConfigurationUseCases {
             }
             let mut valuator = self.warmed.lock().clone();
             if valuator.is_none() {
+                // Shared by every document's dry run, so sized to the largest plan.
                 let initialized = Arc::new(SnapshotValuator::new(
                     self.capabilities.build_id.clone(),
-                    256,
+                    crate::runtime::MAX_RUNTIME_INSTRUMENTS,
                 )?);
                 *self.warmed.lock() = Some(initialized.clone());
                 valuator = Some(initialized);
@@ -349,8 +351,16 @@ impl ConfigurationUseCases {
             let valuator = valuator.ok_or(ConfigurationError::ValidationFailed)?;
             let mut actual = Vec::new();
             let mut matched = std::collections::BTreeSet::new();
+            let mut expected_of = std::collections::BTreeMap::<_, Vec<_>>::new();
+            for expected in &fixture.expected {
+                expected_of
+                    .entry(&expected.instrument_id)
+                    .or_default()
+                    .push(expected);
+            }
             for pin in &document.assembly.instruments {
-                let context = match plan.context(&snapshot, &pin.instrument_id) {
+                // The plan was validated above.
+                let context = match plan.validated_context(&snapshot, pin) {
                     Ok(context) => context,
                     Err(crate::runtime::RuntimeError::Configuration(reason))
                         if reason == crate::runtime::NO_APPLICABLE_MEASURE =>
@@ -388,11 +398,10 @@ impl ConfigurationUseCases {
                         "Actual valuation did not produce every requested valid measure",
                     );
                 }
-                let expectations = fixture
-                    .expected
-                    .iter()
-                    .filter(|e| e.instrument_id == pin.instrument_id)
-                    .collect::<Vec<_>>();
+                let expectations = expected_of
+                    .get(&pin.instrument_id)
+                    .cloned()
+                    .unwrap_or_default();
                 if expectations.is_empty() {
                     issue(
                         &mut report,

@@ -235,8 +235,9 @@ says why:
 - the result is larger than one 64 KiB message (`RESULT_TOO_LARGE`), so it
   cannot be streamed. It is not requested again; a later result that fits
   replaces it;
-- more than 256 instruments: one session follows at most 256, which is all
-  one server runtime values. The rest wait for a free slot.
+- more than 256 instruments: the add-in follows at most 256 in one session,
+  though a server's Live runtime values up to 4,096. The rest wait for a free
+  slot.
 
 When the server's latest result failed but kept a last good result, `value`
 shows the last good value and `quality` the quality the server gives it.

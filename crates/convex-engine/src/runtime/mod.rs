@@ -28,8 +28,10 @@ use tokio::sync::{broadcast, mpsc, oneshot, watch, Mutex};
 
 pub use convex_ports::configuration::RuntimeMode;
 
-/// Instruments one runtime values. A WebSocket session can follow at most this many.
-pub const MAX_RUNTIME_INSTRUMENTS: usize = 256;
+/// Instruments one runtime values at most: a Live one's (D101). A Captured or Replay
+/// runtime values at most 256 ([`RuntimeMode::max_instruments`]). A WebSocket session
+/// can follow at most this many.
+pub const MAX_RUNTIME_INSTRUMENTS: usize = RuntimeMode::Live.max_instruments();
 
 /// Records the results broadcast holds: a tick that publishes every instrument, twice
 /// over, overruns no reader that keeps up (D103).
@@ -82,7 +84,6 @@ impl RuntimePlan {
         if self.schema_version != 1
             || self.assembly.generation.get() != 1
             || self.assembly.instruments.is_empty()
-            || self.assembly.instruments.len() > MAX_RUNTIME_INSTRUMENTS
             || self.assembly.quotes.len() != self.assembly.instruments.len()
             || self.seed_events.len() > MAX_RUNTIME_EVENTS
             || self.measures.is_empty()
@@ -97,16 +98,27 @@ impl RuntimePlan {
                 "invalid/unsupported runtime plan",
             ));
         }
+        if self.assembly.instruments.len() > self.mode.max_instruments() {
+            return Err(RuntimeError::Configuration(
+                if self.mode == RuntimeMode::Live {
+                    "a Live runtime plan values at most 4,096 instruments"
+                } else {
+                    "a Captured or Replay runtime plan values at most 256 instruments"
+                },
+            ));
+        }
+        // Each instrument has one quote; as many quotes as instruments, so each quote
+        // belongs to one instrument.
+        let mut quotes = std::collections::BTreeMap::new();
+        for quote in &self.assembly.quotes {
+            let count = quotes
+                .entry(quote.key.instrument_id.as_str())
+                .or_insert(0usize);
+            *count = count.saturating_add(1);
+        }
         let mut ids = std::collections::BTreeSet::new();
         for pin in &self.assembly.instruments {
-            if !ids.insert(&pin.instrument_id)
-                || self
-                    .assembly
-                    .quotes
-                    .iter()
-                    .filter(|q| q.key.instrument_id.as_str() == pin.instrument_id.as_str())
-                    .count()
-                    != 1
+            if !ids.insert(&pin.instrument_id) || quotes.get(pin.instrument_id.as_str()) != Some(&1)
             {
                 return Err(RuntimeError::Configuration(
                     "one unique reference and selected quote source per instrument are required",
@@ -142,6 +154,15 @@ impl RuntimePlan {
     ) -> Result<crate::context::ValuationContext, RuntimeError> {
         self.validate()?;
         worker::context(self, snapshot, worker::plan_pin(self, instrument)?)
+    }
+    /// [`RuntimePlan::context`] of one of this plan's pins, for a plan its caller has
+    /// validated: neither the plan nor its pins are walked again.
+    pub(crate) fn validated_context(
+        &self,
+        snapshot: &MarketSnapshot,
+        pin: &convex_ports::configuration::InstrumentPin,
+    ) -> Result<crate::context::ValuationContext, RuntimeError> {
+        worker::context(self, snapshot, pin)
     }
     fn digest(&self) -> Result<String, RuntimeError> {
         self.validate()?;

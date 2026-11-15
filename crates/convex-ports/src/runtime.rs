@@ -13,6 +13,9 @@ use std::sync::Arc;
 pub const MAX_RUNTIME_EVENTS: usize = 100_000;
 /// Maximum serialized checkpoint size, 32 MiB.
 pub const MAX_RUNTIME_BYTES: usize = 32 * 1024 * 1024;
+/// Results, and outbox records, a stored checkpoint holds: the instruments of a Captured
+/// or Replay runtime, whose every event stores them. A Live runtime stores none (D101).
+pub const MAX_CHECKPOINT_RESULTS: usize = crate::snapshot::MAX_SNAPSHOT_INSTRUMENTS;
 
 /// Canonical result state published with a durable, monotonic runtime revision.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -66,7 +69,7 @@ pub struct RuntimeCheckpoint {
     pub pending: bool,
     /// Last allocated publication revision.
     pub result_revision: u64,
-    /// Current result states for at most 256 instruments. Shared and immutable, so a
+    /// Current result states, at most [`MAX_CHECKPOINT_RESULTS`] stored. Shared and immutable, so a
     /// checkpoint copies in constant time and a merge copies pointers (G30); stored as a
     /// plain array.
     pub results: Arc<[Arc<PublishedValuation>]>,
@@ -97,8 +100,8 @@ impl RuntimeCheckpoint {
             ));
         }
         if self.events.len() > MAX_RUNTIME_EVENTS
-            || self.results.len() > 256
-            || self.outbox.len() > 256
+            || self.results.len() > MAX_CHECKPOINT_RESULTS
+            || self.outbox.len() > MAX_CHECKPOINT_RESULTS
         {
             return Err(TraitError::CapacityExceeded);
         }
@@ -110,12 +113,13 @@ impl RuntimeCheckpoint {
             }
             previous = Some(event.receive_time_ms);
         }
-        let mut subjects = std::collections::BTreeSet::new();
+        let subject = |record: &PublishedValuation| {
+            serde_json::to_string(&record.result.provenance().subject)
+                .map_err(|_| TraitError::InvalidInput("invalid runtime subject"))
+        };
+        let mut subjects = std::collections::BTreeMap::new();
         for result in self.results.iter() {
-            if !subjects.insert(
-                serde_json::to_string(&result.result.provenance().subject)
-                    .map_err(|_| TraitError::InvalidInput("invalid runtime subject"))?,
-            ) {
+            if subjects.insert(subject(result)?, result).is_some() {
                 return Err(TraitError::InvalidInput("duplicate runtime result subject"));
             }
         }
@@ -154,11 +158,11 @@ impl RuntimeCheckpoint {
                 }
             }
         }
+        // Subjects are distinct, so a record equal to a result is its subject's result.
         for record in self.outbox.iter() {
-            if !self
-                .results
-                .iter()
-                .any(|result| Arc::ptr_eq(result, record) || result == record)
+            if !subjects
+                .get(&subject(record)?)
+                .is_some_and(|result| Arc::ptr_eq(result, record) || *result == record)
             {
                 return Err(TraitError::InvalidInput(
                     "outbox differs from checkpointed results",
