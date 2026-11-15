@@ -414,3 +414,43 @@ fn a_section_lists_its_floating_records_in_order_and_again_after_a_change() {
     assert_eq!(listed(&section), expected(&section));
     assert_eq!(listed(&section).len(), 2);
 }
+
+/// P17c-iv: a derived snapshot reuses its last one's quote digests only under schema 4.
+/// Content under another schema that follows it is identified from its whole JSON, as
+/// `new` identifies it.
+#[test]
+fn a_derived_snapshot_under_another_schema_is_identified_as_new_identifies_it() {
+    let mut base = content();
+    (base.as_of, base.known_at) = (at(start_ms() + 2_000, 0), at(start_ms() + 2_000, 0));
+    let first = MarketSnapshot::new(base.clone()).unwrap();
+    let mut accepted = 0;
+    for schema in [1, 2, 3] {
+        let mut next = base.clone();
+        next.schema_version = schema;
+        // One rebuilt entry: the same requirement, a later observation.
+        let requirement = next.quotes[0].requirement.clone();
+        next.quotes[0] = entry(
+            &requirement.key,
+            requirement.max_age_ms,
+            2,
+            start_ms() - 400,
+            start_ms() - 400,
+        );
+        assert!(first.follows(&next));
+        let expected = MarketSnapshot::new(next.clone());
+        let derived = first.next(next);
+        match (derived, expected) {
+            (Ok(derived), Ok(expected)) => {
+                assert_eq!(derived.id(), expected.id(), "schema {schema}");
+                assert_eq!(derived, expected);
+                accepted += 1;
+            }
+            (derived, expected) => assert_eq!(
+                format!("{:?}", derived.map(|s| s.id().clone())),
+                format!("{:?}", expected.map(|s| s.id().clone())),
+                "schema {schema}"
+            ),
+        }
+    }
+    assert!(accepted > 0, "some earlier schema admits this content");
+}
