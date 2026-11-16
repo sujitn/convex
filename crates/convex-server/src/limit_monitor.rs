@@ -426,8 +426,9 @@ impl LimitMonitor {
                         };
                     }
                 }
-                // Last: a pass in progress makes its next call once the streams are read.
-                _ = std::future::ready(()), if task.pruning() => {}
+                // Last, once the streams are read: a pass in progress makes its next call,
+                // and books a call made due are evaluated.
+                _ = std::future::ready(()), if task.ready() => {}
             }
         }
     }
@@ -748,6 +749,12 @@ impl Task {
         self.pruning
             .as_ref()
             .is_some_and(|pruning| pruning.started && pruning.pass.is_some())
+    }
+
+    /// Whether the loop has work at once: a pass in progress, or books a prune call made
+    /// due after this turn's evaluation. A stalled read waits for the timer instead.
+    fn ready(&self) -> bool {
+        self.pruning() || (self.dirty.is_some() && !self.stalled)
     }
 
     /// How long until the next pass starts, if none is in progress.
@@ -1690,6 +1697,152 @@ mod tests {
         assert_eq!(audit.last_id().await.unwrap(), Some(5010));
         stop.send(true).unwrap();
         running.await.unwrap();
+    }
+
+    /// An audit store over redb that refuses a write past `cap` entries for capacity, as
+    /// redb does at 1,000,000.
+    struct Capped {
+        inner: Arc<dyn AuditStore>,
+        cap: u64,
+    }
+
+    #[async_trait::async_trait]
+    impl AuditStore for Capped {
+        async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+            self.append_all(std::slice::from_ref(entry)).await
+        }
+        async fn append_all(&self, entries: &[AuditEntry]) -> Result<(), TraitError> {
+            if self.inner.entry_count().await? + entries.len() as u64 > self.cap {
+                return Err(TraitError::CapacityExceeded);
+            }
+            self.inner.append_all(entries).await
+        }
+        async fn entry_count(&self) -> Result<u64, TraitError> {
+            self.inner.entry_count().await
+        }
+        async fn query(
+            &self,
+            filter: &AuditFilter,
+            pagination: &Pagination,
+        ) -> Result<Page<AuditEntry>, TraitError> {
+            self.inner.query(filter, pagination).await
+        }
+        async fn last_id(&self) -> Result<Option<u64>, TraitError> {
+            self.inner.last_id().await
+        }
+        async fn prune(&self, prune: &AuditPrune<'_>) -> Result<Pruned, TraitError> {
+            self.inner.prune(prune).await
+        }
+    }
+
+    /// A book the store refused for capacity is recorded as soon as a pass's last call
+    /// frees room, with no tick or commit to wake the monitor, not at the next pass.
+    #[tokio::test]
+    async fn a_book_refused_for_capacity_is_recorded_once_the_last_call_frees_room() {
+        const INTERVAL: Duration = Duration::from_secs(3);
+        let directory = tempfile::tempdir().unwrap();
+        let storage =
+            convex_ext_redb::create_redb_storage(directory.path().join("audit.redb")).unwrap();
+        let inner = storage.audit.clone();
+        // Full, and none older than the 1 s period at the start's pass.
+        let now = chrono::Utc::now().timestamp_millis();
+        let entries: Vec<AuditEntry> = (1..=10).map(|id| record(id, now, "BOOK-B")).collect();
+        inner.append_all(&entries).await.unwrap();
+        let engine = Arc::new(
+            convex_engine::PricingEngineBuilder::new()
+                .with_storage(Arc::new(storage))
+                .build()
+                .unwrap(),
+        );
+        let config = crate::ServerConfig {
+            profile: crate::ServerProfile::Demo,
+            host: "127.0.0.1".into(),
+            access: crate::access::identity::AccessSettings {
+                mode: crate::access::identity::AccessMode::LocalDevelopment,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut server = crate::Server::with_access_control(
+            config,
+            engine,
+            crate::access::AccessControl::local_development(),
+        );
+        server.limits = Some(Arc::new(LimitMonitor {
+            audit: Arc::new(Capped {
+                inner: inner.clone(),
+                cap: 10,
+            }),
+            feed: broadcast::channel(16).0,
+            hold: Duration::ZERO,
+            retention_ms: Some(1000),
+            prune_interval: INTERVAL,
+        }));
+        let started = Instant::now();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let serving = tokio::spawn(async move {
+            server
+                .serve_until(listener, async {
+                    let _ = stopped.await;
+                })
+                .await
+        });
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        for (path, key, body) in [
+            (
+                "/api/v1/books/BOOK-A",
+                "book-a",
+                serde_json::json!({"currency": "USD", "positions": []}),
+            ),
+            (
+                "/api/v1/books/BOOK-A/limits",
+                "limits-a",
+                serde_json::json!({"limits": [{"limit_id": "mv", "measure": {"kind": "market_value"}, "upper": "100"}]}),
+            ),
+        ] {
+            let response = client
+                .put(format!("{base}{path}"))
+                .header("idempotency-key", key)
+                .json(&body)
+                .send()
+                .await
+                .unwrap();
+            assert!(
+                response.status().is_success(),
+                "{path}: {}",
+                response.status()
+            );
+        }
+        // The book's first record is refused: the store is full.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert_eq!(ids(&inner).await, (1..=10).collect::<Vec<_>>());
+        // The pass due after the interval frees room in one call, its last: 1 to 9 go.
+        let waited = tokio::time::timeout(Duration::from_secs(10), async {
+            while ids(&inner).await.first() != Some(&10) {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await;
+        assert!(waited.is_ok(), "never pruned: {:?}", ids(&inner).await);
+        let pruned = started.elapsed();
+        // The book's record follows; the refused attempt used up 11. A later pass may
+        // remove 10, so wait for 12 alone.
+        let waited = tokio::time::timeout(Duration::from_secs(10), async {
+            while inner.last_id().await.unwrap() != Some(12) {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await;
+        assert!(waited.is_ok(), "never recorded: {:?}", ids(&inner).await);
+        let recorded = started.elapsed();
+        assert!(
+            recorded - pruned < INTERVAL / 3,
+            "recorded {recorded:?}, {pruned:?} after the start: it waited for the next pass"
+        );
+        stop.send(()).unwrap();
+        serving.await.unwrap().unwrap();
     }
 
     /// A store that refuses a prune: one that cannot prune ends retention, and a failure

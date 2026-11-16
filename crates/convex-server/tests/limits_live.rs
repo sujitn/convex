@@ -2168,7 +2168,8 @@ async fn retention_at_start_on_a_full_store() {
                 if pruned_at.is_none() && pruned >= (ENTRIES - 1) as f64 {
                     pruned_at = Some(at);
                 }
-                if changes >= 64.0 {
+                // Both seen: the last call and the restate can land between two reads.
+                if changes >= 64.0 && pruned_at.is_some() {
                     return (samples, pruned_at, at);
                 }
                 assert!(at < Duration::from_secs(600), "never restated");
