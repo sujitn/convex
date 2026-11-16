@@ -2045,6 +2045,105 @@ async fn records_page_time_at_the_cap() {
     server.stop().await;
 }
 
+/// P18c's measurement: one book of 1,000,000 records, 64 limits in turn, so each limit
+/// has one record in 64, read by limit through the route from the middle of the book:
+/// - a limit of 600-byte records with a page of 100 (about 6,400 entries read) and of
+///   1,000, which the 10,000-entry read bound stops at about 156;
+/// - a limit with no records, which reads the full 10,000;
+/// - a limit whose records hold 8 snapshot ids of 3,000 bytes (24 KiB, few values), whose
+///   page stops at 3 MiB, and one whose records hold 1,000 short ids (about 1,000 values),
+///   whose page stops at 60,000 values; their records are fattened to reach the bounds.
+///
+/// Against the same pages without `limit_id`, which read only what they show.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn records_by_limit_at_the_cap() {
+    const ENTRIES: u64 = 1_000_000;
+    let (dir, live, _) = live(1, 0, &[]).await;
+    let book = "BOOK-17";
+    let wide: Vec<String> = (0..8)
+        .map(|i| format!("{i}{}", "w".repeat(2_999)))
+        .collect();
+    let many: Vec<String> = (0..1_000).map(|i| format!("live-{i:05}")).collect();
+    // Limit 17's records hold 8 long snapshot ids, limit 18's 1,000 short ones.
+    let entry = |id: u64| {
+        let mut entry = fixture_record(id, book);
+        let ids = match id % 64 {
+            17 => &wide,
+            18 => &many,
+            _ => return entry,
+        };
+        let mut details: Value = serde_json::from_str(entry.details.as_deref().unwrap()).unwrap();
+        details["snapshot_ids"] = json!(ids);
+        entry.details = Some(details.to_string());
+        entry
+    };
+    {
+        let storage = convex_ext_redb::open_redb_storage(&live.storage_path).unwrap();
+        let audit = storage.storage.audit.clone();
+        let started = Instant::now();
+        let mut next = 1;
+        while next <= ENTRIES {
+            let batch: Vec<_> = (next..(next + 64).min(ENTRIES + 1)).map(entry).collect();
+            audit.append_all(&batch).await.unwrap();
+            next += batch.len() as u64;
+        }
+        let size = |id: u64| entry(id).details.unwrap().len();
+        println!(
+            "fixture: {ENTRIES} records of one book in {} commits, {:.1} s; details {} bytes, \
+             limit 17's {} and limit 18's {}",
+            ENTRIES.div_ceil(64),
+            started.elapsed().as_secs_f64(),
+            size(5),
+            size(17),
+            size(18),
+        );
+        assert_eq!(audit.entry_count().await.unwrap(), ENTRIES);
+    }
+
+    let server = started(&dir, live.clone()).await;
+    put(
+        &server,
+        &format!("/api/v1/books/{book}"),
+        "book-17",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "1000000"},
+        ]}),
+    )
+    .await;
+    let after = ENTRIES / 2;
+    let cases = [
+        ("", 100usize),
+        ("", 1000),
+        ("&limit_id=sector-financials-05", 100),
+        ("&limit_id=sector-financials-05", 1000),
+        ("&limit_id=no-such-limit", 1000),
+        ("&limit_id=sector-financials-17", 1000),
+        ("&limit_id=sector-financials-18", 1000),
+    ];
+    for (filter, size) in cases {
+        let path =
+            format!("/api/v1/books/{book}/limits/records?after={after}&limit={size}{filter}");
+        let (status, page) = send(&server, reqwest::Method::GET, &path, None, None).await;
+        assert_eq!(status, StatusCode::OK, "{page}");
+        let shown = page["records"].as_array().unwrap().len();
+        let read = page["next_after"].as_u64().unwrap() - after;
+        let bytes = page.to_string().len();
+        let mut times = Vec::new();
+        for _ in 0..20 {
+            times.push(timed(&server, reqwest::Method::GET, &path, None).await);
+        }
+        println!(
+            "limit={size:>4}{filter:<32} {shown:>4} records, {read:>5} entries read, \
+             {:>7.1} KiB, more {}: {}",
+            bytes as f64 / 1024.0,
+            page["more"],
+            summary(times)
+        );
+    }
+    server.stop().await;
+}
+
 /// One value from `/metrics`, or 0 when absent.
 async fn metric_value(server: &Running, name: &str) -> f64 {
     let text = server

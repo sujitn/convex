@@ -522,7 +522,7 @@ statuses are described in [the engine's limits guide](../convex-engine/LIMITS.md
 | `GET /api/v1/books/{book_id}/limits/proposal` | The latest proposal, open or closed, pinned in `ETag` |
 | `GET /api/v1/books/{book_id}/limits/status` | Each limit evaluated now against the current Live results |
 | `POST /api/v1/books/{book_id}/limits/check` | Each limit evaluated now as if proposed position changes were applied; nothing is stored ([the pre-trade check](#the-pre-trade-check)) |
-| `GET /api/v1/books/{book_id}/limits/records?after=&limit=` | The book's recorded status changes after a record id, oldest first, at most 1,000 a page ([records](#records)) |
+| `GET /api/v1/books/{book_id}/limits/records?after=&limit=&limit_id=` | The book's recorded status changes after a record id, oldest first, at most 1,000 a page; with `limit_id`, only that limit's ([records](#records)) |
 | `POST /api/v1/books/{book_id}/limits/acknowledgements` | Acknowledge one limit in breach or unknown, until an expiry: 201 ([acknowledgements](#acknowledgements)) |
 | `POST /api/v1/books/{book_id}/limits/acknowledgements/withdraw` | End the acknowledgement in force for one limit: 200 |
 | `GET /api/v1/books/{book_id}/limits/acknowledgements` | The acknowledgements in force now, with the current version in `ETag` |
@@ -720,6 +720,15 @@ reads across a pruned range without error. `more` says whether the book had reco
 stops before a record that would take it past 3 MiB or 60,000 JSON values, with `more`
 true, so that the access layer can check the response whole.
 
+`limit_id` returns only that limit's records: the route reads the book's records in
+order and skips other limits' (D107). A request reads at most 10,000 of the book's
+records, and `limit` bounds the records it returns, not those it reads. `next_after` is
+the last record read, so a limit whose records are rare in a busy book can give a page
+with no records and `more` true: pass `next_after` on, as for any page. Another limit's
+record is skipped and not counted in `withheld`. A record of this limit the caller
+cannot read is withheld and counted, as without the filter. A limit no longer in the
+set, or never in it, is not refused; its records are read like any other.
+
 The route needs what status needs (see [access](ACCESS.md)): the book, every instrument it
 holds and every instrument its current set names. A record can also name an instrument
 the book no longer holds: a `face` limit's instrument (on each position, the one that set
@@ -737,6 +746,20 @@ took 1.17 and 1.25 s. Through the route, under local development, the
 pages took 0.74 and 5.5 ms (`ci` profile, WSL2). The first open of a
 store written before the index indexes every entry once, 65,536 a transaction: 5.0 s for a
 full store, in 16 transactions. Later opens find nothing to index.
+
+Reading by limit costs what the route reads, not what it returns. In a book of 1,000,000
+records where each of 64 limits has one record in 64 (`ci` profile, macOS, local
+development):
+- A page of 100 of one limit's records read 6,373 entries in a median of 22.5 ms.
+- A page of 1,000 stopped at the read bound with 156 records, in 23.8 ms. A limit with
+  no records read the full 10,000 in 23.3 ms.
+- Records of 24 KiB stopped a page at 3 MiB (128 records, 8,240 entries read, 23.0 ms).
+- Records of about 1,000 values stopped it at 60,000 values (58 records, 3,761 entries,
+  12.0 ms).
+
+The same book without `limit_id` returned 100 records in 1.1 ms and 1,000 in 9.2 ms.
+The read bound counts entries, not bytes, so a book of larger records costs more a
+request.
 
 #### Acknowledgements
 
