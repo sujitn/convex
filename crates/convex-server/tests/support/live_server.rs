@@ -28,6 +28,7 @@ pub fn config(profile: ServerProfile, storage: &Path, plan: Option<&Path>) -> Se
         // Every change at once, as before P18 (D106); a test of the hold sets its own.
         limits: convex_server::LimitSettings {
             clear_hold_seconds: 0,
+            ..Default::default()
         },
         ..Default::default()
     }

@@ -175,6 +175,16 @@ the changes that matter when you upgrade.
   gauges show a breach until it has stayed clear for the hold. **Breaking:**
   `ServerConfig` gains `limits` (`LimitSettings`), so a struct literal of it needs the
   field or `..Default::default()`.
+- **Limit records can be pruned after a retention period.**
+  `limits.record_retention_days` (`CONVEX_LIMITS_RECORD_RETENTION_DAYS`, 8 to 3,650; unset
+  by default, which keeps every record, as before). The limit monitor prunes
+  `limit_status` records older than the period at start, before it records any book, and
+  then hourly. It keeps every record an acknowledgement in force names, each watched
+  limit's latest record since the start (hourly), and the store's last entry, so ids
+  continue. A store at its 1,000,000-entry cap with a period set records again once some
+  records are older than the period. `convex_audit_pruned_total` counts the removals.
+  **Breaking:** `LimitSettings` gains `record_retention_days`, so a struct literal of it
+  needs the field or `..Default::default()`.
 - **A limit can carry a temporary excess.** `excess` on a limit in a set gives wider
   bounds until an expiry at most thirty days after the proposal, with a reason, through
   the set's two-subject proposal. Until it expires the limit is judged against the excess
@@ -227,6 +237,12 @@ the changes that matter when you upgrade.
   `LimitAcknowledgements`, a book's limit acknowledgements
   (`LimitAcknowledgementsDefinition`), so an exhaustive match on them needs a new
   arm.
+- `AuditStore::prune(&AuditPrune)` removes up to 4,096 entries of one event type older
+  than a timestamp, after a cursor, in one transaction, and returns `Pruned` (how many,
+  the next cursor, whether more may remain). It passes over the IDs it is told to keep and
+  never removes the log's last entry. The default refuses with `Unsupported`, so existing
+  stores still compile and are never pruned. Bounds: `MAX_PRUNE_BATCH` (4,096 removals),
+  `MAX_PRUNE_KEEP` (8,192 kept IDs), `MAX_PRUNE_READ` (16,384 entries read a call).
 
 ### convex-ext-redb
 
@@ -234,6 +250,9 @@ the changes that matter when you upgrade.
   an index by entity, written with each entry. The first open of a store
   written before it indexes every entry once (about 5 s for 1,000,000 entries);
   later opens find nothing to index.
+- The audit store implements `prune`: each entry goes with its index key, in one
+  transaction. Redb reuses the freed pages but does not shrink the file; `convex-redb
+  compact` does that offline.
 
 ## 0.14.0
 

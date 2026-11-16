@@ -218,6 +218,7 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | bonds_file | CONVEX_BONDS_FILE | Rejected: file provider composition is not implemented |
 | admin_ui_dir | CONVEX_ADMIN_UI_DIR | Optional built admin app served at `/admin`; must hold `index.html` |
 | limits.clear_hold_seconds | CONVEX_LIMITS_CLEAR_HOLD_SECONDS | Integer 0–300; default 5. How long the [limit monitor](#the-monitor) waits before recording a change to a less severe status; 0 records every change at once |
+| limits.record_retention_days | CONVEX_LIMITS_RECORD_RETENTION_DAYS | Integer 8–3,650; unset by default, which keeps every limit record. How long the [limit monitor](#retention) keeps its records before pruning them |
 | access.mode | CONVEX_ACCESS_MODE | Required by default; explicit local_development only for isolated loopback |
 | access.policy_file | CONVEX_ACCESS_POLICY_FILE | Bounded versioned grants, atomically reloaded each second |
 | access.tls_boundary | CONVEX_TLS_BOUNDARY | local_only or proxy; executable upstream stays loopback |
@@ -600,16 +601,16 @@ records none of the book's changes and keeps their last recorded statuses, so a 
 evaluation records them; a book with a failed write is evaluated again within a second,
 unless the store was full (below). The [records route](#records) reads them.
 
-The audit store holds at most 1,000,000 entries and keeps every one: nothing prunes it.
-With no hold, a value that crosses a bound back and forth records a change each time, at
-most once per evaluation per limit. Once the store is full, every change is
-refused: none is recorded or published, `convex_limit_status_append_failures_total` counts
-each change refused, and one error is logged until a write succeeds again. A book's write
-that would pass the cap is refused whole. `convex_audit_entries` reports the entries held:
-alert at 800,000, and on the failure counter. How long records must be kept is the
-operator's policy; nothing here archives them yet (D98). The monitor is the audit store's
-only writer today. A stop is seen between books, so shutdown waits for one book's commit at
-most; changes not yet recorded are restated at the next start.
+The audit store holds at most 1,000,000 entries. Unless `limits.record_retention_days` is
+set, it keeps every one (see [retention](#retention)). With no hold, a value that crosses a
+bound back and forth records a change each time, at most once per evaluation per limit.
+Once the store is full, every change is refused: none is recorded or published,
+`convex_limit_status_append_failures_total` counts each change refused, and one error is
+logged until a write succeeds again. A book's write that would pass the cap is refused
+whole. `convex_audit_entries` reports the entries held: alert at 800,000, and on the
+failure counter. The monitor is the audit store's only writer today. A stop is seen
+between books, so shutdown waits for one book's commit at most; changes not yet recorded
+are restated at the next start.
 
 A restart records each limit's status again, as a change from `unevaluated`, with the new
 `monitor_started_at`: a standing breach is restated, not reported as a new one. Each book's
@@ -659,6 +660,47 @@ Measured (`ci` profile, WSL2): a value crossing a bound about three times a seco
 (178 ticks) recorded 179 changes with no hold, and 2 with the default 5 s (its first
 status and the breach), since no return lasted the hold.
 
+#### Retention
+
+With `limits.record_retention_days` set (8 to 3,650 days), the monitor prunes
+`limit_status` records older than the period. Unset, every record is kept.
+
+- **At start**, after it reads the limit sets and acknowledgements and before it records
+  any book, it prunes every record older than the period except those an acknowledgement
+  in force names. A store at its cap therefore records the restate that follows, as long
+  as some of its records are older than the period. If none are, the restate is refused
+  until they age past it; an hourly pass then frees room.
+- **Then once an hour**, it also keeps each watched limit's latest record since the start,
+  the evidence for its current status. A limit not recorded since the start (its book was
+  refused for capacity, or the book does not exist), a limit no longer in its set, and a
+  book no longer limited have no latest record to keep, so their records go by age.
+- The store never removes its last entry, so the monitor's ids continue after a restart.
+- An acknowledgement names a record, so the record it names stays while the
+  acknowledgement is in force, and a breach older than the period can still be
+  acknowledged: name its limit's latest record. A pruned record can no longer be named
+  (422 `LIMIT_RECORD_MISMATCH`).
+- Each call removes at most 4,096 records, each with its index key, in one transaction,
+  during which every other write to the database waits. An hourly pass makes one call
+  between evaluations, so it delays an evaluation by one call at most. The start's pass
+  runs whole before the first evaluation. After a call removes anything, a book refused
+  for capacity is evaluated again.
+- `convex_audit_pruned_total` counts the records removed, and `convex_audit_entries`
+  falls with them. Redb reuses the freed pages, so the file stops growing, but it does
+  not shrink: `convex-redb compact`, offline, does that.
+- A store that cannot remove entries (an `AuditStore` without `prune`) is never pruned,
+  and the monitor logs that once.
+
+Measured (`ci` profile, macOS), a full store of 1,000,000 records a month old restarted
+with 8 days' retention: the start's prune removed 999,999 in 4.9 s (245 calls, about
+204,000 a second), and a watched book's 64 limits were restated right after. A call
+takes 20 to 25 ms. Meanwhile an audit append waits a median 16 ms (at most 37 ms), and a
+book `PUT` takes 23 ms, against 4 ms with nothing pruning. The valuation hop of a Live
+runtime stays at 0.45 to 0.48 ms (median): a Live tick writes nothing to the database,
+beyond a counter reservation once every 2^20 revisions. A Replay or Captured runtime
+writes a checkpoint for each event, which would wait for the call in progress; that was
+not measured. The file kept its size through the prune and through refilling to
+1,000,000.
+
 #### Records
 
 `GET /api/v1/books/{book_id}/limits/records?after=&limit=` returns the book's recorded
@@ -673,7 +715,8 @@ stored it, without `type`:
 
 Pass `next_after` as the next `after`. A reader following new records keeps passing the
 last id it has: the monitor assigns ids in order, so it never sees a record twice or misses
-one. `more` says whether the book had records past the page when it was read. A page also
+one, unless [retention](#retention) prunes a record before the reader reaches it. A cursor
+reads across a pruned range without error. `more` says whether the book had records past the page when it was read. A page also
 stops before a record that would take it past 3 MiB or 60,000 JSON values, with `more`
 true, so that the access layer can check the response whole.
 
@@ -682,7 +725,8 @@ holds and every instrument its current set names. A record can also name an inst
 the book no longer holds: a `face` limit's instrument (on each position, the one that set
 the status) and the instruments its reason lists. A record naming one the caller cannot
 read is left out and counted in `withheld`, and `next_after` still passes it. A book whose
-set is empty, or was never committed, still has its records. Without a limit monitor the
+set is empty, or was never committed, still has its records, until retention prunes them
+by age. Without a limit monitor the
 route answers 503.
 
 The audit store indexes each entry by book in the transaction that writes it, so a page
@@ -861,7 +905,8 @@ reads 0.
 | `convex_limit_unknown{book_id}` | Limits whose last recorded status is `unknown` |
 | `convex_limit_status_changes_total` | Status changes recorded |
 | `convex_limit_status_append_failures_total` | Status changes that could not be recorded, and so were not published |
-| `convex_audit_entries` | Entries the audit store holds, read when the monitor starts and after each write; every write is refused at 1,000,000 |
+| `convex_audit_entries` | Entries the audit store holds, read when the monitor starts, after each write and after each prune call that removes any; every write is refused at 1,000,000 |
+| `convex_audit_pruned_total` | Limit records removed by [retention](#retention) |
 
 On-demand fixed and zero-coupon quotes use the [shared bond quote route](../../docs/BOND-QUOTES.md). Supply an observed price; the curves come from the activated configuration, or from discount, swap and government inputs you pass in for a what-if. No demo curves, assumed volatility or model/par price are generated. Missing optional measures return structured errors. Not yet covered: full historical contexts and live provider feeds.
 

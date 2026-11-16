@@ -74,6 +74,14 @@ fn describe_limit_monitor() {
         monitor::APPEND_FAILURES,
         "Limit status changes that could not be recorded, and so were not published"
     );
+    metrics::describe_gauge!(
+        monitor::AUDIT_ENTRIES,
+        "Entries the audit store holds; every append is refused at 1,000,000"
+    );
+    metrics::describe_counter!(
+        monitor::AUDIT_PRUNED,
+        "Limit records removed by retention (limits.record_retention_days)"
+    );
 }
 
 /// Build the recorder, start its upkeep thread for the life of the process, then

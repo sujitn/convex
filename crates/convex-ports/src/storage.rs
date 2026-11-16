@@ -866,7 +866,72 @@ pub struct EntityPage {
     pub more: bool,
 }
 
-/// Audit log storage (append-only).
+/// The most entries one [`AuditStore::prune`] removes, in one transaction (D105).
+pub const MAX_PRUNE_BATCH: usize = 4096;
+
+/// The most IDs one [`AuditStore::prune`] keeps: each watched limit's latest record and
+/// each record an acknowledgement in force names, 64 books of at most 64 limits each.
+pub const MAX_PRUNE_KEEP: usize = 8192;
+
+/// The most entries one [`AuditStore::prune`] reads, removed or not, so a call's
+/// transaction is bounded however many entries it passes over.
+pub const MAX_PRUNE_READ: usize = 16_384;
+
+/// One call of [`AuditStore::prune`]: remove entries of `event_type` older than `before`,
+/// after the cursor `after`, except those `keep` names (D105).
+#[derive(Debug, Clone, Copy)]
+pub struct AuditPrune<'a> {
+    /// The event type removed; entries of any other type are passed over.
+    pub event_type: &'a str,
+    /// Unix milliseconds: an entry whose timestamp is below this is older than the period.
+    pub before: i64,
+    /// The walk starts after this ID: 0 for a pass's first call, then the last call's
+    /// [`Pruned::next_after`].
+    pub after: u64,
+    /// IDs never removed, at most [`MAX_PRUNE_KEEP`].
+    pub keep: &'a std::collections::BTreeSet<u64>,
+    /// The most entries removed, at most [`MAX_PRUNE_BATCH`].
+    pub max: usize,
+}
+
+impl AuditPrune<'_> {
+    /// Refuse a call past its bounds or with an invalid event type.
+    pub fn validate(&self) -> Result<(), TraitError> {
+        if self.max == 0 || self.max > MAX_PRUNE_BATCH {
+            return Err(TraitError::InvalidInput(
+                "prune removes 1 to 4096 entries a call",
+            ));
+        }
+        if self.keep.len() > MAX_PRUNE_KEEP {
+            return Err(TraitError::InvalidInput("prune keeps at most 8192 IDs"));
+        }
+        if self.event_type.is_empty()
+            || self.event_type.len() > 1024
+            || self.event_type.chars().any(char::is_control)
+        {
+            return Err(TraitError::InvalidInput("invalid audit event type"));
+        }
+        Ok(())
+    }
+}
+
+/// What one [`AuditStore::prune`] call did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Pruned {
+    /// Entries removed.
+    pub removed: usize,
+    /// The last ID the walk passed, removed or not, or the call's `after` when it passed
+    /// none; the pass's next call starts after it.
+    pub next_after: u64,
+    /// Whether the walk stopped at a bound ([`AuditPrune::max`] removals or
+    /// [`MAX_PRUNE_READ`] reads), so entries older than `before` may remain after
+    /// `next_after`. False when it reached an entry not older than `before`, or the log's
+    /// last entry.
+    pub more: bool,
+}
+
+/// Audit log storage. An entry never changes once written; only
+/// [`prune`](AuditStore::prune) removes entries.
 #[async_trait]
 pub trait AuditStore: Send + Sync {
     /// Append an immutable entry; identical ID/content retries succeed, different content conflicts.
@@ -978,6 +1043,25 @@ pub trait AuditStore: Send + Sync {
         Err(TraitError::Conflict(
             "the audit log grew on every read of its last entry",
         ))
+    }
+
+    /// Remove up to `prune.max` entries of `prune.event_type` older than `prune.before`
+    /// (D105), each with whatever indexes it, in one transaction, and say how far the walk
+    /// went.
+    ///
+    /// The walk reads entries in ID order from `prune.after + 1`, and stops at the first
+    /// entry, of any type, whose timestamp is not below `before`: the one writer assigns
+    /// IDs in time order, so what follows is newer. It passes over entries of another type
+    /// and those `keep` names, and never removes the log's last entry, of any type, so a
+    /// writer that takes the next ID from [`last_id`](Self::last_id) never reuses one. It
+    /// reads at most [`MAX_PRUNE_READ`] entries.
+    ///
+    /// A reader's cursor is an ID, so it reads across a removed range without error. The
+    /// default refuses with [`TraitError::Unsupported`], so a store that cannot remove
+    /// entries is never pruned.
+    async fn prune(&self, prune: &AuditPrune<'_>) -> Result<Pruned, TraitError> {
+        prune.validate()?;
+        Err(TraitError::Unsupported("this audit store cannot prune"))
     }
 }
 
