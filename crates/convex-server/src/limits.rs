@@ -1316,7 +1316,7 @@ fn json_values(value: &serde_json::Value) -> usize {
 ///
 /// With `limit_id`, only that limit's records, read through the book's index (D107): a
 /// request reads at most [`MAX_RECORDS_READ`] of the book's entries, and `next_after` is
-/// the last one it read, so a page can be empty with `more` true. Another limit's record
+/// the last one it examined, so a page can be empty with `more` true. Another limit's record
 /// is passed and not counted, as is one whose limit cannot be read.
 ///
 /// Access is status's read rule on the book, its current instruments and those its

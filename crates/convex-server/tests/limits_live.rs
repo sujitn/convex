@@ -2054,7 +2054,9 @@ async fn records_page_time_at_the_cap() {
 ///   page stops at 3 MiB, and one whose records hold 1,000 short ids (about 1,000 values),
 ///   whose page stops at 60,000 values; their records are fattened to reach the bounds.
 ///
-/// Against the same pages without `limit_id`, which read only what they show.
+/// Against the same pages without `limit_id`, which read only what they show. Each case
+/// is warmed by three requests first. The book's mean record is about 1,160 bytes, the
+/// two fattened limits included.
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
 async fn records_by_limit_at_the_cap() {
@@ -2127,15 +2129,26 @@ async fn records_by_limit_at_the_cap() {
         let (status, page) = send(&server, reqwest::Method::GET, &path, None, None).await;
         assert_eq!(status, StatusCode::OK, "{page}");
         let shown = page["records"].as_array().unwrap().len();
-        let read = page["next_after"].as_u64().unwrap() - after;
+        // The cursor passes `passed` entries; the store reads whole pages of 1,000 for a
+        // request by limit (none ends early here: the book has more), one of `limit`
+        // without.
+        let passed = page["next_after"].as_u64().unwrap() - after;
+        let fetched = if filter.is_empty() {
+            size as u64
+        } else {
+            passed.div_ceil(1000) * 1000
+        };
         let bytes = page.to_string().len();
+        for _ in 0..3 {
+            timed(&server, reqwest::Method::GET, &path, None).await;
+        }
         let mut times = Vec::new();
         for _ in 0..20 {
             times.push(timed(&server, reqwest::Method::GET, &path, None).await);
         }
         println!(
-            "limit={size:>4}{filter:<32} {shown:>4} records, {read:>5} entries read, \
-             {:>7.1} KiB, more {}: {}",
+            "limit={size:>4}{filter:<32} {shown:>4} records, {passed:>5} entries passed, \
+             {fetched:>5} fetched, {:>7.1} KiB, more {}: {}",
             bytes as f64 / 1024.0,
             page["more"],
             summary(times)

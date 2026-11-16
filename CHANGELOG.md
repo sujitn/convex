@@ -188,7 +188,7 @@ the changes that matter when you upgrade.
 - **One limit's records can be read.** `limit_id` on
   `GET /api/v1/books/{book_id}/limits/records` returns only that limit's records. A
   request reads at most 10,000 of the book's records, and `next_after` is the last one it
-  read, so a page can hold no records with `more` true; pass `next_after` on. Another
+  examined, so a page can hold no records with `more` true; pass `next_after` on. Another
   limit's records are skipped and not counted in `withheld`.
 - **A limit can carry a temporary excess.** `excess` on a limit in a set gives wider
   bounds until an expiry at most thirty days after the proposal, with a reason, through
