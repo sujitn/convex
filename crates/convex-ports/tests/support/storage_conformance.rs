@@ -685,7 +685,8 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
             at(2, 100, STATUS, "B"),
             audit(3, 100, "write", "bond", "A", None),
             at(4, 100, STATUS, "A"),
-            at(5, 200, STATUS, "A"),
+            // Newer, and of another type: it still stops the walk.
+            audit(5, 200, "write", "bond", "A", None),
             // A wall clock that stepped back: older, but after a newer entry.
             at(6, 100, STATUS, "A"),
             at(7, 100, STATUS, "B"),
@@ -706,35 +707,35 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
     );
     assert_eq!(ids(store.clone()).await, [2, 3, 5, 6, 7]);
     // Each index key went with its entry: the book's page reads no missing entry.
-    assert_eq!(book(store.clone(), "A", 0).await, [5, 6]);
+    assert_eq!(book(store.clone(), "A", 0).await, [6]);
     assert_eq!(book(store.clone(), "B", 0).await, [2, 7]);
     assert_eq!(store.entry_count().await.unwrap(), 5);
 
-    // Every entry is old now. Two a call: 2 and 5, passing 3 of another type.
+    // Every entry is old now. One a call: 2, and the walk stops with more to do.
     assert_eq!(
-        prune(i64::MAX, 0, &none, 2).await.unwrap(),
+        prune(i64::MAX, 0, &none, 1).await.unwrap(),
         Pruned {
-            removed: 2,
-            next_after: 5,
+            removed: 1,
+            next_after: 2,
             more: true
         }
     );
-    // From the cursor: 6, but never the last entry, 7.
+    // From the cursor, passing 3 and 5 of another type: 6, but never the last entry, 7.
     assert_eq!(
-        prune(i64::MAX, 5, &none, 2).await.unwrap(),
+        prune(i64::MAX, 2, &none, 2).await.unwrap(),
         Pruned {
             removed: 1,
             next_after: 6,
             more: false
         }
     );
-    assert_eq!(ids(store.clone()).await, [3, 7]);
+    assert_eq!(ids(store.clone()).await, [3, 5, 7]);
     assert_eq!(store.last_id().await.unwrap(), Some(7));
     assert_eq!(
         prune(i64::MAX, 0, &none, MAX_PRUNE_BATCH).await.unwrap(),
         Pruned {
             removed: 0,
-            next_after: 3,
+            next_after: 5,
             more: false
         }
     );
@@ -743,8 +744,7 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
     store.append(&at(8, 300, STATUS, "A")).await.unwrap();
     assert_eq!(book(store.clone(), "A", 0).await, [8]);
     assert_eq!(book(store.clone(), "A", 1).await, [8]);
-    // A removed ID written again is a new entry; the log does not remember it.
-    assert_eq!(ids(store.clone()).await, [3, 7, 8]);
+    assert_eq!(ids(store.clone()).await, [3, 5, 7, 8]);
 
     // Bounds.
     for max in [0, MAX_PRUNE_BATCH + 1] {
@@ -758,7 +758,7 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
         prune(i64::MAX, 0, &many, 1).await,
         Err(TraitError::InvalidInput(_))
     ));
-    assert_eq!(ids(store.clone()).await, [3, 7, 8]);
+    assert_eq!(ids(store.clone()).await, [3, 5, 7, 8]);
 
     // A store that cannot remove entries refuses, so it is never pruned.
     struct Unpruned(Arc<dyn AuditStore>);
@@ -788,7 +788,7 @@ pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<d
             .await,
         Err(TraitError::Unsupported(_))
     ));
-    assert_eq!(ids(store).await, [3, 7, 8]);
+    assert_eq!(ids(store).await, [3, 5, 7, 8]);
 }
 
 /// A curve recipe sourced and recorded at `recorded`.

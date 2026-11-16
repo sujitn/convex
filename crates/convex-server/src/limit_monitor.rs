@@ -280,6 +280,9 @@ pub(crate) struct LimitMonitor {
     hold: Duration,
     /// The retention period in milliseconds, if records are pruned (D105).
     retention_ms: Option<i64>,
+    /// How often retention prunes after the start: [`PRUNE_INTERVAL`], shorter only in
+    /// this module's tests.
+    prune_interval: Duration,
 }
 
 impl LimitMonitor {
@@ -301,6 +304,7 @@ impl LimitMonitor {
             feed: broadcast::channel(FEED_CAPACITY).0,
             hold,
             retention_ms,
+            prune_interval: PRUNE_INTERVAL,
         })
     }
 
@@ -354,6 +358,7 @@ impl LimitMonitor {
             stalled: false,
             pruning: self.retention_ms.map(|period_ms| Pruning {
                 period_ms,
+                interval: self.prune_interval,
                 started: false,
                 pass: None,
                 due: Instant::now(),
@@ -587,6 +592,8 @@ fn next_expiry_of(
 struct Pruning {
     /// A record whose timestamp is earlier than now less this is older than the period.
     period_ms: i64,
+    /// How long after a pass the next starts.
+    interval: Duration,
     /// The start's pass has run, or failed; until then nothing is recorded.
     started: bool,
     pass: Option<Pass>,
@@ -825,7 +832,7 @@ impl Task {
                         );
                     }
                     pruning.pass = None;
-                    pruning.due = Instant::now() + PRUNE_INTERVAL;
+                    pruning.due = Instant::now() + pruning.interval;
                 }
             }
             Err(TraitError::Unsupported(_)) => {
@@ -1494,6 +1501,7 @@ mod tests {
             stalled: false,
             pruning: Some(Pruning {
                 period_ms: DAYS_8,
+                interval: PRUNE_INTERVAL,
                 started,
                 pass: None,
                 due: Instant::now(),
@@ -1620,6 +1628,68 @@ mod tests {
         // It runs once.
         task.prune_at_start().await;
         assert!(task.pruning.as_ref().unwrap().pass.is_none());
+    }
+
+    /// The monitor's own loop: the start's pass, then an hourly pass that starts on its
+    /// deadline with no tick or commit to wake it, and runs call after call until done.
+    #[tokio::test]
+    async fn the_monitor_starts_each_pass_when_due_and_runs_it_to_the_end_while_idle() {
+        let directory = tempfile::tempdir().unwrap();
+        let storage =
+            convex_ext_redb::create_redb_storage(directory.path().join("audit.redb")).unwrap();
+        let audit = storage.audit.clone();
+        let old = chrono::Utc::now().timestamp_millis() - 365 * 86_400_000;
+        let append = |ids: std::ops::RangeInclusive<u64>| {
+            let audit = audit.clone();
+            async move {
+                let entries: Vec<AuditEntry> = ids.map(|id| record(id, old, "BOOK-B")).collect();
+                for batch in entries.chunks(MAX_AUDIT_BATCH) {
+                    audit.append_all(batch).await.unwrap();
+                }
+            }
+        };
+        let until_count = |want: u64| {
+            let audit = audit.clone();
+            async move {
+                let waited = tokio::time::timeout(Duration::from_secs(10), async {
+                    while audit.entry_count().await.unwrap() != want {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                })
+                .await;
+                assert!(
+                    waited.is_ok(),
+                    "never {want} entries: {}",
+                    audit.entry_count().await.unwrap()
+                );
+            }
+        };
+        append(1..=10).await;
+        let engine = Arc::new(
+            convex_engine::PricingEngineBuilder::new()
+                .with_storage(Arc::new(storage))
+                .build()
+                .unwrap(),
+        );
+        let monitor = Arc::new(LimitMonitor {
+            audit: audit.clone(),
+            feed: broadcast::channel(16).0,
+            hold: Duration::ZERO,
+            retention_ms: Some(DAYS_8),
+            prune_interval: Duration::from_secs(2),
+        });
+        let (stop, stopped) = watch::channel(false);
+        let running = tokio::spawn(monitor.run(engine, stopped));
+        // The start's pass keeps only the last.
+        until_count(1).await;
+        // Two calls' worth, older than the period, for the next pass: nothing else wakes
+        // the monitor.
+        append(11..=5010).await;
+        assert_eq!(audit.entry_count().await.unwrap(), 5001);
+        until_count(1).await;
+        assert_eq!(audit.last_id().await.unwrap(), Some(5010));
+        stop.send(true).unwrap();
+        running.await.unwrap();
     }
 
     /// A store that refuses a prune: one that cannot prune ends retention, and a failure

@@ -694,9 +694,12 @@ Measured (`ci` profile, macOS), a full store of 1,000,000 records a month old re
 with 8 days' retention: the start's prune removed 999,999 in 4.9 s (245 calls, about
 204,000 a second), and a watched book's 64 limits were restated right after. A call
 takes 20 to 25 ms. Meanwhile an audit append waits a median 16 ms (at most 37 ms), and a
-book `PUT` takes 23 ms, against 4 ms with nothing pruning. The valuation hop stays at
-0.45 to 0.48 ms (median), since a Live tick writes nothing to the database. The file kept
-its size through the prune and through refilling to 1,000,000.
+book `PUT` takes 23 ms, against 4 ms with nothing pruning. The valuation hop of a Live
+runtime stays at 0.45 to 0.48 ms (median): a Live tick writes nothing to the database,
+beyond a counter reservation once every 2^20 revisions. A Replay or Captured runtime
+writes a checkpoint for each event, which would wait for the call in progress; that was
+not measured. The file kept its size through the prune and through refilling to
+1,000,000.
 
 #### Records
 
