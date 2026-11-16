@@ -61,6 +61,11 @@ async fn audit_is_append_only() {
     conformance::audit_is_append_only(s.audit).await;
 }
 #[tokio::test]
+async fn audit_prune_removes_old_entries_and_keeps_what_it_must() {
+    let (_directory, s) = storage();
+    conformance::audit_prune_removes_old_entries_and_keeps_what_it_must(s.audit).await;
+}
+#[tokio::test]
 async fn curve_recipes_resolve_at_known_at() {
     let (_directory, s) = storage();
     conformance::curve_recipes_resolve_at_known_at(s.curves).await;

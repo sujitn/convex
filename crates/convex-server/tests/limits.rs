@@ -1426,6 +1426,7 @@ async fn a_limit_status_frame_needs_what_the_status_route_needs() {
         // Every change at once, as before P18 (D106).
         limits: convex_server::LimitSettings {
             clear_hold_seconds: 0,
+            ..Default::default()
         },
         ..Default::default()
     };
@@ -1558,13 +1559,14 @@ use convex_engine::ports::TraitError;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// An audit store over the fixture's that delays each write, refuses some, or refuses all
-/// for capacity, as a test needs. A batch is one write, as it is one transaction in redb;
-/// it counts every write attempted.
+/// for capacity, or those past a cap, as a test needs. A batch is one write, as it is one
+/// transaction in redb; it counts every write attempted.
 struct ScriptedAudit {
     inner: Arc<dyn AuditStore>,
     delay: std::time::Duration,
     transient: AtomicUsize,
     full: bool,
+    cap: Option<u64>,
     attempts: AtomicUsize,
 }
 
@@ -1574,6 +1576,8 @@ struct Script {
     delay: std::time::Duration,
     transient: usize,
     full: bool,
+    /// The most entries the store holds, as redb's 1,000,000 would.
+    cap: Option<u64>,
 }
 
 impl ScriptedAudit {
@@ -1583,6 +1587,7 @@ impl ScriptedAudit {
             delay: script.delay,
             transient: AtomicUsize::new(script.transient),
             full: script.full,
+            cap: script.cap,
             attempts: AtomicUsize::new(0),
         }
     }
@@ -1591,12 +1596,18 @@ impl ScriptedAudit {
         self.attempts.load(Ordering::SeqCst)
     }
 
-    /// One write attempted: its delay, then the scripted refusal, if any.
-    async fn scripted(&self) -> Result<(), TraitError> {
+    /// One write of `adding` entries attempted: its delay, then the scripted refusal, if
+    /// any.
+    async fn scripted(&self, adding: usize) -> Result<(), TraitError> {
         self.attempts.fetch_add(1, Ordering::SeqCst);
         tokio::time::sleep(self.delay).await;
         if self.full {
             return Err(TraitError::CapacityExceeded);
+        }
+        if let Some(cap) = self.cap {
+            if self.inner.entry_count().await? + adding as u64 > cap {
+                return Err(TraitError::CapacityExceeded);
+            }
         }
         if self
             .transient
@@ -1612,12 +1623,12 @@ impl ScriptedAudit {
 #[async_trait::async_trait]
 impl AuditStore for ScriptedAudit {
     async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
-        self.scripted().await?;
+        self.scripted(1).await?;
         self.inner.append(entry).await
     }
 
     async fn append_all(&self, entries: &[AuditEntry]) -> Result<(), TraitError> {
-        self.scripted().await?;
+        self.scripted(entries.len()).await?;
         self.inner.append_all(entries).await
     }
 
@@ -1648,6 +1659,12 @@ impl AuditStore for ScriptedAudit {
             .entity_page(entity_type, entity_id, after, limit)
             .await
     }
+    async fn prune(
+        &self,
+        prune: &convex_engine::ports::storage::AuditPrune<'_>,
+    ) -> Result<convex_engine::ports::storage::Pruned, TraitError> {
+        self.inner.prune(prune).await
+    }
 }
 
 /// A local-development server over the fixture repository, no runtime, whose monitor
@@ -1661,11 +1678,19 @@ struct Monitored {
     setup: support::Setup,
 }
 
-async fn monitored(script: Script, books: usize, count: usize) -> Monitored {
+/// A local-development server over `setup`'s repository, no runtime, whose monitor records
+/// through `audit` under no hold, keeping records `retention_days` when set (P18b).
+async fn serve(
+    setup: &support::Setup,
+    audit: Arc<ScriptedAudit>,
+    retention_days: Option<u64>,
+) -> (
+    String,
+    tokio::sync::oneshot::Sender<()>,
+    tokio::task::JoinHandle<Result<(), convex_server::StartupError>>,
+) {
     use convex_server::access::identity::{AccessMode, AccessSettings};
     use convex_server::{Server, ServerConfig, ServerProfile};
-    let setup = support::setup().await;
-    let audit = Arc::new(ScriptedAudit::over(setup.storage.audit.clone(), script));
     let engine = Arc::new(
         PricingEngineBuilder::new()
             .with_storage(setup.storage.clone())
@@ -1682,11 +1707,12 @@ async fn monitored(script: Script, books: usize, count: usize) -> Monitored {
         // Every change at once, as before P18 (D106).
         limits: convex_server::LimitSettings {
             clear_hold_seconds: 0,
+            record_retention_days: retention_days,
         },
         ..Default::default()
     };
     let server = Server::with_access_control(config, engine, AccessControl::local_development())
-        .with_limit_monitor(audit.clone());
+        .with_limit_monitor(audit);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
     let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
@@ -1697,6 +1723,13 @@ async fn monitored(script: Script, books: usize, count: usize) -> Monitored {
             })
             .await
     });
+    (base, stop, serving)
+}
+
+async fn monitored(script: Script, books: usize, count: usize) -> Monitored {
+    let setup = support::setup().await;
+    let audit = Arc::new(ScriptedAudit::over(setup.storage.audit.clone(), script));
+    let (base, stop, serving) = serve(&setup, audit.clone(), None).await;
     let client = reqwest::Client::builder().no_proxy().build().unwrap();
     let writes = (0..books).flat_map(|b| {
         [
@@ -3507,4 +3540,242 @@ async fn an_excess_applies_until_its_expiry_and_an_expired_one_can_be_carried_fo
     )
     .await;
     assert_eq!(code, StatusCode::BAD_REQUEST, "{response}");
+}
+
+// =============================================================================
+// RETENTION (P18b, D105)
+// =============================================================================
+
+/// A `limit_status` record of `book`'s `limit_id` as the monitor writes one, `days` old.
+fn aged_record(id: u64, days: i64, book: &str, limit_id: &str, status: &str) -> AuditEntry {
+    let at = chrono::Utc::now() - chrono::Duration::days(days);
+    AuditEntry {
+        id,
+        timestamp: at.timestamp_millis(),
+        event_type: "limit_status".into(),
+        entity_type: "book".into(),
+        entity_id: book.into(),
+        user: None,
+        action: status.into(),
+        details: Some(
+            json!({"record_id": id, "book_id": book, "limit_id": limit_id, "status": status,
+                   "previous": "within", "measure": {"kind": "face", "instrument": {"one": BOND}},
+                   "evaluated_at": at.to_rfc3339()})
+            .to_string(),
+        ),
+    }
+}
+
+/// Every entry's id, oldest first.
+async fn every_id(audit: &Arc<dyn AuditStore>) -> Vec<u64> {
+    audit
+        .query(&AuditFilter::default(), &Pagination::new(0, 1000))
+        .await
+        .unwrap()
+        .items
+        .iter()
+        .map(|entry| entry.id)
+        .collect()
+}
+
+async fn until_ids(audit: &Arc<dyn AuditStore>, want: &[u64]) {
+    let waited = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        while every_id(audit).await != want {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    assert!(
+        waited.is_ok(),
+        "never {want:?}: {:?}",
+        every_id(audit).await
+    );
+}
+
+async fn put_json(base: &str, path: &str, key: &str, body: Value) {
+    let response = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .unwrap()
+        .put(format!("{base}{path}"))
+        .header("idempotency-key", key)
+        .json(&body)
+        .send()
+        .await
+        .unwrap();
+    assert!(
+        response.status().is_success(),
+        "{path}: {}",
+        response.status()
+    );
+}
+
+/// `BOOK-00` holds 1,000,000 of the fixture bond, within `face-00` and in breach of
+/// `face-01`.
+async fn breached_book(base: &str) {
+    put_json(
+        base,
+        "/api/v1/books/BOOK-00",
+        "book-00",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    put_json(
+        base,
+        "/api/v1/books/BOOK-00/limits",
+        "limits-00",
+        set(vec![
+            face("face-00", None, Some("2000000"), None),
+            face("face-01", None, Some("500000"), None),
+        ]),
+    )
+    .await;
+}
+
+/// The acknowledgement of `face-01` naming `record_id`: its status and body.
+async fn acknowledge_record(base: &str, key: &str, record_id: u64) -> (u16, Value) {
+    let response = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .unwrap()
+        .post(format!(
+            "{base}/api/v1/books/BOOK-00/limits/acknowledgements"
+        ))
+        .header("idempotency-key", key)
+        .json(
+            &json!({"limit_id": "face-01", "expires_at": in_seconds(3600),
+                      "note": "seen", "record_id": record_id}),
+        )
+        .send()
+        .await
+        .unwrap();
+    let code = response.status().as_u16();
+    (code, response.json().await.unwrap())
+}
+
+/// The record ids of `BOOK-00`'s records route after `after`.
+async fn routed(base: &str, after: u64) -> Vec<u64> {
+    let page: Value = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .unwrap()
+        .get(format!(
+            "{base}/api/v1/books/BOOK-00/limits/records?after={after}"
+        ))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(page["withheld"], 0, "{page}");
+    page["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|record| record["record_id"].as_u64().unwrap())
+        .collect()
+}
+
+/// P18b (D105): unset, nothing is pruned. With a period, the start prunes records older
+/// than it before the restate, keeping the record an acknowledgement in force names and
+/// the store's last; the restate's ids follow the last, a reader's cursor crosses the
+/// pruned range, and the breach, older than the period, can still be acknowledged, naming
+/// its restated record, while a pruned record can no longer be named.
+#[tokio::test]
+async fn retention_prunes_at_start_keeping_acknowledged_records_and_ids_continue() {
+    let setup = support::setup().await;
+    let inner = setup.storage.audit.clone();
+    // face-01 has been in breach for a month: records 1 to 6, 31 to 26 days old.
+    let old: Vec<AuditEntry> = (1..=6)
+        .map(|id| {
+            let limit = if id % 2 == 0 { "face-01" } else { "face-00" };
+            let status = if id % 2 == 0 { "breach" } else { "within" };
+            aged_record(id, 32 - id as i64, "BOOK-00", limit, status)
+        })
+        .collect();
+    inner.append_all(&old).await.unwrap();
+
+    let audit = Arc::new(ScriptedAudit::over(inner.clone(), Script::default()));
+    let (base, stop, serving) = serve(&setup, audit, None).await;
+    breached_book(&base).await;
+    until_ids(&inner, &[1, 2, 3, 4, 5, 6, 7, 8]).await;
+    let (code, made) = acknowledge_record(&base, "ack-2", 2).await;
+    assert_eq!(code, 201, "{made}");
+    stop.send(()).unwrap();
+    serving.await.unwrap().unwrap();
+    assert_eq!(
+        every_id(&inner).await,
+        [1, 2, 3, 4, 5, 6, 7, 8],
+        "unset prunes nothing"
+    );
+
+    let audit = Arc::new(ScriptedAudit::over(inner.clone(), Script::default()));
+    let (base, stop, serving) = serve(&setup, audit, Some(8)).await;
+    // 2 is acknowledged; 7 and 8 are newer than the period. The restate is 9 and 10.
+    until_ids(&inner, &[2, 7, 8, 9, 10]).await;
+    let restated = stored(&inner, "BOOK-00").await;
+    let breach = restated
+        .iter()
+        .find(|r| r["record_id"].as_u64() > Some(8) && r["limit_id"] == "face-01")
+        .unwrap()
+        .clone();
+    assert_eq!(
+        (&breach["previous"], &breach["status"]),
+        (&json!("unevaluated"), &json!("breach")),
+        "{breach}"
+    );
+    assert_eq!(breach["acknowledgement"]["record_id"], 2, "{breach}");
+    assert_eq!(routed(&base, 0).await, [2, 7, 8, 9, 10]);
+    assert_eq!(routed(&base, 3).await, [7, 8, 9, 10]);
+
+    let (code, refused) = acknowledge_record(&base, "ack-4", 4).await;
+    assert_eq!(code, 422, "{refused}");
+    assert_eq!(refused["code"], "LIMIT_RECORD_MISMATCH", "{refused}");
+    let (code, made) =
+        acknowledge_record(&base, "ack-restated", breach["record_id"].as_u64().unwrap()).await;
+    assert_eq!(code, 201, "{made}");
+    stop.send(()).unwrap();
+    serving.await.unwrap().unwrap();
+}
+
+/// P18b (D105): a store at its cap refuses a book's records until a restart with a
+/// period prunes it; the restate then fits. Without a period it stays full.
+#[tokio::test]
+async fn a_full_store_with_a_period_records_its_restate_after_the_start_prune() {
+    let setup = support::setup().await;
+    let inner = setup.storage.audit.clone();
+    let old: Vec<AuditEntry> = (1..=10)
+        .map(|id| aged_record(id, 30, "BOOK-00", "face-00", "within"))
+        .collect();
+    inner.append_all(&old).await.unwrap();
+    let full = || {
+        Arc::new(ScriptedAudit::over(
+            inner.clone(),
+            Script {
+                cap: Some(10),
+                ..Default::default()
+            },
+        ))
+    };
+
+    let audit = full();
+    let (base, stop, serving) = serve(&setup, audit.clone(), None).await;
+    breached_book(&base).await;
+    until("a write refused for capacity", || audit.attempts() > 0).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    stop.send(()).unwrap();
+    serving.await.unwrap().unwrap();
+    assert_eq!(every_id(&inner).await, (1..=10).collect::<Vec<_>>());
+
+    let audit = full();
+    let (_base, stop, serving) = serve(&setup, audit.clone(), Some(8)).await;
+    until_ids(&inner, &[10, 11, 12]).await;
+    assert_eq!(
+        audit.attempts(),
+        1,
+        "the prune ran before the restate's one write"
+    );
+    stop.send(()).unwrap();
+    serving.await.unwrap().unwrap();
 }

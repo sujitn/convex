@@ -153,13 +153,17 @@ impl Server {
 
     /// Monitor each book's limits while serving, recording each status change in `audit`
     /// and publishing it to `subscribe_limits` sessions (P14c, D86), under the
-    /// configuration's clear hold (P18, D106).
+    /// configuration's clear hold (P18, D106) and record retention (P18b, D105).
     pub fn with_limit_monitor(
         mut self,
         audit: Arc<dyn convex_engine::ports::storage::AuditStore>,
     ) -> Self {
         let hold = std::time::Duration::from_secs(self.config.limits.clear_hold_seconds);
-        self.limits = Some(limit_monitor::LimitMonitor::new(audit, hold));
+        self.limits = Some(limit_monitor::LimitMonitor::new(
+            audit,
+            hold,
+            self.config.limits.record_retention_days,
+        ));
         self
     }
 

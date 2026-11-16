@@ -44,6 +44,19 @@
 //! next time. The hold's end is a deadline beside an excess's expiry. Status and the
 //! pre-trade check read no record, so they still show the status of the moment. A hold of
 //! zero records every change at once.
+//!
+//! Retention (P18b, D105): with `limits.record_retention_days` set, the monitor, the
+//! store's only writer, prunes `limit_status` records older than the period. At start,
+//! after it reads the sets and acknowledgements and before it records any book, it prunes
+//! keeping only the records acknowledgements in force name, so a store at its cap records
+//! the restate that follows. Then once an hour it prunes again, also keeping each watched
+//! limit's latest record since the start, the evidence for its current status. A limit not
+//! recorded since the start (a book refused for capacity, or a set whose book is absent)
+//! has no latest record to keep, so its records go by age, as at the start; its next
+//! record restates it. The store never removes its last entry, so IDs continue. An hourly
+//! pass makes one call, at most 4,096 removals in one transaction, between evaluations, so
+//! a pass waits at most one call. A book refused for capacity is evaluated again after a
+//! call that removes anything.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -63,7 +76,9 @@ use convex_engine::ports::limits::{
 use convex_engine::ports::reference_master::*;
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::runtime::PublishedValuation;
-use convex_engine::ports::storage::{AuditEntry, AuditStore, MAX_AUDIT_BATCH};
+use convex_engine::ports::storage::{
+    AuditEntry, AuditPrune, AuditStore, Pruned, MAX_AUDIT_BATCH, MAX_PRUNE_BATCH, MAX_PRUNE_KEEP,
+};
 use convex_engine::ports::TraitError;
 use convex_engine::PricingEngine;
 use serde::Serialize;
@@ -89,9 +104,11 @@ pub const UNKNOWNS: &str = "convex_limit_unknown";
 pub const CHANGES: &str = "convex_limit_status_changes_total";
 /// Status changes that could not be recorded, and so were not published.
 pub const APPEND_FAILURES: &str = "convex_limit_status_append_failures_total";
-/// The entries the audit store holds, read when the monitor starts and after each commit.
-/// The store refuses every append at 1,000,000 (D98).
+/// The entries the audit store holds, read when the monitor starts, after each commit and
+/// after each prune call that removes any. The store refuses every append at 1,000,000.
 pub const AUDIT_ENTRIES: &str = "convex_audit_entries";
+/// Records the monitor's retention has removed (D105).
+pub const AUDIT_PRUNED: &str = "convex_audit_pruned_total";
 
 // One book's changes are one batch.
 const _: () = assert!(convex_engine::ports::limits::MAX_BOOK_LIMITS <= MAX_AUDIT_BATCH);
@@ -107,6 +124,18 @@ const MAX_EXPIRY_WAIT: Duration = Duration::from_secs(60);
 /// Kept priced terms beyond which those no current result reads are dropped: twice the
 /// instruments one runtime values (G64).
 const MAX_TERMS: usize = 2 * convex_engine::MAX_RUNTIME_INSTRUMENTS;
+/// How often retention prunes after the start (D105).
+const PRUNE_INTERVAL: Duration = Duration::from_secs(3600);
+/// How soon a pass that failed, or could not read the clock, is tried again.
+const PRUNE_RETRY: Duration = Duration::from_secs(60);
+/// A day in milliseconds, the unit of a record's timestamp.
+const DAY_MS: u64 = 86_400_000;
+
+// A prune keeps each watched limit's latest record and the record its acknowledgement in
+// force names, at most one of each a limit.
+const _: () = assert!(
+    2 * MAX_LIMITED_BOOKS * convex_engine::ports::limits::MAX_BOOK_LIMITS <= MAX_PRUNE_KEEP
+);
 
 // =============================================================================
 // RECORDS AND FRAMES
@@ -249,14 +278,29 @@ pub(crate) struct LimitMonitor {
     feed: broadcast::Sender<Arc<LimitFrame>>,
     /// The clear hold (D106).
     hold: Duration,
+    /// The retention period in milliseconds, if records are pruned (D105).
+    retention_ms: Option<i64>,
 }
 
 impl LimitMonitor {
-    pub(crate) fn new(audit: Arc<dyn AuditStore>, hold: Duration) -> Arc<Self> {
+    /// A monitor over `audit` with the clear hold `hold` and, if `retention_days` is set, a
+    /// retention of that many days, held to 8 to 3,650 whatever built the configuration.
+    pub(crate) fn new(
+        audit: Arc<dyn AuditStore>,
+        hold: Duration,
+        retention_days: Option<u64>,
+    ) -> Arc<Self> {
+        use crate::config::{MAX_RECORD_RETENTION_DAYS, MIN_RECORD_RETENTION_DAYS};
+        let retention_ms = retention_days.and_then(|days| {
+            days.clamp(MIN_RECORD_RETENTION_DAYS, MAX_RECORD_RETENTION_DAYS)
+                .checked_mul(DAY_MS)
+                .and_then(|ms| i64::try_from(ms).ok())
+        });
         Arc::new(Self {
             audit,
             feed: broadcast::channel(FEED_CAPACITY).0,
             hold,
+            retention_ms,
         })
     }
 
@@ -306,7 +350,14 @@ impl LimitMonitor {
             reload: Some(Pending::All),
             dirty: Some(Pending::All),
             retry: BTreeSet::new(),
+            full: BTreeSet::new(),
             stalled: false,
+            pruning: self.retention_ms.map(|period_ms| Pruning {
+                period_ms,
+                started: false,
+                pass: None,
+                due: Instant::now(),
+            }),
         };
         let mut timer = tokio::time::interval(RETRY);
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -317,11 +368,14 @@ impl LimitMonitor {
             }
             task.expire();
             task.release();
+            task.schedule();
             task.work().await;
+            task.prune().await;
             let expiry = task
                 .next_expiry()
                 .into_iter()
                 .chain(task.next_release())
+                .chain(task.next_prune())
                 .min();
             tokio::select! {
                 biased;
@@ -367,6 +421,8 @@ impl LimitMonitor {
                         };
                     }
                 }
+                // Last: a pass in progress makes its next call once the streams are read.
+                _ = std::future::ready(()), if task.pruning() => {}
             }
         }
     }
@@ -402,10 +458,17 @@ struct Subject {
     instruments: Arc<[String]>,
 }
 
-/// A watched book, and each limit's last recorded status.
+/// A limit's last recorded status, and the record that holds it.
+#[derive(Debug, Clone, Copy)]
+struct Latest {
+    status: LimitStatus,
+    record_id: u64,
+}
+
+/// A watched book, and each limit's last recorded status since the start.
 struct Watched {
     subject: Arc<Subject>,
-    recorded: HashMap<LimitId, LimitStatus>,
+    recorded: HashMap<LimitId, Latest>,
     /// The latest excess expiry this monitor has passed for the book.
     expired_through: Option<UtcTimestamp>,
     /// Its limits' changes to a less severe status, waiting out the hold.
@@ -520,6 +583,57 @@ fn next_expiry_of(
         .min()
 }
 
+/// Retention (D105): the period, the pass in progress, and when the next one starts.
+struct Pruning {
+    /// A record whose timestamp is earlier than now less this is older than the period.
+    period_ms: i64,
+    /// The start's pass has run, or failed; until then nothing is recorded.
+    started: bool,
+    pass: Option<Pass>,
+    /// When the next pass starts, on the monotonic clock.
+    due: Instant,
+}
+
+/// A prune pass: its cutoff, its cursor, and what it has removed.
+struct Pass {
+    before: i64,
+    after: u64,
+    removed: u64,
+    began: Instant,
+}
+
+impl Pass {
+    /// A pass over the records older than `period_ms` before the wall clock's now.
+    fn begin(period_ms: i64) -> Option<Self> {
+        let now = crate::reference::now().ok()?.datetime().timestamp_millis();
+        Some(Self {
+            before: now.checked_sub(period_ms)?,
+            after: 0,
+            removed: 0,
+            began: Instant::now(),
+        })
+    }
+}
+
+/// What a prune keeps beside the store's last entry: each watched limit's latest record
+/// since the start, and each record an acknowledgement in force at `at` names (D105). A
+/// limit not recorded since the start has no latest record, so its records go by age.
+fn kept(books: &BTreeMap<BookId, Watched>, at: UtcTimestamp) -> BTreeSet<u64> {
+    let mut keep = BTreeSet::new();
+    for watched in books.values() {
+        keep.extend(watched.recorded.values().map(|latest| latest.record_id));
+        keep.extend(
+            watched
+                .subject
+                .acknowledgements
+                .iter()
+                .filter(|entry| entry.in_force(at, &watched.subject.limits))
+                .filter_map(|entry| entry.record_id),
+        );
+    }
+    keep
+}
+
 struct Task {
     engine: Arc<PricingEngine>,
     ledger: Ledger,
@@ -532,8 +646,13 @@ struct Task {
     dirty: Option<Pending>,
     /// Books with a change that could not be recorded.
     retry: BTreeSet<BookId>,
+    /// Books whose changes the store refused for capacity; a prune that removes any
+    /// record makes them due again.
+    full: BTreeSet<BookId>,
     /// A read failed; it is tried again on the timer.
     stalled: bool,
+    /// Retention, if a period is set (D105).
+    pruning: Option<Pruning>,
 }
 
 impl Task {
@@ -600,6 +719,128 @@ impl Task {
         Some(next.saturating_duration_since(Instant::now()))
     }
 
+    /// Start a pass when the next is due, once the start's has run.
+    fn schedule(&mut self) {
+        let Some(pruning) = &mut self.pruning else {
+            return;
+        };
+        if !pruning.started || pruning.pass.is_some() || Instant::now() < pruning.due {
+            return;
+        }
+        pruning.pass = Pass::begin(pruning.period_ms);
+        if pruning.pass.is_none() {
+            tracing::error!(
+                "limit monitor: the clock is outside the supported range; records are not pruned"
+            );
+            pruning.due = Instant::now() + PRUNE_RETRY;
+        }
+    }
+
+    /// Whether a pass after the start's is in progress.
+    fn pruning(&self) -> bool {
+        self.pruning
+            .as_ref()
+            .is_some_and(|pruning| pruning.started && pruning.pass.is_some())
+    }
+
+    /// How long until the next pass starts, if none is in progress.
+    fn next_prune(&self) -> Option<Duration> {
+        let pruning = self.pruning.as_ref()?;
+        (pruning.started && pruning.pass.is_none())
+            .then(|| pruning.due.saturating_duration_since(Instant::now()))
+    }
+
+    /// One call of the pass in progress after the start's.
+    async fn prune(&mut self) {
+        if self.pruning() && !self.halt.requested() {
+            self.prune_call().await;
+        }
+    }
+
+    /// The start's pass, whole, before any book is recorded: nothing is recorded yet, so
+    /// it keeps only what acknowledgements in force name.
+    async fn prune_at_start(&mut self) {
+        let Some(pruning) = &mut self.pruning else {
+            return;
+        };
+        if pruning.started {
+            return;
+        }
+        if pruning.pass.is_none() {
+            pruning.pass = Pass::begin(pruning.period_ms);
+            if pruning.pass.is_none() {
+                tracing::error!("limit monitor: the clock is outside the supported range; records are not pruned");
+                pruning.started = true;
+                pruning.due = Instant::now() + PRUNE_RETRY;
+                return;
+            }
+        }
+        while self
+            .pruning
+            .as_ref()
+            .is_some_and(|pruning| pruning.pass.is_some())
+        {
+            if self.halt.requested() {
+                return;
+            }
+            self.prune_call().await;
+        }
+        if let Some(pruning) = &mut self.pruning {
+            pruning.started = true;
+        }
+    }
+
+    /// One call of the pass in progress: at most 4,096 removals, one transaction. A call
+    /// that removes any record makes each book refused for capacity due again. The pass
+    /// ends when the walk reaches a newer record, or on a failure, after which the next is
+    /// tried within a minute; a store that cannot prune ends retention.
+    async fn prune_call(&mut self) {
+        let Some(pruning) = &mut self.pruning else {
+            return;
+        };
+        let Some(pass) = &mut pruning.pass else {
+            return;
+        };
+        let Ok(at) = crate::reference::now() else {
+            pruning.pass = None;
+            pruning.due = Instant::now() + PRUNE_RETRY;
+            return;
+        };
+        let keep = kept(&self.books, at);
+        match self.ledger.prune(pass.before, pass.after, &keep).await {
+            Ok(pruned) => {
+                pass.after = pruned.next_after;
+                pass.removed = pass.removed.saturating_add(pruned.removed as u64);
+                if pruned.removed > 0 {
+                    for id in std::mem::take(&mut self.full) {
+                        Pending::add(&mut self.dirty, id);
+                    }
+                }
+                if !pruned.more {
+                    if pass.removed > 0 {
+                        tracing::info!(
+                            removed = pass.removed,
+                            seconds = pass.began.elapsed().as_secs_f64(),
+                            "limit monitor: pruned records older than the retention period"
+                        );
+                    }
+                    pruning.pass = None;
+                    pruning.due = Instant::now() + PRUNE_INTERVAL;
+                }
+            }
+            Err(TraitError::Unsupported(_)) => {
+                tracing::error!("limit monitor: the audit store cannot remove records, so limits.record_retention_days has no effect");
+                self.pruning = None;
+            }
+            Err(error) => {
+                tracing::warn!(%error, "limit monitor: a prune failed; it is tried again within a minute");
+                pruning.pass = None;
+                pruning.started = true;
+                pruning.due = Instant::now() + PRUNE_RETRY;
+            }
+        }
+    }
+
     fn committed(&mut self, keys: &[MasterKey]) {
         for key in keys {
             match key {
@@ -651,6 +892,10 @@ impl Task {
                 return;
             }
         }
+        if self.halt.requested() {
+            return;
+        }
+        self.prune_at_start().await;
         if self.halt.requested() {
             return;
         }
@@ -750,6 +995,7 @@ impl Task {
     fn unwatch(&mut self, id: &BookId) {
         if self.books.remove(id).is_some() {
             self.retry.remove(id);
+            self.full.remove(id);
             gauges(id, &HashMap::new());
         }
     }
@@ -856,9 +1102,17 @@ impl Task {
                 )
                 .await
             {
-                // A full store stays full: the book's next evaluation tries again, not a
-                // timer.
-                Recorded::All | Recorded::Full | Recorded::Stopped => {
+                Recorded::All => {
+                    self.retry.remove(id);
+                    self.full.remove(id);
+                }
+                // A full store stays full until a prune removes a record, or the book's
+                // next evaluation finds room: not a timer.
+                Recorded::Full => {
+                    self.retry.remove(id);
+                    self.full.insert(id.clone());
+                }
+                Recorded::Stopped => {
                     self.retry.remove(id);
                 }
                 Recorded::Retry => {
@@ -886,8 +1140,13 @@ impl Task {
 }
 
 /// Publish a watched book's counts of limits in breach and unknown, as last recorded.
-fn gauges(id: &BookId, recorded: &HashMap<LimitId, LimitStatus>) {
-    let count = |status| recorded.values().filter(|s| **s == status).count() as f64;
+fn gauges(id: &BookId, recorded: &HashMap<LimitId, Latest>) {
+    let count = |status| {
+        recorded
+            .values()
+            .filter(|latest| latest.status == status)
+            .count() as f64
+    };
     metrics::gauge!(BREACHES, "book_id" => id.as_str().to_owned()).set(count(LimitStatus::Breach));
     metrics::gauge!(UNKNOWNS, "book_id" => id.as_str().to_owned()).set(count(LimitStatus::Unknown));
 }
@@ -931,6 +1190,31 @@ struct Ledger {
 }
 
 impl Ledger {
+    /// One prune call: `limit_status` records older than `before` after `after`, except
+    /// `keep`, then the counter and the entries gauge.
+    async fn prune(
+        &self,
+        before: i64,
+        after: u64,
+        keep: &BTreeSet<u64>,
+    ) -> Result<Pruned, TraitError> {
+        let pruned = self
+            .audit
+            .prune(&AuditPrune {
+                event_type: LIMIT_STATUS_EVENT,
+                before,
+                after,
+                keep,
+                max: MAX_PRUNE_BATCH,
+            })
+            .await?;
+        if pruned.removed > 0 {
+            metrics::counter!(AUDIT_PRUNED).increment(pruned.removed as u64);
+            self.count_entries().await;
+        }
+        Ok(pruned)
+    }
+
     /// Publish how many entries the store holds; an unreadable count leaves the gauge.
     async fn count_entries(&self) {
         match self.audit.entry_count().await {
@@ -950,7 +1234,7 @@ impl Ledger {
         limits: &[LimitDefinition],
         acknowledgements: &[LimitAcknowledgement],
         evaluation: crate::limits::BookEvaluation,
-        recorded: &mut HashMap<LimitId, LimitStatus>,
+        recorded: &mut HashMap<LimitId, Latest>,
         held: &mut Holds,
     ) -> Recorded {
         recorded.retain(|id, _| limits.iter().any(|limit| limit.limit_id == *id));
@@ -960,7 +1244,7 @@ impl Ledger {
         let mut entries = Vec::new();
         let mut changes = Vec::new();
         for (limit, evaluation) in limits.iter().zip(evaluation.evaluations) {
-            let previous = recorded.get(&limit.limit_id).copied();
+            let previous = recorded.get(&limit.limit_id).map(|latest| latest.status);
             if !held.records(
                 &limit.limit_id,
                 previous,
@@ -1037,7 +1321,13 @@ impl Ledger {
                 metrics::counter!(CHANGES).increment(count);
                 for (limit_id, status, change) in changes {
                     held.0.remove(&limit_id);
-                    recorded.insert(limit_id, status);
+                    recorded.insert(
+                        limit_id,
+                        Latest {
+                            status,
+                            record_id: change.record_id,
+                        },
+                    );
                     // No subscriber is not an error.
                     let _ = self.feed.send(Arc::new(LimitFrame {
                         change: Arc::new(change),
@@ -1050,7 +1340,7 @@ impl Ledger {
                 metrics::counter!(APPEND_FAILURES).increment(count);
                 if !self.full_reported {
                     self.full_reported = true;
-                    tracing::error!(book = %context.book_id, "limit monitor: the audit store refuses status changes for capacity (it holds at most 1,000,000 entries and keeps them all); changes are neither recorded nor published until it accepts one");
+                    tracing::error!(book = %context.book_id, "limit monitor: the audit store refuses status changes for capacity (it holds at most 1,000,000 entries; with limits.record_retention_days set, records older than the period are pruned hourly); changes are neither recorded nor published until it accepts one");
                 }
                 return Recorded::Full;
             }
@@ -1121,6 +1411,262 @@ mod tests {
         assert_eq!(stepped, stamp(EXPIRY));
         assert!(limits[0].excess_at(stepped).is_none());
         assert_eq!(next_expiry_of(&limits, through), None);
+    }
+
+    // =========================================================================
+    // RETENTION (P18b, D105)
+    // =========================================================================
+
+    use convex_engine::ports::storage::{AuditFilter, Page, Pagination, StorageAdapter};
+
+    const DAYS_8: i64 = 8 * 86_400_000;
+
+    fn market_value(id: &str) -> LimitDefinition {
+        serde_json::from_value(serde_json::json!({
+            "limit_id": id,
+            "measure": {"kind": "market_value"},
+            "upper": "100",
+        }))
+        .unwrap()
+    }
+
+    fn record(id: u64, timestamp: i64, book: &str) -> AuditEntry {
+        AuditEntry {
+            id,
+            timestamp,
+            event_type: LIMIT_STATUS_EVENT.into(),
+            entity_type: LIMIT_STATUS_ENTITY.into(),
+            entity_id: book.into(),
+            user: None,
+            action: "breach".into(),
+            details: None,
+        }
+    }
+
+    fn acknowledgement(
+        limit: &LimitDefinition,
+        expires_at: &str,
+        record_id: u64,
+    ) -> LimitAcknowledgement {
+        LimitAcknowledgement {
+            limit: limit.clone(),
+            limit_set_version: Version::new(1).unwrap(),
+            acknowledged_by: "risk".into(),
+            acknowledged_at: stamp("2026-01-01T00:00:00Z"),
+            expires_at: stamp(expires_at),
+            note: "seen".into(),
+            record_id: Some(record_id),
+        }
+    }
+
+    /// A task over `audit` with nothing watched, whose retention has the 8-day period;
+    /// `started` says whether the start's pass has run.
+    fn pruning_task(storage: StorageAdapter, audit: Arc<dyn AuditStore>, started: bool) -> Task {
+        let engine = Arc::new(
+            convex_engine::PricingEngineBuilder::new()
+                .with_storage(Arc::new(storage))
+                .build()
+                .unwrap(),
+        );
+        let halt = Stop {
+            stop: watch::channel(false).1,
+            shutdown: watch::channel(false).1,
+        };
+        Task {
+            engine,
+            ledger: Ledger {
+                audit,
+                feed: broadcast::channel(16).0,
+                next_id: None,
+                started_at: stamp("2026-01-01T00:00:00Z"),
+                halt: halt.clone(),
+                full_reported: false,
+                hold: Duration::ZERO,
+            },
+            halt,
+            books: BTreeMap::new(),
+            holders: HashMap::new(),
+            terms: PricedTerms::new(),
+            reload: None,
+            dirty: None,
+            retry: BTreeSet::new(),
+            full: BTreeSet::new(),
+            stalled: false,
+            pruning: Some(Pruning {
+                period_ms: DAYS_8,
+                started,
+                pass: None,
+                due: Instant::now(),
+            }),
+        }
+    }
+
+    /// `BOOK-A` watched with `limit-0` and `limit-1`, `recorded` their latest records, and
+    /// two acknowledgements: `limit-1`'s in force naming 2, `limit-0`'s expired naming 7.
+    fn watch_book_a(task: &mut Task, recorded: &[(&str, u64)]) {
+        let limits = vec![market_value("limit-0"), market_value("limit-1")];
+        let acknowledgements = vec![
+            acknowledgement(&limits[1], "2999-01-01T00:00:00Z", 2),
+            acknowledgement(&limits[0], "2026-01-02T00:00:00Z", 7),
+        ];
+        task.books.insert(
+            BookId::new("BOOK-A").unwrap(),
+            Watched {
+                subject: Arc::new(Subject {
+                    set_version: Version::new(1).unwrap(),
+                    limits,
+                    acknowledgements,
+                    book: None,
+                    instruments: Arc::from(Vec::<String>::new()),
+                }),
+                recorded: recorded
+                    .iter()
+                    .map(|(limit, record_id)| {
+                        (
+                            LimitId::new(*limit).unwrap(),
+                            Latest {
+                                status: LimitStatus::Breach,
+                                record_id: *record_id,
+                            },
+                        )
+                    })
+                    .collect(),
+                expired_through: None,
+                held: Holds::default(),
+            },
+        );
+    }
+
+    /// Records 1 to 7 a year old (`BOOK-B`'s 4 is of a book not watched, 6 of a limit no
+    /// longer in `BOOK-A`'s set), 4,200 more of `BOOK-B` a year old, so a pass takes two
+    /// calls, and one of now, the last.
+    async fn fixture() -> (tempfile::TempDir, StorageAdapter, u64) {
+        let directory = tempfile::tempdir().unwrap();
+        let storage =
+            convex_ext_redb::create_redb_storage(directory.path().join("audit.redb")).unwrap();
+        let now = chrono::Utc::now().timestamp_millis();
+        let old = now - 365 * 86_400_000;
+        let books = [
+            "BOOK-A", "BOOK-A", "BOOK-A", "BOOK-B", "BOOK-A", "BOOK-A", "BOOK-A",
+        ];
+        let mut entries: Vec<AuditEntry> = books
+            .iter()
+            .enumerate()
+            .map(|(index, book)| record(index as u64 + 1, old, book))
+            .collect();
+        entries.extend((8..8 + 4200).map(|id| record(id, old, "BOOK-B")));
+        let last = 8 + 4200;
+        entries.push(record(last, now, "BOOK-A"));
+        for batch in entries.chunks(MAX_AUDIT_BATCH) {
+            storage.audit.append_all(batch).await.unwrap();
+        }
+        (directory, storage, last)
+    }
+
+    async fn ids(audit: &Arc<dyn AuditStore>) -> Vec<u64> {
+        let mut ids = Vec::new();
+        loop {
+            let page = audit
+                .query(&AuditFilter::default(), &Pagination::new(ids.len(), 1000))
+                .await
+                .unwrap();
+            let done = page.items.len() < 1000;
+            ids.extend(page.items.iter().map(|entry| entry.id));
+            if done {
+                return ids;
+            }
+        }
+    }
+
+    /// An hourly pass keeps each watched limit's latest record, each record an
+    /// acknowledgement in force names, and the last; the rest older than the period go,
+    /// in calls of at most 4,096, between which the monitor evaluates. A book refused for
+    /// capacity is due again, and the next pass is an hour away.
+    #[tokio::test]
+    async fn an_hourly_pass_keeps_each_latest_record_and_each_acknowledged_one() {
+        let (_directory, storage, last) = fixture().await;
+        let audit = storage.audit.clone();
+        let mut task = pruning_task(storage, audit.clone(), true);
+        watch_book_a(&mut task, &[("limit-0", 3), ("limit-1", 5)]);
+        let book_a = BookId::new("BOOK-A").unwrap();
+        task.full.insert(book_a.clone());
+        assert_eq!(task.next_prune(), Some(Duration::ZERO));
+        task.schedule();
+        let mut calls = 0;
+        while task.pruning() {
+            task.prune().await;
+            calls += 1;
+        }
+        assert_eq!(calls, 2, "4,206 records to remove, 4,096 a call");
+        assert_eq!(ids(&audit).await, [2, 3, 5, last]);
+        assert!(matches!(&task.dirty, Some(Pending::Some(ids)) if ids.contains(&book_a)));
+        assert!(task.full.is_empty());
+        assert!(task.next_prune().unwrap() > Duration::from_secs(3590));
+    }
+
+    /// The start's pass runs whole before anything is recorded, so nothing is recorded
+    /// since the start: it keeps only what acknowledgements in force name, and the last.
+    #[tokio::test]
+    async fn the_start_pass_keeps_only_acknowledged_records() {
+        let (_directory, storage, last) = fixture().await;
+        let audit = storage.audit.clone();
+        let mut task = pruning_task(storage, audit.clone(), false);
+        watch_book_a(&mut task, &[]);
+        assert_eq!(task.next_prune(), None, "no hourly pass before the start's");
+        task.prune_at_start().await;
+        assert_eq!(ids(&audit).await, [2, last]);
+        assert!(task.pruning.as_ref().unwrap().started);
+        assert!(task.next_prune().unwrap() > Duration::from_secs(3590));
+        // It runs once.
+        task.prune_at_start().await;
+        assert!(task.pruning.as_ref().unwrap().pass.is_none());
+    }
+
+    /// A store that refuses a prune: one that cannot prune ends retention, and a failure
+    /// lets the start go on and tries again within a minute.
+    #[tokio::test]
+    async fn a_store_that_cannot_prune_ends_retention_and_a_failure_is_tried_again() {
+        struct Refusing(Arc<dyn AuditStore>, TraitError);
+        #[async_trait::async_trait]
+        impl AuditStore for Refusing {
+            async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+                self.0.append(entry).await
+            }
+            async fn query(
+                &self,
+                filter: &AuditFilter,
+                pagination: &Pagination,
+            ) -> Result<Page<AuditEntry>, TraitError> {
+                self.0.query(filter, pagination).await
+            }
+            async fn prune(&self, _: &AuditPrune<'_>) -> Result<Pruned, TraitError> {
+                Err(match &self.1 {
+                    TraitError::Unsupported(text) => TraitError::Unsupported(text),
+                    _ => TraitError::DatabaseError("injected".into()),
+                })
+            }
+        }
+        let (_directory, storage, _) = fixture().await;
+        let audit = storage.audit.clone();
+        let cannot: Arc<dyn AuditStore> =
+            Arc::new(Refusing(audit.clone(), TraitError::Unsupported("no")));
+        let mut task = pruning_task(storage, cannot, false);
+        task.prune_at_start().await;
+        assert!(task.pruning.is_none());
+        assert_eq!(task.next_prune(), None);
+
+        let (_directory, storage, last) = fixture().await;
+        let audit = storage.audit.clone();
+        let failing: Arc<dyn AuditStore> = Arc::new(Refusing(
+            audit.clone(),
+            TraitError::DatabaseError(String::new()),
+        ));
+        let mut task = pruning_task(storage, failing, false);
+        task.prune_at_start().await;
+        let pruning = task.pruning.as_ref().unwrap();
+        assert!(pruning.started && pruning.pass.is_none());
+        assert!(task.next_prune().unwrap() <= PRUNE_RETRY);
+        assert_eq!(ids(&audit).await.len() as u64, last);
     }
 
     const HOLD: Duration = Duration::from_secs(5);

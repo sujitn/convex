@@ -28,6 +28,13 @@ pub enum ServerProfile {
 /// The longest clear hold (D106): five minutes.
 pub const MAX_CLEAR_HOLD_SECONDS: u64 = 300;
 
+/// The shortest retention of limit records (D105): longer than an acknowledgement's seven
+/// days, so the record an acknowledgement names outlives it.
+pub const MIN_RECORD_RETENTION_DAYS: u64 = 8;
+
+/// The longest retention of limit records: about ten years.
+pub const MAX_RECORD_RETENTION_DAYS: u64 = 3650;
+
 /// The limit monitor's settings (P18).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -37,12 +44,19 @@ pub struct LimitSettings {
     /// records every change at once, as before P18; at most
     /// [`MAX_CLEAR_HOLD_SECONDS`].
     pub clear_hold_seconds: u64,
+    /// How many days the monitor keeps limit records (D105): it prunes older ones at
+    /// start and then hourly, keeping each watched limit's latest record and every record
+    /// an acknowledgement in force names. Unset keeps every record, as before P18;
+    /// [`MIN_RECORD_RETENTION_DAYS`] to [`MAX_RECORD_RETENTION_DAYS`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record_retention_days: Option<u64>,
 }
 
 impl Default for LimitSettings {
     fn default() -> Self {
         Self {
             clear_hold_seconds: 5,
+            record_retention_days: None,
         }
     }
 }
@@ -350,6 +364,13 @@ impl ServerConfig {
                             expected: "an integer in 0..=300",
                         })?
                 }
+                "CONVEX_LIMITS_RECORD_RETENTION_DAYS" => {
+                    candidate.limits.record_retention_days =
+                        Some(value.parse().map_err(|_| ConfigError::InvalidValue {
+                            field: "limits.record_retention_days",
+                            expected: "an integer in 8..=3650",
+                        })?)
+                }
                 _ => return Err(ConfigError::UnknownEnvironment { name }),
             }
         }
@@ -402,6 +423,14 @@ impl ServerConfig {
             return Err(ConfigError::InvalidValue {
                 field: "limits.clear_hold_seconds",
                 expected: "an integer in 0..=300",
+            });
+        }
+        if self.limits.record_retention_days.is_some_and(|days| {
+            !(MIN_RECORD_RETENTION_DAYS..=MAX_RECORD_RETENTION_DAYS).contains(&days)
+        }) {
+            return Err(ConfigError::InvalidValue {
+                field: "limits.record_retention_days",
+                expected: "an integer in 8..=3650",
             });
         }
         for (field, configured) in [
@@ -602,6 +631,7 @@ impl ServerConfig {
             "CONVEX_BONDS_FILE",
             "CONVEX_ADMIN_UI_DIR",
             "CONVEX_LIMITS_CLEAR_HOLD_SECONDS",
+            "CONVEX_LIMITS_RECORD_RETENTION_DAYS",
         ]
     }
 }
@@ -676,6 +706,50 @@ mod tests {
         }
         assert_eq!(
             config.limits.clear_hold_seconds, 0,
+            "a refusal changes nothing"
+        );
+    }
+
+    /// P18b (D105): retention is unset unless set, 8 to 3,650 days, from the file or the
+    /// environment.
+    #[test]
+    fn record_retention_is_unset_by_default_and_bounded() {
+        let config = ServerConfig::parse_file("").unwrap();
+        assert_eq!(config.limits.record_retention_days, None);
+        for days in [8, 3650] {
+            let config =
+                ServerConfig::parse_file(&format!("[limits]\nrecord_retention_days = {days}"))
+                    .unwrap();
+            assert_eq!(config.limits.record_retention_days, Some(days));
+        }
+        for days in [0, 7, 3651] {
+            assert!(
+                matches!(
+                    ServerConfig::parse_file(&format!("[limits]\nrecord_retention_days = {days}")),
+                    Err(ConfigError::InvalidValue {
+                        field: "limits.record_retention_days",
+                        ..
+                    })
+                ),
+                "{days}"
+            );
+        }
+        let mut config = ServerConfig::default();
+        overrides(
+            &mut config,
+            &[("CONVEX_LIMITS_RECORD_RETENTION_DAYS", "30")],
+        )
+        .unwrap();
+        assert_eq!(config.limits.record_retention_days, Some(30));
+        for bad in ["7", "-1", "30d", ""] {
+            assert!(
+                overrides(&mut config, &[("CONVEX_LIMITS_RECORD_RETENTION_DAYS", bad)]).is_err(),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            config.limits.record_retention_days,
+            Some(30),
             "a refusal changes nothing"
         );
     }

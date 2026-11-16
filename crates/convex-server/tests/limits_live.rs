@@ -2045,6 +2045,211 @@ async fn records_page_time_at_the_cap() {
     server.stop().await;
 }
 
+/// One value from `/metrics`, or 0 when absent.
+async fn metric_value(server: &Running, name: &str) -> f64 {
+    let text = server
+        .client
+        .get(format!("{}/metrics", server.base))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    text.lines()
+        .find_map(|line| line.strip_prefix(name)?.strip_prefix(' '))
+        .map(|value| value.trim().parse::<f64>().unwrap())
+        .unwrap_or(0.0)
+}
+
+/// A session following the plan's first instrument's valuations.
+async fn valuation_session(server: &Running, images: &[QuoteEvent]) -> Socket {
+    use futures_util::SinkExt;
+    let (mut session, _) = tokio_tungstenite::connect_async(server.ws_url())
+        .await
+        .unwrap();
+    frame(&mut session, "connected").await;
+    let subscribe = json!({"type": "subscribe_valuations",
+                           "instrument_ids": [images[0].key.instrument_id.as_str()]});
+    session
+        .send(tokio_tungstenite::tungstenite::Message::Text(
+            subscribe.to_string().into(),
+        ))
+        .await
+        .unwrap();
+    frame(&mut session, "subscribed").await;
+    session
+}
+
+/// P18b's measurement (D105): a full store, 1,000,000 records a month old, and a watched
+/// book whose first records it refuses. A restart with 8 days' retention prunes it before
+/// the restate. While the start's prune runs:
+/// - `convex_audit_entries` and `convex_audit_pruned_total`, read every 250 ms;
+/// - the valuation hop, paced 50 ms, which writes nothing to the database;
+/// - a book `PUT`, a reference write, which waits for each prune call's transaction.
+///
+/// Then the restate, the hop again with nothing pruning, and the file's size.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn retention_at_start_on_a_full_store() {
+    const ENTRIES: u64 = 1_000_000;
+    let (dir, mut live, _) = live(1, 0, &[]).await;
+    let old = (chrono::Utc::now() - chrono::Duration::days(30)).timestamp_millis();
+    {
+        let storage = convex_ext_redb::open_redb_storage(&live.storage_path).unwrap();
+        let audit = storage.storage.audit.clone();
+        let started = Instant::now();
+        let mut next = 1;
+        while next <= ENTRIES {
+            let owner = format!("BOOK-{:02}", (next / 64) % 64);
+            let batch: Vec<_> = (next..(next + 64).min(ENTRIES + 1))
+                .map(|id| convex_engine::ports::storage::AuditEntry {
+                    timestamp: old,
+                    ..fixture_record(id, &owner)
+                })
+                .collect();
+            audit.append_all(&batch).await.unwrap();
+            next += batch.len() as u64;
+        }
+        println!(
+            "fixture: {ENTRIES} records a month old, {:.1} s",
+            started.elapsed().as_secs_f64()
+        );
+    }
+    let mib = || std::fs::metadata(&live.storage_path).unwrap().len() as f64 / 1048576.0;
+    let full = mib();
+
+    // Unset: the watched book's first records are refused for capacity.
+    let server = started(&dir, live.clone()).await;
+    put(
+        &server,
+        "/api/v1/books/BOOK-W",
+        "book-w",
+        json!({"currency": "USD", "positions": [
+            {"instrument_id": "BOND-001", "quantity": "1000000"},
+        ]}),
+    )
+    .await;
+    put(
+        &server,
+        "/api/v1/books/BOOK-W/limits",
+        "limits-w",
+        every_measure(),
+    )
+    .await;
+    tokio::time::timeout(Duration::from_secs(30), async {
+        while metric_value(&server, "convex_limit_status_append_failures_total").await < 1.0 {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("the store refuses the book's first records");
+    assert_eq!(
+        metric_value(&server, "convex_audit_entries").await,
+        ENTRIES as f64
+    );
+    server.stop().await;
+
+    live.limits.record_retention_days = Some(8);
+    let start = Instant::now();
+    let server = std::sync::Arc::new(started(&dir, live.clone()).await);
+    let ready = start.elapsed();
+    let poller = {
+        let server = server.clone();
+        tokio::spawn(async move {
+            let mut samples = Vec::new();
+            let mut pruned_at = None;
+            loop {
+                let at = start.elapsed();
+                let entries = metric_value(&server, "convex_audit_entries").await;
+                let pruned = metric_value(&server, "convex_audit_pruned_total").await;
+                let changes = metric_value(&server, "convex_limit_status_changes_total").await;
+                samples.push((at, entries, pruned));
+                if pruned_at.is_none() && pruned >= (ENTRIES - 1) as f64 {
+                    pruned_at = Some(at);
+                }
+                if changes >= 64.0 {
+                    return (samples, pruned_at, at);
+                }
+                assert!(at < Duration::from_secs(600), "never restated");
+                tokio::time::sleep(Duration::from_millis(250)).await;
+            }
+        })
+    };
+    let images: Vec<QuoteEvent> =
+        serde_json::from_slice(&std::fs::read(dir.path().join("images.json")).unwrap()).unwrap();
+    let mut session = valuation_session(&server, &images).await;
+    let mut sequence = 1_000;
+    let pace = Duration::from_millis(50);
+    let pruning = hops(&server, &mut session, &images[0], &mut sequence, pace).await;
+    let hops_done = start.elapsed();
+    let mut puts = Vec::new();
+    for i in 0..10 {
+        let at = Instant::now();
+        put(
+            &server,
+            &format!("/api/v1/books/BOOK-P{i}"),
+            &format!("book-p{i}"),
+            json!({"currency": "USD", "positions": []}),
+        )
+        .await;
+        puts.push(at.elapsed());
+    }
+    let puts_done = start.elapsed();
+    let (samples, pruned_at, restated) = poller.await.unwrap();
+    let pruned_at = pruned_at.expect("every old record but the last pruned");
+    let idle = hops(&server, &mut session, &images[0], &mut sequence, pace).await;
+    let mut quiet_puts = Vec::new();
+    for i in 0..10 {
+        let at = Instant::now();
+        put(
+            &server,
+            &format!("/api/v1/books/BOOK-Q{i}"),
+            &format!("book-q{i}"),
+            json!({"currency": "USD", "positions": []}),
+        )
+        .await;
+        quiet_puts.push(at.elapsed());
+    }
+    println!(
+        "ready (quotes posted) {:.2} s after the start",
+        ready.as_secs_f64()
+    );
+    for (at, entries, pruned) in samples.iter().step_by(4) {
+        println!(
+            "  {:>6.2} s: convex_audit_entries {entries:>9.0}, convex_audit_pruned_total {pruned:>9.0}",
+            at.as_secs_f64()
+        );
+    }
+    println!(
+        "start's prune: {} records by {:.2} s; the 64 limits restated by {:.2} s",
+        ENTRIES - 1,
+        pruned_at.as_secs_f64(),
+        restated.as_secs_f64()
+    );
+    println!(
+        "hop while pruning (done {:.2} s): {pruning}",
+        hops_done.as_secs_f64()
+    );
+    println!(
+        "book PUT while pruning (done {:.2} s, {}): {}",
+        puts_done.as_secs_f64(),
+        if puts_done < pruned_at {
+            "during"
+        } else {
+            "partly after"
+        },
+        summary(puts)
+    );
+    println!("hop after: {idle}");
+    println!("book PUT after: {}", summary(quiet_puts));
+    match std::sync::Arc::try_unwrap(server) {
+        Ok(server) => server.stop().await,
+        Err(_) => panic!("the server is shared"),
+    }
+    println!("file: {full:.0} MiB full, {:.0} MiB after the prune", mib());
+}
+
 /// P15c (D95, D97): a value hovering at a bound needs one acknowledgement. The monitor
 /// rereads a book's acknowledgements when they commit, so a breach a tick causes carries
 /// one made since; making it records and publishes nothing.
