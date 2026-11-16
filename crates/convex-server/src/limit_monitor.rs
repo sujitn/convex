@@ -105,8 +105,8 @@ const RETRY: Duration = Duration::from_secs(1);
 /// the wall clock, so a wall clock that steps forward is noticed within this.
 const MAX_EXPIRY_WAIT: Duration = Duration::from_secs(60);
 /// Kept priced terms beyond which those no current result reads are dropped: twice the
-/// instruments one runtime values.
-const MAX_TERMS: usize = 2 * convex_engine::ports::snapshot::MAX_SNAPSHOT_INSTRUMENTS;
+/// instruments one runtime values (G64).
+const MAX_TERMS: usize = 2 * convex_engine::MAX_RUNTIME_INSTRUMENTS;
 
 // =============================================================================
 // RECORDS AND FRAMES

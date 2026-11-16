@@ -1100,7 +1100,7 @@ async fn a_stale_curve_fails_only_a_context_that_reads_curves() {
 }
 
 /// G20: every tick is a new snapshot, so a Live runtime values more contexts than its
-/// 256-entry result cache holds. The cache keeps one snapshot's results (D51).
+/// result cache holds, one an instrument. The cache keeps one snapshot's results (D51).
 #[tokio::test]
 async fn live_ticks_stay_complete_past_the_result_cache_capacity() {
     let s = setup().await;
@@ -1284,6 +1284,125 @@ impl convex_ports::reference_repository::ReferenceRepository for CountingReferen
     ) -> Result<Option<IdentifierResolution>, ReferenceError> {
         self.inner.resolve_at(id, lookup).await
     }
+}
+
+/// D101, G58: a Live runtime values 4,096 instruments. The first tick that sees every
+/// image values every one, though the result cache once held 256, and then one quote
+/// values and publishes one instrument.
+#[tokio::test]
+async fn a_live_runtime_values_4096_instruments_and_one_quote_revalues_one() {
+    let s = setup().await;
+    let mut plan = live_plan(&s);
+    widen(&s, &mut plan, MAX_RUNTIME_INSTRUMENTS).await;
+    assert_eq!(plan.assembly.instruments.len(), 4096);
+    let source = Arc::new(SubscriptionSource::with_capacity(8192));
+    let engine = PricingEngineBuilder::new()
+        .with_storage(s.storage.clone())
+        .with_runtime(RuntimeServices {
+            plan: plan.clone(),
+            snapshots: s.snapshots.clone(),
+            fixings: Arc::new(JsonFixingRepository::empty()),
+            store: s.store.clone(),
+            publisher: display_only(),
+            input: RuntimeInput::Live(source.clone()),
+        })
+        .build()
+        .unwrap();
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    let quote = |sequence, key: &QuoteKey, value| {
+        let stamp = monotone_stamp();
+        let mut event = fixture::event(sequence, stamp, stamp, value);
+        event.key = key.clone();
+        source.send(event);
+    };
+    for requirement in &plan.assembly.quotes {
+        quote(1, &requirement.key, "99.25");
+    }
+    let mut complete = std::collections::BTreeSet::new();
+    tokio::time::timeout(Duration::from_secs(60), async {
+        while complete.len() < 4096 {
+            let record = updates.recv().await.unwrap();
+            if record.result.status() == ResultStatus::Complete {
+                complete.insert(instrument_of(&record));
+            }
+        }
+    })
+    .await
+    .expect("every instrument is valued");
+    let health = engine.runtime_health();
+    assert!(health.ready && health.failed_instruments == 0, "{health:?}");
+    let results = engine.runtime_results();
+    assert_eq!(results.len(), 4096);
+    assert!(results
+        .iter()
+        .all(|r| r.result.status() == ResultStatus::Complete));
+
+    let key = &plan.assembly.quotes[2048].key;
+    quote(2, key, "99.50");
+    let single = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(instrument_of(&single), key.instrument_id.as_str());
+    assert_eq!(single.result.status(), ResultStatus::Complete);
+    assert!(updates.is_empty());
+    engine.shutdown().await.unwrap();
+}
+
+/// D101: a Live plan values at most 4,096 instruments, and a Captured or Replay plan at
+/// most 256, each refused past its bound with its own reason. A request snapshot keeps
+/// 256.
+#[tokio::test]
+async fn the_instrument_bounds_follow_the_mode() {
+    let s = setup().await;
+    // Pins and quotes only: validation reads no reference.
+    let wide = |mut plan: RuntimePlan, width: usize| {
+        for index in plan.assembly.instruments.len()..width {
+            let id = format!("BOND-P{index:04}");
+            plan.assembly
+                .instruments
+                .push(convex_ports::configuration::InstrumentPin {
+                    instrument_id: InstrumentId::new(&id).unwrap(),
+                    version: fixture::version(1),
+                });
+            let mut quote = plan.assembly.quotes[0].clone();
+            quote.key.instrument_id = convex_core::ids::InstrumentId::new(id);
+            plan.assembly.quotes.push(quote);
+        }
+        plan
+    };
+    let refused = |plan: &RuntimePlan| match plan.validate() {
+        Err(RuntimeError::Configuration(reason)) => reason,
+        other => panic!("{other:?}"),
+    };
+    let mut replay = s.plan.clone();
+    replay.mode = RuntimeMode::Replay;
+    replay.seed_events.clear();
+    for plan in [s.plan.clone(), replay] {
+        wide(plan.clone(), 256).validate().unwrap();
+        assert_eq!(
+            refused(&wide(plan, 257)),
+            "a Captured or Replay runtime plan values at most 256 instruments"
+        );
+    }
+    wide(live_plan(&s), 4096).validate().unwrap();
+    assert_eq!(
+        refused(&wide(live_plan(&s), 4097)),
+        "a Live runtime plan values at most 4,096 instruments"
+    );
+
+    let assembler = convex_engine::snapshot::SnapshotAssembler::new(
+        s.storage.bonds.clone(),
+        s.storage.configs.clone(),
+        Arc::new(JsonFixingRepository::empty()),
+        s.snapshots.clone(),
+    );
+    let request = wide(s.plan.clone(), 257).assembly;
+    assert!(matches!(
+        assembler.resolve(&request, &s.plan.seed_events).await,
+        Err(TraitError::CapacityExceeded)
+    ));
 }
 
 #[tokio::test]

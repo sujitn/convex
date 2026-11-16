@@ -35,8 +35,11 @@ use crate::ServerProfile;
 
 /// Books one session may follow: every book the monitor watches (D87).
 const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
-/// Instruments one session may follow: every instrument the runtime values (D100).
+/// Instruments one session may follow: every instrument the runtime values (D100, D104).
 const MAX_VALUATION_SUBSCRIPTIONS: usize = convex_engine::MAX_RUNTIME_INSTRUMENTS;
+/// Instruments one valuation message lists, so it fits one message and its seed is at
+/// most this many results (D104). A session following 4,096 sends 16.
+const MAX_MESSAGE_INSTRUMENTS: usize = 256;
 /// The largest message the server sends or accepts, in bytes.
 const MAX_MESSAGE_BYTES: usize = 65536;
 /// Why `subscribe_limits` is refused by a server without a limit monitor.
@@ -442,6 +445,11 @@ async fn reject(
     .await
 }
 
+/// Why a valuation message listing more than [`MAX_MESSAGE_INSTRUMENTS`] is refused.
+fn per_message() -> String {
+    format!("at most {MAX_MESSAGE_INSTRUMENTS} instruments a message")
+}
+
 /// The replies to a client message, in order, or the reason it is refused.
 fn handle_client_message(
     text: &str,
@@ -458,8 +466,8 @@ fn handle_client_message(
         ClientMessage::SubscribeValuations { instrument_ids } => {
             let too_many =
                 || format!("at most {MAX_VALUATION_SUBSCRIPTIONS} valuation subscriptions");
-            if instrument_ids.len() > MAX_VALUATION_SUBSCRIPTIONS {
-                return Err(too_many());
+            if instrument_ids.len() > MAX_MESSAGE_INSTRUMENTS {
+                return Err(per_message());
             }
             for id in &instrument_ids {
                 convex_core::contracts::InstrumentId::new(id)
@@ -499,10 +507,8 @@ fn handle_client_message(
             return Ok(replies);
         }
         ClientMessage::UnsubscribeValuations { instrument_ids } => {
-            if instrument_ids.len() > MAX_VALUATION_SUBSCRIPTIONS {
-                return Err(format!(
-                    "at most {MAX_VALUATION_SUBSCRIPTIONS} valuation subscriptions"
-                ));
+            if instrument_ids.len() > MAX_MESSAGE_INSTRUMENTS {
+                return Err(per_message());
             }
             let count = instrument_ids.len();
             for id in &instrument_ids {

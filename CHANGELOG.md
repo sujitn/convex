@@ -106,6 +106,13 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **A Live runtime values up to 4,096 instruments, and one session follows them all.**
+  A session's valuation cap is 4,096 (was 256). A
+  `subscribe_valuations` or `unsubscribe_valuations` message lists at most 256
+  instruments; more is refused with `at most 256 instruments a message`, so a session
+  following 4,096 sends 16. The limit monitor keeps priced terms for twice the
+  instruments a runtime values (was twice 256). Captured and Replay runtimes still value
+  at most 256.
 - **Breaking: `GET /api/v1/runtime/results` returns pages.** It returns
   `{results, next_after, more}`: at most `limit` results (256 unless asked, at most
   1,024) in instrument ID order, after the instrument `after`. Read the next page with
@@ -126,8 +133,8 @@ the changes that matter when you upgrade.
   to instruments already followed resends their results, which is how a client
   recovers after `RESYNC_REQUIRED`.
 - **One session can follow every instrument and every limited book.** The
-  per-session topic quota is now 320 by default and at most (was 256): 256
-  instruments, as many as a runtime values, plus the 64 books the limit monitor
+  per-session topic quota is now 4,160 by default and at most (was 256): 4,096
+  instruments, as many as a Live runtime values, plus the 64 books the limit monitor
   watches. Before, a session following 256 instruments could follow no book.
 - Clients should still keep the newer valuation by `(runtime_id, revision)`: a
   result sent at subscription can be newer than one already on its way.
@@ -178,9 +185,18 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Breaking: `MAX_RUNTIME_INSTRUMENTS` is 4,096 (was 256),** a Live plan's bound. A
+  Captured or Replay plan is refused past 256 with its own reason, since each of its
+  events stores every result in the checkpoint. The runtime's valuation cache is sized to its plan (it held 256, so the 257th
+  valuation of one snapshot failed). A configuration's dry run sizes its shared cache
+  to 4,096 and resolves a Live document within the Live bounds.
+- **Breaking:** `SnapshotAssembler::resolve_with_configuration` takes the
+  `SnapshotBounds` to resolve within; `resolve` and `assemble` keep the standard ones.
+- Plan and checkpoint validation are linear in the instruments (both counted or searched
+  inside the per-instrument loop), and so is a dry run's per-instrument work.
 - **Breaking:** `PricingEngine::subscribe_results` streams shared records,
   `Arc<PublishedValuation>`, and holds two records per instrument the runtime can value
-  (512, was 256).
+  (8,192, was 256).
 - `PricingEngine::runtime_results_of` reads the current records of the listed
   instruments, and `runtime_results_page` a page in instrument ID order
   (`RuntimeResultsPage`). Both share the runtime's records; `runtime_results` still
@@ -190,6 +206,17 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **A Live snapshot holds up to 4,096 instruments.** `MarketSnapshot::bounded(content,
+  SnapshotBounds::Live)` makes one, identified within `MAX_LIVE_IDENTITY_BYTES`
+  (128 MiB) rather than `MAX_SNAPSHOT_BYTES` (16 MiB); its `next` keeps its bounds.
+  `MarketSnapshot::new`, deserialization and storage keep 256 instruments and 16 MiB.
+  4,096 instruments with every text at its validator's bound write 125.2 MiB with a small
+  frame.
+- `RuntimeMode::max_instruments` (4,096 Live, 256 Captured or Replay) and
+  `RuntimeMode::snapshot_bounds`. A `ConfigurationDocument` holds up to 4,096 instruments
+  for a Live runtime; the configuration JSON schema's `maxItems` is 4,096.
+- `MAX_CHECKPOINT_RESULTS` (256) names the results and outbox records a stored checkpoint
+  holds; its validation finds each outbox record by subject.
 - **Breaking:** `LimitDefinition` gains `excess` (`LimitExcess`) and `LimitEvaluation`
   gains `excess` (`ExcessApplied`), so a struct literal of either needs the new field.
   Both are optional on the wire, and stored sets read as before.

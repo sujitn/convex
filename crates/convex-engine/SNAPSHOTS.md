@@ -69,8 +69,8 @@ identity is sectioned: SHA-256 under `convex.snapshot.v4\0` over, in order,
    its skip rules.
 
 Each digest is its raw 32 bytes. The frame runs to the end, so one byte string names
-one content. The JSON hashed for the three sections stays within the 16 MiB bound
-together. A schema-4 snapshot's stored JSON has the same shape as the others'; only
+one content. The JSON hashed for the three sections stays within the snapshot's bound
+together: 16 MiB, or 128 MiB for a Live runtime's snapshot, which is never stored. A schema-4 snapshot's stored JSON has the same shape as the others'; only
 `schema_version` and the id differ.
 
 Schemas 1–3 still verify, so stored snapshots keep their ids. A Replay or Captured
@@ -113,7 +113,12 @@ window's start (a clock regression).
 
 Each snapshot is bounded to 16 MiB, 256 instruments/selected quote keys, 1,024
 fixings, 64 total original/complete curves and **4,096 total original pillars,
-observations, helpers or segments**. Each quote has at most 12
+observations, helpers or segments**. A Live runtime's snapshots, which are never
+stored, hold up to 4,096 instruments and selected quote keys, and their identity hashes
+up to 128 MiB (`SnapshotBounds::Live`, D101, D109): 4,096 instruments with every text at
+its validator's bound write 125.2 MiB with a small frame. A frame at its own bounds (64
+curves, 256 overrides, 1,024 fixings) is not counted; past the bound, every tick fails
+with `CapacityExceeded`. Each quote has at most 12
 fields. Quote and curve age budgets are explicit, between 1 ms and one day;
 source skew is between 0 ms and one day. Product owners must choose their actual
 budgets; these bounds do not certify a trading latency target.

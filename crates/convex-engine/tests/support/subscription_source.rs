@@ -16,7 +16,11 @@ pub struct SubscriptionSource {
 }
 impl SubscriptionSource {
     pub fn new() -> Self {
-        let (tx, _) = tokio::sync::broadcast::channel(16);
+        Self::with_capacity(16)
+    }
+    /// A source that holds `capacity` events its subscriber has not read.
+    pub fn with_capacity(capacity: usize) -> Self {
+        let (tx, _) = tokio::sync::broadcast::channel(capacity);
         Self {
             sender: std::sync::Mutex::new(Some(tx)),
             unsubscribed: AtomicBool::new(false),

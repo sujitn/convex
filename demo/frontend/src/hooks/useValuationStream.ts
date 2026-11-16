@@ -15,7 +15,7 @@ import {
   type RuntimeHealth,
 } from '../lib/api';
 
-// The server admits at most 256 valuation subscriptions per session.
+// The demo follows at most 256 instruments, one subscription message's worth.
 const MAX_SUBSCRIPTIONS = 256;
 const MAX_HISTORY = 50;
 // While the runtime has published nothing yet, look again this often.

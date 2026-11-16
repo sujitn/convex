@@ -3,7 +3,9 @@
 
 use crate::{
     fixing::FixingKey,
-    snapshot::{content_digest, QuoteRequirement, SnapshotCurve, SnapshotCurveRecipe},
+    snapshot::{
+        content_digest, QuoteRequirement, SnapshotBounds, SnapshotCurve, SnapshotCurveRecipe,
+    },
     storage::{BondPricingConfig, Page, Pagination},
     TraitError,
 };
@@ -57,7 +59,8 @@ pub struct SnapshotAssembly {
     /// Optional audited active selection. Older explicit pins retain their original wire content.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub configuration_capture: Option<ConfigurationCapture>,
-    /// Exact reference revisions to resolve, 1..=256.
+    /// Exact reference revisions to resolve: 1..=256, or 1..=4,096 for a Live runtime
+    /// ([`RuntimeMode::max_instruments`]).
     pub instruments: Vec<InstrumentPin>,
     /// Explicit selected sources/fields and per-product age policy.
     pub quotes: Vec<QuoteRequirement>,
@@ -89,6 +92,21 @@ pub enum RuntimeMode {
     Replay,
     /// Subscribe to the configured canonical quote source; require new images after restart.
     Live,
+}
+
+impl RuntimeMode {
+    /// The bounds of this mode's snapshots: Live snapshots are never stored (D101).
+    pub const fn snapshot_bounds(self) -> SnapshotBounds {
+        match self {
+            Self::Live => SnapshotBounds::Live,
+            Self::Captured | Self::Replay => SnapshotBounds::Standard,
+        }
+    }
+    /// The most instruments a runtime of this mode values: 4,096 Live, 256 Captured or
+    /// Replay, whose checkpoints store every result (D101).
+    pub const fn max_instruments(self) -> usize {
+        self.snapshot_bounds().instruments()
+    }
 }
 
 /// Restart-bound process requirements; no database/MQ handle enters the contract.
@@ -272,7 +290,7 @@ impl ConfigurationDocument {
             || self.providers.len() > 64
             || self.overrides.len() > 256
             || self.assembly.instruments.is_empty()
-            || self.assembly.instruments.len() > 256
+            || self.assembly.instruments.len() > self.runtime.mode.max_instruments()
             || self.assembly.quotes.len() != self.assembly.instruments.len()
             || self.assembly.curves.len()
                 + self.assembly.curve_recipes.len()

@@ -236,9 +236,10 @@ Router construction uses the engine’s configured reference repository. Provide
 
 `/ws` and `/api/v1/ws` stream canonical runtime results and recorded limit status
 changes, and nothing else. Send
-`{"type":"subscribe_valuations","instrument_ids":[...]}`. A session follows at most 256
-instruments, as many as a runtime values; listing one it already follows does not count
-again. The server first sends the current result of each listed instrument that has one,
+`{"type":"subscribe_valuations","instrument_ids":[...]}`. A session follows at most 4,096
+instruments, as many as a Live runtime values; listing one it already follows does not
+count again. A message lists at most 256 (more is refused: `at most 256 instruments a
+message`), so a session following 4,096 sends 16. The server first sends the current result of each listed instrument that has one,
 as a `valuation` message with its `runtime_id`, `revision` and result envelope, then the
 `subscribed` acknowledgement. So when the acknowledgement arrives, a listed instrument
 with neither a `valuation` nor a `RESULT_TOO_LARGE` error (below) has no result yet. Each later result arrives as another `valuation`.
@@ -568,9 +569,8 @@ accepted result, or with one that cannot be read as an analyzer quote, makes eac
 reads market data `unknown`, and a `face` limit still evaluates. With the configured
 measures of analytics by book, plus `cs01_mid` and the `krd_*_mid` tenors that limits read,
 status for a 256-position book with 64 limits over every measure took 4.1 ms per request
-against 3.8 ms for analytics by book (median, `ci` profile, WSL2 loopback). A runtime values
-at most 256 instruments, so a 1,000-position book has results for at most 256 of its
-positions.
+against 3.8 ms for analytics by book (median, `ci` profile, WSL2 loopback). A Live runtime
+values at most 4,096 instruments, and a Captured or Replay one 256.
 
 #### The monitor
 
@@ -619,11 +619,19 @@ WSL2; 14 to 43 s when each entry was its own commit). Valuations are not slowed 
 but changes in that window are recorded late. An entry's `details` is about 600 bytes, so a
 book's commit is about 40 KB.
 
-At the bounds (64 books, each holding all 256 priced instruments with 64 limits over every
-measure), one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or 256
-instruments, since each holds every instrument: about 1.4 ms a book. Above about 11 ticks a
-second the monitor coalesces ticks. One instrument's valuation hop (quote in to WebSocket
-frame) stays at about 1.4 ms with the monitor busy.
+With 64 books, each holding all 256 priced instruments with 64 limits over every measure,
+one evaluation pass takes about 90 ms whether a tick revalues 1, 64 or 256 instruments,
+since each holds every instrument: about 1.4 ms a book. Above about 11 ticks a second the
+monitor coalesces ticks. One instrument's valuation hop (quote in to WebSocket frame)
+stays at about 1.4 ms with the monitor busy (`ci` profile, WSL2).
+
+At 4,096 Live instruments with 64 books of 1,000 positions (the most a book holds) and 64
+limits each, a pass over every book takes 0.3 to 0.58 s, about 5 ms a book, and one over
+the 13 or so books that hold one instrument 63 to 173 ms (`ci` profile, macOS). By that
+arithmetic the monitor coalesces ticks above about two a second, and a limit's status
+can trail its valuation by a pass. One instrument's hop stays at 0.76 to 0.82 ms (median)
+while the monitor evaluates all 64 books after each quote, against 0.63 to 0.68 ms with
+no book watched.
 
 #### The clear hold
 

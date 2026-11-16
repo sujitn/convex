@@ -27,10 +27,20 @@ use crate::reference_master::{
 use crate::storage::BondPricingConfig;
 use crate::TraitError;
 
-/// Maximum serialized snapshot; adapters must reject growth beyond this bound.
+/// Maximum serialized snapshot; adapters must reject growth beyond this bound. Every
+/// snapshot but a Live runtime's is identified within it too.
 pub const MAX_SNAPSHOT_BYTES: usize = 16 * 1024 * 1024;
-/// Maximum selected instruments or quote keys in one information set.
+/// Maximum selected instruments or quote keys in one information set, but a Live one.
 pub const MAX_SNAPSHOT_INSTRUMENTS: usize = 256;
+/// Selected instruments or quote keys in a Live runtime's snapshot, which is never
+/// stored (D101).
+pub const MAX_LIVE_SNAPSHOT_INSTRUMENTS: usize = 4096;
+/// The JSON a Live snapshot's identity hashes (D109). 4,096 instruments with every text
+/// at the bound its validator sets write 125.2 MiB with a small frame, which leaves
+/// 2.8 MiB for the rest of the frame; a frame at its own bounds is not counted. Past
+/// it, every tick fails with `CapacityExceeded`. Live snapshots are never stored, and
+/// the JSON streams into the hash.
+pub const MAX_LIVE_IDENTITY_BYTES: usize = 128 * 1024 * 1024;
 /// Maximum explicitly required fixings in one information set.
 pub const MAX_SNAPSHOT_FIXINGS: usize = 1024;
 /// Maximum supplied curves in one information set.
@@ -40,6 +50,34 @@ pub const MAX_SNAPSHOT_PILLARS: usize = 4096;
 /// The schema assembly writes: the sectioned identity, whatever the curves (P13b-ii,
 /// D79). Schemas 1–3 still verify, so stored snapshots keep their ids.
 pub const SNAPSHOT_SCHEMA: u32 = 4;
+
+/// What a snapshot may hold.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SnapshotBounds {
+    /// Stored, replayed and request snapshots: [`MAX_SNAPSHOT_INSTRUMENTS`] instruments,
+    /// identified within [`MAX_SNAPSHOT_BYTES`].
+    Standard,
+    /// A Live runtime's snapshots, never stored: [`MAX_LIVE_SNAPSHOT_INSTRUMENTS`]
+    /// instruments, identified within [`MAX_LIVE_IDENTITY_BYTES`] (D101, D109).
+    Live,
+}
+
+impl SnapshotBounds {
+    /// The most instruments, and quote keys, a snapshot holds.
+    pub const fn instruments(self) -> usize {
+        match self {
+            Self::Standard => MAX_SNAPSHOT_INSTRUMENTS,
+            Self::Live => MAX_LIVE_SNAPSHOT_INSTRUMENTS,
+        }
+    }
+    /// The most JSON a snapshot's identity hashes.
+    pub const fn identity_bytes(self) -> usize {
+        match self {
+            Self::Standard => MAX_SNAPSHOT_BYTES,
+            Self::Live => MAX_LIVE_IDENTITY_BYTES,
+        }
+    }
+}
 
 /// Schema 4's domains: the id's, and one for each kind of section digest it hashes.
 const SCHEMA_FOUR: &[u8] = b"convex.snapshot.v4\0";
@@ -335,7 +373,8 @@ impl SharedQuote {
         }
         Ok(())
     }
-    /// The quote's schema-4 digest, computed once per entry.
+    /// The quote's schema-4 digest, computed once per entry, within the largest bound;
+    /// each identity counts its length against its own.
     fn digest(&self) -> Result<&SectionDigest, TraitError> {
         if let Some(digest) = self.0.digest.get() {
             return Ok(digest);
@@ -343,7 +382,7 @@ impl SharedQuote {
         let mut hash = Sha256::new();
         hash.update(SCHEMA_FOUR_QUOTE);
         let mut len = 0;
-        let digest = hash_json(hash, &self.0.quote, &mut len)?.finalize();
+        let digest = hash_json(hash, &self.0.quote, &mut len, MAX_LIVE_IDENTITY_BYTES)?.finalize();
         Ok(self.0.digest.get_or_init(|| SectionDigest { digest, len }))
     }
 }
@@ -661,8 +700,9 @@ impl SnapshotReferences {
             .map_err(|_| TraitError::InvalidInput("snapshot serialization failed"))?;
         Ok(self.0.json.get_or_init(|| json))
     }
-    /// The records' schema-4 digest, computed once per section. The JSON streams into
-    /// the hash and is not kept.
+    /// The records' schema-4 digest, computed once per section within the largest
+    /// bound; each identity counts its length against its own. The JSON streams into the
+    /// hash and is not kept.
     fn digest(&self) -> Result<&SectionDigest, TraitError> {
         if let Some(digest) = self.0.digest.get() {
             return Ok(digest);
@@ -670,7 +710,8 @@ impl SnapshotReferences {
         let mut hash = Sha256::new();
         hash.update(SCHEMA_FOUR_REFERENCES);
         let mut len = 0;
-        let digest = hash_json(hash, &self.0.records, &mut len)?.finalize();
+        let digest =
+            hash_json(hash, &self.0.records, &mut len, MAX_LIVE_IDENTITY_BYTES)?.finalize();
         Ok(self.0.digest.get_or_init(|| SectionDigest { digest, len }))
     }
 }
@@ -855,6 +896,8 @@ struct Snapshot {
     /// Schema 4's quote digests in snapshot order, set by `new` and `next` (P17c-iv); a
     /// deserialized snapshot has none, and its next is identified from every entry.
     digests: OnceLock<Arc<QuoteDigests>>,
+    /// What it was made within; its next is made within the same.
+    bounds: SnapshotBounds,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -885,17 +928,27 @@ impl std::fmt::Debug for MarketSnapshot {
 }
 
 impl MarketSnapshot {
-    /// Normalize unordered manifests, validate supplied values and derive the identity.
-    pub fn new(mut content: SnapshotContent) -> Result<Self, TraitError> {
-        normalize(&mut content)?;
+    /// Normalize unordered manifests, validate supplied values and derive the identity,
+    /// within [`SnapshotBounds::Standard`].
+    pub fn new(content: SnapshotContent) -> Result<Self, TraitError> {
+        Self::bounded(content, SnapshotBounds::Standard)
+    }
+    /// [`MarketSnapshot::new`] within `bounds`. A Live runtime's snapshots are made
+    /// within [`SnapshotBounds::Live`], and so is each one's next.
+    pub fn bounded(
+        mut content: SnapshotContent,
+        bounds: SnapshotBounds,
+    ) -> Result<Self, TraitError> {
+        normalize(&mut content, bounds)?;
         validate_content(&content)?;
-        let (id, digests) = identity_and_digests(&content)?;
-        Ok(Self::made(id, content, digests))
+        let (id, digests) = identity_and_digests(&content, bounds)?;
+        Ok(Self::made(id, content, digests, bounds))
     }
     fn made(
         snapshot_id: SnapshotId,
         content: SnapshotContent,
         digests: Option<QuoteDigests>,
+        bounds: SnapshotBounds,
     ) -> Self {
         Self(Snapshot {
             snapshot_id,
@@ -904,10 +957,15 @@ impl MarketSnapshot {
             digests: digests
                 .map(Arc::new)
                 .map_or_else(OnceLock::new, OnceLock::from),
+            bounds,
         })
     }
-    /// What [`MarketSnapshot::new`] returns for `content`, derived from this snapshot
-    /// when `content` follows it ([`MarketSnapshot::follows`]; P17c-ii, D108). A Live
+    /// What this snapshot was made within.
+    pub fn bounds(&self) -> SnapshotBounds {
+        self.0.bounds
+    }
+    /// What [`MarketSnapshot::bounded`] returns for `content` within this snapshot's
+    /// bounds, derived from this snapshot when `content` follows it ([`MarketSnapshot::follows`]; P17c-ii, D108). A Live
     /// tick's content is its last snapshot's but for the cutoffs, the generation, the
     /// curve records, the fixings and the entries rebuilt since.
     ///
@@ -918,17 +976,18 @@ impl MarketSnapshot {
     /// these, and they compare its times with the cutoffs only, so it passes them again.
     /// A rebuilt entry has its position's requirement, so the quotes keep their order and
     /// keys, each key its reference, and each override its quote. Otherwise, or when a
-    /// check fails, this is `new`.
+    /// check fails, this is `bounded`.
     pub fn next(&self, mut content: SnapshotContent) -> Result<Self, TraitError> {
+        let bounds = self.bounds();
         let Some(rebuilt) = self.rebuilt(&content) else {
-            return Self::new(content);
+            return Self::bounded(content, bounds);
         };
         if derive(&mut content, &rebuilt).is_err() {
-            return Self::new(content);
+            return Self::bounded(content, bounds);
         }
         match self.derived_identity(&content, &rebuilt) {
-            Ok((id, digests)) => Ok(Self::made(id, content, digests)),
-            Err(_) => Self::new(content),
+            Ok((id, digests)) => Ok(Self::made(id, content, digests, bounds)),
+            Err(_) => Self::bounded(content, bounds),
         }
     }
     /// `content`'s identity, as `new` derives it. Under schema 4 its quote digests are
@@ -940,13 +999,16 @@ impl MarketSnapshot {
         content: &SnapshotContent,
         rebuilt: &[usize],
     ) -> Result<(SnapshotId, Option<QuoteDigests>), TraitError> {
+        let bounds = self.bounds();
         let Some(previous) = self.0.digests.get().filter(|_| content.schema_version == 4) else {
-            return identity_and_digests(content);
+            return identity_and_digests(content, bounds);
         };
         let digests = previous.patched(&self.0.content.quotes, &content.quotes, rebuilt)?;
-        let id = hash_sections(content, &digests)?;
+        let id = hash_sections(content, &digests, bounds)?;
         // Every test build checks the patched digests against every entry's.
-        debug_assert!(QuoteDigests::of(&content.quotes, &mut 0).is_ok_and(|all| all == digests));
+        debug_assert!(
+            QuoteDigests::of(&content.quotes, &mut 0, bounds).is_ok_and(|all| all == digests)
+        );
         Ok((id, Some(digests)))
     }
     /// Whether [`MarketSnapshot::next`] derives `content` from this snapshot: neither
@@ -991,7 +1053,7 @@ impl MarketSnapshot {
     pub fn with_schema(&self, schema_version: u32) -> Result<Self, TraitError> {
         let mut content = self.0.content.clone();
         content.schema_version = schema_version;
-        Self::new(content)
+        Self::bounded(content, self.bounds())
     }
     /// Immutable resolved values, including policies and input generation.
     pub fn content(&self) -> &SnapshotContent {
@@ -1197,7 +1259,7 @@ impl MarketSnapshot {
     /// Re-derive identity and quality from the content and compare. Deserialization runs
     /// this; a value made by [`MarketSnapshot::new`] passes by construction.
     pub fn verify(&self) -> Result<(), TraitError> {
-        let verified = Self::new(self.0.content.clone())?;
+        let verified = Self::bounded(self.0.content.clone(), self.bounds())?;
         if verified != *self {
             return Err(TraitError::Conflict(
                 "snapshot content/quality/identity mismatch",
@@ -1259,18 +1321,23 @@ impl MarketSnapshot {
 /// digests for the snapshot to keep.
 fn identity_and_digests(
     content: &SnapshotContent,
+    bounds: SnapshotBounds,
 ) -> Result<(SnapshotId, Option<QuoteDigests>), TraitError> {
     let domain: &[u8] = match content.schema_version {
         1 => b"convex.snapshot.v1\0",
         2 => b"convex.snapshot.v2\0",
         3 => b"convex.snapshot.v3\0",
-        4 => return sectioned_identity(content).map(|(id, digests)| (id, Some(digests))),
+        4 => return sectioned_identity(content, bounds).map(|(id, digests)| (id, Some(digests))),
         _ => return Err(TraitError::InvalidInput("unsupported snapshot schema")),
     };
     let canonical = CanonicalContent::new(content, true)?;
     let mut hash = Sha256::new();
     hash.update(domain);
-    Ok((snapshot_id(hash_json(hash, &canonical, &mut 0)?)?, None))
+    let limit = bounds.identity_bytes();
+    Ok((
+        snapshot_id(hash_json(hash, &canonical, &mut 0, limit)?)?,
+        None,
+    ))
 }
 
 /// Schema 4 (P13b-ii, D68 B): SHA-256 under `convex.snapshot.v4\0` over, in order,
@@ -1286,18 +1353,23 @@ fn identity_and_digests(
 ///
 /// Every part before the frame has a fixed or stated length, and the frame runs to the
 /// end, so one byte string names one content. The JSON hashed for the three sections
-/// stays within [`MAX_SNAPSHOT_BYTES`] together, as schemas 1–3's whole content does.
-/// The quote digests are gathered in order into one buffer, which the snapshot keeps.
-fn sectioned_identity(content: &SnapshotContent) -> Result<(SnapshotId, QuoteDigests), TraitError> {
+/// stays within the bounds' [`SnapshotBounds::identity_bytes`] together, as schemas
+/// 1–3's whole content does. The quote digests are gathered in order into one buffer,
+/// which the snapshot keeps.
+fn sectioned_identity(
+    content: &SnapshotContent,
+    bounds: SnapshotBounds,
+) -> Result<(SnapshotId, QuoteDigests), TraitError> {
     let mut written = content.references.digest()?.len;
-    let digests = QuoteDigests::of(&content.quotes, &mut written)?;
-    Ok((hash_sections(content, &digests)?, digests))
+    let digests = QuoteDigests::of(&content.quotes, &mut written, bounds)?;
+    Ok((hash_sections(content, &digests, bounds)?, digests))
 }
 
 /// Schema 4's identity of `content` over `digests`, its quote digests in order.
 fn hash_sections(
     content: &SnapshotContent,
     digests: &QuoteDigests,
+    bounds: SnapshotBounds,
 ) -> Result<SnapshotId, TraitError> {
     let references = content.references.digest()?;
     if digests.bytes.len() != content.quotes.len().saturating_mul(DIGEST_BYTES) {
@@ -1305,8 +1377,9 @@ fn hash_sections(
             "quote digests do not match the quotes",
         ));
     }
+    let limit = bounds.identity_bytes();
     let mut written = references.len.saturating_add(digests.len);
-    if written > MAX_SNAPSHOT_BYTES {
+    if written > limit {
         return Err(TraitError::CapacityExceeded);
     }
     let mut hash = Sha256::new();
@@ -1319,7 +1392,7 @@ fn hash_sections(
     );
     hash.update(&digests.bytes);
     let frame = CanonicalContent::new(content, false)?;
-    snapshot_id(hash_json(hash, &frame, &mut written)?)
+    snapshot_id(hash_json(hash, &frame, &mut written, limit)?)
 }
 
 /// The length of one SHA-256 digest.
@@ -1336,14 +1409,18 @@ struct QuoteDigests {
 
 impl QuoteDigests {
     /// Every entry's digest, in order. `written` counts the JSON one identity has hashed
-    /// so far, and the walk fails once it passes [`MAX_SNAPSHOT_BYTES`], as identity does.
-    fn of(quotes: &[SharedQuote], written: &mut usize) -> Result<Self, TraitError> {
+    /// so far, and the walk fails once it passes the bounds', as identity does.
+    fn of(
+        quotes: &[SharedQuote],
+        written: &mut usize,
+        bounds: SnapshotBounds,
+    ) -> Result<Self, TraitError> {
         let mut bytes = Vec::with_capacity(quotes.len().saturating_mul(DIGEST_BYTES));
         let mut len = 0usize;
         for quote in quotes {
             let digest = quote.digest()?;
             *written = written.saturating_add(digest.len);
-            if *written > MAX_SNAPSHOT_BYTES {
+            if *written > bounds.identity_bytes() {
                 return Err(TraitError::CapacityExceeded);
             }
             len = len.saturating_add(digest.len);
@@ -1390,23 +1467,24 @@ impl QuoteDigests {
 }
 
 /// Stream `value`'s canonical JSON into `hash`. `written` counts the JSON bytes one
-/// identity has hashed so far, and the identity fails once they pass
-/// [`MAX_SNAPSHOT_BYTES`].
+/// identity has hashed so far, and the identity fails once they pass `limit`.
 fn hash_json<T: Serialize + ?Sized>(
     hash: Sha256,
     value: &T,
     written: &mut usize,
+    limit: usize,
 ) -> Result<Sha256, TraitError> {
     let mut writer = std::io::BufWriter::new(BoundedDigest {
         hash,
         len: *written,
+        limit,
     });
     let result = serde_json::to_writer(&mut writer, value)
         .map_err(drop)
         .and_then(|()| writer.flush().map_err(drop));
     *written = writer.get_ref().len;
     if result.is_err() {
-        return Err(if *written > MAX_SNAPSHOT_BYTES {
+        return Err(if *written > limit {
             TraitError::CapacityExceeded
         } else {
             TraitError::InvalidInput("snapshot serialization failed")
@@ -1421,16 +1499,17 @@ fn snapshot_id(hash: Sha256) -> Result<SnapshotId, TraitError> {
         .map_err(|_| TraitError::InvalidInput("invalid snapshot identity"))
 }
 
-/// A hash that refuses bytes beyond [`MAX_SNAPSHOT_BYTES`].
+/// A hash that refuses bytes beyond `limit`.
 struct BoundedDigest {
     hash: Sha256,
     len: usize,
+    limit: usize,
 }
 
 impl std::io::Write for BoundedDigest {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         self.len = self.len.saturating_add(bytes.len());
-        if self.len > MAX_SNAPSHOT_BYTES {
+        if self.len > self.limit {
             return Err(std::io::Error::other("snapshot exceeds its bound"));
         }
         self.hash.update(bytes);
@@ -1504,6 +1583,7 @@ impl TryFrom<SnapshotWire> for MarketSnapshot {
             content: value.content,
             quality: OnceLock::from(value.quality),
             digests: OnceLock::new(),
+            bounds: SnapshotBounds::Standard,
         });
         result.verify()?;
         Ok(result)
@@ -1544,9 +1624,9 @@ pub trait SnapshotRepository: Send + Sync {
     async fn get(&self, id: &SnapshotId) -> Result<Option<MarketSnapshot>, TraitError>;
 }
 
-fn normalize(content: &mut SnapshotContent) -> Result<(), TraitError> {
-    if content.references.len() > MAX_SNAPSHOT_INSTRUMENTS
-        || content.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
+fn normalize(content: &mut SnapshotContent, bounds: SnapshotBounds) -> Result<(), TraitError> {
+    if content.references.len() > bounds.instruments()
+        || content.quotes.len() > bounds.instruments()
     {
         return Err(TraitError::CapacityExceeded);
     }

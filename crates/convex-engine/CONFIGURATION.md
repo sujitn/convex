@@ -130,8 +130,9 @@ everything the repository does not hold; nothing has a default:
 ```
 
 At the cutoff, compile:
-- takes the universe from the live positions of 1 to 64 books (at most 256
-  instruments) and pins each instrument's reference version;
+- takes the universe from the live positions of 1 to 64 books (at most 4,096
+  instruments for a Live runtime, 256 for a Replay or Captured one) and pins each
+  instrument's reference version;
 - uses the latest version of the stored pricing configuration. It must be active,
   recorded by the cutoff, and apply to every instrument. Its id and version
   identify the configuration;
@@ -300,13 +301,18 @@ verifiable after another activation. Credentials do not enter snapshots.
 
 ## Bounds, migration and recovery
 
-One document is at most 2 MiB, with up to 256 instruments, one selected quote
-per instrument, 64 providers/curves and 256 scoped exceptions. The current
+One document is at most 2 MiB, with up to 4,096 instruments for a Live runtime and
+256 otherwise, one selected quote per instrument, 64 providers/curves and 256 scoped
+exceptions. The current
 runtime accepts no fixing-dependent instruments and at most four measures.
 Validation admits one control operation per use-case instance, one to eight
 fixtures, 4,096 aggregate trace events and 8,192 expectations; the warmed
-valuation cache keeps the 256 contexts of one fixture snapshot and releases them
-at the next snapshot. CLI JSON input/output is bounded and history
+valuation cache keeps up to 4,096 contexts of one fixture snapshot and releases them
+at the next snapshot. A Live document of 4,096 instruments fits 2 MiB with twelve
+fields a quote and ids of 32 characters (1.42 MB), not of 128 (2.6 MB). Every
+instrument needs an expectation, and the trace bound admits one fixture of an image
+an instrument at 4,096: about 2.1 MB with short ids, within the 4 MiB configuration
+request but close to the CLI's 2 MiB file bound. CLI JSON input/output is bounded and history
 uses the existing page limit of 1,000.
 
 The redb repository adds five `configuration_*_v1` tables and the independent

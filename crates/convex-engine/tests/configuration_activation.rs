@@ -854,6 +854,292 @@ async fn live_runtime_applies_an_activation_at_refresh_not_at_the_next_quote() {
     restarted.shutdown().await.unwrap();
 }
 
+/// A Live configuration of `convex_engine::MAX_RUNTIME_INSTRUMENTS` copies of the fixture
+/// bond at `now`, with one fixture of an image and an expectation an instrument, and the
+/// use cases that check it.
+async fn wide_live(
+    setup: &runtime::Setup,
+    now: UtcTimestamp,
+) -> (
+    std::sync::Arc<ConfigurationUseCases>,
+    StagedConfiguration,
+    Vec<ConfigurationFixture>,
+) {
+    let mut staged = fixture::staged(1);
+    staged.staged_at = now;
+    let document = &mut staged.document;
+    document.runtime.mode = RuntimeMode::Live;
+    document.providers[0]
+        .capabilities
+        .push(ProviderCapability::LiveImages);
+    document.assembly.as_of = now;
+    document.assembly.known_at = now;
+    document.assembly.quotes[0].max_age_ms = 600_000;
+    document.assembly.curves[0].source_time = now;
+    document.assembly.curves[0].recorded_at = now;
+    document.assembly.curves[0].max_age_ms = 600_000;
+    let mut wide = plan(document, vec![]);
+    runtime::widen(setup, &mut wide, convex_engine::MAX_RUNTIME_INSTRUMENTS).await;
+    document.assembly.instruments = wide.assembly.instruments;
+    document.assembly.quotes = wide.assembly.quotes;
+
+    let stamp = now.datetime().timestamp_millis();
+    let mut case = fixtures(setup).remove(0);
+    case.as_of = now;
+    case.known_at = now;
+    case.events = document
+        .assembly
+        .quotes
+        .iter()
+        .map(|quote| {
+            let mut event = fixture::snapshot::event(1, stamp, stamp, "99.25");
+            event.key = quote.key.clone();
+            event
+        })
+        .collect();
+    let expected = case.expected[0].clone();
+    case.expected = document
+        .assembly
+        .instruments
+        .iter()
+        .map(|pin| ExpectedConfigurationMeasure {
+            instrument_id: pin.instrument_id.clone(),
+            ..expected.clone()
+        })
+        .collect();
+    let doc = &staged.document;
+    let service = std::sync::Arc::new(ConfigurationUseCases::new(
+        setup.storage.configuration.clone(),
+        setup.storage.bonds.clone(),
+        setup.storage.configs.clone(),
+        setup.storage.curves.clone(),
+        std::sync::Arc::new(convex_ext_file::JsonFixingRepository::empty()),
+        setup.snapshots.clone(),
+        ConfigurationCapabilities {
+            build_id: doc.runtime.build_id.clone(),
+            storage: doc.process.storage.clone(),
+            durable: true,
+            atomic_activation: true,
+            shared_writers: false,
+            result_transport: doc.process.result_transport.clone(),
+            providers: doc.providers.clone(),
+            demo: false,
+        },
+    ));
+    (service, staged, vec![case])
+}
+
+/// A Live engine for `document`'s plan that keeps no results, fed by `source`.
+fn display_engine(
+    setup: &runtime::Setup,
+    service: std::sync::Arc<ConfigurationUseCases>,
+    document: &ConfigurationDocument,
+    source: std::sync::Arc<subscription_source::SubscriptionSource>,
+) -> convex_engine::PricingEngine {
+    convex_engine::PricingEngineBuilder::new()
+        .with_storage(setup.storage.clone())
+        .with_configuration_use_cases(service)
+        .with_runtime(convex_engine::RuntimeServices {
+            plan: plan(document, vec![]),
+            snapshots: setup.snapshots.clone(),
+            fixings: std::sync::Arc::new(convex_ext_file::JsonFixingRepository::empty()),
+            store: setup.store.clone(),
+            publisher: runtime::display_only(),
+            input: convex_engine::RuntimeInput::Live(source),
+        })
+        .build()
+        .unwrap()
+}
+
+/// D101: a Live configuration of 4,096 instruments passes its dry run, which values every
+/// instrument, is staged and activated, and a Live runtime starts on it. As a Captured or
+/// Replay configuration it is refused past 256 instruments.
+#[tokio::test]
+async fn a_live_configuration_of_4096_instruments_is_checked_staged_and_activated() {
+    let setup = runtime::setup().await;
+    let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    let (service, staged, cases) = wide_live(&setup, now).await;
+    let document = &staged.document;
+    assert_eq!(document.assembly.instruments.len(), 4096);
+    document.validate().unwrap();
+    for mode in [RuntimeMode::Captured, RuntimeMode::Replay] {
+        let mut stored = document.clone();
+        stored.runtime.mode = mode;
+        assert!(stored.validate().is_err(), "{mode:?}");
+    }
+    let report = service.validate(document, &cases).await.unwrap();
+    assert!(report.valid, "{:?}", report.issues);
+    service.stage(&staged, &cases).await.unwrap();
+    let mut command = fixture::activate(1, 0, "live-wide");
+    command.activated_at = now;
+    service.activate(&command, &cases).await.unwrap();
+
+    let source = std::sync::Arc::new(subscription_source::SubscriptionSource::new());
+    let engine = display_engine(&setup, service, document, source);
+    engine.start().await.unwrap();
+    engine.shutdown().await.unwrap();
+}
+
+/// Read `updates` until each of 4,096 instruments has a complete record of configuration
+/// `version` or later and of generation `at_least` or later; the ticks they came in.
+async fn every_result(
+    updates: &mut tokio::sync::broadcast::Receiver<
+        std::sync::Arc<convex_ports::runtime::PublishedValuation>,
+    >,
+    version: u64,
+    at_least: u64,
+) -> usize {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut ticks = std::collections::BTreeSet::new();
+    tokio::time::timeout(Duration::from_secs(120), async {
+        while seen.len() < 4096 {
+            let record = updates.recv().await.unwrap();
+            if record.result.status() == ResultStatus::Complete
+                && record.result.provenance().configuration_version.get() >= version
+                && record.generation.get() >= at_least
+            {
+                ticks.insert(record.generation.get());
+                seen.insert(serde_json::to_string(&record.result.provenance().subject).unwrap());
+            }
+        }
+    })
+    .await
+    .unwrap();
+    ticks.len()
+}
+
+/// This process's resident memory, in MiB.
+fn resident_mib() -> f64 {
+    let out = std::process::Command::new("ps")
+        .args(["-o", "rss=", "-p", &std::process::id().to_string()])
+        .output()
+        .unwrap();
+    String::from_utf8(out.stdout)
+        .unwrap()
+        .trim()
+        .parse::<f64>()
+        .unwrap()
+        / 1024.0
+}
+
+/// P17b's measurement of a Live runtime of 4,096 instruments (`--ignored --nocapture`,
+/// under the ci profile): the dry run; the first ticks after a start, which pin every
+/// reference and value every bond; a tick in which every quote moved; one quote's tick;
+/// the first tick after an activation, which values every bond again; and the memory.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn live_ticks_at_4096_instruments() {
+    use std::{sync::Arc, time::Instant};
+    let setup = runtime::setup().await;
+    let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    let (service, first, cases) = wide_live(&setup, now).await;
+    let started = Instant::now();
+    let report = service.validate(&first.document, &cases).await.unwrap();
+    assert!(report.valid);
+    println!(
+        "dry run of 4,096 instruments: {:.0} ms",
+        started.elapsed().as_secs_f64() * 1e3
+    );
+    service.stage(&first, &cases).await.unwrap();
+    let mut command = fixture::activate(1, 0, "live-wide");
+    command.activated_at = now;
+    service.activate(&command, &cases).await.unwrap();
+    let mut second = first.clone();
+    second.document.pricing.version = 2;
+    second.document.pricing.updated_at = now.datetime().timestamp_millis();
+    second.document.assembly.configuration.version = fixture::snapshot::version(2);
+    second.idempotency_key = RequestId::new("live-wide-repriced").unwrap();
+    service.stage(&second, &cases).await.unwrap();
+
+    let source = Arc::new(subscription_source::SubscriptionSource::with_capacity(8192));
+    let before = resident_mib();
+    let engine = display_engine(&setup, service, &first.document, source.clone());
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    let keys: Vec<_> = first
+        .document
+        .assembly
+        .quotes
+        .iter()
+        .map(|q| q.key.clone())
+        .collect();
+    let mut sequence = 1;
+    let send_all = |sequence: u64, value: &str| {
+        for key in &keys {
+            let stamp = subscription_source::monotone_stamp();
+            let mut event = fixture::snapshot::event(sequence, stamp, stamp, value);
+            event.key = key.clone();
+            source.send(event);
+        }
+    };
+    let started = Instant::now();
+    send_all(sequence, "99.25");
+    let ticks = every_result(&mut updates, 1, 0).await;
+    println!(
+        "first images to every result: {:.0} ms over {ticks} ticks",
+        started.elapsed().as_secs_f64() * 1e3
+    );
+    let generation = engine.runtime_health().generation;
+    sequence += 1;
+    let started = Instant::now();
+    send_all(sequence, "99.50");
+    let ticks = every_result(&mut updates, 1, generation + 1).await;
+    println!(
+        "every quote moved, 4,096 sent at once: {:.0} ms over {ticks} ticks",
+        started.elapsed().as_secs_f64() * 1e3
+    );
+    let mut single = Vec::new();
+    for round in 0..40u64 {
+        sequence += 1;
+        let stamp = subscription_source::monotone_stamp();
+        let price = if round % 2 == 0 { "99.30" } else { "99.25" };
+        let mut event = fixture::snapshot::event(sequence, stamp, stamp, price);
+        event.key = keys[2048].clone();
+        let started = Instant::now();
+        source.send(event);
+        tokio::time::timeout(Duration::from_secs(5), updates.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        single.push(started.elapsed().as_secs_f64() * 1e6);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    single.sort_by(f64::total_cmp);
+    println!(
+        "one quote to its record: median {:.0} µs",
+        single[single.len() / 2]
+    );
+
+    let mut command = fixture::activate(2, 1, "live-wide-repriced");
+    command.activated_at = now;
+    let started = Instant::now();
+    engine
+        .activate_configuration(&command, &cases)
+        .await
+        .unwrap();
+    let activated = started.elapsed();
+    let ticks = every_result(&mut updates, 2, 0).await;
+    println!(
+        "activation (its dry run included): {:.0} ms; then every result under it: {:.0} ms \
+         over {ticks} ticks",
+        activated.as_secs_f64() * 1e3,
+        (started.elapsed() - activated).as_secs_f64() * 1e3
+    );
+
+    let results = engine.runtime_results();
+    let bytes: usize = results
+        .iter()
+        .map(|r| serde_json::to_vec(r).unwrap().len())
+        .sum();
+    println!(
+        "4,096 results: {:.1} MB as JSON; resident memory {:.0} MiB before the engine, {:.0} MiB now",
+        bytes as f64 / 1e6,
+        before,
+        resident_mib()
+    );
+    engine.shutdown().await.unwrap();
+}
+
 /// A Live selection staged and activated at `now` as revision 1, with the fixtures it was
 /// checked against and the use cases that hold it.
 async fn live_selection(

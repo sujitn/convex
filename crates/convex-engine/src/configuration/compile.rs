@@ -12,7 +12,7 @@ use convex_ports::{
     quote_event::{QuoteField, QuoteKey},
     reference_master::{BookId, MasterDefinition, MasterKey, ReferenceLookup},
     reference_repository::{ReferenceError, ReferenceRepository},
-    snapshot::{QuoteRequirement, MAX_SNAPSHOT_INSTRUMENTS},
+    snapshot::QuoteRequirement,
     storage::{ConfigStore, CurveStore},
 };
 use serde::{Deserialize, Serialize};
@@ -118,7 +118,7 @@ pub async fn assemble_from_repository(
             "selected books hold no positions",
         ));
     }
-    if universe.len() > MAX_SNAPSHOT_INSTRUMENTS {
+    if universe.len() > selection.mode.max_instruments() {
         return Err(ConfigurationError::CapacityExceeded);
     }
 

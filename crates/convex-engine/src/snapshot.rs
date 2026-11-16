@@ -191,15 +191,15 @@ impl SnapshotAssembler {
         self.snapshots.publish(&snapshot).await?;
         Ok(Some(snapshot))
     }
-    /// Resolve without publishing; shared by dry-run configuration validation.
+    /// Resolve without publishing, within [`SnapshotBounds::Standard`].
     pub async fn resolve(
         &self,
         request: &SnapshotAssembly,
         events: &[QuoteEvent],
     ) -> Result<MarketSnapshot, TraitError> {
-        validate_request(request, events)?;
+        validate_request(request, events, SnapshotBounds::Standard)?;
         let configuration = self.configuration(request).await?;
-        self.resolve_with_configuration(request, events, configuration)
+        self.resolve_with_configuration(request, events, configuration, SnapshotBounds::Standard)
             .await
     }
     async fn configuration(
@@ -216,32 +216,42 @@ impl SnapshotAssembler {
                 "missing exact snapshot configuration",
             ))
     }
-    /// Resolve supplied immutable quantitative content without staging or publishing it.
+    /// Resolve supplied immutable quantitative content without staging or publishing it,
+    /// within `bounds`: a dry run of a Live configuration resolves within the Live ones.
     /// The same reference, curve and quality checks govern actual assembly and dry runs.
     pub async fn resolve_with_configuration(
         &self,
         request: &SnapshotAssembly,
         events: &[QuoteEvent],
         configuration: convex_ports::storage::BondPricingConfig,
+        bounds: SnapshotBounds,
     ) -> Result<MarketSnapshot, TraitError> {
-        validate_request(request, events)?;
+        validate_request(request, events, bounds)?;
         let references = SnapshotReferences::new(self.references(request, &configuration).await?);
         let capture = capture_ms(request);
-        let mut quotes = IngestedQuotes::new()?;
+        let selected: BTreeSet<_> = request
+            .quotes
+            .iter()
+            .map(|requirement| {
+                (
+                    requirement.key.instrument_id.as_str(),
+                    &requirement.key.source,
+                )
+            })
+            .collect();
+        let mut quotes = IngestedQuotes::new(bounds)?;
         for event in events {
             if event.source_time_ms > request.as_of.datetime().timestamp_millis()
                 || event.receive_time_ms > request.known_at.datetime().timestamp_millis()
-                || !request
-                    .quotes
-                    .iter()
-                    .any(|requirement| requirement.key == event.key)
+                || !selected.contains(&(event.key.instrument_id.as_str(), &event.key.source))
             {
                 continue;
             }
             quotes.ingest(event.clone(), capture);
         }
         let quotes = quotes.quotes(&request.quotes, capture);
-        self.build(request, configuration, references, quotes).await
+        self.build(request, configuration, references, quotes, bounds)
+            .await
     }
     async fn references(
         &self,
@@ -302,9 +312,10 @@ impl SnapshotAssembler {
         Ok(references)
     }
     /// Resolve the exact configuration and the pinned references `request` selects, at its
-    /// cutoff, for reuse by later snapshots of the same selection (D56).
+    /// cutoff, for reuse by later snapshots of the same selection (D56). Only a Live
+    /// runtime pins, so the request is within the Live bounds.
     pub(crate) async fn pin(&self, request: &SnapshotAssembly) -> Result<PinnedInputs, TraitError> {
-        validate_request(request, &[])?;
+        validate_request(request, &[], SnapshotBounds::Live)?;
         let configuration = self.configuration(request).await?;
         let references = SnapshotReferences::new(self.references(request, &configuration).await?);
         Ok(PinnedInputs {
@@ -339,7 +350,7 @@ impl SnapshotAssembler {
     ) -> Result<Arc<MarketSnapshot>, TraitError> {
         // The instruments are distinct: `pin` checked them, and the pinned inputs serve
         // only the same instruments.
-        validate_frame(request, &[])?;
+        validate_frame(request, &[], SnapshotBounds::Live)?;
         if !pinned.serves_epoch(request, epoch) {
             return Err(TraitError::Conflict(
                 "pinned inputs belong to another selection",
@@ -355,7 +366,7 @@ impl SnapshotAssembler {
             .await?;
         let snapshot = Arc::new(match &pinned.last {
             Some(last) => last.next(content)?,
-            None => MarketSnapshot::new(content)?,
+            None => MarketSnapshot::bounded(content, SnapshotBounds::Live)?,
         });
         pinned.last = Some(snapshot.clone());
         Ok(snapshot)
@@ -366,10 +377,12 @@ impl SnapshotAssembler {
         configuration: convex_ports::storage::BondPricingConfig,
         references: SnapshotReferences,
         quotes: Vec<SharedQuote>,
+        bounds: SnapshotBounds,
     ) -> Result<MarketSnapshot, TraitError> {
-        MarketSnapshot::new(
+        MarketSnapshot::bounded(
             self.content(request, configuration, references, quotes)
                 .await?,
+            bounds,
         )
     }
     /// A snapshot's content: the request's frame, the given inputs and quote entries, and
@@ -522,9 +535,10 @@ fn turn(quote: &SnapshotQuote, capture_ms: i64, stale_after_ms: i64) -> Option<i
 }
 
 impl IngestedQuotes {
-    pub(crate) fn new() -> Result<Self, TraitError> {
+    /// Quote state for the keys of snapshots within `bounds`.
+    pub(crate) fn new(bounds: SnapshotBounds) -> Result<Self, TraitError> {
         Self::with_policy(IngestionPolicy {
-            max_keys: MAX_SNAPSHOT_INSTRUMENTS,
+            max_keys: bounds.instruments(),
             stale_after_ms: 86_400_000,
             future_tolerance_ms: 0,
         })
@@ -751,8 +765,12 @@ fn reference_error(error: convex_ports::reference_repository::ReferenceError) ->
     }
 }
 
-fn validate_request(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result<(), TraitError> {
-    validate_frame(request, events)?;
+fn validate_request(
+    request: &SnapshotAssembly,
+    events: &[QuoteEvent],
+    bounds: SnapshotBounds,
+) -> Result<(), TraitError> {
+    validate_frame(request, events, bounds)?;
     let mut ids = BTreeSet::new();
     for pin in &request.instruments {
         if !ids.insert(&pin.instrument_id) {
@@ -773,11 +791,16 @@ fn validate_request(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result
 }
 
 /// What [`validate_request`] checks except that the instruments are distinct and the
-/// events valid and in order: the request's bounds, and its curves at its cutoffs.
-fn validate_frame(request: &SnapshotAssembly, events: &[QuoteEvent]) -> Result<(), TraitError> {
+/// events valid and in order: the request's bounds, within `bounds`, and its curves at
+/// its cutoffs.
+fn validate_frame(
+    request: &SnapshotAssembly,
+    events: &[QuoteEvent],
+    bounds: SnapshotBounds,
+) -> Result<(), TraitError> {
     if request.instruments.is_empty()
-        || request.instruments.len() > MAX_SNAPSHOT_INSTRUMENTS
-        || request.quotes.len() > MAX_SNAPSHOT_INSTRUMENTS
+        || request.instruments.len() > bounds.instruments()
+        || request.quotes.len() > bounds.instruments()
         || request.fixings.len() > MAX_SNAPSHOT_FIXINGS
         || request.required_curves.len() > MAX_SNAPSHOT_CURVES
         || request.curves.len()
@@ -1938,7 +1961,7 @@ mod tests {
     /// fields are out of order is still shared. Keys the selection drops are forgotten.
     #[test]
     fn ingested_quotes_rebuild_only_the_entries_that_changed() {
-        let mut ingested = IngestedQuotes::new().unwrap();
+        let mut ingested = IngestedQuotes::new(SnapshotBounds::Standard).unwrap();
         let mut requirements = vec![requirement("BOND-A"), requirement("BOND-B")];
         ingested.ingest(image("BOND-A", 1, START_MS), START_MS);
         ingested.ingest(image("BOND-B", 1, START_MS), START_MS);

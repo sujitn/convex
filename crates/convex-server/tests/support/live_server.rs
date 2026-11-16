@@ -84,6 +84,27 @@ impl Running {
             .unwrap()
     }
 
+    /// Post `events` 256 a request, as many requests as they take. A request the full
+    /// ingress queue refuses (429) is sent again once the runtime has taken some.
+    pub async fn post_all_quotes(&self, events: &[QuoteEvent]) {
+        for batch in events.chunks(256) {
+            tokio::time::timeout(Duration::from_secs(30), async {
+                loop {
+                    let posted = self.post_quotes(batch.to_vec()).await;
+                    match posted.status() {
+                        status if status.is_success() => return,
+                        reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                            tokio::time::sleep(Duration::from_millis(20)).await
+                        }
+                        status => panic!("quotes refused: {status}"),
+                    }
+                }
+            })
+            .await
+            .expect("the ingress takes every batch");
+        }
+    }
+
     pub async fn post_quotes(&self, events: Vec<QuoteEvent>) -> reqwest::Response {
         self.client
             .post(format!("{}/api/v1/market/quotes", self.base))

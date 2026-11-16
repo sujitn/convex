@@ -128,26 +128,26 @@ pub async fn widen(s: &Setup, plan: &mut RuntimePlan, width: usize) {
             bond
         })
         .collect();
-    if copies.is_empty() {
-        return;
+    // A reference command carries at most `MAX_REFERENCE_CHANGES`.
+    for (chunk, bonds) in copies.chunks(MAX_REFERENCE_CHANGES).enumerate() {
+        s.storage
+            .bonds
+            .commit(
+                &ReferenceCommand {
+                    idempotency_key: RequestId::new(format!("wide-seed-{chunk}")).unwrap(),
+                    changes: bonds
+                        .iter()
+                        .map(|bond| ReferenceChange::Create {
+                            bond: Box::new(bond.clone()),
+                        })
+                        .collect(),
+                    master_changes: vec![],
+                },
+                fixture::time("2025-01-01T00:00:00Z"),
+            )
+            .await
+            .unwrap();
     }
-    s.storage
-        .bonds
-        .commit(
-            &ReferenceCommand {
-                idempotency_key: RequestId::new("wide-seed").unwrap(),
-                changes: copies
-                    .iter()
-                    .map(|bond| ReferenceChange::Create {
-                        bond: Box::new(bond.clone()),
-                    })
-                    .collect(),
-                master_changes: vec![],
-            },
-            fixture::time("2025-01-01T00:00:00Z"),
-        )
-        .await
-        .unwrap();
     for bond in &copies {
         plan.assembly.instruments.push(InstrumentPin {
             instrument_id: InstrumentId::new(bond.instrument_id.as_str()).unwrap(),
@@ -160,6 +160,18 @@ pub async fn widen(s: &Setup, plan: &mut RuntimePlan, width: usize) {
 }
 pub fn archive(s: &Setup) -> Arc<dyn ResultPublisher> {
     s.results.clone()
+}
+/// A publisher that keeps nothing, as the server's Live composition publishes (D5a). The
+/// archive commits each record, which a tick of 4,096 records makes slow.
+pub fn display_only() -> Arc<dyn ResultPublisher> {
+    struct DisplayOnly;
+    #[async_trait::async_trait]
+    impl ResultPublisher for DisplayOnly {
+        async fn publish(&self, _: &PublishedValuation) -> Result<(), convex_ports::TraitError> {
+            Ok(())
+        }
+    }
+    Arc::new(DisplayOnly)
 }
 pub fn event(sequence: u64, milliseconds: i64, value: &str) -> QuoteEvent {
     let start = fixture::time("2026-10-02T15:00:00Z")
