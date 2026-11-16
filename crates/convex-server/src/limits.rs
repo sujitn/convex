@@ -42,7 +42,7 @@ use convex_core::contracts::{
 use convex_engine::limits::{evaluate_limits, LimitBook, LimitPosition, LimitTerms};
 use convex_engine::ports::limits::{
     excess_expiry, validate_limits, LimitAcknowledgement, LimitDefinition, LimitEvaluation,
-    LimitExcess, LimitMeasure, LimitMember, LimitProposalClosure, LimitProposalDefinition,
+    LimitExcess, LimitId, LimitMeasure, LimitMember, LimitProposalClosure, LimitProposalDefinition,
     LimitSetDefinition, UnknownReason,
 };
 use convex_engine::ports::output::BondQuoteOutput;
@@ -1222,6 +1222,10 @@ const DEFAULT_RECORDS_PAGE: usize = 100;
 /// JSON is at most 128 KiB, so one always fits.
 const MAX_RECORDS_PAGE_BYTES: usize = 3 * 1024 * 1024;
 const MAX_RECORDS_PAGE_VALUES: usize = 60_000;
+/// The most of a book's entries a request by limit reads (D107), in pages of
+/// [`MAX_ENTITY_PAGE`]: a reader following a limit whose records are rare passes a long
+/// stretch of other limits' records over several requests.
+const MAX_RECORDS_READ: usize = 10_000;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1230,6 +1234,16 @@ pub(crate) struct RecordsQuery {
     after: u64,
     #[serde(default = "default_records_page")]
     limit: usize,
+    #[serde(default)]
+    limit_id: Option<LimitId>,
+}
+
+/// The limit a record is of, read alone, so that a request by limit reads no more of
+/// another limit's record.
+#[derive(Deserialize)]
+struct RecordOf<'a> {
+    #[serde(borrow)]
+    limit_id: std::borrow::Cow<'a, str>,
 }
 
 fn default_records_page() -> usize {
@@ -1295,9 +1309,15 @@ fn json_values(value: &serde_json::Value) -> usize {
     }
 }
 
-/// `GET /api/v1/books/{book_id}/limits/records?after=&limit=`: the book's recorded status
-/// changes with record IDs above `after`, oldest first, each as its `limit_status` frame
-/// says it (without `type`), and `next_after`, the cursor for the next page.
+/// `GET /api/v1/books/{book_id}/limits/records?after=&limit=&limit_id=`: the book's
+/// recorded status changes with record IDs above `after`, oldest first, each as its
+/// `limit_status` frame says it (without `type`), and `next_after`, the cursor for the
+/// next page.
+///
+/// With `limit_id`, only that limit's records, read through the book's index (D107): a
+/// request reads at most [`MAX_RECORDS_READ`] of the book's entries, and `next_after` is
+/// the last one it examined, so a page can be empty with `more` true. Another limit's record
+/// is passed and not counted, as is one whose limit cannot be read.
 ///
 /// Access is status's read rule on the book, its current instruments and those its
 /// current set names, plus each instrument a returned record names. A record naming one
@@ -1353,74 +1373,114 @@ async fn records(
                 .into_response(),
         );
     };
-    let page = audit
-        .entity_page(LIMIT_STATUS_ENTITY, id.as_str(), query.after, query.limit)
-        .await
-        .map_err(|error| {
-            tracing::error!(%error, book = %id, "limit records: the audit store refused a page");
-            reference_error(ReferenceError::Unavailable)
-        })?;
-
+    // Without a filter a request reads `limit` entries, one store read; with one, up to
+    // `MAX_RECORDS_READ`, a store read of at most `MAX_ENTITY_PAGE` at a time, and stops
+    // once it has `limit` records to show.
+    let budget = match query.limit_id {
+        Some(_) => MAX_RECORDS_READ,
+        None => query.limit,
+    };
+    let mut read = 0usize;
     let mut readable: HashMap<String, bool> = HashMap::new();
-    let mut shown: Vec<&str> = Vec::new();
+    let mut shown: Vec<String> = Vec::new();
     let (mut bytes, mut values, mut withheld) = (0usize, 0usize, 0usize);
     let mut next_after = query.after;
-    let mut more = page.more;
-    for entry in &page.entries {
-        let details = match (entry.event_type.as_str(), &entry.details) {
-            (LIMIT_STATUS_EVENT, Some(details)) => details.as_str(),
-            // Not a status change: nothing to show, and the cursor passes it.
-            _ => {
-                next_after = entry.id;
-                continue;
+    let mut more;
+    'pages: loop {
+        let size = (budget - read).min(MAX_ENTITY_PAGE);
+        let page = audit
+            .entity_page(LIMIT_STATUS_ENTITY, id.as_str(), next_after, size)
+            .await
+            .map_err(|error| {
+                tracing::error!(%error, book = %id, "limit records: the audit store refused a page");
+                reference_error(ReferenceError::Unavailable)
+            })?;
+        let count = page.entries.len();
+        read += count;
+        more = page.more;
+        let mut entries = page.entries.into_iter().peekable();
+        while let Some(entry) = entries.next() {
+            let details = match (entry.event_type.as_str(), entry.details) {
+                (LIMIT_STATUS_EVENT, Some(details)) => details,
+                // Not a status change: nothing to show, and the cursor passes it.
+                _ => {
+                    next_after = entry.id;
+                    continue;
+                }
+            };
+            // Another limit's record is passed, neither shown nor counted, and so is one
+            // whose limit cannot be read: it is not known to be this limit's.
+            if let Some(limit_id) = &query.limit_id {
+                match serde_json::from_str::<RecordOf>(&details) {
+                    Ok(record) if record.limit_id == limit_id.as_str() => {}
+                    Ok(_) => {
+                        next_after = entry.id;
+                        continue;
+                    }
+                    Err(error) => {
+                        tracing::error!(%error, record = entry.id, book = %id, "limit records: a record's limit cannot be read; a request by limit passes it");
+                        next_after = entry.id;
+                        continue;
+                    }
+                }
             }
-        };
-        // A record whose instruments cannot be read is withheld, as one the caller cannot
-        // read is, and the cursor passes it rather than refusing every page that holds it.
-        let parsed = serde_json::from_str::<serde_json::Value>(details).and_then(|value| {
-            let names = RecordNames::deserialize(&value)?;
-            Ok((value, names))
-        });
-        let (value, names) = match parsed {
-            Ok(parsed) => parsed,
-            Err(error) => {
-                tracing::error!(%error, record = entry.id, book = %id, "limit records: a record's measure or reason cannot be read; it is withheld");
+            // A record whose instruments cannot be read is withheld, as one the caller
+            // cannot read is, and the cursor passes it rather than refusing every page
+            // that holds it.
+            let parsed = serde_json::from_str::<serde_json::Value>(&details).and_then(|value| {
+                let names = RecordNames::deserialize(&value)?;
+                Ok((value, names))
+            });
+            let (value, names) = match parsed {
+                Ok(parsed) => parsed,
+                Err(error) => {
+                    tracing::error!(%error, record = entry.id, book = %id, "limit records: a record's measure or reason cannot be read; it is withheld");
+                    withheld += 1;
+                    next_after = entry.id;
+                    continue;
+                }
+            };
+            // Each distinct instrument is checked once a request, beside the book.
+            let allowed = recorded_instruments(&names).into_iter().all(|instrument| {
+                *readable.entry(instrument.to_owned()).or_insert_with(|| {
+                    authorize(
+                        state,
+                        ctx,
+                        Action::BookRead,
+                        STATUS_DATA,
+                        &id,
+                        [instrument.to_owned()],
+                    )
+                    .is_ok()
+                })
+            });
+            if !allowed {
                 withheld += 1;
                 next_after = entry.id;
                 continue;
             }
-        };
-        // Each distinct instrument is checked once a page, beside the book.
-        let allowed = recorded_instruments(&names).into_iter().all(|instrument| {
-            *readable.entry(instrument.to_owned()).or_insert_with(|| {
-                authorize(
-                    state,
-                    ctx,
-                    Action::BookRead,
-                    STATUS_DATA,
-                    &id,
-                    [instrument.to_owned()],
-                )
-                .is_ok()
-            })
-        });
-        if !allowed {
-            withheld += 1;
+            let cost = json_values(&value);
+            if !shown.is_empty()
+                && (bytes + details.len() > MAX_RECORDS_PAGE_BYTES
+                    || values + cost > MAX_RECORDS_PAGE_VALUES)
+            {
+                more = true;
+                break 'pages;
+            }
+            bytes += details.len();
+            values += cost;
+            shown.push(details);
             next_after = entry.id;
-            continue;
+            if shown.len() == query.limit {
+                more |= entries.peek().is_some();
+                break 'pages;
+            }
         }
-        let cost = json_values(&value);
-        if !shown.is_empty()
-            && (bytes + details.len() > MAX_RECORDS_PAGE_BYTES
-                || values + cost > MAX_RECORDS_PAGE_VALUES)
-        {
-            more = true;
+        // A store that answers `more` with no entries ends the request rather than
+        // spinning on one cursor.
+        if !more || count == 0 || read >= budget {
             break;
         }
-        bytes += details.len();
-        values += cost;
-        shown.push(details);
-        next_after = entry.id;
     }
 
     // Each record is the JSON the monitor stored, which its frame carried, unchanged.

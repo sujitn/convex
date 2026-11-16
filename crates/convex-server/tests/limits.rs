@@ -2565,6 +2565,281 @@ async fn a_page_of_large_records_stops_where_the_response_scan_can_read_it() {
     assert_eq!(pages, 2, "about 59 records of 1,013 values a page");
 }
 
+/// A record of `limit_id`, readable by `RISK_A` unless `fields` names another instrument.
+fn record_of(id: u64, limit_id: &str, fields: Value) -> AuditEntry {
+    let mut fields = fields;
+    fields["limit_id"] = json!(limit_id);
+    record(id, "BOOK-A", json!({"kind": "market_value"}), fields)
+}
+
+/// `limit_id` reads only that limit's records (P18c, D107): another limit's record is
+/// passed and not counted, even one the caller could not read; this limit's record the
+/// caller cannot read is withheld and counted; a page stops at `limit` records inside one
+/// store read and the cursor reads on from the last record shown, each once.
+#[tokio::test]
+async fn records_by_limit_read_only_that_limits_records() {
+    let (_issuer, setup, router) = two_subjects().await;
+    let router = router.layer(axum::Extension(setup.storage.audit.clone()));
+    let unreadable = json!({"reason": {"code": "missing_result",
+                                       "instruments": {"count": 1, "first": ["BOND-002"]}}});
+    let mut note = record_of(6, "net", json!({}));
+    note.event_type = "note".into();
+    let mut no_limit = record_of(7, "net", json!({}));
+    let mut details: Value = serde_json::from_str(no_limit.details.as_deref().unwrap()).unwrap();
+    details.as_object_mut().unwrap().remove("limit_id");
+    no_limit.details = Some(details.to_string());
+    let mut newer = record_of(8, "net", json!({}));
+    newer.details = Some(
+        newer
+            .details
+            .unwrap()
+            .replace("market_value", "value_at_risk"),
+    );
+    setup
+        .storage
+        .audit
+        .append_all(&[
+            record_of(1, "net", json!({})),
+            record_of(2, "gross", json!({})),
+            record_of(3, "net", unreadable.clone()),
+            record_of(4, "gross", unreadable),
+            record_of(5, "net", json!({})),
+            note,
+            no_limit,
+            newer,
+            record_of(9, "net", json!({})),
+            record_of(10, "gross", json!({})),
+        ])
+        .await
+        .unwrap();
+
+    let (code, page) = records(&router, Some(RISK_A), "BOOK-A", "?limit_id=net&limit=2").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(ids(&page), [1, 5]);
+    assert_eq!(
+        (&page["withheld"], &page["next_after"], &page["more"]),
+        (&json!(1), &json!(5), &json!(true)),
+        "record 3 is withheld and counted; record 4, another limit's, is not"
+    );
+    assert!(!page.to_string().contains("BOND-002"), "{page}");
+    let (code, page) = records(
+        &router,
+        Some(RISK_A),
+        "BOOK-A",
+        "?limit_id=net&after=5&limit=2",
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(ids(&page), [9]);
+    assert_eq!(
+        (&page["withheld"], &page["next_after"], &page["more"]),
+        (&json!(1), &json!(10), &json!(false)),
+        "a note and a record with no limit are passed uncounted; one this server cannot \
+         read is withheld; the cursor reaches the last entry read"
+    );
+    let (code, page) = records(&router, Some(RISK_A), "BOOK-A", "?limit_id=gross").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (ids(&page), &page["withheld"], &page["book_id"]),
+        (vec![2, 10], &json!(1), &json!("BOOK-A"))
+    );
+    // A subject holding every instrument sees each of the limit's records it can read.
+    let (code, page) = records(&router, Some(HUMAN_TOKEN), "BOOK-A", "?limit_id=net").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (ids(&page), &page["withheld"]),
+        (vec![1, 3, 5, 9], &json!(1))
+    );
+    // A limit with no records, as one no longer in any set, reads none.
+    let (code, page) = records(&router, Some(RISK_A), "BOOK-A", "?limit_id=gone").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (
+            &page["records"],
+            &page["withheld"],
+            &page["next_after"],
+            &page["more"]
+        ),
+        (&json!([]), &json!(0), &json!(10), &json!(false))
+    );
+
+    let long = format!("?limit_id={}", "x".repeat(129));
+    for query in [
+        "?limit_id=",
+        long.as_str(),
+        "?limit_id=a%20b",
+        "?limit_id=net&limit=0",
+    ] {
+        let (code, body) = records(&router, Some(RISK_A), "BOOK-A", query).await;
+        assert_eq!(code, StatusCode::BAD_REQUEST, "{query}: {body}");
+    }
+    for (token, book) in [(OUTSIDER, "BOOK-A"), (RISK_A, "BOOK-B")] {
+        let (code, body) = records(&router, Some(token), book, "?limit_id=net").await;
+        assert_eq!(code, StatusCode::FORBIDDEN, "{token} {book}: {body}");
+    }
+}
+
+/// The store reads a records request makes: each `entity_page` call's limit and how many
+/// entries it returned.
+struct CountingAudit {
+    inner: Arc<dyn AuditStore>,
+    reads: std::sync::Mutex<Vec<(usize, usize)>>,
+    /// Answer each page with no entries and `more`, as a store that misbehaves would.
+    stalled: std::sync::atomic::AtomicBool,
+}
+
+impl CountingAudit {
+    fn take(&self) -> Vec<(usize, usize)> {
+        std::mem::take(&mut self.reads.lock().unwrap())
+    }
+}
+
+#[async_trait::async_trait]
+impl AuditStore for CountingAudit {
+    async fn append(&self, entry: &AuditEntry) -> Result<(), TraitError> {
+        self.inner.append(entry).await
+    }
+
+    async fn append_all(&self, entries: &[AuditEntry]) -> Result<(), TraitError> {
+        self.inner.append_all(entries).await
+    }
+
+    async fn entry_count(&self) -> Result<u64, TraitError> {
+        self.inner.entry_count().await
+    }
+
+    async fn query(
+        &self,
+        filter: &AuditFilter,
+        pagination: &Pagination,
+    ) -> Result<Page<AuditEntry>, TraitError> {
+        self.inner.query(filter, pagination).await
+    }
+
+    async fn last_id(&self) -> Result<Option<u64>, TraitError> {
+        self.inner.last_id().await
+    }
+
+    async fn entity_page(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+        after: u64,
+        limit: usize,
+    ) -> Result<convex_engine::ports::storage::EntityPage, TraitError> {
+        let page = if self.stalled.load(Ordering::SeqCst) {
+            // Yield, so that a request that spins still lets the test's timeout fire.
+            tokio::task::yield_now().await;
+            convex_engine::ports::storage::EntityPage {
+                entries: Vec::new(),
+                more: true,
+            }
+        } else {
+            self.inner
+                .entity_page(entity_type, entity_id, after, limit)
+                .await?
+        };
+        self.reads.lock().unwrap().push((limit, page.entries.len()));
+        Ok(page)
+    }
+}
+
+/// A request by limit reads at most 10,000 of the book's entries, 1,000 a store read: past
+/// 10,000 of other limits' records it answers no records, `more`, and the last id it read,
+/// and the next request reads on. Without `limit_id` a request is one store read of `limit`.
+#[tokio::test]
+async fn a_request_by_limit_reads_at_most_10000_entries() {
+    let (setup, router) = router(AccessControl::local_development()).await;
+    put_book(
+        &router,
+        None,
+        "BOOK-A",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    let counting = Arc::new(CountingAudit {
+        inner: setup.storage.audit.clone(),
+        reads: std::sync::Mutex::new(Vec::new()),
+        stalled: std::sync::atomic::AtomicBool::new(false),
+    });
+    let audit: Arc<dyn AuditStore> = counting.clone();
+    let router = router.layer(axum::Extension(audit));
+    let others: Vec<AuditEntry> = (1..=10_000)
+        .map(|id| record_of(id, "gross", json!({})))
+        .collect();
+    for chunk in others.chunks(64) {
+        setup.storage.audit.append_all(chunk).await.unwrap();
+    }
+    setup
+        .storage
+        .audit
+        .append(&record_of(10_001, "net", json!({})))
+        .await
+        .unwrap();
+
+    let (code, page) = records(&router, None, "BOOK-A", "?limit_id=net").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (
+            &page["records"],
+            &page["withheld"],
+            &page["next_after"],
+            &page["more"]
+        ),
+        (&json!([]), &json!(0), &json!(10_000), &json!(true))
+    );
+    assert_eq!(
+        counting.take(),
+        vec![(1000, 1000); 10],
+        "10,000 entries read"
+    );
+    let (code, page) = records(&router, None, "BOOK-A", "?limit_id=net&after=10000").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(ids(&page), [10_001]);
+    assert_eq!(
+        (&page["next_after"], &page["more"]),
+        (&json!(10_001), &json!(false))
+    );
+    assert_eq!(counting.take(), [(1000, 1)]);
+    // Exactly 10,000 entries to read, the last this limit's: nothing more.
+    let (code, page) = records(&router, None, "BOOK-A", "?limit_id=net&after=1").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (ids(&page), &page["next_after"], &page["more"]),
+        (vec![10_001], &json!(10_001), &json!(false))
+    );
+    assert_eq!(counting.take(), vec![(1000, 1000); 10]);
+    // A page that fills stops reading: 100 of 10,000 records read in one store read.
+    let (code, page) = records(&router, None, "BOOK-A", "?limit_id=gross").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(ids(&page), (1..=100).collect::<Vec<u64>>());
+    assert_eq!(
+        (&page["next_after"], &page["more"]),
+        (&json!(100), &json!(true))
+    );
+    assert_eq!(counting.take(), [(1000, 1000)]);
+    // Without `limit_id`, one store read of `limit`, as before.
+    let (code, page) = records(&router, None, "BOOK-A", "?after=9990&limit=5").await;
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(ids(&page), (9991..=9995).collect::<Vec<u64>>());
+    assert_eq!(page["more"], true);
+    assert_eq!(counting.take(), [(5, 5)]);
+    // A store that answers `more` with no entries ends the request at its first read.
+    counting.stalled.store(true, Ordering::SeqCst);
+    let (code, page) = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        records(&router, None, "BOOK-A", "?limit_id=net&after=7"),
+    )
+    .await
+    .expect("the request ends");
+    assert_eq!(code, StatusCode::OK, "{page}");
+    assert_eq!(
+        (&page["records"], &page["next_after"], &page["more"]),
+        (&json!([]), &json!(7), &json!(true))
+    );
+    assert_eq!(counting.take(), [(1000, 0)]);
+}
+
 /// Without a monitor the route has no store to read; a book that does not exist is not
 /// found.
 #[tokio::test]
