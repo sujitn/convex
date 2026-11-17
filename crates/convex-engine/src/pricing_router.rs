@@ -282,15 +282,7 @@ impl PricingRouter {
         ) {
             return Err(EngineError::PricingError("unsupported production bond terms/model: FRNs require published fixings and projection, optional/amortizing products require the completed explicit model contract (CVX-055)".into()));
         }
-        if input.bond.is_callable
-            || input.bond.is_putable
-            || input.bond.is_sinkable
-            || !input.bond.call_schedule.is_empty()
-            || input.bond.floating_terms.is_some()
-            || input.bond.inflation_index.is_some()
-            || input.bond.inflation_base_index.is_some()
-            || input.bond.has_deflation_floor
-        {
+        if input.bond.has_embedded_terms() {
             return Err(EngineError::PricingError(
                 "unsupported embedded terms on nominal bullet/zero".into(),
             ));

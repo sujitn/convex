@@ -62,3 +62,7 @@ harness = false
 [[bench]]
 name = "limit_benchmarks"
 harness = false
+
+[[bench]]
+name = "level_benchmarks"
+harness = false

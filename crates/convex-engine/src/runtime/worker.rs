@@ -486,7 +486,7 @@ fn quality_error(quality: &SnapshotQuality) -> ErrorCode {
     }
 }
 /// `Valid`, or `Demo` in an explicit demonstration composition.
-pub(super) fn accepted(quality: DataQuality, demo: bool) -> bool {
+pub(crate) fn accepted(quality: DataQuality, demo: bool) -> bool {
     quality == DataQuality::Valid || (demo && quality == DataQuality::Demo)
 }
 /// What one valuation reads: the activation's snapshot, verified and built once, or a

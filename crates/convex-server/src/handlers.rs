@@ -232,6 +232,9 @@ pub struct BondQuoteQuery {
     pub settlement_date: Option<String>,
     /// Market price for spread calculations.
     pub market_price: Option<Decimal>,
+    /// A level in the unit of the bond's pricing rule: a decimal yield, or basis points
+    /// of spread (P19a). Exclusive with `market_price`.
+    pub level: Option<Decimal>,
     /// Information cutoff for reference and curve revisions. Defaults to now.
     pub known_at: Option<convex_core::contracts::UtcTimestamp>,
     /// Activated configuration to price under. Defaults to the one the runtime runs.
@@ -362,7 +365,8 @@ async fn value_stored(
 }
 
 /// One callable or floating rate note quote: the valuation, its context in the body and
-/// headers, and the stored reference version it priced.
+/// headers, the stored reference version it priced, and the bond's `pricing_rule` report
+/// when it has a rule.
 async fn runtime_quote(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
@@ -370,9 +374,13 @@ async fn runtime_quote(
     settlement_date: Date,
     known_at: convex_core::contracts::UtcTimestamp,
     mark: Option<Decimal>,
+    pricing_rule: Option<serde_json::Value>,
 ) -> Result<axum::response::Response, crate::error::ApiError> {
     let (mut value, pins) =
         value_stored(engine, context, reference, settlement_date, known_at, mark).await?;
+    if let Some(pricing_rule) = pricing_rule {
+        value["pricing_rule"] = pricing_rule;
+    }
     value["context"] = context_json(Some(&*context), false, known_at);
     value["context"]["curves"] = serde_json::json!(pins);
     let response = crate::curves::with_header(
@@ -405,6 +413,8 @@ pub async fn get_bond_quote(
 ) -> Result<axum::response::Response, crate::error::ApiError> {
     use crate::curves::{known_at_or_now, with_header};
     use crate::error::ApiError;
+    use crate::level_pricing::{pricing_rule_json, quoted_input, with_pricing_rule_headers};
+    use convex_engine::level_pricing::price_under_rule;
     use convex_engine::ports::reference_master::ReferenceLookup;
     use convex_engine::pricing_router::PricingInput;
 
@@ -423,9 +433,11 @@ pub async fn get_bond_quote(
         .bond
         .clone()
         .ok_or_else(|| ApiError::not_found(format!("Bond not found: {instrument_id}")))?;
-    let market_price = query.market_price.ok_or_else(|| {
-        ApiError::missing_input("market_price is required; no model or market value is substituted")
-    })?;
+    let quoted = quoted_input(query.market_price, query.level)?;
+    let rule = state
+        .engine
+        .pricing_rule_in_force(&InstrumentId::new(&instrument_id), lookup)
+        .await?;
     let settlement_date = match query.settlement_date {
         Some(ref text) => parse_date(text).map_err(ApiError::invalid)?,
         None => {
@@ -442,42 +454,61 @@ pub async fn get_bond_quote(
         .request_context(query.configuration.as_ref(), known_at)
         .await?;
     if runtime_product(&bond) {
-        return runtime_quote(
+        let pricing = price_under_rule(&bond, rule.as_ref(), quoted, settlement_date, None)?;
+        let response = runtime_quote(
             &state.engine,
             &mut context,
             &reference,
             settlement_date,
             known_at,
-            Some(market_price),
+            Some(pricing.clean_price_mid),
+            rule.as_ref()
+                .map(|rule| pricing_rule_json(rule, quoted, &pricing)),
         )
-        .await;
+        .await?;
+        return with_pricing_rule_headers(response, rule.as_ref());
     }
     let curves = context.curves_for(&bond).await?;
+    let mut pricing = price_under_rule(
+        &bond,
+        rule.as_ref(),
+        quoted,
+        settlement_date,
+        Some(&curves.discount),
+    )?;
     let input = PricingInput {
         bond,
         settlement_date,
         market_price_bid: None,
-        market_price_mid: Some(market_price),
+        market_price_mid: Some(pricing.clean_price_mid),
         market_price_ask: None,
         discount_curve: Some(curves.discount),
         benchmark_curve: curves.benchmark,
-        government_curve: None,
+        government_curve: pricing.government_curve.take(),
         volatility: None,
-        bid_ask_config: context.config().bid_ask_spread.clone(),
+        bid_ask_config: if pricing.price_width_applies {
+            context.config().bid_ask_spread.clone()
+        } else {
+            None
+        },
     };
     let quote = state
         .engine
         .pricing_router()
         .price(&input)
         .map_err(|e| ApiError::calculation(format!("Pricing failed: {e}")))?;
-    let value =
+    let mut value =
         bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
+    if let Some(rule) = &rule {
+        value["pricing_rule"] = pricing_rule_json(rule, quoted, &pricing);
+    }
     let response = with_header(
         Json(value).into_response(),
         "x-convex-reference-version",
         &reference.version.get().to_string(),
     )?;
-    with_context_headers(response, &context, &context_pins(&context), known_at)
+    let response = with_context_headers(response, &context, &context_pins(&context), known_at)?;
+    with_pricing_rule_headers(response, rule.as_ref())
 }
 
 // =============================================================================
@@ -689,6 +720,7 @@ async fn price_one_bond(
                         settlement_date,
                         known_at,
                         request.market_price,
+                        None,
                     )
                     .await
                 }

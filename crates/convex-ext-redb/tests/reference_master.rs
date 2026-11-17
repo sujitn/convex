@@ -220,3 +220,9 @@ async fn books_page_in_order_and_version_with_compare_and_set() {
     let (_dir, repo) = repository();
     conformance::books_page_in_order_and_version_with_compare_and_set(repo).await;
 }
+
+#[tokio::test]
+async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds() {
+    let (_dir, repo) = repository();
+    conformance::pricing_rules_and_benchmark_sets_link_to_stored_bonds(repo).await;
+}

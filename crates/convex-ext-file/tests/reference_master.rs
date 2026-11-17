@@ -59,3 +59,11 @@ async fn books_page_in_order_and_version_with_compare_and_set() {
     ))
     .await;
 }
+
+#[tokio::test]
+async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds() {
+    conformance::pricing_rules_and_benchmark_sets_link_to_stored_bonds(Arc::new(
+        MemoryReferenceRepository::default(),
+    ))
+    .await;
+}

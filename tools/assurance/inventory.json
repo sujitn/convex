@@ -2841,6 +2841,30 @@
       "exceptions": []
     },
     {
+      "path": "crates/convex-ports/src/level_pricing.rs",
+      "invariants": "P19a pricing rules and benchmark sets: one rule an instrument, a benchmark spread names its set and a tenor; a set holds unique tenors (12M and 1Y are one) and unique instruments. At commit a rule names a stored bond, a level or a set only on a plain fixed bullet, and an existing set; a set is in USD and pins stored sovereign fixed bullets in its currency (is_benchmark_bond), as of the commit.",
+      "bounds": "1 to 32 securities a set; tenors 1 to 3 digits of months or years, 1 to 600 months; tenor parsing is bounded by its length.",
+      "failure_contract": "Typed ReferenceError: InvalidInput for malformed or unlinked definitions, CapacityExceeded above 32 securities. Nothing commits on refusal.",
+      "tests": [
+        "crates/convex-ports/tests/level_pricing_contracts.rs",
+        "crates/convex-ports/tests/support/master_conformance.rs",
+        "crates/convex-server/tests/level_pricing.rs"
+      ],
+      "exceptions": []
+    },
+    {
+      "path": "crates/convex-engine/src/level_pricing.rs",
+      "invariants": "P19a level stage (D112 as amended): a fixed bullet's yield, Z-spread or benchmark-spread level is priced only through convex_analytics::bond_quote::price_from_level, the definitions quote_fixed publishes, so the router reports the same level back. A benchmark yield is the street yield at the security's Live clean price mid, of the exact version the set pins, from a record of a quality the books accept (Valid, or Demo when the configuration accepts it); a benchmark spread is added to that yield compounded semi-annually, the yield reported; the G-spread interpolates inside the set's maturities and never extrapolates. A bond with no rule is untouched.",
+      "bounds": "At most 32 securities a set (convex-ports MAX_BENCHMARK_SECURITIES), one rule an instrument, tenors to 600 months; each yield or spread root inherits the pure crate's bounded solver.",
+      "failure_contract": "Typed LevelError: refused requests and rules, a benchmark without a usable Live price named by tenor in its message (BenchmarkUnavailable), pure-crate failures and repository errors. No default level, curve, benchmark or price is substituted.",
+      "tests": [
+        "crates/convex-analytics/tests/bond_quotes.rs",
+        "crates/convex-ports/tests/level_pricing_contracts.rs",
+        "crates/convex-server/tests/level_pricing.rs"
+      ],
+      "exceptions": []
+    },
+    {
       "path": "crates/convex-engine/src/pricing_router.rs",
       "invariants": "CVX-017 shared nominal fixed/zero quotes preserve actual terms, price units and explicit curve roles. Missing inputs never become synthetic values. Reviewed: Full workspace execution exposed the older engine/default/pricing/benchmark and fictional snapshot fixture selecting FlatForward while consuming flat-zero behavior. The engine now declares Flat and rejects unsupported FlatForward construction before provider/cache/graph work; snapshot reconstruction rejects a supplied FlatForward policy rather than rewriting it. Flat pricing/benchmark and constant-zero snapshot fixtures select their actual Flat/FlatZero policy, with original numeric inputs/assertions unchanged. Prior immutable captures are not edited. Complete checked flat-forward recipe integration into runtime snapshots remains an explicit gap. Reviewed curve replay impact: CVX-063 complete original native CurveRecipe capture and schema-2 engine/runtime/configuration/file replay. Original source order, dates/time basis, units/roles/currency, parameters/LLP, helpers/settings and exact dependency versions survive; native full graph construction and typed failures, no sampled/fitted-node alias. Schema-1 bytes/hashes remain exact; incompatible legacy policies reject. Explicit numeric record/definition lineage, dependency freshness and original aggregate bounds survive. Failed changed-input rebuilds clear the invalid representation and never install old/linear/zero fallback; older day graph conversion rejects fractional/full recipes. Full product calibration/risk snapshots, convenience/host qualification and independent certificates remain open. 2563 unchanged original requests retain2208success/355failure outcomes; transport comparison is not a financial oracle. Original334 numerical rows/defaults/bytes,6890 historical files,30areas/174combinations/2154Planned, normal dependencies and26Cexports are preserved.",
       "bounds": "Fixed schedule/cashflow <=4096 periods; benchmark <=128; key ladder <=64; yield/spread roots <=100 iterations. Economic dates/rates and curve query outputs are validated at their owning boundary.",

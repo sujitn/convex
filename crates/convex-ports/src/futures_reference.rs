@@ -209,7 +209,9 @@ fn validate_calendar(
     Ok(())
 }
 
-fn exact_bond(
+/// The exact bond revision `pin` names, from the commit or the store, known by the
+/// commit's time.
+pub(crate) fn exact_bond(
     commit: &ReferenceCommit,
     pin: &InstrumentPin,
     lookup: &mut impl FnMut(

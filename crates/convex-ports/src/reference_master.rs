@@ -591,6 +591,10 @@ pub enum MasterKey {
     LimitProposal(BookId),
     /// A book's acknowledgements of breached or unknown limits (P15c, D94).
     LimitAcknowledgements(BookId),
+    /// How a stored bond is quoted (P19, D111).
+    PricingRule(InstrumentId),
+    /// Government securities that spreads are quoted to (P19, D113).
+    BenchmarkSet(ReferenceDataId),
 }
 
 /// The kind of a master resource, named as its storage-key prefix.
@@ -625,6 +629,10 @@ pub enum MasterKind {
     LimitProposal,
     /// Book limit acknowledgements.
     LimitAcknowledgements,
+    /// Bond pricing rules.
+    PricingRule,
+    /// Benchmark sets.
+    BenchmarkSet,
 }
 
 impl MasterKind {
@@ -645,6 +653,8 @@ impl MasterKind {
             Self::LimitSet => "limit_set",
             Self::LimitProposal => "limit_proposal",
             Self::LimitAcknowledgements => "limit_acknowledgements",
+            Self::PricingRule => "pricing_rule",
+            Self::BenchmarkSet => "benchmark_set",
         }
     }
 }
@@ -667,6 +677,8 @@ impl MasterKey {
             Self::LimitSet(_) => MasterKind::LimitSet,
             Self::LimitProposal(_) => MasterKind::LimitProposal,
             Self::LimitAcknowledgements(_) => MasterKind::LimitAcknowledgements,
+            Self::PricingRule(_) => MasterKind::PricingRule,
+            Self::BenchmarkSet(_) => MasterKind::BenchmarkSet,
         }
     }
 
@@ -689,6 +701,8 @@ impl MasterKey {
             Self::LimitAcknowledgements(id) => {
                 format!("limit_acknowledgements/{}", id.as_str())
             }
+            Self::PricingRule(id) => format!("pricing_rule/{}", id.as_str()),
+            Self::BenchmarkSet(id) => format!("benchmark_set/{}", id.as_str()),
         }
     }
 }
@@ -730,6 +744,10 @@ pub enum MasterDefinition {
     LimitProposal(Box<crate::limits::LimitProposalDefinition>),
     /// A book's limit acknowledgements; written only through the book limit routes.
     LimitAcknowledgements(Box<crate::limits::LimitAcknowledgementsDefinition>),
+    /// How a stored bond is quoted.
+    PricingRule(Box<crate::level_pricing::PricingRuleDefinition>),
+    /// Government securities that spreads are quoted to.
+    BenchmarkSet(Box<crate::level_pricing::BenchmarkSetDefinition>),
 }
 
 impl MasterDefinition {
@@ -750,6 +768,8 @@ impl MasterDefinition {
             Self::LimitSet(v) => MasterKey::LimitSet(v.book_id.clone()),
             Self::LimitProposal(v) => MasterKey::LimitProposal(v.book_id.clone()),
             Self::LimitAcknowledgements(v) => MasterKey::LimitAcknowledgements(v.book_id.clone()),
+            Self::PricingRule(v) => MasterKey::PricingRule(v.instrument_id.clone()),
+            Self::BenchmarkSet(v) => MasterKey::BenchmarkSet(v.benchmark_set_id.clone()),
         }
     }
     /// Economic validity.
@@ -769,6 +789,8 @@ impl MasterDefinition {
             Self::LimitSet(v) => v.effective,
             Self::LimitProposal(v) => v.effective,
             Self::LimitAcknowledgements(v) => v.effective,
+            Self::PricingRule(v) => v.effective,
+            Self::BenchmarkSet(v) => v.effective,
         }
     }
     /// Validate complete bounded fields, independently of backend state.
@@ -848,6 +870,14 @@ impl MasterDefinition {
                 &v.provenance
             }
             Self::LimitAcknowledgements(v) => {
+                v.validate()?;
+                &v.provenance
+            }
+            Self::PricingRule(v) => {
+                v.validate()?;
+                &v.provenance
+            }
+            Self::BenchmarkSet(v) => {
                 v.validate()?;
                 &v.provenance
             }
@@ -1503,16 +1533,7 @@ pub fn validate_reference_links(
                 match &mapping.target {
                     Some(ReferenceTarget::Instrument { instrument_id }) => {
                         let id: convex_core::ids::InstrumentId = instrument_id.clone().into();
-                        let target = commit
-                            .records
-                            .iter()
-                            .find(|r| r.instrument_id == id)
-                            .cloned()
-                            .map(|r| Ok(Some(r)))
-                            .unwrap_or_else(|| bond_current(&id))?;
-                        if target
-                            .is_none_or(|r| r.bond.is_none() || r.recorded_at > commit.recorded_at)
-                        {
+                        if bond_at_commit(commit, &id, &mut bond_current)?.is_none() {
                             return Err(ReferenceError::InvalidInput(
                                 "mapping target instrument is missing",
                             ));
@@ -1520,31 +1541,18 @@ pub fn validate_reference_links(
                     }
                     Some(ReferenceTarget::Entity { entity_id }) => {
                         // Entity targets bind stable identity; attributes are resolved at query time.
-                        let key = MasterKey::Entity(entity_id.clone());
-                        if !commit
-                            .master_records
-                            .iter()
-                            .any(|r| r.definition.key() == key)
-                        {
-                            // Version 1 establishes the never-reused identity.
-                            let version = Version::new(1)
-                                .map_err(|_| ReferenceError::InvalidInput("invalid version"))?;
-                            resource(&key, version)?;
-                        }
+                        ensure_master_exists(
+                            commit,
+                            &MasterKey::Entity(entity_id.clone()),
+                            &mut resource,
+                        )?;
                     }
                     Some(ReferenceTarget::Futures { instrument_id }) => {
-                        let key = MasterKey::Futures(instrument_id.clone());
-                        if !commit
-                            .master_records
-                            .iter()
-                            .any(|r| r.definition.key() == key)
-                        {
-                            resource(
-                                &key,
-                                Version::new(1)
-                                    .map_err(|_| ReferenceError::InvalidInput("invalid version"))?,
-                            )?;
-                        }
+                        ensure_master_exists(
+                            commit,
+                            &MasterKey::Futures(instrument_id.clone()),
+                            &mut resource,
+                        )?;
                     }
                     None => {}
                 }
@@ -1553,7 +1561,49 @@ pub fn validate_reference_links(
         }
     }
     crate::futures_reference::validate_futures_links(commit, &mut resource, &mut bond_version)?;
+    crate::level_pricing::validate_level_pricing_links(
+        commit,
+        &mut resource,
+        &mut bond_current,
+        &mut bond_version,
+    )?;
     Ok(())
+}
+
+/// The bond `id` names as of `commit`: its record in the commit, else its current stored
+/// record, if that was recorded by the commit's time.
+pub(crate) fn bond_at_commit(
+    commit: &crate::reference_repository::ReferenceCommit,
+    id: &convex_core::ids::InstrumentId,
+    bond_current: &mut impl FnMut(
+        &convex_core::ids::InstrumentId,
+    ) -> Result<Option<ReferenceRecord>, ReferenceError>,
+) -> Result<Option<BondReferenceData>, ReferenceError> {
+    let record = match commit.records.iter().find(|r| &r.instrument_id == id) {
+        Some(record) => Some(record.clone()),
+        None => bond_current(id)?,
+    };
+    Ok(record
+        .filter(|r| r.recorded_at <= commit.recorded_at)
+        .and_then(|r| r.bond))
+}
+
+/// Refuse a reference to a resource that neither `commit` nor the store holds. Version 1
+/// establishes the never-reused identity.
+pub(crate) fn ensure_master_exists(
+    commit: &crate::reference_repository::ReferenceCommit,
+    key: &MasterKey,
+    resource: &mut impl FnMut(&MasterKey, Version) -> Result<MasterRecord, ReferenceError>,
+) -> Result<(), ReferenceError> {
+    if commit
+        .master_records
+        .iter()
+        .any(|r| r.definition.key() == *key)
+    {
+        return Ok(());
+    }
+    let first = Version::new(1).map_err(|_| ReferenceError::InvalidInput("invalid version"))?;
+    resource(key, first).map(|_| ())
 }
 
 fn validate_resource_pins(

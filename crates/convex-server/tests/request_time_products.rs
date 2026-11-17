@@ -280,6 +280,41 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     }
     let known_at = cutoff(priced[0].0);
 
+    // A callable's rule can quote it only by price; its quote reports the rule as a
+    // bullet's does, in the body and the headers.
+    let rule: convex_ports::reference_master::MasterChange = serde_json::from_value(json!({
+        "expected_version": null,
+        "definition": {"kind": "pricing_rule", "definition": {
+            "instrument_id": "CALL-001",
+            "method": {"kind": "price"},
+            "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
+            "provenance": {"source": "desk", "evidence_reference": "request-time-products"},
+        }},
+    }))
+    .unwrap();
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("call-rule").unwrap(),
+                changes: vec![],
+                master_changes: vec![rule],
+            },
+            priced[0].0,
+        )
+        .await
+        .unwrap();
+    let uri = format!(
+        "/api/v1/quotes/CALL-001?market_price=99.25&known_at={known_at}&settlement_date={SETTLEMENT}"
+    );
+    let (status, headers, body) = call(&app, "GET", &uri, None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["clean_price_mid"], priced[0].1["clean_price_mid"]);
+    assert_eq!(body["pricing_rule"]["method"]["kind"], "price", "{body}");
+    assert_eq!(body["pricing_rule"]["version"], 1);
+    assert_eq!(headers["x-convex-pricing-rule-version"], "1");
+
     // Without a mark every measure says so, as the stream says it of an unquoted bond.
     let posted = json!({"bond": callable, "settlement_date": SETTLEMENT, "known_at": known_at});
     let (status, _, body) = call(&app, "POST", "/api/v1/quote", Some(posted.clone())).await;
