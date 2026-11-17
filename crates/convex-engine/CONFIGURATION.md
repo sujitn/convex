@@ -125,9 +125,13 @@ everything the repository does not hold; nothing has a default:
   "settlement_date": "2026-10-22",
   "measures": ["clean_price_mid", "ytm_mid"],
   "numerical_settings": {"policy_id": "convex-bond-router-v1", "bump_bps": 1.0},
-  "max_concurrent_calcs": 4
+  "max_concurrent_calcs": 4,
+  "levels": {"source": "desk", "max_age_ms": 86400000}
 }
 ```
+
+`levels` is optional: where a desk posts the levels of bonds quoted by a yield or a
+spread, and how old one may be, such as a trading day.
 
 At the cutoff, compile:
 - takes the universe from the live positions of 1 to 64 books (at most 4,096
@@ -141,6 +145,14 @@ At the cutoff, compile:
   pins them. A Live document only names them in `required_curves`;
 - requires one quote per instrument from `source`, which must be a provider the
   server composes for `mode`;
+- reads each instrument's pricing rule in force. A bond quoted by a level takes its
+  one quote with its rule's field (`mid_yield`, or `mid_spread` for a Z or benchmark
+  spread) from `levels.source`, as old as `levels.max_age_ms`, when the selection
+  names `levels`, and otherwise from `source`;
+- adds each security of the benchmark set a rule names to the universe, at the version
+  the set pins, quoted by price. It refuses a selection whose `fields` lack
+  `mid_price`, a book holding a benchmark at another version than its set pins, and a
+  benchmark that is itself quoted by a level;
 - sets the runtime id to `<pricing config>-v<version>`. Each compiled version is a
   separate runtime with its own checkpoint, and clients resynchronise on the new id.
 

@@ -130,12 +130,13 @@ impl RuntimePlan {
         let mut measures = std::collections::BTreeSet::new();
         for measure in &self.measures {
             if !measures.insert(measure)
-                || !crate::optional_valuation::PRODUCT_MODELS
-                    .iter()
-                    .any(|model| {
-                        crate::optional_valuation::product_measures(model)
-                            .contains(&measure.as_str())
-                    })
+                || !(crate::snapshot::is_runtime_measure(measure.as_str())
+                    || crate::optional_valuation::PRODUCT_MODELS
+                        .iter()
+                        .any(|model| {
+                            crate::optional_valuation::product_measures(model)
+                                .contains(&measure.as_str())
+                        }))
             {
                 return Err(RuntimeError::Configuration(
                     "unsupported/duplicate runtime measure",

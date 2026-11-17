@@ -22,6 +22,7 @@ use convex_core::contracts::*;
 use convex_engine::{PricingEngine, RuntimeInput};
 use convex_ports::{
     configuration::InstrumentPin,
+    quote_event::{FieldUpdate, QuoteChange, QuoteEventKind, QuoteField, QuoteValue},
     reference_data::{BondReferenceData, IssuerType},
     reference_master::{MasterChange, MasterDefinition},
     reference_repository::{ReferenceChange, ReferenceCommand},
@@ -298,6 +299,18 @@ async fn desk() -> (Setup, Arc<PricingEngine>, String) {
         event.key.instrument_id = bond.instrument_id.clone();
         plan.seed_events.push(event);
     }
+    // The corporate is quoted 125 bp over the 10-year, so the runtime prices it from that
+    // level against the notes' prices in the same snapshot.
+    plan.assembly.quotes[0].fields = vec![QuoteField::MidSpread];
+    plan.seed_events[0].event = QuoteEventKind::Image {
+        fields: vec![QuoteChange {
+            field: QuoteField::MidSpread,
+            update: FieldUpdate::Set(QuoteValue {
+                value: 125.into(),
+                unit: QuoteField::MidSpread.unit(),
+            }),
+        }],
+    };
     plan.measures = convex_engine::snapshot::RUNTIME_MEASURES
         .iter()
         .map(|m| MeasureId::new(*m).unwrap())
@@ -361,6 +374,18 @@ async fn desk() -> (Setup, Arc<PricingEngine>, String) {
         .unwrap()
         .unwrap();
     configuration::activate_pricing(&setup, &config).await;
+    // Priced from its level; the configuration has no swap curve, so its I-spread and
+    // asset swap are not.
+    let corporate = &engine.runtime_results_of(["BOND-001"])[0];
+    assert!(
+        corporate
+            .result
+            .results()
+            .keys()
+            .any(|measure| measure.as_str() == "clean_price_mid"),
+        "{:?}",
+        corporate.result.errors()
+    );
     let known_at = engine.runtime_results()[0].result.provenance().known_at;
     let cutoff = known_at
         .datetime()

@@ -119,6 +119,11 @@ fn selection() -> PlanSelection {
 }
 
 fn capabilities(source: &str) -> ConfigurationCapabilities {
+    capabilities_of(&[source])
+}
+
+/// A composition with a Live provider for each of `sources`.
+fn capabilities_of(sources: &[&str]) -> ConfigurationCapabilities {
     ConfigurationCapabilities {
         build_id: ModelId::new("compile-test-build").unwrap(),
         storage: SourceId::new("redb-local").unwrap(),
@@ -126,14 +131,17 @@ fn capabilities(source: &str) -> ConfigurationCapabilities {
         atomic_activation: true,
         shared_writers: false,
         result_transport: SourceId::new("display-only").unwrap(),
-        providers: vec![ProviderBinding {
-            source: SourceId::new(source).unwrap(),
-            capabilities: vec![
-                ProviderCapability::CanonicalQuotes,
-                ProviderCapability::LiveImages,
-            ],
-            credential: None,
-        }],
+        providers: sources
+            .iter()
+            .map(|source| ProviderBinding {
+                source: SourceId::new(*source).unwrap(),
+                capabilities: vec![
+                    ProviderCapability::CanonicalQuotes,
+                    ProviderCapability::LiveImages,
+                ],
+                credential: None,
+            })
+            .collect(),
         demo: false,
     }
 }
@@ -143,12 +151,20 @@ async fn compile(
     selection: &PlanSelection,
     source: &str,
 ) -> Result<ConfigurationDocument, ConfigurationError> {
+    compile_with(storage, selection, &capabilities(source)).await
+}
+
+async fn compile_with(
+    storage: &StorageAdapter,
+    selection: &PlanSelection,
+    capabilities: &ConfigurationCapabilities,
+) -> Result<ConfigurationDocument, ConfigurationError> {
     assemble_from_repository(
         selection,
         storage.bonds.as_ref(),
         storage.configs.as_ref(),
         storage.curves.as_ref(),
-        &capabilities(source),
+        capabilities,
     )
     .await
 }
@@ -381,4 +397,215 @@ async fn a_live_universe_compiles_up_to_4096_instruments_and_a_replay_one_up_to_
         compile(&storage, &over, "showcase-feed").await,
         Err(ConfigurationError::CapacityExceeded)
     ));
+}
+
+/// Store the 2- and 10-year Treasuries (the seed's bond with a sovereign issuer), a
+/// `UST-OTR` set of both, and a rule quoting the seed's bond `method` against it.
+async fn level_desk(storage: &StorageAdapter, instrument: &str, method: Value) {
+    let seed = seed();
+    let notes: Vec<Value> = [
+        ("UST-2Y", "2028-01-15", "91282CAA9"),
+        ("UST-10Y", "2035-01-15", "91282CBB6"),
+    ]
+    .into_iter()
+    .map(|(id, maturity, cusip)| {
+        let mut bond = seed["references"][0]["command"]["changes"][0]["bond"].clone();
+        bond["instrument_id"] = id.into();
+        bond["issuer_type"] = "Sovereign".into();
+        bond["maturity_date"] = maturity.into();
+        bond["cusip"] = cusip.into();
+        bond["isin"] = Value::Null;
+        json!({"kind": "create", "bond": bond})
+    })
+    .collect();
+    let effective = json!({"from": "2026-01-01T00:00:00Z", "until": null});
+    let provenance = json!({"source": "desk", "evidence_reference": "compile-test"});
+    let command: ReferenceCommand = serde_json::from_value(json!({
+        "idempotency_key": "level-desk",
+        "changes": notes,
+        "master_changes": [
+            {"expected_version": null, "definition": {"kind": "benchmark_set", "definition": {
+                "benchmark_set_id": "UST-OTR",
+                "currency": "USD",
+                "securities": [
+                    {"tenor": "2Y", "instrument_id": "UST-2Y", "version": 1},
+                    {"tenor": "10Y", "instrument_id": "UST-10Y", "version": 1},
+                ],
+                "effective": effective,
+                "provenance": provenance,
+            }}},
+            {"expected_version": null, "definition": {"kind": "pricing_rule", "definition": {
+                "instrument_id": instrument,
+                "method": method,
+                "benchmark_set_id": "UST-OTR",
+                "effective": effective,
+                "provenance": provenance,
+            }}},
+        ],
+    }))
+    .unwrap();
+    storage
+        .bonds
+        .commit(&command, at("2026-10-07T12:30:00Z"))
+        .await
+        .unwrap();
+}
+
+/// What a compiled quote reads: its instrument, source, fields and age.
+fn quote_reads(document: &ConfigurationDocument) -> Vec<(String, String, Vec<String>, i64)> {
+    document
+        .assembly
+        .quotes
+        .iter()
+        .map(|quote| {
+            (
+                quote.key.instrument_id.as_str().to_owned(),
+                quote.key.source.clone(),
+                quote
+                    .fields
+                    .iter()
+                    .map(|field| {
+                        serde_json::to_value(field)
+                            .unwrap()
+                            .as_str()
+                            .unwrap()
+                            .to_owned()
+                    })
+                    .collect(),
+                quote.max_age_ms,
+            )
+        })
+        .collect()
+}
+
+/// A book bond quoted as a spread over a benchmark set brings the set's Treasuries into
+/// the universe at the versions the set pins, quoted by price, and reads its own spread
+/// from the levels' source, as old as a trading day; without a levels source it reads its
+/// spread from the selection's.
+#[tokio::test]
+async fn a_level_quoted_bond_brings_its_benchmarks_and_reads_its_level() {
+    let dir = tempfile::tempdir().unwrap();
+    let (storage, instrument) = storage(&dir).await;
+    level_desk(
+        &storage,
+        &instrument,
+        json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+    )
+    .await;
+    let mut desk = selection();
+    desk.levels =
+        Some(serde_json::from_value(json!({"source": "desk", "max_age_ms": 86_400_000})).unwrap());
+    let document = compile_with(
+        &storage,
+        &desk,
+        &capabilities_of(&["showcase-feed", "desk"]),
+    )
+    .await
+    .unwrap();
+    let pins: Vec<_> = document
+        .assembly
+        .instruments
+        .iter()
+        .map(|pin| (pin.instrument_id.as_str(), pin.version.get()))
+        .collect();
+    assert_eq!(
+        pins,
+        [(instrument.as_str(), 1), ("UST-10Y", 1), ("UST-2Y", 1)]
+    );
+    let feed = |id: &str| {
+        (
+            id.to_owned(),
+            "showcase-feed".to_owned(),
+            vec!["mid_price".to_owned()],
+            600_000,
+        )
+    };
+    assert_eq!(
+        quote_reads(&document),
+        [
+            (
+                instrument.clone(),
+                "desk".to_owned(),
+                vec!["mid_spread".to_owned()],
+                86_400_000
+            ),
+            feed("UST-10Y"),
+            feed("UST-2Y"),
+        ]
+    );
+    assert_eq!(document.providers.len(), 2);
+
+    let document = compile(&storage, &selection(), "showcase-feed")
+        .await
+        .unwrap();
+    assert_eq!(
+        quote_reads(&document)[0],
+        (
+            instrument.clone(),
+            "showcase-feed".to_owned(),
+            vec!["mid_spread".to_owned()],
+            600_000
+        )
+    );
+    assert_eq!(document.providers.len(), 1);
+}
+
+/// Benchmarks are quoted by price, at the versions their set pins, from a composed
+/// provider; a compile that cannot give them that is refused.
+#[tokio::test]
+async fn a_level_quoted_universe_is_refused_when_its_benchmarks_cannot_be_priced() {
+    let dir = tempfile::tempdir().unwrap();
+    let (storage, instrument) = storage(&dir).await;
+    level_desk(
+        &storage,
+        &instrument,
+        json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+    )
+    .await;
+    let invalid = |result: Result<ConfigurationDocument, ConfigurationError>| match result {
+        Err(ConfigurationError::Invalid(reason)) => reason,
+        other => panic!("expected an invalid selection, got {other:?}"),
+    };
+    let mut yields = selection();
+    yields.fields = vec![serde_json::from_value(json!("mid_yield")).unwrap()];
+    assert_eq!(
+        invalid(compile(&storage, &yields, "showcase-feed").await),
+        "benchmark securities are quoted by price: the selection's fields include mid_price"
+    );
+
+    let mut desk = selection();
+    desk.levels =
+        Some(serde_json::from_value(json!({"source": "desk", "max_age_ms": 86_400_000})).unwrap());
+    assert!(matches!(
+        compile(&storage, &desk, "showcase-feed").await,
+        Err(ConfigurationError::Unsupported(_))
+    ));
+
+    // A book holds the 10-year at a later version than the set pins.
+    let mut reopened = seed()["references"][0]["command"]["changes"][0]["bond"].clone();
+    reopened["instrument_id"] = "UST-10Y".into();
+    reopened["issuer_type"] = "Sovereign".into();
+    reopened["maturity_date"] = "2035-01-15".into();
+    reopened["cusip"] = "91282CBB6".into();
+    reopened["isin"] = Value::Null;
+    reopened["description"] = "reopened".into();
+    let command: ReferenceCommand = serde_json::from_value(json!({
+        "idempotency_key": "reopen-10y",
+        "changes": [{"kind": "update", "bond": reopened, "expected_version": 1}],
+        "master_changes": [],
+    }))
+    .unwrap();
+    storage
+        .bonds
+        .commit(&command, at("2026-10-07T12:45:00Z"))
+        .await
+        .unwrap();
+    book(&storage, "TREASURY-BOOK", "UST-10Y", "2026-10-07T13:00:00Z").await;
+    let mut both = selection();
+    both.books
+        .push(ReferenceDataId::new("TREASURY-BOOK").unwrap());
+    assert_eq!(
+        invalid(compile(&storage, &both, "showcase-feed").await),
+        "a benchmark set pins another version of a book instrument"
+    );
 }

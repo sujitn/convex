@@ -242,6 +242,8 @@ pub struct PricingEngine {
     /// The master keys of each committed reference command, for observers such as the
     /// limit monitor.
     commits: tokio::sync::broadcast::Sender<ReferenceCommitNotice>,
+    /// Benchmark yields shared by request-time level quotes.
+    benchmark_yield_cache: level_pricing::BenchmarkYieldCache,
 }
 
 /// The master keys one reference commit wrote. A transient notice: a receiver that lags
@@ -271,6 +273,7 @@ impl PricingEngine {
             configurations: None,
             request: None,
             commits: tokio::sync::broadcast::channel(COMMIT_NOTICES).0,
+            benchmark_yield_cache: Default::default(),
         }
     }
 
@@ -621,6 +624,12 @@ impl PricingEngine {
             .for_valuation(id, lookup)
             .await?
             .map(|resolved| resolved.record))
+    }
+
+    /// Benchmark yields solved for request-time level quotes, each once for its price and
+    /// settlement, for [`level_pricing::price_under_rule`].
+    pub fn benchmark_yield_cache(&self) -> &level_pricing::BenchmarkYieldCache {
+        &self.benchmark_yield_cache
     }
 
     /// A stored bond's pricing rule at `lookup` and, when it names one, its benchmark set,

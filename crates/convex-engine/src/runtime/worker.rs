@@ -38,12 +38,23 @@ pub(super) fn context(
         .bond
         .as_ref()
         .ok_or(RuntimeError::RecoveryConflict)?;
-    // Each instrument requests only the plan measures its own model publishes.
+    // Each instrument requests only the plan measures its own model publishes, and a
+    // G-spread only when it is priced against a benchmark set it matures within.
     let model = product_model(bond);
+    let is_g_spread_published = || {
+        reference
+            .pricing_rule
+            .as_ref()
+            .is_some_and(|rule| crate::level_pricing::is_g_spread_published(snapshot, bond, rule))
+    };
     let measures: Vec<_> = plan
         .measures
         .iter()
-        .filter(|measure| product_measures(model).contains(&measure.as_str()))
+        .filter(|measure| {
+            product_measures(model).contains(&measure.as_str())
+                || (measure.as_str() == crate::snapshot::G_SPREAD_MEASURE
+                    && is_g_spread_published())
+        })
         .cloned()
         .collect();
     if measures.is_empty() {
@@ -159,11 +170,15 @@ pub(super) struct Baseline {
 /// What each pin's valuation reads while the frame and the pinned reference section hold
 /// (G31): its curves, by plan index. They follow from the pin's model, the plan's
 /// measures and the configured curves. With them, the plan indices sorted by instrument
-/// id, so an instrument whose quotes changed finds its pin (D81).
+/// id, so an instrument whose quotes changed finds its pin, and each pin's dependents:
+/// the pins priced against it as a benchmark, whose inputs hold its quotes. The section
+/// pins each rule, so the dependents are found again only when it changes, at each
+/// activation.
 #[cfg_attr(test, derive(Clone))]
 struct Reads {
     curves: Vec<Vec<String>>,
     by_instrument: Vec<usize>,
+    dependents: Vec<Vec<usize>>,
 }
 impl Reads {
     /// Each pin's context is built once here, so a pin that `context` refuses is refused
@@ -180,12 +195,15 @@ impl Reads {
                 let curves = crate::snapshot::read_curve_ids(
                     spec.model_id.as_str(),
                     &spec.measures,
+                    crate::snapshot::pricing_method(snapshot, pin.instrument_id.as_str()),
                     configured,
                 );
                 Ok(curves.into_iter().map(str::to_owned).collect())
             })
             .collect::<Result<_, RuntimeError>>()?;
-        Ok(Self::with_curves(&plan.assembly.instruments, curves))
+        let mut reads = Self::with_curves(&plan.assembly.instruments, curves);
+        reads.index_dependents(&plan.assembly.instruments, snapshot);
+        Ok(reads)
     }
     /// `curves[i]` names the curves pin `i` reads.
     fn with_curves(pins: &[InstrumentPin], curves: Vec<Vec<String>>) -> Self {
@@ -197,8 +215,27 @@ impl Reads {
                 .cmp(pins[b].instrument_id.as_str())
         });
         Self {
+            dependents: vec![Vec::new(); pins.len()],
             curves,
             by_instrument,
+        }
+    }
+    /// Index each benchmark pin's dependents from the rules `snapshot`'s references pin, in
+    /// plan order; a set's securities are distinct, so each dependent once. A benchmark
+    /// the plan does not pin has none: the dependent's valuation refuses it by tenor.
+    fn index_dependents(&mut self, pins: &[InstrumentPin], snapshot: &MarketSnapshot) {
+        for (dependent, pin) in pins.iter().enumerate() {
+            let Some(rule) = snapshot
+                .reference(pin.instrument_id.as_str())
+                .and_then(|reference| reference.pricing_rule.as_ref())
+            else {
+                continue;
+            };
+            for security in snapshot.benchmark_securities(rule) {
+                if let Some(benchmark) = self.pin(pins, security.instrument_id.as_str()) {
+                    self.dependents[benchmark].push(dependent);
+                }
+            }
         }
     }
     /// The plan index of `instrument`'s pin. A plan pins each instrument once and selects
@@ -326,11 +363,13 @@ impl Baseline {
                     .map(|(index, _)| index)
                     .eq(judge.iter().copied()));
                 for instrument in instruments {
-                    judge.insert(
-                        self.reads
-                            .pin(pins, instrument)
-                            .ok_or(RuntimeError::RecoveryConflict)?,
-                    );
+                    let pin = self
+                        .reads
+                        .pin(pins, instrument)
+                        .ok_or(RuntimeError::RecoveryConflict)?;
+                    judge.insert(pin);
+                    // A benchmark's quotes are its dependents' inputs too.
+                    judge.extend(self.reads.dependents[pin].iter().copied());
                 }
                 judge.into_iter().collect()
             }
@@ -809,7 +848,7 @@ pub(super) fn expiry(
             capture
                 .applied_overrides
                 .iter()
-                .filter(|o| inputs.quotes().iter().any(|q| q.requirement.key == o.scope))
+                .filter(|o| inputs.quotes().any(|q| q.requirement.key == o.scope))
                 .map(|o| o.expires_at),
         );
     }
@@ -1001,17 +1040,52 @@ mod tests {
         assert!(checked.as_ref().is_some_and(|s| s.ptr_eq(&within)));
     }
 
-    /// P13b-iii (D81): a Live tick that judges only the pins whose quotes changed, and
-    /// the pins whose quality window it left, values exactly the pins that judging every
+    /// A rule quoting its bond as a spread over the 2-year of the `UST-OTR` set.
+    fn spread_rule() -> convex_ports::level_pricing::ResolvedPricingRule {
+        convex_ports::level_pricing::ResolvedPricingRule {
+            version: fixture::version(1),
+            recorded_at: fixture::time("2025-01-01T00:00:00Z"),
+            method: convex_ports::level_pricing::PricingMethod::BenchmarkSpread {
+                tenor: "2Y".into(),
+            },
+            benchmark_set_id: Some(ReferenceDataId::new("UST-OTR").unwrap()),
+        }
+    }
+
+    /// The `UST-OTR` set, holding `benchmark` at version 1 as its 2-year.
+    fn set_of(benchmark: &str) -> convex_ports::reference_master::MasterRecord {
+        let set = serde_json::from_value(serde_json::json!({
+            "benchmark_set_id": "UST-OTR",
+            "currency": "USD",
+            "securities": [{"tenor": "2Y", "instrument_id": benchmark, "version": 1}],
+            "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
+            "provenance": {"source": "desk", "evidence_reference": "fixture"},
+        }))
+        .unwrap();
+        convex_ports::reference_master::MasterRecord {
+            schema_version: SchemaVersion::V2,
+            version: fixture::version(1),
+            recorded_at: fixture::time("2025-01-01T00:00:00Z"),
+            definition: convex_ports::reference_master::MasterDefinition::BenchmarkSet(Box::new(
+                set,
+            )),
+        }
+    }
+
+    /// A Live tick that judges only the pins whose quotes changed, their dependents and
+    /// the pins whose quality window it left values exactly the pins that judging every
     /// pin values, with the same qualities. Covered: no change, a quote, a quote's age
-    /// reaching its limit and passing it, a curve's age passing its limit, a fixing, a
-    /// copied and a changed reference section, and a time before the last tick's. The
-    /// plan's order is not the snapshot's.
+    /// reaching its limit and passing it, a curve's age passing its limit, a benchmark's
+    /// quote and its age, a fixing, a copied and a changed reference section, and a time
+    /// before the last tick's. The plan's order is not the snapshot's.
     #[test]
     fn a_tick_that_judges_only_the_changed_pins_values_what_judging_every_pin_does() {
         let mut content = fixture::content();
         fixture::add_bond(&mut content, "BOND-002", 2_000);
         fixture::add_bond(&mut content, "BOND-003", 0);
+        // BOND-001 is quoted as a spread over BOND-002.
+        content.references.make_mut()[0].pricing_rule = Some(spread_rule());
+        content.benchmark_sets = vec![set_of("BOND-002")];
         // BOND-001 reads the curve, 5 s old; each age limit is 10 s.
         let curve_time = fixture::time("2026-10-02T14:59:55Z");
         content.curves[0].source_time = curve_time;
@@ -1032,8 +1106,9 @@ mod tests {
                 _ => vec![],
             })
             .collect();
-        let reads = Reads::with_curves(&pins, curves);
+        let mut reads = Reads::with_curves(&pins, curves);
         let first = Arc::new(MarketSnapshot::new(content).unwrap());
+        reads.index_dependents(&pins, &first);
         let mut baseline = Baseline::first(&first, &pins, reads).unwrap();
         let mut generation = 1;
         let mut tick = |ms: i64, nanos: i64, change: &dyn Fn(&mut SnapshotContent)| {
@@ -1073,9 +1148,13 @@ mod tests {
         // The curve read by BOND-001 reaches its age limit at 5 s.
         assert_eq!(tick(5_000, 0, &|_| {}), (true, names(&[])));
         assert_eq!(tick(5_000, 1, &|_| {}), (true, names(&["BOND-001"])));
-        // BOND-002's quote, observed 2 s before the as-of, reaches its limit at 8 s.
+        // BOND-002's quote, observed 2 s before the as-of, reaches its limit at 8 s, and
+        // makes BOND-001, quoted over it, stale too.
         assert_eq!(tick(8_000, 0, &|_| {}), (true, names(&[])));
-        assert_eq!(tick(8_000, 1, &|_| {}), (true, names(&["BOND-002"])));
+        assert_eq!(
+            tick(8_000, 1, &|_| {}),
+            (true, names(&["BOND-002", "BOND-001"]))
+        );
         // Anything but a quote: every pin is judged.
         assert_eq!(
             tick(8_100, 0, &|content| content.fixings.push(SnapshotFixing {
@@ -1103,7 +1182,7 @@ mod tests {
                 content.quotes[1].make_mut(),
                 9_000
             )),
-            (true, names(&["BOND-002"]))
+            (true, names(&["BOND-002", "BOND-001"]))
         );
     }
 }

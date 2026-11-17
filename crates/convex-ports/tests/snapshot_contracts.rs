@@ -322,7 +322,7 @@ fn instrument_quality_reads_only_that_instruments_inputs() {
     // A fixed-coupon bond reads no fixing; its own fresh quote and curve are valid.
     let fresh = snapshot.inputs("BOND-001", &["USD-FIXTURE"]);
     assert!(fresh.fixings().is_empty());
-    assert_eq!(fresh.quotes().len(), 1);
+    assert_eq!(fresh.quotes().count(), 1);
     assert_eq!(fresh.curves(), [&snapshot.content().required_curves[0]]);
     let quality = snapshot.quality_of(&fresh);
     assert!(quality.complete && quality.issues.is_empty());
@@ -336,7 +336,7 @@ fn instrument_quality_reads_only_that_instruments_inputs() {
             reason: SnapshotIssueKind::Stale,
         }]
     );
-    assert!(snapshot.inputs("BOND-404", &[]).quotes().is_empty());
+    assert_eq!(snapshot.inputs("BOND-404", &[]).quotes().count(), 0);
 
     // A curve counts only for a valuation that reads it. A one-instrument set that reads
     // the stale curve gives the snapshot-wide answer; a curve no snapshot requires is

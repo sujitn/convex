@@ -520,6 +520,32 @@ A missing or unusable input is refused by name; nothing is substituted.
   - 400: both inputs, or a `level` for a bond with no rule or a `price` rule.
   - 422: neither input.
 
+**In a Live runtime** a bond with a rule is priced from its own quote under that rule,
+and each benchmark security of its set is valued beside it, so their quotes are in
+every snapshot.
+- **Levels are quotes.** A bond quoted by a level reads its rule's field (`mid_yield`,
+  or `mid_spread` for a Z or benchmark spread) from its quote, posted to
+  `POST /api/v1/market/quotes` like any other. The compiled configuration names where
+  levels come from (see `CONFIGURATION.md`). A `manual` level is the desk's own mark and
+  is judged `Valid`; a `manual` price, or a `manual` quote on a benchmark, stays
+  `Indicative`.
+- **One tick, one price for each benchmark.** The stage reads each benchmark's clean
+  price mid from its quote in the snapshot being valued, and each benchmark's yield is
+  solved once for each price and shared by every bond quoted to it.
+- **A benchmark tick reprices exactly the bonds quoted to it.** A bond's inputs are its
+  own quote and its benchmarks' quotes, so a stale benchmark makes those bonds stale and
+  no other. A level is judged by its own age; quote skew is measured among its
+  benchmarks' quotes.
+- **`g_spread_mid`** is a runtime measure, published for a fixed bullet whose rule names
+  a set it matures within; it is not asked of any other bond, so their results stay
+  complete.
+- **One bond's rule fails only that bond.** A set not in force, a benchmark the runtime
+  does not value at the version its set pins, or a quote without the rule's field fails
+  that bond's result, naming a benchmark by its tenor.
+- **Rules are pinned with the references at each activation.** A rule or set change
+  reaches a running Live runtime at its next activation. A roll to a Treasury the
+  runtime does not value changes the universe, which is restart-required.
+
 ## Books and portfolios
 
 A book is a durable, versioned position snapshot owned by an external book management

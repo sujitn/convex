@@ -15,6 +15,7 @@ use convex_core::ids::InstrumentId;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::level_pricing::ResolvedPricingRule;
 use crate::reference_data::BondReferenceData;
 use crate::reference_master::*;
 use crate::storage::{BondFilter, Page, Pagination};
@@ -281,12 +282,14 @@ pub trait ReferenceRepository: Send + Sync {
         let bond = record.bond.as_ref().ok_or(ReferenceError::NotFound)?;
         let (issuer, calendar, convention) = self.resources_for_valuation(bond, lookup).await?;
         let floating = self.floating_resources_for_valuation(bond).await?;
+        let pricing_rule = self.pricing_rule_for_valuation(id, lookup).await?;
         let resolved = ResolvedBondReference {
             record,
             issuer,
             calendar,
             convention,
             floating,
+            pricing_rule,
         };
         validate_resolved_bond(&resolved, lookup)?;
         Ok(Some(resolved))
@@ -360,6 +363,21 @@ pub trait ReferenceRepository: Send + Sync {
                 "missing pinned index calendar",
             ))?;
         Ok(Some(ResolvedFloating { index, calendar }))
+    }
+
+    /// A bond's pricing rule in force at `lookup`; none for a bond with no rule, which is
+    /// quoted by price.
+    async fn pricing_rule_for_valuation(
+        &self,
+        id: &InstrumentId,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<ResolvedPricingRule>, ReferenceError> {
+        let instrument = convex_core::contracts::InstrumentId::new(id.as_str())
+            .map_err(|_| ReferenceError::InvalidInput("invalid instrument identity"))?;
+        self.get_master_at(&MasterKey::PricingRule(instrument), lookup)
+            .await?
+            .map(|record| ResolvedPricingRule::of(&record))
+            .transpose()
     }
 }
 

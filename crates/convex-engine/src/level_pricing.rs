@@ -1,14 +1,15 @@
-//! The level stage (P19a; D111–D113, D112 as amended): a stored fixed bullet quoted by a
-//! yield or a spread is priced from its level, and the bond's model then values that
-//! price as it values any other.
+//! The level stage: a stored fixed bullet quoted by a yield or a spread is priced from
+//! its level, and the bond's model then values that price as it values any other.
 //!
 //! The stage adds no formula. It selects the mark a rule names and the benchmark
 //! securities a spread is quoted to, and the price comes from
 //! `convex_analytics::bond_quote::price_from_level`, the definitions the router publishes,
 //! so a yield or Z-spread priced here is the one the router reports back. A benchmark
 //! spread is over the one security its tenor names; the router's G-spread is over the
-//! whole set. A benchmark security's yield is its street yield at its Live clean price
-//! mid, read from the Live runtime's record of it: quotes are not stored (D5).
+//! whole set. A benchmark security's yield is its street yield at its clean price mid:
+//! in a snapshot, from its quote in that snapshot ([`price_in_snapshot`]); at request
+//! time, from the Live runtime's record of it, since quotes are not stored
+//! ([`live_clean_price_mid`]).
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -21,23 +22,28 @@ use convex_bonds::prelude::FixedRateBond;
 use convex_bonds::types::Tenor;
 use convex_core::{
     contracts::{
-        InstrumentId, MeasureValue, ReferenceDataId, SnapshotId, UtcTimestamp, ValuationSubject,
-        Version,
+        ErrorCode, InstrumentId, MeasureValue, ReferenceDataId, SnapshotId, UtcTimestamp,
+        ValuationSubject, Version,
     },
     types::{Compounding, Mark, Spread, SpreadType, Yield},
     Currency, Date,
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use std::collections::HashMap;
 use std::ops::RangeInclusive;
+use std::sync::Mutex;
 
 use crate::curve_builder::BuiltCurve;
 use crate::ports::{
     level_pricing::{
-        is_plain_bullet, tenor_months, BenchmarkSecurity, PricingMethod, PricingRuleDefinition,
+        benchmark_set_of, is_plain_bullet, tenor_months, BenchmarkSecurity, PricingMethod,
+        PricingRuleDefinition, ResolvedPricingRule,
     },
+    quote_event::QuoteField,
     reference_data::BondReferenceData,
     runtime::PublishedValuation,
+    snapshot::MarketSnapshot,
 };
 use crate::pricing_router::PricingRouter;
 use crate::runtime::accepted;
@@ -49,6 +55,8 @@ pub const LEVEL_PRICE_MODEL: &str = "convex-level-price-v1";
 const YIELD_LEVEL_RANGE: RangeInclusive<Decimal> = dec!(-0.1)..=dec!(1);
 /// A spread level is from -2,000 to 20,000 basis points.
 const SPREAD_LEVEL_RANGE_BPS: RangeInclusive<Decimal> = dec!(-2000)..=dec!(20000);
+/// Benchmark yields a [`BenchmarkYieldCache`] keeps; it starts again when full.
+const MAX_SOLVED_YIELDS: usize = 4_096;
 
 /// Why a level was not priced. Nothing is substituted.
 #[derive(Debug, thiserror::Error)]
@@ -75,6 +83,17 @@ pub enum LevelError {
     /// A rule, set or security could not be read.
     #[error(transparent)]
     Reference(#[from] crate::ports::reference_repository::ReferenceError),
+}
+
+impl LevelError {
+    /// The canonical code a valuation records for this refusal.
+    pub fn error_code(&self) -> ErrorCode {
+        match self {
+            Self::Refused(_) | Self::Reference(_) => ErrorCode::InvalidInput,
+            Self::BenchmarkUnavailable { .. } => ErrorCode::MissingMarketData,
+            Self::Analytics(_) => ErrorCode::SolverLimit,
+        }
+    }
 }
 
 /// One security of a benchmark set as the stage read it.
@@ -211,6 +230,69 @@ pub struct RulePricing {
     pub benchmark: Option<BenchmarkYield>,
 }
 
+/// Each benchmark security's street yield, solved once for each settlement and clean
+/// price mid and shared by every bond quoted to it, in Live and at request time: a
+/// benchmark tick re-solves each of its securities once, however many bonds it reprices.
+/// It holds at most 4,096 yields and starts again when full.
+#[derive(Debug, Default)]
+pub struct BenchmarkYieldCache {
+    solved: Mutex<HashMap<SolvedYieldKey, Yield>>,
+}
+
+/// What a benchmark's street yield depends on.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct SolvedYieldKey {
+    instrument_id: InstrumentId,
+    version: Version,
+    settlement: Date,
+    clean_price_mid: Decimal,
+}
+
+impl BenchmarkYieldCache {
+    /// `benchmark`'s street yield at `settlement`, at its own coupon frequency.
+    fn street_yield(
+        &self,
+        benchmark: &BenchmarkInput<'_>,
+        settlement: Date,
+    ) -> Result<Yield, LevelError> {
+        let key = SolvedYieldKey {
+            instrument_id: benchmark.security.instrument_id.clone(),
+            version: benchmark.security.version,
+            settlement,
+            clean_price_mid: benchmark.clean_price_mid,
+        };
+        // A poisoned lock only loses the shared yields; each is solved again.
+        if let Some(solved) = self
+            .solved
+            .lock()
+            .ok()
+            .and_then(|solved| solved.get(&key).copied())
+        {
+            return Ok(solved);
+        }
+        let fixed = fixed_rate_bond(benchmark.bond)?;
+        let frequency = fixed.frequency();
+        let ytm = convex_analytics::functions::yield_to_maturity(
+            &fixed,
+            settlement,
+            benchmark.clean_price_mid,
+            frequency,
+        )
+        .map_err(analytics_error)?
+        .yield_value;
+        let rate = Decimal::from_f64_retain(ytm)
+            .ok_or_else(|| LevelError::Analytics("a benchmark yield is not finite".into()))?;
+        let solved = Yield::new(rate, Compounding::from(frequency));
+        if let Ok(mut yields) = self.solved.lock() {
+            if yields.len() >= MAX_SOLVED_YIELDS {
+                yields.clear();
+            }
+            yields.insert(key, solved);
+        }
+        Ok(solved)
+    }
+}
+
 /// Price `input` for `bond` under its rule, if it has one. With no rule the bond is quoted
 /// by price, and a price is taken as given; under a rule a level is priced through
 /// `price_from_level`. `discount` is the configuration's discount curve, which a Z-spread
@@ -221,39 +303,163 @@ pub fn price_under_rule(
     input: QuotedInput,
     settlement: Date,
     discount: Option<&BuiltCurve>,
+    yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
     let Some(in_force) = in_force else {
-        return match input {
-            QuotedInput::Price(price) => Ok(RulePricing {
-                clean_price_mid: price,
-                price_width_applies: true,
-                government_curve: None,
-                g_spread_refused: None,
-                benchmark: None,
-            }),
-            QuotedInput::Level(_) => Err(refused(
-                "this bond has no pricing rule, so it is quoted by price; send market_price",
-            )),
-        };
+        return price_without_rule(input);
     };
-    let rule = &in_force.rule;
-    if rule.instrument_id.as_str() != bond.instrument_id.as_str() {
+    if in_force.rule.instrument_id.as_str() != bond.instrument_id.as_str() {
         return Err(refused("the pricing rule is for another instrument"));
     }
-    if rule.requires_plain_bullet() && !is_plain_bullet(bond) {
+    let benchmarks = in_force.benchmark_set.as_ref().map(|set| {
+        set.quotes
+            .iter()
+            .map(|quote| BenchmarkInput {
+                security: &quote.security,
+                bond: &quote.bond,
+                clean_price_mid: quote.clean_price_mid,
+            })
+            .collect::<Vec<_>>()
+    });
+    price_with_rule(
+        bond,
+        &in_force.rule.method,
+        benchmarks.as_deref(),
+        input,
+        settlement,
+        discount,
+        yields,
+    )
+}
+
+/// [`price_under_rule`] for `bond` in `snapshot`, under `rule`, the rule the snapshot pins
+/// for it: `quoted` is the bond's quote in the rule's field, a level or a price as the
+/// rule's method quotes it. Each benchmark security's clean price mid is its quote in the
+/// same snapshot, so every bond a Live tick values reads one price for each benchmark. A
+/// set the snapshot does not hold, or a security it does not hold at its pinned version
+/// or holds no mid price for, refuses by tenor.
+pub fn price_in_snapshot(
+    snapshot: &MarketSnapshot,
+    bond: &BondReferenceData,
+    rule: &ResolvedPricingRule,
+    quoted: Decimal,
+    settlement: Date,
+    discount: Option<&BuiltCurve>,
+    yields: &BenchmarkYieldCache,
+) -> Result<RulePricing, LevelError> {
+    let benchmarks = match &rule.benchmark_set_id {
+        None => None,
+        Some(id) => {
+            let securities = snapshot
+                .benchmark_set(id)
+                .and_then(benchmark_set_of)
+                .map(|set| &set.securities)
+                .ok_or_else(|| {
+                    refused(format!(
+                        "benchmark set {} is not in force at the cutoff",
+                        id.as_str()
+                    ))
+                })?;
+            Some(
+                securities
+                    .iter()
+                    .map(|security| snapshot_benchmark(snapshot, security))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+        }
+    };
+    let input = if rule.method.is_level() {
+        QuotedInput::Level(quoted)
+    } else {
+        QuotedInput::Price(quoted)
+    };
+    price_with_rule(
+        bond,
+        &rule.method,
+        benchmarks.as_deref(),
+        input,
+        settlement,
+        discount,
+        yields,
+    )
+}
+
+/// A benchmark security's terms as `snapshot` holds them, at the version its set pins.
+fn held_benchmark<'a>(
+    snapshot: &'a MarketSnapshot,
+    security: &BenchmarkSecurity,
+) -> Option<&'a BondReferenceData> {
+    snapshot
+        .reference(security.instrument_id.as_str())
+        .filter(|reference| reference.record.version == security.version)
+        .and_then(|reference| reference.record.bond.as_ref())
+}
+
+/// A benchmark security as `snapshot` holds it: its terms at the version the set pins,
+/// and the mid price of its quote.
+fn snapshot_benchmark<'a>(
+    snapshot: &'a MarketSnapshot,
+    security: &'a BenchmarkSecurity,
+) -> Result<BenchmarkInput<'a>, LevelError> {
+    let unavailable = |reason| benchmark_unavailable(security, reason);
+    let bond = held_benchmark(snapshot, security)
+        .ok_or_else(|| unavailable("the runtime does not value its pinned version"))?;
+    let clean_price_mid = snapshot
+        .quotes_for(security.instrument_id.as_str())
+        .iter()
+        .find_map(|quote| {
+            let field = quote.image.as_ref()?.fields.get(&QuoteField::MidPrice)?;
+            Some(field.value.value)
+        })
+        .ok_or_else(|| unavailable("its quote has no mid price"))?;
+    Ok(BenchmarkInput {
+        security,
+        bond,
+        clean_price_mid,
+    })
+}
+
+/// A bond with no rule is quoted by price.
+fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
+    match input {
+        QuotedInput::Price(price) => Ok(RulePricing {
+            clean_price_mid: price,
+            price_width_applies: true,
+            government_curve: None,
+            g_spread_refused: None,
+            benchmark: None,
+        }),
+        QuotedInput::Level(_) => Err(refused(
+            "this bond has no pricing rule, so it is quoted by price; send market_price",
+        )),
+    }
+}
+
+/// The stage under a rule quoting `bond` by `method`, with the securities of the set it
+/// names as read, when it names one.
+fn price_with_rule(
+    bond: &BondReferenceData,
+    method: &PricingMethod,
+    benchmarks: Option<&[BenchmarkInput<'_>]>,
+    input: QuotedInput,
+    settlement: Date,
+    discount: Option<&BuiltCurve>,
+    yields: &BenchmarkYieldCache,
+) -> Result<RulePricing, LevelError> {
+    if (method.is_level() || benchmarks.is_some()) && !is_plain_bullet(bond) {
         return Err(refused(
             "only a fixed bullet is priced from a level or against a benchmark set",
         ));
     }
-    let benchmarks = match &in_force.benchmark_set {
-        Some(set) => Some(price_benchmarks(&set.quotes, settlement)?),
+    let benchmarks = match benchmarks {
+        Some(set) => Some(price_benchmarks(set, settlement, yields)?),
         None => None,
     };
     let (clean_price_mid, benchmark) = match input {
         QuotedInput::Price(price) => (price, None),
         QuotedInput::Level(level) => level_to_clean_price(
             bond,
-            &rule.method,
+            method,
             level,
             settlement,
             discount,
@@ -261,14 +467,21 @@ pub fn price_under_rule(
         )?,
     };
     let (government_curve, g_spread_refused) = match benchmarks {
-        Some(all) if matures_within(bond.maturity_date, &all) => (
-            Some(benchmark_curve(
-                all.into_iter().map(|b| b.government_benchmark).collect(),
-                settlement,
-                bond.currency,
-            )?),
-            None,
-        ),
+        Some(all)
+            if matures_within(
+                bond.maturity_date,
+                all.iter().map(|b| b.government_benchmark.maturity),
+            ) =>
+        {
+            (
+                Some(benchmark_curve(
+                    all.into_iter().map(|b| b.government_benchmark).collect(),
+                    settlement,
+                    bond.currency,
+                )?),
+                None,
+            )
+        }
         Some(_) => (
             None,
             Some("the bond matures outside its benchmark set's maturities"),
@@ -277,7 +490,7 @@ pub fn price_under_rule(
     };
     Ok(RulePricing {
         clean_price_mid,
-        price_width_applies: !rule.method.is_level(),
+        price_width_applies: !method.is_level(),
         government_curve,
         g_spread_refused,
         benchmark,
@@ -366,8 +579,8 @@ fn level_to_clean_price(
                     ..Default::default()
                 },
                 Some(BenchmarkYield {
-                    tenor: quoted_to.quote.security.tenor.clone(),
-                    instrument_id: quoted_to.quote.security.instrument_id.clone(),
+                    tenor: quoted_to.security.tenor.clone(),
+                    instrument_id: quoted_to.security.instrument_id.clone(),
                     ytm,
                 }),
             )
@@ -411,37 +624,36 @@ fn analytics_error(error: impl std::fmt::Display) -> LevelError {
     LevelError::Analytics(error.to_string())
 }
 
-/// A benchmark security priced for one request: its quote, its tenor in months and the
-/// pure crate's record of it, which carries its street yield.
+/// One benchmark security as the stage reads it: its entry in the set, its terms at the
+/// version the set pins, and its clean price mid, borrowed from a rule in force or from a
+/// snapshot.
+struct BenchmarkInput<'a> {
+    security: &'a BenchmarkSecurity,
+    bond: &'a BondReferenceData,
+    clean_price_mid: Decimal,
+}
+
+/// A benchmark security priced for one valuation: its entry in the set, its tenor in
+/// months and the pure crate's record of it, which carries its street yield.
 struct PricedBenchmark<'a> {
-    quote: &'a BenchmarkQuote,
+    security: &'a BenchmarkSecurity,
     months: u32,
     government_benchmark: GovernmentBenchmark,
 }
 
-/// Each security of a set with its street yield at `settlement`, from its Live clean
-/// price mid. Each is a sovereign plain bullet in USD, checked when the set was committed
-/// at the version it pins.
-fn price_benchmarks(
-    quotes: &[BenchmarkQuote],
+/// Each security of a set with its street yield at `settlement`, from its clean price mid,
+/// solved once for each price through `yields`. Each is a sovereign plain bullet in USD,
+/// checked when the set was committed at the version it pins.
+fn price_benchmarks<'a>(
+    inputs: &[BenchmarkInput<'a>],
     settlement: Date,
-) -> Result<Vec<PricedBenchmark<'_>>, LevelError> {
-    quotes
+    yields: &BenchmarkYieldCache,
+) -> Result<Vec<PricedBenchmark<'a>>, LevelError> {
+    inputs
         .iter()
-        .map(|quote| {
-            let bond = &quote.bond;
-            let fixed = fixed_rate_bond(bond)?;
-            let frequency = fixed.frequency();
-            let ytm = convex_analytics::functions::yield_to_maturity(
-                &fixed,
-                settlement,
-                quote.clean_price_mid,
-                frequency,
-            )
-            .map_err(analytics_error)?
-            .yield_value;
-            let rate = Decimal::from_f64_retain(ytm)
-                .ok_or_else(|| LevelError::Analytics("a benchmark yield is not finite".into()))?;
+        .map(|input| {
+            let bond = input.bond;
+            let street_yield = yields.street_yield(input, settlement)?;
             let security_id = bond
                 .cusip
                 .as_deref()
@@ -450,12 +662,12 @@ fn price_benchmarks(
                 .ok_or_else(|| {
                     refused(format!(
                         "the {} benchmark has no valid CUSIP or ISIN",
-                        quote.security.tenor
+                        input.security.tenor
                     ))
                 })?;
-            let months = tenor_months(&quote.security.tenor).map_err(|e| refused(e.to_string()))?;
+            let months = tenor_months(&input.security.tenor).map_err(|e| refused(e.to_string()))?;
             Ok(PricedBenchmark {
-                quote,
+                security: input.security,
                 months,
                 government_benchmark: GovernmentBenchmark::new(
                     Sovereign::UST,
@@ -463,9 +675,9 @@ fn price_benchmarks(
                     security_id,
                     bond.maturity_date,
                     bond.coupon_rate.unwrap_or(Decimal::ZERO),
-                    Yield::new(rate, Compounding::from(frequency)),
+                    street_yield,
                 )
-                .with_price(quote.clean_price_mid),
+                .with_price(input.clean_price_mid),
             })
         })
         .collect()
@@ -485,12 +697,32 @@ fn benchmark_curve(
     government_curve(&spec, settlement, currency).map_err(analytics_error)
 }
 
-/// Whether `maturity` lies within the set's maturities, so the G-spread interpolates and
+/// Whether `maturity` lies within a set's `maturities`, so the G-spread interpolates and
 /// never extrapolates.
-fn matures_within(maturity: Date, benchmarks: &[PricedBenchmark<'_>]) -> bool {
-    let maturities = benchmarks.iter().map(|b| b.government_benchmark.maturity);
-    match (maturities.clone().min(), maturities.max()) {
-        (Some(first), Some(last)) => first <= maturity && maturity <= last,
-        _ => false,
+fn matures_within(maturity: Date, maturities: impl Iterator<Item = Date>) -> bool {
+    let range = maturities.fold(None, |range: Option<(Date, Date)>, date| match range {
+        None => Some((date, date)),
+        Some((first, last)) => Some((first.min(date), last.max(date))),
+    });
+    range.is_some_and(|(first, last)| first <= maturity && maturity <= last)
+}
+
+/// Whether a valuation of `bond` in `snapshot` under `rule` publishes a G-spread: the
+/// bond is a plain bullet, the snapshot holds the set the rule names and every security
+/// of it at its pinned version, and the bond matures within their maturities. Otherwise
+/// `g_spread_mid` is not asked of it, so its result stays complete.
+pub fn is_g_spread_published(
+    snapshot: &MarketSnapshot,
+    bond: &BondReferenceData,
+    rule: &ResolvedPricingRule,
+) -> bool {
+    if !is_plain_bullet(bond) {
+        return false;
     }
+    let maturities: Option<Vec<Date>> = snapshot
+        .benchmark_securities(rule)
+        .iter()
+        .map(|security| held_benchmark(snapshot, security).map(|held| held.maturity_date))
+        .collect();
+    maturities.is_some_and(|maturities| matures_within(bond.maturity_date, maturities.into_iter()))
 }

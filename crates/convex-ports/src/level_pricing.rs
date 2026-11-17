@@ -20,12 +20,13 @@
 
 use std::collections::BTreeSet;
 
-use convex_core::contracts::{InstrumentId, ReferenceDataId, Version};
+use convex_core::contracts::{InstrumentId, ReferenceDataId, UtcTimestamp, Version};
 use convex_core::futures::InstrumentPin;
 use convex_core::Currency;
 use serde::{Deserialize, Serialize};
 
 use crate::futures_reference::exact_bond;
+use crate::quote_event::QuoteField;
 use crate::reference_data::{BondReferenceData, BondType, IssuerType};
 use crate::reference_master::{
     bond_at_commit, ensure_master_exists, EffectiveInterval, MasterDefinition, MasterKey,
@@ -37,6 +38,8 @@ use crate::reference_repository::{ReferenceCommit, ReferenceError, ReferenceReco
 pub const MAX_BENCHMARK_SECURITIES: usize = 32;
 /// The longest benchmark tenor, in months: 50 years.
 pub const MAX_BENCHMARK_TENOR_MONTHS: u32 = 600;
+/// Benchmark sets one snapshot holds.
+pub const MAX_SNAPSHOT_BENCHMARK_SETS: usize = 64;
 
 /// How a stored bond is quoted. Each method other than `price` is a level that the level
 /// stage turns into a price before the bond's model values it.
@@ -73,6 +76,34 @@ impl PricingMethod {
             Self::ZSpread {} => "z_spread",
         }
     }
+
+    /// The mid quote field a bond quoted this way is read from.
+    pub fn quote_field(&self) -> QuoteField {
+        match self {
+            Self::Price {} => QuoteField::MidPrice,
+            Self::Yield {} => QuoteField::MidYield,
+            Self::BenchmarkSpread { .. } | Self::ZSpread {} => QuoteField::MidSpread,
+        }
+    }
+
+    /// Whether pricing a level this way reads the configuration's discount curve.
+    pub fn reads_discount_curve(&self) -> bool {
+        matches!(self, Self::ZSpread {})
+    }
+
+    /// Validate the method with the set it is quoted against: a benchmark spread names
+    /// its set and a well-formed tenor.
+    fn validate(&self, benchmark_set_id: Option<&ReferenceDataId>) -> Result<(), ReferenceError> {
+        match self {
+            Self::BenchmarkSpread { tenor } => {
+                if benchmark_set_id.is_none() {
+                    return Err(invalid("a benchmark spread names its benchmark set"));
+                }
+                tenor_months(tenor).map(|_| ())
+            }
+            Self::Price {} | Self::Yield {} | Self::ZSpread {} => Ok(()),
+        }
+    }
 }
 
 /// How one stored bond is quoted (D111, D112). Versioned; changed rarely. The level a
@@ -104,15 +135,7 @@ impl PricingRuleDefinition {
     /// Validate the rule on its own: a benchmark spread names its set and a well-formed
     /// tenor. Whether the bond takes the method is checked against the stored bond.
     pub fn validate(&self) -> Result<(), ReferenceError> {
-        match &self.method {
-            PricingMethod::BenchmarkSpread { tenor } => {
-                if self.benchmark_set_id.is_none() {
-                    return Err(invalid("a benchmark spread names its benchmark set"));
-                }
-                tenor_months(tenor).map(|_| ())
-            }
-            PricingMethod::Price {} | PricingMethod::Yield {} | PricingMethod::ZSpread {} => Ok(()),
-        }
+        self.method.validate(self.benchmark_set_id.as_ref())
     }
 }
 
@@ -173,6 +196,57 @@ impl BenchmarkSetDefinition {
             }
         }
         Ok(())
+    }
+}
+
+/// A bond's pricing rule in force at the cutoff a valuation resolved it at: what pricing
+/// reads of it, pinned by its version. A snapshot carries it beside the bond's reference,
+/// and each set it names once, in its benchmark sets, so a Live activation pins both with
+/// the references. A pinned rule is not checked against its effective interval at later
+/// cutoffs: it stays in force until the next activation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResolvedPricingRule {
+    /// The rule's version in force.
+    pub version: Version,
+    /// When that version was recorded.
+    pub recorded_at: UtcTimestamp,
+    /// How the bond is quoted.
+    pub method: PricingMethod,
+    /// The set its spread is quoted to and its G-spread computed over.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub benchmark_set_id: Option<ReferenceDataId>,
+}
+
+impl ResolvedPricingRule {
+    /// What pricing reads of a stored rule record.
+    pub fn of(record: &MasterRecord) -> Result<Self, ReferenceError> {
+        let MasterDefinition::PricingRule(rule) = &record.definition else {
+            return Err(invalid("a resolved pricing rule is a pricing rule"));
+        };
+        Ok(Self {
+            version: record.version,
+            recorded_at: record.recorded_at,
+            method: rule.method.clone(),
+            benchmark_set_id: rule.benchmark_set_id.clone(),
+        })
+    }
+
+    /// Check the rule on its own and against `known_at`, the cutoff it was resolved by.
+    pub fn validate(&self, known_at: UtcTimestamp) -> Result<(), ReferenceError> {
+        self.method.validate(self.benchmark_set_id.as_ref())?;
+        if self.recorded_at > known_at {
+            return Err(invalid("a resolved pricing rule is recorded by the cutoff"));
+        }
+        Ok(())
+    }
+}
+
+/// The set a benchmark set record holds; `None` for a record of another kind.
+pub fn benchmark_set_of(record: &MasterRecord) -> Option<&BenchmarkSetDefinition> {
+    match &record.definition {
+        MasterDefinition::BenchmarkSet(set) => Some(set),
+        _ => None,
     }
 }
 

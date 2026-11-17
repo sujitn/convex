@@ -1,5 +1,6 @@
 //! A corporate's pricing rule in force against a set of benchmark notes, built in memory
 //! for the level stage's bench and tests: no store and no Live runtime.
+#![allow(dead_code)] // Each suite uses a subset of these fixtures.
 
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -51,11 +52,13 @@ pub fn corporate(id: &str, maturity: &str, coupon: &str) -> BondReferenceData {
     bond
 }
 
-/// A government fixed bullet paying semi-annually, as a benchmark set holds one.
+/// A government fixed bullet paying semi-annually, as a benchmark set holds one, known
+/// by its CUSIP alone.
 pub fn government_note(id: &str, maturity: &str, coupon: &str, cusip: &str) -> BondReferenceData {
     let mut note = corporate(id, maturity, coupon);
     note.issuer_type = IssuerType::Sovereign;
     note.cusip = Some(cusip.into());
+    note.isin = None;
     note
 }
 

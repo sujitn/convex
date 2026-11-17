@@ -3,8 +3,8 @@
 
 use async_trait::async_trait;
 use convex_core::contracts::{
-    BusinessDate, CurveId, DataQuality, FiniteF64, InputVersion, InstrumentId, ModelId, SnapshotId,
-    SourceId, UtcTimestamp, Version,
+    BusinessDate, CurveId, DataQuality, FiniteF64, InputVersion, InstrumentId, ModelId,
+    ReferenceDataId, SnapshotId, SourceId, UtcTimestamp, Version,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -15,13 +15,16 @@ use std::sync::{Arc, OnceLock};
 
 use crate::calibration::SnapshotCalibration;
 use crate::fixing::{FixingKey, PublishedFixing};
+use crate::level_pricing::{
+    benchmark_set_of, BenchmarkSecurity, ResolvedPricingRule, MAX_SNAPSHOT_BENCHMARK_SETS,
+};
 use crate::quote_event::{
     DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
 };
 #[cfg(doc)]
 use crate::reference_master::validate_resolved_bond_at;
 use crate::reference_master::{
-    validate_resolved_bond, EffectiveInterval, MasterDefinition, ReferenceLookup,
+    validate_resolved_bond, EffectiveInterval, MasterDefinition, MasterRecord, ReferenceLookup,
     ResolvedBondReference,
 };
 use crate::storage::BondPricingConfig;
@@ -35,9 +38,10 @@ pub const MAX_SNAPSHOT_INSTRUMENTS: usize = 256;
 /// Selected instruments or quote keys in a Live runtime's snapshot, which is never
 /// stored (D101).
 pub const MAX_LIVE_SNAPSHOT_INSTRUMENTS: usize = 4096;
-/// The JSON a Live snapshot's identity hashes (D109). 4,096 instruments with every text
-/// at the bound its validator sets write 125.2 MiB with a small frame, which leaves
-/// 2.8 MiB for the rest of the frame; a frame at its own bounds is not counted. Past
+/// The JSON a Live snapshot's identity hashes. 4,096 instruments with every text at the
+/// bound its validator sets, each with a pricing rule, and 64 benchmark sets at theirs,
+/// write 126.8 MiB with a small frame, which leaves 1.2 MiB for the rest of the frame; a
+/// frame at its own bounds is not counted. Past
 /// it, every tick fails with `CapacityExceeded`. Live snapshots are never stored, and
 /// the JSON streams into the hash.
 pub const MAX_LIVE_IDENTITY_BYTES: usize = 128 * 1024 * 1024;
@@ -475,6 +479,10 @@ pub struct SnapshotContent {
     pub calibration: Option<SnapshotCalibration>,
     /// Maximum skew among required quote source-field timestamps, 0..=86,400,000 ms.
     pub max_source_skew_ms: i64,
+    /// Each benchmark set the references' pricing rules name and that is in force at the
+    /// cutoff, once, sorted by set id; at most [`MAX_SNAPSHOT_BENCHMARK_SETS`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub benchmark_sets: Vec<MasterRecord>,
 }
 
 /// The resolved references of a snapshot: one shared, immutable section (D68). A Live
@@ -547,6 +555,13 @@ impl ReferenceBounds {
                 add(record.recorded_at, record.definition.effective());
             }
         }
+        // A pinned rule bounds only the cutoff it was recorded by.
+        let rules = records
+            .iter()
+            .filter_map(|reference| reference.pricing_rule.as_ref())
+            .map(|rule| rule.recorded_at)
+            .max();
+        bounds.recorded_at = bounds.recorded_at.max(rules);
         Some(bounds)
     }
     /// Whether every record passes [`validate_resolved_bond_at`] at `lookup`.
@@ -821,10 +836,16 @@ pub struct SnapshotQuality {
 }
 
 /// The inputs one dependent reads from a snapshot, in snapshot order (D58). Quality over
-/// a set judges only these inputs; source skew is measured among its quotes alone.
+/// a set judges only these inputs; source skew is measured among its quotes alone, and
+/// for a bond quoted by a level, among its benchmarks' quotes alone.
 #[derive(Debug, Clone)]
 pub struct InputSet<'a> {
     quotes: &'a [SharedQuote],
+    /// The quotes of the benchmark securities its pricing rule's set names, in set order;
+    /// empty for a bond whose rule names no set.
+    benchmark_quotes: Vec<&'a [SharedQuote]>,
+    /// Its own quote is a level its rule quotes it by.
+    is_level_quoted: bool,
     fixings: Vec<&'a SnapshotFixing>,
     curves: Vec<&'a CurveId>,
 }
@@ -832,13 +853,17 @@ impl<'a> InputSet<'a> {
     fn all(content: &'a SnapshotContent) -> Self {
         Self {
             quotes: &content.quotes,
+            benchmark_quotes: Vec::new(),
+            is_level_quoted: false,
             fixings: content.fixings.iter().collect(),
             curves: content.required_curves.iter().collect(),
         }
     }
-    /// Selected quotes read.
-    pub fn quotes(&self) -> &'a [SharedQuote] {
+    /// Selected quotes read: its own, then its benchmarks'.
+    pub fn quotes(&self) -> impl Iterator<Item = &'a SharedQuote> + '_ {
         self.quotes
+            .iter()
+            .chain(self.benchmark_quotes.iter().copied().flatten())
     }
     /// Required fixings read.
     pub fn fixings(&self) -> &[&'a SnapshotFixing] {
@@ -1086,21 +1111,31 @@ impl MarketSnapshot {
             quotes.partition_point(|q| q.requirement.key.instrument_id.as_str() <= instrument_id);
         &quotes[start..end]
     }
-    /// What one instrument's valuation reads (D58): its selected quotes, a floating
-    /// note's fixings on its pinned index and fixing source, and the required curves
-    /// named in `curves`, the ones its valuation reads. A named curve the snapshot does
-    /// not require is not judged.
+    /// What one instrument's valuation reads: its selected quotes, the quotes of
+    /// the benchmark securities its pricing rule's set names, a floating note's fixings
+    /// on its pinned index and fixing source, and the required curves named in `curves`,
+    /// the ones its valuation reads. A named curve the snapshot does not require is not
+    /// judged.
     pub fn inputs(&self, instrument_id: &str, curves: &[&str]) -> InputSet<'_> {
         let content = &self.0.content;
-        let index = self
-            .reference(instrument_id)
+        let reference = self.reference(instrument_id);
+        let index = reference
             .and_then(|reference| reference.floating.as_ref())
             .and_then(|floating| match &floating.index.definition {
                 MasterDefinition::RateIndex(index) => Some(index),
                 _ => None,
             });
+        let rule = reference.and_then(|reference| reference.pricing_rule.as_ref());
         InputSet {
             quotes: self.quotes_for(instrument_id),
+            benchmark_quotes: rule.map_or_else(Vec::new, |rule| {
+                self.benchmark_securities(rule)
+                    .iter()
+                    .filter(|security| security.instrument_id.as_str() != instrument_id)
+                    .map(|security| self.quotes_for(security.instrument_id.as_str()))
+                    .collect()
+            }),
+            is_level_quoted: rule.is_some_and(|rule| rule.method.is_level()),
             fixings: index.map_or_else(Vec::new, |index| {
                 content
                     .fixings
@@ -1117,6 +1152,22 @@ impl MarketSnapshot {
                 .collect(),
         }
     }
+    /// The record of the benchmark set `id` names, when this snapshot holds it.
+    pub fn benchmark_set(&self, id: &ReferenceDataId) -> Option<&MasterRecord> {
+        let sets = &self.0.content.benchmark_sets;
+        sets.binary_search_by(|record| benchmark_set_id(record).cmp(&Some(id)))
+            .ok()
+            .map(|position| &sets[position])
+    }
+    /// The securities of the set `rule` names, when this snapshot holds it; none
+    /// otherwise.
+    pub fn benchmark_securities(&self, rule: &ResolvedPricingRule) -> &[BenchmarkSecurity] {
+        rule.benchmark_set_id
+            .as_ref()
+            .and_then(|id| self.benchmark_set(id))
+            .and_then(benchmark_set_of)
+            .map_or(&[], |set| &set.securities)
+    }
     /// Whether this snapshot shares every valuation's frame with `previous` (D55): the
     /// configuration and its capture, the skew policy, the schema and the valuation
     /// date. A floating note's valuation date and its due fixings follow the date.
@@ -1127,6 +1178,7 @@ impl MarketSnapshot {
             && now.as_of.datetime().date_naive() == then.as_of.datetime().date_naive()
             && now.configuration == then.configuration
             && now.configuration_capture == then.configuration_capture
+            && now.benchmark_sets == then.benchmark_sets
     }
     /// Whether one instrument's valuation reads the same inputs here as in `previous`
     /// (D55): its reference, its quotes, a floating note's fixings, and each curve in
@@ -1147,6 +1199,7 @@ impl MarketSnapshot {
         (references.ptr_eq(&previous.0.content.references)
             || self.reference(instrument_id) == previous.reference(instrument_id))
             && now.quotes == then.quotes
+            && now.benchmark_quotes == then.benchmark_quotes
             && now.fixings == then.fixings
             && now.curves == then.curves
             && now
@@ -1210,8 +1263,9 @@ impl MarketSnapshot {
     /// the same in both: the frame ([`MarketSnapshot::same_frame`]), a shared reference
     /// section, equal fixings, required curves, curve records, recipes and calibration,
     /// and the same quote keys in the same order. An instrument it does not list then has
-    /// the same frame here as in `previous`, and the same inputs by
-    /// [`MarketSnapshot::same_inputs`]'s rule.
+    /// the same frame here as in `previous` and the same quotes of its own; it has the
+    /// same inputs by [`MarketSnapshot::same_inputs`]'s rule unless it reads a listed
+    /// benchmark's quotes, which its caller follows.
     pub fn changed_quotes(&self, previous: &MarketSnapshot) -> Option<Vec<&str>> {
         let (now, then) = (&self.0.content, &previous.0.content);
         if !self.same_frame(previous)
@@ -1248,6 +1302,8 @@ impl MarketSnapshot {
             Some(id) => {
                 self.quality_of(&InputSet {
                     quotes: &[],
+                    benchmark_quotes: Vec::new(),
+                    is_level_quoted: false,
                     fixings: Vec::new(),
                     curves: vec![id],
                 })
@@ -1546,6 +1602,8 @@ struct CanonicalContent<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     calibration: Option<&'a SnapshotCalibration>,
     max_source_skew_ms: i64,
+    #[serde(skip_serializing_if = "<[_]>::is_empty")]
+    benchmark_sets: &'a [MasterRecord],
 }
 
 impl<'a> CanonicalContent<'a> {
@@ -1570,6 +1628,7 @@ impl<'a> CanonicalContent<'a> {
             curve_recipes: &content.curve_recipes,
             calibration: content.calibration.as_ref(),
             max_source_skew_ms: content.max_source_skew_ms,
+            benchmark_sets: &content.benchmark_sets,
         })
     }
 }
@@ -1660,6 +1719,7 @@ fn normalize_inputs(content: &mut SnapshotContent) -> Result<(), TraitError> {
             + content.calibration.as_ref().map_or(0, |c| c.curves.len())
             > MAX_SNAPSHOT_CURVES
         || content.required_curves.len() > MAX_SNAPSHOT_CURVES
+        || content.benchmark_sets.len() > MAX_SNAPSHOT_BENCHMARK_SETS
         || content.curves.iter().map(|c| c.points.len()).sum::<usize>()
             + content
                 .curve_recipes
@@ -1675,6 +1735,13 @@ fn normalize_inputs(content: &mut SnapshotContent) -> Result<(), TraitError> {
         return Err(TraitError::CapacityExceeded);
     }
     content.fixings.sort_by(|a, b| a.key.cmp(&b.key));
+    let by_id = |a: &MasterRecord, b: &MasterRecord| benchmark_set_id(a).cmp(&benchmark_set_id(b));
+    if !content
+        .benchmark_sets
+        .is_sorted_by(|a, b| by_id(a, b).is_le())
+    {
+        content.benchmark_sets.sort_by(by_id);
+    }
     if let Some(calibration) = &mut content.calibration {
         calibration.normalize();
     }
@@ -1744,6 +1811,35 @@ fn derive(content: &mut SnapshotContent, rebuilt: &[usize]) -> Result<(), TraitE
     validate_inputs(content)
 }
 
+/// The id of a benchmark set record; `None` sorts a record of another kind first, and
+/// validation refuses it.
+fn benchmark_set_id(record: &MasterRecord) -> Option<&ReferenceDataId> {
+    benchmark_set_of(record).map(|set| &set.benchmark_set_id)
+}
+
+/// A snapshot's benchmark sets are each a valid set recorded by the cutoff, with distinct
+/// ids in order. They are pinned with the references, so their effective
+/// intervals are not compared with later cutoffs.
+fn validate_benchmark_sets(content: &SnapshotContent) -> Result<(), TraitError> {
+    let invalid = |_| TraitError::InvalidInput("invalid snapshot benchmark set");
+    let mut last: Option<&ReferenceDataId> = None;
+    for record in &content.benchmark_sets {
+        let set = benchmark_set_of(record).ok_or(TraitError::InvalidInput(
+            "a snapshot benchmark set is a benchmark set",
+        ))?;
+        set.validate().map_err(invalid)?;
+        if record.recorded_at > content.known_at
+            || last.is_some_and(|last| last >= &set.benchmark_set_id)
+        {
+            return Err(TraitError::InvalidInput(
+                "snapshot benchmark sets are distinct and recorded by the cutoff",
+            ));
+        }
+        last = Some(&set.benchmark_set_id);
+    }
+    Ok(())
+}
+
 /// The checks of the schema, the configuration and its capture at the cutoffs. With
 /// `match_quotes`, each applied override must name a selected quote at its age limit, a
 /// walk of every quote; [`derive`] skips it, since its quotes have their last snapshot's
@@ -1809,6 +1905,7 @@ fn validate_configuration(content: &SnapshotContent, match_quotes: bool) -> Resu
 
 /// The checks of the fixings, required curves, curve records, recipes and calibration.
 fn validate_inputs(content: &SnapshotContent) -> Result<(), TraitError> {
+    validate_benchmark_sets(content)?;
     let mut fixing_keys = BTreeSet::new();
     for selected in &content.fixings {
         if !fixing_keys.insert(&selected.key)
@@ -2006,7 +2103,18 @@ fn derive_quality(
     let mut complete = true;
     let mut source_times = Vec::new();
     let mut add = |dependency: String, reason| issues.push(SnapshotIssue { dependency, reason });
-    for quote in inputs.quotes {
+    // A level-quoted bond's own quote is the desk's or a feed's level: a manual one is
+    // the desk's mark, and only its age is judged, not its skew.
+    let own = inputs
+        .quotes
+        .iter()
+        .map(|quote| (quote, inputs.is_level_quoted));
+    let benchmarks = inputs
+        .benchmark_quotes
+        .iter()
+        .flat_map(|quotes| quotes.iter())
+        .map(|quote| (quote, false));
+    for (quote, own_level) in own.chain(benchmarks) {
         let id = format!(
             "quote:{}:{}",
             quote.requirement.key.instrument_id, quote.requirement.key.source
@@ -2036,6 +2144,7 @@ fn derive_quality(
             DataState::Invalid => Some(K::Invalid),
             DataState::Stale => Some(K::Stale),
             DataState::Delayed => Some(K::Delayed),
+            DataState::Manual if own_level => None,
             DataState::Indicative | DataState::Manual => Some(K::Indicative),
             DataState::Unauthorized => Some(K::Unauthorized),
             DataState::Incomplete => Some(K::MissingField),
@@ -2050,7 +2159,9 @@ fn derive_quality(
                     add(format!("{id}:{field:?}"), K::MissingField);
                 }
                 Some(value) => {
-                    source_times.push(value.source_time_ms);
+                    if !own_level {
+                        source_times.push(value.source_time_ms);
+                    }
                     let max_age_ms = quote.requirement.max_age_ms;
                     let ahead = before(now_ms, value.receive_time_ms, &mut until)
                         | before(now_ms, value.source_time_ms, &mut until);

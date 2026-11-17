@@ -947,6 +947,9 @@ pub struct ResolvedBondReference {
     /// A floating rate note's pinned rate index and index calendar.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub floating: Option<ResolvedFloating>,
+    /// The bond's pricing rule in force at the cutoff; none for a bond quoted by price.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pricing_rule: Option<crate::level_pricing::ResolvedPricingRule>,
 }
 
 /// The resources a floating rate note's coupons depend on, beyond its own.
@@ -1149,12 +1152,18 @@ pub fn validate_resolved_bond(
         lookup,
     )?;
     match (is_valued_floating(bond), &reference.floating) {
-        (true, Some(floating)) => validate_floating_resources(bond, floating, lookup),
-        (false, None) => Ok(()),
-        _ => Err(ReferenceError::InvalidInput(
-            "floating resources belong exactly to a floating rate note",
-        )),
+        (true, Some(floating)) => validate_floating_resources(bond, floating, lookup)?,
+        (false, None) => {}
+        _ => {
+            return Err(ReferenceError::InvalidInput(
+                "floating resources belong exactly to a floating rate note",
+            ))
+        }
     }
+    reference
+        .pricing_rule
+        .as_ref()
+        .map_or(Ok(()), |rule| rule.validate(lookup.known_at))
 }
 
 /// The checks of [`validate_resolved_bond`] that read `lookup`: the record was recorded
@@ -1188,7 +1197,19 @@ pub fn validate_resolved_bond_at(
     ]
     .into_iter()
     .chain(floating)
-    .try_for_each(|record| resource_in_scope(record, lookup))
+    .try_for_each(|record| resource_in_scope(record, lookup))?;
+    // A rule is pinned until the next activation; only its recording is compared with
+    // the cutoff.
+    if reference
+        .pricing_rule
+        .as_ref()
+        .is_some_and(|rule| rule.recorded_at > lookup.known_at)
+    {
+        return Err(ReferenceError::InvalidInput(
+            "reference resource outside effective/known-at scope",
+        ));
+    }
+    Ok(())
 }
 
 /// A resource record known by the lookup's cutoff and effective at its instant.

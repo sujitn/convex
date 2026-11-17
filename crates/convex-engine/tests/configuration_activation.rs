@@ -1219,3 +1219,152 @@ fn live_engine(
         .build()
         .unwrap()
 }
+
+/// A stored instrument: the fixture bond under `id`, committed at `at`.
+async fn store_bond(setup: &runtime::Setup, id: &str, at: UtcTimestamp) {
+    let mut bond = fixture::snapshot::bond();
+    bond.instrument_id = convex_core::ids::InstrumentId::new(id);
+    bond.issuer_type = convex_ports::reference_data::IssuerType::Sovereign;
+    bond.cusip = Some("91282CBB6".into());
+    bond.isin = None;
+    setup
+        .storage
+        .bonds
+        .commit(
+            &convex_ports::reference_repository::ReferenceCommand {
+                idempotency_key: RequestId::new(format!("store-{id}")).unwrap(),
+                changes: vec![
+                    convex_ports::reference_repository::ReferenceChange::Create {
+                        bond: Box::new(bond),
+                    },
+                ],
+                master_changes: vec![],
+            },
+            at,
+        )
+        .await
+        .unwrap();
+}
+
+/// A Live runtime pins each bond's pricing rule with its references, once per activation.
+/// A rule committed while it runs reaches it at the next activation, not the next quote.
+/// A roll to a Treasury the runtime does not value changes its universe, which only a
+/// restart applies.
+#[tokio::test]
+async fn a_live_runtime_reads_a_new_rule_at_its_next_activation_and_a_new_benchmark_at_restart() {
+    use std::sync::Arc;
+    let setup = runtime::setup().await;
+    let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    let (service, first, fixture_cases) = live_selection(&setup, now, 600_000).await;
+    let source = Arc::new(subscription_source::SubscriptionSource::new());
+    let engine = live_engine(&setup, service.clone(), &first.document, source.clone());
+    engine.start().await.unwrap();
+    let mut updates = engine.subscribe_results();
+    let quote = |sequence, value| {
+        let stamp = subscription_source::monotone_stamp();
+        source.send(fixture::snapshot::event(sequence, stamp, stamp, value));
+    };
+    let reads_rule = |record: &convex_ports::runtime::PublishedValuation| {
+        record
+            .result
+            .provenance()
+            .input_versions
+            .iter()
+            .any(|version| version.kind.as_str() == "pricing_rule")
+    };
+    let rule: convex_ports::reference_master::MasterChange =
+        serde_json::from_value(serde_json::json!({
+            "expected_version": null,
+            "definition": {"kind": "pricing_rule", "definition": {
+                "instrument_id": "BOND-001",
+                "method": {"kind": "price"},
+                "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
+                "provenance": {"source": "desk", "evidence_reference": "activation-test"},
+            }},
+        }))
+        .unwrap();
+    setup
+        .storage
+        .bonds
+        .commit(
+            &convex_ports::reference_repository::ReferenceCommand {
+                idempotency_key: RequestId::new("price-rule").unwrap(),
+                changes: vec![],
+                master_changes: vec![rule],
+            },
+            now,
+        )
+        .await
+        .unwrap();
+    quote(1, "99.25");
+    let held = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(held.result.status(), ResultStatus::Complete);
+    assert!(!reads_rule(&held), "the activation pinned no rule");
+
+    let mut second = first.clone();
+    second.document.pricing.version = 2;
+    second.document.pricing.updated_at = now.datetime().timestamp_millis();
+    second.document.assembly.configuration.version = fixture::snapshot::version(2);
+    second.idempotency_key = RequestId::new("live-stage-rule").unwrap();
+    service.stage(&second, &fixture_cases).await.unwrap();
+    let mut command = fixture::activate(2, 1, "live-rule");
+    command.activated_at = now;
+    engine
+        .activate_configuration(&command, &fixture_cases)
+        .await
+        .unwrap();
+    let applied = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(applied.result.status(), ResultStatus::Complete);
+    assert!(reads_rule(&applied));
+
+    // An on-the-run roll to a Treasury the runtime does not value.
+    store_bond(&setup, "UST-10Y-NEW", now).await;
+    let mut rolled = second.clone();
+    rolled.document.pricing.version = 3;
+    rolled.document.assembly.configuration.version = fixture::snapshot::version(3);
+    rolled.idempotency_key = RequestId::new("live-stage-roll").unwrap();
+    rolled.document.assembly.instruments.push(InstrumentPin {
+        instrument_id: InstrumentId::new("UST-10Y-NEW").unwrap(),
+        version: Version::new(1).unwrap(),
+    });
+    let mut new_quote = rolled.document.assembly.quotes[0].clone();
+    new_quote.key.instrument_id = convex_core::ids::InstrumentId::new("UST-10Y-NEW");
+    rolled.document.assembly.quotes.push(new_quote);
+    let mut roll_cases = fixture_cases.clone();
+    let mut image = roll_cases[0].events[0].clone();
+    image.key.instrument_id = convex_core::ids::InstrumentId::new("UST-10Y-NEW");
+    roll_cases[0].events.push(image);
+    let mut expected = roll_cases[0].expected[0].clone();
+    expected.instrument_id = InstrumentId::new("UST-10Y-NEW").unwrap();
+    roll_cases[0].expected.push(expected);
+    let report = service
+        .validate(&rolled.document, &roll_cases)
+        .await
+        .unwrap();
+    assert!(
+        report
+            .changes
+            .iter()
+            .any(|change| change.field == "assembly.instruments"
+                && change.reload == ReloadClass::RestartRequired),
+        "{:?}",
+        report.changes
+    );
+    service.stage(&rolled, &roll_cases).await.unwrap();
+    let mut command = fixture::activate(3, 2, "live-roll");
+    command.activated_at = now;
+    assert_eq!(
+        engine
+            .activate_configuration(&command, &roll_cases)
+            .await
+            .unwrap_err(),
+        ConfigurationError::RestartRequired
+    );
+    engine.shutdown().await.unwrap();
+}
