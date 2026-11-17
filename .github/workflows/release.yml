@@ -269,13 +269,13 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Download Excel Add-in
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8.0.2
         with:
           name: convex-excel-addin
           path: ./artifacts
 
       - name: Download WASM packages
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@v8.0.2
         with:
           name: convex-wasm
           path: ./artifacts
