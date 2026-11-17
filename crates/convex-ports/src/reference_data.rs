@@ -216,6 +216,19 @@ pub struct BondReferenceBoundary {
 }
 
 impl BondReferenceData {
+    /// Whether the bond has an embedded call or put, a sinking fund, a call schedule, or
+    /// floating or inflation terms: anything beyond a nominal bullet's or zero's cash flows.
+    pub fn has_embedded_terms(&self) -> bool {
+        self.is_callable
+            || self.is_putable
+            || self.is_sinkable
+            || !self.call_schedule.is_empty()
+            || self.floating_terms.is_some()
+            || self.inflation_index.is_some()
+            || self.inflation_base_index.is_some()
+            || self.has_deflation_floor
+    }
+
     /// Validate reference identity/dates/face and expose explicit units.
     /// Does not certify schedules, optionality or unsupported product terms.
     pub fn canonical_boundary(

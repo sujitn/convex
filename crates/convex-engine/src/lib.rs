@@ -56,6 +56,7 @@ pub mod curve_resolution;
 pub mod error;
 pub mod etf_pricing;
 pub mod floating_valuation;
+pub mod level_pricing;
 pub mod limits;
 pub mod market_ingestion;
 pub mod optional_valuation;
@@ -620,6 +621,109 @@ impl PricingEngine {
             .for_valuation(id, lookup)
             .await?
             .map(|resolved| resolved.record))
+    }
+
+    /// A stored bond's pricing rule at `lookup` and, when it names one, its benchmark set,
+    /// each security's pinned terms and its Live clean price mid (P19a). None when no rule
+    /// is in force: the bond is quoted by price. A set not in force, a security not stored
+    /// at its pinned version by the cutoff, or one without a usable Live price refuses by
+    /// name.
+    pub async fn pricing_rule_in_force(
+        &self,
+        id: &convex_core::ids::InstrumentId,
+        lookup: ports::reference_master::ReferenceLookup,
+    ) -> Result<Option<level_pricing::PricingRuleInForce>, level_pricing::LevelError> {
+        use convex_core::contracts::{DataQuality, ValuationSubject};
+        use level_pricing::{BenchmarkQuote, BenchmarkSetQuotes, LevelError, PricingRuleInForce};
+        use ports::reference_master::{MasterDefinition, MasterKey};
+        let repository = &self.storage.bonds;
+        let instrument = convex_core::contracts::InstrumentId::new(id.as_str())
+            .map_err(|_| LevelError::Refused("invalid instrument identity".into()))?;
+        let Some(record) = repository
+            .get_master_at(&MasterKey::PricingRule(instrument), lookup)
+            .await?
+        else {
+            return Ok(None);
+        };
+        let MasterDefinition::PricingRule(rule) = record.definition else {
+            return Err(LevelError::Refused(
+                "the pricing rule record is another kind".into(),
+            ));
+        };
+        let rule_version = record.version;
+        let Some(set_id) = rule.benchmark_set_id.clone() else {
+            return Ok(Some(PricingRuleInForce {
+                rule: *rule,
+                rule_version,
+                benchmark_set: None,
+            }));
+        };
+        let record = repository
+            .get_master_at(&MasterKey::BenchmarkSet(set_id.clone()), lookup)
+            .await?
+            .ok_or_else(|| {
+                LevelError::Refused(format!(
+                    "benchmark set {} is not in force at the cutoff",
+                    set_id.as_str()
+                ))
+            })?;
+        let MasterDefinition::BenchmarkSet(set) = record.definition else {
+            return Err(LevelError::Refused(
+                "the benchmark set record is another kind".into(),
+            ));
+        };
+        // One read of the Live table, so every security is from the same tick.
+        let live = self.runtime_results_of(
+            set.securities
+                .iter()
+                .map(|security| security.instrument_id.as_str()),
+        );
+        let accepts_demo = self
+            .configuration_use_cases()
+            .is_some_and(|cases| cases.accepts(DataQuality::Demo));
+        let mut quotes = Vec::with_capacity(set.securities.len());
+        for security in set.securities {
+            let key: convex_core::ids::InstrumentId = security.instrument_id.clone().into();
+            let bond = repository
+                .get_version(&key, security.version)
+                .await?
+                .filter(|r| r.recorded_at <= lookup.known_at)
+                .and_then(|r| r.bond)
+                .ok_or_else(|| {
+                    level_pricing::benchmark_unavailable(
+                        &security,
+                        "its pinned version is not stored at the cutoff",
+                    )
+                })?;
+            let record = live.iter().find(|record| {
+                matches!(
+                    &record.result.provenance().subject,
+                    ValuationSubject::InstrumentVersion { instrument_id, .. }
+                        if instrument_id == &security.instrument_id
+                )
+            });
+            let live_price = level_pricing::live_clean_price_mid(
+                record.map(|record| record.as_ref()),
+                &security,
+                lookup.known_at,
+                accepts_demo,
+            )?;
+            quotes.push(BenchmarkQuote {
+                security,
+                bond,
+                clean_price_mid: live_price.clean_price_mid,
+                snapshot_id: live_price.snapshot_id,
+            });
+        }
+        Ok(Some(PricingRuleInForce {
+            rule: *rule,
+            rule_version,
+            benchmark_set: Some(BenchmarkSetQuotes {
+                benchmark_set_id: set.benchmark_set_id,
+                version: record.version,
+                quotes,
+            }),
+        }))
     }
 
     /// Validate inline terms and their exact resource pins before service pricing.

@@ -1090,3 +1090,230 @@ pub async fn limit_acknowledgements_compare_and_set_and_list_by_kind(
         .unwrap()
         .is_empty());
 }
+
+fn benchmark_set(id: &str, securities: &[(&str, &str, u64)]) -> MasterChange {
+    use convex_ports::level_pricing::{BenchmarkSecurity, BenchmarkSetDefinition};
+    MasterChange {
+        expected_version: None,
+        definition: MasterDefinition::BenchmarkSet(Box::new(BenchmarkSetDefinition {
+            benchmark_set_id: ReferenceDataId::new(id).unwrap(),
+            currency: convex_core::Currency::USD,
+            securities: securities
+                .iter()
+                .map(|(tenor, instrument, v)| BenchmarkSecurity {
+                    tenor: (*tenor).into(),
+                    instrument_id: InstrumentId::new(*instrument).unwrap(),
+                    version: version(*v),
+                })
+                .collect(),
+            effective: EffectiveInterval {
+                from: time("2025-01-01T00:00:00Z"),
+                until: None,
+            },
+            provenance: ReferenceProvenance {
+                source: SourceId::new("desk").unwrap(),
+                evidence_reference: "conformance".into(),
+            },
+        })),
+    }
+}
+
+fn pricing_rule(
+    instrument: &str,
+    method: convex_ports::level_pricing::PricingMethod,
+    set: Option<&str>,
+) -> MasterChange {
+    MasterChange {
+        expected_version: None,
+        definition: MasterDefinition::PricingRule(Box::new(
+            convex_ports::level_pricing::PricingRuleDefinition {
+                instrument_id: InstrumentId::new(instrument).unwrap(),
+                method,
+                benchmark_set_id: set.map(|s| ReferenceDataId::new(s).unwrap()),
+                effective: EffectiveInterval {
+                    from: time("2025-01-01T00:00:00Z"),
+                    until: None,
+                },
+                provenance: ReferenceProvenance {
+                    source: SourceId::new("desk").unwrap(),
+                    evidence_reference: "conformance".into(),
+                },
+            },
+        )),
+    }
+}
+
+/// Pricing rules and benchmark sets (P19a): they commit only against the bonds and sets
+/// they name, a roll is one commit to the set, and each bound refuses with its type.
+pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
+    repository: Arc<dyn ReferenceRepository>,
+) {
+    use convex_ports::level_pricing::{PricingMethod, MAX_BENCHMARK_SECURITIES};
+    use convex_ports::reference_data::{BondType, IssuerType};
+    seed(&repository, "CORP-1").await;
+    let treasury = |id: &str| {
+        let mut bond = bond(id);
+        bond.issuer_type = IssuerType::Sovereign;
+        bond
+    };
+    // A zero is stored and priced, but quoted only by price in P19a.
+    let mut zero = bond("ZERO-1");
+    zero.bond_type = BondType::ZeroCoupon;
+    zero.coupon_rate = None;
+    // A government bullet in another currency than the set's.
+    let mut bund = treasury("BUND-10Y");
+    bund.currency = convex_core::Currency::EUR;
+    let at = time("2025-01-02T00:00:00Z");
+    let creates = [treasury("UST-10Y"), treasury("UST-10Y-NEW"), zero, bund]
+        .into_iter()
+        .map(|bond| ReferenceChange::Create {
+            bond: Box::new(bond),
+        })
+        .collect();
+    repository
+        .commit(&command("rules-bonds", creates, vec![]), at)
+        .await
+        .unwrap();
+    let spread = || PricingMethod::BenchmarkSpread {
+        tenor: "10Y".into(),
+    };
+    let refused = |key: &'static str, change: MasterChange| {
+        let repository = repository.clone();
+        async move {
+            let outcome = repository
+                .commit(&command(key, vec![], vec![change]), at)
+                .await;
+            assert!(
+                matches!(outcome, Err(ReferenceError::InvalidInput(_))),
+                "{key}: {outcome:?}"
+            );
+        }
+    };
+    // A rule names a set that exists, or one committed with it.
+    refused(
+        "rules-no-set",
+        pricing_rule("CORP-1", spread(), Some("UST-OTR")),
+    )
+    .await;
+    repository
+        .commit(
+            &command(
+                "rules-seed",
+                vec![],
+                vec![
+                    benchmark_set("UST-OTR", &[("10Y", "UST-10Y", 1)]),
+                    pricing_rule("CORP-1", spread(), Some("UST-OTR")),
+                ],
+            ),
+            at,
+        )
+        .await
+        .unwrap();
+    // A roll is one commit to the set; the rule is unchanged.
+    let mut roll = benchmark_set("UST-OTR", &[("10Y", "UST-10Y-NEW", 1)]);
+    roll.expected_version = Some(version(1));
+    repository
+        .commit(&command("rules-roll", vec![], vec![roll]), at)
+        .await
+        .unwrap();
+    let set = repository
+        .get_master(&MasterKey::BenchmarkSet(
+            ReferenceDataId::new("UST-OTR").unwrap(),
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(set.version, version(2));
+    let rules = repository
+        .list_masters(MasterKind::PricingRule, None, 10)
+        .await
+        .unwrap();
+    assert_eq!(rules.len(), 1);
+    assert_eq!(
+        rules[0].definition.key(),
+        MasterKey::PricingRule(InstrumentId::new("CORP-1").unwrap())
+    );
+
+    // A set holds only stored government bullets, at the versions it pins.
+    refused(
+        "sets-corporate",
+        benchmark_set("SET-C", &[("10Y", "CORP-1", 1)]),
+    )
+    .await;
+    refused(
+        "sets-currency",
+        benchmark_set("SET-U", &[("10Y", "BUND-10Y", 1)]),
+    )
+    .await;
+    refused(
+        "sets-missing",
+        benchmark_set("SET-M", &[("10Y", "UST-10Y", 2)]),
+    )
+    .await;
+    refused(
+        "sets-tenors",
+        benchmark_set("SET-L", &[("1Y", "UST-10Y", 1), ("12M", "UST-10Y-NEW", 1)]),
+    )
+    .await;
+    refused(
+        "sets-tenor-text",
+        benchmark_set("SET-T", &[("10y", "UST-10Y", 1)]),
+    )
+    .await;
+    refused("sets-empty", benchmark_set("SET-E", &[])).await;
+    let many: Vec<_> = (0..=MAX_BENCHMARK_SECURITIES)
+        .map(|n| (format!("{}M", n + 1), format!("UST-{n}")))
+        .collect();
+    let many: Vec<_> = many
+        .iter()
+        .map(|(tenor, id)| (tenor.as_str(), id.as_str(), 1))
+        .collect();
+    assert_eq!(
+        repository
+            .commit(
+                &command("sets-many", vec![], vec![benchmark_set("SET-X", &many)]),
+                at
+            )
+            .await
+            .err(),
+        Some(ReferenceError::CapacityExceeded)
+    );
+
+    // A rule names a stored bond, and a level only on a fixed bullet.
+    refused(
+        "rules-missing-bond",
+        pricing_rule("NONE", PricingMethod::Yield {}, None),
+    )
+    .await;
+    refused(
+        "rules-zero",
+        pricing_rule("ZERO-1", PricingMethod::ZSpread {}, None),
+    )
+    .await;
+    refused(
+        "rules-zero-set",
+        pricing_rule("ZERO-1", PricingMethod::Price {}, Some("UST-OTR")),
+    )
+    .await;
+    refused("rules-unnamed-set", pricing_rule("UST-10Y", spread(), None)).await;
+    repository
+        .commit(
+            &command(
+                "rules-zero-price",
+                vec![],
+                vec![pricing_rule("ZERO-1", PricingMethod::Price {}, None)],
+            ),
+            at,
+        )
+        .await
+        .unwrap();
+    for key in [
+        "SET-C", "SET-U", "SET-M", "SET-L", "SET-T", "SET-E", "SET-X",
+    ] {
+        assert!(repository
+            .get_master(&MasterKey::BenchmarkSet(ReferenceDataId::new(key).unwrap()))
+            .await
+            .unwrap()
+            .is_none());
+    }
+}

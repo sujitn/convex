@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Duration};
 use thiserror::Error;
 use tokio::sync::{broadcast, mpsc, oneshot, watch, Mutex};
+pub(crate) use worker::accepted;
 
 pub use convex_ports::configuration::RuntimeMode;
 

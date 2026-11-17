@@ -446,6 +446,80 @@ File imports use `convex_ext_file::import_reference_file` for a strict versioned
 
 The initial adapters bound retained identities including tombstones to 100,000, commits to 100,000 and immutable versions to 1,000,000. Capacity exhaustion rejects writes; history/deduplication is never silently discarded. Queries and identifier resolution scan bounded local state. These bounds are safeguards, not measured throughput or latency targets. redb provides single-process transactions; managed shared-writer persistence remains future work.
 
+### Pricing rules and benchmark sets
+
+A bond is quoted by price unless it has a `pricing_rule` master resource (P19). A rule
+names the bond and its method:
+- `price`;
+- `yield`, a street yield to maturity;
+- `benchmark_spread`, basis points over the yield of one security of a benchmark set,
+  named by its tenor (`{"kind": "benchmark_spread", "tenor": "10Y"}`). Both yields are
+  compounded semi-annually, so a Treasury's is its street yield;
+- `z_spread`, basis points over the configuration's discount curve.
+
+A rule may also name a benchmark set by `benchmark_set_id`. A spread is quoted to that set, and the
+bond's G-spread is computed over it. The set's version in force at a valuation's cutoff
+is the one read, so rolling an on-the-run issue is one commit to the set. The level
+itself is a quote, never part of the rule.
+
+A `benchmark_set` holds a currency and 1 to 32 securities. Each security has a
+`tenor` (`6M`, `2Y`, `10Y`, up to `50Y`) and pins one stored bond version. Tenors and
+instruments are unique within the set, so `12M` and `1Y` cannot both appear, and a rule
+naming `1Y` is quoted to a set's `12M`.
+
+Both kinds are committed through `POST /api/v1/reference/transactions` and listed under
+`GET /api/v1/reference/masters/pricing_rule` and `.../benchmark_set`. A commit is
+refused with 400 if:
+- a rule names a bond that is not stored;
+- a rule names a set that does not exist;
+- a rule quotes a bond other than a fixed bullet by a level, or against a set (floating
+  rate notes and callables follow in P19c);
+- a set holds anything but a government fixed bullet in its currency;
+- a set is not in USD: P19 quotes against Treasuries.
+
+`GET /api/v1/quotes/:id` takes `level` in place of `market_price` for a bond whose rule
+quotes it by one. The unit is the rule's: a decimal yield (`level=0.0612`), or basis
+points of spread (`level=125`). The engine's level stage turns the level into a clean
+price through `convex_analytics::bond_quote::price_from_level`, the definitions the
+router publishes, and the router then values that price as it values any other. So a
+yield or spread level comes back unchanged in `ytm_mid`, `z_spread_mid` or the
+benchmark's yield plus the spread, which is `ytm_mid` for a bond paying semi-annually.
+A missing or unusable input is refused by name; nothing is substituted.
+
+- **Benchmark yields come from the Live runtime.** Each benchmark security's yield is
+  its street yield at the request's settlement, from its clean price mid in the Live
+  runtime's current record. That record must value the version the set pins and be of
+  a quality the books accept from Live results: `Valid`, or `Demo` where the
+  configuration accepts demonstration data. A partial result is used if it carries a
+  clean price. Quotes are not stored, so a
+  security the runtime does not value, a stale or unaccepted record, or a record newer
+  than the request's `known_at` refuses with 422 and the security's tenor.
+- **Benchmark identifiers.** Each benchmark security needs a valid CUSIP or ISIN, check
+  digit included, because the pure crate's government security record carries one. A
+  set commits without checking this; a quote against it is refused, naming the tenor,
+  until the identifier is corrected. The same holds for two securities maturing on the
+  same day.
+- **Refusal bodies** name a benchmark by its tenor in the set, never its instrument id,
+  and carry no price: error bodies are not checked against the caller's entitlements.
+- **G-spread.** When the rule names a set, `g_spread_mid` interpolates the set's
+  securities, linear in time, for a bond maturing inside their maturities. Outside them
+  it is not extrapolated: the report carries `g_spread_refused` instead. A
+  `market_price` request on such a bond reads the set too, so the G-spread is
+  published.
+- **Width.** A level-quoted bond takes no percent-of-price bid/ask width (D114); its
+  width in the quoting unit arrives in P19c.
+- **The report.** The body adds `pricing_rule`: the stage's `model`
+  (`convex-level-price-v1`), the rule's `version` and `method`, the `level`, the
+  `clean_price_mid` it gave, the set's `benchmark_set_id`, `version` and each security's
+  `tenor`, Live price and snapshot, and the `benchmark` a spread was quoted to with its
+  `tenor` and `ytm`, the semi-annual yield the spread was added to. Headers carry
+  `x-convex-pricing-rule-version` and `x-convex-benchmark-set-version`. Each benchmark's
+  `instrument_id` is in the body, so the caller needs entitlement to it. A callable or
+  floating rate note may have a `price` rule; its quote carries the same report.
+- **Refusals.**
+  - 400: both inputs, or a `level` for a bond with no rule or a `price` rule.
+  - 422: neither input.
+
 ## Books and portfolios
 
 A book is a durable, versioned position snapshot owned by an external book management
@@ -902,7 +976,7 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 ## Management routes and the admin app
 
 - `POST /api/v1/reference/import` takes a reference import file as the request body: the strict `{schema_version, command}` envelope, at most 8 MiB. It commits the one atomic transaction like `/api/v1/reference/transactions`. The file's idempotency key makes a re-upload return the retained receipt. A refusal carries the importer's `diagnostics` (section, row, field, code, line and column), never source values.
-- `GET /api/v1/reference/masters/:kind?after=&limit=` lists current master resources of one kind (`entity`, `calendar`, `convention`, `rate_index`, `identifier`, ...) in identity order. `limit` defaults to 100, `next` is the cursor for the following page, and books and their limits keep `/api/v1/books`.
+- `GET /api/v1/reference/masters/:kind?after=&limit=` lists current master resources of one kind (`entity`, `calendar`, `convention`, `rate_index`, `identifier`, `pricing_rule`, `benchmark_set`, ...) in identity order. `limit` defaults to 100, `next` is the cursor for the following page, and books and their limits keep `/api/v1/books`.
 - `admin_ui_dir` (`CONVEX_ADMIN_UI_DIR`) serves a built admin app at `/admin`, falling back to its `index.html`. The repository's app is [`admin/`](../../admin/README.md); build it with `npm run build` and point the setting at `admin/dist`. List the page's own origin (for example `https://convex.example.com`, or `http://127.0.0.1:8080` locally) in `access.cors_origins`: browsers send it on the page's script and on every write, and the origin guard admits listed origins only. Startup refuses `admin_ui_dir` with no listed origin. Startup refuses a directory without one. The files are public static assets outside the API access layer. They are sent with a policy that loads scripts only from the server and forbids framing, because the page holds a pasted bearer token in memory. Unset, nothing is served there.
 
 ## Metrics
