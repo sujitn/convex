@@ -536,3 +536,129 @@ fn government_yields_use_actual_securities_maturities_and_no_empty_zero_benchmar
     bad.benchmarks.push(bad.benchmarks[0].clone());
     assert!(convex_analytics::bond_quote::government_curve(&bad, s, b.currency()).is_err());
 }
+
+/// A 30/360 corporate and an ACT/ACT ICMA Treasury, each 7 to 15 years from settlement.
+fn level_bond(
+    day_count: DayCountConvention,
+    frequency: Frequency,
+    years: i32,
+    coupon: Decimal,
+) -> FixedRateBond {
+    FixedRateBond::builder()
+        .cusip_unchecked("LEVEL")
+        .issue_date(date("2025-11-15"))
+        .maturity(date("2025-11-15").add_years(years).unwrap())
+        .coupon_rate(coupon)
+        .face_value(dec!(100))
+        .frequency(frequency)
+        .day_count(day_count)
+        .calendar(CalendarId::weekend_only())
+        .business_day_convention(BusinessDayConvention::Unadjusted)
+        .end_of_month(false)
+        .build()
+        .unwrap()
+}
+
+proptest::proptest! {
+    #![proptest_config(proptest::prelude::ProptestConfig::with_cases(64))]
+    /// P19a: `price_from_level` turns a yield, a Z-, G- or I-spread into a price, and
+    /// `quote_fixed` on that price publishes the same level: the stage and the router
+    /// agree by construction, for a 30/360 corporate and an ACT/ACT ICMA Treasury, paying
+    /// annual or semi-annual coupons and quoted semi-annually.
+    #[test]
+    fn a_level_priced_then_quoted_from_its_price_is_the_same_level(
+        icma in proptest::bool::ANY,
+        annual in proptest::bool::ANY,
+        years in 7i32..=15,
+        coupon_bp in 0u32..=900,
+        level_bp in -100i64..=1_200,
+        benchmark_bp in 0i64..=800,
+    ) {
+        use convex_analytics::{
+            bond_quote::price_from_level,
+            dto::GovernmentCurveSpec,
+            spreads::{GovernmentBenchmark, Sovereign},
+        };
+        use convex_bonds::types::Tenor;
+        use convex_core::types::{Spread, SpreadType, Yield};
+        let day_count = if icma {
+            DayCountConvention::ActActIcma
+        } else {
+            DayCountConvention::Thirty360US
+        };
+        let frequency = if annual { Frequency::Annual } else { Frequency::SemiAnnual };
+        let b = level_bond(day_count, frequency, years, Decimal::new(coupon_bp.into(), 4));
+        let s = date("2026-11-17");
+        let discount = curve(s, 0.04);
+        let swap = curve(s, 0.035);
+        let benchmark_yield = Decimal::new(benchmark_bp, 4);
+        let spec = GovernmentCurveSpec {
+            reference_date: s,
+            sovereign: Sovereign::UST,
+            benchmarks: vec![GovernmentBenchmark::with_cusip_unchecked(
+                Sovereign::UST,
+                Tenor::Y10,
+                "BENCHMARK",
+                date("2035-11-15"),
+                dec!(0.04125),
+                Yield::new(benchmark_yield, Compounding::SemiAnnual),
+            )],
+        };
+        let g = convex_analytics::bond_quote::government_curve(&spec, s, b.currency()).unwrap();
+        let curves = || BondCurves {
+            discount: Some(&discount as &dyn RateCurveDyn),
+            swap: Some(&swap as &dyn RateCurveDyn),
+            government: Some(&g),
+        };
+        let level = Decimal::new(level_bp, 4);
+        let spread = |kind| Mark::Spread {
+            value: Spread::new(Decimal::new(level_bp, 0), kind),
+            benchmark: "LEVEL".into(),
+        };
+        let marks = [
+            Mark::Yield { value: level + dec!(0.02), frequency: Frequency::SemiAnnual },
+            spread(SpreadType::ZSpread),
+            spread(SpreadType::GSpread),
+            spread(SpreadType::ISpread),
+        ];
+        for mark in marks {
+            let priced = price_from_level(&b, s, &mark, Frequency::SemiAnnual, &curves()).unwrap();
+            let clean = Decimal::from_f64_retain(priced.clean_price_per_100).unwrap();
+            let quoted = quote_fixed(
+                &b,
+                s,
+                &Mark::Price { value: clean, kind: PriceKind::Clean },
+                Frequency::SemiAnnual,
+                curves(),
+                1.0,
+                &[],
+            )
+            .unwrap();
+            match &mark {
+                Mark::Yield { value, .. } => close(
+                    quoted.pricing.ytm_decimal,
+                    value.to_f64().unwrap(),
+                    1e-10,
+                    0.0,
+                    "yield",
+                ),
+                Mark::Spread { value, .. } if value.spread_type() == SpreadType::ZSpread => close(
+                    quoted.z_spread_bps.unwrap(),
+                    level_bp as f64,
+                    1e-6,
+                    0.0,
+                    "z-spread",
+                ),
+                Mark::Spread { value, .. } if value.spread_type() == SpreadType::GSpread => close(
+                    quoted.g_spread_bps.unwrap(),
+                    level_bp as f64,
+                    1e-6,
+                    0.0,
+                    "g-spread",
+                ),
+                // Published in whole basis points, so a whole level comes back exactly.
+                _ => proptest::prop_assert_eq!(quoted.i_spread_bps, Some(level_bp as f64)),
+            }
+        }
+    }
+}

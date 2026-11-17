@@ -100,22 +100,25 @@ where
                     let z_bps = dec_to_f64(value.as_bps(), "z-spread bps")?;
                     (dirty, Some(z_bps))
                 }
-                // I-spread (vs swap curve) and G-spread (vs govt curve) share
-                // the same arithmetic — the caller decides which curve to pass.
-                // bond_yield = curve_par_rate_at_maturity + spread_decimal,
-                // then yield → dirty price. z_spread_bps left None — call
-                // the Z-spread tool directly if you want the equivalent.
+                // The bond's yield is the curve's par rate at maturity plus the spread. An
+                // I-spread is over the swap curve at the bond's coupon frequency, as
+                // `ISpreadCalculator` quotes it; a G-spread is over the curve passed, at
+                // the quote frequency.
                 SpreadType::ISpread | SpreadType::GSpread => {
+                    let frequency = match (value.spread_type(), bond.frequency()) {
+                        (SpreadType::ISpread, Frequency::Zero) => Frequency::Annual,
+                        (SpreadType::ISpread, coupon) => coupon,
+                        _ => quote_frequency,
+                    };
                     let t_maturity = curve
                         .date_to_tenor(maturity)
                         .map_err(|error| AnalyticsError::CurveError(error.to_string()))?;
                     let curve_rate = curve
-                        .par_swap_rate(t_maturity, quote_frequency.periods_per_year())
+                        .par_swap_rate(t_maturity, frequency.periods_per_year())
                         .map_err(|e| AnalyticsError::CurveError(e.to_string()))?;
-                    let spread_decimal = value.as_decimal_f64()?;
-                    let target_yield = curve_rate + spread_decimal;
+                    let target_yield = curve_rate + value.as_decimal_f64()?;
                     (
-                        dirty_price_from_yield(bond, settlement, target_yield, quote_frequency)?,
+                        dirty_price_from_yield(bond, settlement, target_yield, frequency)?,
                         None,
                     )
                 }

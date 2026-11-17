@@ -211,18 +211,19 @@ pub fn yield_risk<B: Bond + FixedCouponBond>(
     })
 }
 
-/// One pure calculation route for fixed-coupon maturity analytics.
-/// Optional-model price/OAS and floating coupons are distinct APIs.
-pub fn quote_fixed<B: Bond + FixedCouponBond>(
+/// The price a quoted level gives, under the definitions [`quote_fixed`] publishes: a
+/// price as given, a street yield at its own frequency, a Z-spread over the discount
+/// curve, an I-spread over the par swap rate at the bond's coupon frequency, or a G-spread
+/// over the yield of the supplied government securities at the bond's maturity, as a
+/// semi-annual yield. A level priced here and quoted back through [`quote_fixed`] is the
+/// same level; `quote_fixed` publishes an I-spread in whole basis points.
+pub fn price_from_level<B: Bond + FixedCouponBond>(
     bond: &B,
     settlement: Date,
     mark: &Mark,
     quote_frequency: Frequency,
-    curves: BondCurves<'_>,
-    bump_bps: f64,
-    key_tenors: &[f64],
-) -> AnalyticsResult<BondQuote> {
-    risk_settings(bump_bps, key_tenors)?;
+    curves: &BondCurves<'_>,
+) -> AnalyticsResult<PricingResult> {
     let government_mark;
     let (mark, price_curve) = match mark {
         Mark::Spread { value, .. }
@@ -262,7 +263,22 @@ pub fn quote_fixed<B: Bond + FixedCouponBond>(
         }
         _ => (mark, curves.discount),
     };
-    let pricing = price_from_mark(bond, settlement, mark, price_curve, quote_frequency)?;
+    price_from_mark(bond, settlement, mark, price_curve, quote_frequency)
+}
+
+/// One pure calculation route for fixed-coupon maturity analytics.
+/// Optional-model price/OAS and floating coupons are distinct APIs.
+pub fn quote_fixed<B: Bond + FixedCouponBond>(
+    bond: &B,
+    settlement: Date,
+    mark: &Mark,
+    quote_frequency: Frequency,
+    curves: BondCurves<'_>,
+    bump_bps: f64,
+    key_tenors: &[f64],
+) -> AnalyticsResult<BondQuote> {
+    risk_settings(bump_bps, key_tenors)?;
+    let pricing = price_from_level(bond, settlement, mark, quote_frequency, &curves)?;
     for value in [
         pricing.clean_price_per_100,
         pricing.dirty_price_per_100,
