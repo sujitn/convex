@@ -94,8 +94,8 @@ struct UniversePin {
 struct BenchmarkSets(BTreeMap<ReferenceDataId, Vec<BenchmarkSecurity>>);
 
 impl BenchmarkSets {
-    /// The securities of set `id` in force at `lookup`; none when it is not in force, in
-    /// which case its bonds' valuations are refused.
+    /// The securities of set `id` in force at `lookup`. A set not in force is refused: a
+    /// bond quoted to it could not be priced.
     async fn securities(
         &mut self,
         references: &dyn ReferenceRepository,
@@ -114,7 +114,9 @@ impl BenchmarkSets {
                 .as_ref()
                 .and_then(benchmark_set_of)
                 .map(|set| set.securities.clone())
-                .unwrap_or_default();
+                .ok_or(ConfigurationError::Invalid(
+                    "a pricing rule names a benchmark set not in force at the cutoff",
+                ))?;
             self.0.insert(id.clone(), securities);
         }
         Ok(self.0.get(id).map_or(&[], Vec::as_slice))

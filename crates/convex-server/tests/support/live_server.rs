@@ -232,6 +232,8 @@ pub async fn level_live_setup(
     };
     let s = setup().await;
     let mut plan = live_plan(&s);
+    plan.measures
+        .push(convex_core::contracts::MeasureId::new("g_spread_mid").unwrap());
     widen(&s, &mut plan, dependents).await;
     let bonds: Vec<QuoteKey> = plan.assembly.quotes.iter().map(|q| q.key.clone()).collect();
     for quote in &mut plan.assembly.quotes {

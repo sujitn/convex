@@ -836,16 +836,14 @@ pub struct SnapshotQuality {
 }
 
 /// The inputs one dependent reads from a snapshot, in snapshot order (D58). Quality over
-/// a set judges only these inputs; source skew is measured among its quotes alone, and
-/// for a bond quoted by a level, among its benchmarks' quotes alone.
+/// a set judges only these inputs; source skew is measured among its quotes alone, a
+/// level a bond's rule quotes it by left out.
 #[derive(Debug, Clone)]
 pub struct InputSet<'a> {
     quotes: &'a [SharedQuote],
     /// The quotes of the benchmark securities its pricing rule's set names, in set order;
     /// empty for a bond whose rule names no set.
     benchmark_quotes: Vec<&'a [SharedQuote]>,
-    /// Its own quote is a level its rule quotes it by.
-    is_level_quoted: bool,
     fixings: Vec<&'a SnapshotFixing>,
     curves: Vec<&'a CurveId>,
 }
@@ -854,7 +852,6 @@ impl<'a> InputSet<'a> {
         Self {
             quotes: &content.quotes,
             benchmark_quotes: Vec::new(),
-            is_level_quoted: false,
             fixings: content.fixings.iter().collect(),
             curves: content.required_curves.iter().collect(),
         }
@@ -1135,7 +1132,6 @@ impl MarketSnapshot {
                     .map(|security| self.quotes_for(security.instrument_id.as_str()))
                     .collect()
             }),
-            is_level_quoted: rule.is_some_and(|rule| rule.method.is_level()),
             fixings: index.map_or_else(Vec::new, |index| {
                 content
                     .fixings
@@ -1303,7 +1299,6 @@ impl MarketSnapshot {
                 self.quality_of(&InputSet {
                     quotes: &[],
                     benchmark_quotes: Vec::new(),
-                    is_level_quoted: false,
                     fixings: Vec::new(),
                     curves: vec![id],
                 })
@@ -2103,12 +2098,17 @@ fn derive_quality(
     let mut complete = true;
     let mut source_times = Vec::new();
     let mut add = |dependency: String, reason| issues.push(SnapshotIssue { dependency, reason });
-    // A level-quoted bond's own quote is the desk's or a feed's level: a manual one is
-    // the desk's mark, and only its age is judged, not its skew.
-    let own = inputs
-        .quotes
-        .iter()
-        .map(|quote| (quote, inputs.is_level_quoted));
+    // A quote of the level a bond's rule quotes it by is the desk's or a feed's level: a
+    // manual one is the desk's mark, and only its age is judged, not its skew. A bond's
+    // benchmark quotes are judged as quotes of their own.
+    let is_level = |quote: &SharedQuote| {
+        content
+            .references
+            .find(quote.requirement.key.instrument_id.as_str())
+            .and_then(|reference| reference.pricing_rule.as_ref())
+            .is_some_and(|rule| rule.method.is_level())
+    };
+    let own = inputs.quotes.iter().map(|quote| (quote, is_level(quote)));
     let benchmarks = inputs
         .benchmark_quotes
         .iter()

@@ -332,12 +332,7 @@ async fn a_benchmark_tick_reprices_exactly_the_bonds_quoted_to_it() {
         assert!(measure(corporate, "g_spread_mid").is_some());
         assert!(measure(&first[PRICED_CORPORATE], "g_spread_mid").is_none());
         let versions = corporate.result.provenance().input_versions.clone();
-        for (kind, id) in [
-            ("pricing_rule", CORPORATE),
-            ("benchmark_set", "UST-OTR"),
-            ("instrument", TWO_YEAR),
-            ("instrument", TEN_YEAR),
-        ] {
+        for (kind, id) in [("pricing_rule", CORPORATE), ("benchmark_set", "UST-OTR")] {
             assert!(
                 versions
                     .iter()

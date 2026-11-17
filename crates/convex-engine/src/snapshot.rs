@@ -1808,19 +1808,19 @@ pub(crate) fn consumed_versions(
             floating.calendar.version,
         )?;
     }
-    // A bond priced under a rule read the rule, its set and each benchmark security's
-    // pinned version.
+    // A bond priced under a rule read the rule and its set; the set's version pins each
+    // benchmark security's.
     if let Some(rule) = &reference.pricing_rule {
         push(
             "pricing_rule",
             reference.record.instrument_id.as_str(),
             rule.version,
         )?;
-        let set = rule
+        if let Some(record) = rule
             .benchmark_set_id
             .as_ref()
-            .and_then(|id| snapshot.benchmark_set(id));
-        if let Some(record) = set {
+            .and_then(|id| snapshot.benchmark_set(id))
+        {
             let set = convex_ports::level_pricing::benchmark_set_of(record)
                 .ok_or(TraitError::InvalidInput("wrong benchmark set resource"))?;
             push(
@@ -1828,13 +1828,6 @@ pub(crate) fn consumed_versions(
                 set.benchmark_set_id.as_str(),
                 record.version,
             )?;
-            for security in &set.securities {
-                push(
-                    "instrument",
-                    security.instrument_id.as_str(),
-                    security.version,
-                )?;
-            }
         }
     }
     if let Some(capture) = &snapshot.content().configuration_capture {

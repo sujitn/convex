@@ -765,3 +765,112 @@ fn changed_quotes_names_the_unshared_entries_only_while_nothing_else_differs() {
         assert_eq!(next(change), None, "change {index}");
     }
 }
+
+/// A benchmark set record `id`, recorded at `recorded_at`.
+fn benchmark_set(id: &str, recorded_at: &str) -> convex_ports::reference_master::MasterRecord {
+    let set = serde_json::from_value(serde_json::json!({
+        "benchmark_set_id": id,
+        "currency": "USD",
+        "securities": [{"tenor": "10Y", "instrument_id": "UST-10Y", "version": 1}],
+        "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
+        "provenance": {"source": "desk", "evidence_reference": "fixture"},
+    }))
+    .unwrap();
+    convex_ports::reference_master::MasterRecord {
+        schema_version: SchemaVersion::V2,
+        version: fixture::version(1),
+        recorded_at: fixture::time(recorded_at),
+        definition: convex_ports::reference_master::MasterDefinition::BenchmarkSet(Box::new(set)),
+    }
+}
+
+/// A snapshot holds each benchmark set once, in id order, each a set recorded by its
+/// cutoff and at most 64 of them; with them it keeps its identity through the wire.
+#[test]
+fn a_snapshot_holds_each_benchmark_set_once_in_order() {
+    let at = "2025-01-01T00:00:00Z";
+    let mut content = fixture::content();
+    content.benchmark_sets = vec![benchmark_set("UST-OTR", at), benchmark_set("UST-ALL", at)];
+    let snapshot = MarketSnapshot::new(content.clone()).unwrap();
+    let ids: Vec<_> = snapshot
+        .content()
+        .benchmark_sets
+        .iter()
+        .filter_map(convex_ports::level_pricing::benchmark_set_of)
+        .map(|set| set.benchmark_set_id.as_str())
+        .collect();
+    assert_eq!(ids, ["UST-ALL", "UST-OTR"]);
+    let id = ReferenceDataId::new("UST-OTR").unwrap();
+    assert_eq!(
+        snapshot.benchmark_set(&id).map(|record| record.version),
+        Some(fixture::version(1))
+    );
+    let bytes = snapshot.canonical_bytes().unwrap();
+    assert_eq!(
+        serde_json::from_slice::<MarketSnapshot>(&bytes).unwrap(),
+        snapshot
+    );
+    assert_ne!(
+        snapshot.id(),
+        fixture::snapshot().id(),
+        "the sets are part of the identity"
+    );
+
+    let refused = |sets: Vec<_>| {
+        let mut content = content.clone();
+        content.benchmark_sets = sets;
+        MarketSnapshot::new(content).unwrap_err()
+    };
+    assert!(matches!(
+        refused(vec![
+            benchmark_set("UST-OTR", at),
+            benchmark_set("UST-OTR", at)
+        ]),
+        convex_ports::TraitError::InvalidInput(_)
+    ));
+    let mut calendar = benchmark_set("UST-OTR", at);
+    calendar.definition = content.references[0].calendar.definition.clone();
+    assert!(matches!(
+        refused(vec![calendar]),
+        convex_ports::TraitError::InvalidInput(_)
+    ));
+    assert!(matches!(
+        refused(vec![benchmark_set("UST-OTR", "2099-01-01T00:00:00Z")]),
+        convex_ports::TraitError::InvalidInput(_)
+    ));
+    let too_many = (0..=convex_ports::level_pricing::MAX_SNAPSHOT_BENCHMARK_SETS)
+        .map(|n| benchmark_set(&format!("UST-{n:03}"), at))
+        .collect();
+    assert!(matches!(
+        refused(too_many),
+        convex_ports::TraitError::CapacityExceeded
+    ));
+}
+
+/// A manual quote of a bond its rule quotes by a level is the desk's mark in the whole
+/// snapshot's quality too, which configuration fixtures and the hedge gate read; a manual
+/// quote of a bond quoted by price is indicative.
+#[test]
+fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
+    use convex_ports::level_pricing::{PricingMethod, ResolvedPricingRule};
+    let mut content = fixture::content();
+    content.quotes[0].make_mut().image.as_mut().unwrap().state =
+        convex_ports::quote_event::DataState::Manual;
+    assert_eq!(
+        MarketSnapshot::new(content.clone())
+            .unwrap()
+            .quality()
+            .quality,
+        DataQuality::Indicative
+    );
+    content.references.make_mut()[0].pricing_rule = Some(ResolvedPricingRule {
+        version: fixture::version(1),
+        recorded_at: fixture::time("2025-01-01T00:00:00Z"),
+        method: PricingMethod::Yield {},
+        benchmark_set_id: None,
+    });
+    assert_eq!(
+        MarketSnapshot::new(content).unwrap().quality().quality,
+        DataQuality::Valid
+    );
+}

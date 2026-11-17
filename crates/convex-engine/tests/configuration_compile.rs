@@ -608,4 +608,36 @@ async fn a_level_quoted_universe_is_refused_when_its_benchmarks_cannot_be_priced
         invalid(compile(&storage, &both, "showcase-feed").await),
         "a benchmark set pins another version of a book instrument"
     );
+
+    // The rule now names a set that comes into force only after the cutoff.
+    let later: ReferenceCommand = serde_json::from_value(json!({
+        "idempotency_key": "later-set",
+        "changes": [],
+        "master_changes": [
+            {"expected_version": null, "definition": {"kind": "benchmark_set", "definition": {
+                "benchmark_set_id": "UST-LATER",
+                "currency": "USD",
+                "securities": [{"tenor": "10Y", "instrument_id": "UST-10Y", "version": 1}],
+                "effective": {"from": "2026-12-01T00:00:00Z", "until": null},
+                "provenance": {"source": "desk", "evidence_reference": "compile-test"},
+            }}},
+            {"expected_version": 1, "definition": {"kind": "pricing_rule", "definition": {
+                "instrument_id": instrument,
+                "method": {"kind": "benchmark_spread", "tenor": "10Y"},
+                "benchmark_set_id": "UST-LATER",
+                "effective": {"from": "2026-01-01T00:00:00Z", "until": null},
+                "provenance": {"source": "desk", "evidence_reference": "compile-test"},
+            }}},
+        ],
+    }))
+    .unwrap();
+    storage
+        .bonds
+        .commit(&later, at("2026-10-07T12:50:00Z"))
+        .await
+        .unwrap();
+    assert_eq!(
+        invalid(compile(&storage, &selection(), "showcase-feed").await),
+        "a pricing rule names a benchmark set not in force at the cutoff"
+    );
 }

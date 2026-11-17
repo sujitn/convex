@@ -113,7 +113,12 @@ async fn run() -> Result<(Value, bool), ConfigurationError> {
     } = convex_ext_redb::open_redb_storage(&args[0]).map_err(|_| ConfigurationError::Storage)?;
     if command == "compile" && args.len() == 3 {
         let selection: PlanSelection = read(&args[2])?;
-        let capabilities = mode_capabilities(selection.mode, vec![selection.source.clone()], demo)?;
+        // The selection's source, and the desk's for levels when it names one.
+        let sources = std::iter::once(&selection.source)
+            .chain(selection.levels.as_ref().map(|levels| &levels.source))
+            .cloned()
+            .collect();
+        let capabilities = mode_capabilities(selection.mode, sources, demo)?;
         let document = assemble_from_repository(
             &selection,
             storage.bonds.as_ref(),
