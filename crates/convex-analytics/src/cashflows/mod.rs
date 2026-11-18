@@ -12,7 +12,7 @@ pub use convex_core::cashflows::{
     DateRules, DatedProfile, DatedValue, ExCouponAccrual, ExCouponBoundary, ExCouponRule,
     ExDateAnchor, NegativeCouponPolicy, PaymentDateEntitlement, ProfileKind, ScheduleSpec,
 };
-pub use irregular::{IrregularPeriodHandler, IrregularStubType, ReferenceMethod};
+pub use irregular::{IrregularPeriodHandler, ReferenceMethod};
 pub use schedule::{Schedule, ScheduleConfig, StubType};
 pub use settlement::{
     DayType, ExDivAccruedMethod, ExDividendRules, SettlementCalculator, SettlementRules,

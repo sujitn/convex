@@ -119,8 +119,6 @@ pub struct ServerConfig {
     pub port: u16,
     /// Enable the WebSocket routes on the HTTP listener.
     pub websocket_enabled: bool,
-    /// Only the HTTP port is supported; a distinct listener is rejected.
-    pub websocket_port: Option<u16>,
     /// Local redb file. Its parent directory must already exist.
     pub storage_path: String,
     /// Reserved file integration; rejected until the provider is wired.
@@ -150,7 +148,6 @@ impl Default for ServerConfig {
             host: "0.0.0.0".into(),
             port: 8080,
             websocket_enabled: true,
-            websocket_port: None,
             storage_path: "./data/convex.redb".into(),
             quotes_file: None,
             runtime_plan: None,
@@ -177,8 +174,6 @@ pub struct EffectiveConfig<'a> {
     pub port: u16,
     /// Whether WebSocket routes are registered.
     pub websocket_enabled: bool,
-    /// Shared listener setting.
-    pub websocket_port: Option<u16>,
     /// Redacted storage path.
     pub storage_path: &'static str,
     /// Redacted optional quote source.
@@ -345,9 +340,6 @@ impl ServerConfig {
                         }
                     }
                 }
-                "CONVEX_WEBSOCKET_PORT" => {
-                    candidate.websocket_port = Some(Self::parse_port(&value, "websocket_port")?)
-                }
                 "CONVEX_STORAGE_PATH" => candidate.storage_path = value,
                 "CONVEX_RUNTIME_PLAN" => candidate.runtime_plan = Some(value),
                 "CONVEX_CONFIGURATION_ID" => candidate.configuration_id = Some(value),
@@ -394,14 +386,6 @@ impl ServerConfig {
                 field: "access",
                 expected: "valid bounded access settings and exact origins",
             })?;
-        if let Some(port) = self.websocket_port {
-            if !self.websocket_enabled || port != self.port {
-                return Err(ConfigError::Unsupported {
-                    field: "websocket_port",
-                    reason: "only enabled WebSockets on the HTTP listener are supported",
-                });
-            }
-        }
         if self.storage_path.trim().is_empty() || self.storage_path.contains('\0') {
             return Err(ConfigError::InvalidValue {
                 field: "storage_path",
@@ -593,7 +577,6 @@ impl ServerConfig {
             },
             port: self.port,
             websocket_enabled: self.websocket_enabled,
-            websocket_port: self.websocket_port,
             storage_path: REDACTED,
             quotes_file: self.quotes_file.as_ref().map(|_| REDACTED),
             runtime_plan: self.runtime_plan.as_ref().map(|_| REDACTED),
@@ -621,7 +604,6 @@ impl ServerConfig {
             "CONVEX_HOST",
             "CONVEX_PORT",
             "CONVEX_WEBSOCKET_ENABLED",
-            "CONVEX_WEBSOCKET_PORT",
             "CONVEX_STORAGE_PATH",
             "CONVEX_QUOTES_FILE",
             "CONVEX_RUNTIME_PLAN",
@@ -877,17 +859,18 @@ mod tests {
             "CONVEX_CURVES_FILE",
             "CONVEX_FIXINGS_FILE",
             "CONVEX_BONDS_FILE",
-            "CONVEX_WEBSOCKET_PORT",
         ] {
             assert!(matches!(
                 overrides(&mut ServerConfig::default(), &[(name, "9000")]),
                 Err(ConfigError::Unsupported { .. })
             ));
         }
-        assert!(matches!(
-            overrides(&mut ServerConfig::default(), &[("CONVEX_SECRET", "secret")]),
-            Err(ConfigError::UnknownEnvironment { .. })
-        ));
+        for name in ["CONVEX_SECRET", "CONVEX_WEBSOCKET_PORT"] {
+            assert!(matches!(
+                overrides(&mut ServerConfig::default(), &[(name, "9000")]),
+                Err(ConfigError::UnknownEnvironment { .. })
+            ));
+        }
         assert!(matches!(
             ServerConfig::default().validate_startup(),
             Err(ConfigError::InvalidValue {
@@ -949,7 +932,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_websocket_port_and_all_supported_booleans_work() {
+    fn all_supported_websocket_booleans_work() {
         for (value, enabled) in [
             ("true", true),
             ("TRUE", true),
@@ -961,25 +944,6 @@ mod tests {
             overrides(&mut config, &[("CONVEX_WEBSOCKET_ENABLED", value)]).unwrap();
             assert_eq!(config.websocket_enabled, enabled);
         }
-        overrides(
-            &mut ServerConfig::default(),
-            &[("CONVEX_WEBSOCKET_PORT", "8080")],
-        )
-        .unwrap();
-        let result = overrides(
-            &mut ServerConfig::default(),
-            &[
-                ("CONVEX_WEBSOCKET_ENABLED", "false"),
-                ("CONVEX_WEBSOCKET_PORT", "8080"),
-            ],
-        );
-        assert!(matches!(
-            result,
-            Err(ConfigError::Unsupported {
-                field: "websocket_port",
-                ..
-            })
-        ));
     }
 
     #[test]

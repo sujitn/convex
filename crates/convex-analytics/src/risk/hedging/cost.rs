@@ -60,12 +60,6 @@ impl CostFeed for HeuristicCostFeed {
     }
 }
 
-/// Back-compat shim — pre-trait callers used a free `cost_bps` from
-/// `convex::risk::hedge_cost_bps`. Delegates to [`HeuristicCostFeed`].
-pub fn hedge_cost_bps(instrument: &HedgeInstrument) -> f64 {
-    HeuristicCostFeed.cost_bps(instrument)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -131,10 +125,5 @@ mod tests {
             assert!(feed.cost_bps(&swap(tenor)) > 0.0);
         }
         assert!(feed.cost_bps(&ty()) > 0.0);
-    }
-
-    #[test]
-    fn hedge_cost_bps_back_compat_shim_matches_trait() {
-        assert_eq!(hedge_cost_bps(&ty()), HeuristicCostFeed.cost_bps(&ty()));
     }
 }

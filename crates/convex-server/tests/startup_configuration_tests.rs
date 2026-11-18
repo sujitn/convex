@@ -200,7 +200,11 @@ fn invalid_settings_fail_before_storage_or_listening() {
         ("CONVEX_PORT", "99999", "INVALID_CONFIG_VALUE"),
         ("CONVEX_HOST", "localhost", "INVALID_CONFIG_VALUE"),
         ("CONVEX_WEBSOCKET_ENABLED", "maybe", "INVALID_CONFIG_VALUE"),
-        ("CONVEX_WEBSOCKET_PORT", "65000", "UNSUPPORTED_CONFIG"),
+        (
+            "CONVEX_WEBSOCKET_PORT",
+            "65000",
+            "UNKNOWN_CONFIG_ENVIRONMENT",
+        ),
         ("CONVEX_QUOTES_FILE", "private-marker", "UNSUPPORTED_CONFIG"),
         ("CONVEX_CURVES_FILE", "private-marker", "UNSUPPORTED_CONFIG"),
         (

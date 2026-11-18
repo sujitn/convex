@@ -8,9 +8,7 @@
 
 use crate::types::{AnalyticsConfig, Holding, WeightingMethod};
 use crate::{PortfolioError, PortfolioResult};
-use convex_analytics::risk::{
-    Duration, KeyRateDuration, KeyRateDurations, STANDARD_KEY_RATE_TENORS,
-};
+use convex_analytics::risk::{Duration, KeyRateDuration, STANDARD_KEY_RATE_TENORS};
 use convex_math::decimal::BoundedDecimal;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -102,12 +100,6 @@ impl KeyRateProfile {
             .iter()
             .filter(|krd| krd.tenor >= min_tenor && krd.tenor <= max_tenor)
             .collect()
-    }
-
-    /// Converts to a KeyRateDurations type for compatibility.
-    #[must_use]
-    pub fn to_key_rate_durations(&self) -> KeyRateDurations {
-        KeyRateDurations::new(self.durations.clone())
     }
 
     /// Returns the short-end duration (< 2 years).
@@ -420,6 +412,7 @@ pub fn partial_dv01s(
 mod tests {
     use super::*;
     use crate::types::HoldingAnalytics;
+    use convex_analytics::risk::KeyRateDurations;
     use convex_bonds::types::BondIdentifiers;
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;

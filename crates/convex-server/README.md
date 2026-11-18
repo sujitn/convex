@@ -208,7 +208,6 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | host | CONVEX_HOST | IPv4/IPv6 literal; default `0.0.0.0` must be changed to loopback for the current HTTP executable; hostnames fail |
 | port | CONVEX_PORT | Integer 0–65535; default 8080; zero selects an ephemeral port |
 | websocket_enabled | CONVEX_WEBSOCKET_ENABLED | Boolean; environment accepts true/false or 1/0, case insensitive; default true |
-| websocket_port | CONVEX_WEBSOCKET_PORT | Optional; accepted only when WebSockets are enabled and it equals the HTTP port |
 | storage_path | CONVEX_STORAGE_PATH | Nonempty local redb path; default `./data/convex.redb`; parent directory must exist |
 | runtime_plan | CONVEX_RUNTIME_PLAN | Required explicit plan for replay; for live, this or `configuration_id`; fixed-bullet mode, exact build, no seed events |
 | configuration_id | CONVEX_CONFIGURATION_ID | Production (required), live (instead of `runtime_plan`) or demo: run the stored active configuration with this id live; under demo, Demo-quality inputs are valued and labelled |
