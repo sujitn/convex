@@ -778,10 +778,24 @@ async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
     let uri =
         format!("/api/v1/quotes/BOND-001?level=125&known_at={cutoff}&settlement_date={SETTLEMENT}");
     let corporate = stored_terms(&setup, "BOND-001").await;
-    let single = json!({"bond": corporate, "settlement_date": SETTLEMENT, "level": 125,
-        "known_at": cutoff});
-    let batch = json!({"bonds": [{"bond": corporate, "level": 125}],
-        "settlement_date": SETTLEMENT, "known_at": cutoff});
+    let single = |mark: Value| {
+        let mut body =
+            json!({"bond": corporate, "settlement_date": SETTLEMENT, "known_at": cutoff});
+        body.as_object_mut()
+            .unwrap()
+            .extend(mark.as_object().unwrap().clone());
+        body
+    };
+    let batch = |mark: Value| {
+        let mut item = json!({"bond": corporate});
+        item.as_object_mut()
+            .unwrap()
+            .extend(mark.as_object().unwrap().clone());
+        json!({"bonds": [item], "settlement_date": SETTLEMENT, "known_at": cutoff})
+    };
+    let by_price = format!(
+        "/api/v1/quotes/BOND-001?market_price=99.5&known_at={cutoff}&settlement_date={SETTLEMENT}"
+    );
     for (instruments, expected) in [
         (vec!["BOND-001"], StatusCode::FORBIDDEN),
         (vec!["BOND-001", "UST-2Y", "UST-10Y"], StatusCode::OK),
@@ -797,9 +811,25 @@ async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
             AccessControl::new(issuer.verifier.clone(), policy).unwrap(),
         );
         for (method, path, body) in [
+            // By price too: the rule's report names the set's securities.
             ("GET", uri.as_str(), None),
-            ("POST", "/api/v1/quote", Some(single.clone())),
-            ("POST", "/api/v1/batch/price", Some(batch.clone())),
+            ("GET", by_price.as_str(), None),
+            ("POST", "/api/v1/quote", Some(single(json!({"level": 125})))),
+            (
+                "POST",
+                "/api/v1/quote",
+                Some(single(json!({"market_price": 99.5}))),
+            ),
+            (
+                "POST",
+                "/api/v1/batch/price",
+                Some(batch(json!({"level": 125}))),
+            ),
+            (
+                "POST",
+                "/api/v1/batch/price",
+                Some(batch(json!({"market_price": 99.5}))),
+            ),
         ] {
             let (status, _, response) =
                 access::request(router.clone(), method, path, Some(HUMAN_TOKEN), body).await;
@@ -886,6 +916,8 @@ async fn inline_terms_equal_to_the_stored_ones_are_priced_under_the_stored_rule(
         by_price["pricing_rule"].get("level").is_none(),
         "{by_price}"
     );
+    // A bond quoted by a level takes no percent-of-price width, even sent a price.
+    assert!(by_price["clean_price_bid"].is_null(), "{by_price}");
 
     // Refused: both marks; terms that differ from the stored ones; supplied curves.
     let mut edited = corporate.clone();

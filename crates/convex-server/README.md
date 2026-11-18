@@ -534,8 +534,10 @@ in its quote.
 - **A `market_price` reads the rule's set too,** for the G-spread. A benchmark without
   a usable Live price refuses that request, or that batch item, naming its tenor.
 - **A batch reads each benchmark set once.** A refusal is that item's error. The report
-  names each benchmark's `instrument_id`, so a caller not entitled to one is refused the
-  whole response (403), as on `GET`.
+  names each benchmark's `instrument_id`, by price as by level, so a caller not entitled
+  to one is refused the whole response (403), as on `GET`.
+- **Width.** A bond whose rule quotes it by a level takes no percent-of-price bid/ask
+  width, whether it is sent a level or a price.
 
 **In a Live runtime** a bond with a rule is priced from its own quote under that rule,
 and each benchmark security of its set is valued beside it, so their quotes are in

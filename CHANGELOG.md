@@ -126,8 +126,10 @@ the changes that matter when you upgrade.
   set once. **Breaking:**
   - a `market_price` request or item for a bond whose rule names a set now reads the
     set, and is refused, naming the tenor, when a benchmark has no usable Live price;
-  - a bond quoted by a level no longer takes the configuration's percent-of-price
-    bid/ask width;
+  - its report names the set's securities, so a caller not entitled to them is refused
+    (403), and a batch holding such an item is refused whole;
+  - a bond whose rule quotes it by a level no longer takes the configuration's
+    percent-of-price bid/ask width, sent a level or a price;
   - a callable's or note's quote on these routes carries its rule's report.
 
   With supplied curves, or with no configuration and no runtime, no rule is read and a

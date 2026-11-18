@@ -551,6 +551,10 @@ impl PricingEngine {
         Option<ports::level_pricing::ResolvedPricingRule>,
         ports::reference_repository::ReferenceError,
     > {
+        // An id no stored bond can have names no stored rule.
+        if convex_core::contracts::InstrumentId::new(bond.instrument_id.as_str()).is_err() {
+            return Ok(None);
+        }
         let repository = &self.storage.bonds;
         let lookup = context.lookup();
         let Some(rule) = repository
