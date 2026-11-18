@@ -575,14 +575,6 @@ guessed. Every row must resolve or nothing commits, and the 422 body lists each 
 as `{index, code, reason}` (the first 100 are reported). The 2xx body adds `resolutions` with
 the instrument and mapping versions consumed. Delta and fill ingest are not supported.
 
-`/api/v1/portfolios*` is a one-release alias over books with the former request and response
-shapes. Position edits read the current version and commit with it as the expected version
-(a caller `If-Match` replaces it), so a concurrent writer gets 409. `DELETE` retires a book by
-closing its effective interval; a retired id is treated as absent and can be created again.
-The alias list reads one repository page (1,000 books) and refuses with 503 beyond that; use
-`/api/v1/books` for larger estates. Alias positions are not checked against the instrument
-master, as before; `/api/v1/books` checks every row.
-
 `POST /api/v1/portfolio/analytics` also accepts `{"book_id": "...", "version": n}` instead of
 inline positions. It requires a complete runtime result for every position, `Valid`, or `Demo`
 under the demo profile, and otherwise refuses the whole request (422

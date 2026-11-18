@@ -392,25 +392,6 @@ fn requirement(
             req.action = BookRead;
             req.data = vec![D::Books, D::Results, D::Reference, D::Market];
         }
-        "/api/v1/portfolios" | "/api/v1/portfolios/batch" => {
-            req.action = if read { BookRead } else { BookWrite };
-            req.data = vec![D::Books];
-            if read {
-                req.resources.push(Resource::new(R::Book, "*"));
-                req.resources.push(Resource::new(R::Instrument, "*"));
-            }
-        }
-        "/api/v1/portfolios/:portfolio_id"
-        | "/api/v1/portfolios/:portfolio_id/positions"
-        | "/api/v1/portfolios/:portfolio_id/positions/:instrument_id" => {
-            exact(R::Book, "portfolio_id")?;
-            if params.contains_key("instrument_id") {
-                exact(R::Instrument, "instrument_id")?;
-            }
-            req.action = if read { BookRead } else { BookWrite };
-            req.data = vec![D::Books];
-            req.body_required = !read && method != Method::DELETE;
-        }
         "/api/v1/etf/inav"
         | "/api/v1/etf/inav/batch"
         | "/api/v1/etf/sec-yield"

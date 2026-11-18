@@ -379,30 +379,6 @@ pub fn create_router_with_access(
         .route(
             "/api/v1/books/:book_id/limits/check",
             post(limits::check_limits),
-        )
-        // Portfolio alias over books (one release)
-        .route(
-            "/api/v1/portfolios",
-            get(books::list_portfolios).post(books::create_portfolio),
-        )
-        .route(
-            "/api/v1/portfolios/batch",
-            post(books::batch_create_portfolios),
-        )
-        .route(
-            "/api/v1/portfolios/:portfolio_id",
-            get(books::get_portfolio)
-                .put(books::update_portfolio)
-                .delete(books::delete_portfolio),
-        )
-        .route(
-            "/api/v1/portfolios/:portfolio_id/positions",
-            post(books::add_portfolio_position),
-        )
-        .route(
-            "/api/v1/portfolios/:portfolio_id/positions/:instrument_id",
-            axum::routing::put(books::update_portfolio_position)
-                .delete(books::remove_portfolio_position),
         );
     let router = if websocket_enabled {
         router

@@ -25,7 +25,6 @@ async fn default_router_denies_anonymous_read_write_ws_and_job_access() {
     let router = convex_server::routes::create_router(engine);
     for (method, path) in [
         ("GET", "/api/v1/bonds"),
-        ("POST", "/api/v1/portfolios"),
         ("PUT", "/api/v1/books/BOOK-A"),
         ("GET", "/api/v1/books"),
         ("GET", "/ws"),
@@ -96,7 +95,7 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         );
     }
     for (method, path) in [
-        ("POST", "/api/v1/portfolios"),
+        ("PUT", "/api/v1/books/BOOK-A"),
         ("PUT", "/api/v1/bonds/BOND-001"),
         ("POST", "/api/v1/runtime/valuation"),
         ("POST", "/api/v1/jobs"),
@@ -117,12 +116,12 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
             "{method} {path}"
         );
     }
-    let payload = json!({"portfolio_id":"BOOK-A","name":"fixture","currency":"USD","positions":[{"instrument_id":"BOND-002","quantity":"1"}]});
+    let payload = json!({"name":"fixture","currency":"USD","positions":[{"instrument_id":"BOND-002","quantity":"1"}]});
     assert_eq!(
         request(
             router.clone(),
-            "POST",
-            "/api/v1/portfolios",
+            "PUT",
+            "/api/v1/books/BOOK-A",
             Some(HUMAN_TOKEN),
             Some(payload)
         )
@@ -136,39 +135,20 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         .await
         .unwrap()
         .is_none());
-    let batch = json!({"portfolios":[{"portfolio_id":"BOOK-A","name":"allowed","positions":[]},{"portfolio_id":"BOOK-B","name":"forbidden","positions":[]}]});
-    assert_eq!(
-        request(
-            router.clone(),
-            "POST",
-            "/api/v1/portfolios/batch",
-            Some(HUMAN_TOKEN),
-            Some(batch)
-        )
-        .await
-        .0,
-        StatusCode::FORBIDDEN
-    );
-    assert!(engine
-        .reference_repository()
-        .get_master(&book("BOOK-A"))
-        .await
-        .unwrap()
-        .is_none());
-    let (status, _, _) = request(
+    let (status, _, body) = request(
         router.clone(),
-        "POST",
-        "/api/v1/portfolios",
+        "PUT",
+        "/api/v1/books/BOOK-A",
         Some(HUMAN_TOKEN),
-        Some(json!({"portfolio_id":"BOOK-A","name":"fixture","currency":"USD","positions":[]})),
+        Some(json!({"name":"fixture","currency":"USD","positions":[]})),
     )
     .await;
-    assert_eq!(status, StatusCode::CREATED);
+    assert!(status.is_success(), "{status} {body}");
     assert_eq!(
         request(
             router.clone(),
             "GET",
-            "/api/v1/portfolios/BOOK-A",
+            "/api/v1/books/BOOK-A",
             Some(HUMAN_TOKEN),
             None
         )
@@ -180,7 +160,7 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         request(
             router.clone(),
             "GET",
-            "/api/v1/portfolios/BOOK-B",
+            "/api/v1/books/BOOK-B",
             Some(HUMAN_TOKEN),
             None
         )
@@ -231,7 +211,7 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         request(
             router.clone(),
             "GET",
-            "/api/v1/portfolios/BOOK-A",
+            "/api/v1/books/BOOK-A",
             Some(HUMAN_TOKEN),
             None
         )
@@ -297,12 +277,13 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         .clone()
         .oneshot(
             Request::builder()
-                .method("POST")
-                .uri("/api/v1/portfolios")
+                .method("PUT")
+                .uri("/api/v1/books/BOOK-A")
                 .header("authorization", format!("Bearer {HUMAN_TOKEN}"))
                 .header("content-type", "application/json")
+                .header("idempotency-key", "access-ambiguous-1")
                 .body(Body::from(
-                    r#"{"portfolio_id":"BOOK-A","portfolio_id":"BOOK-B","name":"ambiguous"}"#,
+                    r#"{"name":"ambiguous","name":"other","positions":[]}"#,
                 ))
                 .unwrap(),
         )
