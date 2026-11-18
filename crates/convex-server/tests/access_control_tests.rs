@@ -53,7 +53,7 @@ async fn default_router_denies_anonymous_read_write_ws_and_job_access() {
 }
 
 #[tokio::test]
-async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_closed() {
+async fn actual_introspection_roles_scopes_and_nested_resources_are_fail_closed() {
     let issuer = IssuerFixture::start().await;
     let access = AccessControl::new(issuer.verifier.clone(), policy()).unwrap();
     let s = support::setup().await;
@@ -143,7 +143,7 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         Some(json!({"name":"fixture","currency":"USD","positions":[]})),
     )
     .await;
-    assert!(status.is_success(), "{status} {body}");
+    assert_eq!(status, StatusCode::CREATED, "{body}");
     assert_eq!(
         request(
             router.clone(),
@@ -283,13 +283,20 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
                 .header("content-type", "application/json")
                 .header("idempotency-key", "access-ambiguous-1")
                 .body(Body::from(
-                    r#"{"name":"ambiguous","name":"other","positions":[]}"#,
+                    r#"{"positions":[{"instrument_id":"BOND-001","instrument_id":"BOND-002","quantity":"1"}]}"#,
                 ))
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(ambiguous.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(ambiguous.into_body(), 64 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(body["code"], "INVALID_ACCESS_REQUEST", "{body}");
     assert_eq!(issuer.state.bad_authorization.load(Ordering::SeqCst), 0);
     assert!(issuer.state.calls.load(Ordering::SeqCst) > 10);
     issuer.finish().await;

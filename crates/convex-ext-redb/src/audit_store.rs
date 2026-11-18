@@ -2,8 +2,8 @@
 //!
 //! Beside the log, keyed by ID, an index holds one key per entry, (entity type, entity
 //! ID, entry ID), written in the same transaction as the entry, so one entity's entries
-//! are read in ID order without reading the others'. A log without its index is refused
-//! at open.
+//! are read in ID order without reading the others'. A log whose entries do not each
+//! have their key is refused at open.
 //!
 //! A prune removes old entries and their index keys in one transaction. It never
 //! removes the log's last entry, so IDs are not reused.
@@ -31,13 +31,12 @@ pub struct RedbAuditStore {
 }
 impl RedbAuditStore {
     /// Construct a local audit store on the shared database handle. A log whose entries
-    /// have no index keys is refused.
+    /// do not each have one index key is refused: a write adds an entry and its key in one
+    /// transaction, and a prune removes both.
     pub fn new(db: Arc<Database>) -> Result<Self, TraitError> {
         let read = db.begin_read().map_err(database_error)?;
-        if holds_entries(&read, AUDIT)? && !holds_entries(&read, AUDIT_BY_ENTITY)? {
-            return Err(TraitError::Unsupported(
-                "audit log without its entity index",
-            ));
+        if table_len(&read, AUDIT)? != table_len(&read, AUDIT_BY_ENTITY)? {
+            return Err(TraitError::Unsupported("audit entries without index keys"));
         }
         drop(read);
         Ok(Self {
@@ -176,18 +175,6 @@ impl RedbAuditStore {
         pruned.removed = removals.len();
         commit(write)?;
         Ok(pruned)
-    }
-}
-
-/// Whether `table` exists and holds at least one row.
-fn holds_entries<K: redb::Key + 'static, V: redb::Value + 'static>(
-    read: &redb::ReadTransaction,
-    table: TableDefinition<K, V>,
-) -> Result<bool, TraitError> {
-    match read.open_table(table) {
-        Ok(table) => Ok(!table.is_empty().map_err(database_error)?),
-        Err(redb::TableError::TableDoesNotExist(_)) => Ok(false),
-        Err(error) => Err(database_error(error)),
     }
 }
 
@@ -362,12 +349,9 @@ mod tests {
         }
     }
 
-    /// Entries one filler transaction writes.
-    const FILL_CHUNK: usize = 65_536;
-
     /// Write entries and their index keys in one transaction, without a store's checks:
-    /// a fast filler for large fixtures. `index` false writes the log only.
-    fn fill(db: &Database, entries: &[AuditEntry], index: bool) {
+    /// a fast filler for large fixtures.
+    fn write_entries(db: &Database, entries: &[AuditEntry]) {
         let write = begin_write(db).unwrap();
         {
             let mut table = write.open_table(AUDIT).unwrap();
@@ -376,17 +360,15 @@ mod tests {
                 table
                     .insert(entry.id, encode(entry).unwrap().as_slice())
                     .unwrap();
-                if index {
-                    keys.insert(
-                        (
-                            entry.entity_type.as_str(),
-                            entry.entity_id.as_str(),
-                            entry.id,
-                        ),
-                        (),
-                    )
-                    .unwrap();
-                }
+                keys.insert(
+                    (
+                        entry.entity_type.as_str(),
+                        entry.entity_id.as_str(),
+                        entry.id,
+                    ),
+                    (),
+                )
+                .unwrap();
             }
         }
         commit(write).unwrap();
@@ -421,18 +403,35 @@ mod tests {
         assert_eq!(ids(&store, "BOOK-B").await, [2, 4]);
     }
 
-    /// A log whose entries have no index keys, as a store written before the index held,
-    /// is refused rather than read as empty.
+    /// A log with entries that have no index key, with no index at all or only some keys,
+    /// is refused rather than read as missing those entries.
     #[test]
-    fn a_log_without_its_index_is_refused_at_open() {
+    fn entries_without_index_keys_are_refused_at_open() {
         let directory = tempfile::tempdir().unwrap();
         let db = Arc::new(Database::create(directory.path().join("audit.redb")).unwrap());
-        fill(&db, &[of(1, "BOOK-A"), of(2, "BOOK-B")], false);
-        assert!(matches!(
-            RedbAuditStore::new(db.clone()),
-            Err(TraitError::Unsupported(_))
-        ));
-        fill(&db, &[of(1, "BOOK-A"), of(2, "BOOK-B")], true);
+        let write_log_only = |entries: &[AuditEntry]| {
+            let write = begin_write(&db).unwrap();
+            {
+                let mut table = write.open_table(AUDIT).unwrap();
+                for entry in entries {
+                    table
+                        .insert(entry.id, encode(entry).unwrap().as_slice())
+                        .unwrap();
+                }
+            }
+            commit(write).unwrap();
+        };
+        let refused = |db: &Arc<Database>| {
+            matches!(
+                RedbAuditStore::new(db.clone()),
+                Err(TraitError::Unsupported(_))
+            )
+        };
+        write_log_only(&[of(1, "BOOK-A"), of(2, "BOOK-B")]);
+        assert!(refused(&db), "no index table");
+        write_entries(&db, &[of(1, "BOOK-A")]);
+        assert!(refused(&db), "one entry of two indexed");
+        write_entries(&db, &[of(2, "BOOK-B")]);
         RedbAuditStore::new(db).unwrap();
     }
 
@@ -503,7 +502,7 @@ mod tests {
         let mut entries: Vec<AuditEntry> = (1..=read).map(|id| old(id, "other")).collect();
         entries.push(old(read + 1, "limit_status"));
         entries.push(entry(read + 2));
-        fill(&db, &entries, true);
+        write_entries(&db, &entries);
         let store = RedbAuditStore::new(db).unwrap();
         let none = std::collections::BTreeSet::new();
         let first = store.prune(&pruning(100, 0, &none)).await.unwrap();
@@ -543,7 +542,7 @@ mod tests {
         let db = Arc::new(Database::create(&path).unwrap());
         let details = "x".repeat(600);
         let fill = |from: u64, to: u64, timestamp: i64| {
-            for chunk in (from..=to).collect::<Vec<u64>>().chunks(FILL_CHUNK) {
+            for chunk in (from..=to).collect::<Vec<u64>>().chunks(65_536) {
                 let entries: Vec<AuditEntry> = chunk
                     .iter()
                     .map(|&id| AuditEntry {
@@ -552,7 +551,7 @@ mod tests {
                         ..of(id, &format!("BOOK-{:02}", (id / 64) % 64))
                     })
                     .collect();
-                fill(&db, &entries, true);
+                write_entries(&db, &entries);
             }
         };
         let mib =

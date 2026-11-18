@@ -27,14 +27,11 @@ impl RedbReferenceRepository {
     /// Open the versioned schema, refusing to silently discard pre-versioned bond records.
     pub fn new(db: Arc<Database>) -> Result<Self, ReferenceError> {
         let read = db.begin_read().map_err(|_| ReferenceError::Unavailable)?;
-        match read.open_table(TableDefinition::<&str, &[u8]>::new("bonds")) {
-            Ok(table) if table.len().map_err(|_| ReferenceError::Unavailable)? > 0 => {
-                return Err(ReferenceError::Unsupported(
-                    "unversioned bonds require explicit export and reference import",
-                ));
-            }
-            Ok(_) | Err(redb::TableError::TableDoesNotExist(_)) => {}
-            Err(_) => return Err(ReferenceError::Unavailable),
+        if crate::database::table_len(&read, crate::database::UNVERSIONED_BONDS)
+            .map_err(|_| ReferenceError::Unavailable)?
+            > 0
+        {
+            return Err(ReferenceError::Unsupported("unversioned bonds"));
         }
         let presence = [
             exists(&read, CURRENT)?,

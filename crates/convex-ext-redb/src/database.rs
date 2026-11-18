@@ -1,4 +1,4 @@
-//! Local schema migration and explicitly durable transaction helpers.
+//! The application schema marker and explicitly durable transaction helpers.
 
 use convex_ports::error::TraitError;
 use redb::{
@@ -14,6 +14,8 @@ pub(crate) const SCHEMA: TableDefinition<&str, u64> = TableDefinition::new("conv
 pub(crate) const MAX_RECORDS: u64 = 100_000;
 pub(crate) const MAX_HISTORY: u64 = 1_000_000;
 pub(crate) const MAX_RECORD_BYTES: usize = 128 * 1024;
+/// Bonds stored before versioned reference records; a database holding any is refused.
+pub(crate) const UNVERSIONED_BONDS: TableDefinition<&str, &[u8]> = TableDefinition::new("bonds");
 
 pub(crate) fn database_error(error: impl std::fmt::Display) -> TraitError {
     TraitError::DatabaseError(error.to_string())
@@ -54,6 +56,18 @@ pub(crate) fn decode<T: serde::de::DeserializeOwned>(bytes: &[u8]) -> Result<T, 
     serde_json::from_slice(bytes).map_err(|e| TraitError::ParseError(e.to_string()))
 }
 
+/// Rows in `table`, or 0 when it does not exist. redb stores the count with the table.
+pub(crate) fn table_len<K: redb::Key + 'static, V: redb::Value + 'static>(
+    read: &redb::ReadTransaction,
+    table: TableDefinition<K, V>,
+) -> Result<u64, TraitError> {
+    match read.open_table(table) {
+        Ok(table) => table.len().map_err(database_error),
+        Err(redb::TableError::TableDoesNotExist(_)) => Ok(0),
+        Err(error) => Err(database_error(error)),
+    }
+}
+
 pub(crate) fn schema_version(db: &Database) -> Result<u64, TraitError> {
     let read = db.begin_read().map_err(database_error)?;
     match read.open_table(SCHEMA) {
@@ -75,14 +89,8 @@ pub(crate) fn schema_version(db: &Database) -> Result<u64, TraitError> {
 /// stored data without the marker is refused, never adopted. A newer schema is refused.
 pub fn migrate_database(db: &Database) -> Result<(), TraitError> {
     let read = db.begin_read().map_err(database_error)?;
-    match read.open_table(TableDefinition::<&str, &[u8]>::new("bonds")) {
-        Ok(table) if !table.is_empty().map_err(database_error)? => {
-            return Err(TraitError::Unsupported(
-                "unversioned bonds require explicit export and reference import",
-            ))
-        }
-        Ok(_) | Err(redb::TableError::TableDoesNotExist(_)) => {}
-        Err(e) => return Err(database_error(e)),
+    if table_len(&read, UNVERSIONED_BONDS)? > 0 {
+        return Err(TraitError::Unsupported("unversioned bonds"));
     }
     drop(read);
     let existing_version = schema_version(db)?;
@@ -91,24 +99,17 @@ pub fn migrate_database(db: &Database) -> Result<(), TraitError> {
     }
     if existing_version == APPLICATION_SCHEMA_VERSION {
         // Reopen/inspection verifies the current schema without allocating a write transaction.
-        return validate_migrated_configurations(db);
+        return verify_configuration_tables(db);
     }
     let write = begin_write(db)?;
     {
         let mut schema = write.open_table(SCHEMA).map_err(database_error)?;
-        let version = schema
-            .get("version")
-            .map_err(database_error)?
-            .map(|v| v.value())
-            .unwrap_or(0);
-        if version > APPLICATION_SCHEMA_VERSION {
-            return Err(TraitError::Unsupported("newer application schema"));
+        if schema.get("version").map_err(database_error)?.is_some() {
+            // Another store on this handle wrote the marker first; never recreate the
+            // configuration tables of a marked database.
+            return verify_configuration_tables(db);
         }
-        if version == APPLICATION_SCHEMA_VERSION {
-            // Do not silently recreate missing history in a supposedly migrated database.
-            validate_migrated_configurations(db)?;
-            return Ok(());
-        }
+        // Opening the configuration tables creates them, as a marked database requires.
         let configs = write.open_table(CONFIGS).map_err(database_error)?;
         let history = write.open_table(CONFIG_HISTORY).map_err(database_error)?;
         if !configs.is_empty().map_err(database_error)?
@@ -125,7 +126,7 @@ pub fn migrate_database(db: &Database) -> Result<(), TraitError> {
     commit(write)
 }
 
-fn validate_migrated_configurations(db: &Database) -> Result<(), TraitError> {
+fn verify_configuration_tables(db: &Database) -> Result<(), TraitError> {
     let read = db.begin_read().map_err(database_error)?;
     let history = read
         .open_table(CONFIG_HISTORY)

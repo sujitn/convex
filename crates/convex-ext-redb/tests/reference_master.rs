@@ -93,6 +93,7 @@ async fn older_serialized_versions_remain_exact_and_require_explicit_migration_f
     let record_value = serde_json::json!({"schema_version":"2.0","instrument_id":"BOND-001","version":1,"recorded_at":"2025-01-01T00:00:00Z","bond":bond_value});
     let command_value = serde_json::json!({"idempotency_key":"old-key","changes":[{"kind":"create","bond":bond_value}]});
     let receipt_value = serde_json::json!({"idempotency_key":"old-key","recorded_at":"2025-01-01T00:00:00Z","records":[record_value]});
+    RedbReferenceRepository::new(db.clone()).unwrap();
     let mut write = db.begin_write().unwrap();
     write.set_durability(Durability::Immediate).unwrap();
     {
@@ -117,16 +118,6 @@ async fn older_serialized_versions_remain_exact_and_require_explicit_migration_f
             .open_table(TableDefinition::<&str, &[u8]>::new("reference_commits_v2"))
             .unwrap()
             .insert("old-key", entry.as_slice())
-            .unwrap();
-        write
-            .open_table(TableDefinition::<&str, &[u8]>::new(
-                "reference_master_current_v2",
-            ))
-            .unwrap();
-        write
-            .open_table(TableDefinition::<(&str, u64), &[u8]>::new(
-                "reference_master_history_v2",
-            ))
             .unwrap();
     }
     write.commit().unwrap();

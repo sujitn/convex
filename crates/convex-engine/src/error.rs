@@ -16,10 +16,6 @@ pub enum EngineError {
     #[error("market data error: {0}")]
     MarketDataError(String),
 
-    /// Curve build error
-    #[error("curve build error: {0}")]
-    CurveBuildError(String),
-
     /// Pricing error
     #[error("pricing error: {0}")]
     PricingError(String),

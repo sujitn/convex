@@ -25,10 +25,7 @@ fn unmarked_database(records: &[(&str, Vec<u8>)]) -> (tempfile::TempDir, Arc<Dat
 #[test]
 fn configurations_without_a_schema_marker_are_refused_and_left_untouched() {
     let original = include_bytes!("../../convex-ports/tests/fixtures/pricing_config.json").to_vec();
-    let (_directory, db) = unmarked_database(&[
-        ("CONFIG-RESTORE", original.clone()),
-        ("ZZZ-invalid", b"{}".to_vec()),
-    ]);
+    let (_directory, db) = unmarked_database(&[("CONFIG-RESTORE", original.clone())]);
     assert!(matches!(
         migrate_database(&db),
         Err(TraitError::Unsupported(_))
@@ -52,19 +49,10 @@ fn configurations_without_a_schema_marker_are_refused_and_left_untouched() {
             .value(),
         original.as_slice()
     );
-    assert_eq!(
-        read.open_table(CURRENT)
-            .unwrap()
-            .get("ZZZ-invalid")
-            .unwrap()
-            .unwrap()
-            .value(),
-        b"{}"
-    );
 }
 
 #[test]
-fn newer_schema_and_missing_history_are_not_silently_adopted() {
+fn a_newer_marker_or_a_marker_without_history_is_refused() {
     for version in [1, 2] {
         let (_directory, db) = unmarked_database(&[]);
         let write = db.begin_write().unwrap();

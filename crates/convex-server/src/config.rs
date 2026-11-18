@@ -327,7 +327,7 @@ impl ServerConfig {
                     }
                 }
                 "CONVEX_HOST" => candidate.host = value,
-                "CONVEX_PORT" => candidate.port = Self::parse_port(&value, "port")?,
+                "CONVEX_PORT" => candidate.port = Self::parse_port(&value)?,
                 "CONVEX_WEBSOCKET_ENABLED" => {
                     candidate.websocket_enabled = match value.to_ascii_lowercase().as_str() {
                         "true" | "1" => true,
@@ -370,9 +370,9 @@ impl ServerConfig {
         Ok(())
     }
 
-    fn parse_port(value: &str, field: &'static str) -> Result<u16, ConfigError> {
+    fn parse_port(value: &str) -> Result<u16, ConfigError> {
         value.parse().map_err(|_| ConfigError::InvalidValue {
-            field,
+            field: "port",
             expected: "an integer in 0..=65535",
         })
     }

@@ -222,12 +222,11 @@ backend and run both [reference](tests/support/reference_conformance.rs) and
 [master](tests/support/master_conformance.rs) conformance suites. Exact resource
 versions are immutable, so a later commit cannot change an already resolved input.
 
-## Stored data migration and recovery
+## Stored data and recovery
 
-This extends reference wire schema 2 with optional retained fields and two redb
-tables, `reference_master_current_v2` and `reference_master_history_v2`. A new
-repository creates all five tables together, and a partial table set fails. Existing record bytes, versions and receipts are preserved.
-Records without contractual terms remain inspectable; valuation fails with an
+The redb repository holds five tables, the three bond tables and
+`reference_master_current_v2` and `reference_master_history_v2`. A new repository creates
+them together, and a partial table set fails. Records without contractual terms remain inspectable; valuation fails with an
 explicit migration error. Previously committed commands can still recover their
 original receipts. Supply verified complete terms and resources in a new expected-
 version update; no missing schedule or provenance is invented.

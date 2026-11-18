@@ -1,4 +1,4 @@
-//! Durable position books and the portfolio alias over them.
+//! Durable position books.
 //!
 //! A book is a `MasterKey::Book` resource in the reference repository, so every write is
 //! one atomic, idempotent, compare-and-set commit with immutable history. Nothing here
@@ -111,7 +111,7 @@ pub(crate) fn optional_expected(headers: &HeaderMap) -> Result<Option<Version>, 
 }
 
 // =============================================================================
-// SHARED WRITE PATH
+// WRITE PATH
 // =============================================================================
 
 /// The record a write is based on, and the commit time to reuse on an exact retry.

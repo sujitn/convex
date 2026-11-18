@@ -1,6 +1,5 @@
 //! Durable books over real HTTP and the real composition: snapshot ingest, optimistic
-//! concurrency, idempotency, atomic row rejection, history, the portfolio alias and
-//! analytics by book. Inputs are the committed showcase seed.
+//! concurrency, idempotency, atomic row rejection, history and analytics by book. Inputs are the committed showcase seed.
 use convex_server::access::identity::{AccessMode, AccessSettings};
 use convex_server::{compose, ServerConfig, ServerProfile, StartupError};
 use reqwest::{Client, Method, StatusCode};
