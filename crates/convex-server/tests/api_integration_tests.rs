@@ -1053,6 +1053,32 @@ async fn test_batch_price_single_bond() {
     assert!(json["stats"]["bonds_per_second"].is_number());
 }
 
+/// With no configuration and no runtime a batch reads no rule: a `level` is that item's
+/// error, and a price beside it is still quoted.
+#[tokio::test]
+async fn test_batch_price_level_without_configuration() {
+    let engine = create_test_engine();
+    let app = create_router(engine);
+    let bond = create_test_bond("US912810TD00", dec!(0.05), 2030);
+    let request_body = json!({
+        "settlement_date": "2025-06-17",
+        "bonds": [
+            {"bond": bond, "level": 125},
+            {"bond": bond, "market_price": 99.50},
+        ]
+    });
+    let (status, json) = post_json(app, "/api/v1/batch/price", request_body).await;
+    assert_eq!(status, StatusCode::OK, "{json}");
+    assert_eq!(json["quotes"].as_array().unwrap().len(), 1, "{json}");
+    assert!(
+        json["errors"][0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("only a configuration context reads"),
+        "{json}"
+    );
+}
+
 #[tokio::test]
 async fn test_batch_price_multiple_bonds_parallel() {
     let engine = create_test_engine();

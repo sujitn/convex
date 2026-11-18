@@ -519,6 +519,26 @@ A missing or unusable input is refused by name; nothing is substituted.
   - 400: both inputs, or a `level` for a bond with no rule or a `price` rule.
   - 422: neither input.
 
+`POST /api/v1/quote` and each `POST /api/v1/batch/price` item also take `level` in place
+of `market_price`. They price inline terms under the stored rule, as
+`GET /api/v1/quotes/:id` prices the stored bond, with the same clean price and the same
+`pricing_rule` report. `POST` also sends the same headers; a batch carries each report
+in its quote.
+- **Only terms equal to the stored ones.** The rule applies when the inline terms equal
+  the bond's stored terms at `known_at`. Other terms are quoted by price, and a `level`
+  for them is refused (400).
+- **Only under a configuration.** With supplied curves (a what-if), or with no
+  configuration and no runtime (yield-only), no rule is read, and a `level` is refused:
+  422 `INVALID_INPUT` on `POST`, that item's error in a batch.
+- **Without a mark** the stage does not run, and the quote is as it was.
+- **A `market_price` reads the rule's set too,** for the G-spread. A benchmark without
+  a usable Live price refuses that request, or that batch item, naming its tenor.
+- **A batch reads each benchmark set once.** A refusal is that item's error. The report
+  names each benchmark's `instrument_id`, by price as by level, so a caller not entitled
+  to one is refused the whole response (403), as on `GET`.
+- **Width.** A bond whose rule quotes it by a level takes no percent-of-price bid/ask
+  width, whether it is sent a level or a price.
+
 **In a Live runtime** a bond with a rule is priced from its own quote under that rule,
 and each benchmark security of its set is valued beside it, so their quotes are in
 every snapshot.

@@ -32,12 +32,12 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use std::collections::HashMap;
 use std::ops::RangeInclusive;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use crate::curve_builder::BuiltCurve;
 use crate::ports::{
     level_pricing::{
-        is_plain_bullet, tenor_months, BenchmarkSecurity, PricingMethod, PricingRuleDefinition,
+        is_plain_bullet, tenor_months, BenchmarkSecurity, PricingMethod, ResolvedPricingRule,
     },
     quote_event::QuoteField,
     reference_data::BondReferenceData,
@@ -62,7 +62,7 @@ const SPREAD_LEVEL_RANGE_BPS: RangeInclusive<Decimal> = dec!(-2000)..=dec!(20000
 const MAX_SOLVED_YIELDS: usize = 4_096;
 
 /// Why a level was not priced. Nothing is substituted.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum LevelError {
     /// The request or the stored rule is not one the stage prices.
     #[error("{0}")]
@@ -123,16 +123,43 @@ pub struct BenchmarkSetQuotes {
     pub quotes: Vec<BenchmarkQuote>,
 }
 
-/// A bond's pricing rule in force and, when it names one, its benchmark set as read, as
-/// of one cutoff.
+/// A bond's pricing rule, as pinned with its reference, and, when it names one, its
+/// benchmark set as read at the same cutoff.
 #[derive(Debug, Clone)]
 pub struct PricingRuleInForce {
-    /// The rule.
-    pub rule: PricingRuleDefinition,
-    /// Its version in force.
-    pub rule_version: Version,
-    /// The set the rule names, as read.
-    pub benchmark_set: Option<BenchmarkSetQuotes>,
+    /// The rule's pin: its version, method and set.
+    pub rule: ResolvedPricingRule,
+    /// The set the rule names, as read; shared by every bond of one request quoted to it.
+    pub benchmark_set: Option<Arc<BenchmarkSetQuotes>>,
+}
+
+/// The benchmark sets one request has read, by id, failures included, so a batch reads
+/// each set and its securities' Live prices once. It holds at most one entry for each
+/// bond the request prices.
+#[derive(Debug, Default)]
+pub(crate) struct BenchmarkSetReads(
+    HashMap<ReferenceDataId, Result<Arc<BenchmarkSetQuotes>, LevelError>>,
+);
+
+impl BenchmarkSetReads {
+    /// The set `id` as this request read it, if it has.
+    pub(crate) fn get(
+        &self,
+        id: &ReferenceDataId,
+    ) -> Option<Result<Arc<BenchmarkSetQuotes>, LevelError>> {
+        self.0.get(id).cloned()
+    }
+
+    /// Keep what reading `id` gave, and return it.
+    pub(crate) fn keep(
+        &mut self,
+        id: ReferenceDataId,
+        read: Result<BenchmarkSetQuotes, LevelError>,
+    ) -> Result<Arc<BenchmarkSetQuotes>, LevelError> {
+        let read = read.map(Arc::new);
+        self.0.insert(id, read.clone());
+        read
+    }
 }
 
 /// A security's clean price mid in its Live record, and the snapshot that record valued.
@@ -312,9 +339,6 @@ pub fn price_under_rule(
     let Some(in_force) = in_force else {
         return price_without_rule(input);
     };
-    if in_force.rule.instrument_id.as_str() != bond.instrument_id.as_str() {
-        return Err(refused("the pricing rule is for another instrument"));
-    }
     let benchmarks = in_force.benchmark_set.as_ref().map(|set| {
         set.quotes
             .iter()
@@ -438,7 +462,7 @@ fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
             benchmark: None,
         }),
         QuotedInput::Level(_) => Err(refused(
-            "this bond has no pricing rule, so it is quoted by price; send market_price",
+            "this bond has no pricing rule in force for its terms, so it is quoted by price; send market_price",
         )),
     }
 }

@@ -103,7 +103,8 @@ pub async fn value_at(
         )
         .await
         .unwrap()
-        .unwrap();
+        .unwrap()
+        .record;
     let mark = mark.map(|mid| mid.parse().unwrap());
     engine
         .value_request(&mut context, &reference, settlement, known_at, mark)

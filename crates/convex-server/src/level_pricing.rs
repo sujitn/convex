@@ -31,6 +31,18 @@ pub(crate) fn quoted_input(
     }
 }
 
+/// The mark a `POST /quote` or batch item sends: `market_price`, `level`, or neither for
+/// a quote with no mark.
+pub(crate) fn optional_quoted_input(
+    market_price: Option<Decimal>,
+    level: Option<Decimal>,
+) -> Result<Option<QuotedInput>, ApiError> {
+    match (market_price, level) {
+        (None, None) => Ok(None),
+        (market_price, level) => quoted_input(market_price, level).map(Some),
+    }
+}
+
 /// What the stage read and gave, added to a quote's body as `pricing_rule`.
 pub(crate) fn pricing_rule_json(
     in_force: &PricingRuleInForce,
@@ -39,7 +51,7 @@ pub(crate) fn pricing_rule_json(
 ) -> Value {
     let mut body = json!({
         "model": LEVEL_PRICE_MODEL,
-        "version": in_force.rule_version.get(),
+        "version": in_force.rule.version.get(),
         "method": in_force.rule.method,
         "clean_price_mid": pricing.clean_price_mid,
     });
@@ -85,7 +97,7 @@ pub(crate) fn with_pricing_rule_headers(
     let response = with_header(
         response,
         "x-convex-pricing-rule-version",
-        &in_force.rule_version.get().to_string(),
+        &in_force.rule.version.get().to_string(),
     )?;
     match &in_force.benchmark_set {
         Some(set) => with_header(

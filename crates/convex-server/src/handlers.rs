@@ -16,6 +16,8 @@ use convex_bonds::types::BondIdentifiers;
 use convex_core::Currency;
 use convex_core::Date;
 use convex_engine::{Portfolio, Position, PricingEngine};
+
+use crate::level_pricing::{optional_quoted_input, pricing_rule_json, with_pricing_rule_headers};
 use convex_portfolio::{
     active_weights,
     // Key rate duration
@@ -414,10 +416,8 @@ pub async fn get_bond_quote(
 ) -> Result<axum::response::Response, crate::error::ApiError> {
     use crate::curves::{known_at_or_now, with_header};
     use crate::error::ApiError;
-    use crate::level_pricing::{pricing_rule_json, quoted_input, with_pricing_rule_headers};
-    use convex_engine::level_pricing::price_under_rule;
+    use crate::level_pricing::quoted_input;
     use convex_engine::ports::reference_master::ReferenceLookup;
-    use convex_engine::pricing_router::PricingInput;
 
     let axum::extract::Query(query) = query.map_err(|e| ApiError::invalid(e.body_text()))?;
     let known_at = known_at_or_now(query.known_at)?;
@@ -431,14 +431,11 @@ pub async fn get_bond_quote(
         .await?
         .ok_or_else(|| ApiError::not_found(format!("Bond not found: {instrument_id}")))?;
     let bond = reference
+        .record
         .bond
         .clone()
         .ok_or_else(|| ApiError::not_found(format!("Bond not found: {instrument_id}")))?;
     let quoted = quoted_input(query.market_price, query.level)?;
-    let rule = state
-        .engine
-        .pricing_rule_in_force(&InstrumentId::new(&instrument_id), lookup)
-        .await?;
     let settlement_date = match query.settlement_date {
         Some(ref text) => parse_date(text).map_err(ApiError::invalid)?,
         None => {
@@ -454,70 +451,125 @@ pub async fn get_bond_quote(
         .engine
         .request_context(query.configuration.as_ref(), known_at)
         .await?;
+    let version = reference.record.version;
     if runtime_product(&bond) {
-        let pricing = price_under_rule(
+        let mark = runtime_mark(
+            &state.engine,
+            &mut context,
+            reference,
             &bond,
-            rule.as_ref(),
-            quoted,
+            Some(quoted),
             settlement_date,
-            None,
-            state.engine.benchmark_yield_cache(),
-        )?;
+        )
+        .await?;
         let response = runtime_quote(
             &state.engine,
             &mut context,
-            &reference,
+            &mark.record,
             settlement_date,
             known_at,
-            Some(pricing.clean_price_mid),
-            rule.as_ref()
-                .map(|rule| pricing_rule_json(rule, quoted, &pricing)),
+            mark.clean_price_mid,
+            mark.pricing_rule,
         )
         .await?;
-        return with_pricing_rule_headers(response, rule.as_ref());
+        return with_pricing_rule_headers(response, mark.in_force.as_ref());
     }
-    let curves = context.curves_for(&bond).await?;
-    let mut pricing = price_under_rule(
-        &bond,
-        rule.as_ref(),
-        quoted,
-        settlement_date,
-        Some(&curves.discount),
-        state.engine.benchmark_yield_cache(),
-    )?;
-    let input = PricingInput {
+    let staged = staged_input(
+        &state.engine,
+        &mut context,
         bond,
+        reference.pricing_rule,
+        Some(quoted),
         settlement_date,
-        market_price_bid: None,
-        market_price_mid: Some(pricing.clean_price_mid),
-        market_price_ask: None,
-        discount_curve: Some(curves.discount),
-        benchmark_curve: curves.benchmark,
-        government_curve: pricing.government_curve.take(),
-        volatility: None,
-        bid_ask_config: if pricing.price_width_applies {
-            context.config().bid_ask_spread.clone()
-        } else {
-            None
-        },
-    };
+    )
+    .await?;
     let quote = state
         .engine
         .pricing_router()
-        .price(&input)
+        .price(&staged.input)
         .map_err(|e| ApiError::calculation(format!("Pricing failed: {e}")))?;
     let mut value =
         bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
-    if let Some(rule) = &rule {
-        value["pricing_rule"] = pricing_rule_json(rule, quoted, &pricing);
+    if let Some(report) = staged.pricing_rule {
+        value["pricing_rule"] = report;
     }
     let response = with_header(
         Json(value).into_response(),
         "x-convex-reference-version",
-        &reference.version.get().to_string(),
+        &version.get().to_string(),
     )?;
     let response = with_context_headers(response, &context, &context_pins(&context), known_at)?;
-    with_pricing_rule_headers(response, rule.as_ref())
+    with_pricing_rule_headers(response, staged.in_force.as_ref())
+}
+
+/// A bullet or zero ready for the router under a configuration: its rule as read, the
+/// router's input and the rule's report.
+struct StagedInput {
+    input: convex_engine::pricing_router::PricingInput,
+    in_force: Option<convex_engine::level_pricing::PricingRuleInForce>,
+    pricing_rule: Option<serde_json::Value>,
+}
+
+/// Stage a bullet or zero under `context` for every route: read `rule` and its set, then
+/// the bond's curves, then price `quoted` under the rule. Without a mark nothing is read
+/// and the router values the bond as it was. The configuration's percent-of-price width
+/// is not taken by a bond quoted by a level.
+async fn staged_input(
+    engine: &PricingEngine,
+    context: &mut convex_engine::RequestContext,
+    bond: BondReferenceData,
+    rule: Option<convex_engine::ports::level_pricing::ResolvedPricingRule>,
+    quoted: Option<convex_engine::level_pricing::QuotedInput>,
+    settlement_date: Date,
+) -> Result<StagedInput, crate::error::ApiError> {
+    let in_force = match quoted {
+        Some(_) => engine.rule_in_force(context, rule).await?,
+        None => None,
+    };
+    let curves = context.curves_for(&bond).await?;
+    let pricing = quoted
+        .map(|quoted| {
+            engine
+                .price_in_force(
+                    &bond,
+                    in_force.as_ref(),
+                    quoted,
+                    settlement_date,
+                    Some(&curves.discount),
+                )
+                .map(|pricing| (quoted, pricing))
+        })
+        .transpose()?;
+    let pricing_rule = in_force
+        .as_ref()
+        .zip(pricing.as_ref())
+        .map(|(in_force, (quoted, pricing))| pricing_rule_json(in_force, *quoted, pricing));
+    let pricing = pricing.map(|(_, pricing)| pricing);
+    let (market_price_mid, government_curve, width_applies) = match pricing {
+        Some(pricing) => (
+            Some(pricing.clean_price_mid),
+            pricing.government_curve,
+            pricing.price_width_applies,
+        ),
+        None => (None, None, true),
+    };
+    let mut input = convex_engine::pricing_router::PricingInput::with_mid_price(
+        bond,
+        settlement_date,
+        market_price_mid,
+        Some(curves.discount),
+        curves.benchmark,
+        government_curve,
+        None,
+    );
+    if width_applies {
+        input.bid_ask_config = context.config().bid_ask_spread.clone();
+    }
+    Ok(StagedInput {
+        input,
+        in_force,
+        pricing_rule,
+    })
 }
 
 // =============================================================================
@@ -534,6 +586,10 @@ pub struct SingleBondPricingRequest {
     pub settlement_date: String,
     /// Market price (optional, for spread calculations)
     pub market_price: Option<Decimal>,
+    /// The level the bond's stored pricing rule quotes it by, in the rule's unit, instead
+    /// of `market_price`. Priced only under a configuration, for inline terms equal to the
+    /// stored terms.
+    pub level: Option<Decimal>,
     /// Activated configuration whose curves and conventions price the bond. Defaults to
     /// the one the runtime runs; exclusive with supplied curves and volatility.
     pub configuration: Option<convex_core::contracts::SourceId>,
@@ -697,6 +753,10 @@ async fn price_one_bond(
             "supplied curves or volatility and a configuration are exclusive valuation contexts",
         );
     }
+    let quoted = match optional_quoted_input(request.market_price, request.level) {
+        Ok(quoted) => quoted,
+        Err(error) => return error.into_response(),
+    };
     let known_at = match crate::curves::known_at_or_now(request.known_at) {
         Ok(known_at) => known_at,
         Err(error) => return error.into_response(),
@@ -717,24 +777,21 @@ async fn price_one_bond(
             Err(error) => return error.into_response(),
         }
     };
+    if context.is_none() && request.level.is_some() {
+        return invalid_quote_input(LEVEL_NEEDS_CONFIGURATION);
+    }
     let curve_versions: Vec<_> = [("discount",request.discount_curve.as_ref()),("swap",request.swap_curve.as_ref())].into_iter().filter_map(|(role,input)|input.map(|v|serde_json::json!({"role":role,"currency":v.currency,"curve_id":v.curve.curve_id,"version":v.curve.version,"source":v.curve.source,"model_id":v.curve.model_id}))).collect();
-    let input = match &mut context {
+    let staged = match &mut context {
         Some(context) if runtime => {
-            let quoted = match state.engine.stored_terms(&request.bond, known_at).await {
-                Ok(reference) => {
-                    runtime_quote(
-                        &state.engine,
-                        context,
-                        &reference,
-                        settlement_date,
-                        known_at,
-                        request.market_price,
-                        None,
-                    )
-                    .await
-                }
-                Err(error) => Err(error.into()),
-            };
+            let quoted = runtime_request_quote(
+                &state.engine,
+                context,
+                &request.bond,
+                quoted,
+                settlement_date,
+                known_at,
+            )
+            .await;
             return quoted.unwrap_or_else(IntoResponse::into_response);
         }
         None if runtime => {
@@ -744,21 +801,17 @@ async fn price_one_bond(
             .into_response()
         }
         Some(context) => {
-            let curves = match context.curves_for(&request.bond).await {
-                Ok(curves) => curves,
-                Err(error) => return crate::error::ApiError::from(error).into_response(),
-            };
-            PricingInput {
-                bond: request.bond,
+            match inline_staged_input(
+                &state.engine,
+                context,
+                request.bond,
+                quoted,
                 settlement_date,
-                market_price_bid: None,
-                market_price_mid: request.market_price,
-                market_price_ask: None,
-                discount_curve: Some(curves.discount),
-                benchmark_curve: curves.benchmark,
-                government_curve: None,
-                volatility: None,
-                bid_ask_config: context.config().bid_ask_spread.clone(),
+            )
+            .await
+            {
+                Ok(staged) => staged,
+                Err(error) => return error.into_response(),
             }
         }
         None => {
@@ -766,20 +819,24 @@ async fn price_one_bond(
                 Ok(curves) => curves,
                 Err(error) => return invalid_quote_input(error),
             };
-            PricingInput::with_mid_price(
-                request.bond,
-                settlement_date,
-                request.market_price,
-                discount,
-                swap,
-                government,
-                request.volatility,
-            )
+            StagedInput {
+                input: PricingInput::with_mid_price(
+                    request.bond,
+                    settlement_date,
+                    request.market_price,
+                    discount,
+                    swap,
+                    government,
+                    request.volatility,
+                ),
+                in_force: None,
+                pricing_rule: None,
+            }
         }
     };
 
     // Price the bond
-    let quote = match state.engine.pricing_router().price(&input) {
+    let quote = match state.engine.pricing_router().price(&staged.input) {
         Ok(quote) => quote,
         Err(e) => return invalid_quote_input(format!("Pricing failed: {e}")),
     };
@@ -793,13 +850,108 @@ async fn price_one_bond(
     if !curve_versions.is_empty() {
         response["curve_versions"] = serde_json::json!(curve_versions);
     }
+    if let Some(report) = staged.pricing_rule {
+        response["pricing_rule"] = report;
+    }
     response["context"] = context_json(context.as_ref(), supplied, known_at);
     let response = Json(response).into_response();
-    match &context {
-        Some(context) => with_context_headers(response, context, &context_pins(context), known_at)
-            .unwrap_or_else(IntoResponse::into_response),
-        None => response,
-    }
+    let response = match &context {
+        Some(context) => with_context_headers(response, context, &context_pins(context), known_at),
+        None => Ok(response),
+    };
+    response
+        .and_then(|response| with_pricing_rule_headers(response, staged.in_force.as_ref()))
+        .unwrap_or_else(IntoResponse::into_response)
+}
+
+/// Why a `level` is refused without a configuration: the level is priced under the bond's
+/// stored rule, which neither supplied curves nor a yield-only quote read.
+const LEVEL_NEEDS_CONFIGURATION: &str =
+    "a level is priced under the bond's stored pricing rule, which only a configuration context reads; send market_price";
+
+/// [`staged_input`] for inline terms: the stored rule applies when the stored terms at the
+/// cutoff equal them, and otherwise the bond is quoted by price.
+async fn inline_staged_input(
+    engine: &PricingEngine,
+    context: &mut convex_engine::RequestContext,
+    bond: BondReferenceData,
+    quoted: Option<convex_engine::level_pricing::QuotedInput>,
+    settlement_date: Date,
+) -> Result<StagedInput, crate::error::ApiError> {
+    let rule = match quoted {
+        Some(_) => engine.rule_for_inline_terms(context, &bond).await?,
+        None => None,
+    };
+    staged_input(engine, context, bond, rule, quoted, settlement_date).await
+}
+
+/// One callable or floating rate note named by inline terms, which must equal the stored
+/// terms, valued under its stored rule and reported as `GET /quotes` reports it.
+async fn runtime_request_quote(
+    engine: &PricingEngine,
+    context: &mut convex_engine::RequestContext,
+    bond: &BondReferenceData,
+    quoted: Option<convex_engine::level_pricing::QuotedInput>,
+    settlement_date: Date,
+    known_at: convex_core::contracts::UtcTimestamp,
+) -> Result<axum::response::Response, crate::error::ApiError> {
+    let reference = engine.stored_terms(bond, known_at).await?;
+    let mark = runtime_mark(engine, context, reference, bond, quoted, settlement_date).await?;
+    let response = runtime_quote(
+        engine,
+        context,
+        &mark.record,
+        settlement_date,
+        known_at,
+        mark.clean_price_mid,
+        mark.pricing_rule,
+    )
+    .await?;
+    with_pricing_rule_headers(response, mark.in_force.as_ref())
+}
+
+/// What a stored callable or floating rate note is valued from at request time.
+struct RuntimeMark {
+    /// The stored reference valued.
+    record: convex_engine::ports::reference_repository::ReferenceRecord,
+    /// Its rule as read.
+    in_force: Option<convex_engine::level_pricing::PricingRuleInForce>,
+    /// The rule's report.
+    pricing_rule: Option<serde_json::Value>,
+    /// The clean price the stage gave; none without a mark, and every measure then fails
+    /// `MISSING_MARKET_DATA`.
+    clean_price_mid: Option<Decimal>,
+}
+
+/// The mark the level stage gives a stored callable or floating rate note under its rule.
+async fn runtime_mark(
+    engine: &PricingEngine,
+    context: &mut convex_engine::RequestContext,
+    reference: convex_engine::ports::reference_master::ResolvedBondReference,
+    bond: &BondReferenceData,
+    quoted: Option<convex_engine::level_pricing::QuotedInput>,
+    settlement_date: Date,
+) -> Result<RuntimeMark, crate::error::ApiError> {
+    let Some(quoted) = quoted else {
+        return Ok(RuntimeMark {
+            record: reference.record,
+            in_force: None,
+            pricing_rule: None,
+            clean_price_mid: None,
+        });
+    };
+    let in_force = engine
+        .rule_in_force(context, reference.pricing_rule)
+        .await?;
+    let pricing = engine.price_in_force(bond, in_force.as_ref(), quoted, settlement_date, None)?;
+    Ok(RuntimeMark {
+        record: reference.record,
+        pricing_rule: in_force
+            .as_ref()
+            .map(|in_force| pricing_rule_json(in_force, quoted, &pricing)),
+        in_force,
+        clean_price_mid: Some(pricing.clean_price_mid),
+    })
 }
 
 // =============================================================================
@@ -834,6 +986,9 @@ pub struct BondPricingItem {
     pub bond: BondReferenceData,
     /// Market price (optional, for spread calculations)
     pub market_price: Option<Decimal>,
+    /// The level the bond's stored pricing rule quotes it by, instead of `market_price`,
+    /// as on `POST /quote`.
+    pub level: Option<Decimal>,
 }
 
 /// Response for batch pricing.
@@ -928,59 +1083,89 @@ pub async fn batch_price(
             outcomes[index] = refused(error.to_string());
             continue;
         }
-        if runtime_product(&item.bond) {
-            valued.push((index, item));
+        let quoted = match optional_quoted_input(item.market_price, item.level) {
+            Ok(quoted) => quoted,
+            Err(error) => {
+                outcomes[index] = refused(error.summary());
+                continue;
+            }
+        };
+        if context.is_none() && item.level.is_some() {
+            outcomes[index] = refused(LEVEL_NEEDS_CONFIGURATION.into());
             continue;
         }
-        let curves = match context.as_mut() {
-            Some(context) => match context.curves_for(&item.bond).await {
-                Ok(curves) => Some(curves),
-                Err(error) => {
-                    outcomes[index] = refused(crate::error::ApiError::from(error).summary());
-                    continue;
+        if runtime_product(&item.bond) {
+            valued.push((index, item.bond, quoted));
+            continue;
+        }
+        // Each benchmark set is read once for the whole batch, by the context.
+        let staged = match context.as_mut() {
+            Some(context) => {
+                match inline_staged_input(
+                    &state.engine,
+                    context,
+                    item.bond,
+                    quoted,
+                    settlement_date,
+                )
+                .await
+                {
+                    Ok(staged) => staged,
+                    Err(error) => {
+                        outcomes[index] = refused(error.summary());
+                        continue;
+                    }
                 }
+            }
+            None => StagedInput {
+                input: PricingInput::with_mid_price(
+                    item.bond,
+                    settlement_date,
+                    item.market_price,
+                    None,
+                    None,
+                    None,
+                    None,
+                ),
+                in_force: None,
+                pricing_rule: None,
             },
-            None => None,
         };
-        let mut input = PricingInput::with_mid_price(
-            item.bond,
-            settlement_date,
-            item.market_price,
-            curves.as_ref().map(|c| c.discount.clone()),
-            curves.and_then(|c| c.benchmark),
-            None, // government_curve
-            None, // volatility
-        );
-        input.bid_ask_config = context
-            .as_ref()
-            .and_then(|c| c.config().bid_ask_spread.clone());
-        routed.push((index, input));
+        routed.push((index, staged.input, staged.pricing_rule));
     }
 
     let router = state.engine.pricing_router();
     let start = Instant::now();
 
     // Execute pricing (parallel or sequential)
-    let (indices, inputs): (Vec<_>, Vec<_>) = routed.into_iter().unzip();
+    let (inputs, placed): (Vec<_>, Vec<_>) = routed
+        .into_iter()
+        .map(|(index, input, pricing_rule)| (input, (index, pricing_rule)))
+        .unzip();
     let priced = if request.parallel {
         router.price_batch_parallel(&inputs)
     } else {
         router.price_batch(&inputs)
     };
-    for (index, result) in indices.into_iter().zip(priced) {
+    for ((index, pricing_rule), result) in placed.into_iter().zip(priced) {
         outcomes[index] = Some(result.and_then(|quote| {
-            bond_quote_json(&quote)
-                .map_err(|_| convex_engine::EngineError::Internal("quote serialization".into()))
+            let mut value = bond_quote_json(&quote)
+                .map_err(|_| convex_engine::EngineError::Internal("quote serialization".into()))?;
+            if let Some(report) = pricing_rule {
+                value["pricing_rule"] = report;
+            }
+            Ok(value)
         }));
     }
     // Callables and floating rate notes one at a time, each on one interactive slot, so
     // a batch never takes every slot.
-    for (index, item) in valued {
+    for (index, bond, quoted) in valued {
         outcomes[index] = Some(
             runtime_item(
                 &state.engine,
                 context.as_mut(),
-                &item,
+                &bond,
+                quoted,
                 settlement_date,
                 known_at,
             )
@@ -1049,23 +1234,28 @@ pub async fn batch_price(
 async fn runtime_item(
     engine: &PricingEngine,
     context: Option<&mut convex_engine::RequestContext>,
-    item: &BondPricingItem,
+    bond: &BondReferenceData,
+    quoted: Option<convex_engine::level_pricing::QuotedInput>,
     settlement_date: Date,
     known_at: convex_core::contracts::UtcTimestamp,
 ) -> Result<serde_json::Value, crate::error::ApiError> {
     runtime_composed(engine)?;
     let context =
         context.ok_or(convex_engine::curve_resolution::CurveResolutionError::NoConfiguration)?;
-    let reference = engine.stored_terms(&item.bond, known_at).await?;
-    let (value, _) = value_stored(
+    let reference = engine.stored_terms(bond, known_at).await?;
+    let mark = runtime_mark(engine, context, reference, bond, quoted, settlement_date).await?;
+    let (mut value, _) = value_stored(
         engine,
         context,
-        &reference,
+        &mark.record,
         settlement_date,
         known_at,
-        item.market_price,
+        mark.clean_price_mid,
     )
     .await?;
+    if let Some(report) = mark.pricing_rule {
+        value["pricing_rule"] = report;
+    }
     Ok(value)
 }
 
