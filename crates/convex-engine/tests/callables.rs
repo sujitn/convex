@@ -291,7 +291,8 @@ async fn a_request_context_prices_each_curve_on_one_revision() {
         )
         .await
         .unwrap()
-        .unwrap();
+        .unwrap()
+        .record;
 
     let mut context = engine.request_context(None, known_at).await.unwrap();
     context.curves_for(&fixture::bond()).await.unwrap();

@@ -773,10 +773,15 @@ async fn a_level_is_refused_by_name_when_its_inputs_are_not_there() {
 async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
     use access::{IssuerFixture, HUMAN_TOKEN};
     use convex_server::access::{AccessControl, ResourceKind};
-    let (_setup, engine, cutoff) = desk().await;
+    let (setup, engine, cutoff) = desk().await;
     let issuer = IssuerFixture::start().await;
     let uri =
         format!("/api/v1/quotes/BOND-001?level=125&known_at={cutoff}&settlement_date={SETTLEMENT}");
+    let corporate = stored_terms(&setup, "BOND-001").await;
+    let single = json!({"bond": corporate, "settlement_date": SETTLEMENT, "level": 125,
+        "known_at": cutoff});
+    let batch = json!({"bonds": [{"bond": corporate, "level": 125}],
+        "settlement_date": SETTLEMENT, "known_at": cutoff});
     for (instruments, expected) in [
         (vec!["BOND-001"], StatusCode::FORBIDDEN),
         (vec!["BOND-001", "UST-2Y", "UST-10Y"], StatusCode::OK),
@@ -791,8 +796,199 @@ async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
             true,
             AccessControl::new(issuer.verifier.clone(), policy).unwrap(),
         );
-        let (status, _, body) = access::request(router, "GET", &uri, Some(HUMAN_TOKEN), None).await;
-        assert_eq!(status, expected, "{body}");
+        for (method, path, body) in [
+            ("GET", uri.as_str(), None),
+            ("POST", "/api/v1/quote", Some(single.clone())),
+            ("POST", "/api/v1/batch/price", Some(batch.clone())),
+        ] {
+            let (status, _, response) =
+                access::request(router.clone(), method, path, Some(HUMAN_TOKEN), body).await;
+            assert_eq!(status, expected, "{method} {path}: {response}");
+        }
     }
     issuer.finish().await;
+}
+
+/// A stored bond's terms, as a request sends them inline.
+async fn stored_terms(setup: &Setup, id: &str) -> Value {
+    let record = setup
+        .storage
+        .bonds
+        .get_version(
+            &convex_core::ids::InstrumentId::new(id),
+            fixture::version(1),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    serde_json::to_value(record.bond.unwrap()).unwrap()
+}
+
+/// `POST /quote` and `/batch/price` price inline terms under the stored rule, as
+/// `GET /quotes` prices the stored bond: the same clean price and the same report. The
+/// rule applies only to terms equal to the stored ones, and only under a configuration.
+#[tokio::test]
+async fn inline_terms_equal_to_the_stored_ones_are_priced_under_the_stored_rule() {
+    let (setup, engine, cutoff) = desk().await;
+    let app = router(engine);
+    let (status, stored) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/quotes/BOND-001?level=125&known_at={cutoff}&settlement_date={SETTLEMENT}"
+        ),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{stored}");
+    let corporate = stored_terms(&setup, "BOND-001").await;
+    let treasury = stored_terms(&setup, "UST-10Y").await;
+    let quote = |extra: Value| {
+        let mut body =
+            json!({"bond": corporate, "settlement_date": SETTLEMENT, "known_at": cutoff});
+        body.as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        body
+    };
+
+    let (status, headers, single) = call_with_headers(
+        &app,
+        "POST",
+        "/api/v1/quote",
+        Some(quote(json!({"level": 125}))),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{single}");
+    assert_eq!(single["clean_price_mid"], stored["clean_price_mid"]);
+    assert_eq!(single["ytm_mid"], stored["ytm_mid"]);
+    assert_eq!(single["g_spread_mid"], stored["g_spread_mid"]);
+    assert_eq!(single["pricing_rule"], stored["pricing_rule"]);
+    assert_eq!(headers["x-convex-pricing-rule-version"], "1");
+    assert_eq!(headers["x-convex-benchmark-set-version"], "1");
+    assert!(
+        single["clean_price_bid"].is_null(),
+        "no percent-of-price width"
+    );
+
+    // By price, the rule's set still gives the G-spread, and the report has no level.
+    let clean = single["clean_price_mid"].clone();
+    let (status, by_price) = call(
+        &app,
+        "POST",
+        "/api/v1/quote",
+        Some(quote(json!({"market_price": clean}))),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{by_price}");
+    assert_eq!(by_price["g_spread_mid"], single["g_spread_mid"]);
+    assert!(
+        by_price["pricing_rule"].get("level").is_none(),
+        "{by_price}"
+    );
+
+    // Refused: both marks; terms that differ from the stored ones; supplied curves.
+    let mut edited = corporate.clone();
+    edited["description"] = "edited for a what-if".into();
+    for (body, reason) in [
+        (quote(json!({"level": 125, "market_price": 99})), "not both"),
+        (
+            json!({"bond": edited, "settlement_date": SETTLEMENT, "known_at": cutoff,
+                "level": 125}),
+            "no pricing rule in force for its terms",
+        ),
+        (
+            quote(json!({"level": 125, "volatility": 0.01})),
+            "only a configuration context reads",
+        ),
+    ] {
+        let (status, refusal) = call(&app, "POST", "/api/v1/quote", Some(body)).await;
+        assert!(status.is_client_error(), "{status}: {refusal}");
+        assert!(refusal.to_string().contains(reason), "{reason}: {refusal}");
+    }
+
+    // A batch keeps its order: a Treasury by price, the corporate by its level, and the
+    // edited terms refused on their own.
+    let (status, batch) = call(
+        &app,
+        "POST",
+        "/api/v1/batch/price",
+        Some(json!({
+            "bonds": [
+                {"bond": treasury, "market_price": 98.25},
+                {"bond": corporate, "level": 125},
+                {"bond": edited, "level": 125},
+            ],
+            "settlement_date": SETTLEMENT,
+            "known_at": cutoff,
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{batch}");
+    let quotes = batch["quotes"].as_array().unwrap();
+    assert_eq!(quotes.len(), 2, "{batch}");
+    assert_eq!(quotes[0]["instrument_id"], "UST-10Y");
+    assert!(quotes[0].get("pricing_rule").is_none());
+    assert_eq!(quotes[1]["instrument_id"], "BOND-001");
+    assert_eq!(quotes[1]["clean_price_mid"], stored["clean_price_mid"]);
+    assert_eq!(quotes[1]["pricing_rule"], stored["pricing_rule"]);
+    assert_eq!(batch["errors"][0]["instrument_id"], "BOND-001");
+    assert!(
+        batch["errors"][0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("no pricing rule in force for its terms"),
+        "{batch}"
+    );
+}
+
+/// Measurement: `/batch/price` of 1,000 inline bonds with no rule, and `GET /quotes` of
+/// one bond by price and by level, the medians of 20 rounds. Under a rule the batch is
+/// also timed by level and by price.
+#[tokio::test]
+#[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
+async fn request_time_pricing_time_at_the_batch_bound() {
+    const ROUNDS: usize = 20;
+    let (setup, engine, cutoff) = desk().await;
+    let app = router(engine);
+    let treasury = stored_terms(&setup, "UST-10Y").await;
+    let corporate = stored_terms(&setup, "BOND-001").await;
+    let batch = |bond: &Value, mark: Value| {
+        let mut item = json!({ "bond": bond });
+        item.as_object_mut()
+            .unwrap()
+            .extend(mark.as_object().unwrap().clone());
+        json!({"bonds": vec![item; 1000], "settlement_date": SETTLEMENT, "known_at": cutoff})
+    };
+    let cases = [
+        ("batch, no rule, by price", "POST", "/api/v1/batch/price".to_owned(),
+            Some(batch(&treasury, json!({"market_price": 98.25})))),
+        ("batch, rule, by level", "POST", "/api/v1/batch/price".to_owned(),
+            Some(batch(&corporate, json!({"level": 125})))),
+        ("batch, rule, by price", "POST", "/api/v1/batch/price".to_owned(),
+            Some(batch(&corporate, json!({"market_price": 99.5})))),
+        ("GET, no rule, by price", "GET",
+            format!("/api/v1/quotes/UST-10Y?market_price=98.25&known_at={cutoff}&settlement_date={SETTLEMENT}"),
+            None),
+        ("GET, rule, by level", "GET",
+            format!("/api/v1/quotes/BOND-001?level=125&known_at={cutoff}&settlement_date={SETTLEMENT}"),
+            None),
+    ];
+    for (name, method, uri, body) in cases {
+        let mut times = Vec::with_capacity(ROUNDS);
+        for round in 0..ROUNDS + 3 {
+            let started = std::time::Instant::now();
+            let (status, response) = call(&app, method, &uri, body.clone()).await;
+            let elapsed = started.elapsed();
+            assert_eq!(status, StatusCode::OK, "{name}: {response}");
+            if let Some(errors) = response.get("errors") {
+                assert_eq!(errors, &json!([]), "{name}");
+            }
+            if round >= 3 {
+                times.push(elapsed);
+            }
+        }
+        times.sort();
+        println!("{name}: median {:?}, min {:?}", times[ROUNDS / 2], times[0]);
+    }
 }

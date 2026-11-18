@@ -314,6 +314,14 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     assert_eq!(body["pricing_rule"]["method"]["kind"], "price", "{body}");
     assert_eq!(body["pricing_rule"]["version"], 1);
     assert_eq!(headers["x-convex-pricing-rule-version"], "1");
+    // Its inline terms, equal to the stored ones, get the same quote and report on POST.
+    let by_price = json!({"bond": callable, "settlement_date": SETTLEMENT, "known_at": known_at,
+        "market_price": "99.25"});
+    let (status, headers, posted) = call(&app, "POST", "/api/v1/quote", Some(by_price)).await;
+    assert_eq!(status, StatusCode::OK, "{posted}");
+    assert_eq!(posted["clean_price_mid"], body["clean_price_mid"]);
+    assert_eq!(posted["pricing_rule"], body["pricing_rule"]);
+    assert_eq!(headers["x-convex-pricing-rule-version"], "1");
 
     // Without a mark every measure says so, as the stream says it of an unquoted bond.
     let posted = json!({"bond": callable, "settlement_date": SETTLEMENT, "known_at": known_at});
@@ -363,6 +371,10 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     assert_eq!(quotes[0]["instrument_id"], "BOND-001");
     assert!(quotes[0].get("snapshot").is_none());
     assert_eq!(quotes[1]["oas_mid"], priced[0].1["oas_mid"]);
+    assert_eq!(
+        quotes[1]["pricing_rule"]["method"]["kind"], "price",
+        "{body}"
+    );
     assert_eq!(
         quotes[2]["discount_margin_mid"],
         priced[1].1["discount_margin_mid"]

@@ -68,11 +68,9 @@ pub fn rule_in_force(
     method: serde_json::Value,
     notes: &[(BondReferenceData, &str)],
 ) -> PricingRuleInForce {
-    let effective = json!({"from": "2025-01-01T00:00:00Z", "until": null});
-    let provenance = json!({"source": "desk", "evidence_reference": "fixture"});
     let rule = serde_json::from_value(json!({
-        "instrument_id": "CORP", "method": method, "benchmark_set_id": "UST-OTR",
-        "effective": effective, "provenance": provenance,
+        "version": 1, "recorded_at": "2025-01-01T00:00:00Z", "method": method,
+        "benchmark_set_id": "UST-OTR",
     }))
     .unwrap();
     let securities: Vec<BenchmarkSecurity> = notes
@@ -96,11 +94,10 @@ pub fn rule_in_force(
         .collect();
     PricingRuleInForce {
         rule,
-        rule_version: Version::new(1).unwrap(),
-        benchmark_set: Some(BenchmarkSetQuotes {
+        benchmark_set: Some(std::sync::Arc::new(BenchmarkSetQuotes {
             benchmark_set_id: ReferenceDataId::new("UST-OTR").unwrap(),
             version: Version::new(1).unwrap(),
             quotes,
-        }),
+        })),
     }
 }

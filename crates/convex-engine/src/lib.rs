@@ -129,9 +129,19 @@ pub struct RequestContext {
     reads: Vec<(Vec<convex_core::ids::CurveId>, CurveRead)>,
     /// Every stored curve record a set read, the revision each later set prices.
     held: Vec<ports::snapshot::SnapshotCurveRecipe>,
+    /// Each benchmark set a bond's rule named, as read at `known_at`, failures included.
+    benchmark_sets: level_pricing::BenchmarkSetReads,
 }
 
 impl RequestContext {
+    /// The reference cutoff: the request's `known_at`, as of the same instant.
+    pub fn lookup(&self) -> ports::reference_master::ReferenceLookup {
+        ports::reference_master::ReferenceLookup {
+            as_of: self.known_at,
+            known_at: self.known_at,
+        }
+    }
+
     /// The approved pricing configuration.
     pub fn config(&self) -> &ports::storage::BondPricingConfig {
         &self.config
@@ -494,6 +504,7 @@ impl PricingEngine {
             curves: self.storage.curves.clone(),
             reads: Vec::new(),
             held: Vec::new(),
+            benchmark_sets: level_pricing::BenchmarkSetReads::default(),
         })
     }
 
@@ -503,15 +514,15 @@ impl PricingEngine {
         self.request.is_some()
     }
 
-    /// The stored terms that inline `bond` names, current at `known_at`. Callables and
-    /// floating rate notes are valued on stored terms only, so inline terms must equal
-    /// them.
+    /// The stored reference that inline `bond` names, current at `known_at`, with its
+    /// pricing rule. Callables and floating rate notes are valued on stored terms only,
+    /// so inline terms must equal them.
     pub async fn stored_terms(
         &self,
         bond: &ports::reference_data::BondReferenceData,
         known_at: convex_core::contracts::UtcTimestamp,
     ) -> Result<
-        ports::reference_repository::ReferenceRecord,
+        ports::reference_master::ResolvedBondReference,
         request_valuation::RequestValuationError,
     > {
         let lookup = ports::reference_master::ReferenceLookup {
@@ -522,9 +533,36 @@ impl PricingEngine {
             .reference_at_for_pricing(&bond.instrument_id, lookup)
             .await?
         {
-            Some(record) if record.bond.as_ref() == Some(bond) => Ok(record),
+            Some(resolved) if resolved.record.bond.as_ref() == Some(bond) => Ok(resolved),
             _ => Err(request_valuation::RequestValuationError::UnstoredTerms),
         }
+    }
+
+    /// The pricing rule of the stored bond inline `bond` names, at `context`'s cutoff,
+    /// when its stored terms then equal the inline ones; none otherwise, and the bond is
+    /// quoted by price. The rule is read first, so a bond with none reads nothing more;
+    /// only the terms are compared, so inline terms that differ never need the stored
+    /// version's resources to resolve.
+    pub async fn rule_for_inline_terms(
+        &self,
+        context: &RequestContext,
+        bond: &ports::reference_data::BondReferenceData,
+    ) -> Result<
+        Option<ports::level_pricing::ResolvedPricingRule>,
+        ports::reference_repository::ReferenceError,
+    > {
+        let repository = &self.storage.bonds;
+        let lookup = context.lookup();
+        let Some(rule) = repository
+            .pricing_rule_for_valuation(&bond.instrument_id, lookup)
+            .await?
+        else {
+            return Ok(None);
+        };
+        let stored = repository.get_at(&bond.instrument_id, lookup).await?;
+        Ok(stored
+            .is_some_and(|stored| stored.bond.as_ref() == Some(bond))
+            .then_some(rule))
     }
 
     /// Value a stored callable or floating rate note at request time: an
@@ -599,88 +637,98 @@ impl PricingEngine {
     > {
         let time = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now())
             .map_err(|_| ports::reference_repository::ReferenceError::Unavailable)?;
-        self.reference_at_for_pricing(
-            id,
-            ports::reference_master::ReferenceLookup {
-                as_of: time,
-                known_at: time,
-            },
-        )
-        .await
+        let lookup = ports::reference_master::ReferenceLookup {
+            as_of: time,
+            known_at: time,
+        };
+        Ok(self
+            .reference_at_for_pricing(id, lookup)
+            .await?
+            .map(|resolved| resolved.record))
     }
 
-    /// Validate a supplied economic/known-at reference context for deterministic application use.
+    /// A stored bond's reference at `lookup`, resolved for valuation: its terms, their
+    /// resources and its pricing rule's pin.
     pub async fn reference_at_for_pricing(
         &self,
         id: &convex_core::ids::InstrumentId,
         lookup: ports::reference_master::ReferenceLookup,
     ) -> Result<
-        Option<ports::reference_repository::ReferenceRecord>,
+        Option<ports::reference_master::ResolvedBondReference>,
         ports::reference_repository::ReferenceError,
     > {
-        Ok(self
-            .storage
-            .bonds
-            .for_valuation(id, lookup)
-            .await?
-            .map(|resolved| resolved.record))
+        self.storage.bonds.for_valuation(id, lookup).await
     }
 
-    /// Benchmark yields solved for request-time level quotes, each once for its price and
-    /// settlement, for [`level_pricing::price_under_rule`].
-    pub fn benchmark_yield_cache(&self) -> &level_pricing::BenchmarkYieldCache {
-        &self.benchmark_yield_cache
-    }
-
-    /// A stored bond's pricing rule at `lookup` and, when it names one, its benchmark set,
-    /// each security's pinned terms and its Live clean price mid. None when no rule
-    /// is in force: the bond is quoted by price. A set not in force, a security not stored
-    /// at its pinned version by the cutoff, or one without a usable Live price refuses by
-    /// name.
-    pub async fn pricing_rule_in_force(
+    /// A bond's rule at request time, for every route that quotes a stored bond: `rule`
+    /// is the pin read with the bond's reference, and the set it names is read at
+    /// `context`'s cutoff, with each security's pinned terms and Live clean price mid.
+    /// The context keeps each set it read, so a batch reads one set once.
+    pub async fn rule_in_force(
         &self,
-        id: &convex_core::ids::InstrumentId,
-        lookup: ports::reference_master::ReferenceLookup,
+        context: &mut RequestContext,
+        rule: Option<ports::level_pricing::ResolvedPricingRule>,
     ) -> Result<Option<level_pricing::PricingRuleInForce>, level_pricing::LevelError> {
-        use convex_core::contracts::{DataQuality, ValuationSubject};
-        use level_pricing::{BenchmarkQuote, BenchmarkSetQuotes, LevelError, PricingRuleInForce};
-        use ports::reference_master::{MasterDefinition, MasterKey};
-        let repository = &self.storage.bonds;
-        let instrument = convex_core::contracts::InstrumentId::new(id.as_str())
-            .map_err(|_| LevelError::Refused("invalid instrument identity".into()))?;
-        let Some(record) = repository
-            .get_master_at(&MasterKey::PricingRule(instrument), lookup)
-            .await?
-        else {
+        let Some(rule) = rule else {
             return Ok(None);
         };
-        let MasterDefinition::PricingRule(rule) = record.definition else {
-            return Err(LevelError::Refused(
-                "the pricing rule record is another kind".into(),
-            ));
+        let benchmark_set = match &rule.benchmark_set_id {
+            None => None,
+            Some(id) => Some(match context.benchmark_sets.get(id) {
+                Some(read) => read?,
+                None => {
+                    let read = self.benchmark_set_quotes(id, context.lookup()).await;
+                    context.benchmark_sets.keep(id.clone(), read)?
+                }
+            }),
         };
-        let rule_version = record.version;
-        let Some(set_id) = rule.benchmark_set_id.clone() else {
-            return Ok(Some(PricingRuleInForce {
-                rule: *rule,
-                rule_version,
-                benchmark_set: None,
-            }));
-        };
-        let record = repository
-            .get_master_at(&MasterKey::BenchmarkSet(set_id.clone()), lookup)
+        Ok(Some(level_pricing::PricingRuleInForce {
+            rule,
+            benchmark_set,
+        }))
+    }
+
+    /// The level stage at request time under `in_force`, from [`Self::rule_in_force`],
+    /// sharing each benchmark's solved yield with every request quoted to it. With no
+    /// rule a price is taken as given.
+    pub fn price_in_force(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+        in_force: Option<&level_pricing::PricingRuleInForce>,
+        input: level_pricing::QuotedInput,
+        settlement: convex_core::Date,
+        discount: Option<&BuiltCurve>,
+    ) -> Result<level_pricing::RulePricing, level_pricing::LevelError> {
+        level_pricing::price_under_rule(
+            bond,
+            in_force,
+            input,
+            settlement,
+            discount,
+            &self.benchmark_yield_cache,
+        )
+    }
+
+    /// The benchmark set `id` in force at `lookup`, each security's pinned terms and its
+    /// Live clean price mid. A set not in force, a security not stored at its pinned
+    /// version by the cutoff, or one without a usable Live price refuses by name.
+    async fn benchmark_set_quotes(
+        &self,
+        id: &convex_core::contracts::ReferenceDataId,
+        lookup: ports::reference_master::ReferenceLookup,
+    ) -> Result<level_pricing::BenchmarkSetQuotes, level_pricing::LevelError> {
+        use convex_core::contracts::{DataQuality, ValuationSubject};
+        use level_pricing::{BenchmarkQuote, BenchmarkSetQuotes, LevelError};
+        let repository = &self.storage.bonds;
+        let set = repository
+            .benchmark_set_for_valuation(id, lookup)
             .await?
             .ok_or_else(|| {
                 LevelError::Refused(format!(
                     "benchmark set {} is not in force at the cutoff",
-                    set_id.as_str()
+                    id.as_str()
                 ))
             })?;
-        let MasterDefinition::BenchmarkSet(set) = record.definition else {
-            return Err(LevelError::Refused(
-                "the benchmark set record is another kind".into(),
-            ));
-        };
         // One read of the Live table, so every security is from the same tick.
         let live = self.runtime_results_of(
             set.securities
@@ -724,15 +772,11 @@ impl PricingEngine {
                 snapshot_id: live_price.snapshot_id,
             });
         }
-        Ok(Some(PricingRuleInForce {
-            rule: *rule,
-            rule_version,
-            benchmark_set: Some(BenchmarkSetQuotes {
-                benchmark_set_id: set.benchmark_set_id,
-                version: record.version,
-                quotes,
-            }),
-        }))
+        Ok(BenchmarkSetQuotes {
+            benchmark_set_id: set.benchmark_set_id,
+            version: set.version,
+            quotes,
+        })
     }
 
     /// Validate inline terms and their exact resource pins before service pricing.

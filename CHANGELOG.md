@@ -119,6 +119,19 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **`POST /api/v1/quote` and `/batch/price` price under the stored rule.** Each takes
+  `level` in place of `market_price`. Inline terms equal to the bond's stored terms at
+  `known_at` are priced as `GET /api/v1/quotes/:id` prices the stored bond, with the same
+  `pricing_rule` report (and, on `POST`, the same headers). A batch reads each benchmark
+  set once. **Breaking:**
+  - a `market_price` request or item for a bond whose rule names a set now reads the
+    set, and is refused, naming the tenor, when a benchmark has no usable Live price;
+  - a bond quoted by a level no longer takes the configuration's percent-of-price
+    bid/ask width;
+  - a callable's or note's quote on these routes carries its rule's report.
+
+  With supplied curves, or with no configuration and no runtime, no rule is read and a
+  `level` is refused.
 - **Breaking: the `/api/v1/portfolios*` alias over books is removed.** Write a
   book with `PUT /api/v1/books/:book_id`. The alias's `DELETE`, which retired a
   book, and its batch create have no replacement on the book routes.
@@ -226,6 +239,18 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **One request-time stage for every route.** `PricingEngine::rule_in_force` reads the
+  set a bond's rule pin names, once per request through `BenchmarkSetReads`, and
+  `price_in_force` prices under it with the engine's shared benchmark yields. They
+  replace `pricing_rule_in_force` and `benchmark_yield_cache`. `rule_for_inline_terms`
+  gives the stored rule for inline terms equal to the stored ones.
+  - **Breaking:**
+    - `PricingRuleInForce` holds the rule's pin (`ResolvedPricingRule`) and an
+      `Arc<BenchmarkSetQuotes>`;
+    - `reference_at_for_pricing` and `stored_terms` return the `ResolvedBondReference`,
+      with the rule pin, so the rule is read once with the reference;
+    - `price_under_rule` no longer checks the rule's instrument, since the pin comes
+      from the bond's own reference.
 - **Breaking:** `BuiltCurve::to_points`, the older day/zero graph format, is removed,
   and with it `EngineError::CurveBuildError`, which only it returned.
 - **Breaking: `MAX_RUNTIME_INSTRUMENTS` is 4,096 (was 256),** a Live plan's bound. A

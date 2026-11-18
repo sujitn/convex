@@ -284,13 +284,17 @@ fn staged_clean_price(plan: &RuntimePlan, two_year: Decimal, ten_year: Decimal) 
         })
         .collect();
     let in_force = PricingRuleInForce {
-        rule: *rule,
-        rule_version: fixture::version(1),
-        benchmark_set: Some(BenchmarkSetQuotes {
+        rule: convex_ports::level_pricing::ResolvedPricingRule {
+            version: fixture::version(1),
+            recorded_at: rule.effective.from,
+            method: rule.method,
+            benchmark_set_id: rule.benchmark_set_id,
+        },
+        benchmark_set: Some(Arc::new(BenchmarkSetQuotes {
             benchmark_set_id: ReferenceDataId::new("UST-OTR").unwrap(),
             version: fixture::version(1),
             quotes,
-        }),
+        })),
     };
     price_under_rule(
         &fixture::bond(),
