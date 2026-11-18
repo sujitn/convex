@@ -102,6 +102,40 @@ pub(crate) fn book_of(record: &MasterRecord) -> Result<&BookDefinition, Referenc
     }
 }
 
+const RETIRED: &str = "the book is retired; a new snapshot revives it";
+
+/// `409 BOOK_RETIRED`: a retired book is not valued, checked or given limits.
+fn retired() -> Response {
+    typed_error(StatusCode::CONFLICT, "BOOK_RETIRED", RETIRED)
+}
+
+/// The current version of a book that is not retired: `404` when there is none, and
+/// `409 BOOK_RETIRED` when it is retired.
+pub(crate) fn in_force(record: Option<MasterRecord>) -> Result<MasterRecord, Response> {
+    let record = record.ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    if book_of(&record).map_err(reference_error)?.is_retired() {
+        return Err(retired());
+    }
+    Ok(record)
+}
+
+/// Whether a reference transaction writes a book, which only the book routes may: they
+/// start each snapshot at its commit time.
+pub(crate) fn writes_books(changes: &[MasterChange]) -> bool {
+    changes
+        .iter()
+        .any(|change| matches!(change.definition, MasterDefinition::Book(_)))
+}
+
+/// The refusal of a generic reference write that names a book.
+pub(crate) fn books_route_required() -> Response {
+    typed_error(
+        StatusCode::FORBIDDEN,
+        "BOOKS_ROUTE_REQUIRED",
+        "books are written only through /api/v1/books/{book_id}",
+    )
+}
+
 /// If-Match is optional on a snapshot: absent means create-only.
 pub(crate) fn optional_expected(headers: &HeaderMap) -> Result<Option<Version>, ReferenceError> {
     if headers.get_all("if-match").iter().next().is_none() {
@@ -438,10 +472,26 @@ fn authorize_resolved(
     action: Action,
     rows: &[Resolved],
 ) -> Result<(), Response> {
-    let resources: Vec<Resource> = rows
-        .iter()
-        .filter(|r| r.position.source_identifier.is_some())
-        .map(|r| Resource::new(ResourceKind::Instrument, r.position.instrument_id.as_str()))
+    authorize_positions(
+        state,
+        ctx,
+        action,
+        rows.iter()
+            .filter(|r| r.position.source_identifier.is_some())
+            .map(|r| &r.position),
+    )
+}
+
+/// The caller must hold `action` on each position's instrument.
+fn authorize_positions<'a>(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    action: Action,
+    positions: impl IntoIterator<Item = &'a BookPosition>,
+) -> Result<(), Response> {
+    let resources: Vec<Resource> = positions
+        .into_iter()
+        .map(|p| Resource::new(ResourceKind::Instrument, p.instrument_id.as_str()))
         .collect();
     if resources.is_empty() {
         return Ok(());
@@ -583,6 +633,69 @@ fn ingest_response(record: &MasterRecord, resolved: &[Resolved]) -> Response {
         object.insert("resolutions".into(), serde_json::Value::Array(consumed));
     }
     with_reference_version((status, Json(body)).into_response(), record.version)
+}
+
+/// `POST /api/v1/books/{book_id}/retire`: close the current snapshot's interval at the
+/// commit time, keeping its positions. The book stays readable with its history.
+/// Analytics, the limit status and check, and limit writes refuse it with
+/// `409 BOOK_RETIRED`, the limit monitor stops watching it, and a compile after the
+/// retirement does not find it, until a new snapshot revives it. `Idempotency-Key` and
+/// `If-Match` are required; the reply is `204` with the new version.
+pub(crate) async fn retire_book(
+    State(state): State<Arc<AppState>>,
+    ctx: Option<Extension<AccessContext>>,
+    Path(raw): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    match retire(&state, &ctx, raw, &headers).await {
+        Ok(response) | Err(response) => response,
+    }
+}
+
+async fn retire(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    raw: String,
+    headers: &HeaderMap,
+) -> Result<Response, Response> {
+    let id = book_id(raw).map_err(reference_error)?;
+    let idempotency_key = key(headers).map_err(reference_error)?;
+    let expected = expected_version(headers).map_err(reference_error)?;
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
+    // Limit writes refuse a retired book, so a retirement does not land between one's
+    // check and its commit.
+    let _writes = state.limit_writes.lock().await;
+    // On an exact retry the base is the pre-image, so the retry rebuilds the same command
+    // and gets its receipt rather than `BOOK_RETIRED`.
+    let base = base_for(repo, &idempotency_key, &id)
+        .await
+        .map_err(reference_error)?;
+    // A key that created the book was not a retirement.
+    if base.replay_at.is_some() && base.record.is_none() {
+        return Err(reference_error(crate::limits::different_payload()));
+    }
+    let at = recorded_at(&base).map_err(reference_error)?;
+    let record = in_force(base.record)?;
+    let mut definition = book_of(&record).map_err(reference_error)?.clone();
+    authorize_positions(state, ctx, Action::BookWrite, &definition.positions)?;
+    // Retiring ends the snapshot now, so it must have started; a commit at a later time
+    // would hold back every later snapshot.
+    if definition.effective.from >= at {
+        return Err(typed_error(
+            StatusCode::CONFLICT,
+            "BOOK_NOT_STARTED",
+            "the book's snapshot starts after now; retire it once it has started",
+        ));
+    }
+    definition.effective.until = Some(at);
+    definition.provenance = evidence(&idempotency_key, &definition.owning_system);
+    let committed = commit_book(state, idempotency_key, Some(expected), definition, at)
+        .await
+        .map_err(reference_error)?;
+    Ok(with_reference_version(
+        StatusCode::NO_CONTENT.into_response(),
+        committed.version,
+    ))
 }
 
 // =============================================================================
@@ -789,9 +902,18 @@ pub(crate) async fn book_analytics(
     version: Option<u64>,
 ) -> Result<PortfolioAnalyticsOutput, BookRefusal> {
     let record = pinned_book(state, book, version).await?;
-    let published = gate_runtime_results(state, ctx, &record)?;
     let definition = book_of(&record).map_err(refused_reference)?;
+    authorize_held(state, ctx, definition)?;
     let detail = |reason: &str| serde_json::json!({"book_id":book, "book_version":record.version, "reason":reason});
+    // A version before the retirement is still valued when asked for by number.
+    if definition.is_retired() {
+        return Err(refusal(
+            StatusCode::CONFLICT,
+            "BOOK_RETIRED",
+            detail(RETIRED),
+        ));
+    }
+    let published = gate_runtime_results(state, &record)?;
     let currency = definition
         .currency
         .as_deref()
@@ -906,19 +1028,18 @@ async fn pinned_book(
         .ok_or_else(|| refused_reference(ReferenceError::NotFound))
 }
 
-/// The accepted runtime result for each position, in book order.
-fn gate_runtime_results(
+/// The caller must be entitled to each instrument the book holds before anything about
+/// it is answered: a refusal names its version and instruments.
+fn authorize_held(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
-    record: &MasterRecord,
-) -> Result<Vec<Arc<PublishedValuation>>, BookRefusal> {
-    let book = book_of(record).map_err(refused_reference)?;
+    book: &BookDefinition,
+) -> Result<(), BookRefusal> {
     let resources: Vec<Resource> = book
         .positions
         .iter()
         .map(|p| Resource::new(ResourceKind::Instrument, p.instrument_id.as_str()))
         .collect();
-    // The refusal names instruments, so the caller must be entitled to each of them.
     let forbidden = || refusal(StatusCode::FORBIDDEN, "FORBIDDEN", serde_json::Value::Null);
     let Some(Extension(ctx)) = ctx else {
         return Err(forbidden());
@@ -926,7 +1047,15 @@ fn gate_runtime_results(
     state
         .access
         .authorize(ctx, Action::BookRead, &[DataScope::Books], &resources)
-        .map_err(|_| forbidden())?;
+        .map_err(|_| forbidden())
+}
+
+/// The accepted runtime result for each position, in book order.
+fn gate_runtime_results(
+    state: &AppState,
+    record: &MasterRecord,
+) -> Result<Vec<Arc<PublishedValuation>>, BookRefusal> {
+    let book = book_of(record).map_err(refused_reference)?;
     let mut accepted = accepted_runtime_results(state, book);
     let mut found = Vec::with_capacity(book.positions.len());
     let mut missing = Vec::new();

@@ -61,6 +61,23 @@ async fn books_page_in_order_and_version_with_compare_and_set() {
 }
 
 #[tokio::test]
+async fn a_closed_book_version_retires_the_book_from_its_end() {
+    conformance::a_closed_book_version_retires_the_book_from_its_end(Arc::new(
+        MemoryReferenceRepository::default(),
+    ))
+    .await;
+}
+
+#[tokio::test]
+#[ignore = "known defect: a newer bounded rule version does not end an older open one in a dated read"]
+async fn a_bounded_pricing_rule_version_ends_the_rule() {
+    conformance::a_bounded_pricing_rule_version_ends_the_rule(Arc::new(
+        MemoryReferenceRepository::default(),
+    ))
+    .await;
+}
+
+#[tokio::test]
 async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds() {
     conformance::pricing_rules_and_benchmark_sets_link_to_stored_bonds(Arc::new(
         MemoryReferenceRepository::default(),

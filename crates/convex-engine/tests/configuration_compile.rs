@@ -7,7 +7,7 @@ use convex_engine::configuration::{
 };
 use convex_ports::{
     configuration::*,
-    reference_master::{BookDefinition, MasterChange, MasterDefinition},
+    reference_master::{BookDefinition, MasterChange, MasterDefinition, MasterKey},
     reference_repository::ReferenceCommand,
     snapshot::SnapshotCurveRecipe,
     storage::{BondPricingConfig, StorageAdapter},
@@ -253,6 +253,48 @@ async fn refuses_inputs_it_cannot_pin() {
     later.as_of = at("2026-10-07T13:15:00Z");
     assert_eq!(
         invalid(compile(&storage, &later, "showcase-feed").await),
+        "book not found or not effective at the cutoff"
+    );
+
+    // A book retired before the cutoff is not found, though the version before it is open.
+    book(
+        &storage,
+        "RETIRED-BOOK",
+        &instrument,
+        "2026-10-07T12:00:00Z",
+    )
+    .await;
+    let open = storage
+        .bonds
+        .get_master(&MasterKey::Book(
+            ReferenceDataId::new("RETIRED-BOOK").unwrap(),
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    let MasterDefinition::Book(mut retired) = open.definition else {
+        panic!("not a book")
+    };
+    retired.effective.until = Some(at("2026-10-07T13:00:00Z"));
+    storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("book-RETIRED-BOOK-retire").unwrap(),
+                changes: vec![],
+                master_changes: vec![MasterChange {
+                    expected_version: Some(open.version),
+                    definition: MasterDefinition::Book(retired),
+                }],
+            },
+            at("2026-10-07T13:00:00Z"),
+        )
+        .await
+        .unwrap();
+    let mut gone = selection();
+    gone.books = vec![ReferenceDataId::new("RETIRED-BOOK").unwrap()];
+    assert_eq!(
+        invalid(compile(&storage, &gone, "showcase-feed").await),
         "book not found or not effective at the cutoff"
     );
 

@@ -315,6 +315,7 @@ pub fn create_router_with_access(
                 .put(books::put_book)
                 .layer(axum::extract::DefaultBodyLimit::max(8 * 1024 * 1024)),
         )
+        .route("/api/v1/books/:book_id/retire", post(books::retire_book))
         .route(
             "/api/v1/books/:book_id/versions/:version",
             get(books::get_book_version),
