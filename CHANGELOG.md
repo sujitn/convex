@@ -124,7 +124,10 @@ the changes that matter when you upgrade.
   or the import, ends the rule or set at that time, which may be later than the commit.
   After it, a bond whose rule ended is quoted by price; a bond whose rule names an ended
   set is refused, naming the set, whether asked by level or by price; a compile refuses a
-  rule naming it; and a Live runtime applies the end at its next activation.
+  rule naming it; and a Live runtime applies the end at its next activation whose cutoff
+  is after the end. A rule version that has ended by its commit is not checked against
+  its bond's current terms, so a rule can be ended after its bond is deleted or changed.
+  `EffectiveInterval::has_ended_by` names the test.
   **Breaking:** an ended version used to fall back to the version before it, and a
   version recorded later for a past interval now ends every version after it, so a
   correction of history restates the current version after it.

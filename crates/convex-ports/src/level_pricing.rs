@@ -319,7 +319,10 @@ impl ResolvedBenchmarkSet {
 /// Check a commit's rules and sets against the bonds and sets they name, each as of the
 /// commit: a rule's bond is stored, and quoted by a level only if it is a fixed bullet
 /// (floating rate notes and callables are not yet supported); a named set exists; each
-/// security of a set is a stored government fixed bullet in the set's currency.
+/// security of a set is a stored government fixed bullet in the set's currency. A rule
+/// version that has ended by its commit is checked only for its bond's identity, not its
+/// bond's current terms, so a rule can be ended after its bond is deleted or changed:
+/// pricing checks the bond it prices when it prices it.
 pub(crate) fn validate_level_pricing_links(
     commit: &ReferenceCommit,
     master: &mut impl FnMut(&MasterKey, Version) -> Result<MasterRecord, ReferenceError>,
@@ -334,13 +337,27 @@ pub(crate) fn validate_level_pricing_links(
     for record in &commit.master_records {
         match &record.definition {
             MasterDefinition::PricingRule(rule) => {
-                let id: convex_core::ids::InstrumentId = rule.instrument_id.clone().into();
-                let bond = bond_at_commit(commit, &id, bond_current)?
-                    .ok_or(invalid("a pricing rule names a stored bond"))?;
-                if rule.requires_plain_bullet() && !is_plain_bullet(&bond) {
-                    return Err(invalid(
-                        "only a fixed bullet is quoted by a level or against a benchmark set",
-                    ));
+                if rule.effective.has_ended_by(commit.recorded_at) {
+                    // The bond's first revision proves its identity, whatever it is now.
+                    let first = InstrumentPin {
+                        id: rule.instrument_id.clone(),
+                        version: Version::new(1).map_err(|_| invalid("invalid version"))?,
+                    };
+                    match exact_bond(commit, &first, bond_version) {
+                        Err(ReferenceError::InvalidInput(_)) => {
+                            return Err(invalid("a pricing rule names a stored bond"));
+                        }
+                        result => result.map(|_| ())?,
+                    }
+                } else {
+                    let id: convex_core::ids::InstrumentId = rule.instrument_id.clone().into();
+                    let bond = bond_at_commit(commit, &id, bond_current)?
+                        .ok_or(invalid("a pricing rule names a stored bond"))?;
+                    if rule.requires_plain_bullet() && !is_plain_bullet(&bond) {
+                        return Err(invalid(
+                            "only a fixed bullet is quoted by a level or against a benchmark set",
+                        ));
+                    }
                 }
                 if let Some(set) = &rule.benchmark_set_id {
                     ensure_master_exists(commit, &MasterKey::BenchmarkSet(set.clone()), master)?;

@@ -482,7 +482,10 @@ back (see [the reference master](../convex-ports/REFERENCE_MASTER.md) for how ve
 are selected, and how to correct history), and a later version with a new start revives
 the rule or set. A bond whose rule ended is quoted by price. A bond whose rule names an
 ended set is refused, naming the set, whether asked by level or by price, and a compile
-refuses a rule naming it. A running Live runtime applies an end at its next activation.
+refuses a rule naming it. A running Live runtime applies an end at its next activation
+whose cutoff is after the end; until then it still prices under the rule. A rule version
+that has ended by its commit is not checked against its bond's current terms, so a rule
+can be ended after its bond is deleted or changed.
 
 `GET /api/v1/quotes/:id` takes `level` in place of `market_price` for a bond whose rule
 quotes it by one. The unit is the rule's: a decimal yield (`level=0.0612`), or basis

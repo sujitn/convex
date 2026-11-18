@@ -967,6 +967,77 @@ pub async fn a_bounded_pricing_rule_or_benchmark_set_version_ends_it(
     }
 }
 
+/// A rule version that has ended by its commit is checked only for its bond's identity,
+/// so a rule can be ended after its bond is deleted. A version still in force after its
+/// commit is still checked against the bond, and refused.
+pub async fn a_pricing_rule_can_be_ended_after_its_bond_is_deleted(
+    repository: Arc<dyn ReferenceRepository>,
+) {
+    use convex_ports::level_pricing::PricingMethod;
+    seed(&repository, "CORP-1").await;
+    let rule = |instrument: &str| pricing_rule(instrument, PricingMethod::Yield {}, None);
+    repository
+        .commit(
+            &command("bond-gone-rule", vec![], vec![rule("CORP-1")]),
+            time("2025-01-02T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    repository
+        .commit(
+            &command(
+                "bond-gone-delete",
+                vec![ReferenceChange::Delete {
+                    instrument_id: convex_core::ids::InstrumentId::new("CORP-1"),
+                    expected_version: version(1),
+                }],
+                vec![],
+            ),
+            time("2025-02-01T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    let ending = |instrument: &str, expected: Option<u64>, until: &str| {
+        let mut change = rule(instrument);
+        change.expected_version = expected.map(version);
+        if let MasterDefinition::PricingRule(definition) = &mut change.definition {
+            definition.effective.until = Some(time(until));
+        }
+        change
+    };
+    let at = time("2025-03-01T00:00:00Z");
+    for (key, change) in [
+        (
+            "bond-gone-scheduled",
+            ending("CORP-1", Some(1), "2025-06-01T00:00:00Z"),
+        ),
+        // An ended rule still names a bond that was stored.
+        (
+            "bond-never-stored",
+            ending("NEVER-1", None, "2025-03-01T00:00:00Z"),
+        ),
+    ] {
+        let refused = repository
+            .commit(&command(key, vec![], vec![change]), at)
+            .await;
+        assert!(
+            matches!(refused, Err(ReferenceError::InvalidInput(_))),
+            "{key}: {refused:?}"
+        );
+    }
+    let ended = ending("CORP-1", Some(1), "2025-03-01T00:00:00Z");
+    let key = ended.definition.key();
+    repository
+        .commit(&command("bond-gone-ended", vec![], vec![ended]), at)
+        .await
+        .unwrap();
+    let after_end = repository
+        .get_master_at(&key, lookup("2025-04-01T00:00:00Z", "2025-12-31T00:00:00Z"))
+        .await
+        .unwrap();
+    assert_eq!(after_end, None);
+}
+
 fn limits(upper: &str) -> Vec<convex_ports::limits::LimitDefinition> {
     serde_json::from_value(serde_json::json!([
         {"limit_id": "face", "measure": {"kind": "face", "instrument": "each"}, "upper": upper}

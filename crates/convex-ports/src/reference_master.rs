@@ -52,6 +52,10 @@ impl EffectiveInterval {
     pub fn contains(self, time: UtcTimestamp) -> bool {
         time >= self.from && self.until.is_none_or(|end| time < end)
     }
+    /// Whether the interval has an end at or before `time`.
+    pub fn has_ended_by(self, time: UtcTimestamp) -> bool {
+        self.until.is_some_and(|end| end <= time)
+    }
 }
 
 /// Permitted evidence reference; no vendor SDK or raw licensed payload is required.
@@ -1577,11 +1581,7 @@ pub fn validate_reference_links(
             MasterDefinition::Book(book) => {
                 // A book is retired from a commit, never scheduled to retire later, so a
                 // closed interval has ended by the time it is read.
-                if book
-                    .effective
-                    .until
-                    .is_some_and(|end| end > commit.recorded_at)
-                {
+                if book.is_retired() && !book.effective.has_ended_by(commit.recorded_at) {
                     return Err(ReferenceError::InvalidInput(
                         "a book's interval ends no later than the commit that closes it",
                     ));

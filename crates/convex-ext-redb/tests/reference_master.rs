@@ -235,6 +235,12 @@ async fn a_bounded_pricing_rule_or_benchmark_set_version_ends_it() {
 }
 
 #[tokio::test]
+async fn a_pricing_rule_can_be_ended_after_its_bond_is_deleted() {
+    let (_dir, repo) = repository();
+    conformance::a_pricing_rule_can_be_ended_after_its_bond_is_deleted(repo).await;
+}
+
+#[tokio::test]
 async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds() {
     let (_dir, repo) = repository();
     conformance::pricing_rules_and_benchmark_sets_link_to_stored_bonds(repo).await;

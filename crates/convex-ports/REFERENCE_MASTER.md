@@ -138,10 +138,13 @@ earlier one from its start, so one with an end date retires the resource from th
 and one recorded later for a past interval ends every version after it, so a correction
 of history restates the current version after it. A rule's or set's end may be later
 than its commit; a running Live runtime, which pins rules and sets with the references,
-applies it at its next activation. An identifier mapping is the newest assertion known
-at the cutoff, whatever its interval (`NewestKnown`); other kinds take the newest
-version whose interval holds the instant (`NewestHolding`). Conformance:
-`a_bounded_pricing_rule_or_benchmark_set_version_ends_it`.
+applies it at its next activation whose cutoff is after the end. Nothing wakes it at the
+end itself. A rule version that has ended by its commit is checked only for its bond's
+identity, so a rule can be ended after its bond is deleted or changed. An identifier
+mapping is the newest assertion known at the cutoff, whatever its interval
+(`NewestKnown`); other kinds take the newest version whose interval holds the instant
+(`NewestHolding`). Conformance: `a_bounded_pricing_rule_or_benchmark_set_version_ends_it`
+and `a_pricing_rule_can_be_ended_after_its_bond_is_deleted`.
 
 The master also defines closed `futures`, `basket` and `cash_universe` master definitions
 and a futures mapping target. Exact reciprocal contract/basket revisions,
