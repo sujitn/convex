@@ -6,6 +6,7 @@
 //! - [`Price`]: Bond price with currency
 //! - [`Yield`]: Yield value with compounding convention
 //! - [`Spread`]: Spread in basis points
+//! - [`WidthSchedule`]: A two-way quote's width by trade size, in the quoting unit
 //! - [`CashFlow`]: Dated cash flow amount
 //! - [`Currency`]: ISO currency codes
 //! - [`Frequency`]: Payment frequency
@@ -18,6 +19,7 @@ mod frequency;
 mod mark;
 mod price;
 mod quote_display;
+mod quote_width;
 mod spread;
 mod yield_type;
 
@@ -27,5 +29,8 @@ pub use date::Date;
 pub use frequency::{Compounding, Frequency};
 pub use mark::{Mark, PriceKind};
 pub use price::Price;
+pub use quote_width::{
+    QuoteWidth, QuoteWidthError, SizeBucket, TwoWayMark, WidthSchedule, WidthUnit, MAX_SIZE_BUCKETS,
+};
 pub use spread::{Spread, SpreadType};
 pub use yield_type::Yield;

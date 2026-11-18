@@ -1,0 +1,709 @@
+{
+  "schema_version": 1,
+  "fixture_id": "quote-widths-v1",
+  "reference": "Hand-computed desk two-way quotes: a width is the bid-to-ask distance in the level's quoting unit, each side half of it from the mid; a price falls to its bid, a yield or spread rises to it. Not a market convention certificate.",
+  "units": {
+    "mid": "a trader mark, as convex_core::types::Mark parses it",
+    "face": "face amount of the trade, in currency units; null for a quote with no size",
+    "price_points": "price per 100 face",
+    "thirty_seconds": "32nds of a price point",
+    "basis_points": "basis points of yield (0.0001 of a decimal yield) or of spread",
+    "bid_ask": "price per 100 face, decimal yield, or basis points of spread, as the mid"
+  },
+  "tolerance": "exact",
+  "certified": false,
+  "cases": [
+    {
+      "id": "treasury-in-32nds-round-lot",
+      "note": "99-16+ one 32nd wide at 5mm: 99-16 / 99-17",
+      "mid": "99-16+",
+      "schedule": {
+        "unit": "thirty_seconds",
+        "buckets": [
+          {
+            "max_face": "10000000",
+            "width": "1"
+          },
+          {
+            "max_face": "50000000",
+            "width": "2"
+          },
+          {
+            "width": "4"
+          }
+        ]
+      },
+      "face": "5000000",
+      "expected": {
+        "width": "1",
+        "bid": "99.5",
+        "ask": "99.53125"
+      }
+    },
+    {
+      "id": "treasury-in-32nds-at-a-bound",
+      "note": "a bound holds its own size",
+      "mid": "99-16+",
+      "schedule": {
+        "unit": "thirty_seconds",
+        "buckets": [
+          {
+            "max_face": "10000000",
+            "width": "1"
+          },
+          {
+            "max_face": "50000000",
+            "width": "2"
+          },
+          {
+            "width": "4"
+          }
+        ]
+      },
+      "face": "10000000",
+      "expected": {
+        "width": "1",
+        "bid": "99.5",
+        "ask": "99.53125"
+      }
+    },
+    {
+      "id": "treasury-in-32nds-block",
+      "note": "two 32nds wide at 25mm: 99-15+ / 99-17+",
+      "mid": "99-16+",
+      "schedule": {
+        "unit": "thirty_seconds",
+        "buckets": [
+          {
+            "max_face": "10000000",
+            "width": "1"
+          },
+          {
+            "max_face": "50000000",
+            "width": "2"
+          },
+          {
+            "width": "4"
+          }
+        ]
+      },
+      "face": "25000000",
+      "expected": {
+        "width": "2",
+        "bid": "99.484375",
+        "ask": "99.546875"
+      }
+    },
+    {
+      "id": "treasury-in-32nds-above-every-bound",
+      "note": "the unbounded last bucket",
+      "mid": "99-16+",
+      "schedule": {
+        "unit": "thirty_seconds",
+        "buckets": [
+          {
+            "max_face": "10000000",
+            "width": "1"
+          },
+          {
+            "max_face": "50000000",
+            "width": "2"
+          },
+          {
+            "width": "4"
+          }
+        ]
+      },
+      "face": "75000000",
+      "expected": {
+        "width": "4",
+        "bid": "99.453125",
+        "ask": "99.578125"
+      }
+    },
+    {
+      "id": "treasury-quarter-32nd",
+      "note": "an on-the-run a quarter of a 32nd wide",
+      "mid": "100-00",
+      "schedule": {
+        "unit": "thirty_seconds",
+        "buckets": [
+          {
+            "width": "0.25"
+          }
+        ]
+      },
+      "face": "1000000",
+      "expected": {
+        "width": "0.25",
+        "bid": "99.99609375",
+        "ask": "100.00390625"
+      }
+    },
+    {
+      "id": "investment-grade-odd-lot",
+      "note": "a benchmark spread 6 bp wide at 1mm and under",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "max_face": "1000000",
+            "width": "6"
+          },
+          {
+            "max_face": "5000000",
+            "width": "4"
+          },
+          {
+            "width": "5"
+          }
+        ]
+      },
+      "face": "1000000",
+      "expected": {
+        "width": "6",
+        "bid": "128",
+        "ask": "122"
+      }
+    },
+    {
+      "id": "investment-grade-round-lot",
+      "note": "4 bp wide from 1mm to 5mm",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "max_face": "1000000",
+            "width": "6"
+          },
+          {
+            "max_face": "5000000",
+            "width": "4"
+          },
+          {
+            "width": "5"
+          }
+        ]
+      },
+      "face": "2000000",
+      "expected": {
+        "width": "4",
+        "bid": "127",
+        "ask": "123"
+      }
+    },
+    {
+      "id": "investment-grade-block",
+      "note": "5 bp wide above 5mm",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "max_face": "1000000",
+            "width": "6"
+          },
+          {
+            "max_face": "5000000",
+            "width": "4"
+          },
+          {
+            "width": "5"
+          }
+        ]
+      },
+      "face": "20000000",
+      "expected": {
+        "width": "5",
+        "bid": "127.5",
+        "ask": "122.5"
+      }
+    },
+    {
+      "id": "investment-grade-screen",
+      "note": "no size takes the first bucket",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "max_face": "1000000",
+            "width": "6"
+          },
+          {
+            "max_face": "5000000",
+            "width": "4"
+          },
+          {
+            "width": "5"
+          }
+        ]
+      },
+      "face": null,
+      "expected": {
+        "width": "6",
+        "bid": "128",
+        "ask": "122"
+      }
+    },
+    {
+      "id": "negative-z-spread",
+      "note": "a level below zero widens the same way",
+      "mid": "-15 Z@USD.SOFR",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "2"
+          }
+        ]
+      },
+      "face": "1000000",
+      "expected": {
+        "width": "2",
+        "bid": "-14",
+        "ask": "-16"
+      }
+    },
+    {
+      "id": "yield-in-basis-points",
+      "note": "a yield 3 bp wide: 4.665% / 4.635%",
+      "mid": "4.65%@SA",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "3"
+          }
+        ]
+      },
+      "face": "1000000",
+      "expected": {
+        "width": "3",
+        "bid": "0.04665",
+        "ask": "0.04635"
+      }
+    },
+    {
+      "id": "high-yield-in-points",
+      "note": "half a point wide",
+      "mid": "98.25",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.5"
+          }
+        ]
+      },
+      "face": "2000000",
+      "expected": {
+        "width": "0.5",
+        "bid": "98",
+        "ask": "98.5"
+      }
+    },
+    {
+      "id": "dirty-price-keeps-its-kind",
+      "note": "a quarter of a point on a dirty price",
+      "mid": "99.5D",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.25"
+          }
+        ]
+      },
+      "face": "1000000",
+      "expected": {
+        "width": "0.25",
+        "bid": "99.375",
+        "ask": "99.625"
+      }
+    },
+    {
+      "id": "zero-width",
+      "note": "a choice market: bid and ask are the mid",
+      "mid": "101",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0"
+          }
+        ]
+      },
+      "face": "1000000",
+      "expected": {
+        "width": "0",
+        "bid": "101",
+        "ask": "101"
+      }
+    },
+    {
+      "id": "widest-basis-points",
+      "note": "the unit's widest width",
+      "mid": "500 Z@USD.SOFR",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "1000"
+          }
+        ]
+      },
+      "face": "1000000",
+      "expected": {
+        "width": "1000",
+        "bid": "1000",
+        "ask": "0"
+      }
+    }
+  ],
+  "refusals": [
+    {
+      "id": "basis-points-do-not-widen-a-price",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "2"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "unit_mismatch"
+    },
+    {
+      "id": "32nds-do-not-widen-a-yield",
+      "mid": "4.65%@SA",
+      "schedule": {
+        "unit": "thirty_seconds",
+        "buckets": [
+          {
+            "width": "1"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "unit_mismatch"
+    },
+    {
+      "id": "points-do-not-widen-a-spread",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.5"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "unit_mismatch"
+    },
+    {
+      "id": "trade-above-the-largest-size",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "max_face": "5000000",
+            "width": "0.5"
+          }
+        ]
+      },
+      "face": "5000001",
+      "refused": "face_above_schedule"
+    },
+    {
+      "id": "trade-of-no-size",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.5"
+          }
+        ]
+      },
+      "face": "0",
+      "refused": "face_not_positive"
+    },
+    {
+      "id": "trade-of-negative-size",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.5"
+          }
+        ]
+      },
+      "face": "-1000000",
+      "refused": "face_not_positive"
+    },
+    {
+      "id": "no-buckets",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": []
+      },
+      "face": "1000000",
+      "refused": "bucket_count"
+    },
+    {
+      "id": "seventeen-buckets",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "max_face": "1000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "2000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "3000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "4000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "5000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "6000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "7000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "8000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "9000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "10000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "11000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "12000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "13000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "14000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "15000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "16000000",
+            "width": "0.5"
+          },
+          {
+            "width": "1"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "bucket_count"
+    },
+    {
+      "id": "bounds-descending",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "max_face": "5000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "1000000",
+            "width": "0.5"
+          },
+          {
+            "width": "1"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "bucket_bounds"
+    },
+    {
+      "id": "bounds-repeated",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "max_face": "1000000",
+            "width": "0.5"
+          },
+          {
+            "max_face": "1000000",
+            "width": "0.75"
+          },
+          {
+            "width": "1"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "bucket_bounds"
+    },
+    {
+      "id": "unbounded-bucket-not-last",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.5"
+          },
+          {
+            "max_face": "5000000",
+            "width": "1"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "bucket_bounds"
+    },
+    {
+      "id": "bound-of-zero",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "max_face": "0",
+            "width": "0.5"
+          },
+          {
+            "width": "1"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "bucket_bounds"
+    },
+    {
+      "id": "negative-width",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "-0.5"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "width_out_of_range"
+    },
+    {
+      "id": "points-above-the-widest",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "20.01"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "width_out_of_range"
+    },
+    {
+      "id": "32nds-above-the-widest",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "thirty_seconds",
+        "buckets": [
+          {
+            "width": "641"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "width_out_of_range"
+    },
+    {
+      "id": "basis-points-above-the-widest",
+      "mid": "125 G@USD.TSY.10Y",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "1000.5"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "width_out_of_range"
+    },
+    {
+      "id": "a-later-bucket-above-the-widest",
+      "mid": "99.5",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "max_face": "1000000",
+            "width": "0.5"
+          },
+          {
+            "width": "25"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "width_out_of_range"
+    },
+    {
+      "id": "bid-price-of-zero",
+      "mid": "0.25",
+      "schedule": {
+        "unit": "price_points",
+        "buckets": [
+          {
+            "width": "0.5"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "bid_price_not_positive"
+    }
+  ]
+}
