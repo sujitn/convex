@@ -120,9 +120,8 @@ the changes that matter when you upgrade.
 ### convex-server
 
 - **Breaking: the `/api/v1/portfolios*` alias over books is removed.** Write a
-  book with `PUT /api/v1/books/:book_id`. A book is retired by a reference
-  transaction that bounds its effective interval. The alias's batch create has
-  no replacement.
+  book with `PUT /api/v1/books/:book_id`. The alias's `DELETE`, which retired a
+  book, and its batch create have no replacement on the book routes.
 - **Breaking:** the `websocket_port` setting and `CONVEX_WEBSOCKET_PORT` are
   removed. WebSockets share the HTTP listener, and a file or environment that
   still sets either fails at startup as unknown.
