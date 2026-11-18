@@ -15,6 +15,10 @@
 //! - `subscribe/256`: a `subscribe_valuations` of every bond until its `subscribed`
 //!   acknowledgement, which follows the 256 results it seeds (D99). Listing followed bonds
 //!   again resends their results, so one session repeats it (P17a).
+//! - `benchmark_tick/256`, `/1024` and `/4089`: every bond is quoted as a spread over the
+//!   10-year of a set of seven Treasuries the runtime values beside them. One quote on the
+//!   10-year until the session holds the frame of every bond it reprices and its own.
+//!   4,089 bonds and the seven Treasuries fill a Live runtime.
 //!
 //! An error frame, such as `RESYNC_REQUIRED` after a lagging session (G38), fails the case.
 //!
@@ -32,10 +36,12 @@ mod live_server;
 #[path = "../../convex-engine/tests/support/runtime_setup.rs"]
 mod support;
 
-use convex_engine::ports::quote_event::{QuoteEvent, QuoteKey};
+use convex_engine::ports::quote_event::{
+    FieldUpdate, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteValue,
+};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use futures_util::{SinkExt, StreamExt};
-use live_server::{image, wide_live_setup, Running};
+use live_server::{image, level_live_setup, wide_live_setup, LevelKeys, Running, BENCHMARK};
 use reqwest::StatusCode;
 use std::time::{Duration, Instant};
 use tokio_tungstenite::tungstenite::Message;
@@ -50,6 +56,8 @@ const WIDE: usize = 256;
 const LIVE_WIDTHS: [usize; 2] = [1024, 4096];
 /// Sessions in the fan-out case.
 const SESSIONS: usize = 8;
+/// Bonds quoted over one benchmark in the benchmark tick cases.
+const DEPENDENTS: [usize; 3] = [256, 1024, 4089];
 /// Requests and inbound WebSocket messages per second: P13a's rate, kept so the cases
 /// compare across P13b's steps.
 const ATTEMPTS_PER_SECOND: u32 = 80;
@@ -84,7 +92,7 @@ struct Frame {
 }
 
 /// Read frames until one satisfies `done`. Any error frame fails the case.
-async fn until(socket: &mut Socket, done: impl Fn(&Frame) -> bool) {
+async fn until(socket: &mut Socket, mut done: impl FnMut(&Frame) -> bool) {
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let message = socket
@@ -133,10 +141,26 @@ async fn accepted(response: reqwest::Response) {
     assert_eq!(status, StatusCode::ACCEPTED, "{body}");
 }
 
+/// Read frames until the session holds `count` valuation frames of the tick that admitted
+/// generation `expected` or a later one.
+async fn valuations(socket: &mut Socket, expected: u64, count: usize) {
+    let mut held = 0;
+    until(socket, |f| {
+        if f.kind == "valuation" && f.generation.is_some_and(|g| g >= expected) {
+            held += 1;
+        }
+        held == count
+    })
+    .await
+}
+
 /// A Live server over `width` bonds, after every bond's first image.
 struct Live {
     server: Running,
     keys: Vec<QuoteKey>,
+    /// The Treasuries of the benchmark tick cases, quoted by price; every other key is then
+    /// quoted by a spread.
+    treasuries: Vec<QuoteKey>,
     sequence: u64,
     /// The last generation the runtime admitted: one per posted quote.
     generation: u64,
@@ -147,11 +171,33 @@ struct Live {
 impl Live {
     async fn start(width: usize) -> Self {
         let (dir, _, config, keys) = wide_live_setup(width).await;
+        Self::started(dir, config, keys, Vec::new()).await
+    }
+
+    /// `dependents` bonds quoted as a spread over the 10-year of a set of Treasuries,
+    /// which are valued too.
+    async fn start_quoted_over_benchmark(dependents: usize) -> Self {
+        let (dir, _, config, LevelKeys { bonds, treasuries }) = level_live_setup(dependents).await;
+        let keys = bonds
+            .into_iter()
+            .chain(treasuries.iter().cloned())
+            .collect();
+        Self::started(dir, config, keys, treasuries).await
+    }
+
+    async fn started(
+        dir: tempfile::TempDir,
+        config: convex_server::ServerConfig,
+        keys: Vec<QuoteKey>,
+        treasuries: Vec<QuoteKey>,
+    ) -> Self {
+        let width = keys.len();
         let server = Running::start(config).await;
         let generation = server.runtime().await["generation"].as_u64().unwrap();
         let mut live = Self {
             server,
             keys,
+            treasuries,
             sequence: 0,
             generation,
             pacer: Pacer {
@@ -195,11 +241,54 @@ impl Live {
         (0..count)
             .map(|_| {
                 self.sequence += 1;
-                let mut event = image(self.sequence, "99.25");
-                event.key = self.keys[self.sequence as usize % self.keys.len()].clone();
-                event
+                let key = self.keys[self.sequence as usize % self.keys.len()].clone();
+                self.quote(key)
             })
             .collect()
+    }
+
+    /// The next quote on `key`: a price, or a spread for a bond quoted over the benchmark.
+    fn quote(&self, key: QuoteKey) -> QuoteEvent {
+        let mut event = image(self.sequence, "99.25");
+        if !self.treasuries.is_empty() && !self.treasuries.contains(&key) {
+            let QuoteEventKind::Image { fields } = &mut event.event else {
+                unreachable!("an image")
+            };
+            fields[0].field = QuoteField::MidSpread;
+            fields[0].update = FieldUpdate::Set(QuoteValue {
+                value: rust_decimal::Decimal::new(125, 0),
+                unit: QuoteField::MidSpread.unit(),
+            });
+        }
+        event.key = key;
+        event
+    }
+
+    /// Post one quote on the benchmark and return the time until the session holds the
+    /// frame of each bond the tick reprices and the benchmark's own.
+    async fn benchmark_tick(&mut self, socket: &mut Socket) -> Duration {
+        self.pacer.wait(2).await;
+        self.sequence += 1;
+        let benchmark = self
+            .treasuries
+            .iter()
+            .find(|key| key.instrument_id.as_str() == BENCHMARK)
+            .cloned()
+            .expect("a benchmark case");
+        let quote = self.quote(benchmark);
+        let expected = self.generation + 1;
+        // Every bond quoted over it, and the benchmark itself.
+        let frames = self.keys.len() - self.treasuries.len() + 1;
+        let started = Instant::now();
+        let server = &self.server;
+        let (response, elapsed) = tokio::join!(server.post_quotes(vec![quote]), async {
+            valuations(socket, expected, frames).await;
+            started.elapsed()
+        });
+        accepted(response).await;
+        self.generation = expected;
+        drain(socket).await;
+        elapsed
     }
 
     /// Post `quotes` and return the time until the `202`.
@@ -400,6 +489,26 @@ fn bench_live_hop(c: &mut Criterion) {
             })
         });
         rt.block_on(live.stop(sockets));
+    }
+
+    // One benchmark quote until the frame of every bond quoted over it. Reported with no
+    // target: such a tick values every dependent.
+    for dependents in DEPENDENTS {
+        let mut live = rt.block_on(Live::start_quoted_over_benchmark(dependents));
+        let mut socket = rt.block_on(live.session());
+        group.throughput(Throughput::Elements(dependents as u64));
+        group.bench_function(BenchmarkId::new("benchmark_tick", dependents), |b| {
+            b.iter_custom(|iterations| {
+                rt.block_on(async {
+                    let mut total = Duration::ZERO;
+                    for _ in 0..iterations {
+                        total += live.benchmark_tick(&mut socket).await;
+                    }
+                    total
+                })
+            })
+        });
+        rt.block_on(live.stop(vec![socket]));
     }
     group.finish();
 }

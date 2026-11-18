@@ -10,7 +10,7 @@ use serde_json::json;
 
 use convex_core::Date;
 use convex_engine::curve_builder::BuiltCurve;
-use convex_engine::level_pricing::{price_under_rule, QuotedInput};
+use convex_engine::level_pricing::{price_under_rule, BenchmarkYieldCache, QuotedInput};
 use convex_engine::ports::reference_data::BondReferenceData;
 use convex_engine::pricing_router::{PricingInput, PricingRouter};
 use level_rules::{
@@ -62,6 +62,7 @@ fn a_benchmark_spread_over_an_annual_pay_benchmark_is_over_its_semi_annual_yield
         QuotedInput::Level(dec!(125)),
         settlement,
         Some(&discount),
+        &BenchmarkYieldCache::default(),
     )
     .unwrap();
     let reported = pricing.benchmark.unwrap().ytm;

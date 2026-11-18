@@ -562,6 +562,7 @@ mod tests {
                 index: record(MasterDefinition::RateIndex(Box::new(index))),
                 calendar: resources[1].clone(),
             }),
+            pricing_rule: None,
         }
     }
     fn curve(id: &str, role: serde_json::Value, rate: f64) -> CurveRecipe {

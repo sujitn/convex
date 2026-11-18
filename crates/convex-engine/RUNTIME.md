@@ -18,7 +18,9 @@ spread, curve-risk and key-rate measures listed in `SNAPSHOTS.md`
 (`RUNTIME_MEASURES`), each at most once per plan, for reference-admitted fixed
 bullets and zeros, the OAS measures for at most 8 fixed callables with explicit
 call terms, and the discount-margin measures for uncapped floating rate notes with a
-rate index. Each instrument requests the plan measures its own model publishes. A
+rate index. `g_spread_mid` is published for a fixed bullet whose pricing rule names a
+benchmark set it matures within, and asked of no other bond. Each instrument requests
+the plan measures its own model publishes. A
 plan pins no fixing keys: each snapshot derives a note's due fixings from its contract
 and reads them from the durable fixing store the server's
 `POST /api/v1/analytics/fixings` writes. Unsupported measures, products and
@@ -28,13 +30,18 @@ No spread, risk, price or curve is synthesized to fill a missing dependency.
 
 The complete manifest supplies each bond's dependencies. Every bond in a batch
 consumes the same captured snapshot and configuration, but each result is judged
-only on the inputs its own valuation reads: its selected quotes, a floating rate
-note's fixings on its index and fixing source, and the configured curves it reads. A
-callable reads the discount curve, a floating rate note the discount and FRN
-reference curves, and another bond the discount and swap curves only when it asks for
-a spread or curve-risk measure. No runtime valuation reads the government curve.
-Source skew is measured among one bond's own quotes. A stale or
-missing input fails only the bonds that read it. The snapshot keeps its own
+only on the inputs its own valuation reads: its selected quotes, the quotes of the
+benchmark securities its pricing rule's set names, a floating rate note's fixings on
+its index and fixing source, and the configured curves it reads. A callable reads the
+discount curve, a floating rate note the discount and FRN reference curves, and another
+bond the discount and swap curves only when it asks for a spread or curve-risk
+measure, or the discount curve when it is quoted by a Z-spread. No runtime valuation
+reads the government curve. Source skew is measured among one bond's own quotes and its
+benchmarks'; a bond quoted by a level is judged on its level's age alone, and skew is
+measured among its benchmarks' quotes. A stale or missing input fails only the bonds
+that read it, so a stale benchmark fails the bonds quoted to it. A tick on a benchmark
+values the bonds quoted to it: each pin's dependents are indexed when its activation
+pins the rules. The snapshot keeps its own
 snapshot-wide quality for its identity, configuration fixture checks and the hedge
 execution gate. Each snapshot is verified once, when it is made (D67),
 its curves are built once, at graph activation, and every bond's valuation reads that

@@ -1,6 +1,8 @@
 //! The level stage alone (P19a): one bond priced from its level, for each method, beside
 //! the router's price path it feeds. A quote from a level costs the stage plus the router;
-//! from a price, the router alone.
+//! from a price, the router alone. `stage` solves each benchmark's yield, as the first
+//! bond a benchmark price reaches does; `stage_shared` and `stage_and_router` reuse the
+//! yields already solved, as every later bond does.
 //!
 //! Run with: cargo bench -p convex-engine --bench level_benchmarks
 
@@ -12,7 +14,7 @@ use rust_decimal_macros::dec;
 use serde_json::json;
 
 use convex_core::Date;
-use convex_engine::level_pricing::{price_under_rule, QuotedInput};
+use convex_engine::level_pricing::{price_under_rule, BenchmarkYieldCache, QuotedInput};
 use convex_engine::pricing_router::{PricingInput, PricingRouter};
 use level_rules::{corporate, curve, government_note, rule_in_force, SETTLEMENT};
 
@@ -50,6 +52,21 @@ fn bench_level_stage(c: &mut Criterion) {
                     QuotedInput::Level(level),
                     settlement,
                     Some(&discount),
+                    &BenchmarkYieldCache::default(),
+                )
+                .unwrap()
+            })
+        });
+        let shared = BenchmarkYieldCache::default();
+        group.bench_function(format!("stage_shared/{name}"), |b| {
+            b.iter(|| {
+                price_under_rule(
+                    black_box(&corporate),
+                    Some(&in_force),
+                    QuotedInput::Level(level),
+                    settlement,
+                    Some(&discount),
+                    &shared,
                 )
                 .unwrap()
             })
@@ -62,6 +79,7 @@ fn bench_level_stage(c: &mut Criterion) {
                     QuotedInput::Level(level),
                     settlement,
                     Some(&discount),
+                    &shared,
                 )
                 .unwrap();
                 router

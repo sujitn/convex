@@ -133,7 +133,9 @@ impl RequestValuer {
             )
             .into());
         }
-        let roots: Vec<_> = read_curve_ids(model, &measures, &config.analytics_curves)
+        // A request values a price: a level was priced before the snapshot, and only a
+        // fixed bullet, which this path does not value, is quoted by one.
+        let roots: Vec<_> = read_curve_ids(model, &measures, None, &config.analytics_curves)
             .into_iter()
             .map(convex_core::ids::CurveId::new)
             .collect();

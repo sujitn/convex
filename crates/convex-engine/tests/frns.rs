@@ -22,7 +22,15 @@ use std::str::FromStr;
 /// Version 2 of BOND-001 is the note; configuration version 2 names the projection curve.
 /// The plan requests every router measure and the discount margin, over stored recipes.
 async fn frn_setup(fixings: Vec<PublishedFixing>, projection_role: bool) -> Setup {
-    let mut setup = setup().await;
+    frn_setup_from(setup().await, fixings, projection_role).await
+}
+
+/// [`frn_setup`] over `setup`, whose BOND-001 is still the fixed bullet.
+async fn frn_setup_from(
+    mut setup: Setup,
+    fixings: Vec<PublishedFixing>,
+    projection_role: bool,
+) -> Setup {
     let bond = products::frn(fixture::bond());
     setup
         .storage
@@ -217,7 +225,7 @@ async fn plans_accept_the_discount_margin_and_still_refuse_measures_no_model_pub
     let mut unknown = setup.plan.clone();
     unknown
         .measures
-        .push(MeasureId::new("g_spread_mid").unwrap());
+        .push(MeasureId::new("yield_to_worst_mid").unwrap());
     assert!(unknown.validate().is_err());
 }
 
@@ -268,4 +276,68 @@ async fn a_request_time_note_valuation_matches_the_stream_and_fails_as_it_does()
         assert_eq!(result.errors(), stream.errors());
         assert_eq!(valued.curves.len(), 2, "{:?}", valued.curves);
     }
+}
+
+/// A rule committed while BOND-001 was a fixed bullet, naming a benchmark set, does not
+/// price it once its terms are a floating rate note: each measure is refused, saying why.
+#[tokio::test]
+async fn a_rule_the_note_no_longer_takes_refuses_its_measures() {
+    let setup = setup().await;
+    let mut treasury = fixture::bond();
+    treasury.instrument_id = convex_core::ids::InstrumentId::new("UST-10Y");
+    treasury.issuer_type = convex_ports::reference_data::IssuerType::Sovereign;
+    treasury.cusip = Some("91282CBB6".into());
+    treasury.isin = None;
+    let effective = serde_json::json!({"from": "2025-01-01T00:00:00Z", "until": null});
+    let provenance = serde_json::json!({"source": "desk", "evidence_reference": "frn-test"});
+    let master = |kind: &str, definition: serde_json::Value| {
+        serde_json::from_value(serde_json::json!({
+            "expected_version": null,
+            "definition": {"kind": kind, "definition": definition},
+        }))
+        .unwrap()
+    };
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("bullet-rule").unwrap(),
+                changes: vec![ReferenceChange::Create {
+                    bond: Box::new(treasury),
+                }],
+                master_changes: vec![
+                    master(
+                        "benchmark_set",
+                        serde_json::json!({
+                            "benchmark_set_id": "UST-10",
+                            "currency": "USD",
+                            "securities": [{"tenor": "10Y", "instrument_id": "UST-10Y", "version": 1}],
+                            "effective": effective,
+                            "provenance": provenance,
+                        }),
+                    ),
+                    master(
+                        "pricing_rule",
+                        serde_json::json!({
+                            "instrument_id": "BOND-001",
+                            "method": {"kind": "price"},
+                            "benchmark_set_id": "UST-10",
+                            "effective": effective,
+                            "provenance": provenance,
+                        }),
+                    ),
+                ],
+            },
+            fixture::time("2025-03-01T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    let setup = frn_setup_from(setup, published(), true).await;
+    let outcome = run(&setup).await;
+    let result = &outcome[0].result;
+    assert_eq!(result.status(), ResultStatus::Failed);
+    assert!(result.errors().iter().all(|error| {
+        error.code() == ErrorCode::InvalidInput && error.message().contains("only a fixed bullet")
+    }));
 }

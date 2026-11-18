@@ -185,7 +185,7 @@ async fn plans_accept_oas_and_still_refuse_measures_no_model_publishes() {
     let mut unknown = setup.plan.clone();
     unknown
         .measures
-        .push(MeasureId::new("g_spread_mid").unwrap());
+        .push(MeasureId::new("yield_to_worst_mid").unwrap());
     assert!(unknown.validate().is_err());
 }
 

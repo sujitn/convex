@@ -454,7 +454,14 @@ pub async fn get_bond_quote(
         .request_context(query.configuration.as_ref(), known_at)
         .await?;
     if runtime_product(&bond) {
-        let pricing = price_under_rule(&bond, rule.as_ref(), quoted, settlement_date, None)?;
+        let pricing = price_under_rule(
+            &bond,
+            rule.as_ref(),
+            quoted,
+            settlement_date,
+            None,
+            state.engine.benchmark_yield_cache(),
+        )?;
         let response = runtime_quote(
             &state.engine,
             &mut context,
@@ -475,6 +482,7 @@ pub async fn get_bond_quote(
         quoted,
         settlement_date,
         Some(&curves.discount),
+        state.engine.benchmark_yield_cache(),
     )?;
     let input = PricingInput {
         bond,

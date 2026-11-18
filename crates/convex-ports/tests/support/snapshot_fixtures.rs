@@ -151,6 +151,7 @@ pub fn content() -> SnapshotContent {
             calendar: resources[1].clone(),
             convention: resources[2].clone(),
             floating: None,
+            pricing_rule: None,
         }]),
         quotes: vec![SnapshotQuote {
             requirement: quote_requirement(),
@@ -168,6 +169,7 @@ pub fn content() -> SnapshotContent {
         curve_recipes: vec![],
         calibration: None,
         max_source_skew_ms: 1000,
+        benchmark_sets: Default::default(),
     }
 }
 pub fn snapshot() -> MarketSnapshot {

@@ -5,7 +5,10 @@ mod configuration;
 
 use configuration::snapshot as fixture;
 use convex_core::contracts::*;
-use convex_ports::{quote_event::*, reference_master::*, snapshot::*, TraitError};
+use convex_ports::{
+    level_pricing::MAX_SNAPSHOT_BENCHMARK_SETS, quote_event::*, reference_master::*, snapshot::*,
+    TraitError,
+};
 use std::collections::BTreeMap;
 
 fn text(fill: char, len: usize) -> String {
@@ -262,25 +265,30 @@ fn bytes<T: serde::Serialize + ?Sized>(value: &T) -> usize {
     serde_json::to_vec(value).unwrap().len()
 }
 
-/// D109: the JSON a Live snapshot's identity hashes, for 4,096 instruments with every text
-/// at the bound its validator sets: floating rate notes, with an index and its calendar,
-/// but for the eight callables a plan values, each with 1,024 calls, and each quote with
-/// every field and an event at every bound, written twice. Some of these values no bond
-/// could hold together (a day count of 1,024 bytes, a note with a cap), so this is above
-/// the largest content validation admits: 131,285,895 bytes with the fixture's frame,
-/// 125.2 MiB. It fits the Live bound, with 2.8 MiB left for a larger frame, and would not
-/// fit a stored snapshot's.
+/// The JSON a Live snapshot's identity hashes, for 4,096 instruments with every text at
+/// the bound its validator sets: floating rate notes, with an index and its calendar, but
+/// for the eight callables a plan values, each with 1,024 calls, every instrument with a
+/// pricing rule, 64 benchmark sets of 32 securities, and each quote with every field and
+/// an event at every bound, written twice. Some of these values no bond could hold
+/// together (a day count of 1,024 bytes, a note with a cap), so this is above the largest
+/// content validation admits: 132,875,866 bytes with the fixture's frame, 126.7 MiB. It
+/// fits the Live bound, with 1.3 MiB left for a larger frame, and would not fit a stored
+/// snapshot's.
 #[test]
 fn the_largest_admitted_instruments_fit_the_live_identity_bound() {
     let content = fixture::content();
     let at_ms = content.as_of.datetime().timestamp_millis();
-    let note = bytes(&largest_note(1));
-    let callable = bytes(&largest_callable(1));
+    let mut note = largest_note(1);
+    let alone = bytes(&note);
+    note.pricing_rule = Some(largest_rule());
+    let note = bytes(&note);
+    let callable = bytes(&largest_callable(1)) + (note - alone);
     let quote = bytes(&*largest_quote(1, at_ms, QuoteQuality::Indicative));
     assert!(callable > note, "{callable} {note}");
     let mut frame = content;
     frame.references = SnapshotReferences::new(vec![]);
     frame.quotes.clear();
+    frame.benchmark_sets = (0..MAX_SNAPSHOT_BENCHMARK_SETS).map(largest_set).collect();
     let instruments = MAX_LIVE_SNAPSHOT_INSTRUMENTS;
     // The references are one array: a comma between records, and its brackets.
     let total = (instruments - 8) * note
@@ -293,6 +301,36 @@ fn the_largest_admitted_instruments_fit_the_live_identity_bound() {
         total <= MAX_LIVE_IDENTITY_BYTES && total > MAX_SNAPSHOT_BYTES,
         "{total}: a note {note}, a callable {callable}, a quote {quote}"
     );
+}
+
+/// A pricing rule pin at its bounds: a benchmark spread at the longest tenor over a set
+/// whose id is at its bound.
+fn largest_rule() -> convex_ports::level_pricing::ResolvedPricingRule {
+    convex_ports::level_pricing::ResolvedPricingRule {
+        version: Version::new(u64::MAX).unwrap(),
+        recorded_at: fixture::time("2025-01-01T00:00:00Z"),
+        method: convex_ports::level_pricing::PricingMethod::BenchmarkSpread {
+            tenor: "600M".into(),
+        },
+        benchmark_set_id: Some(ReferenceDataId::new(id('b', 0)).unwrap()),
+    }
+}
+
+/// Benchmark set `n` at its bounds: 32 securities, each id at its bound.
+fn largest_set(n: usize) -> convex_ports::level_pricing::ResolvedBenchmarkSet {
+    use convex_ports::level_pricing::{BenchmarkSecurity, ResolvedBenchmarkSet};
+    ResolvedBenchmarkSet {
+        benchmark_set_id: ReferenceDataId::new(id('b', n)).unwrap(),
+        version: Version::new(u64::MAX).unwrap(),
+        recorded_at: fixture::time("2025-01-01T00:00:00Z"),
+        securities: (0..convex_ports::level_pricing::MAX_BENCHMARK_SECURITIES)
+            .map(|security| BenchmarkSecurity {
+                tenor: format!("{}M", 500 + security),
+                instrument_id: InstrumentId::new(id('t', security)).unwrap(),
+                version: Version::new(u64::MAX).unwrap(),
+            })
+            .collect(),
+    }
 }
 
 /// The fixture's reference under instrument `n`, with each free text at its bound: what

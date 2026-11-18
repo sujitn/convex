@@ -197,6 +197,13 @@ the changes that matter when you upgrade.
   as `lower` and `upper`, with `excess` naming the limit's own bounds and the expiry. Its
   approval and its expiry are recorded status changes, and the monitor wakes for an expiry
   with no tick or commit. New code: 409 `LIMIT_EXCESS_EXPIRED`.
+- **Bonds can be quoted by a level.** A `pricing_rule` reference resource quotes a
+  stored fixed bullet by `price`, `yield`, `z_spread` or `benchmark_spread` to one tenor
+  of a `benchmark_set` of Treasuries. `GET /api/v1/quotes/{id}?level=` prices it from a
+  level at request time. A Live runtime prices it from its own quote under the rule: the
+  level is a `mid_yield` or `mid_spread` quote, a `manual` one is the desk's mark, and a
+  tick on a benchmark reprices exactly the bonds quoted to it. `g_spread_mid` is
+  published for a bullet whose rule names a set it matures within.
 
 ### convex-engine
 
@@ -218,6 +225,14 @@ the changes that matter when you upgrade.
   copies every one.
 - **Breaking:** `limits::evaluate_limits` takes the time of the evaluation, which decides
   whether a temporary excess applies. It still reads no clock.
+- **Breaking:** `PlanSelection` gains `levels` (`LevelQuoteSource`): where the quotes of
+  bonds quoted by a level come from, and how old one may be. The compile quotes such a
+  bond by its rule's field and adds each benchmark security its rule's set names, at the
+  version the set pins.
+- **Breaking:** `level_pricing::price_under_rule` takes a `BenchmarkYieldCache`, which
+  solves each benchmark's yield once for each price; `price_in_snapshot` prices a
+  snapshot's bond under the rule its reference pins, from the snapshot's benchmark quotes.
+- `g_spread_mid` is a runtime measure (`snapshot::G_SPREAD_MEASURE`).
 
 ### convex-ports
 
@@ -248,6 +263,15 @@ the changes that matter when you upgrade.
   never removes the log's last entry. The default refuses with `Unsupported`, so existing
   stores still compile and are never pruned. Bounds: `MAX_PRUNE_BATCH` (4,096 removals),
   `MAX_PRUNE_KEEP` (8,192 kept IDs), `MAX_PRUNE_READ` (16,384 entries read a call).
+- **Breaking:** `ResolvedBondReference` gains `pricing_rule` (`ResolvedPricingRule`, a
+  compact pin of the rule in force), and `SnapshotContent` gains `benchmark_sets`
+  (`Arc<[ResolvedBenchmarkSet]>`): each set the references' rules name, once, at most 64
+  (`MAX_SNAPSHOT_BENCHMARK_SETS`), shared by every tick of a Live activation.
+  `InputSet::quotes` returns an iterator over a bond's own quotes and its benchmarks'.
+- `ReferenceRepository::pricing_rule_for_valuation` and `benchmark_set_for_valuation`
+  resolve a bond's rule and a set in force; `MarketSnapshot::pricing_rule`,
+  `benchmark_set` and `benchmark_securities` read them back; `PricingMethod::quote_field`
+  and `reads_discount_curve` give the quote field and curve a method reads.
 
 ### convex-ext-redb
 

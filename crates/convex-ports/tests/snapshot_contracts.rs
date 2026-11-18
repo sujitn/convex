@@ -322,7 +322,7 @@ fn instrument_quality_reads_only_that_instruments_inputs() {
     // A fixed-coupon bond reads no fixing; its own fresh quote and curve are valid.
     let fresh = snapshot.inputs("BOND-001", &["USD-FIXTURE"]);
     assert!(fresh.fixings().is_empty());
-    assert_eq!(fresh.quotes().len(), 1);
+    assert_eq!(fresh.quotes().count(), 1);
     assert_eq!(fresh.curves(), [&snapshot.content().required_curves[0]]);
     let quality = snapshot.quality_of(&fresh);
     assert!(quality.complete && quality.issues.is_empty());
@@ -336,7 +336,7 @@ fn instrument_quality_reads_only_that_instruments_inputs() {
             reason: SnapshotIssueKind::Stale,
         }]
     );
-    assert!(snapshot.inputs("BOND-404", &[]).quotes().is_empty());
+    assert_eq!(snapshot.inputs("BOND-404", &[]).quotes().count(), 0);
 
     // A curve counts only for a valuation that reads it. A one-instrument set that reads
     // the stale curve gives the snapshot-wide answer; a curve no snapshot requires is
@@ -764,4 +764,117 @@ fn changed_quotes_names_the_unshared_entries_only_while_nothing_else_differs() {
     for (index, change) in changes.into_iter().enumerate() {
         assert_eq!(next(change), None, "change {index}");
     }
+}
+
+/// Benchmark set `id`, recorded at `recorded_at`.
+fn benchmark_set(id: &str, recorded_at: &str) -> convex_ports::level_pricing::ResolvedBenchmarkSet {
+    serde_json::from_value(serde_json::json!({
+        "benchmark_set_id": id,
+        "version": 1,
+        "recorded_at": recorded_at,
+        "securities": [{"tenor": "10Y", "instrument_id": "UST-10Y", "version": 1}],
+    }))
+    .unwrap()
+}
+
+/// A snapshot holds each benchmark set once, in id order, each a set recorded by its
+/// cutoff and at most 64 of them; with them it keeps its identity through the wire.
+#[test]
+fn a_snapshot_holds_each_benchmark_set_once_in_order() {
+    let at = "2025-01-01T00:00:00Z";
+    let mut content = fixture::content();
+    content.benchmark_sets =
+        vec![benchmark_set("UST-OTR", at), benchmark_set("UST-ALL", at)].into();
+    let snapshot = MarketSnapshot::new(content.clone()).unwrap();
+    let ids: Vec<_> = snapshot
+        .content()
+        .benchmark_sets
+        .iter()
+        .map(|set| set.benchmark_set_id.as_str())
+        .collect();
+    assert_eq!(ids, ["UST-ALL", "UST-OTR"]);
+    let id = ReferenceDataId::new("UST-OTR").unwrap();
+    assert_eq!(
+        snapshot.benchmark_set(&id).map(|set| set.version),
+        Some(fixture::version(1))
+    );
+    let bytes = snapshot.canonical_bytes().unwrap();
+    assert_eq!(
+        serde_json::from_slice::<MarketSnapshot>(&bytes).unwrap(),
+        snapshot
+    );
+    assert_ne!(
+        snapshot.id(),
+        fixture::snapshot().id(),
+        "the sets are part of the identity"
+    );
+
+    let refused = |sets: Vec<_>| {
+        let mut content = content.clone();
+        content.benchmark_sets = sets.into();
+        MarketSnapshot::new(content).unwrap_err()
+    };
+    assert!(matches!(
+        refused(vec![
+            benchmark_set("UST-OTR", at),
+            benchmark_set("UST-OTR", at)
+        ]),
+        convex_ports::TraitError::InvalidInput(_)
+    ));
+    let mut empty = benchmark_set("UST-OTR", at);
+    empty.securities.clear();
+    assert!(matches!(
+        refused(vec![empty]),
+        convex_ports::TraitError::InvalidInput(_)
+    ));
+    assert!(matches!(
+        refused(vec![benchmark_set("UST-OTR", "2099-01-01T00:00:00Z")]),
+        convex_ports::TraitError::InvalidInput(_)
+    ));
+    let too_many = (0..=convex_ports::level_pricing::MAX_SNAPSHOT_BENCHMARK_SETS)
+        .map(|n| benchmark_set(&format!("UST-{n:03}"), at))
+        .collect();
+    assert!(matches!(
+        refused(too_many),
+        convex_ports::TraitError::CapacityExceeded
+    ));
+}
+
+/// A manual quote of the level a bond's rule quotes it by is the desk's mark in the whole
+/// snapshot's quality too, which configuration fixtures and the hedge gate read. A manual
+/// quote of another field, or of a bond quoted by price, is indicative.
+#[test]
+fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
+    use convex_ports::level_pricing::{PricingMethod, ResolvedPricingRule};
+    use convex_ports::quote_event::{DataState, QuoteField};
+    let quality = |rule: Option<ResolvedPricingRule>, field: QuoteField| {
+        let mut content = fixture::content();
+        let quote = content.quotes[0].make_mut();
+        quote.requirement.fields = vec![field];
+        let image = quote.image.as_mut().unwrap();
+        image.state = DataState::Manual;
+        let mut observation = image.fields.remove(&QuoteField::MidPrice).unwrap();
+        if field == QuoteField::MidYield {
+            observation.value.value = "0.0512".parse().unwrap();
+            observation.value.unit = field.unit();
+        }
+        image.fields.insert(field, observation);
+        content.references.make_mut()[0].pricing_rule = rule;
+        MarketSnapshot::new(content).unwrap().quality().quality
+    };
+    let yield_rule = ResolvedPricingRule {
+        version: fixture::version(1),
+        recorded_at: fixture::time("2025-01-01T00:00:00Z"),
+        method: PricingMethod::Yield {},
+        benchmark_set_id: None,
+    };
+    assert_eq!(quality(None, QuoteField::MidPrice), DataQuality::Indicative);
+    assert_eq!(
+        quality(Some(yield_rule.clone()), QuoteField::MidYield),
+        DataQuality::Valid
+    );
+    assert_eq!(
+        quality(Some(yield_rule), QuoteField::MidPrice),
+        DataQuality::Indicative
+    );
 }

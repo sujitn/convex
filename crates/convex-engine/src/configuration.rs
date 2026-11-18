@@ -20,7 +20,7 @@ use std::{sync::Arc, time::Duration};
 use thiserror::Error;
 
 mod compile;
-pub use compile::{assemble_from_repository, PlanSelection, MAX_PLAN_BOOKS};
+pub use compile::{assemble_from_repository, LevelQuoteSource, PlanSelection, MAX_PLAN_BOOKS};
 
 /// Actual composition capabilities, supplied by the adapter owner rather than configuration content.
 #[derive(Debug, Clone)]

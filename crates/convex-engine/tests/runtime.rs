@@ -1460,6 +1460,12 @@ async fn plan_admits_each_published_measure_once_and_nothing_else() {
         .map(|m| MeasureId::new(*m).unwrap())
         .collect();
     plan.validate().unwrap();
+    // The G-spread is published for a bullet priced against a benchmark set.
+    let mut g_spread = plan.clone();
+    g_spread
+        .measures
+        .push(MeasureId::new("g_spread_mid").unwrap());
+    g_spread.validate().unwrap();
     let mut repeated = plan.clone();
     repeated.measures.push(MeasureId::new("ytm_mid").unwrap());
     assert!(matches!(
@@ -1469,7 +1475,7 @@ async fn plan_admits_each_published_measure_once_and_nothing_else() {
     let mut unknown = s.plan.clone();
     unknown
         .measures
-        .push(MeasureId::new("g_spread_mid").unwrap());
+        .push(MeasureId::new("yield_to_worst_mid").unwrap());
     assert!(matches!(
         unknown.validate(),
         Err(RuntimeError::Configuration(_))

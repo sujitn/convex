@@ -5,6 +5,7 @@ use convex_core::contracts::*;
 use convex_ports::{
     configuration::ConfigurationPin,
     fixing::FixingRepository,
+    level_pricing::{is_plain_bullet, PricingMethod, MAX_SNAPSHOT_BENCHMARK_SETS},
     quote_event::{QuoteEvent, QuoteField, QuoteKey},
     reference_master::{ReferenceLookup, ResolvedBondReference},
     reference_repository::ReferenceRepository,
@@ -60,6 +61,14 @@ pub const RUNTIME_MEASURES: [&str; 26] = [
     "krd_20y_mid",
     "krd_30y_mid",
 ];
+/// The spread to the benchmark set's interpolated yield, published only for a fixed bullet
+/// whose pricing rule names a set it matures within.
+pub const G_SPREAD_MEASURE: &str = "g_spread_mid";
+/// Whether a runtime publishes `measure` for some bond: a measure of its fixed bullet
+/// slice, or the G-spread.
+pub(crate) fn is_runtime_measure(measure: &str) -> bool {
+    RUNTIME_MEASURES.contains(&measure) || measure == G_SPREAD_MEASURE
+}
 /// Measures read from curves: spreads and curve risk. The others read the mid quote's
 /// own yield, so a plan that asks for none of these prices without curves.
 fn curve_measure(measure: &str) -> bool {
@@ -67,18 +76,13 @@ fn curve_measure(measure: &str) -> bool {
 }
 /// The configured curves one valuation reads (D58): a callable's discount curve, a
 /// floating rate note's discount and reference curves, and another bond's discount and
-/// swap curves when it asks for a spread or curve-risk measure. No snapshot valuation
-/// reads the government curve.
-fn read_curves<'c>(
-    spec: &ValuationContextSpec,
-    curves: &'c convex_ports::storage::AnalyticsCurves,
-) -> Vec<&'c str> {
-    read_curve_ids(spec.model_id.as_str(), &spec.measures, curves)
-}
-/// [`read_curves`] for a context not yet built: its model and measures.
+/// swap curves when it asks for a spread or curve-risk measure, or its discount curve
+/// when its rule's `method` prices a level over it. No snapshot valuation reads the
+/// government curve: a G-spread reads the benchmark set's quotes.
 pub(crate) fn read_curve_ids<'c>(
     model: &str,
     measures: &[MeasureId],
+    method: Option<&PricingMethod>,
     curves: &'c convex_ports::storage::AnalyticsCurves,
 ) -> Vec<&'c str> {
     let second = if model == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL {
@@ -87,6 +91,8 @@ pub(crate) fn read_curve_ids<'c>(
         curves.frn_reference_curve.as_ref()
     } else if measures.iter().any(|m| curve_measure(m.as_str())) {
         curves.swap_curve.as_ref()
+    } else if method.is_some_and(PricingMethod::reads_discount_curve) {
+        None
     } else {
         return Vec::new();
     };
@@ -103,7 +109,14 @@ pub(crate) fn valuation_inputs<'a>(
     let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
         return Err(TraitError::Unsupported("trade economics unavailable"));
     };
-    let curves = read_curves(spec, &snapshot.content().configuration.analytics_curves);
+    let curves = read_curve_ids(
+        spec.model_id.as_str(),
+        &spec.measures,
+        snapshot
+            .pricing_rule(instrument_id.as_str())
+            .map(|rule| &rule.method),
+        &snapshot.content().configuration.analytics_curves,
+    );
     Ok(snapshot.inputs(instrument_id.as_str(), &curves))
 }
 /// Quality of the inputs one valuation context reads, never the whole snapshot's.
@@ -227,7 +240,7 @@ impl SnapshotAssembler {
         bounds: SnapshotBounds,
     ) -> Result<MarketSnapshot, TraitError> {
         validate_request(request, events, bounds)?;
-        let references = SnapshotReferences::new(self.references(request, &configuration).await?);
+        let references = self.references(request, &configuration).await?;
         let capture = capture_ms(request);
         let selected: BTreeSet<_> = request
             .quotes
@@ -253,11 +266,13 @@ impl SnapshotAssembler {
         self.build(request, configuration, references, quotes, bounds)
             .await
     }
+    /// The pinned references `request` selects, each with its pricing rule in force, and
+    /// each benchmark set the rules name that is in force too, once.
     async fn references(
         &self,
         request: &SnapshotAssembly,
         configuration: &convex_ports::storage::BondPricingConfig,
-    ) -> Result<Vec<ResolvedBondReference>, TraitError> {
+    ) -> Result<ResolvedReferences, TraitError> {
         if configuration.config_id != request.configuration.id.as_str()
             || configuration.version != request.configuration.version.get()
         {
@@ -301,15 +316,44 @@ impl SnapshotAssembler {
                 .floating_resources_for_valuation(bond)
                 .await
                 .map_err(reference_error)?;
+            // The rule in force at the cutoff, pinned with the references.
+            let pricing_rule = self
+                .references
+                .pricing_rule_for_valuation(&id, lookup)
+                .await
+                .map_err(reference_error)?;
             references.push(ResolvedBondReference {
                 record,
                 issuer,
                 calendar,
                 convention,
                 floating,
+                pricing_rule,
             });
         }
-        Ok(references)
+        let named: BTreeSet<_> = references
+            .iter()
+            .filter_map(|reference| reference.pricing_rule.as_ref()?.benchmark_set_id.clone())
+            .collect();
+        if named.len() > MAX_SNAPSHOT_BENCHMARK_SETS {
+            return Err(TraitError::CapacityExceeded);
+        }
+        let mut benchmark_sets = Vec::with_capacity(named.len());
+        for id in named {
+            // A set not in force is left out, and only the bonds quoted to it fail.
+            if let Some(set) = self
+                .references
+                .benchmark_set_for_valuation(&id, lookup)
+                .await
+                .map_err(reference_error)?
+            {
+                benchmark_sets.push(set);
+            }
+        }
+        Ok(ResolvedReferences {
+            references: SnapshotReferences::new(references),
+            benchmark_sets: benchmark_sets.into(),
+        })
     }
     /// Resolve the exact configuration and the pinned references `request` selects, at its
     /// cutoff, for reuse by later snapshots of the same selection (D56). Only a Live
@@ -317,7 +361,7 @@ impl SnapshotAssembler {
     pub(crate) async fn pin(&self, request: &SnapshotAssembly) -> Result<PinnedInputs, TraitError> {
         validate_request(request, &[], SnapshotBounds::Live)?;
         let configuration = self.configuration(request).await?;
-        let references = SnapshotReferences::new(self.references(request, &configuration).await?);
+        let references = self.references(request, &configuration).await?;
         Ok(PinnedInputs {
             activation: activation_revision(request),
             configuration_pin: request.configuration.clone(),
@@ -375,7 +419,7 @@ impl SnapshotAssembler {
         &self,
         request: &SnapshotAssembly,
         configuration: convex_ports::storage::BondPricingConfig,
-        references: SnapshotReferences,
+        references: ResolvedReferences,
         quotes: Vec<SharedQuote>,
         bounds: SnapshotBounds,
     ) -> Result<MarketSnapshot, TraitError> {
@@ -391,9 +435,13 @@ impl SnapshotAssembler {
         &self,
         request: &SnapshotAssembly,
         configuration: convex_ports::storage::BondPricingConfig,
-        references: SnapshotReferences,
+        resolved: ResolvedReferences,
         quotes: Vec<SharedQuote>,
     ) -> Result<SnapshotContent, TraitError> {
+        let ResolvedReferences {
+            references,
+            benchmark_sets,
+        } = resolved;
         let keys = required_fixings(request, &references)?;
         let mut fixings = Vec::with_capacity(keys.len());
         for key in keys {
@@ -416,8 +464,17 @@ impl SnapshotAssembler {
             curve_recipes: request.curve_recipes.clone(),
             calibration: request.calibration.clone(),
             max_source_skew_ms: request.max_source_skew_ms,
+            benchmark_sets,
         })
     }
+}
+
+/// A selection's resolved references and the benchmark sets their rules name: what a
+/// Live activation pins.
+#[derive(Clone)]
+pub(crate) struct ResolvedReferences {
+    references: SnapshotReferences,
+    benchmark_sets: Arc<[convex_ports::level_pricing::ResolvedBenchmarkSet]>,
 }
 
 /// Quote state ingested once per event in delivery order. Replay rebuilds it from a
@@ -706,7 +763,7 @@ pub(crate) struct PinnedInputs {
     configuration_pin: ConfigurationPin,
     instruments: Vec<InstrumentPin>,
     configuration: convex_ports::storage::BondPricingConfig,
-    references: SnapshotReferences,
+    references: ResolvedReferences,
     /// The Live selection epoch these inputs last served (P17c-i).
     epoch: Option<u64>,
     /// The last Live snapshot these inputs resolved; the next is derived from it
@@ -927,6 +984,8 @@ impl From<SnapshotValuationResult> for ValuationResultWire {
 pub struct SnapshotValuator {
     build_id: ModelId,
     cache: ValuationCache,
+    /// Benchmark yields shared by the bonds quoted to them.
+    benchmark_yield_cache: crate::level_pricing::BenchmarkYieldCache,
 }
 impl SnapshotValuator {
     /// Composition root supplies actual build identity and an explicit bounded cache.
@@ -934,6 +993,7 @@ impl SnapshotValuator {
         Ok(Self {
             build_id,
             cache: ValuationCache::new(cache_capacity)?,
+            benchmark_yield_cache: Default::default(),
         })
     }
     /// Explicit administrative cache release; published snapshots/results remain unchanged.
@@ -1087,13 +1147,16 @@ impl SnapshotValuator {
                 "pricing requires one explicitly selected quote source",
             ));
         }
-        if !selected[0]
-            .requirement
-            .fields
-            .contains(&QuoteField::MidPrice)
-        {
+        // A rule that quotes a level or names a benchmark set prices only a plain bullet. A
+        // bond whose terms changed since its rule was committed is refused, saying why.
+        let rule = reference.pricing_rule.as_ref();
+        let is_rule_misapplied =
+            rule.is_some_and(|rule| rule.requires_plain_bullet() && !is_plain_bullet(bond));
+        // A bond is read from the field its rule quotes it by: its level, or a price.
+        let quoted_field = rule.map_or(QuoteField::MidPrice, |rule| rule.method.quote_field());
+        if !is_rule_misapplied && !selected[0].requirement.fields.contains(&quoted_field) {
             return Err(TraitError::InvalidInput(
-                "mid valuation must declare a required mid-price field",
+                "mid valuation must declare the field the bond is quoted by",
             ));
         }
         let quote = selected[0].image.as_ref();
@@ -1102,9 +1165,22 @@ impl SnapshotValuator {
                 .and_then(|q| q.fields.get(&field))
                 .map(|value| value.value.value)
         };
-        let (results, errors) = if spec.model_id.as_str()
-            == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
-        {
+        let (results, errors) = if is_rule_misapplied {
+            let errors = spec
+                .measures
+                .iter()
+                .map(|measure| {
+                    StructuredError::new(
+                        ErrorCode::InvalidInput,
+                        Some(measure.as_str().into()),
+                        crate::level_pricing::NOT_A_PLAIN_BULLET,
+                        false,
+                    )
+                    .map_err(contract_error)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            (BTreeMap::new(), errors)
+        } else if spec.model_id.as_str() == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL {
             callable_measures(
                 snapshot,
                 spec,
@@ -1182,15 +1258,38 @@ impl SnapshotValuator {
                 .transpose()?
                 .flatten();
             let curves = spec.measures.iter().any(|m| curve_measure(m.as_str()));
+            // Under a rule, the level stage turns the quote into the clean price the
+            // router values, and gives the set's securities for a G-spread asked of it.
+            let quoted = mark(quoted_field);
+            let staged = rule.zip(quoted).map(|(_, quoted)| {
+                crate::level_pricing::price_in_snapshot(
+                    snapshot,
+                    reference,
+                    quoted,
+                    spec.settlement_date.date(),
+                    discount.as_ref(),
+                    &self.benchmark_yield_cache,
+                )
+            });
+            let g_spread = spec.measures.iter().any(|m| m.as_str() == G_SPREAD_MEASURE);
+            let (market_price_mid, government_curve, refusal) = match staged {
+                None => (quoted.filter(|_| rule.is_none()), None, None),
+                Some(Ok(pricing)) => (
+                    Some(pricing.clean_price_mid),
+                    pricing.government_curve.filter(|_| g_spread),
+                    None,
+                ),
+                Some(Err(error)) => (None, None, Some(error)),
+            };
             let input = PricingInput {
                 bond: bond.clone(),
                 settlement_date: spec.settlement_date.date(),
                 market_price_bid: None,
-                market_price_mid: mark(QuoteField::MidPrice),
+                market_price_mid,
                 market_price_ask: None,
                 discount_curve: discount.filter(|_| curves),
                 benchmark_curve: benchmark.filter(|_| curves),
-                government_curve: None,
+                government_curve,
                 volatility: None,
                 bid_ask_config: None,
             };
@@ -1226,7 +1325,20 @@ impl SnapshotValuator {
                         );
                     }
                     None => {
-                        let supported = RUNTIME_MEASURES.contains(&measure.as_str());
+                        // The stage's refusal names what is missing, a benchmark by tenor.
+                        if let Some(refusal) = &refusal {
+                            errors.push(
+                                StructuredError::new(
+                                    refusal.error_code(),
+                                    Some(measure.as_str().into()),
+                                    refusal.to_string(),
+                                    false,
+                                )
+                                .map_err(contract_error)?,
+                            );
+                            continue;
+                        }
+                        let supported = is_runtime_measure(measure.as_str());
                         // The router names the measures it could not produce; keep its code and reason.
                         let field = if curve_risk_measure(measure.as_str()) {
                             "curve_risk_mid"
@@ -1703,6 +1815,22 @@ pub(crate) fn consumed_versions(
             floating.calendar.version,
         )?;
     }
+    // A bond priced under a rule read the rule and its set; the set's version pins each
+    // benchmark security's.
+    if let Some(rule) = &reference.pricing_rule {
+        push(
+            "pricing_rule",
+            reference.record.instrument_id.as_str(),
+            rule.version,
+        )?;
+        if let Some(set) = rule
+            .benchmark_set_id
+            .as_ref()
+            .and_then(|id| snapshot.benchmark_set(id))
+        {
+            push("benchmark_set", set.benchmark_set_id.as_str(), set.version)?;
+        }
+    }
     if let Some(capture) = &snapshot.content().configuration_capture {
         push(
             "configuration_activation",
@@ -1844,6 +1972,7 @@ fn snapshot_mid_value(
         // Loss per 100 face for +1 bp of the bond's own quoted yield; not factor risk.
         "dv01_mid" => price(output.dv01),
         "z_spread_mid" => bps(output.z_spread_mid),
+        "g_spread_mid" => bps(output.g_spread_mid),
         // Over the configuration's swap curve; absent without that role.
         "i_spread_mid" => bps(output.i_spread_mid),
         "asw_mid" => bps(output.asw_mid),
