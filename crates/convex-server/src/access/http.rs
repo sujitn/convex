@@ -257,7 +257,7 @@ fn requirement(
             // A runtime record names only instruments and curves, and every one already
             // requires a wildcard grant, so inspection could refuse nothing the grant
             // allows. It would refuse a page over about 170 records: each names six
-            // resources (D103a).
+            // resources.
             req.inspect_output_resources = false;
             req.resources.extend([
                 Resource::new(R::Instrument, "*"),
@@ -349,7 +349,7 @@ fn requirement(
             req.body_required = !read;
         }
         // A book's limits: reads need the book (each handler also checks every instrument
-        // a set or status names); every write needs `LimitWrite` on the book (D85).
+        // a set or status names); every write needs `LimitWrite` on the book.
         "/api/v1/books/:book_id/limits"
         | "/api/v1/books/:book_id/limits/versions/:version"
         | "/api/v1/books/:book_id/limits/history"
@@ -377,7 +377,7 @@ fn requirement(
             req.action = BookRead;
             req.data = vec![D::Books, D::Results, D::Reference, D::Market];
         }
-        // Acknowledgements (P15c) reveal a limit's status, so each reads status's data, and
+        // Acknowledgements reveal a limit's status, so each reads status's data, and
         // each handler applies status's read rule. Acknowledging and withdrawing need
         // `LimitWrite` on the book; the handler also checks it on the limit's instruments.
         "/api/v1/books/:book_id/limits/acknowledgements"
@@ -391,25 +391,6 @@ fn requirement(
             exact(R::Book, "book_id")?;
             req.action = BookRead;
             req.data = vec![D::Books, D::Results, D::Reference, D::Market];
-        }
-        "/api/v1/portfolios" | "/api/v1/portfolios/batch" => {
-            req.action = if read { BookRead } else { BookWrite };
-            req.data = vec![D::Books];
-            if read {
-                req.resources.push(Resource::new(R::Book, "*"));
-                req.resources.push(Resource::new(R::Instrument, "*"));
-            }
-        }
-        "/api/v1/portfolios/:portfolio_id"
-        | "/api/v1/portfolios/:portfolio_id/positions"
-        | "/api/v1/portfolios/:portfolio_id/positions/:instrument_id" => {
-            exact(R::Book, "portfolio_id")?;
-            if params.contains_key("instrument_id") {
-                exact(R::Instrument, "instrument_id")?;
-            }
-            req.action = if read { BookRead } else { BookWrite };
-            req.data = vec![D::Books];
-            req.body_required = !read && method != Method::DELETE;
         }
         "/api/v1/etf/inav"
         | "/api/v1/etf/inav/batch"
@@ -693,7 +674,7 @@ async fn enforce_inner(
     }) && (request.method() == Method::GET || request.method() == Method::HEAD);
     if public {
         // Public probes hold an in-flight permit like every request. They verify no
-        // credential, so no per-minute window counts them (D78).
+        // credential, so no per-minute window counts them.
         let ctx = AccessContext {
             identity: None,
             token: None,

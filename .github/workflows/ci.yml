@@ -3140,7 +3140,7 @@ jobs:
       - name: Cache cargo registry
         uses: Swatinem/rust-cache@v2
 
-      # CVX-001 records known failures; their owning tasks must repair them.
+      # The production-readiness probes include known failures that must be repaired.
       # No continue-on-error: this job is a failing production gate until then.
       - name: Check production behavior including known failures
         env:

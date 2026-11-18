@@ -1,9 +1,9 @@
-//! Pricing rules and benchmark sets (P19, D111–D113): how a stored bond is quoted, and the
+//! Pricing rules and benchmark sets: how a stored bond is quoted, and the
 //! government securities a spread is quoted to.
 //!
 //! A bond's [`PricingRuleDefinition`] (`MasterKey::PricingRule`) names its method: a price,
 //! a yield, a spread to one benchmark security, or a Z-spread. The level itself is a quote,
-//! never stored (D111). A rule may name a [`BenchmarkSetDefinition`]
+//! never stored. A rule may name a [`BenchmarkSetDefinition`]
 //! (`MasterKey::BenchmarkSet`) by id, so an on-the-run roll is one commit to the set and
 //! the version a valuation read is recorded with its result. A bond with no rule is
 //! quoted by price.
@@ -34,7 +34,7 @@ use crate::reference_master::{
 };
 use crate::reference_repository::{ReferenceCommit, ReferenceError, ReferenceRecord};
 
-/// Securities in one benchmark set (D113).
+/// Securities in one benchmark set.
 pub const MAX_BENCHMARK_SECURITIES: usize = 32;
 /// The longest benchmark tenor, in months: 50 years.
 pub const MAX_BENCHMARK_TENOR_MONTHS: u32 = 600;
@@ -117,7 +117,7 @@ impl PricingMethod {
     }
 }
 
-/// How one stored bond is quoted (D111, D112). Versioned; changed rarely. The level a
+/// How one stored bond is quoted. Versioned; changed rarely. The level a
 /// trader moves is a quote, not part of the rule.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -163,9 +163,9 @@ pub struct BenchmarkSecurity {
     pub version: Version,
 }
 
-/// A versioned set of government securities that spreads are quoted to (D113). Rolling a
-/// benchmark to a new issue is one commit of a new version. P19 quotes against US
-/// Treasuries, so a set is in USD.
+/// A versioned set of government securities that spreads are quoted to. Rolling a
+/// benchmark to a new issue is one commit of a new version. Spreads are quoted against US
+/// Treasuries only, so a set is in USD.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BenchmarkSetDefinition {
@@ -188,7 +188,7 @@ impl BenchmarkSetDefinition {
     pub fn validate(&self) -> Result<(), ReferenceError> {
         if self.currency != Currency::USD {
             return Err(invalid(
-                "a benchmark set is in USD: P19 quotes against Treasuries",
+                "a benchmark set is in USD: spreads are quoted against Treasuries only",
             ));
         }
         validate_securities(&self.securities)
@@ -316,7 +316,7 @@ impl ResolvedBenchmarkSet {
 
 /// Check a commit's rules and sets against the bonds and sets they name, each as of the
 /// commit: a rule's bond is stored, and quoted by a level only if it is a fixed bullet
-/// (P19a; floating rate notes and callables follow in P19c); a named set exists; each
+/// (floating rate notes and callables are not yet supported); a named set exists; each
 /// security of a set is a stored government fixed bullet in the set's currency.
 pub(crate) fn validate_level_pricing_links(
     commit: &ReferenceCommit,

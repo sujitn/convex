@@ -7,7 +7,7 @@ use convex_ports::TraitError;
 use parking_lot::Mutex;
 use std::{collections::HashMap, sync::Arc};
 
-/// Application result cache for one snapshot (D51). Every entry retains the complete context
+/// Application result cache for one snapshot. Every entry retains the complete context
 /// and captured generation. A context names its snapshot, so a result for another snapshot
 /// releases every retained entry; callers sharing one cache across snapshots recompute, never fail.
 pub struct ValuationCache {

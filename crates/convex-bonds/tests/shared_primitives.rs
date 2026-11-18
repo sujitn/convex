@@ -1,4 +1,4 @@
-//! CVX-054 compatibility paths delegate to the shared schedule implementation.
+//! Compatibility paths delegate to the shared schedule implementation.
 
 use convex_bonds::cashflows::{Schedule, ScheduleConfig, StubType};
 use convex_bonds::types::CalendarId;

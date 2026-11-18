@@ -307,7 +307,7 @@ pub enum ProtectionPayment {
 }
 
 /// Complete declared single-name premium/protection helper description. Standard
-/// date/model conversion and pricing are CVX-020/058, not a spread/LGD shortcut.
+/// date/model conversion and pricing need the full CDS valuation, not a spread/LGD shortcut.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]

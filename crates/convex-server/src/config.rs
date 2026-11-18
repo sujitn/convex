@@ -25,28 +25,27 @@ pub enum ServerProfile {
     Live,
 }
 
-/// The longest clear hold (D106): five minutes.
+/// The longest clear hold: five minutes.
 pub const MAX_CLEAR_HOLD_SECONDS: u64 = 300;
 
-/// The shortest retention of limit records (D105): longer than an acknowledgement's seven
+/// The shortest retention of limit records: longer than an acknowledgement's seven
 /// days, so the record an acknowledgement names outlives it.
 pub const MIN_RECORD_RETENTION_DAYS: u64 = 8;
 
 /// The longest retention of limit records: about ten years.
 pub const MAX_RECORD_RETENTION_DAYS: u64 = 3650;
 
-/// The limit monitor's settings (P18).
+/// The limit monitor's settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LimitSettings {
     /// How long, in seconds, a limit must stay less severe than its recorded status before
-    /// the monitor records the change (D106). A more severe status is recorded at once. 0
-    /// records every change at once, as before P18; at most
-    /// [`MAX_CLEAR_HOLD_SECONDS`].
+    /// the monitor records the change. A more severe status is recorded at once. 0
+    /// records every change at once; at most [`MAX_CLEAR_HOLD_SECONDS`].
     pub clear_hold_seconds: u64,
-    /// How many days the monitor keeps limit records (D105): it prunes older ones at
+    /// How many days the monitor keeps limit records: it prunes older ones at
     /// start and then hourly, keeping each watched limit's latest record and every record
-    /// an acknowledgement in force names. Unset keeps every record, as before P18;
+    /// an acknowledgement in force names. Unset keeps every record;
     /// [`MIN_RECORD_RETENTION_DAYS`] to [`MAX_RECORD_RETENTION_DAYS`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub record_retention_days: Option<u64>,
@@ -120,8 +119,6 @@ pub struct ServerConfig {
     pub port: u16,
     /// Enable the WebSocket routes on the HTTP listener.
     pub websocket_enabled: bool,
-    /// Only the HTTP port is supported; a distinct listener is rejected.
-    pub websocket_port: Option<u16>,
     /// Local redb file. Its parent directory must already exist.
     pub storage_path: String,
     /// Reserved file integration; rejected until the provider is wired.
@@ -151,7 +148,6 @@ impl Default for ServerConfig {
             host: "0.0.0.0".into(),
             port: 8080,
             websocket_enabled: true,
-            websocket_port: None,
             storage_path: "./data/convex.redb".into(),
             quotes_file: None,
             runtime_plan: None,
@@ -178,8 +174,6 @@ pub struct EffectiveConfig<'a> {
     pub port: u16,
     /// Whether WebSocket routes are registered.
     pub websocket_enabled: bool,
-    /// Shared listener setting.
-    pub websocket_port: Option<u16>,
     /// Redacted storage path.
     pub storage_path: &'static str,
     /// Redacted optional quote source.
@@ -333,7 +327,7 @@ impl ServerConfig {
                     }
                 }
                 "CONVEX_HOST" => candidate.host = value,
-                "CONVEX_PORT" => candidate.port = Self::parse_port(&value, "port")?,
+                "CONVEX_PORT" => candidate.port = Self::parse_port(&value)?,
                 "CONVEX_WEBSOCKET_ENABLED" => {
                     candidate.websocket_enabled = match value.to_ascii_lowercase().as_str() {
                         "true" | "1" => true,
@@ -345,9 +339,6 @@ impl ServerConfig {
                             })
                         }
                     }
-                }
-                "CONVEX_WEBSOCKET_PORT" => {
-                    candidate.websocket_port = Some(Self::parse_port(&value, "websocket_port")?)
                 }
                 "CONVEX_STORAGE_PATH" => candidate.storage_path = value,
                 "CONVEX_RUNTIME_PLAN" => candidate.runtime_plan = Some(value),
@@ -379,9 +370,9 @@ impl ServerConfig {
         Ok(())
     }
 
-    fn parse_port(value: &str, field: &'static str) -> Result<u16, ConfigError> {
+    fn parse_port(value: &str) -> Result<u16, ConfigError> {
         value.parse().map_err(|_| ConfigError::InvalidValue {
-            field,
+            field: "port",
             expected: "an integer in 0..=65535",
         })
     }
@@ -395,14 +386,6 @@ impl ServerConfig {
                 field: "access",
                 expected: "valid bounded access settings and exact origins",
             })?;
-        if let Some(port) = self.websocket_port {
-            if !self.websocket_enabled || port != self.port {
-                return Err(ConfigError::Unsupported {
-                    field: "websocket_port",
-                    reason: "only enabled WebSockets on the HTTP listener are supported",
-                });
-            }
-        }
         if self.storage_path.trim().is_empty() || self.storage_path.contains('\0') {
             return Err(ConfigError::InvalidValue {
                 field: "storage_path",
@@ -547,7 +530,7 @@ impl ServerConfig {
         Ok(())
     }
 
-    /// Production runs the Live runtime of a stored activated configuration (D23: live
+    /// Production runs the Live runtime of a stored activated configuration (live
     /// valuations display-only, official results from core-workflow snapshot runs), behind
     /// required access and an external TLS proxy. Each missing condition is its own error.
     fn validate_production(&self) -> Result<(), ConfigError> {
@@ -594,7 +577,6 @@ impl ServerConfig {
             },
             port: self.port,
             websocket_enabled: self.websocket_enabled,
-            websocket_port: self.websocket_port,
             storage_path: REDACTED,
             quotes_file: self.quotes_file.as_ref().map(|_| REDACTED),
             runtime_plan: self.runtime_plan.as_ref().map(|_| REDACTED),
@@ -622,7 +604,6 @@ impl ServerConfig {
             "CONVEX_HOST",
             "CONVEX_PORT",
             "CONVEX_WEBSOCKET_ENABLED",
-            "CONVEX_WEBSOCKET_PORT",
             "CONVEX_STORAGE_PATH",
             "CONVEX_QUOTES_FILE",
             "CONVEX_RUNTIME_PLAN",
@@ -667,7 +648,7 @@ mod tests {
         ));
     }
 
-    /// P18 (D106): the clear hold is 5 s unless set, 0 to 300, from the file or the
+    /// The clear hold is 5 s unless set, 0 to 300, from the file or the
     /// environment.
     #[test]
     fn the_clear_hold_defaults_to_five_seconds_and_is_bounded() {
@@ -710,7 +691,7 @@ mod tests {
         );
     }
 
-    /// P18b (D105): retention is unset unless set, 8 to 3,650 days, from the file or the
+    /// Retention is unset unless set, 8 to 3,650 days, from the file or the
     /// environment.
     #[test]
     fn record_retention_is_unset_by_default_and_bounded() {
@@ -878,17 +859,18 @@ mod tests {
             "CONVEX_CURVES_FILE",
             "CONVEX_FIXINGS_FILE",
             "CONVEX_BONDS_FILE",
-            "CONVEX_WEBSOCKET_PORT",
         ] {
             assert!(matches!(
                 overrides(&mut ServerConfig::default(), &[(name, "9000")]),
                 Err(ConfigError::Unsupported { .. })
             ));
         }
-        assert!(matches!(
-            overrides(&mut ServerConfig::default(), &[("CONVEX_SECRET", "secret")]),
-            Err(ConfigError::UnknownEnvironment { .. })
-        ));
+        for name in ["CONVEX_SECRET", "CONVEX_WEBSOCKET_PORT"] {
+            assert!(matches!(
+                overrides(&mut ServerConfig::default(), &[(name, "9000")]),
+                Err(ConfigError::UnknownEnvironment { .. })
+            ));
+        }
         assert!(matches!(
             ServerConfig::default().validate_startup(),
             Err(ConfigError::InvalidValue {
@@ -950,7 +932,7 @@ mod tests {
     }
 
     #[test]
-    fn shared_websocket_port_and_all_supported_booleans_work() {
+    fn all_supported_websocket_booleans_work() {
         for (value, enabled) in [
             ("true", true),
             ("TRUE", true),
@@ -962,25 +944,6 @@ mod tests {
             overrides(&mut config, &[("CONVEX_WEBSOCKET_ENABLED", value)]).unwrap();
             assert_eq!(config.websocket_enabled, enabled);
         }
-        overrides(
-            &mut ServerConfig::default(),
-            &[("CONVEX_WEBSOCKET_PORT", "8080")],
-        )
-        .unwrap();
-        let result = overrides(
-            &mut ServerConfig::default(),
-            &[
-                ("CONVEX_WEBSOCKET_ENABLED", "false"),
-                ("CONVEX_WEBSOCKET_PORT", "8080"),
-            ],
-        );
-        assert!(matches!(
-            result,
-            Err(ConfigError::Unsupported {
-                field: "websocket_port",
-                ..
-            })
-        ));
     }
 
     #[test]

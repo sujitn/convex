@@ -1,8 +1,8 @@
-//! Book limit status over Live results (P14b): the `live` profile over the real
+//! Book limit status over Live results: the `live` profile over the real
 //! composition, fed by posted quote images. Status reads the same accepted results that
 //! analytics by book read, names the snapshots it read, and reports each reason a result
 //! leaves a limit unknown. `status_route_time_at_the_bounds` is the slice's measurement
-//! (`--ignored --nocapture`). A pre-trade check (P14d) equals the status of the book with
+//! (`--ignored --nocapture`). A pre-trade check equals the status of the book with
 //! its changes committed.
 #[path = "support/live_server.rs"]
 mod live_server;
@@ -310,7 +310,7 @@ const MEASURES: [&str; 14] = [
 const TENORS: [&str; 5] = ["1Y", "2Y", "5Y", "10Y", "30Y"];
 const RATINGS: [&str; 5] = ["AAA", "AA", "A", "BBB", "BB"];
 
-/// 64 limits over every measure, as the P14a bench sets them.
+/// 64 limits over every measure, as the engine's `limits/evaluate` bench sets them.
 fn every_measure() -> Value {
     let mut measures = vec![json!({"kind": "face", "instrument": "each"})];
     for i in 0..7 {
@@ -390,7 +390,7 @@ async fn timed(
     elapsed
 }
 
-/// P14b's measurement: `GET .../limits/status` for a book with 64 limits over every
+/// Measurement: `GET .../limits/status` for a book with 64 limits over every
 /// measure, against `POST /api/v1/portfolio/analytics` for the same book. A runtime values
 /// at most 256 instruments, so the largest book with a result for every position holds
 /// 256; a 1,000-position book has results for 256 of them.
@@ -507,7 +507,7 @@ async fn status_route_time_at_the_bounds() {
     server.stop().await;
 }
 
-/// P15c's measurement: `GET .../limits/status` for a book with 64 limits over every
+/// Measurement: `GET .../limits/status` for a book with 64 limits over every
 /// measure, each in breach and acknowledged with a note of 1,024 bytes, against the same
 /// book's positions under limits that are all within and none acknowledged, in the same
 /// rounds. Bounds of 10^15 to 2·10^15 put every value, zero included, in breach.
@@ -616,7 +616,7 @@ async fn status_route_time_with_acknowledgements_at_the_bounds() {
 }
 
 // =============================================================================
-// THE MONITOR (P14c)
+// THE MONITOR
 // =============================================================================
 
 type Socket =
@@ -768,7 +768,7 @@ async fn acknowledged(socket: &mut Socket) -> Value {
     .expect("no acknowledgement")
 }
 
-/// D100, D104: one session follows every instrument a Live runtime values, 4,096 in 16
+/// One session follows every instrument a Live runtime values, 4,096 in 16
 /// messages of 256, and every book the monitor watches. Every instrument's first result
 /// reaches it, though the first tick publishes all 4,096: the results broadcast holds
 /// twice as many, so a session that keeps up is not told to resubscribe.
@@ -800,8 +800,8 @@ async fn one_session_follows_every_instrument_and_every_limited_book() {
             "limits",
             64,
         ),
-        // Listing books already followed, one of them twice, takes no new place (Excel
-        // GX25): the session still follows 64 books, and the count is of distinct books.
+        // Listing books already followed, one of them twice, takes no new place: the
+        // session still follows 64 books, and the count is of distinct books.
         (
             json!({"type": "subscribe_limits", "book_ids": [&books[0], &books[63], &books[0]]}),
             "limits",
@@ -956,7 +956,7 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
     let started_first = change["monitor_started_at"].clone();
     published.push(change);
 
-    // The records route returns each change as its frame carried it, oldest first (P15b).
+    // The records route returns each change as its frame carried it, oldest first.
     let path = "/api/v1/books/WATCHED/limits/records";
     let (status, page) = send(&server, reqwest::Method::GET, path, None, None).await;
     assert_eq!(status, StatusCode::OK, "{page}");
@@ -1214,7 +1214,7 @@ async fn every_valuation(
     since.elapsed()
 }
 
-/// P17b's measurement at 4,096 Live instruments (`--ignored --nocapture`, under the ci
+/// Measurement at 4,096 Live instruments (`--ignored --nocapture`, under the ci
 /// profile), with one session following every instrument:
 /// - a refresh of every quote, 4,096 images in 16 `POST`s, until the session has every
 ///   new result;
@@ -1345,10 +1345,10 @@ async fn monitor_and_refresh_at_4096_instruments() {
     server.stop().await;
 }
 
-/// P14c's measurement, at the bounds: 64 watched books, each holding all 256 priced
+/// Measurement at the bounds: 64 watched books, each holding all 256 priced
 /// instruments with 64 limits over every measure.
 /// - The first evaluation of every set records 4,096 changes, as a restart does: one
-///   commit a book since P15a (D92). The records' sizes are read once the server stops.
+///   commit a book. The records' sizes are read once the server stops.
 /// - One instrument's valuation hop: before any book is watched, while the monitor
 ///   records those first changes, and while it evaluates every book after each quote.
 /// - The monitor's time per tick with 1, 64 and 256 instruments revalued. Every book
@@ -1475,7 +1475,7 @@ async fn monitor_time_per_tick_at_the_bounds() {
 }
 
 // =============================================================================
-// THE PRE-TRADE CHECK (P14d)
+// THE PRE-TRADE CHECK
 // =============================================================================
 
 /// splitmix64: a small deterministic generator, so a failing case can be replayed.
@@ -1511,7 +1511,7 @@ impl Draws {
     }
 }
 
-/// One position as the test's own reading of D89 keeps it.
+/// One position as the test's own reading of the check's row rule keeps it.
 #[derive(Clone, Debug)]
 struct Held {
     id: String,
@@ -1523,7 +1523,7 @@ struct Held {
 /// One proposed change: the instrument, the signed amount, the rating a new position takes.
 type Change = (String, rust_decimal::Decimal, Option<&'static str>);
 
-/// `held` with `changes` applied as D89 says, read independently of the server: each change
+/// `held` with `changes` applied as a check does, read independently of the server: each change
 /// is added to the held position, a position a change brings to exactly zero is dropped,
 /// and a new instrument follows the held positions in change order.
 fn apply(held: &[Held], changes: &[Change]) -> Vec<Held> {
@@ -1611,11 +1611,11 @@ async fn map_isin(server: &Running, value: &str, instrument: &str) {
     assert!(status.is_success(), "{status}: {body}");
 }
 
-/// D88's property: a check of changes equals the status of the book with those changes
+/// A check of changes equals the status of the book with those changes
 /// committed. Each case draws up to 16 changes among adding to a held position, selling it
 /// to exactly zero, flipping its sign, a new priced instrument and a new one outside the
 /// plan, some named by ISIN. The held `BOND-W002` has no rating, so a check that kept it
-/// at zero would leave the rating limits unknown where the committed book's are not. It checks, commits the book as `apply` reads D89, reads
+/// at zero would leave the rating limits unknown where the committed book's are not. It checks, commits the book as `apply` builds it, reads
 /// status, compares, and restores the book. No quote is posted meanwhile, so both read the
 /// same results.
 #[tokio::test]
@@ -1679,7 +1679,7 @@ async fn a_check_equals_the_status_of_the_book_with_its_changes_committed() {
         }
         limit
     };
-    // P15d: some limits hold an excess not yet expired, so both read its bounds and report it.
+    // Some limits hold an excess not yet expired, so both read its bounds and report it.
     let expires_at = (chrono::Utc::now() + chrono::Duration::days(1))
         .to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
     let widened = |mut limit: Value, lower: Option<&str>, upper: &str| {
@@ -1832,7 +1832,7 @@ async fn a_check_equals_the_status_of_the_book_with_its_changes_committed() {
     server.stop().await;
 }
 
-/// P14d's measurement: `POST .../limits/check` with 256 rows into a 1,000-position book
+/// Measurement: `POST .../limits/check` with 256 rows into a 1,000-position book
 /// (256 priced) with 64 limits over every measure, beside status for the same book.
 #[tokio::test]
 #[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
@@ -1892,7 +1892,7 @@ async fn check_route_time_at_the_bounds() {
     server.stop().await;
 }
 
-/// A record as the monitor writes one: about 600 bytes of `details`, as P15a measured.
+/// A record as the monitor writes one: about 600 bytes of `details`.
 fn fixture_record(id: u64, book: &str) -> convex_engine::ports::storage::AuditEntry {
     let details = json!({
         "record_id": id,
@@ -1928,7 +1928,7 @@ fn fixture_record(id: u64, book: &str) -> convex_engine::ports::storage::AuditEn
     }
 }
 
-/// P15b's measurement, with 1,000,000 records in the store (`MAX_HISTORY`), 64 books'
+/// Measurement with 1,000,000 records in the store (`MAX_HISTORY`), 64 books'
 /// worth written as the monitor writes them, a book's 64 a commit through `append_all`:
 /// - a page of 100 and of 1,000 of one book's records from the middle of its 15,616, by
 ///   the index (`entity_page`), against `query` with the same filter and offset;
@@ -2045,7 +2045,7 @@ async fn records_page_time_at_the_cap() {
     server.stop().await;
 }
 
-/// P18c's measurement: one book of 1,000,000 records, 64 limits in turn, so each limit
+/// Measurement: one book of 1,000,000 records, 64 limits in turn, so each limit
 /// has one record in 64, read by limit through the route from the middle of the book:
 /// - a limit of 600-byte records with a page of 100 (about 6,400 entries read) and of
 ///   1,000, which the 10,000-entry read bound stops at about 156;
@@ -2193,7 +2193,7 @@ async fn valuation_session(server: &Running, images: &[QuoteEvent]) -> Socket {
     session
 }
 
-/// P18b's measurement (D105): a full store, 1,000,000 records a month old, and a watched
+/// Measurement: a full store, 1,000,000 records a month old, and a watched
 /// book whose first records it refuses. A restart with 8 days' retention prunes it before
 /// the restate. While the start's prune runs:
 /// - `convex_audit_entries` and `convex_audit_pruned_total`, read every 250 ms;
@@ -2363,7 +2363,7 @@ async fn retention_at_start_on_a_full_store() {
     println!("file: {full:.0} MiB full, {:.0} MiB after the prune", mib());
 }
 
-/// P15c (D95, D97): a value hovering at a bound needs one acknowledgement. The monitor
+/// A value hovering at a bound needs one acknowledgement. The monitor
 /// rereads a book's acknowledgements when they commit, so a breach a tick causes carries
 /// one made since; making it records and publishes nothing.
 #[tokio::test]
@@ -2454,7 +2454,7 @@ async fn a_breach_a_tick_causes_carries_the_acknowledgement_made_since() {
     server.stop().await;
 }
 
-/// P15d (D96): approving an excess on a breached limit is a status change, recorded and
+/// Approving an excess on a breached limit is a status change, recorded and
 /// published with the excess as evidence. Its expiry is the change back, with no tick or
 /// commit to wake the monitor: the expiry does.
 #[tokio::test]
@@ -2658,7 +2658,7 @@ async fn changes(live: &ServerConfig) -> Vec<(String, String)> {
         .collect()
 }
 
-/// P18a (D106): under a clear hold, a breach is recorded at once; a return within the hold
+/// Under a clear hold, a breach is recorded at once; a return within the hold
 /// records nothing, and the hold it ended records nothing when its time comes; a clearing is
 /// recorded once it has held, while status on request shows it at once.
 #[tokio::test]
@@ -2722,7 +2722,7 @@ async fn a_clearing_is_recorded_once_it_has_held_and_a_flap_within_the_hold_reco
     );
 }
 
-/// P18a (D106): approving an excess on a breached limit is a clearing, recorded once it
+/// Approving an excess on a breached limit is a clearing, recorded once it
 /// has held; its expiry is a breach, recorded at once.
 #[tokio::test]
 async fn an_excess_approval_waits_out_the_hold_and_its_expiry_does_not() {
@@ -2798,7 +2798,7 @@ async fn an_excess_approval_waits_out_the_hold_and_its_expiry_does_not() {
     );
 }
 
-/// P18a's measurement (D106): a value hovering at a bound, crossing it about three times a
+/// Measurement: a value hovering at a bound, crossing it about three times a
 /// second for 60 s, with no hold and with the default of 5 s. Each return lasts about a
 /// third of a second, so no clearing outlasts the hold.
 #[tokio::test]

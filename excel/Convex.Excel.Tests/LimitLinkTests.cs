@@ -13,7 +13,7 @@ using static Convex.Excel.Tests.ServerLinkTests;
 
 namespace Convex.Excel.Tests
 {
-    /// CX.LIMIT against FakeConvexServer (Excel plan X4): books follow on the
+    /// CX.LIMIT against FakeConvexServer: books follow on the
     /// valuations' session, are read from the status route once subscribed,
     /// and change with each recorded status change.
     public sealed class LimitLinkTests : IDisposable

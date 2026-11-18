@@ -59,7 +59,7 @@ namespace Convex.Excel
             };
         }
 
-        // ---- Update check (DX27): the button shows only when a newer release is known.
+        // ---- Update check: the button shows only when a newer release is known.
         public bool GetUpdateVisible(IRibbonControl _) => Ops.UpdateCheck.Status.Newer;
 
         public string GetUpdateTip(IRibbonControl _)

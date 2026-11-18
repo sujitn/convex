@@ -9,7 +9,7 @@ using ExcelDna.Integration;
 
 namespace Convex.Excel.Server
 {
-    /// Worksheet functions over the server link (DX13). CX.LIVE and CX.STATUS
+    /// Worksheet functions over the server link. CX.LIVE and CX.STATUS
     /// read RTD topics, so they must not be IsThreadSafe; CX.LIVE.GRID reads
     /// the cache; CX.SNAP reads once.
     public static class ServerFunctions

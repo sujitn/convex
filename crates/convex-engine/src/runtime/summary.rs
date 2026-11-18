@@ -1,5 +1,5 @@
-//! What the Live deadline and health read from the results, kept up record by record
-//! (P17c-iii, G62). A tick that values a few pins updates only their entries, so neither
+//! What the Live deadline and health read from the results, kept up record by record.
+//! A tick that values a few pins updates only their entries, so neither
 //! the deadline nor health walks every record. [`ResultView::walk`] walks them, and the
 //! summary returns what it returns, which a test holds.
 use super::worker::accepted;
@@ -49,7 +49,7 @@ pub(super) struct ResultView {
 }
 
 impl ResultView {
-    /// Every record walked, as health and the deadline read them before P17c-iii.
+    /// Every record walked: what health and the deadline read when no summary applies.
     pub(super) fn walk(results: &[Arc<PublishedValuation>], demo: bool) -> Self {
         Self::of(results.iter().map(|record| Facts::of(record, demo)))
     }
@@ -193,7 +193,7 @@ impl ResultSummary {
 mod tests {
     use super::*;
 
-    /// A seeded linear congruential generator, as the P17c-ii script uses.
+    /// A seeded linear congruential generator, so every run follows the same script.
     struct Lcg(u64);
     impl Lcg {
         fn next(&mut self, bound: u64) -> u64 {

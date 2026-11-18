@@ -341,7 +341,7 @@ async fn cors_preflight_origin_and_startup_tls_boundaries_cannot_bypass_access()
             .oneshot(
                 Request::builder()
                     .method("OPTIONS")
-                    .uri("/api/v1/portfolios")
+                    .uri("/api/v1/books/BOOK-A")
                     .header("origin", origin)
                     .header("access-control-request-method", method)
                     .header("access-control-request-headers", headers)
@@ -365,9 +365,9 @@ async fn cors_preflight_origin_and_startup_tls_boundaries_cannot_bypass_access()
         .oneshot(
             Request::builder()
                 .method("OPTIONS")
-                .uri("/api/v1/portfolios")
+                .uri("/api/v1/books/BOOK-A")
                 .header("origin", "https://console.example.invalid")
-                .header("access-control-request-method", "POST")
+                .header("access-control-request-method", "PUT")
                 .header(
                     "access-control-request-headers",
                     "authorization,content-type",
@@ -390,8 +390,8 @@ async fn cors_preflight_origin_and_startup_tls_boundaries_cannot_bypass_access()
         .clone()
         .oneshot(
             Request::builder()
-                .method("POST")
-                .uri("/api/v1/portfolios")
+                .method("PUT")
+                .uri("/api/v1/books/BOOK-A")
                 .header("origin", "https://console.example.invalid")
                 .body(Body::empty())
                 .unwrap(),

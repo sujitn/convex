@@ -1689,8 +1689,8 @@ mod tests {
 
     #[test]
     fn constraints_default_max_residual_per_bucket_is_empty_when_omitted() {
-        // Wire-compat: old payloads without max_residual_per_bucket should
-        // still parse, with the new field defaulting to an empty list.
+        // The serializer leaves out an empty max_residual_per_bucket, so a payload
+        // without it parses to an empty list.
         let c: Constraints = serde_json::from_str(r#"{"max_residual_dv01": 1000}"#).unwrap();
         assert_eq!(c.max_residual_dv01, Some(1000.0));
         assert!(c.max_residual_per_bucket.is_empty());

@@ -13,7 +13,7 @@
 
     <Launch Condition="NOT EXCEL_RUNNING" Message="Close Excel, then run this again: Excel is holding the add-in open." />
 
-    <!-- UPDATECHECK=0 turns off the add-in's daily update check (DX27). Not remembered:
+    <!-- UPDATECHECK=0 turns off the add-in's daily update check. Not remembered:
          an upgrade that omits it removes the value with the old version. -->
     <Property Id="UPDATECHECK" Secure="yes" />
 

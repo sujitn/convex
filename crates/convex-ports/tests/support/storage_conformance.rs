@@ -628,7 +628,7 @@ pub async fn audit_is_append_only(store: Arc<dyn AuditStore>) {
     assert_eq!(page.total, 1);
 }
 
-/// P18b (D105): a prune removes old entries of one type with their index keys, passes over
+/// A prune removes old entries of one type with their index keys, passes over
 /// kept IDs and other types, stops at the first newer entry, never removes the last entry,
 /// continues from its cursor, and is bounded. The default refuses.
 pub async fn audit_prune_removes_old_entries_and_keeps_what_it_must(store: Arc<dyn AuditStore>) {
@@ -878,7 +878,7 @@ pub async fn curve_recipes_resolve_at_known_at(store: Arc<dyn CurveStore>) {
     ));
 }
 
-/// D73: a curve's recording times never decrease as its version rises. A revision
+/// A curve's recording times never decrease as its version rises. A revision
 /// recorded before a lower version, or after a higher one, conflicts and is not
 /// stored. Equal times, a version saved between its neighbours and an identical
 /// retry of an older revision are accepted. Another curve's history does not count.

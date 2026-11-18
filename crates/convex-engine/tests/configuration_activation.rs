@@ -134,7 +134,7 @@ async fn cvx010_ac3_dry_run_reports_missing_curves_providers_and_never_publishes
     assert!(mismatch.issues.iter().any(|i| i.code == "FIXTURE_MISMATCH"));
 }
 
-/// G20: one service validates on a shared fixture valuator whose result cache holds 256
+/// One service validates on a shared fixture valuator whose result cache holds 256
 /// contexts. 33 validations of 8 fixtures value 264 distinct snapshots.
 #[tokio::test]
 async fn fixture_validation_stays_valid_past_the_result_cache_capacity() {
@@ -756,7 +756,7 @@ async fn live_override_expiry_schedules_a_policy_refresh_without_a_quote_or_peri
         .load(std::sync::atomic::Ordering::SeqCst));
 }
 
-/// D56: a Live runtime keeps the selection it accepted until a refresh or a restart applies
+/// A Live runtime keeps the selection it accepted until a refresh or a restart applies
 /// another. A quote does not read the active configuration, so an activation committed
 /// without the engine waits for the engine's refresh or the next start, either of which
 /// re-resolves the pinned inputs.
@@ -951,7 +951,7 @@ fn display_engine(
         .unwrap()
 }
 
-/// D101: a Live configuration of 4,096 instruments passes its dry run, which values every
+/// A Live configuration of 4,096 instruments passes its dry run, which values every
 /// instrument, is staged and activated, and a Live runtime starts on it. As a Captured or
 /// Replay configuration it is refused past 256 instruments.
 #[tokio::test]
@@ -1022,7 +1022,7 @@ fn resident_mib() -> f64 {
         / 1024.0
 }
 
-/// P17b's measurement of a Live runtime of 4,096 instruments (`--ignored --nocapture`,
+/// A measurement of a Live runtime of 4,096 instruments (`--ignored --nocapture`,
 /// under the ci profile): the dry run; the first ticks after a start, which pin every
 /// reference and value every bond; a tick in which every quote moved; one quote's tick;
 /// the first tick after an activation, which values every bond again; and the memory.

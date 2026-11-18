@@ -1,7 +1,7 @@
-//! The limit monitor (P14c; D86, D87).
+//! The limit monitor.
 //!
 //! One task, off the tick path, watches every book with a non-empty limit set (at most
-//! 64, D87). It listens to the runtime's results stream as a WebSocket
+//! 64). It listens to the runtime's results stream as a WebSocket
 //! session does, and after each published tick evaluates the watched books that hold a
 //! revalued instrument. It also evaluates a book when its positions or its limit set
 //! commit, which [`PricingEngine::subscribe_reference_commits`] reports.
@@ -12,10 +12,10 @@
 //! on the latest results; it never queues. The server runs it on a thread of its own, so
 //! its evaluations and audit commits never hold a worker serving requests and ticks.
 //!
-//! A status *change* is recorded before it is published (D86): one `AuditStore` record per
+//! A status *change* is recorded before it is published: one `AuditStore` record per
 //! limit whose status differs from its last recorded one, then one `limit_status` frame.
 //! One evaluation of a book writes all its records in one `append_all`, a single
-//! transaction (D92), so a restart's first pass is one commit a book rather than one a
+//! transaction, so a restart's first pass is one commit a book rather than one a
 //! limit. A failed batch records none of the book's changes and keeps their last recorded
 //! statuses, so a later evaluation records them again; a book with a failed batch is
 //! evaluated again within a second, unless the store refused it for capacity, which a
@@ -25,18 +25,18 @@
 //! what was not recorded is recorded at the next start.
 //!
 //! A `breach` or `unknown` change carries the acknowledgement in force for its limit at
-//! the evaluation (P15c). The monitor rereads a watched book's acknowledgements when they
+//! the evaluation. The monitor rereads a watched book's acknowledgements when they
 //! commit, as it rereads its set; an acknowledgement changes no status, so it records and
-//! publishes nothing of its own (D97).
+//! publishes nothing of its own.
 //!
-//! A temporary excess (P15d, D96) changes a status twice: when it is approved, which is a
+//! A temporary excess changes a status twice: when it is approved, which is a
 //! commit, and when it expires, which is nothing the streams report. So the earliest expiry
-//! still to come among the watched sets is a deadline beside the retry timer (amending
-//! D87), and the books holding it are evaluated when it passes. A wall clock that steps
+//! still to come among the watched sets is a deadline beside the retry timer, and the
+//! books holding it are evaluated when it passes. A wall clock that steps
 //! back would apply an expired excess again for the length of the step, so each book keeps
 //! the latest expiry this monitor has passed and reads its excesses no earlier than that.
 //!
-//! A clear hold (P18, D106) damps a value hovering at a bound. A change to a more severe
+//! A clear hold damps a value hovering at a bound. A change to a more severe
 //! status (`within` < `warning` < `unknown` < `breach`) is recorded at once. A change to a
 //! less severe one is recorded once the limit has stayed less severe than its recorded
 //! status for the hold: the monitor records the status of its first evaluation at or after
@@ -45,7 +45,7 @@
 //! pre-trade check read no record, so they still show the status of the moment. A hold of
 //! zero records every change at once.
 //!
-//! Retention (P18b, D105): with `limits.record_retention_days` set, the monitor, the
+//! Retention: with `limits.record_retention_days` set, the monitor, the
 //! store's only writer, prunes `limit_status` records older than the period. At start,
 //! after it reads the sets and acknowledgements and before it records any book, it prunes
 //! keeping only the records acknowledgements in force name, so a store at its cap records
@@ -107,7 +107,7 @@ pub const APPEND_FAILURES: &str = "convex_limit_status_append_failures_total";
 /// The entries the audit store holds, read when the monitor starts, after each commit and
 /// after each prune call that removes any. The store refuses every append at 1,000,000.
 pub const AUDIT_ENTRIES: &str = "convex_audit_entries";
-/// Records the monitor's retention has removed (D105).
+/// Records the monitor's retention has removed.
 pub const AUDIT_PRUNED: &str = "convex_audit_pruned_total";
 
 // One book's changes are one batch.
@@ -122,9 +122,9 @@ const RETRY: Duration = Duration::from_secs(1);
 /// the wall clock, so a wall clock that steps forward is noticed within this.
 const MAX_EXPIRY_WAIT: Duration = Duration::from_secs(60);
 /// Kept priced terms beyond which those no current result reads are dropped: twice the
-/// instruments one runtime values (G64).
+/// instruments one runtime values.
 const MAX_TERMS: usize = 2 * convex_engine::MAX_RUNTIME_INSTRUMENTS;
-/// How often retention prunes after the start (D105).
+/// How often retention prunes after the start.
 const PRUNE_INTERVAL: Duration = Duration::from_secs(3600);
 /// How soon a pass that failed, or could not read the clock, is tried again.
 const PRUNE_RETRY: Duration = Duration::from_secs(60);
@@ -179,7 +179,7 @@ pub struct LimitStatusChange {
     pub acknowledgement: Option<AcknowledgementInForce>,
 }
 
-/// The acknowledgement in force for a `breach` or `unknown` limit (P15c; D95, D97), as
+/// The acknowledgement in force for a `breach` or `unknown` limit, as
 /// status, records and `limit_status` frames carry it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct AcknowledgementInForce {
@@ -276,9 +276,9 @@ impl Stop {
 pub(crate) struct LimitMonitor {
     audit: Arc<dyn AuditStore>,
     feed: broadcast::Sender<Arc<LimitFrame>>,
-    /// The clear hold (D106).
+    /// The clear hold.
     hold: Duration,
-    /// The retention period in milliseconds, if records are pruned (D105).
+    /// The retention period in milliseconds, if records are pruned.
     retention_ms: Option<i64>,
     /// How often retention prunes after the start: [`PRUNE_INTERVAL`], shorter only in
     /// this module's tests.
@@ -312,7 +312,7 @@ impl LimitMonitor {
         LimitFeed(self.feed.clone())
     }
 
-    /// The store the monitor records in, which the records route reads (P15b).
+    /// The store the monitor records in, which the records route reads.
     pub(crate) fn records(&self) -> Arc<dyn AuditStore> {
         self.audit.clone()
     }
@@ -489,7 +489,7 @@ struct Hold {
     woken: bool,
 }
 
-/// One book's holds, by limit (D106).
+/// One book's holds, by limit.
 #[derive(Debug, Default)]
 struct Holds(HashMap<LimitId, Hold>);
 
@@ -589,7 +589,7 @@ fn next_expiry_of(
         .min()
 }
 
-/// Retention (D105): the period, the pass in progress, and when the next one starts.
+/// Retention: the period, the pass in progress, and when the next one starts.
 struct Pruning {
     /// A record whose timestamp is earlier than now less this is older than the period.
     period_ms: i64,
@@ -624,7 +624,7 @@ impl Pass {
 }
 
 /// What a prune keeps beside the store's last entry: each watched limit's latest record
-/// since the start, and each record an acknowledgement in force at `at` names (D105). A
+/// since the start, and each record an acknowledgement in force at `at` names. A
 /// limit not recorded since the start has no latest record, so its records go by age.
 fn kept(books: &BTreeMap<BookId, Watched>, at: UtcTimestamp) -> BTreeSet<u64> {
     let mut keep = BTreeSet::new();
@@ -659,7 +659,7 @@ struct Task {
     full: BTreeSet<BookId>,
     /// A read failed; it is tried again on the timer.
     stalled: bool,
-    /// Retention, if a period is set (D105).
+    /// Retention, if a period is set.
     pruning: Option<Pruning>,
 }
 
@@ -1199,7 +1199,7 @@ struct Ledger {
     halt: Stop,
     /// A capacity refusal has been logged since the last append that succeeded.
     full_reported: bool,
-    /// The clear hold (D106).
+    /// The clear hold.
     hold: Duration,
 }
 
@@ -1398,7 +1398,7 @@ mod tests {
             .collect()
     }
 
-    /// P15d: at, just before and just after an expiry, and after a clock that steps back
+    /// At, just before and just after an expiry, and after a clock that steps back
     /// (WSL2's does, by over 2 s), which must not apply the excess again.
     #[test]
     fn an_excess_once_expired_stays_expired_when_the_clock_steps_back() {
@@ -1428,7 +1428,7 @@ mod tests {
     }
 
     // =========================================================================
-    // RETENTION (P18b, D105)
+    // RETENTION
     // =========================================================================
 
     use convex_engine::ports::storage::{AuditFilter, Page, Pagination, StorageAdapter};
@@ -1898,7 +1898,7 @@ mod tests {
         Duration::from_millis(ms)
     }
 
-    /// P18 (D106): a first status, and a more severe one, are recorded at once; a less
+    /// A first status, and a more severe one, are recorded at once; a less
     /// severe one only after the hold, and at once with no hold.
     #[test]
     fn a_clearing_waits_out_the_hold_and_a_worsening_does_not() {

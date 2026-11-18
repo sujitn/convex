@@ -2,7 +2,7 @@
 use super::*;
 /// Revisions and generations reserved per durable Live write.
 const LIVE_RESERVATION: u64 = 1 << 20;
-/// Live quotes one tick admits (D54): the capacity of the server's HTTP ingress queue.
+/// Live quotes one tick admits: the capacity of the server's HTTP ingress queue.
 const LIVE_BATCH_EVENTS: usize = 1024;
 /// Live market state lives only in this process; ticks and snapshots are not stored.
 /// Storage holds counter ceilings reserved ahead of use, so a restarted process
@@ -11,9 +11,9 @@ struct LiveState {
     quotes: crate::snapshot::IngestedQuotes,
     last_receive_ms: Option<i64>,
     reserved: RuntimeCheckpoint,
-    /// The selection's configuration and references, resolved once per activation (D56).
+    /// The selection's configuration and references, resolved once per activation.
     pinned: Option<crate::snapshot::PinnedInputs>,
-    /// The tick's request, kept from tick to tick while its selection holds (P17c-i).
+    /// The tick's request, kept from tick to tick while its selection holds.
     request: Option<LiveRequest>,
     /// Counts the requests captured; it names the selection of the one kept.
     epoch: u64,
@@ -28,7 +28,7 @@ struct LiveRequest {
 /// What a Live request's instruments, requirements and capture depend on besides its
 /// cutoffs: the activation selected, whether it is in force at the cutoff, and which of
 /// its overrides apply. An override sets its key's age limit while it applies, and the
-/// capture lists only those that apply (D58).
+/// capture lists only those that apply.
 #[derive(PartialEq)]
 struct Selection {
     activation: Option<Version>,
@@ -56,15 +56,15 @@ pub(super) struct Actor {
     selected: Option<convex_ports::configuration::ActiveConfiguration>,
     live_state: Option<LiveState>,
     /// The last Live tick's snapshot and qualities; the next tick values only the pins
-    /// whose inputs changed (D55). None at start, after a delivery loss and on refresh.
+    /// whose inputs changed. None at start, after a delivery loss and on refresh.
     baseline: Option<worker::Baseline>,
     /// What the deadline and health read from the results, kept up by the ticks that
-    /// change them (P17c-iii). It applies only while it describes the checkpoint's results.
+    /// change them. It applies only while it describes the checkpoint's results.
     summary: Option<super::summary::ResultSummary>,
     /// The reference section a Live tick last found within the callable bound.
     callables_checked: Option<convex_ports::snapshot::SnapshotReferences>,
     /// A Live plan that pins no curve data reads its curves here at each snapshot's
-    /// cutoff: the store request-time pricing reads (D50).
+    /// cutoff: the store request-time pricing reads.
     stored_curves: Option<Arc<dyn convex_ports::storage::CurveStore>>,
 }
 impl Actor {
@@ -190,7 +190,7 @@ impl Actor {
             let reserved = checkpoint.clone();
             if !absent {
                 // Nothing stored describes the market. Recalculate from no quotes, above the
-                // ceilings. A restart is a fresh start, even after a delivery loss (D71).
+                // ceilings. A restart is a fresh start, even after a delivery loss.
                 checkpoint.delivery_lost = false;
                 checkpoint.events.clear();
                 checkpoint.results = Arc::default();
@@ -252,7 +252,7 @@ impl Actor {
             .iter()
             .map(|q| q.key.clone())
             .collect();
-        // The cache holds one snapshot's contexts, one an instrument (G58).
+        // The cache holds one snapshot's contexts, one an instrument.
         let mut actor = Self {
             valuator: Arc::new(crate::snapshot::SnapshotValuator::new(
                 services.plan.build_id.clone(),
@@ -575,7 +575,7 @@ impl Actor {
         event
             .validate()
             .map_err(|_| RuntimeError::Configuration("invalid normalized event"))?;
-        // A Live tick admits every queued quote before it values (D54), so its generation
+        // A Live tick admits every queued quote before it values, so its generation
         // is still pending; in other modes pending work means recovery is due.
         if (self.checkpoint.pending && self.services.plan.mode != RuntimeMode::Live)
             || !self.checkpoint.outbox.is_empty()
@@ -599,8 +599,8 @@ impl Actor {
             return Err(RuntimeError::CapacityExceeded);
         }
         let mut next = self.checkpoint.clone();
-        // Live keeps the selection it holds until a refresh or restart applies another
-        // (D56); the other modes read the active selection at each event.
+        // Live keeps the selection it holds until a refresh or restart applies another;
+        // the other modes read the active selection at each event.
         let reread = self.live_state.is_none();
         let selected = if reread {
             self.current_configuration().await?
@@ -672,7 +672,7 @@ impl Actor {
         Ok(())
     }
     /// Value every pin, or in Live only the pins whose inputs changed since the last
-    /// tick (D55). The other Live pins keep their records and publish nothing.
+    /// tick. The other Live pins keep their records and publish nothing.
     async fn value(&mut self, snapshot: Arc<MarketSnapshot>) -> Result<(), RuntimeError> {
         let plan = &self.services.plan;
         if self.live_state.is_none() {
@@ -723,9 +723,9 @@ impl Actor {
         let mut next = self.checkpoint.clone();
         next.result_revision = produced.last().map_or(next.result_revision, |p| p.revision);
         // A Live tick that values some pins merges their records into the kept ones,
-        // which are not re-stamped (D60); only the new records are published. Records are
+        // which are not re-stamped; only the new records are published. Records are
         // shared, so the merge copies pointers and a tick that values none keeps its
-        // results (G30).
+        // results.
         if selected.len() == self.services.plan.assembly.instruments.len() {
             next.results = produced.clone();
         } else if !selected.is_empty() {
@@ -776,7 +776,7 @@ impl Actor {
         Ok(())
     }
     /// Live arms the earliest expiry among the results it accepts, and the first applied
-    /// override's expiry (D58). A refused result's past expiry is never armed, so a stale
+    /// override's expiry. A refused result's past expiry is never armed, so a stale
     /// instrument cannot re-run the tick; an accepted one the clock has already passed
     /// re-runs it once.
     fn set_deadline(&mut self, snapshot: &MarketSnapshot) {
@@ -876,7 +876,7 @@ impl Actor {
         } else {
             view.quality
         };
-        // Readiness needs one accepted result, not every one (D58a).
+        // Readiness needs one accepted result, not every one.
         let accepted = view.accepted;
         let mut health = self.health.write();
         let accepted_activation = self
@@ -937,7 +937,7 @@ impl Actor {
         }
         Ok((as_of, known_at))
     }
-    /// Live conflation (D54): quotes already queued join the accepted quote's tick, up to
+    /// Live conflation: quotes already queued join the accepted quote's tick, up to
     /// `LIVE_BATCH_EVENTS` in all, the accepted one included, so a full ingress queue
     /// fits in one tick and a quote waits for at most the running tick and its own.
     /// Each is still validated and admitted in order. Replay and Captured value every event.
@@ -1245,7 +1245,7 @@ async fn read_curves(
     Ok(())
 }
 /// Stored Live image: counters a block ahead of use, without market state or results.
-/// It never stores a delivery loss: a restart is a fresh start (D71).
+/// It never stores a delivery loss: a restart is a fresh start.
 fn reservation(next: &RuntimeCheckpoint) -> Result<RuntimeCheckpoint, RuntimeError> {
     let mut image = next.clone();
     image.delivery_lost = false;

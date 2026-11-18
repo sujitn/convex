@@ -18,8 +18,6 @@ use convex_curves::{
     RateCurveDyn, ValueType,
 };
 
-use crate::error::EngineError;
-
 /// Validated numerical owner; complete recipes are never converted to nodes.
 #[derive(Debug, Clone)]
 pub enum BuiltCurveModel {
@@ -111,46 +109,6 @@ impl BuiltCurve {
                 .unwrap_or(f64::NAN),
             None => f64::NAN,
         }
-    }
-
-    /// Older graph day/zero format is only usable for exact whole-day legacy
-    /// pillars. Full recipes and fractional pillars require immutable snapshots.
-    pub fn to_points(&self) -> Result<Vec<(u32, f64)>, EngineError> {
-        let Some(BuiltCurveModel::Discrete(model)) = self.inner.as_deref() else {
-            return Err(EngineError::CurveBuildError(
-                "complete curve recipes require immutable snapshot graph publication".into(),
-            ));
-        };
-        if self.points.len() != model.tenors().len() {
-            return Err(EngineError::CurveBuildError(
-                "curve points differ from validated representation".into(),
-            ));
-        }
-        let mut points = self.points.clone();
-        points.sort_by(|a, b| a.0.total_cmp(&b.0));
-        if !points
-            .iter()
-            .zip(model.tenors().iter().zip(model.values()))
-            .all(|((t, r), (built_t, built_r))| t == built_t && r == built_r)
-        {
-            return Err(EngineError::CurveBuildError(
-                "curve points differ from validated representation".into(),
-            ));
-        }
-        points
-            .iter()
-            .map(|(t, r)| {
-                // Multiplication can round an original integer day away from
-                // the integer. Only the exact original day/365 roundtrip admits it.
-                let days = (t * 365.0).round();
-                if !days.is_finite() || days < 1.0 || days > u32::MAX as f64 || days / 365.0 != *t {
-                    return Err(EngineError::CurveBuildError(
-                        "older graph cannot represent fractional curve pillars".into(),
-                    ));
-                }
-                Ok((days as u32, *r))
-            })
-            .collect()
     }
 
     /// Retain the original full checked curve without a fabricated sampled grid.

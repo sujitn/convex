@@ -84,7 +84,7 @@ async fn a_stored_bermudan_callable_publishes_its_oas_and_effective_risk() {
         result.provenance().model_version.as_str(),
         OPTIONAL_SNAPSHOT_MODEL
     );
-    // D29: the callable answers only the plan measures its model publishes.
+    // The callable answers only the plan measures its model publishes.
     let names: Vec<_> = result.results().keys().map(|m| m.as_str()).collect();
     let mut expected = OPTIONAL_MEASURES.to_vec();
     expected.sort_unstable();
@@ -189,7 +189,7 @@ async fn plans_accept_oas_and_still_refuse_measures_no_model_publishes() {
     assert!(unknown.validate().is_err());
 }
 
-/// D57: a request-time valuation of the stored callable, at the stream's cutoff and
+/// A request-time valuation of the stored callable, at the stream's cutoff and
 /// settlement and with the stream's mark, gives the stream's values. Its one-instrument
 /// snapshot reads only the discount curve and is not stored.
 #[tokio::test]
@@ -244,7 +244,7 @@ async fn a_request_time_callable_valuation_matches_the_stream() {
         .is_none());
 }
 
-/// D72: one request context prices each curve on one revision. A bullet's read takes the
+/// One request context prices each curve on one revision. A bullet's read takes the
 /// discount curve at revision 7; revision 8, recorded by the same cutoff, is saved; the
 /// callable then prices on revision 7, which the context holds.
 #[tokio::test]

@@ -17,7 +17,8 @@ pub struct RedbConfigStore {
 }
 
 impl RedbConfigStore {
-    /// Validate/migrate the schema before accepting configuration operations.
+    /// Write or verify the application schema marker before accepting configuration
+    /// operations.
     pub fn new(db: Arc<Database>) -> Result<Self, TraitError> {
         crate::migrate_database(&db)?;
         Ok(Self { db })

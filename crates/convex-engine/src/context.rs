@@ -63,7 +63,7 @@ pub struct ValuationContextSpec {
 }
 
 /// Structurally complete immutable context. Binding to resolved inputs is checked separately.
-/// Its cache key is derived once, when it is made, and is never serialized (G32).
+/// Its cache key is derived once, when it is made, and is never serialized.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(try_from = "ValuationContextSpec", into = "ValuationContextSpec")]
 pub struct ValuationContext {

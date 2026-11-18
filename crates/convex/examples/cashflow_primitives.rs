@@ -1,4 +1,4 @@
-//! Standalone CVX-054 consumer. Every economic input is supplied locally.
+//! Standalone cashflow-primitives consumer. Every economic input is supplied locally.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,

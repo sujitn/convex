@@ -1,7 +1,7 @@
-//! P9c stage benchmarks on the shared fictional fixtures: one curve graph build,
+//! Stage benchmarks on the shared fictional fixtures: one curve graph build,
 //! snapshot verification and valuation, request-time pricing, and one Live tick.
-//! P10a adds the Live quote rate and snapshot assembly over 1, 16 and 256 instruments;
-//! P10b-i adds a 512-quote burst at 256, the batch conflation (D54) admits at that size.
+//! Also the Live quote rate and snapshot assembly over 1, 16 and 256 instruments, and a
+//! 512-quote burst at 256, which Live conflation can admit in one tick.
 //!
 //! Run with: cargo bench -p convex-engine --bench runtime_benchmarks --profile ci
 //! Report medians only (`tools/REPLAY-MEASUREMENTS.md`); CI sets no timing threshold.
@@ -187,7 +187,7 @@ fn bench_request_time(c: &mut Criterion) {
     group.finish();
 }
 
-/// The Live plan of `tests/runtime.rs`: one bond, one legacy curve record.
+/// The Live plan of `tests/runtime.rs`: one bond, one zero-curve record.
 fn live_plan(s: &Setup) -> RuntimePlan {
     let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
     let mut plan = s.plan.clone();
@@ -202,7 +202,7 @@ fn live_plan(s: &Setup) -> RuntimePlan {
     plan
 }
 /// Live results are not archived: the server composes Live with a publisher that
-/// only acknowledges (`DisplayOnlyPublisher`, D5a). This bench does the same.
+/// only acknowledges (`DisplayOnlyPublisher`). This bench does the same.
 struct DisplayOnly;
 #[async_trait::async_trait]
 impl ResultPublisher for DisplayOnly {
@@ -258,19 +258,19 @@ fn bench_live_tick(c: &mut Criterion) {
     rt.block_on(engine.shutdown()).unwrap();
 }
 
-/// Instrument counts for the P10a cases; 256 is `MAX_SNAPSHOT_INSTRUMENTS`.
+/// Instrument counts for the quote rate and assembly cases; 256 is `MAX_SNAPSHOT_INSTRUMENTS`.
 const WIDTHS: [usize; 3] = [1, 16, 256];
-/// Live widths past a request snapshot's 256, up to `MAX_RUNTIME_INSTRUMENTS` (P17b).
+/// Live widths past a request snapshot's 256, up to `MAX_RUNTIME_INSTRUMENTS`.
 const LIVE_WIDTHS: [usize; 2] = [1024, 4096];
 /// Events the bench's source holds, as the server's ingress queue does.
 const QUEUE: usize = 1024;
 /// Quotes sent per measured burst, well inside the 1,024-event queue.
 const BURST: u64 = 64;
 /// A burst at 256 instruments larger than the ~300 quotes one conflated tick must admit
-/// for 10k quotes/s (D54), still inside the queue.
+/// for 10k quotes/s, still inside the queue.
 const SATURATING_BURST: u64 = 512;
-/// One quote per tick at 256 instruments: the tick values one bond and keeps the rest
-/// (D55), so it measures the per-tick cost that does not scale with the quotes.
+/// One quote per tick at 256 instruments: the tick values one bond and keeps the rest,
+/// so it measures the per-tick cost that does not scale with the quotes.
 const SINGLE: u64 = 1;
 
 /// `setup()` widened to `width` bonds on one Live plan.
@@ -435,7 +435,7 @@ fn bench_live_throughput(c: &mut Criterion) {
 /// One snapshot over N instruments from their images through `resolve`, the Captured and
 /// Replay path: configuration and reference reads from the store, quote ingestion and the
 /// content hash, without publication. A Live tick does not take this path: it pins the
-/// configuration and references once per activation (D56).
+/// configuration and references once per activation.
 fn bench_assemble(c: &mut Criterion) {
     let rt = runtime();
     let mut group = c.benchmark_group("snapshot/assemble");

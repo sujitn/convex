@@ -19,7 +19,7 @@ namespace Convex.Excel.Forms
             AutoSize = true,
         };
         // Excel's RTD throttle, not a Convex setting: shown, and changed only
-        // on request (DX8), because it applies to every add-in.
+        // on request, because it applies to every add-in.
         private readonly Label _throttle = new() { AutoSize = true, Padding = new Padding(0, 6, 8, 0) };
         private readonly Button _fastThrottle = new() { Text = "Use 250 ms", AutoSize = true };
         private readonly Button _defaultThrottle = new() { Text = "Excel default", AutoSize = true };

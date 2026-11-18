@@ -25,7 +25,6 @@ async fn default_router_denies_anonymous_read_write_ws_and_job_access() {
     let router = convex_server::routes::create_router(engine);
     for (method, path) in [
         ("GET", "/api/v1/bonds"),
-        ("POST", "/api/v1/portfolios"),
         ("PUT", "/api/v1/books/BOOK-A"),
         ("GET", "/api/v1/books"),
         ("GET", "/ws"),
@@ -54,7 +53,7 @@ async fn default_router_denies_anonymous_read_write_ws_and_job_access() {
 }
 
 #[tokio::test]
-async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_closed() {
+async fn actual_introspection_roles_scopes_and_nested_resources_are_fail_closed() {
     let issuer = IssuerFixture::start().await;
     let access = AccessControl::new(issuer.verifier.clone(), policy()).unwrap();
     let s = support::setup().await;
@@ -96,7 +95,7 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         );
     }
     for (method, path) in [
-        ("POST", "/api/v1/portfolios"),
+        ("PUT", "/api/v1/books/BOOK-A"),
         ("PUT", "/api/v1/bonds/BOND-001"),
         ("POST", "/api/v1/runtime/valuation"),
         ("POST", "/api/v1/jobs"),
@@ -117,12 +116,12 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
             "{method} {path}"
         );
     }
-    let payload = json!({"portfolio_id":"BOOK-A","name":"fixture","currency":"USD","positions":[{"instrument_id":"BOND-002","quantity":"1"}]});
+    let payload = json!({"name":"fixture","currency":"USD","positions":[{"instrument_id":"BOND-002","quantity":"1"}]});
     assert_eq!(
         request(
             router.clone(),
-            "POST",
-            "/api/v1/portfolios",
+            "PUT",
+            "/api/v1/books/BOOK-A",
             Some(HUMAN_TOKEN),
             Some(payload)
         )
@@ -136,39 +135,20 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         .await
         .unwrap()
         .is_none());
-    let batch = json!({"portfolios":[{"portfolio_id":"BOOK-A","name":"allowed","positions":[]},{"portfolio_id":"BOOK-B","name":"forbidden","positions":[]}]});
-    assert_eq!(
-        request(
-            router.clone(),
-            "POST",
-            "/api/v1/portfolios/batch",
-            Some(HUMAN_TOKEN),
-            Some(batch)
-        )
-        .await
-        .0,
-        StatusCode::FORBIDDEN
-    );
-    assert!(engine
-        .reference_repository()
-        .get_master(&book("BOOK-A"))
-        .await
-        .unwrap()
-        .is_none());
-    let (status, _, _) = request(
+    let (status, _, body) = request(
         router.clone(),
-        "POST",
-        "/api/v1/portfolios",
+        "PUT",
+        "/api/v1/books/BOOK-A",
         Some(HUMAN_TOKEN),
-        Some(json!({"portfolio_id":"BOOK-A","name":"fixture","currency":"USD","positions":[]})),
+        Some(json!({"name":"fixture","currency":"USD","positions":[]})),
     )
     .await;
-    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(status, StatusCode::CREATED, "{body}");
     assert_eq!(
         request(
             router.clone(),
             "GET",
-            "/api/v1/portfolios/BOOK-A",
+            "/api/v1/books/BOOK-A",
             Some(HUMAN_TOKEN),
             None
         )
@@ -180,7 +160,7 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         request(
             router.clone(),
             "GET",
-            "/api/v1/portfolios/BOOK-B",
+            "/api/v1/books/BOOK-B",
             Some(HUMAN_TOKEN),
             None
         )
@@ -231,7 +211,7 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         request(
             router.clone(),
             "GET",
-            "/api/v1/portfolios/BOOK-A",
+            "/api/v1/books/BOOK-A",
             Some(HUMAN_TOKEN),
             None
         )
@@ -297,18 +277,26 @@ async fn actual_introspection_roles_scopes_and_nested_batch_admission_are_fail_c
         .clone()
         .oneshot(
             Request::builder()
-                .method("POST")
-                .uri("/api/v1/portfolios")
+                .method("PUT")
+                .uri("/api/v1/books/BOOK-A")
                 .header("authorization", format!("Bearer {HUMAN_TOKEN}"))
                 .header("content-type", "application/json")
+                .header("idempotency-key", "access-ambiguous-1")
                 .body(Body::from(
-                    r#"{"portfolio_id":"BOOK-A","portfolio_id":"BOOK-B","name":"ambiguous"}"#,
+                    r#"{"positions":[{"instrument_id":"BOND-001","instrument_id":"BOND-002","quantity":"1"}]}"#,
                 ))
                 .unwrap(),
         )
         .await
         .unwrap();
     assert_eq!(ambiguous.status(), StatusCode::BAD_REQUEST);
+    let body: serde_json::Value = serde_json::from_slice(
+        &axum::body::to_bytes(ambiguous.into_body(), 64 * 1024)
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(body["code"], "INVALID_ACCESS_REQUEST", "{body}");
     assert_eq!(issuer.state.bad_authorization.load(Ordering::SeqCst), 0);
     assert!(issuer.state.calls.load(Ordering::SeqCst) > 10);
     issuer.finish().await;
@@ -320,7 +308,7 @@ async fn dependency_failure_preserves_liveness_and_strategy_never_becomes_ready(
     let document = policy();
     let access = AccessControl::new(issuer.verifier.clone(), document.clone()).unwrap();
     let mut s = support::setup().await;
-    // Curve expiry fails only a context that reads the curve (D58), so the plan asks for
+    // Curve expiry fails only a context that reads the curve, so the plan asks for
     // a spread as well.
     s.plan
         .measures
@@ -659,7 +647,7 @@ async fn quotas_are_monotonic_bounded_and_release_when_admission_is_dropped() {
     issuer.finish().await;
 }
 
-/// D78 (G40): the process windows count only calls to the identity provider. Requests,
+/// The process windows count only calls to the identity provider. Requests,
 /// preflights, WS messages and public probes hold an in-flight permit and count nothing.
 /// Credential verifications have 6,000 a minute, and readiness probes 600 of their own,
 /// so authenticated traffic cannot make `/ready` fail.
@@ -726,7 +714,7 @@ async fn only_identity_provider_calls_count_against_the_process_windows() {
     issuer.finish().await;
 }
 
-/// D78 (G40): local development verifies no credential, so no request counts.
+/// Local development verifies no credential, so no request counts.
 #[tokio::test]
 async fn local_development_requests_count_against_no_window() {
     let s = support::setup().await;
@@ -970,7 +958,7 @@ async fn policy_replacement_has_one_winner_and_file_errors_do_not_retain_authori
         .resources
         .insert(ResourceKind::Book, vec!["*".into(), "BOOK-A".into()]);
     assert_eq!(bad.validate(), Err(AccessError::InvalidPolicy));
-    // D100, D104: one session's topics cover every instrument a runtime values and every
+    // One session's topics cover every instrument a runtime values and every
     // book the limit monitor watches, and that is both the default and the most a grant
     // may set.
     assert_eq!(MAX_SESSION_TOPICS, 4096 + 64);

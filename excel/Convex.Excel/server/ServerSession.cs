@@ -15,7 +15,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Convex.Excel.Server
 {
-    /// The transport seam (DX7): the add-in holds the connection in process
+    /// The transport seam: the add-in holds the connection in process
     /// today; an out-of-process connector would implement this instead.
     internal interface ILiveTransport
     {
@@ -181,7 +181,7 @@ namespace Convex.Excel.Server
     /// `subscribed`, `unsubscribed` or an `error`. RESYNC_REQUIRED and
     /// RESULT_TOO_LARGE are stream events, not replies (RESULT_TOO_LARGE can
     /// arrive inside a subscription's seed, before its `subscribed`), and so
-    /// is a FORBIDDEN naming a followed book (DX19). A reply whose
+    /// is a FORBIDDEN naming a followed book. A reply whose
     /// subscription type is not its request's ends the session.
     internal sealed class ServerSession
     {

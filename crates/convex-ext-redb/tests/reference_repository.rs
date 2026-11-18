@@ -111,3 +111,32 @@ fn unversioned_persisted_bonds_require_explicit_import() {
         Err(ReferenceError::Unsupported(_))
     ));
 }
+
+/// The five reference tables are created together, so a database holding only some of
+/// them, such as the three bond tables without the master tables, is refused.
+#[test]
+fn a_partial_reference_table_set_is_refused() {
+    let directory = tempfile::tempdir().unwrap();
+    let db = Arc::new(redb::Database::create(directory.path().join("partial.redb")).unwrap());
+    let write = db.begin_write().unwrap();
+    write
+        .open_table(redb::TableDefinition::<&str, &[u8]>::new(
+            "reference_current_v2",
+        ))
+        .unwrap();
+    write
+        .open_table(redb::TableDefinition::<(&str, u64), &[u8]>::new(
+            "reference_history_v2",
+        ))
+        .unwrap();
+    write
+        .open_table(redb::TableDefinition::<&str, &[u8]>::new(
+            "reference_commits_v2",
+        ))
+        .unwrap();
+    write.commit().unwrap();
+    assert!(matches!(
+        RedbReferenceRepository::new(db),
+        Err(ReferenceError::Unsupported(_))
+    ));
+}

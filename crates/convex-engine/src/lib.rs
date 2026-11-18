@@ -116,9 +116,9 @@ type CurveRead =
 /// The approved valuation context of one request: an activated configuration's exact
 /// pricing version, at the request cutoff. Each product path reads the curves it needs
 /// at first use, and the context keeps every set it resolved, a failed one included, so
-/// a request resolves each set once (D69). It also holds every curve record it read, and
+/// a request resolves each set once. It also holds every curve record it read, and
 /// a later set takes a held curve from it, so a request prices each curve on one
-/// revision (D72). The government role is not consumed here, as in snapshot valuation.
+/// revision. The government role is not consumed here, as in snapshot valuation.
 pub struct RequestContext {
     id: convex_core::contracts::SourceId,
     activation_revision: convex_core::contracts::Version,
@@ -237,7 +237,7 @@ pub struct PricingEngine {
     /// Sole lifecycle and accepted-work owner.
     runtime: runtime::RuntimeController,
     configurations: Option<Arc<configuration::ConfigurationUseCases>>,
-    /// Request-time valuation through the composed runtime (D57); none without one.
+    /// Request-time valuation through the composed runtime; none without one.
     request: Option<request_valuation::RequestValuer>,
     /// The master keys of each committed reference command, for observers such as the
     /// limit monitor.
@@ -389,7 +389,7 @@ impl PricingEngine {
 
     /// At most `limit` (at least one) current records in instrument ID order, after the
     /// instrument `after`. Pages are read at different times, so a reader keeps the newer
-    /// record by `(runtime_id, revision)` (D103).
+    /// record by `(runtime_id, revision)`.
     pub fn runtime_results_page(&self, after: Option<&str>, limit: usize) -> RuntimeResultsPage {
         self.runtime.results_page(after, limit)
     }
@@ -459,7 +459,7 @@ impl PricingEngine {
     /// selection of `configuration` (or of the default). Only an activation approves a
     /// configuration; a staged version never prices. The configuration is the one
     /// active now, and the cutoff governs the curve reads, which each product path
-    /// makes at first use (D69).
+    /// makes at first use.
     pub async fn request_context(
         &self,
         configuration: Option<&convex_core::contracts::SourceId>,
@@ -498,14 +498,14 @@ impl PricingEngine {
     }
 
     /// Whether a composed runtime values callables and floating rate notes at request
-    /// time (D57, D65).
+    /// time.
     pub fn values_requests(&self) -> bool {
         self.request.is_some()
     }
 
     /// The stored terms that inline `bond` names, current at `known_at`. Callables and
     /// floating rate notes are valued on stored terms only, so inline terms must equal
-    /// them (D62).
+    /// them.
     pub async fn stored_terms(
         &self,
         bond: &ports::reference_data::BondReferenceData,
@@ -527,7 +527,7 @@ impl PricingEngine {
         }
     }
 
-    /// Value a stored callable or floating rate note at request time (D57): an
+    /// Value a stored callable or floating rate note at request time: an
     /// unpublished one-instrument snapshot under `context` at `known_at`, with `mark` as
     /// a labelled `request` quote, valued through [`Self::evaluate_context`] as the stream
     /// values a bond. Without a mark every measure fails `MISSING_MARKET_DATA`. Nothing
@@ -633,7 +633,7 @@ impl PricingEngine {
     }
 
     /// A stored bond's pricing rule at `lookup` and, when it names one, its benchmark set,
-    /// each security's pinned terms and its Live clean price mid (P19a). None when no rule
+    /// each security's pinned terms and its Live clean price mid. None when no rule
     /// is in force: the bond is quoted by price. A set not in force, a security not stored
     /// at its pinned version by the cutoff, or one without a usable Live price refuses by
     /// name.

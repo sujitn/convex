@@ -63,7 +63,7 @@ pub fn engine(setup: &Setup, cases: Arc<ConfigurationUseCases>) -> Arc<PricingEn
     )
 }
 /// Stage `config` in a fixture document and activate it, as an operator approves a
-/// configuration, so request-time pricing resolves it (P9a).
+/// configuration, so request-time pricing resolves it.
 pub async fn activate_pricing(setup: &Setup, config: &convex_ports::storage::BondPricingConfig) {
     let mut staged = fixture::staged(config.version);
     staged.document.pricing = config.clone();
@@ -76,7 +76,7 @@ pub async fn activate_pricing(setup: &Setup, config: &convex_ports::storage::Bon
         .await
         .unwrap();
 }
-/// Value the instrument of a stream result at request time (D57), at its cutoff and
+/// Value the instrument of a stream result at request time, at its cutoff and
 /// `settlement`, with `mark`, under the runtime's configuration.
 pub async fn value_at(
     engine: &PricingEngine,

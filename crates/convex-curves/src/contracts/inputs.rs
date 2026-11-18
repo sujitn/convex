@@ -249,7 +249,7 @@ pub enum CurveRepresentation {
     },
     /// Nonincreasing positive survival probabilities with Q(0)=1.
     SurvivalProbabilities,
-    /// Instantaneous hazard nodes; integration contract pending CVX-021.
+    /// Instantaneous hazard nodes; building a curve from them is not yet supported.
     HazardRates,
     /// Signed annualized residual basis nodes, distinct from discount factors
     /// and hazard rates; valuation requires an explicit analytics pricing model.

@@ -87,8 +87,8 @@ pub fn rebuild_curve_recipes(
 
 /// Check every retained curve record and rebuild every recipe before numerical use.
 /// The content identity is not re-derived: a `MarketSnapshot` is verified when it is
-/// made, by `new` or by deserialization, and nothing mutates one (D67). Legacy zero
-/// records do not substitute for a missing full native dependency.
+/// made, by `new` or by deserialization, and nothing mutates one. Zero records do
+/// not substitute for a missing full native dependency.
 pub fn replay_snapshot_curves(
     snapshot: &MarketSnapshot,
 ) -> Result<CurveBuildOutput, CurveReplayError> {
@@ -109,7 +109,7 @@ pub fn replay_snapshot_curves(
 
 /// One snapshot with every curve it carries built once. Graph activation and every
 /// instrument valued in that activation share it, so a tick rebuilds no curve per
-/// instrument (G19). Only [`BuiltSnapshot::build`] constructs one, so the curves always
+/// instrument. Only [`BuiltSnapshot::build`] constructs one, so the curves always
 /// belong to the snapshot they are paired with.
 #[derive(Debug)]
 pub struct BuiltSnapshot {

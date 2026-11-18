@@ -32,8 +32,8 @@ use crate::handlers::AppState;
 const MAX_BOOTSTRAP_INSTRUMENTS: usize = 128;
 /// Curve heads returned when the request names no limit.
 const DEFAULT_CURVE_LISTING: usize = 100;
-/// How far a stored revision's `recorded_at` may lead the server clock: D70's clock-step
-/// bound (D73). A later time would hide the revision until then, and the store's
+/// How far a stored revision's `recorded_at` may lead the server clock: the quote ingress's
+/// clock-step bound. A later time would hide the revision until then, and the store's
 /// recording order would hold every later revision of the curve behind it.
 const MAX_RECORDED_AHEAD_MS: i64 = crate::market::MAX_CLOCK_STEP_MS;
 
@@ -79,7 +79,7 @@ fn query<T>(query: Result<Query<T>, QueryRejection>) -> Result<T, ApiError> {
 /// Store one immutable recipe revision. `POST /api/v1/curves` and
 /// `POST /api/v1/analytics/curves` are the same write. Its `recorded_at` is the
 /// writer's, at most [`MAX_RECORDED_AHEAD_MS`] after the server clock; the store
-/// refuses one out of the curve's recording order (D73). An identical retry of a stored
+/// refuses one out of the curve's recording order. An identical retry of a stored
 /// revision is `204` whatever its time, since one loaded offline or before the bound
 /// can be later; a different revision beyond the bound is `400`, not `409`.
 pub(crate) async fn save_curve(

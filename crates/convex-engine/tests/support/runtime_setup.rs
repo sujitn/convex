@@ -161,7 +161,7 @@ pub async fn widen(s: &Setup, plan: &mut RuntimePlan, width: usize) {
 pub fn archive(s: &Setup) -> Arc<dyn ResultPublisher> {
     s.results.clone()
 }
-/// A publisher that keeps nothing, as the server's Live composition publishes (D5a). The
+/// A publisher that keeps nothing, as the server's Live composition publishes. The
 /// archive commits each record, which a tick of 4,096 records makes slow.
 pub fn display_only() -> Arc<dyn ResultPublisher> {
     struct DisplayOnly;

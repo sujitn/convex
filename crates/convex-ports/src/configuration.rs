@@ -70,7 +70,7 @@ pub struct SnapshotAssembly {
     pub required_curves: Vec<CurveId>,
     /// Explicit resolved supplied curve revisions (not current builder pointers).
     pub curves: Vec<SnapshotCurve>,
-    /// Complete schema-2 native curve recipe records; omitted by older requests. A Live
+    /// Complete schema-2 native curve recipe records; may be omitted when empty. A Live
     /// assembly that pins no curve data reads `required_curves` from the curve store at
     /// each snapshot's cutoff instead.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -95,7 +95,7 @@ pub enum RuntimeMode {
 }
 
 impl RuntimeMode {
-    /// The bounds of this mode's snapshots: Live snapshots are never stored (D101).
+    /// The bounds of this mode's snapshots: Live snapshots are never stored.
     pub const fn snapshot_bounds(self) -> SnapshotBounds {
         match self {
             Self::Live => SnapshotBounds::Live,
@@ -103,7 +103,7 @@ impl RuntimeMode {
         }
     }
     /// The most instruments a runtime of this mode values: 4,096 Live, 256 Captured or
-    /// Replay, whose checkpoints store every result (D101).
+    /// Replay, whose checkpoints store every result.
     pub const fn max_instruments(self) -> usize {
         self.snapshot_bounds().instruments()
     }

@@ -181,7 +181,7 @@ pub fn sectioned_snapshot() -> MarketSnapshot {
     content.schema_version = SNAPSHOT_SCHEMA;
     MarketSnapshot::new(content).unwrap()
 }
-/// The identity is SHA-256 over the content's plain serialization (D68): the hash streams
+/// The identity is SHA-256 over the content's plain serialization: the hash streams
 /// the references from their section's cached JSON, and this writes them record by record.
 pub fn assert_plain_identity(snapshot: &MarketSnapshot) {
     let content = snapshot.content();
@@ -197,7 +197,7 @@ pub fn assert_plain_identity(snapshot: &MarketSnapshot) {
         format!("sha256:{}", content_digest(domain, &bytes))
     );
 }
-/// Schema 4's id (P13b-ii), written from the content's plain serialization: the digest of
+/// Schema 4's id, written from the content's plain serialization: the digest of
 /// the references, the quote count and each quote's digest, then the frame, which is the
 /// whole serialization with its `references` and `quotes` members cut out.
 pub fn assert_sectioned_identity(snapshot: &MarketSnapshot) {

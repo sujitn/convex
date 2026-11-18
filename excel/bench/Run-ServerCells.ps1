@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Drives real Excel against a running convex-server to check live server cells (Excel X3).
+    Drives real Excel against a running convex-server to check live server cells.
 
 .DESCRIPTION
     Starts a private Excel over COM, loads the packed add-in, writes CX.LIVE, CX.SNAP and

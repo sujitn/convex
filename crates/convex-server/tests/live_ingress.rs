@@ -97,7 +97,7 @@ async fn posted_quotes_price_and_a_restart_waits_for_fresh_images() {
 
 /// Quotes offered faster than the runtime values them end in 429 at the full ingress
 /// queue, never in lost delivery: every accepted quote is valued and the runtime stays up.
-/// A tick admits up to 1,024 queued quotes (D54) and values each changed bond once (D55),
+/// A tick admits up to 1,024 queued quotes and values each changed bond once,
 /// so at 256 bonds one client posting batch after batch can keep pace with the drain.
 /// Each round therefore posts `ROUND` batches at once, four times what the queue holds,
 /// so a tick that drains the queue mid-round still leaves more than it holds. A key's

@@ -2,7 +2,7 @@ import { restartState } from '../lib/admin'
 import { useRecentActivations, useRuntimeHealth } from '../lib/queries'
 import { Badge, ErrorNotice } from './ui'
 
-/** Whether the running work accepted the configuration's active revision (D39). */
+/** Whether the running work accepted the configuration's active revision. */
 export function PendingRestart({ configurationId }: { configurationId: string | null }) {
   const health = useRuntimeHealth()
   const activations = useRecentActivations(configurationId)

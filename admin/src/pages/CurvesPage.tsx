@@ -11,7 +11,7 @@ interface CurveNode {
   quote: { unit: string; value: number }
 }
 
-/** Stored curve recipes, read-only (D41): recipes are written by the save route or the CLI. */
+/** Stored curve recipes, read-only: recipes are written by the save route or the CLI. */
 export function CurvesPage() {
   const { call } = useSession()
   const [after, setAfter] = useState<string | null>(null)

@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- X0 (excel-plan): how many valuation frames/s can a net472 ClientWebSocket
+  <!-- How many valuation frames/s can a net472 ClientWebSocket
        receive, parse and apply? Loopback server and client in one process. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

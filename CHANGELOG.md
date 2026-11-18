@@ -99,6 +99,19 @@ the changes that matter when you upgrade.
   the feed can point at an internal mirror. `CX.DIAG()` gains an "Update check"
   row at the end.
 
+### convex-analytics
+
+- **Breaking:** `hedge_cost_bps` is removed, with its re-exports from `risk`,
+  `risk::hedging` and the `convex` facade; use `HeuristicCostFeed.cost_bps`.
+- **Breaking:** the `cashflows::IrregularStubType` alias is removed; use
+  `StubType`. The `cashflows::irregular` and `cashflows::schedule` modules, which
+  only re-exported `convex_bonds` types, are removed too; the types stay at
+  `cashflows::`.
+
+### convex-portfolio
+
+- **Breaking:** `KeyRateProfile::to_key_rate_durations` is removed.
+
 ### convex-ffi
 
 - New C export `convex_changes_since(cursor)`: the names and handles whose
@@ -106,6 +119,12 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **Breaking: the `/api/v1/portfolios*` alias over books is removed.** Write a
+  book with `PUT /api/v1/books/:book_id`. The alias's `DELETE`, which retired a
+  book, and its batch create have no replacement on the book routes.
+- **Breaking:** the `websocket_port` setting and `CONVEX_WEBSOCKET_PORT` are
+  removed. WebSockets share the HTTP listener, and a file or environment that
+  still sets either fails at startup as unknown.
 - **A Live runtime values up to 4,096 instruments, and one session follows them all.**
   A session's valuation cap is 4,096 (was 256). A
   `subscribe_valuations` or `unsubscribe_valuations` message lists at most 256
@@ -207,6 +226,8 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Breaking:** `BuiltCurve::to_points`, the older day/zero graph format, is removed,
+  and with it `EngineError::CurveBuildError`, which only it returned.
 - **Breaking: `MAX_RUNTIME_INSTRUMENTS` is 4,096 (was 256),** a Live plan's bound. A
   Captured or Replay plan is refused past 256 with its own reason, since each of its
   events stores every result in the checkpoint. The runtime's valuation cache is sized to its plan (it held 256, so the 257th
@@ -276,9 +297,14 @@ the changes that matter when you upgrade.
 ### convex-ext-redb
 
 - **Breaking:** `RedbAuditStore::new` returns `Result`. The audit store keeps
-  an index by entity, written with each entry. The first open of a store
-  written before it indexes every entry once (about 5 s for 1,000,000 entries);
-  later opens find nothing to index.
+  an index by entity, written with each entry.
+- **Breaking: old stores are refused, not adopted.**
+  - An audit log whose entries do not each have their index key fails at open;
+    entries are no longer indexed when the store opens.
+  - A database holding configurations without the application schema marker
+    fails; it is no longer imported into history.
+  - A reference repository with only the three bond tables fails; the master
+    tables are no longer added to it.
 - The audit store implements `prune`: each entry goes with its index key, in one
   transaction. Redb reuses the freed pages but does not shrink the file; `convex-redb
   compact` does that offline.

@@ -153,8 +153,8 @@ impl Server {
     }
 
     /// Monitor each book's limits while serving, recording each status change in `audit`
-    /// and publishing it to `subscribe_limits` sessions (P14c, D86), under the
-    /// configuration's clear hold (P18, D106) and record retention (P18b, D105).
+    /// and publishing it to `subscribe_limits` sessions, under the
+    /// configuration's clear hold and record retention.
     pub fn with_limit_monitor(
         mut self,
         audit: Arc<dyn convex_engine::ports::storage::AuditStore>,
@@ -221,7 +221,7 @@ impl Server {
                 .layer(Extension(limits.feed()))
                 .layer(Extension(limits.records()));
         }
-        // HTTP configuration fixtures must prefix the replay this composition runs (D35).
+        // HTTP configuration fixtures must prefix the replay this composition runs.
         if let Some(quotes) = &self.config.quotes_file {
             router = router.layer(Extension(configuration_admin::ConfigurationTrace(
                 quotes.into(),

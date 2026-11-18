@@ -132,7 +132,7 @@ async fn actual_configuration_stage_activation_capture_and_pin_checks_keep_recip
     assert!(!report.valid);
 }
 
-/// A Live document that pins no curve data reads its curves from the store (D50):
+/// A Live document that pins no curve data reads its curves from the store:
 /// each fixture values on the revision recorded by its own cutoff, and a supplied
 /// snapshot must carry exactly the records the store resolves at its cutoff.
 #[tokio::test]

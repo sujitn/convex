@@ -1,4 +1,4 @@
-//! CVX-017 supplied REST contracts and actual native/C ABI parity fixtures.
+//! Supplied REST contracts and actual native/C ABI parity fixtures.
 use super::*;
 
 fn supplied_quote_fixture(case: &Value) -> (Arc<convex_engine::PricingEngine>, BondReferenceData) {

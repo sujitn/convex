@@ -22,7 +22,7 @@ namespace Convex.Excel.Server
     }
 
     /// The pre-trade ticket's comparison: the book's status now beside what
-    /// the check says it would be with the proposed changes (server D88, D90).
+    /// the check says it would be with the proposed changes.
     internal static class LimitTicket
     {
         /// within < warning < unknown < breach, as the server orders them.

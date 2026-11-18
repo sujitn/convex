@@ -27,13 +27,13 @@ fn content(records: Vec<SnapshotCurveRecipe>) -> SnapshotContent {
     c
 }
 
-/// D68: a schema-2 identity is SHA-256 over the content's plain serialization.
+/// A schema-2 identity is SHA-256 over the content's plain serialization.
 #[test]
 fn recipe_identity_is_the_hash_of_the_plain_content_bytes() {
     fixture::assert_plain_identity(&MarketSnapshot::new(content(vec![record()])).unwrap());
 }
 
-/// D79: schema 4 holds recipes under the sectioned identity, and its wire form verifies.
+/// Schema 4 holds recipes under the sectioned identity, and its wire form verifies.
 #[test]
 fn schema_four_holds_recipes() {
     let mut c = content(vec![record()]);

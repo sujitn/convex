@@ -1,4 +1,4 @@
-//! Pricing a stored bond from its quoted level at request time (P19a, D111–D113).
+//! Pricing a stored bond from its quoted level at request time.
 //!
 //! Transport only: the engine's level stage prices the level. This module maps a request
 //! to the stage's input, and reports what the stage read: the rule and set versions, the

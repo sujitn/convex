@@ -1,4 +1,4 @@
-//! CVX-062 exact economic boundaries, deterministic replay and supplied receipts.
+//! Exact economic boundaries, deterministic replay and supplied receipts.
 #[path = "../../convex/examples/support/lifecycle_fixture.rs"]
 mod fixture;
 #[path = "support/futures.rs"]

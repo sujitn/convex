@@ -118,7 +118,6 @@ async fn actual_file_reopen_preserves_recipe_quotes_models_and_queries() {
     }
     assert!(curve.zero_rate(0.0, Compounding::Continuous).is_err());
     assert!(curve.instantaneous_forward(1.0).is_err());
-    assert!(curve.to_points().is_err());
     assert!(curve.points.is_empty());
 }
 
@@ -236,7 +235,7 @@ fn dependency_metadata_identity_and_atomic_native_failures_survive() {
 }
 
 #[test]
-fn failed_legacy_rebuild_clears_old_owner_and_never_substitutes_values() {
+fn failed_rebuild_clears_old_owner_and_never_substitutes_values() {
     let mut curve = BuiltCurve::from_snapshot(&fixture::curve()).unwrap();
     curve.points[0].1 = -0.01;
     assert!(curve.rebuild_inner().is_err());
@@ -244,18 +243,6 @@ fn failed_legacy_rebuild_clears_old_owner_and_never_substitutes_values() {
     assert!(curve.interpolate_rate(1.0).is_nan());
     assert!(curve.discount_factor(1.0).is_err());
     assert!(curve.forward_rate(1.0, 2.0).is_err());
-    let mut curve = BuiltCurve::from_snapshot(&fixture::curve()).unwrap();
-    curve.points[0].0 = 0.1001;
-    assert!(curve.to_points().is_err());
-    let mut curve = BuiltCurve::from_snapshot(&fixture::curve()).unwrap();
-    curve.points = vec![(3.0 / 365.0, 0.02), (100.0 / 365.0, 0.03)];
-    curve.rebuild_inner().unwrap();
-    assert_eq!(curve.to_points().unwrap(), vec![(3, 0.02), (100, 0.03)]);
-    curve.points[0].1 = 0.025;
-    assert!(curve.to_points().is_err());
-    curve.points = vec![(0.1001, 0.02), (1.0, 0.03)];
-    curve.rebuild_inner().unwrap();
-    assert!(curve.to_points().is_err());
 }
 
 #[tokio::test]
@@ -292,7 +279,7 @@ async fn stored_dependencies_resolve_by_native_key_label() {
 
 /// The Live stream reads the same records, but reports a gap as data: a stale
 /// revision is kept for snapshot quality to judge, and an incomplete graph gives
-/// no records, so the snapshot reports the curve missing (D50).
+/// no records, so the snapshot reports the curve missing.
 #[tokio::test]
 async fn live_records_keep_stale_revisions_and_drop_incomplete_graphs() {
     use convex_core::ids::CurveId as StoreCurveId;

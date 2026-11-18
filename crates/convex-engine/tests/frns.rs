@@ -104,7 +104,7 @@ async fn a_stored_sofr_note_publishes_its_discount_margin_from_derived_fixings()
         result.provenance().model_version.as_str(),
         FLOATING_SNAPSHOT_MODEL
     );
-    // D34: the note answers only the plan measures its model publishes.
+    // The note answers only the plan measures its model publishes.
     let names: Vec<_> = result.results().keys().map(|m| m.as_str()).collect();
     let mut expected = FLOATING_MEASURES.to_vec();
     expected.sort_unstable();
@@ -131,7 +131,7 @@ async fn a_stored_sofr_note_publishes_its_discount_margin_from_derived_fixings()
     assert!(model("accrued_interest") > 0.0);
     // The solve reprices the observed clean mid to its 1e-9 price tolerance.
     assert!((model("dirty_price_mid") - 99.25 - model("accrued_interest")).abs() < 1e-8);
-    // D33: the snapshot holds exactly the due observations, from the current period's
+    // The snapshot holds exactly the due observations, from the current period's
     // lookback to Thursday, each found in the store; Friday's own fixing is forecast.
     let snapshot = setup
         .snapshots
@@ -149,7 +149,7 @@ async fn a_stored_sofr_note_publishes_its_discount_margin_from_derived_fixings()
         fixings.last().unwrap().key.observation_date.date(),
         Date::parse("2026-10-01").unwrap()
     );
-    // D58: the note reads the fixings on its own index and fixing source, so a missing
+    // The note reads the fixings on its own index and fixing source, so a missing
     // fixing on another index fails the snapshot but not the note.
     let mut content = snapshot.content().clone();
     let mut other = content.fixings[0].key.clone();
@@ -229,7 +229,7 @@ async fn plans_accept_the_discount_margin_and_still_refuse_measures_no_model_pub
     assert!(unknown.validate().is_err());
 }
 
-/// D57: a request-time valuation of the stored note at the stream's cutoff, settlement
+/// A request-time valuation of the stored note at the stream's cutoff, settlement
 /// and mark gives the stream's values, and with a due fixing missing from the store it
 /// fails as the stream does.
 #[tokio::test]

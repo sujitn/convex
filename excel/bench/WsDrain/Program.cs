@@ -11,8 +11,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
-// X0 (excel-plan): a loopback server sends `frames` valuation frames shaped like
-// convex-server's PublishedValuation (≈30 measures, as after P7a) as fast as the
+// A loopback server sends `frames` valuation frames shaped like
+// convex-server's PublishedValuation (≈30 measures) as fast as the
 // socket accepts them. The client receives, parses and keeps the newest frame
 // per instrument by revision, as the add-in's ServerSource would. Prints frames/s.
 //

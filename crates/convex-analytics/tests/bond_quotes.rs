@@ -561,7 +561,7 @@ fn level_bond(
 
 proptest::proptest! {
     #![proptest_config(proptest::prelude::ProptestConfig::with_cases(64))]
-    /// P19a: `price_from_level` turns a yield, a Z-, G- or I-spread into a price, and
+    /// `price_from_level` turns a yield, a Z-, G- or I-spread into a price, and
     /// `quote_fixed` on that price publishes the same level: the stage and the router
     /// agree by construction, for a 30/360 corporate and an ACT/ACT ICMA Treasury, paying
     /// annual or semi-annual coupons and quoted semi-annually.

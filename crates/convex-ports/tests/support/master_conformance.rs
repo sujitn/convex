@@ -872,7 +872,7 @@ fn set_change(expected: Option<Version>, upper: &str) -> MasterChange {
     }
 }
 
-/// P14b (D82, D85): an approval commits the limit set and closes its proposal in one
+/// An approval commits the limit set and closes its proposal in one
 /// transaction, or neither; both kinds list on their own, never as books.
 pub async fn limit_sets_and_proposals_commit_together_and_list_by_kind(
     repository: Arc<dyn ReferenceRepository>,
@@ -1027,7 +1027,7 @@ fn acknowledgements_change(expected: Option<Version>, entries: usize) -> MasterC
     }
 }
 
-/// P15c (D94): a book's acknowledgements are one compare-and-set record of their own kind,
+/// A book's acknowledgements are one compare-and-set record of their own kind,
 /// listed on their own, holding at most 64 entries.
 pub async fn limit_acknowledgements_compare_and_set_and_list_by_kind(
     repository: Arc<dyn ReferenceRepository>,
@@ -1143,7 +1143,7 @@ fn pricing_rule(
     }
 }
 
-/// Pricing rules and benchmark sets (P19a): they commit only against the bonds and sets
+/// Pricing rules and benchmark sets: they commit only against the bonds and sets
 /// they name, a roll is one commit to the set, and each bound refuses with its type.
 pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
     repository: Arc<dyn ReferenceRepository>,
@@ -1156,7 +1156,7 @@ pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
         bond.issuer_type = IssuerType::Sovereign;
         bond
     };
-    // A zero is stored and priced, but quoted only by price in P19a.
+    // A zero is stored and priced, but quoted only by price.
     let mut zero = bond("ZERO-1");
     zero.bond_type = BondType::ZeroCoupon;
     zero.coupon_rate = None;

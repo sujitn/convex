@@ -1,4 +1,4 @@
-//! Pure CVX-059 quote calibration, callable price, OAS and fixed-model risk.
+//! Pure quote calibration, callable price, OAS and fixed-model risk.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,

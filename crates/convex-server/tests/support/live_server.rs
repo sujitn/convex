@@ -25,7 +25,7 @@ pub fn config(profile: ServerProfile, storage: &Path, plan: Option<&Path>) -> Se
         port: 0,
         storage_path: storage.to_string_lossy().into_owned(),
         runtime_plan: plan.map(|p| p.to_string_lossy().into_owned()),
-        // Every change at once, as before P18 (D106); a test of the hold sets its own.
+        // No clear hold: every change is recorded at once; a test of the hold sets its own.
         limits: convex_server::LimitSettings {
             clear_hold_seconds: 0,
             ..Default::default()

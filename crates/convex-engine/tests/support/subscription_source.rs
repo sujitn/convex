@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use convex_ports::{market_data::*, quote_event::QuoteEvent, TraitError};
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 /// Receipt time in wall-clock milliseconds that never steps back in this process, as the
-/// server ingress stamps it (D70). A raw clock reading after a backward step would be
+/// server ingress stamps it. A raw clock reading after a backward step would be
 /// refused by the Live runtime, which then stops.
 pub fn monotone_stamp() -> i64 {
     static LAST: AtomicI64 = AtomicI64::new(i64::MIN);

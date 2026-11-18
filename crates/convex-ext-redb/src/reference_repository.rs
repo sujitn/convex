@@ -27,14 +27,11 @@ impl RedbReferenceRepository {
     /// Open the versioned schema, refusing to silently discard pre-versioned bond records.
     pub fn new(db: Arc<Database>) -> Result<Self, ReferenceError> {
         let read = db.begin_read().map_err(|_| ReferenceError::Unavailable)?;
-        match read.open_table(TableDefinition::<&str, &[u8]>::new("bonds")) {
-            Ok(table) if table.len().map_err(|_| ReferenceError::Unavailable)? > 0 => {
-                return Err(ReferenceError::Unsupported(
-                    "unversioned bonds require explicit export and reference import",
-                ));
-            }
-            Ok(_) | Err(redb::TableError::TableDoesNotExist(_)) => {}
-            Err(_) => return Err(ReferenceError::Unavailable),
+        if crate::database::table_len(&read, crate::database::UNVERSIONED_BONDS)
+            .map_err(|_| ReferenceError::Unavailable)?
+            > 0
+        {
+            return Err(ReferenceError::Unsupported("unversioned bonds"));
         }
         let presence = [
             exists(&read, CURRENT)?,
@@ -43,19 +40,15 @@ impl RedbReferenceRepository {
             exists(&read, MASTER_CURRENT)?,
             exists(&read, MASTER_HISTORY)?,
         ];
-        let bond_tables = presence[..3].iter().filter(|present| **present).count();
-        let master_tables = presence[3..].iter().filter(|present| **present).count();
-        if (bond_tables != 0 && bond_tables != 3)
-            || master_tables == 1
-            || (bond_tables == 0 && master_tables != 0)
-        {
-            return Err(ReferenceError::Unsupported(
-                "incomplete reference repository schema",
-            ));
-        }
-        if presence.iter().all(|present| *present) {
+        match presence.iter().filter(|present| **present).count() {
             // Inspection/reopen is read-only once the complete schema exists.
-            return Ok(Self { db });
+            5 => return Ok(Self { db }),
+            0 => {}
+            _ => {
+                return Err(ReferenceError::Unsupported(
+                    "incomplete reference repository schema",
+                ))
+            }
         }
         drop(read);
         let mut write = db.begin_write().map_err(|_| ReferenceError::Unavailable)?;

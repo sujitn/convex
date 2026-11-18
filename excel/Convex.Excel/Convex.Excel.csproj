@@ -53,7 +53,7 @@
 
   <!-- Copy native library next to both the loose and the packed .xll.
        convex_ffi.dll ships side by side: packing it into the .xll fails at
-       load on Excel-DNA 1.9 / net472 (measured in X0), so NativeLoader binds
+       load on Excel-DNA 1.9 / net472 (measured with the bench add-in), so NativeLoader binds
        it by absolute path at AutoOpen. -->
   <Target Name="CopyNativeLib" AfterTargets="Build" Condition="Exists('$(NativeLibPath)')">
     <Copy SourceFiles="$(NativeLibPath)" DestinationFolder="$(OutputPath)" />

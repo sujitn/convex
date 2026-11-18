@@ -13,10 +13,10 @@ using static Convex.Excel.Helpers.FormUi;
 
 namespace Convex.Excel.Forms
 {
-    // The pre-trade ticket (Excel plan X4): a book and the trades proposed for
+    // The pre-trade ticket: a book and the trades proposed for
     // it (signed quantities), checked against the book's limits on the server.
     // Check reads the book's status now and POSTs the changes to the check
-    // route, which stores nothing (server D88), and shows each limit before
+    // route, which stores nothing, and shows each limit before
     // and after. "From selection" reads trades from the sheet (identifier,
     // quantity, [rating], [sector]); "Stamp CX.LIMIT" writes live limit cells
     // for the book at the selection.

@@ -585,15 +585,15 @@ pub enum MasterKey {
     Book(BookId),
     /// Rate index publication rule and declared conventions.
     RateIndex(ReferenceDataId),
-    /// A book's approved limits (P14, D82).
+    /// A book's approved limits.
     LimitSet(BookId),
-    /// A proposed change to a book's limits, awaiting a second subject (D85).
+    /// A proposed change to a book's limits, awaiting a second subject.
     LimitProposal(BookId),
-    /// A book's acknowledgements of breached or unknown limits (P15c, D94).
+    /// A book's acknowledgements of breached or unknown limits.
     LimitAcknowledgements(BookId),
-    /// How a stored bond is quoted (P19, D111).
+    /// How a stored bond is quoted.
     PricingRule(InstrumentId),
-    /// Government securities that spreads are quoted to (P19, D113).
+    /// Government securities that spreads are quoted to.
     BenchmarkSet(ReferenceDataId),
 }
 
@@ -1170,7 +1170,7 @@ pub fn validate_resolved_bond(
 /// by its cutoff, its terms are effective at its instant, and so is every resource,
 /// each recorded by the cutoff. Every other check reads the reference alone, so a
 /// reference that passed [`validate_resolved_bond`] at one lookup passes it at another
-/// exactly when it passes this (D68).
+/// exactly when it passes this.
 pub fn validate_resolved_bond_at(
     reference: &ResolvedBondReference,
     lookup: ReferenceLookup,

@@ -91,8 +91,8 @@ pub fn runtime_bond_quote(
         published.runtime_id.as_str(),
     )
 }
-/// Read a request-time valuation (D57) as a quote, in the shape bullets answer with
-/// (D63). Each measure the valuation could not produce is reported in
+/// Read a request-time valuation as a quote, in the shape bullets answer with.
+/// Each measure the valuation could not produce is reported in
 /// `measure_errors` with the runtime's code and reason, not refused.
 pub fn request_bond_quote(
     envelope: &convex_core::contracts::ResultEnvelope,

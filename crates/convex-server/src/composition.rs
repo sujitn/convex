@@ -299,7 +299,7 @@ impl SnapshotRepository for UnstoredSnapshots {
 }
 
 /// Live results reach WebSocket subscribers and `/api/v1/runtime/results` only. They are
-/// not archived: every tick of every instrument would grow the result archive (D5a).
+/// not archived: every tick of every instrument would grow the result archive.
 struct DisplayOnlyPublisher;
 
 #[async_trait]

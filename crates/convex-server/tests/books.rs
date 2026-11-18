@@ -1,6 +1,5 @@
 //! Durable books over real HTTP and the real composition: snapshot ingest, optimistic
-//! concurrency, idempotency, atomic row rejection, history, the portfolio alias and
-//! analytics by book. Inputs are the committed showcase seed.
+//! concurrency, idempotency, atomic row rejection, history and analytics by book. Inputs are the committed showcase seed.
 use convex_server::access::identity::{AccessMode, AccessSettings};
 use convex_server::{compose, ServerConfig, ServerProfile, StartupError};
 use reqwest::{Client, Method, StatusCode};
@@ -384,89 +383,6 @@ async fn reads_are_paged_versioned_and_durable_across_restart() {
     let (_, after, current) = server.get("/api/v1/books/P-A").await;
     assert_eq!(before, after);
     assert_eq!(current["positions"][0]["quantity"], "2");
-    server.stop().await;
-}
-
-#[tokio::test]
-async fn portfolio_alias_is_backed_by_books_and_edits_are_read_modify_write() {
-    let (_directory, _path, server) = seeded().await;
-    let (status, etag, body) = server
-        .send(
-            Method::POST,
-            "/api/v1/portfolios",
-            Some("alias-1"),
-            None,
-            Some(
-                json!({"portfolio_id": "AL-1", "name": "Alias", "currency": "USD",
-                        "positions": [{"instrument_id": "ANY-1", "notional": "100"}]}),
-            ),
-        )
-        .await;
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-    assert_eq!(etag.as_deref(), Some("\"1\""));
-    assert!(body["created_at"].is_number() && body["updated_at"].is_number());
-
-    // Position edits use the current version as the expected version.
-    let (status, etag, body) = server
-        .send(
-            Method::POST,
-            "/api/v1/portfolios/AL-1/positions",
-            Some("alias-2"),
-            None,
-            Some(json!({"instrument_id": "ANY-2", "notional": "5"})),
-        )
-        .await;
-    assert_eq!(
-        (status, etag.as_deref()),
-        (StatusCode::OK, Some("\"2\"")),
-        "{body}"
-    );
-    assert_eq!(body["positions"].as_array().unwrap().len(), 2);
-    // A caller racing on the old version gets 409.
-    let (status, _, _) = server
-        .send(
-            Method::DELETE,
-            "/api/v1/portfolios/AL-1/positions/ANY-1",
-            Some("alias-3"),
-            Some("\"1\""),
-            None,
-        )
-        .await;
-    assert_eq!(status, StatusCode::CONFLICT);
-
-    // The same data is a book, with its history.
-    let (_, _, book) = server.get("/api/v1/books/AL-1").await;
-    assert_eq!(book["owning_system"], "portfolio-api");
-    assert_eq!(book["positions"][1]["instrument_id"], "ANY-2");
-
-    // Retired books disappear from the alias, and the id can be created again.
-    let (status, _, _) = server
-        .send(
-            Method::DELETE,
-            "/api/v1/portfolios/AL-1",
-            Some("alias-4"),
-            None,
-            None,
-        )
-        .await;
-    assert_eq!(status, StatusCode::NO_CONTENT);
-    let (status, _, _) = server.get("/api/v1/portfolios/AL-1").await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    let (_, _, list) = server.get("/api/v1/portfolios").await;
-    assert_eq!(list["total"], 0);
-    let (status, etag, _) = server
-        .send(
-            Method::POST,
-            "/api/v1/portfolios",
-            Some("alias-5"),
-            None,
-            Some(json!({"portfolio_id": "AL-1", "name": "Again"})),
-        )
-        .await;
-    assert_eq!(
-        (status, etag.as_deref()),
-        (StatusCode::CREATED, Some("\"4\""))
-    );
     server.stop().await;
 }
 

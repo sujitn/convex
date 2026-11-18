@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-//! P14a (D82–D84): the limit types' wire form and their validation.
+//! The limit types' wire form and their validation.
 
 use convex_core::contracts::{InstrumentId, UtcTimestamp};
 use convex_ports::limits::{
@@ -191,7 +191,7 @@ fn statuses_order_by_severity_and_reasons_list_a_bounded_prefix() {
     );
 }
 
-/// P14b (D82, D85): a limit set and a proposal are master records of their own kinds.
+/// A limit set and a proposal are master records of their own kinds.
 #[test]
 fn limit_sets_and_proposals_have_their_own_keys_and_wire_forms() {
     use convex_ports::limits::{LimitProposalDefinition, LimitSetDefinition};
@@ -236,7 +236,7 @@ fn limit_sets_and_proposals_have_their_own_keys_and_wire_forms() {
     set_refused(&|v| v["approved_by"] = json!("a".repeat(129)));
     set_refused(&|v| v["effective"]["until"] = json!("2026-11-05T00:00:00Z"));
     set_refused(&|v| v["limits"][0]["upper"] = json!(null));
-    // D85: a set approved from a proposal names two subjects; one committed in one step
+    // A set approved from a proposal names two subjects; one committed in one step
     // names one.
     set_refused(&|v| v["approved_by"] = json!("access:aaaa"));
     set_refused(&|v| {
@@ -278,7 +278,7 @@ fn limit_sets_and_proposals_have_their_own_keys_and_wire_forms() {
         v.as_object_mut().unwrap().remove("closed");
     });
     proposal_refused(&|v| v["closed"] = json!({"outcome": "withdrawn", "by": ""}));
-    // Its proposer cannot approve it (D85), though it may withdraw it.
+    // Its proposer cannot approve it, though it may withdraw it.
     proposal_refused(&|v| v["closed"]["by"] = json!("access:aaaa"));
     let mut withdrawn = proposal.clone();
     withdrawn["closed"] = json!({"outcome": "withdrawn", "by": "access:aaaa"});
@@ -297,7 +297,7 @@ fn limit_sets_and_proposals_have_their_own_keys_and_wire_forms() {
     assert!(serde_json::from_value::<LimitProposalDefinition>(unknown).is_err());
 }
 
-/// P15c (D94, D95): a book's acknowledgements are a master record of their own kind; each
+/// A book's acknowledgements are a master record of their own kind; each
 /// entry lasts at most seven days, and each version changes one limit's entry.
 #[test]
 fn acknowledgements_have_their_own_key_and_wire_form_and_bounded_entries() {
@@ -361,7 +361,7 @@ fn acknowledgements_have_their_own_key_and_wire_form_and_bounded_entries() {
             Err(ReferenceError::InvalidInput(_))
         ));
     };
-    // D95: at most seven days, and after it is made.
+    // At most seven days, and after it is made.
     refused(&|v| v["acknowledgements"][0]["expires_at"] = json!("2026-11-16T00:00:00.000001Z"));
     refused(&|v| v["acknowledgements"][0]["expires_at"] = json!("2026-11-09T00:00:00Z"));
     refused(&|v| v["acknowledgements"][0]["expires_at"] = json!("2026-11-08T00:00:00Z"));
@@ -411,7 +411,7 @@ fn with_excess(excess: serde_json::Value) -> serde_json::Value {
            "warning_fraction":"0.8","excess":excess})
 }
 
-/// P15d (D96): an excess names a bound, each bound it names widens one the limit has on
+/// An excess names a bound, each bound it names widens one the limit has on
 /// that side, and it says why.
 #[test]
 fn an_excess_widens_a_bound_the_limit_has_and_says_why() {
@@ -504,7 +504,7 @@ fn an_excess_widens_a_bound_the_limit_has_and_says_why() {
     .is_err());
 }
 
-/// P15d (D96): an expiry is after the proposal and at most thirty days after it, and an
+/// An expiry is after the proposal and at most thirty days after it, and an
 /// excess applies strictly before its expiry.
 #[test]
 fn an_excess_runs_at_most_thirty_days_and_applies_strictly_before_its_expiry() {

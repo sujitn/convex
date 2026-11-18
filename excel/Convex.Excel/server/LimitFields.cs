@@ -2,7 +2,7 @@ using System.Linq;
 
 namespace Convex.Excel.Server
 {
-    /// The scalars a CX.LIMIT cell can show (DX13, DX21), and why it shows #N/A.
+    /// The scalars a CX.LIMIT cell can show, and why it shows #N/A.
     internal static class LimitFields
     {
         public static readonly string[] All =
@@ -39,7 +39,7 @@ namespace Convex.Excel.Server
                 case "status":
                     return item.Status;
                 case "quality":
-                    // Values stay through a disconnect, marked Stale (DX6).
+                    // Values stay through a disconnect, marked Stale.
                     return !view.Fresh ? "Stale" : item.Demo ? "Demo" : "Live";
                 case "value":
                     return item.Value ?? throw Missing("NO_VALUE",

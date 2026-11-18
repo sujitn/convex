@@ -1,4 +1,4 @@
-//! CVX-058 original-cash, native quote, separated credit/repo and rebuild proof.
+//! Original-cash, native quote, separated credit/repo and rebuild proof.
 #[path = "../../convex/examples/support/cash_fixture.rs"]
 mod fixture;
 #[path = "support/futures.rs"]

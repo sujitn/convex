@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- X0 measurement add-in (excel-plan): a synthetic RTD server, a latency
+  <!-- Measurement add-in: a synthetic RTD server, a latency
        recorder and a main-thread probe. It also tests whether Excel-DNA 1.9.0 on
        net472 can pack convex_ffi.dll into the .xll. Not shipped; not built by CI. -->
   <PropertyGroup>

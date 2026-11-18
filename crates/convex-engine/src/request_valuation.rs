@@ -1,4 +1,4 @@
-//! Request-time valuation of callables and floating rate notes (G18, D57): one
+//! Request-time valuation of callables and floating rate notes: one
 //! unpublished snapshot of one stored instrument, with the request's mark as a labelled
 //! `request` quote, valued by the runtime as the stream values a bond.
 #![forbid(unsafe_code)]
@@ -59,7 +59,7 @@ pub enum RequestValuationError {
         "this server runs no runtime; callables and floating rate notes are valued through one"
     )]
     NoRuntime,
-    /// Inline terms that are not the stored terms at the cutoff (D62).
+    /// Inline terms that are not the stored terms at the cutoff.
     #[error("callables and floating rate notes price stored terms: store these terms, or send the ones stored at the cutoff")]
     UnstoredTerms,
     /// The stored reference could not be read.
@@ -94,8 +94,8 @@ impl RequestValuer {
 
     /// The one-instrument snapshot of `reference` at `known_at` and its context. The
     /// curves are the ones the product's valuation reads, read through `context` at its
-    /// cutoff (D69). A missing or stale one refuses the request as it does for bullets
-    /// (P9a); a curve the product does not read refuses nothing.
+    /// cutoff. A missing or stale one refuses the request as it does for bullets; a
+    /// curve the product does not read refuses nothing.
     pub(crate) async fn prepare(
         &self,
         context: &mut RequestContext,
@@ -156,7 +156,7 @@ impl RequestValuer {
             generation: Version::new(1).map_err(invalid)?,
             configuration: configuration.clone(),
             // The snapshot narrows the selection to one instrument and a request quote,
-            // so it does not claim the activation's selection (D61).
+            // so it does not claim the activation's selection.
             configuration_capture: None,
             instruments: vec![InstrumentPin {
                 instrument_id: instrument_id.clone(),

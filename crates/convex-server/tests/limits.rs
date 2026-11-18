@@ -1,8 +1,8 @@
-//! Book limits over the real router (P14b): limit sets with compare-and-set and idempotent
-//! retries, two subjects for every change under required access (D85), the bound on
-//! limited books (D87), the generic reference routes' refusal, and status on request at
+//! Book limits over the real router: limit sets with compare-and-set and idempotent
+//! retries, two subjects for every change under required access, the bound on
+//! limited books, the generic reference routes' refusal, and status on request at
 //! and just past each bound and band, with each reason the server reaches without results.
-//! The pre-trade check (P14d): D89's row rule, each refusal, and D91's access.
+//! The pre-trade check: its row rule, each refusal, and its access rule.
 #[allow(dead_code)] // This suite uses the issuer and request subset.
 #[path = "support/access_fixture.rs"]
 mod fixture;
@@ -328,7 +328,7 @@ async fn each_missing_input_is_unknown_with_its_reason_and_face_still_evaluates(
     );
     assert_eq!(missing["face"]["status"], "within", "{}", missing["face"]);
 
-    // Book-level reasons come first, in D84's order.
+    // Book-level reasons come first, in `UnknownReason`'s order.
     let currency = by_id(&status(&router, None, "NO-CURRENCY").await);
     assert_eq!(
         currency["value"]["reason"],
@@ -709,7 +709,7 @@ async fn at_most_64_books_hold_a_non_empty_limit_set() {
 }
 
 // =============================================================================
-// REQUIRED ACCESS: TWO SUBJECTS (D85)
+// REQUIRED ACCESS: TWO SUBJECTS
 // =============================================================================
 
 const RISK_A: &str = "risk-a-token";
@@ -1320,7 +1320,7 @@ async fn a_reference_writer_cannot_write_limits_through_the_generic_routes() {
 }
 
 // =============================================================================
-// THE MONITOR UNDER REQUIRED ACCESS (P14c)
+// THE MONITOR UNDER REQUIRED ACCESS
 // =============================================================================
 
 type Socket =
@@ -1423,7 +1423,7 @@ async fn a_limit_status_frame_needs_what_the_status_route_needs() {
             cors_origins: vec![],
             tls_boundary: TlsBoundary::LocalOnly,
         },
-        // Every change at once, as before P18 (D106).
+        // No clear hold: every change is recorded at once.
         limits: convex_server::LimitSettings {
             clear_hold_seconds: 0,
             ..Default::default()
@@ -1551,7 +1551,7 @@ async fn a_limit_status_frame_needs_what_the_status_route_needs() {
 }
 
 // =============================================================================
-// THE MONITOR'S AUDIT FAILURES AND SHUTDOWN (P14c)
+// THE MONITOR'S AUDIT FAILURES AND SHUTDOWN
 // =============================================================================
 
 use convex_engine::ports::storage::{AuditEntry, AuditFilter, AuditStore, Page, Pagination};
@@ -1679,7 +1679,7 @@ struct Monitored {
 }
 
 /// A local-development server over `setup`'s repository, no runtime, whose monitor records
-/// through `audit` under no hold, keeping records `retention_days` when set (P18b).
+/// through `audit` under no hold, keeping records `retention_days` when set.
 async fn serve(
     setup: &support::Setup,
     audit: Arc<ScriptedAudit>,
@@ -1704,7 +1704,7 @@ async fn serve(
             mode: AccessMode::LocalDevelopment,
             ..Default::default()
         },
-        // Every change at once, as before P18 (D106).
+        // No clear hold: every change is recorded at once.
         limits: convex_server::LimitSettings {
             clear_hold_seconds: 0,
             record_retention_days: retention_days,
@@ -1781,7 +1781,7 @@ async fn until(what: &str, condition: impl Fn() -> bool) {
 }
 
 /// Shutdown waits for the book's commit in progress, not for the rest of the pass: one
-/// batch a book (D92), and 16 books at 400 ms each would hold it 6.4 s.
+/// batch a book, and 16 books at 400 ms each would hold it 6.4 s.
 #[tokio::test]
 async fn shutdown_does_not_wait_for_the_monitors_pass() {
     let server = monitored(
@@ -1862,7 +1862,7 @@ async fn a_failed_append_is_retried_on_the_timer() {
 }
 
 // =============================================================================
-// THE PRE-TRADE CHECK (P14d)
+// THE PRE-TRADE CHECK
 // =============================================================================
 
 async fn check(
@@ -2159,7 +2159,7 @@ async fn a_check_past_the_position_bound_is_refused_as_its_commit_would_be() {
     assert_eq!(by_id(&body)["each"]["status"], "within", "{body}");
 }
 
-/// D91: a check needs `BookRead` on the book, each instrument it holds, each one a limit
+/// A check needs `BookRead` on the book, each instrument it holds, each one a limit
 /// names, and each one a row names, by id or through an identifier.
 #[tokio::test]
 async fn a_check_needs_the_book_and_every_instrument_it_reads() {
@@ -2233,7 +2233,7 @@ async fn a_check_needs_the_book_and_every_instrument_it_reads() {
 }
 
 // =============================================================================
-// THE RECORDS ROUTE (P15b)
+// THE RECORDS ROUTE
 // =============================================================================
 
 /// The monitor's records of `book`, as stored, oldest first.
@@ -2572,7 +2572,7 @@ fn record_of(id: u64, limit_id: &str, fields: Value) -> AuditEntry {
     record(id, "BOOK-A", json!({"kind": "market_value"}), fields)
 }
 
-/// `limit_id` reads only that limit's records (P18c, D107): another limit's record is
+/// `limit_id` reads only that limit's records: another limit's record is
 /// passed and not counted, even one the caller could not read; this limit's record the
 /// caller cannot read is withheld and counted; a page stops at `limit` records inside one
 /// store read and the cursor reads on from the last record shown, each once.
@@ -2870,7 +2870,7 @@ async fn the_records_route_needs_a_monitor_and_the_book() {
 }
 
 // =============================================================================
-// ACKNOWLEDGEMENTS (P15c)
+// ACKNOWLEDGEMENTS
 // =============================================================================
 
 const ACKNOWLEDGEMENTS: &str = "/api/v1/books/BOOK-A/limits/acknowledgements";
@@ -2967,7 +2967,7 @@ async fn approved(router: &Router, key: &str, base: Option<&str>, body: Value) {
     assert!(code.is_success(), "{response}");
 }
 
-/// P15c (D95): a risk manager with status's read rule acknowledges a limit in breach or
+/// A risk manager with status's read rule acknowledges a limit in breach or
 /// unknown now; each refusal stores nothing, and a retry never acknowledges twice.
 #[tokio::test]
 async fn an_acknowledgement_needs_a_risk_manager_and_a_limit_in_breach_or_unknown() {
@@ -3130,7 +3130,7 @@ async fn an_acknowledgement_needs_a_risk_manager_and_a_limit_in_breach_or_unknow
     assert_eq!(code, StatusCode::FORBIDDEN, "{response}");
 }
 
-/// P15c (D94): each acknowledgement replaces only its own limit's entry, so two risk
+/// Each acknowledgement replaces only its own limit's entry, so two risk
 /// managers acknowledging different limits at once, on four threads, both keep theirs.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn two_subjects_acknowledging_different_limits_at_once_both_keep_theirs() {
@@ -3180,7 +3180,7 @@ async fn two_subjects_acknowledging_different_limits_at_once_both_keep_theirs() 
     assert_eq!(subjects.len(), 2, "{current}");
 }
 
-/// P15c (D95): an acknowledgement ends when it is withdrawn, when it expires, or when a
+/// An acknowledgement ends when it is withdrawn, when it expires, or when a
 /// set version changes its limit; one whose limit the set keeps stays. Entries no longer
 /// in force leave the record at its next version, and the history keeps them.
 #[tokio::test]
@@ -3317,7 +3317,7 @@ async fn withdrawal_expiry_and_a_changed_limit_end_an_acknowledgement() {
     );
 }
 
-/// P15c: an exact retry returns the version it wrote even after a set version has dropped
+/// An exact retry returns the version it wrote even after a set version has dropped
 /// the limit. The key still refuses a different body, and a new key finds no limit.
 #[tokio::test]
 async fn an_exact_retry_returns_its_version_after_the_set_drops_the_limit() {
@@ -3382,7 +3382,7 @@ async fn an_exact_retry_returns_its_version_after_the_set_drops_the_limit() {
     assert_eq!(response["code"], "LIMIT_NOT_FOUND");
 }
 
-/// P15c (D94): the generic reference routes neither write nor list acknowledgements, nor
+/// The generic reference routes neither write nor list acknowledgements, nor
 /// show a receipt that names them.
 #[tokio::test]
 async fn generic_reference_routes_refuse_acknowledgements() {
@@ -3440,7 +3440,7 @@ async fn generic_reference_routes_refuse_acknowledgements() {
     assert_eq!(response["code"], "LIMITS_ROUTE_REQUIRED", "{response}");
 }
 
-/// P15c (D97): a recorded change of a limit in breach or unknown carries the
+/// A recorded change of a limit in breach or unknown carries the
 /// acknowledgement in force, and an acknowledgement records nothing of its own. A record
 /// id must name a status record of this book's limit.
 #[tokio::test]
@@ -3585,7 +3585,7 @@ async fn a_recorded_change_carries_the_acknowledgement_in_force() {
 }
 
 // =============================================================================
-// TEMPORARY EXCESS (P15d)
+// TEMPORARY EXCESS
 // =============================================================================
 
 /// `limit` with an upper-bound excess expiring at `expires_at`.
@@ -3624,7 +3624,7 @@ async fn put_limits(
     (code, response)
 }
 
-/// P15d (D96): an excess goes through the two-subject proposal. The proposal refuses one
+/// An excess goes through the two-subject proposal. The proposal refuses one
 /// that does not widen, has expired or runs past thirty days; approval refuses one that has
 /// expired by then, and leaves the set as it was.
 #[tokio::test]
@@ -3711,7 +3711,7 @@ async fn an_excess_is_proposed_and_approved_within_its_window() {
     assert_eq!(current["net"]["excess"]["reason"], "mandate change");
 }
 
-/// P15d (D96): on request, an excess applies exactly while the response's `evaluated_at` is
+/// On request, an excess applies exactly while the response's `evaluated_at` is
 /// before its expiry, whichever way the clock moves. Granting one ends the limit's
 /// acknowledgement; an expired one carried forward unchanged is inert and refuses nothing,
 /// and changing it to one already expired is refused.
@@ -3818,7 +3818,7 @@ async fn an_excess_applies_until_its_expiry_and_an_expired_one_can_be_carried_fo
 }
 
 // =============================================================================
-// RETENTION (P18b, D105)
+// RETENTION
 // =============================================================================
 
 /// A `limit_status` record of `book`'s `limit_id` as the monitor writes one, `days` old.
@@ -3952,7 +3952,7 @@ async fn routed(base: &str, after: u64) -> Vec<u64> {
         .collect()
 }
 
-/// P18b (D105): unset, nothing is pruned. With a period, the start prunes records older
+/// With no retention period, nothing is pruned. With a period, the start prunes records older
 /// than it before the restate, keeping the record an acknowledgement in force names and
 /// the store's last; the restate's ids follow the last, a reader's cursor crosses the
 /// pruned range, and the breach, older than the period, can still be acknowledged, naming
@@ -4014,7 +4014,7 @@ async fn retention_prunes_at_start_keeping_acknowledged_records_and_ids_continue
     serving.await.unwrap().unwrap();
 }
 
-/// P18b (D105): a store at its cap refuses a book's records until a restart with a
+/// A store at its cap refuses a book's records until a restart with a
 /// period prunes it; the restate then fits. Without a period it stays full.
 #[tokio::test]
 async fn a_full_store_with_a_period_records_its_restate_after_the_start_prune() {

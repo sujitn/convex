@@ -15,7 +15,7 @@ namespace Convex.Excel
     // clones objects out under a short read lock); builders mutate the
     // registry and use xlfCaller, so they stay on the main calc thread.
     // .LIVE variants read an RTD topic of the live hub (Live/LiveHub.cs) and
-    // must NOT be IsThreadSafe. They return one number each (DX3).
+    // must NOT be IsThreadSafe. They return one number each.
     public static class Functions
     {
         [ExcelFunction(Name = "CX.LIBRARY", IsThreadSafe = true,
@@ -768,8 +768,8 @@ namespace Convex.Excel
             return arr;
         }
 
-        // No Z-spread here: the price path does not compute it for most marks
-        // (GX16). CX.SPREAD returns Z for any mark.
+        // No Z-spread here: the price path does not compute it for most marks.
+        // CX.SPREAD returns Z for any mark.
         internal static object SelectPriceField(JToken result, string field)
         {
             switch (field)

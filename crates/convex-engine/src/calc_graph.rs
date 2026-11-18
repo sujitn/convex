@@ -526,7 +526,7 @@ pub enum GraphError {
     /// Captured graph/context/snapshot differs from the requested values.
     #[error("graph snapshot/context conflict")]
     ContextConflict,
-    /// Snapshot pricing must supply its complete CVX-008 context.
+    /// Snapshot pricing must supply its complete valuation context.
     #[error("complete valuation context required")]
     ContextRequired,
     /// Transport loss suspends automatic work until full reload.
@@ -860,7 +860,7 @@ impl CalculationGraph {
         self.replace(&mut state, dag, generation, Some(snapshot.clone()))
     }
     /// Bind a later built snapshot to the active graph and reset only `revalue`, closed
-    /// over its connected components (D55). Every other node keeps its committed value,
+    /// over its connected components. Every other node keeps its committed value,
     /// failure and generation, stays readable and is not calculated again; its inputs
     /// are unchanged in the new snapshot, which the caller has established. A component
     /// is reset whole because capture reads only dependencies committed under the bound
@@ -1477,7 +1477,7 @@ impl CalculationGraph {
                     }
                     // A curve node takes its own curve's quality. Any other node reads no
                     // snapshot input directly, and capture took each dependency Complete
-                    // and Valid, so one stale bond never stops shared nodes (D58).
+                    // and Valid, so one stale bond never stops shared nodes.
                     _ => (
                         ResultStatus::Complete,
                         match (&ticket.snapshot, &state.dag.nodes[i].id) {
@@ -1848,7 +1848,7 @@ fn node_shard_key(node: &NodeId) -> String {
 mod tests {
     use super::*;
 
-    /// P17c-iii: a walk sets the bound again from the deadlines still held, so a later
+    /// A walk sets the bound again from the deadlines still held, so a later
     /// deadline passing after an earlier one was expired is still expired by the next
     /// walk. The walks run at chosen times, so no sleep or scheduler decides the order.
     #[test]

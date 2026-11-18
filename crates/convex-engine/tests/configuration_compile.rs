@@ -196,7 +196,7 @@ async fn compiles_the_book_universe_with_exact_pins() {
         .map(|id| id.as_str())
         .collect();
     assert_eq!(required, ["D.OIS", "P.SOFR"]);
-    // Live names its curves and reads their revisions at each snapshot (D50).
+    // Live names its curves and reads their revisions at each snapshot.
     assert!(document.assembly.curve_recipes.is_empty());
     // Replay pins the revisions current at the cutoff.
     let mut replay = selection();
@@ -357,7 +357,7 @@ async fn wide(storage: &StorageAdapter, count: usize) -> Vec<ReferenceDataId> {
     books
 }
 
-/// D101: books holding 4,096 instruments compile to a Live document that validates; the
+/// Books holding 4,096 instruments compile to a Live document that validates; the
 /// same books are refused as a Replay universe, past 256, and one more instrument is
 /// refused as a Live one.
 #[tokio::test]

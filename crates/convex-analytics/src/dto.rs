@@ -17,14 +17,14 @@ use serde::{Deserialize, Serialize};
 pub type Handle = u64;
 
 /// Strict native optional-model input/settings JSON. Full host schemas and
-/// dispatch remain CVX-063; these reexports do not add a registry RPC.
+/// dispatch are not yet supported; these reexports do not add a registry RPC.
 pub use crate::optional_bond::{
     ExercisePriority, ExerciseState, GridSettings, Hw1fParameters, ModelKey, OasSolveSettings,
     OptionalBondContext, OptionalBondSettings, RiskAxis, RiskSettings, SigmaCalibrationSettings,
     SwaptionCalibrationQuote, SwaptionVolatility,
 };
 /// Lossless native/shared JSON economic terms. Reconstruct through the checked
-/// build API. C ABI and client dispatch migration is separately owned by CVX-063.
+/// build API. The C ABI and client dispatch do not use these terms yet.
 pub use convex_bonds::contracts::{
     BondCalendarIds, BondCoupon, BondProfiles, BondTerms, ExerciseStyle, ExerciseTerms,
     OvernightRateTerms, TermRateTerms,
@@ -453,7 +453,7 @@ pub fn curve_spec_schema() -> serde_json::Value {
 // ---- Pricing --------------------------------------------------------------
 
 // The checked native curve contract uses actual immutable values rather than
-// registry handles. Host/schema dispatch migration is owned by CVX-063.
+// registry handles. Host/schema dispatch does not use it yet.
 pub use crate::curve_inputs::{CurveHelperInput, HelperCurveRecipe};
 pub use convex_curves::contracts::{CurveQuery, CurveRecipe};
 

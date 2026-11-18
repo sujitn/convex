@@ -1,4 +1,4 @@
-//! Request-time callables and floating rate notes over the routes (G18, D57, D61–D65): a
+//! Request-time callables and floating rate notes over the routes: a
 //! stored callable and note valued through the runtime as the stream values them, beside
 //! a bullet the router prices.
 #[path = "../../convex-engine/tests/support/configuration_setup.rs"]
@@ -191,11 +191,11 @@ fn cutoff(time: UtcTimestamp) -> String {
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
-/// D57: at the stream's cutoff and settlement and with its mark, `GET /quotes/:id` on the
+/// At the stream's cutoff and settlement and with its mark, `GET /quotes/:id` on the
 /// stored callable and note returns the stream's values, read from an unpublished
 /// one-instrument snapshot. `POST /quote` answers per measure without a mark, refuses
-/// inline terms that differ from the stored ones (D62), and a batch prices a bullet, a
-/// callable and a note together (D64).
+/// inline terms that differ from the stored ones, and a batch prices a bullet, a
+/// callable and a note together.
 #[tokio::test]
 async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_them() {
     let (setup, callable, note) = products_setup().await;
@@ -331,7 +331,7 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     assert!(body["clean_price_mid"].is_null());
     assert_eq!(body["context"]["kind"], "configuration");
 
-    // Inline terms must be the stored ones (D62).
+    // Inline terms must be the stored ones.
     let mut changed = callable.clone();
     changed.coupon_rate = Some(rust_decimal::Decimal::new(7, 2));
     let mut refused = posted.clone();
@@ -370,7 +370,7 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     engine.shutdown().await.unwrap();
 }
 
-/// D65: a server with no runtime refuses callables and notes, named configuration or
+/// A server with no runtime refuses callables and notes, named configuration or
 /// not, and still prices a bullet under the activated configuration.
 #[tokio::test]
 async fn a_server_without_a_runtime_refuses_callables_and_still_prices_bullets() {
@@ -414,7 +414,7 @@ async fn a_server_without_a_runtime_refuses_callables_and_still_prices_bullets()
     );
 }
 
-/// D69: a request reads only the curves its product reads. Under a configuration whose
+/// A request reads only the curves its product reads. Under a configuration whose
 /// swap curve is stale at the cutoff, a bullet is refused, alone or in a batch. A
 /// callable, which reads only the discount curve, prices alone and in the same batch,
 /// and the batch lists only the curves it read.
@@ -472,7 +472,7 @@ async fn a_stale_swap_curve_refuses_bullets_and_still_prices_callables() {
     engine.shutdown().await.unwrap();
 }
 
-/// D69: a batch of a bullet, a callable and a note reads three curve sets, each once,
+/// A batch of a bullet, a callable and a note reads three curve sets, each once,
 /// and lists every curve it read once, in first-use order: the bullet's discount and
 /// swap curves, then the note's projection curve.
 #[tokio::test]

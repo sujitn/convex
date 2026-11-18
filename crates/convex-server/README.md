@@ -208,7 +208,6 @@ These process settings require a restart. Versioned quantitative/integration/pol
 | host | CONVEX_HOST | IPv4/IPv6 literal; default `0.0.0.0` must be changed to loopback for the current HTTP executable; hostnames fail |
 | port | CONVEX_PORT | Integer 0–65535; default 8080; zero selects an ephemeral port |
 | websocket_enabled | CONVEX_WEBSOCKET_ENABLED | Boolean; environment accepts true/false or 1/0, case insensitive; default true |
-| websocket_port | CONVEX_WEBSOCKET_PORT | Optional; accepted only when WebSockets are enabled and it equals the HTTP port |
 | storage_path | CONVEX_STORAGE_PATH | Nonempty local redb path; default `./data/convex.redb`; parent directory must exist |
 | runtime_plan | CONVEX_RUNTIME_PLAN | Required explicit plan for replay; for live, this or `configuration_id`; fixed-bullet mode, exact build, no seed events |
 | configuration_id | CONVEX_CONFIGURATION_ID | Production (required), live (instead of `runtime_plan`) or demo: run the stored active configuration with this id live; under demo, Demo-quality inputs are valued and labelled |
@@ -473,9 +472,9 @@ refused with 400 if:
 - a rule names a bond that is not stored;
 - a rule names a set that does not exist;
 - a rule quotes a bond other than a fixed bullet by a level, or against a set (floating
-  rate notes and callables follow in P19c);
+  rate notes and callables are not yet supported);
 - a set holds anything but a government fixed bullet in its currency;
-- a set is not in USD: P19 quotes against Treasuries.
+- a set is not in USD: spreads are quoted against Treasuries only.
 
 `GET /api/v1/quotes/:id` takes `level` in place of `market_price` for a bond whose rule
 quotes it by one. The unit is the rule's: a decimal yield (`level=0.0612`), or basis
@@ -575,14 +574,6 @@ mappings at the time of the request; unknown or ambiguous identifiers are reject
 guessed. Every row must resolve or nothing commits, and the 422 body lists each failed row
 as `{index, code, reason}` (the first 100 are reported). The 2xx body adds `resolutions` with
 the instrument and mapping versions consumed. Delta and fill ingest are not supported.
-
-`/api/v1/portfolios*` is a one-release alias over books with the former request and response
-shapes. Position edits read the current version and commit with it as the expected version
-(a caller `If-Match` replaces it), so a concurrent writer gets 409. `DELETE` retires a book by
-closing its effective interval; a retired id is treated as absent and can be created again.
-The alias list reads one repository page (1,000 books) and refuses with 503 beyond that; use
-`/api/v1/books` for larger estates. Alias positions are not checked against the instrument
-master, as before; `/api/v1/books` checks every row.
 
 `POST /api/v1/portfolio/analytics` also accepts `{"book_id": "...", "version": n}` instead of
 inline positions. It requires a complete runtime result for every position, `Valid`, or `Demo`
@@ -843,9 +834,7 @@ reads only that book's records. With 1,000,000 entries in the store (64 books, a
 15,600 records each), a page of 100 from the middle of one book's records took 0.16 ms and
 a page of 1,000 took 1.78 ms; `query` with the same filter, which reads every entry,
 took 1.17 and 1.25 s. Through the route, under local development, the
-pages took 0.74 and 5.5 ms (`ci` profile, WSL2). The first open of a
-store written before the index indexes every entry once, 65,536 a transaction: 5.0 s for a
-full store, in 16 transactions. Later opens find nothing to index.
+pages took 0.74 and 5.5 ms (`ci` profile, WSL2).
 
 Reading by limit costs what the route reads, not what it returns. The route reads the
 store 1,000 records at a time. Measured on one book of 1,000,000 records, 64 limits in
@@ -983,7 +972,7 @@ including one reached through an identifier (D91; see [access](ACCESS.md)).
 
 ## Reference schema and Rust migration
 
-The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. A complete earlier three-table repository adds the master tables atomically while retaining exact prior content and receipts. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
+The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty unversioned `bonds` table fails startup.
 
 Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). Default router helpers deny protected access. Supply `create_router_with_access` with the verified boundary; the access guide describes embedding migration.
 

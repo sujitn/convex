@@ -81,7 +81,8 @@ pub struct AppState {
     pub engine: Arc<PricingEngine>,
     /// WebSocket state for real-time streaming
     pub ws_state: WebSocketState,
-    /// Serializes limit set writes, so the D87 bound is counted and committed as one step.
+    /// Serializes limit set writes, so the bound on books holding a limit set is counted
+    /// and committed as one step.
     pub(crate) limit_writes: Arc<tokio::sync::Mutex<()>>,
 }
 
@@ -129,7 +130,7 @@ pub async fn runtime_health(
 ) -> Json<convex_engine::RuntimeHealth> {
     Json(state.engine.runtime_health())
 }
-/// Results a page of `GET /api/v1/runtime/results` holds unless the reader asks (D103).
+/// Results a page of `GET /api/v1/runtime/results` holds unless the reader asks.
 const DEFAULT_RESULTS_PAGE: usize = 256;
 /// The most results one page holds; a page is about 3.7 KiB a result.
 const MAX_RESULTS_PAGE: usize = 1024;
@@ -233,7 +234,7 @@ pub struct BondQuoteQuery {
     /// Market price for spread calculations.
     pub market_price: Option<Decimal>,
     /// A level in the unit of the bond's pricing rule: a decimal yield, or basis points
-    /// of spread (P19a). Exclusive with `market_price`.
+    /// of spread. Exclusive with `market_price`.
     pub level: Option<Decimal>,
     /// Information cutoff for reference and curve revisions. Defaults to now.
     pub known_at: Option<convex_core::contracts::UtcTimestamp>,
@@ -241,14 +242,14 @@ pub struct BondQuoteQuery {
     pub configuration: Option<convex_core::contracts::SourceId>,
 }
 
-/// Callables and floating rate notes are valued by the runtime at request time (D57);
+/// Callables and floating rate notes are valued by the runtime at request time;
 /// bullets and zeros by the router.
 fn runtime_product(bond: &BondReferenceData) -> bool {
     convex_engine::optional_valuation::product_model(bond)
         != convex_engine::snapshot::BOND_SNAPSHOT_MODEL
 }
 
-/// A server with no runtime refuses callables and floating rate notes (D65).
+/// A server with no runtime refuses callables and floating rate notes.
 fn runtime_composed(engine: &PricingEngine) -> Result<(), crate::error::ApiError> {
     if engine.values_requests() {
         Ok(())
@@ -324,8 +325,8 @@ async fn optional_context(
     }
 }
 
-/// Value a stored callable or floating rate note at request time (D57) and read it as
-/// the bullets' quote (D63). `snapshot` names the unpublished snapshot it read and the
+/// Value a stored callable or floating rate note at request time and read it as
+/// the bullets' quote. `snapshot` names the unpublished snapshot it read and the
 /// curve pins it consumed, which are also returned.
 async fn value_stored(
     engine: &PricingEngine,
@@ -544,7 +545,7 @@ pub struct SingleBondPricingRequest {
     pub swap_curve: Option<BondCurveInput>,
     /// Actual government benchmark yields.
     pub government_curve: Option<GovernmentCurveInput>,
-    /// Explicit model volatility; optional products currently require CVX-055.
+    /// Explicit model volatility. Not yet supported: a request that sets it is refused.
     pub volatility: Option<Decimal>,
 }
 
@@ -701,7 +702,7 @@ async fn price_one_bond(
         Err(error) => return error.into_response(),
     };
     // Callables and floating rate notes price through the runtime, except in what-if
-    // mode (D45).
+    // mode.
     let runtime = !supplied && runtime_product(&request.bond);
     if runtime {
         if let Err(error) = runtime_composed(&state.engine) {
@@ -839,7 +840,7 @@ pub struct BondPricingItem {
 #[derive(Debug, Serialize)]
 pub struct BatchPricingResponse {
     /// Successful quotes, in request order. Callables and floating rate notes also
-    /// carry their unpublished `snapshot` (D63).
+    /// carry their unpublished `snapshot`.
     pub quotes: Vec<serde_json::Value>,
     /// Errors
     pub errors: Vec<PricingError>,
@@ -874,7 +875,7 @@ pub struct BatchStats {
 }
 
 /// Batch pricing handler. One valuation context prices every bond. Each product path
-/// reads its curves at first use, once per batch (D69), and a bond the context cannot
+/// reads its curves at first use, once per batch, and a bond the context cannot
 /// price, for a curve it reads or otherwise, fails on its own.
 pub async fn batch_price(
     State(state): State<Arc<AppState>>,
@@ -973,7 +974,7 @@ pub async fn batch_price(
         }));
     }
     // Callables and floating rate notes one at a time, each on one interactive slot, so
-    // a batch never takes every slot (D64).
+    // a batch never takes every slot.
     for (index, item) in valued {
         outcomes[index] = Some(
             runtime_item(
@@ -1043,8 +1044,8 @@ pub async fn batch_price(
     }
 }
 
-/// One batch callable or floating rate note, valued at request time (D57) on stored
-/// terms (D62) under the batch's context.
+/// One batch callable or floating rate note, valued at request time on stored
+/// terms under the batch's context.
 async fn runtime_item(
     engine: &PricingEngine,
     context: Option<&mut convex_engine::RequestContext>,

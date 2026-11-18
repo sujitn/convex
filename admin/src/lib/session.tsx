@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { call, type CallOptions, type Reply } from './api'
 
 // The pasted bearer token lives in this component's state only: never in storage,
-// the URL or a cookie, so closing or reloading the tab forgets it (D38).
+// the URL or a cookie, so closing or reloading the tab forgets it.
 
 interface Session {
   token: string | null

@@ -3,7 +3,6 @@
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
-// Module declarations - will be populated as we migrate
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
 

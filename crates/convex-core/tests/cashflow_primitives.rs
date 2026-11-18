@@ -1,4 +1,4 @@
-//! CVX-054 AC1–AC3: exact supplied contracts and bounded analytic controls.
+//! Exact supplied contracts and bounded analytic controls.
 
 use convex_core::{
     calendars::{
