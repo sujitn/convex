@@ -86,6 +86,12 @@ impl PricingMethod {
         }
     }
 
+    /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
+    /// takes only a plain fixed bullet.
+    pub fn requires_plain_bullet(&self, names_benchmark_set: bool) -> bool {
+        self.is_level() || names_benchmark_set
+    }
+
     /// Whether pricing a level this way reads the configuration's discount curve.
     pub fn reads_discount_curve(&self) -> bool {
         matches!(self, Self::ZSpread {})
@@ -129,7 +135,8 @@ impl PricingRuleDefinition {
     /// Whether the rule quotes a level or names a benchmark set, either of which only a
     /// plain fixed bullet takes.
     pub fn requires_plain_bullet(&self) -> bool {
-        self.method.is_level() || self.benchmark_set_id.is_some()
+        self.method
+            .requires_plain_bullet(self.benchmark_set_id.is_some())
     }
 
     /// Validate the rule on its own: a benchmark spread names its set and a well-formed
@@ -179,24 +186,30 @@ impl BenchmarkSetDefinition {
                 "a benchmark set is in USD: P19 quotes against Treasuries",
             ));
         }
-        if self.securities.is_empty() {
-            return Err(invalid("a benchmark set holds at least one security"));
-        }
-        if self.securities.len() > MAX_BENCHMARK_SECURITIES {
-            return Err(ReferenceError::CapacityExceeded);
-        }
-        let mut tenors = BTreeSet::new();
-        let mut instruments = BTreeSet::new();
-        for security in &self.securities {
-            if !tenors.insert(tenor_months(&security.tenor)?) {
-                return Err(invalid("duplicate benchmark tenor"));
-            }
-            if !instruments.insert(security.instrument_id.as_str()) {
-                return Err(invalid("duplicate benchmark security"));
-            }
-        }
-        Ok(())
+        validate_securities(&self.securities)
     }
+}
+
+/// A set's securities: 1 to [`MAX_BENCHMARK_SECURITIES`], with unique tenors (`12M` and
+/// `1Y` are one) and instruments.
+fn validate_securities(securities: &[BenchmarkSecurity]) -> Result<(), ReferenceError> {
+    if securities.is_empty() {
+        return Err(invalid("a benchmark set holds at least one security"));
+    }
+    if securities.len() > MAX_BENCHMARK_SECURITIES {
+        return Err(ReferenceError::CapacityExceeded);
+    }
+    let mut tenors = BTreeSet::new();
+    let mut instruments = BTreeSet::new();
+    for security in securities {
+        if !tenors.insert(tenor_months(&security.tenor)?) {
+            return Err(invalid("duplicate benchmark tenor"));
+        }
+        if !instruments.insert(security.instrument_id.as_str()) {
+            return Err(invalid("duplicate benchmark security"));
+        }
+    }
+    Ok(())
 }
 
 /// A bond's pricing rule in force at the cutoff a valuation resolved it at: what pricing
@@ -218,9 +231,10 @@ pub struct ResolvedPricingRule {
     pub benchmark_set_id: Option<ReferenceDataId>,
 }
 
-impl ResolvedPricingRule {
+impl TryFrom<&MasterRecord> for ResolvedPricingRule {
+    type Error = ReferenceError;
     /// What pricing reads of a stored rule record.
-    pub fn of(record: &MasterRecord) -> Result<Self, ReferenceError> {
+    fn try_from(record: &MasterRecord) -> Result<Self, Self::Error> {
         let MasterDefinition::PricingRule(rule) = &record.definition else {
             return Err(invalid("a resolved pricing rule is a pricing rule"));
         };
@@ -231,7 +245,9 @@ impl ResolvedPricingRule {
             benchmark_set_id: rule.benchmark_set_id.clone(),
         })
     }
+}
 
+impl ResolvedPricingRule {
     /// Check the rule on its own and against `known_at`, the cutoff it was resolved by.
     pub fn validate(&self, known_at: UtcTimestamp) -> Result<(), ReferenceError> {
         self.method.validate(self.benchmark_set_id.as_ref())?;
@@ -242,11 +258,48 @@ impl ResolvedPricingRule {
     }
 }
 
-/// The set a benchmark set record holds; `None` for a record of another kind.
-pub fn benchmark_set_of(record: &MasterRecord) -> Option<&BenchmarkSetDefinition> {
-    match &record.definition {
-        MasterDefinition::BenchmarkSet(set) => Some(set),
-        _ => None,
+/// A benchmark set in force at the cutoff a valuation resolved it at: what pricing reads of
+/// it, pinned by its version. A snapshot holds each set its rules name once; a Live
+/// activation pins it with the references. Its currency was checked when it was committed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResolvedBenchmarkSet {
+    /// The set's identity.
+    pub benchmark_set_id: ReferenceDataId,
+    /// Its version in force.
+    pub version: Version,
+    /// When that version was recorded.
+    pub recorded_at: UtcTimestamp,
+    /// Its securities, in the set's order.
+    pub securities: Vec<BenchmarkSecurity>,
+}
+
+impl TryFrom<&MasterRecord> for ResolvedBenchmarkSet {
+    type Error = ReferenceError;
+    /// What pricing reads of a stored set record.
+    fn try_from(record: &MasterRecord) -> Result<Self, Self::Error> {
+        let MasterDefinition::BenchmarkSet(set) = &record.definition else {
+            return Err(invalid("a resolved benchmark set is a benchmark set"));
+        };
+        Ok(Self {
+            benchmark_set_id: set.benchmark_set_id.clone(),
+            version: record.version,
+            recorded_at: record.recorded_at,
+            securities: set.securities.clone(),
+        })
+    }
+}
+
+impl ResolvedBenchmarkSet {
+    /// Check the set on its own and against `known_at`, the cutoff it was resolved by.
+    pub fn validate(&self, known_at: UtcTimestamp) -> Result<(), ReferenceError> {
+        validate_securities(&self.securities)?;
+        if self.recorded_at > known_at {
+            return Err(invalid(
+                "a resolved benchmark set is recorded by the cutoff",
+            ));
+        }
+        Ok(())
     }
 }
 

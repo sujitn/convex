@@ -454,3 +454,45 @@ fn a_derived_snapshot_under_another_schema_is_identified_as_new_identifies_it() 
     }
     assert!(accepted > 0, "some earlier schema admits this content");
 }
+
+/// Benchmark set `id`, recorded `recorded_ms` after the start.
+fn benchmark_set(id: &str, recorded_ms: i64) -> convex_ports::level_pricing::ResolvedBenchmarkSet {
+    convex_ports::level_pricing::ResolvedBenchmarkSet {
+        benchmark_set_id: ReferenceDataId::new(id).unwrap(),
+        version: fixture::version(1),
+        recorded_at: at(start_ms() + recorded_ms, 0),
+        securities: serde_json::from_value(serde_json::json!(
+            [{"tenor": "10Y", "instrument_id": "BOND-002", "version": 1}]
+        ))
+        .unwrap(),
+    }
+}
+
+/// A tick shares its benchmark sets with the last snapshot, and `next` checks them only
+/// when it does not: other sets are checked as `new` checks them, so a set recorded after
+/// the tick's cutoff is refused, and valid ones give `new`'s snapshot.
+#[test]
+fn next_checks_benchmark_sets_it_does_not_share() {
+    let mut first = content();
+    first.as_of = at(start_ms() + 2_000, 0);
+    first.known_at = first.as_of;
+    first.benchmark_sets = vec![benchmark_set("UST-OTR", -60_000)].into();
+    let first = MarketSnapshot::new(first).unwrap();
+    let tick = |sets: std::sync::Arc<[_]>| {
+        let mut content = first.content().clone();
+        content.generation = fixture::version(2);
+        content.benchmark_sets = sets;
+        content
+    };
+    let shared = tick(first.content().benchmark_sets.clone());
+    assert_eq!(
+        outcome(&first.next(shared.clone())),
+        outcome(&MarketSnapshot::new(shared))
+    );
+    let later = tick(vec![benchmark_set("UST-OTR", 60_000)].into());
+    assert!(first.next(later.clone()).is_err());
+    assert!(MarketSnapshot::new(later).is_err());
+    let other = tick(vec![benchmark_set("UST-ALL", -60_000)].into());
+    let derived = first.next(other.clone()).unwrap();
+    assert_eq!(derived.id(), MarketSnapshot::new(other).unwrap().id());
+}

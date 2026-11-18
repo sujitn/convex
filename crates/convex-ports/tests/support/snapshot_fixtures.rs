@@ -169,7 +169,7 @@ pub fn content() -> SnapshotContent {
         curve_recipes: vec![],
         calibration: None,
         max_source_skew_ms: 1000,
-        benchmark_sets: vec![],
+        benchmark_sets: Default::default(),
     }
 }
 pub fn snapshot() -> MarketSnapshot {

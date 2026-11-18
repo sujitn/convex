@@ -399,24 +399,27 @@ async fn a_live_universe_compiles_up_to_4096_instruments_and_a_replay_one_up_to_
     ));
 }
 
+/// A Treasury: the seed's bond under `id` with a sovereign issuer, its own maturity and a
+/// CUSIP.
+fn treasury(id: &str, maturity: &str, cusip: &str) -> Value {
+    let mut bond = seed()["references"][0]["command"]["changes"][0]["bond"].clone();
+    bond["instrument_id"] = id.into();
+    bond["issuer_type"] = "Sovereign".into();
+    bond["maturity_date"] = maturity.into();
+    bond["cusip"] = cusip.into();
+    bond["isin"] = Value::Null;
+    bond
+}
+
 /// Store the 2- and 10-year Treasuries (the seed's bond with a sovereign issuer), a
 /// `UST-OTR` set of both, and a rule quoting the seed's bond `method` against it.
 async fn level_desk(storage: &StorageAdapter, instrument: &str, method: Value) {
-    let seed = seed();
     let notes: Vec<Value> = [
         ("UST-2Y", "2028-01-15", "91282CAA9"),
         ("UST-10Y", "2035-01-15", "91282CBB6"),
     ]
     .into_iter()
-    .map(|(id, maturity, cusip)| {
-        let mut bond = seed["references"][0]["command"]["changes"][0]["bond"].clone();
-        bond["instrument_id"] = id.into();
-        bond["issuer_type"] = "Sovereign".into();
-        bond["maturity_date"] = maturity.into();
-        bond["cusip"] = cusip.into();
-        bond["isin"] = Value::Null;
-        json!({"kind": "create", "bond": bond})
-    })
+    .map(|(id, maturity, cusip)| json!({"kind": "create", "bond": treasury(id, maturity, cusip)}))
     .collect();
     let effective = json!({"from": "2026-01-01T00:00:00Z", "until": null});
     let provenance = json!({"source": "desk", "evidence_reference": "compile-test"});
@@ -582,12 +585,7 @@ async fn a_level_quoted_universe_is_refused_when_its_benchmarks_cannot_be_priced
     ));
 
     // A book holds the 10-year at a later version than the set pins.
-    let mut reopened = seed()["references"][0]["command"]["changes"][0]["bond"].clone();
-    reopened["instrument_id"] = "UST-10Y".into();
-    reopened["issuer_type"] = "Sovereign".into();
-    reopened["maturity_date"] = "2035-01-15".into();
-    reopened["cusip"] = "91282CBB6".into();
-    reopened["isin"] = Value::Null;
+    let mut reopened = treasury("UST-10Y", "2035-01-15", "91282CBB6");
     reopened["description"] = "reopened".into();
     let command: ReferenceCommand = serde_json::from_value(json!({
         "idempotency_key": "reopen-10y",

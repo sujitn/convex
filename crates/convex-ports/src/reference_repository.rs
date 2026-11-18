@@ -15,7 +15,7 @@ use convex_core::ids::InstrumentId;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::level_pricing::ResolvedPricingRule;
+use crate::level_pricing::{ResolvedBenchmarkSet, ResolvedPricingRule};
 use crate::reference_data::BondReferenceData;
 use crate::reference_master::*;
 use crate::storage::{BondFilter, Page, Pagination};
@@ -376,7 +376,19 @@ pub trait ReferenceRepository: Send + Sync {
             .map_err(|_| ReferenceError::InvalidInput("invalid instrument identity"))?;
         self.get_master_at(&MasterKey::PricingRule(instrument), lookup)
             .await?
-            .map(|record| ResolvedPricingRule::of(&record))
+            .map(|record| ResolvedPricingRule::try_from(&record))
+            .transpose()
+    }
+
+    /// The benchmark set `id` in force at `lookup`; none when it is not in force.
+    async fn benchmark_set_for_valuation(
+        &self,
+        id: &convex_core::contracts::ReferenceDataId,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<ResolvedBenchmarkSet>, ReferenceError> {
+        self.get_master_at(&MasterKey::BenchmarkSet(id.clone()), lookup)
+            .await?
+            .map(|record| ResolvedBenchmarkSet::try_from(&record))
             .transpose()
     }
 }

@@ -117,7 +117,7 @@ observations, helpers or segments**. A Live runtime's snapshots, which are never
 stored, hold up to 4,096 instruments and selected quote keys, and their identity hashes
 up to 128 MiB (`SnapshotBounds::Live`, D101, D109): 4,096 instruments with every text at
 its validator's bound, each with a pricing rule, and 64 benchmark sets of 32 securities
-write 126.8 MiB with a small frame. A frame at its own bounds (64 curves, 256 overrides,
+write 126.7 MiB with a small frame. A frame at its own bounds (64 curves, 256 overrides,
 1,024 fixings) is not counted; past the bound, every tick fails with
 `CapacityExceeded`. A snapshot holds each benchmark set its references' rules name once,
 at most 64, and each reference a compact pin of its rule (version, recording time,

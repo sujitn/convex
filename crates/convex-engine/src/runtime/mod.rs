@@ -130,7 +130,7 @@ impl RuntimePlan {
         let mut measures = std::collections::BTreeSet::new();
         for measure in &self.measures {
             if !measures.insert(measure)
-                || !(crate::snapshot::is_runtime_measure(measure.as_str())
+                || !(measure.as_str() == crate::snapshot::G_SPREAD_MEASURE
                     || crate::optional_valuation::PRODUCT_MODELS
                         .iter()
                         .any(|model| {

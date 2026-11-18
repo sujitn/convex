@@ -271,8 +271,8 @@ fn bytes<T: serde::Serialize + ?Sized>(value: &T) -> usize {
 /// pricing rule, 64 benchmark sets of 32 securities, and each quote with every field and
 /// an event at every bound, written twice. Some of these values no bond could hold
 /// together (a day count of 1,024 bytes, a note with a cap), so this is above the largest
-/// content validation admits: 132,930,842 bytes with the fixture's frame, 126.8 MiB. It
-/// fits the Live bound, with 1.2 MiB left for a larger frame, and would not fit a stored
+/// content validation admits: 132,875,866 bytes with the fixture's frame, 126.7 MiB. It
+/// fits the Live bound, with 1.3 MiB left for a larger frame, and would not fit a stored
 /// snapshot's.
 #[test]
 fn the_largest_admitted_instruments_fit_the_live_identity_bound() {
@@ -316,13 +316,13 @@ fn largest_rule() -> convex_ports::level_pricing::ResolvedPricingRule {
     }
 }
 
-/// Benchmark set `n` at its bounds: 32 securities, each id and text at its bound.
-fn largest_set(n: usize) -> MasterRecord {
-    use convex_ports::level_pricing::{BenchmarkSecurity, BenchmarkSetDefinition};
-    let at = fixture::time("2025-01-01T00:00:00Z");
-    let set = BenchmarkSetDefinition {
+/// Benchmark set `n` at its bounds: 32 securities, each id at its bound.
+fn largest_set(n: usize) -> convex_ports::level_pricing::ResolvedBenchmarkSet {
+    use convex_ports::level_pricing::{BenchmarkSecurity, ResolvedBenchmarkSet};
+    ResolvedBenchmarkSet {
         benchmark_set_id: ReferenceDataId::new(id('b', n)).unwrap(),
-        currency: convex_core::Currency::USD,
+        version: Version::new(u64::MAX).unwrap(),
+        recorded_at: fixture::time("2025-01-01T00:00:00Z"),
         securities: (0..convex_ports::level_pricing::MAX_BENCHMARK_SECURITIES)
             .map(|security| BenchmarkSecurity {
                 tenor: format!("{}M", 500 + security),
@@ -330,17 +330,6 @@ fn largest_set(n: usize) -> MasterRecord {
                 version: Version::new(u64::MAX).unwrap(),
             })
             .collect(),
-        effective: EffectiveInterval {
-            from: at,
-            until: Some(at),
-        },
-        provenance: provenance(),
-    };
-    MasterRecord {
-        schema_version: SchemaVersion::V2,
-        version: Version::new(u64::MAX).unwrap(),
-        recorded_at: at,
-        definition: MasterDefinition::BenchmarkSet(Box::new(set)),
     }
 }
 

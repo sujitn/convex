@@ -766,22 +766,15 @@ fn changed_quotes_names_the_unshared_entries_only_while_nothing_else_differs() {
     }
 }
 
-/// A benchmark set record `id`, recorded at `recorded_at`.
-fn benchmark_set(id: &str, recorded_at: &str) -> convex_ports::reference_master::MasterRecord {
-    let set = serde_json::from_value(serde_json::json!({
+/// Benchmark set `id`, recorded at `recorded_at`.
+fn benchmark_set(id: &str, recorded_at: &str) -> convex_ports::level_pricing::ResolvedBenchmarkSet {
+    serde_json::from_value(serde_json::json!({
         "benchmark_set_id": id,
-        "currency": "USD",
+        "version": 1,
+        "recorded_at": recorded_at,
         "securities": [{"tenor": "10Y", "instrument_id": "UST-10Y", "version": 1}],
-        "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
-        "provenance": {"source": "desk", "evidence_reference": "fixture"},
     }))
-    .unwrap();
-    convex_ports::reference_master::MasterRecord {
-        schema_version: SchemaVersion::V2,
-        version: fixture::version(1),
-        recorded_at: fixture::time(recorded_at),
-        definition: convex_ports::reference_master::MasterDefinition::BenchmarkSet(Box::new(set)),
-    }
+    .unwrap()
 }
 
 /// A snapshot holds each benchmark set once, in id order, each a set recorded by its
@@ -790,19 +783,19 @@ fn benchmark_set(id: &str, recorded_at: &str) -> convex_ports::reference_master:
 fn a_snapshot_holds_each_benchmark_set_once_in_order() {
     let at = "2025-01-01T00:00:00Z";
     let mut content = fixture::content();
-    content.benchmark_sets = vec![benchmark_set("UST-OTR", at), benchmark_set("UST-ALL", at)];
+    content.benchmark_sets =
+        vec![benchmark_set("UST-OTR", at), benchmark_set("UST-ALL", at)].into();
     let snapshot = MarketSnapshot::new(content.clone()).unwrap();
     let ids: Vec<_> = snapshot
         .content()
         .benchmark_sets
         .iter()
-        .filter_map(convex_ports::level_pricing::benchmark_set_of)
         .map(|set| set.benchmark_set_id.as_str())
         .collect();
     assert_eq!(ids, ["UST-ALL", "UST-OTR"]);
     let id = ReferenceDataId::new("UST-OTR").unwrap();
     assert_eq!(
-        snapshot.benchmark_set(&id).map(|record| record.version),
+        snapshot.benchmark_set(&id).map(|set| set.version),
         Some(fixture::version(1))
     );
     let bytes = snapshot.canonical_bytes().unwrap();
@@ -818,7 +811,7 @@ fn a_snapshot_holds_each_benchmark_set_once_in_order() {
 
     let refused = |sets: Vec<_>| {
         let mut content = content.clone();
-        content.benchmark_sets = sets;
+        content.benchmark_sets = sets.into();
         MarketSnapshot::new(content).unwrap_err()
     };
     assert!(matches!(
@@ -828,10 +821,10 @@ fn a_snapshot_holds_each_benchmark_set_once_in_order() {
         ]),
         convex_ports::TraitError::InvalidInput(_)
     ));
-    let mut calendar = benchmark_set("UST-OTR", at);
-    calendar.definition = content.references[0].calendar.definition.clone();
+    let mut empty = benchmark_set("UST-OTR", at);
+    empty.securities.clear();
     assert!(matches!(
-        refused(vec![calendar]),
+        refused(vec![empty]),
         convex_ports::TraitError::InvalidInput(_)
     ));
     assert!(matches!(

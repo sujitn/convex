@@ -1220,8 +1220,8 @@ fn live_engine(
         .unwrap()
 }
 
-/// A stored instrument: the fixture bond under `id`, committed at `at`.
-async fn store_bond(setup: &runtime::Setup, id: &str, at: UtcTimestamp) {
+/// A Treasury under `id`, the fixture bond with a sovereign issuer, committed at `at`.
+async fn store_treasury(setup: &runtime::Setup, id: &str, at: UtcTimestamp) {
     let mut bond = fixture::snapshot::bond();
     bond.instrument_id = convex_core::ids::InstrumentId::new(id);
     bond.issuer_type = convex_ports::reference_data::IssuerType::Sovereign;
@@ -1324,7 +1324,7 @@ async fn a_live_runtime_reads_a_new_rule_at_its_next_activation_and_a_new_benchm
     assert!(reads_rule(&applied));
 
     // An on-the-run roll to a Treasury the runtime does not value.
-    store_bond(&setup, "UST-10Y-NEW", now).await;
+    store_treasury(&setup, "UST-10Y-NEW", now).await;
     let mut rolled = second.clone();
     rolled.document.pricing.version = 3;
     rolled.document.assembly.configuration.version = fixture::snapshot::version(3);

@@ -92,7 +92,7 @@ struct Frame {
 }
 
 /// Read frames until one satisfies `done`. Any error frame fails the case.
-async fn until(socket: &mut Socket, done: impl Fn(&Frame) -> bool) {
+async fn until(socket: &mut Socket, mut done: impl FnMut(&Frame) -> bool) {
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let message = socket
@@ -144,12 +144,12 @@ async fn accepted(response: reqwest::Response) {
 /// Read frames until the session holds `count` valuation frames of the tick that admitted
 /// generation `expected` or a later one.
 async fn valuations(socket: &mut Socket, expected: u64, count: usize) {
-    let held = std::cell::Cell::new(0);
+    let mut held = 0;
     until(socket, |f| {
         if f.kind == "valuation" && f.generation.is_some_and(|g| g >= expected) {
-            held.set(held.get() + 1);
+            held += 1;
         }
-        held.get() == count
+        held == count
     })
     .await
 }
@@ -161,8 +161,6 @@ struct Live {
     /// The Treasuries of the benchmark tick cases, quoted by price; every other key is then
     /// quoted by a spread.
     treasuries: Vec<QuoteKey>,
-    /// The bonds quoted over the benchmark, in the benchmark tick cases.
-    dependents: usize,
     sequence: u64,
     /// The last generation the runtime admitted: one per posted quote.
     generation: u64,
@@ -194,18 +192,12 @@ impl Live {
         treasuries: Vec<QuoteKey>,
     ) -> Self {
         let width = keys.len();
-        let dependents = if treasuries.is_empty() {
-            0
-        } else {
-            width - treasuries.len()
-        };
         let server = Running::start(config).await;
         let generation = server.runtime().await["generation"].as_u64().unwrap();
         let mut live = Self {
             server,
             keys,
             treasuries,
-            dependents,
             sequence: 0,
             generation,
             pacer: Pacer {
@@ -258,7 +250,7 @@ impl Live {
     /// The next quote on `key`: a price, or a spread for a bond quoted over the benchmark.
     fn quote(&self, key: QuoteKey) -> QuoteEvent {
         let mut event = image(self.sequence, "99.25");
-        if self.dependents > 0 && !self.treasuries.contains(&key) {
+        if !self.treasuries.is_empty() && !self.treasuries.contains(&key) {
             let QuoteEventKind::Image { fields } = &mut event.event else {
                 unreachable!("an image")
             };
@@ -285,7 +277,8 @@ impl Live {
             .expect("a benchmark case");
         let quote = self.quote(benchmark);
         let expected = self.generation + 1;
-        let frames = self.dependents + 1;
+        // Every bond quoted over it, and the benchmark itself.
+        let frames = self.keys.len() - self.treasuries.len() + 1;
         let started = Instant::now();
         let server = &self.server;
         let (response, elapsed) = tokio::join!(server.post_quotes(vec![quote]), async {

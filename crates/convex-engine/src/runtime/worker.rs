@@ -41,19 +41,13 @@ pub(super) fn context(
     // Each instrument requests only the plan measures its own model publishes, and a
     // G-spread only when it is priced against a benchmark set it matures within.
     let model = product_model(bond);
-    let is_g_spread_published = || {
-        reference
-            .pricing_rule
-            .as_ref()
-            .is_some_and(|rule| crate::level_pricing::is_g_spread_published(snapshot, bond, rule))
-    };
     let measures: Vec<_> = plan
         .measures
         .iter()
         .filter(|measure| {
             product_measures(model).contains(&measure.as_str())
                 || (measure.as_str() == crate::snapshot::G_SPREAD_MEASURE
-                    && is_g_spread_published())
+                    && crate::level_pricing::is_g_spread_published(snapshot, reference))
         })
         .cloned()
         .collect();
@@ -195,7 +189,9 @@ impl Reads {
                 let curves = crate::snapshot::read_curve_ids(
                     spec.model_id.as_str(),
                     &spec.measures,
-                    crate::snapshot::pricing_method(snapshot, pin.instrument_id.as_str()),
+                    snapshot
+                        .pricing_rule(pin.instrument_id.as_str())
+                        .map(|rule| &rule.method),
                     configured,
                 );
                 Ok(curves.into_iter().map(str::to_owned).collect())
@@ -225,13 +221,10 @@ impl Reads {
     /// the plan does not pin has none: the dependent's valuation refuses it by tenor.
     fn index_dependents(&mut self, pins: &[InstrumentPin], snapshot: &MarketSnapshot) {
         for (dependent, pin) in pins.iter().enumerate() {
-            let Some(rule) = snapshot
-                .reference(pin.instrument_id.as_str())
-                .and_then(|reference| reference.pricing_rule.as_ref())
-            else {
+            let Some(rule) = snapshot.pricing_rule(pin.instrument_id.as_str()) else {
                 continue;
             };
-            for security in snapshot.benchmark_securities(rule) {
+            for security in snapshot.benchmark_securities(rule).unwrap_or_default() {
                 if let Some(benchmark) = self.pin(pins, security.instrument_id.as_str()) {
                     self.dependents[benchmark].push(dependent);
                 }
@@ -1053,23 +1046,14 @@ mod tests {
     }
 
     /// The `UST-OTR` set, holding `benchmark` at version 1 as its 2-year.
-    fn set_of(benchmark: &str) -> convex_ports::reference_master::MasterRecord {
-        let set = serde_json::from_value(serde_json::json!({
+    fn set_of(benchmark: &str) -> convex_ports::level_pricing::ResolvedBenchmarkSet {
+        serde_json::from_value(serde_json::json!({
             "benchmark_set_id": "UST-OTR",
-            "currency": "USD",
+            "version": 1,
+            "recorded_at": "2025-01-01T00:00:00Z",
             "securities": [{"tenor": "2Y", "instrument_id": benchmark, "version": 1}],
-            "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
-            "provenance": {"source": "desk", "evidence_reference": "fixture"},
         }))
-        .unwrap();
-        convex_ports::reference_master::MasterRecord {
-            schema_version: SchemaVersion::V2,
-            version: fixture::version(1),
-            recorded_at: fixture::time("2025-01-01T00:00:00Z"),
-            definition: convex_ports::reference_master::MasterDefinition::BenchmarkSet(Box::new(
-                set,
-            )),
-        }
+        .unwrap()
     }
 
     /// A Live tick that judges only the pins whose quotes changed, their dependents and
@@ -1085,7 +1069,7 @@ mod tests {
         fixture::add_bond(&mut content, "BOND-003", 0);
         // BOND-001 is quoted as a spread over BOND-002.
         content.references.make_mut()[0].pricing_rule = Some(spread_rule());
-        content.benchmark_sets = vec![set_of("BOND-002")];
+        content.benchmark_sets = vec![set_of("BOND-002")].into();
         // BOND-001 reads the curve, 5 s old; each age limit is 10 s.
         let curve_time = fixture::time("2026-10-02T14:59:55Z");
         content.curves[0].source_time = curve_time;

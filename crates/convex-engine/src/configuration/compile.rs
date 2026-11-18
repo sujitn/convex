@@ -14,8 +14,7 @@ use convex_core::contracts::*;
 use convex_ports::{
     configuration::*,
     level_pricing::{
-        benchmark_set_of, BenchmarkSecurity, PricingMethod, ResolvedPricingRule,
-        MAX_SNAPSHOT_BENCHMARK_SETS,
+        PricingMethod, ResolvedBenchmarkSet, ResolvedPricingRule, MAX_SNAPSHOT_BENCHMARK_SETS,
     },
     quote_event::{QuoteField, QuoteKey},
     reference_master::{BookId, MasterDefinition, MasterKey, ReferenceLookup},
@@ -84,42 +83,39 @@ pub struct LevelQuoteSource {
 
 /// One instrument of a compiled universe, and the quote field its rule quotes it by, when
 /// that is a level.
-struct UniversePin {
+struct UniverseEntry {
     pin: InstrumentPin,
     level_field: Option<QuoteField>,
 }
 
-/// The securities of each benchmark set read for one compile, each set read once.
+/// The benchmark sets one compile has read, each read once.
 #[derive(Default)]
-struct BenchmarkSets(BTreeMap<ReferenceDataId, Vec<BenchmarkSecurity>>);
+struct BenchmarkSets(BTreeSet<ReferenceDataId>);
 
 impl BenchmarkSets {
-    /// The securities of set `id` in force at `lookup`. A set not in force is refused: a
-    /// bond quoted to it could not be priced.
-    async fn securities(
+    /// The set `id` in force at `lookup`, the first time it is named; none after. A set
+    /// not in force is refused: a bond quoted to it could not be priced.
+    async fn first_read(
         &mut self,
         references: &dyn ReferenceRepository,
         id: &ReferenceDataId,
         lookup: ReferenceLookup,
-    ) -> Result<&[BenchmarkSecurity], ConfigurationError> {
-        if !self.0.contains_key(id) {
-            if self.0.len() >= MAX_SNAPSHOT_BENCHMARK_SETS {
-                return Err(ConfigurationError::CapacityExceeded);
-            }
-            let record = references
-                .get_master_at(&MasterKey::BenchmarkSet(id.clone()), lookup)
-                .await
-                .map_err(reference_error)?;
-            let securities = record
-                .as_ref()
-                .and_then(benchmark_set_of)
-                .map(|set| set.securities.clone())
-                .ok_or(ConfigurationError::Invalid(
-                    "a pricing rule names a benchmark set not in force at the cutoff",
-                ))?;
-            self.0.insert(id.clone(), securities);
+    ) -> Result<Option<ResolvedBenchmarkSet>, ConfigurationError> {
+        if self.0.contains(id) {
+            return Ok(None);
         }
-        Ok(self.0.get(id).map_or(&[], Vec::as_slice))
+        if self.0.len() >= MAX_SNAPSHOT_BENCHMARK_SETS {
+            return Err(ConfigurationError::CapacityExceeded);
+        }
+        let set = references
+            .benchmark_set_for_valuation(id, lookup)
+            .await
+            .map_err(reference_error)?
+            .ok_or(ConfigurationError::Invalid(
+                "a pricing rule names a benchmark set not in force at the cutoff",
+            ))?;
+        self.0.insert(id.clone());
+        Ok(Some(set))
     }
 }
 
@@ -210,19 +206,21 @@ pub async fn assemble_from_repository(
             .pricing_rule_for_valuation(&key, lookup)
             .await
             .map_err(reference_error)?;
-        if let Some(set) = rule
+        if let Some(id) = rule
             .as_ref()
             .and_then(|rule| rule.benchmark_set_id.as_ref())
         {
-            for security in sets.securities(references, set, lookup).await? {
-                benchmarks
-                    .entry(security.instrument_id.as_str().to_owned())
-                    .or_insert_with(|| security.clone());
+            if let Some(set) = sets.first_read(references, id, lookup).await? {
+                for security in set.securities {
+                    benchmarks
+                        .entry(security.instrument_id.as_str().to_owned())
+                        .or_insert(security);
+                }
             }
         }
         pins.insert(
             instrument_id.as_str().to_owned(),
-            UniversePin {
+            UniverseEntry {
                 pin: InstrumentPin {
                     instrument_id,
                     version,
@@ -239,13 +237,13 @@ pub async fn assemble_from_repository(
         ));
     }
     for (id, security) in benchmarks {
-        let level_field = match pins.get(&id) {
+        let is_level_quoted = match pins.get(&id) {
             Some(held) if held.pin.version != security.version => {
                 return Err(ConfigurationError::Invalid(
                     "a benchmark set pins another version of a book instrument",
                 ))
             }
-            Some(held) => held.level_field,
+            Some(held) => held.level_field.is_some(),
             None => {
                 let key = security.instrument_id.clone().into();
                 let bond = references
@@ -266,20 +264,23 @@ pub async fn assemble_from_repository(
                     .pricing_rule_for_valuation(&key, lookup)
                     .await
                     .map_err(reference_error)?;
-                pins.insert(
-                    id,
-                    UniversePin {
-                        pin: InstrumentPin {
-                            instrument_id: security.instrument_id,
-                            version: security.version,
+                let is_level_quoted = level_field(rule.as_ref()).is_some();
+                if !is_level_quoted {
+                    pins.insert(
+                        id,
+                        UniverseEntry {
+                            pin: InstrumentPin {
+                                instrument_id: security.instrument_id,
+                                version: security.version,
+                            },
+                            level_field: None,
                         },
-                        level_field: None,
-                    },
-                );
-                level_field(rule.as_ref())
+                    );
+                }
+                is_level_quoted
             }
         };
-        if level_field.is_some() {
+        if is_level_quoted {
             return Err(ConfigurationError::Invalid(
                 "a benchmark security is quoted by price, not by a level",
             ));

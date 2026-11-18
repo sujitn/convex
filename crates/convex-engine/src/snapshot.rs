@@ -7,7 +7,7 @@ use convex_ports::{
     fixing::FixingRepository,
     level_pricing::{PricingMethod, MAX_SNAPSHOT_BENCHMARK_SETS},
     quote_event::{QuoteEvent, QuoteField, QuoteKey},
-    reference_master::{MasterKey, ReferenceLookup, ResolvedBondReference},
+    reference_master::{ReferenceLookup, ResolvedBondReference},
     reference_repository::ReferenceRepository,
     snapshot::*,
     storage::{ConfigStore, PricingSpec},
@@ -101,17 +101,6 @@ pub(crate) fn read_curve_ids<'c>(
         .map(|id| id.as_str())
         .collect()
 }
-/// The method `instrument_id`'s rule in `snapshot` quotes it by; none for a bond quoted by
-/// price.
-pub(crate) fn pricing_method<'a>(
-    snapshot: &'a MarketSnapshot,
-    instrument_id: &str,
-) -> Option<&'a PricingMethod> {
-    snapshot
-        .reference(instrument_id)
-        .and_then(|reference| reference.pricing_rule.as_ref())
-        .map(|rule| &rule.method)
-}
 /// The snapshot inputs one valuation context reads (D58).
 pub(crate) fn valuation_inputs<'a>(
     snapshot: &'a MarketSnapshot,
@@ -123,7 +112,9 @@ pub(crate) fn valuation_inputs<'a>(
     let curves = read_curve_ids(
         spec.model_id.as_str(),
         &spec.measures,
-        pricing_method(snapshot, instrument_id.as_str()),
+        snapshot
+            .pricing_rule(instrument_id.as_str())
+            .map(|rule| &rule.method),
         &snapshot.content().configuration.analytics_curves,
     );
     Ok(snapshot.inputs(instrument_id.as_str(), &curves))
@@ -350,18 +341,18 @@ impl SnapshotAssembler {
         let mut benchmark_sets = Vec::with_capacity(named.len());
         for id in named {
             // A set not in force is left out, and only the bonds quoted to it fail.
-            if let Some(record) = self
+            if let Some(set) = self
                 .references
-                .get_master_at(&MasterKey::BenchmarkSet(id), lookup)
+                .benchmark_set_for_valuation(&id, lookup)
                 .await
                 .map_err(reference_error)?
             {
-                benchmark_sets.push(record);
+                benchmark_sets.push(set);
             }
         }
         Ok(ResolvedReferences {
             references: SnapshotReferences::new(references),
-            benchmark_sets,
+            benchmark_sets: benchmark_sets.into(),
         })
     }
     /// Resolve the exact configuration and the pinned references `request` selects, at its
@@ -483,7 +474,7 @@ impl SnapshotAssembler {
 #[derive(Clone)]
 pub(crate) struct ResolvedReferences {
     references: SnapshotReferences,
-    benchmark_sets: Vec<convex_ports::reference_master::MasterRecord>,
+    benchmark_sets: Arc<[convex_ports::level_pricing::ResolvedBenchmarkSet]>,
 }
 
 /// Quote state ingested once per event in delivery order. Replay rebuilds it from a
@@ -1253,11 +1244,10 @@ impl SnapshotValuator {
             // Under a rule, the level stage turns the quote into the clean price the
             // router values, and gives the set's securities for a G-spread asked of it.
             let quoted = mark(quoted_field);
-            let staged = rule.zip(quoted).map(|(rule, quoted)| {
+            let staged = rule.zip(quoted).map(|(_, quoted)| {
                 crate::level_pricing::price_in_snapshot(
                     snapshot,
-                    bond,
-                    rule,
+                    reference,
                     quoted,
                     spec.settlement_date.date(),
                     discount.as_ref(),
@@ -1816,18 +1806,12 @@ pub(crate) fn consumed_versions(
             reference.record.instrument_id.as_str(),
             rule.version,
         )?;
-        if let Some(record) = rule
+        if let Some(set) = rule
             .benchmark_set_id
             .as_ref()
             .and_then(|id| snapshot.benchmark_set(id))
         {
-            let set = convex_ports::level_pricing::benchmark_set_of(record)
-                .ok_or(TraitError::InvalidInput("wrong benchmark set resource"))?;
-            push(
-                "benchmark_set",
-                set.benchmark_set_id.as_str(),
-                record.version,
-            )?;
+            push("benchmark_set", set.benchmark_set_id.as_str(), set.version)?;
         }
     }
     if let Some(capture) = &snapshot.content().configuration_capture {

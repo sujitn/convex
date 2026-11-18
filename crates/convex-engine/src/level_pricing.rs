@@ -37,11 +37,11 @@ use std::sync::Mutex;
 use crate::curve_builder::BuiltCurve;
 use crate::ports::{
     level_pricing::{
-        benchmark_set_of, is_plain_bullet, tenor_months, BenchmarkSecurity, PricingMethod,
-        PricingRuleDefinition, ResolvedPricingRule,
+        is_plain_bullet, tenor_months, BenchmarkSecurity, PricingMethod, PricingRuleDefinition,
     },
     quote_event::QuoteField,
     reference_data::BondReferenceData,
+    reference_master::ResolvedBondReference,
     runtime::PublishedValuation,
     snapshot::MarketSnapshot,
 };
@@ -231,8 +231,9 @@ pub struct RulePricing {
 }
 
 /// Each benchmark security's street yield, solved once for each settlement and clean
-/// price mid and shared by every bond quoted to it, in Live and at request time: a
-/// benchmark tick re-solves each of its securities once, however many bonds it reprices.
+/// price mid and shared by every bond quoted to it: a benchmark tick re-solves each of its
+/// securities once, however many bonds it reprices. The engine keeps one for request-time
+/// quotes, and each runtime's valuator one for its ticks.
 /// It holds at most 4,096 yields and starts again when full.
 #[derive(Debug, Default)]
 pub struct BenchmarkYieldCache {
@@ -332,34 +333,38 @@ pub fn price_under_rule(
     )
 }
 
-/// [`price_under_rule`] for `bond` in `snapshot`, under `rule`, the rule the snapshot pins
-/// for it: `quoted` is the bond's quote in the rule's field, a level or a price as the
-/// rule's method quotes it. Each benchmark security's clean price mid is its quote in the
-/// same snapshot, so every bond a Live tick values reads one price for each benchmark. A
-/// set the snapshot does not hold, or a security it does not hold at its pinned version
-/// or holds no mid price for, refuses by tenor.
+/// [`price_under_rule`] for the bond `reference` resolves in `snapshot`, under the rule the
+/// snapshot pins for it: `quoted` is the bond's quote in the rule's field, a level or a
+/// price as the rule's method quotes it. Each benchmark security's clean price mid is its
+/// quote in the same snapshot, so every bond a Live tick values reads one price for each
+/// benchmark. A set the snapshot does not hold is refused by its id; a security it does
+/// not hold at its pinned version, or holds no mid price for, by its tenor.
 pub fn price_in_snapshot(
     snapshot: &MarketSnapshot,
-    bond: &BondReferenceData,
-    rule: &ResolvedPricingRule,
+    reference: &ResolvedBondReference,
     quoted: Decimal,
     settlement: Date,
     discount: Option<&BuiltCurve>,
     yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
+    let bond = reference
+        .record
+        .bond
+        .as_ref()
+        .ok_or_else(|| refused("the bond's reference is a tombstone"))?;
+    let rule = reference
+        .pricing_rule
+        .as_ref()
+        .ok_or_else(|| refused("the bond has no pricing rule"))?;
     let benchmarks = match &rule.benchmark_set_id {
         None => None,
         Some(id) => {
-            let securities = snapshot
-                .benchmark_set(id)
-                .and_then(benchmark_set_of)
-                .map(|set| &set.securities)
-                .ok_or_else(|| {
-                    refused(format!(
-                        "benchmark set {} is not in force at the cutoff",
-                        id.as_str()
-                    ))
-                })?;
+            let securities = snapshot.benchmark_securities(rule).ok_or_else(|| {
+                refused(format!(
+                    "benchmark set {} is not in force at the cutoff",
+                    id.as_str()
+                ))
+            })?;
             Some(
                 securities
                     .iter()
@@ -446,7 +451,7 @@ fn price_with_rule(
     discount: Option<&BuiltCurve>,
     yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
-    if (method.is_level() || benchmarks.is_some()) && !is_plain_bullet(bond) {
+    if method.requires_plain_bullet(benchmarks.is_some()) && !is_plain_bullet(bond) {
         return Err(refused(
             "only a fixed bullet is priced from a level or against a benchmark set",
         ));
@@ -707,22 +712,25 @@ fn matures_within(maturity: Date, maturities: impl Iterator<Item = Date>) -> boo
     range.is_some_and(|(first, last)| first <= maturity && maturity <= last)
 }
 
-/// Whether a valuation of `bond` in `snapshot` under `rule` publishes a G-spread: the
-/// bond is a plain bullet, the snapshot holds the set the rule names and every security
-/// of it at its pinned version, and the bond matures within their maturities. Otherwise
+/// Whether a valuation of the bond `reference` resolves in `snapshot` publishes a
+/// G-spread: it is a plain bullet whose rule names a set the snapshot holds, with every
+/// security at its pinned version, and it matures within their maturities. Otherwise
 /// `g_spread_mid` is not asked of it, so its result stays complete.
-pub fn is_g_spread_published(
-    snapshot: &MarketSnapshot,
-    bond: &BondReferenceData,
-    rule: &ResolvedPricingRule,
-) -> bool {
-    if !is_plain_bullet(bond) {
+pub fn is_g_spread_published(snapshot: &MarketSnapshot, reference: &ResolvedBondReference) -> bool {
+    let (Some(bond), Some(rule)) = (&reference.record.bond, &reference.pricing_rule) else {
+        return false;
+    };
+    if !is_plain_bullet(bond) || rule.benchmark_set_id.is_none() {
         return false;
     }
-    let maturities: Option<Vec<Date>> = snapshot
-        .benchmark_securities(rule)
-        .iter()
-        .map(|security| held_benchmark(snapshot, security).map(|held| held.maturity_date))
-        .collect();
+    let maturities = snapshot.benchmark_securities(rule).and_then(|securities| {
+        securities
+            .iter()
+            .map(|security| held_benchmark(snapshot, security).map(|held| held.maturity_date))
+            .try_fold(Vec::new(), |mut maturities, maturity| {
+                maturities.push(maturity?);
+                Some(maturities)
+            })
+    });
     maturities.is_some_and(|maturities| matures_within(bond.maturity_date, maturities.into_iter()))
 }
