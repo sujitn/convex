@@ -3074,17 +3074,38 @@ async fn a_retired_book_takes_no_approval_or_acknowledgement() {
     )
     .await;
     assert_eq!(code, StatusCode::ACCEPTED, "{proposal}");
-    let (code, _, body) = call(
+    // A risk manager may not retire the book; its writer may.
+    for (token, expected) in [
+        (RISK_A, StatusCode::FORBIDDEN),
+        (HUMAN_TOKEN, StatusCode::NO_CONTENT),
+    ] {
+        let (code, _, body) = call(
+            &router,
+            "POST",
+            "/api/v1/books/BOOK-A/retire",
+            Some(token),
+            Some(&format!("retire-{token}")),
+            Some("1"),
+            None,
+        )
+        .await;
+        assert_eq!(code, expected, "{token}: {body}");
+    }
+    let (_, _, book) = call(
         &router,
-        "POST",
-        "/api/v1/books/BOOK-A/retire",
+        "GET",
+        "/api/v1/books/BOOK-A/versions/2",
         Some(HUMAN_TOKEN),
-        Some("retire-a"),
-        Some("1"),
+        None,
+        None,
         None,
     )
     .await;
-    assert_eq!(code, StatusCode::NO_CONTENT, "{body}");
+    assert_eq!(
+        book["evidence_reference"],
+        format!("books-api:retire-{HUMAN_TOKEN}"),
+        "the refused retire wrote nothing: {book}"
+    );
 
     let version = proposal["version"].to_string();
     let (code, _, body) = call(

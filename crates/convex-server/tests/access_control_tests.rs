@@ -220,6 +220,31 @@ async fn actual_introspection_roles_scopes_and_nested_resources_are_fail_closed(
         StatusCode::FORBIDDEN,
         "stored response must not reveal an ungranted instrument"
     );
+    // Retiring writes the stored positions again, so it needs each instrument they hold.
+    let retire = Request::builder()
+        .method("POST")
+        .uri("/api/v1/books/BOOK-A/retire")
+        .header("authorization", format!("Bearer {HUMAN_TOKEN}"))
+        .header("idempotency-key", "access-retire-1")
+        .header("if-match", (planted.version.get() + 1).to_string())
+        .body(Body::empty())
+        .unwrap();
+    let response = router.clone().oneshot(retire).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    let stored = engine
+        .reference_repository()
+        .get_master(&book("BOOK-A"))
+        .await
+        .unwrap()
+        .unwrap();
+    let convex_engine::ports::reference_master::MasterDefinition::Book(stored) = stored.definition
+    else {
+        panic!("not a book")
+    };
+    assert!(
+        !stored.is_retired(),
+        "a refused retire leaves the book in force"
+    );
     let human = access
         .authenticate(Some(BearerToken::parse(HUMAN_TOKEN).unwrap()))
         .await
