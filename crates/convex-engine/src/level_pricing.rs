@@ -48,6 +48,9 @@ use crate::ports::{
 use crate::pricing_router::PricingRouter;
 use crate::runtime::accepted;
 
+/// Why a rule that quotes a level or names a benchmark set does not price a bond.
+pub(crate) const NOT_A_PLAIN_BULLET: &str =
+    "only a fixed bullet is priced from a level or against a benchmark set";
 /// The stage's model id, recorded beside a level-priced result.
 pub const LEVEL_PRICE_MODEL: &str = "convex-level-price-v1";
 /// A yield level is a decimal from -10% to 100%. A yield sent in percent (6.12 for
@@ -452,9 +455,7 @@ fn price_with_rule(
     yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
     if method.requires_plain_bullet(benchmarks.is_some()) && !is_plain_bullet(bond) {
-        return Err(refused(
-            "only a fixed bullet is priced from a level or against a benchmark set",
-        ));
+        return Err(refused(NOT_A_PLAIN_BULLET));
     }
     let benchmarks = match benchmarks {
         Some(set) => Some(price_benchmarks(set, settlement, yields)?),

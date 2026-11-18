@@ -840,30 +840,41 @@ fn a_snapshot_holds_each_benchmark_set_once_in_order() {
     ));
 }
 
-/// A manual quote of a bond its rule quotes by a level is the desk's mark in the whole
-/// snapshot's quality too, which configuration fixtures and the hedge gate read; a manual
-/// quote of a bond quoted by price is indicative.
+/// A manual quote of the level a bond's rule quotes it by is the desk's mark in the whole
+/// snapshot's quality too, which configuration fixtures and the hedge gate read. A manual
+/// quote of another field, or of a bond quoted by price, is indicative.
 #[test]
 fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
     use convex_ports::level_pricing::{PricingMethod, ResolvedPricingRule};
-    let mut content = fixture::content();
-    content.quotes[0].make_mut().image.as_mut().unwrap().state =
-        convex_ports::quote_event::DataState::Manual;
-    assert_eq!(
-        MarketSnapshot::new(content.clone())
-            .unwrap()
-            .quality()
-            .quality,
-        DataQuality::Indicative
-    );
-    content.references.make_mut()[0].pricing_rule = Some(ResolvedPricingRule {
+    use convex_ports::quote_event::{DataState, QuoteField};
+    let quality = |rule: Option<ResolvedPricingRule>, field: QuoteField| {
+        let mut content = fixture::content();
+        let quote = content.quotes[0].make_mut();
+        quote.requirement.fields = vec![field];
+        let image = quote.image.as_mut().unwrap();
+        image.state = DataState::Manual;
+        let mut observation = image.fields.remove(&QuoteField::MidPrice).unwrap();
+        if field == QuoteField::MidYield {
+            observation.value.value = "0.0512".parse().unwrap();
+            observation.value.unit = field.unit();
+        }
+        image.fields.insert(field, observation);
+        content.references.make_mut()[0].pricing_rule = rule;
+        MarketSnapshot::new(content).unwrap().quality().quality
+    };
+    let yield_rule = ResolvedPricingRule {
         version: fixture::version(1),
         recorded_at: fixture::time("2025-01-01T00:00:00Z"),
         method: PricingMethod::Yield {},
         benchmark_set_id: None,
-    });
+    };
+    assert_eq!(quality(None, QuoteField::MidPrice), DataQuality::Indicative);
     assert_eq!(
-        MarketSnapshot::new(content).unwrap().quality().quality,
+        quality(Some(yield_rule.clone()), QuoteField::MidYield),
         DataQuality::Valid
+    );
+    assert_eq!(
+        quality(Some(yield_rule), QuoteField::MidPrice),
+        DataQuality::Indicative
     );
 }

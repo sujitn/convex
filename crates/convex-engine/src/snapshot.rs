@@ -5,7 +5,7 @@ use convex_core::contracts::*;
 use convex_ports::{
     configuration::ConfigurationPin,
     fixing::FixingRepository,
-    level_pricing::{PricingMethod, MAX_SNAPSHOT_BENCHMARK_SETS},
+    level_pricing::{is_plain_bullet, PricingMethod, MAX_SNAPSHOT_BENCHMARK_SETS},
     quote_event::{QuoteEvent, QuoteField, QuoteKey},
     reference_master::{ReferenceLookup, ResolvedBondReference},
     reference_repository::ReferenceRepository,
@@ -1147,10 +1147,14 @@ impl SnapshotValuator {
                 "pricing requires one explicitly selected quote source",
             ));
         }
-        // A bond is read from the field its rule quotes it by: its level, or a price.
+        // A rule that quotes a level or names a benchmark set prices only a plain bullet. A
+        // bond whose terms changed since its rule was committed is refused, saying why.
         let rule = reference.pricing_rule.as_ref();
+        let is_rule_misapplied =
+            rule.is_some_and(|rule| rule.requires_plain_bullet() && !is_plain_bullet(bond));
+        // A bond is read from the field its rule quotes it by: its level, or a price.
         let quoted_field = rule.map_or(QuoteField::MidPrice, |rule| rule.method.quote_field());
-        if !selected[0].requirement.fields.contains(&quoted_field) {
+        if !is_rule_misapplied && !selected[0].requirement.fields.contains(&quoted_field) {
             return Err(TraitError::InvalidInput(
                 "mid valuation must declare the field the bond is quoted by",
             ));
@@ -1161,9 +1165,22 @@ impl SnapshotValuator {
                 .and_then(|q| q.fields.get(&field))
                 .map(|value| value.value.value)
         };
-        let (results, errors) = if spec.model_id.as_str()
-            == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
-        {
+        let (results, errors) = if is_rule_misapplied {
+            let errors = spec
+                .measures
+                .iter()
+                .map(|measure| {
+                    StructuredError::new(
+                        ErrorCode::InvalidInput,
+                        Some(measure.as_str().into()),
+                        crate::level_pricing::NOT_A_PLAIN_BULLET,
+                        false,
+                    )
+                    .map_err(contract_error)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            (BTreeMap::new(), errors)
+        } else if spec.model_id.as_str() == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL {
             callable_measures(
                 snapshot,
                 spec,

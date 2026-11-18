@@ -86,6 +86,11 @@ impl PricingMethod {
         }
     }
 
+    /// The quote field of the level a bond quoted this way is read from; none for a price.
+    pub fn level_field(&self) -> Option<QuoteField> {
+        self.is_level().then(|| self.quote_field())
+    }
+
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
     /// takes only a plain fixed bullet.
     pub fn requires_plain_bullet(&self, names_benchmark_set: bool) -> bool {
@@ -248,6 +253,12 @@ impl TryFrom<&MasterRecord> for ResolvedPricingRule {
 }
 
 impl ResolvedPricingRule {
+    /// Whether the rule takes only a plain fixed bullet: it quotes a level or names a set.
+    pub fn requires_plain_bullet(&self) -> bool {
+        self.method
+            .requires_plain_bullet(self.benchmark_set_id.is_some())
+    }
+
     /// Check the rule on its own and against `known_at`, the cutoff it was resolved by.
     pub fn validate(&self, known_at: UtcTimestamp) -> Result<(), ReferenceError> {
         self.method.validate(self.benchmark_set_id.as_ref())?;

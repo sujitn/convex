@@ -639,3 +639,69 @@ async fn a_level_quoted_universe_is_refused_when_its_benchmarks_cannot_be_priced
         "a pricing rule names a benchmark set not in force at the cutoff"
     );
 }
+
+/// Two sets pinning one Treasury at different versions are refused: the universe values
+/// one version, and the bonds quoted to the other could not be priced.
+#[tokio::test]
+async fn two_sets_pinning_one_security_at_different_versions_are_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let (storage, instrument) = storage(&dir).await;
+    level_desk(
+        &storage,
+        &instrument,
+        json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+    )
+    .await;
+    let mut reopened = treasury("UST-10Y", "2035-01-15", "91282CBB6");
+    reopened["description"] = "reopened".into();
+    let command: ReferenceCommand = serde_json::from_value(json!({
+        "idempotency_key": "reopen-10y",
+        "changes": [{"kind": "update", "bond": reopened, "expected_version": 1}],
+        "master_changes": [],
+    }))
+    .unwrap();
+    storage
+        .bonds
+        .commit(&command, at("2026-10-07T12:40:00Z"))
+        .await
+        .unwrap();
+    let effective = json!({"from": "2026-01-01T00:00:00Z", "until": null});
+    let provenance = json!({"source": "desk", "evidence_reference": "compile-test"});
+    let command: ReferenceCommand = serde_json::from_value(json!({
+        "idempotency_key": "new-set",
+        "changes": [],
+        "master_changes": [
+            {"expected_version": null, "definition": {"kind": "benchmark_set", "definition": {
+                "benchmark_set_id": "UST-NEW",
+                "currency": "USD",
+                "securities": [{"tenor": "10Y", "instrument_id": "UST-10Y", "version": 2}],
+                "effective": effective,
+                "provenance": provenance,
+            }}},
+            {"expected_version": null, "definition": {"kind": "pricing_rule", "definition": {
+                "instrument_id": "UST-2Y",
+                "method": {"kind": "price"},
+                "benchmark_set_id": "UST-NEW",
+                "effective": effective,
+                "provenance": provenance,
+            }}},
+        ],
+    }))
+    .unwrap();
+    storage
+        .bonds
+        .commit(&command, at("2026-10-07T12:45:00Z"))
+        .await
+        .unwrap();
+    book(&storage, "TREASURY-BOOK", "UST-2Y", "2026-10-07T13:00:00Z").await;
+    let mut both = selection();
+    both.books
+        .push(ReferenceDataId::new("TREASURY-BOOK").unwrap());
+    match compile(&storage, &both, "showcase-feed").await {
+        Err(ConfigurationError::Invalid(reason)) => assert_eq!(
+            reason,
+            "two benchmark sets pin different versions of one security"
+        ),
+        other => panic!("expected an invalid selection, got {other:?}"),
+    }
+}

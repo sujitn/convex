@@ -13,9 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use convex_core::contracts::*;
 use convex_ports::{
     configuration::*,
-    level_pricing::{
-        PricingMethod, ResolvedBenchmarkSet, ResolvedPricingRule, MAX_SNAPSHOT_BENCHMARK_SETS,
-    },
+    level_pricing::{ResolvedBenchmarkSet, ResolvedPricingRule, MAX_SNAPSHOT_BENCHMARK_SETS},
     quote_event::{QuoteField, QuoteKey},
     reference_master::{BookId, MasterDefinition, MasterKey, ReferenceLookup},
     reference_repository::{ReferenceError, ReferenceRepository},
@@ -212,9 +210,15 @@ pub async fn assemble_from_repository(
         {
             if let Some(set) = sets.first_read(references, id, lookup).await? {
                 for security in set.securities {
-                    benchmarks
+                    let version = security.version;
+                    let held = benchmarks
                         .entry(security.instrument_id.as_str().to_owned())
                         .or_insert(security);
+                    if held.version != version {
+                        return Err(ConfigurationError::Invalid(
+                            "two benchmark sets pin different versions of one security",
+                        ));
+                    }
                 }
             }
         }
@@ -405,9 +409,7 @@ pub async fn assemble_from_repository(
 
 /// The quote field a rule quotes its bond by, when that is a level.
 fn level_field(rule: Option<&ResolvedPricingRule>) -> Option<QuoteField> {
-    rule.map(|rule| &rule.method)
-        .filter(|method| method.is_level())
-        .map(PricingMethod::quote_field)
+    rule.and_then(|rule| rule.method.level_field())
 }
 
 fn reference_error(error: ReferenceError) -> ConfigurationError {
