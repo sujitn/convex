@@ -282,7 +282,7 @@ fn cvx008_ac1_every_context_dimension_is_a_cache_compatibility_input() {
         .is_err());
 }
 
-/// D51: the cache keeps one snapshot's contexts. A result for another snapshot releases them,
+/// The cache keeps one snapshot's contexts. A result for another snapshot releases them,
 /// so a full cache refuses only within one snapshot.
 #[test]
 fn a_result_for_another_snapshot_releases_the_retained_snapshot() {
@@ -318,7 +318,7 @@ fn a_result_for_another_snapshot_releases_the_retained_snapshot() {
     assert_eq!(cache.len(), 1);
 }
 
-/// P13b-ii: assembly writes schema 4. A checkpoint's snapshot that an earlier build wrote
+/// Assembly writes schema 4. A checkpoint's snapshot that an earlier build wrote
 /// under schema 1 restores under that schema with its id: nothing new is stored when it
 /// is stored, and it is stored again when it is missing. A trace that does not rebuild the
 /// id, or another id, restores nothing.
@@ -595,7 +595,7 @@ fn supplied_curve_reconstruction_preserves_fractional_pillars_dates_and_policies
     assert!(convex_engine::BuiltCurve::from_snapshot(&record).is_err());
 }
 
-/// G32: a context derives its key once, when it is made, from the bytes the key always
+/// A context derives its key once, when it is made, from the bytes the key always
 /// hashed: the context's own serialization, which carries no key. A context read back
 /// derives the same key.
 #[test]
@@ -734,7 +734,7 @@ async fn selected_sources_exceeding_skew_policy_are_ineligible_even_with_fresh_c
         .is_err());
 }
 
-/// D58: a valuation is judged only on the curves it reads. A fixed bond's spread
+/// A valuation is judged only on the curves it reads. A fixed bond's spread
 /// valuation reads its discount and swap curves, never the government or FRN reference
 /// curve, so a stale curve in those roles leaves it valid until it is also the swap curve.
 #[test]
