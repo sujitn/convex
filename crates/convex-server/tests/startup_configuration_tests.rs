@@ -1,4 +1,4 @@
-//! CVX-002: isolated processes prove actual startup settings and profile behavior.
+//! Isolated processes prove actual startup settings and profile behavior.
 
 #[path = "../../convex-ports/tests/support/reference_terms.rs"]
 mod reference_terms;

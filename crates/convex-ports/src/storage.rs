@@ -624,7 +624,7 @@ pub struct CurveRecipeHead {
 pub trait CurveStore: Send + Sync {
     /// Save one immutable complete native curve recipe. Same revision/different content
     /// conflicts. A new revision recorded before the curve's next lower stored version,
-    /// or after its next higher one, conflicts too; equal times are allowed (D73). The
+    /// or after its next higher one, conflicts too; equal times are allowed. The
     /// check is only against those two neighbours and does not re-check stored history,
     /// so recording times never decrease with version only in a history written wholly
     /// under this rule. An identical retry succeeds.
@@ -866,7 +866,7 @@ pub struct EntityPage {
     pub more: bool,
 }
 
-/// The most entries one [`AuditStore::prune`] removes, in one transaction (D105).
+/// The most entries one [`AuditStore::prune`] removes, in one transaction.
 pub const MAX_PRUNE_BATCH: usize = 4096;
 
 /// The most IDs one [`AuditStore::prune`] keeps: each watched limit's latest record and
@@ -878,7 +878,7 @@ pub const MAX_PRUNE_KEEP: usize = 8192;
 pub const MAX_PRUNE_READ: usize = 16_384;
 
 /// One call of [`AuditStore::prune`]: remove entries of `event_type` older than `before`,
-/// after the cursor `after`, except those `keep` names (D105).
+/// after the cursor `after`, except those `keep` names.
 #[derive(Debug, Clone, Copy)]
 pub struct AuditPrune<'a> {
     /// The event type removed; entries of any other type are passed over.
@@ -1045,8 +1045,8 @@ pub trait AuditStore: Send + Sync {
         ))
     }
 
-    /// Remove up to `prune.max` entries of `prune.event_type` older than `prune.before`
-    /// (D105), each with whatever indexes it, in one transaction, and say how far the walk
+    /// Remove up to `prune.max` entries of `prune.event_type` older than `prune.before`,
+    /// each with whatever indexes it, in one transaction, and say how far the walk
     /// went.
     ///
     /// The walk reads entries in ID order from `prune.after + 1`, and stops at the first

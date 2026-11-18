@@ -50,7 +50,7 @@ impl ApiError {
         )
     }
     /// No runtime is composed, and only a runtime values callables and floating rate
-    /// notes (D65).
+    /// notes.
     pub(crate) fn unsupported_product(message: impl Into<String>) -> Self {
         Self::new(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -176,7 +176,7 @@ impl From<RequestValuationError> for ApiError {
             ),
             RequestValuationError::Reference(error) => error.into(),
             RequestValuationError::Curves(error) => error.into(),
-            // Every interactive slot is taken; another request frees one (D64).
+            // Every interactive slot is taken; another request frees one.
             RequestValuationError::Port(TraitError::CapacityExceeded) => Self::overloaded(message),
             RequestValuationError::Port(error) => error.into(),
         }

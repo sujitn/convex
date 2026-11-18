@@ -349,7 +349,7 @@ fn requirement(
             req.body_required = !read;
         }
         // A book's limits: reads need the book (each handler also checks every instrument
-        // a set or status names); every write needs `LimitWrite` on the book (D85).
+        // a set or status names); every write needs `LimitWrite` on the book.
         "/api/v1/books/:book_id/limits"
         | "/api/v1/books/:book_id/limits/versions/:version"
         | "/api/v1/books/:book_id/limits/history"
@@ -377,7 +377,7 @@ fn requirement(
             req.action = BookRead;
             req.data = vec![D::Books, D::Results, D::Reference, D::Market];
         }
-        // Acknowledgements (P15c) reveal a limit's status, so each reads status's data, and
+        // Acknowledgements reveal a limit's status, so each reads status's data, and
         // each handler applies status's read rule. Acknowledging and withdrawing need
         // `LimitWrite` on the book; the handler also checks it on the limit's instruments.
         "/api/v1/books/:book_id/limits/acknowledgements"
@@ -693,7 +693,7 @@ async fn enforce_inner(
     }) && (request.method() == Method::GET || request.method() == Method::HEAD);
     if public {
         // Public probes hold an in-flight permit like every request. They verify no
-        // credential, so no per-minute window counts them (D78).
+        // credential, so no per-minute window counts them.
         let ctx = AccessContext {
             identity: None,
             token: None,

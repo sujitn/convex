@@ -130,7 +130,7 @@ pub enum ExpectedCashflows {
     Cds(Box<convex_credit::CdsValuation>),
 }
 /// Conditional optional cash stays available through the actual BondContract
-/// projection. Futures cash requires supplied margin/delivery events (CVX-062).
+/// projection. Futures cash requires supplied margin/delivery events.
 pub fn cashflows(input: &ValuationInputs<'_>) -> WorkflowResult<ExpectedCashflows> {
     match input {
         ValuationInputs::Bond { cash, .. } => {

@@ -169,7 +169,7 @@ impl From<TraitError> for ConfigurationError {
 pub struct ConfigurationUseCases {
     repository: Arc<dyn ConfigurationRepository>,
     assembler: SnapshotAssembler,
-    /// Live documents read their curves here at each cutoff (D50).
+    /// Live documents read their curves here at each cutoff.
     curves: Arc<dyn CurveStore>,
     capabilities: ConfigurationCapabilities,
     admission: Arc<tokio::sync::Semaphore>,

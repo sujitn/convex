@@ -3,8 +3,7 @@
 //! (`convex_server::compose`) and real HTTP.
 //!
 //! Inputs are the committed showcase seed (`deploy/showcase/seed.json`), so the
-//! fixture the Fly container imports is exercised by CI. Steps that need a later
-//! phase of `.ai/server-plan/IMPLEMENTATION_PLAN.md` are `#[ignore]`d with that phase.
+//! fixture the Fly container imports is exercised by CI.
 #[path = "support/access_fixture.rs"]
 pub mod fixture;
 use convex_server::access::identity::{AccessMode, AccessSettings, TlsBoundary};
@@ -263,7 +262,7 @@ async fn recipes_survived(server: &Running, recipes: Vec<Value>) {
     assert_eq!(conflict.status(), StatusCode::CONFLICT);
 }
 
-/// Step 3 (P6): a book management system ingests a full position snapshot that
+/// Step 3: a book management system ingests a full position snapshot that
 /// resolves external identifiers through the reference repository.
 #[tokio::test]
 async fn book_snapshot_ingest_resolves_external_identifiers() {
@@ -336,11 +335,11 @@ async fn book_snapshot_ingest_resolves_external_identifiers() {
     server.stop().await;
 }
 
-/// Steps 4–6 and the live half of 8 (P2b): hold the seeded bond in a book, record
+/// Steps 4–6 and the live half of 8: hold the seeded bond in a book, record
 /// fresh curve revisions, then compile, validate, stage and activate a live
 /// configuration offline with `convex-config`. The `live` profile plans the active
 /// configuration. Posted quotes price, and a restart of the same activation waits for
-/// fresh images instead of restoring stored ticks. WebSocket delivery is P3.
+/// fresh images instead of restoring stored ticks. This test does not cover WebSocket delivery.
 #[tokio::test]
 async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     let seed = seed();
@@ -396,7 +395,7 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
         document["assembly"]["instruments"][0]["instrument_id"],
         instrument.as_str()
     );
-    // Live names its curves and reads their revisions at each snapshot (D50).
+    // Live names its curves and reads their revisions at each snapshot.
     assert_eq!(
         document["assembly"]["required_curves"],
         json!(["D.OIS", "P.SOFR"])
@@ -554,7 +553,7 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     let (status, body) = book_analytics(&server, "SHOWCASE-BOOK").await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert_eq!(body["code"], "BOOK_CURRENCY_REQUIRED", "{body}");
-    // A re-mark is market data (D47): the next tick values on it with no compile,
+    // A re-mark is market data: the next tick values on it with no compile,
     // activation or restart, and request-time pricing reads the same revision.
     save_curve(&server, &curve_revision(&seed, "D.OIS", 3)).await;
     let now = chrono::Utc::now().timestamp_millis();
@@ -602,7 +601,7 @@ async fn compiled_live_configuration_prices_posted_quotes_and_restarts_fresh() {
     drop(directory);
 }
 
-/// P4: snapshots and replay results live in the redb database. File state an
+/// Snapshots and replay results live in the redb database. File state an
 /// earlier build left beside the database is refused, never silently ignored.
 #[tokio::test]
 async fn file_snapshot_state_beside_the_database_is_refused() {
@@ -625,7 +624,7 @@ async fn file_snapshot_state_beside_the_database_is_refused() {
 }
 
 /// Production composes the Live path above behind required access and the TLS proxy. No
-/// HTTPS identity fixture runs in process (D24), so this shows a production configuration
+/// HTTPS identity fixture runs in process, so this shows a production configuration
 /// clears every gate and stops only at the identity probe, before storage opens.
 #[tokio::test]
 async fn production_clears_every_gate_and_stops_only_at_the_identity_probe() {
@@ -667,7 +666,7 @@ async fn production_clears_every_gate_and_stops_only_at_the_identity_probe() {
     issuer.finish().await;
 }
 
-/// P2b-2, the showcase boot: `deploy/showcase/live.sh activate` records the book
+/// The showcase boot: `deploy/showcase/live.sh activate` records the book
 /// and fresh Demo curves, then compiles, validates, stages and activates under the
 /// demo profile's capabilities. The demo profile runs that configuration live: Demo
 /// inputs price, readiness accepts Demo, and every output stays labelled demo.

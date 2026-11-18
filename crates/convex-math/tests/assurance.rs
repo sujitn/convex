@@ -1,4 +1,4 @@
-//! Failure and invariant coverage for CVX-039; exercises public pure APIs.
+//! Failure and invariant coverage for convex-math; exercises public pure APIs.
 
 use convex_math::bounds::{MAX_DATA_POINTS, MAX_MATRIX_DIMENSION, MAX_SOLVER_ITERATIONS};
 use convex_math::extrapolation::{Extrapolator, UfrConvergence};

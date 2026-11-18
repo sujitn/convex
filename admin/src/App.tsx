@@ -54,7 +54,7 @@ export function App() {
   )
 }
 
-/** Required access mode needs a bearer token; it is kept in memory only (D38). */
+/** Required access mode needs a bearer token; it is kept in memory only. */
 function TokenBar() {
   const { token, setToken } = useSession()
   const [draft, setDraft] = useState('')

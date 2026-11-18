@@ -2,11 +2,11 @@
 //!
 //! Beside the log, keyed by ID, an index holds one key per entry, (entity type, entity
 //! ID, entry ID), written in the same transaction as the entry, so one entity's entries
-//! are read in ID order without reading the others' (P15b, D93). A mark records the ID
+//! are read in ID order without reading the others'. A mark records the ID
 //! through which every entry has its key. Opening the store indexes the entries after
 //! it, which a store written before the index, or by an older binary, holds.
 //!
-//! A prune (P18b, D105) removes old entries and their index keys in one transaction. It
+//! A prune removes old entries and their index keys in one transaction. It
 //! never removes the log's last entry, so the mark, which is never above it, stays valid.
 use crate::database::*;
 use async_trait::async_trait;
@@ -494,7 +494,7 @@ mod tests {
         assert_eq!(ids(&store, "BOOK-C").await, [2, 5, 8, 12, 13]);
     }
 
-    /// P15b's measurement of the open-time indexing: a full store (1,000,000 entries of 64
+    /// A measurement of the open-time indexing: a full store (1,000,000 entries of 64
     /// books, about 600 bytes of details each) written without the index, then opened.
     #[tokio::test]
     #[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
@@ -556,7 +556,7 @@ mod tests {
         }
     }
 
-    /// P18b (D105): a store at its capacity refuses every append until a prune frees room;
+    /// A store at its capacity refuses every append until a prune frees room;
     /// a reopen after a prune finds nothing to index, and IDs continue from the last.
     #[tokio::test]
     async fn a_full_store_appends_again_after_a_prune() {
@@ -633,7 +633,7 @@ mod tests {
         assert_eq!(store.entry_count().await.unwrap(), read + 1);
     }
 
-    /// P18b's measurement (D105): a full store (1,000,000 entries of about 600 bytes of
+    /// A measurement of pruning: a full store (1,000,000 entries of about 600 bytes of
     /// details, as the monitor writes them) pruned in calls of 4,096 while another task
     /// appends one entry every 2 ms, as the monitor would; then the file's size, and its
     /// size once refilled.

@@ -292,7 +292,7 @@ async fn stored_dependencies_resolve_by_native_key_label() {
 
 /// The Live stream reads the same records, but reports a gap as data: a stale
 /// revision is kept for snapshot quality to judge, and an incomplete graph gives
-/// no records, so the snapshot reports the curve missing (D50).
+/// no records, so the snapshot reports the curve missing.
 #[tokio::test]
 async fn live_records_keep_stale_revisions_and_drop_incomplete_graphs() {
     use convex_core::ids::CurveId as StoreCurveId;

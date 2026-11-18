@@ -14,7 +14,7 @@ pub const MAX_RUNTIME_EVENTS: usize = 100_000;
 /// Maximum serialized checkpoint size, 32 MiB.
 pub const MAX_RUNTIME_BYTES: usize = 32 * 1024 * 1024;
 /// Results, and outbox records, a stored checkpoint holds: the instruments of a Captured
-/// or Replay runtime, whose every event stores them. A Live runtime stores none (D101).
+/// or Replay runtime, whose every event stores them. A Live runtime stores none.
 pub const MAX_CHECKPOINT_RESULTS: usize = crate::snapshot::MAX_SNAPSHOT_INSTRUMENTS;
 
 /// Canonical result state published with a durable, monotonic runtime revision.
@@ -70,7 +70,7 @@ pub struct RuntimeCheckpoint {
     /// Last allocated publication revision.
     pub result_revision: u64,
     /// Current result states, at most [`MAX_CHECKPOINT_RESULTS`] stored. Shared and immutable, so a
-    /// checkpoint copies in constant time and a merge copies pointers (G30); stored as a
+    /// checkpoint copies in constant time and a merge copies pointers; stored as a
     /// plain array.
     pub results: Arc<[Arc<PublishedValuation>]>,
     /// Undelivered results. Publishers may see retries with the same deduplication key.

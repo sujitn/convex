@@ -1,9 +1,9 @@
-//! Pricing from a quoted level over the routes (P19, G68–G70, D111–D113).
+//! Pricing from a quoted level over the routes.
 //!
-//! P19a-i: a bond's pricing rule and a benchmark set are master resources, committed and
+//! A bond's pricing rule and a benchmark set are master resources, committed and
 //! read through the reference routes like any other, and linked to the bonds they name.
 //!
-//! P19a-ii: `GET /quotes/:id` prices a stored bond from a level in its rule's unit, with
+//! `GET /quotes/:id` prices a stored bond from a level in its rule's unit, with
 //! each benchmark's yield read from the Live runtime's price of it, and the level comes
 //! back unchanged through the router.
 #[path = "support/access_fixture.rs"]
@@ -440,7 +440,7 @@ async fn a_level_prices_from_its_rule_and_comes_back_through_the_router() {
     );
     assert_eq!(headers["x-convex-pricing-rule-version"], "1");
     assert_eq!(headers["x-convex-benchmark-set-version"], "1");
-    // The bid/ask width of a level-quoted bond comes with P19c, not as a percent of price.
+    // A level-quoted bond has no bid/ask width yet, and none is taken as a percent of price.
     assert!(spread["clean_price_bid"].is_null());
 
     // Its price quoted back gives the same yield and G-spread.

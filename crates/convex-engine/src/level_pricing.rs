@@ -222,7 +222,7 @@ pub struct RulePricing {
     /// The clean price mid the model values.
     pub clean_price_mid: Decimal,
     /// Whether the configuration's percent-of-price bid/ask width applies: not to a
-    /// level-quoted bond, whose width is in its quoting unit (D114).
+    /// level-quoted bond, whose width is in its quoting unit.
     pub price_width_applies: bool,
     /// The set's securities, for the G-spread, when the rule names a set and the bond
     /// matures within the set's maturities.

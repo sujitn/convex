@@ -17,7 +17,7 @@ namespace Convex.Excel
             public string DefaultCurrency { get; set; } = "USD";
             /// CalculateFullRebuild at add-in load, healing reopened workbooks.
             public bool AutoRebuildOnOpen { get; set; } = true;
-            /// Look for a newer release once a day (DX27). Policy and the installer can turn it off.
+            /// Look for a newer release once a day. Policy and the installer can turn it off.
             public bool CheckForUpdates { get; set; } = true;
             /// Blank for GitHub's releases; else a mirror that redirects the same way.
             public string UpdateFeed { get; set; } = "";

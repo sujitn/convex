@@ -12,7 +12,7 @@ using ExcelDna.Integration.Rtd;
 
 namespace Convex.Excel.Bench
 {
-    // X0 measurement surface (excel-plan). Driven by excel/bench/Run-ExcelBench.ps1
+    // Bench measurement surface. Driven by excel/bench/Run-ExcelBench.ps1
     // through Application.Run("CXB.CTL", ...). The prefix is CXB., never CX., so
     // this add-in can load beside the real one.
 

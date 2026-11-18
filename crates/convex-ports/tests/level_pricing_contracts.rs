@@ -1,4 +1,4 @@
-//! Wire contracts of pricing rules and benchmark sets (P19a): their JSON shape, unknown
+//! Wire contracts of pricing rules and benchmark sets: their JSON shape, unknown
 //! fields refused, tenors, and the bounds each refuses with its type.
 use convex_ports::level_pricing::*;
 use convex_ports::reference_repository::ReferenceError;
@@ -88,7 +88,7 @@ fn a_usd_set_holds_one_to_32_securities_with_unique_tenors_and_instruments() {
         security("10Y", "UST-10Y")
     ]));
     valid.validate().unwrap();
-    // P19 quotes against Treasuries: a set in another currency is refused.
+    // Spreads are quoted against Treasuries only: a set in another currency is refused.
     let mut euro = valid.clone();
     euro.currency = convex_core::Currency::EUR;
     assert!(euro.validate().is_err());

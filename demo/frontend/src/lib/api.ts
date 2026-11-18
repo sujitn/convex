@@ -602,7 +602,7 @@ export async function getRuntimeResults(): Promise<PublishedValuation[]> {
     const page = await fetchJson<RuntimeResultsPage | PublishedValuation[]>(
       `/api/v1/runtime/results?limit=${RESULTS_PAGE}${cursor}`,
     );
-    // A server from before P17a ignores the query and returns every result as an array.
+    // A server without results paging ignores the query and returns every result as an array.
     // The demo deploys on merge, before the server it reads is redeployed.
     if (Array.isArray(page)) return page;
     results.push(...page.results);

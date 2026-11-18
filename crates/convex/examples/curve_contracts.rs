@@ -1,4 +1,4 @@
-//! CVX-056 standalone consumer of pure construction/query/dependency APIs.
+//! Standalone consumer of pure curve construction/query/dependency APIs.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,

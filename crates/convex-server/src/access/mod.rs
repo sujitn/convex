@@ -143,10 +143,10 @@ struct Usage {
 }
 
 /// Credential verifications the process admits per monotonic minute: each request that
-/// presents a bearer token, and each remote WS refresh (D78).
+/// presents a bearer token, and each remote WS refresh.
 pub const VERIFICATIONS_PER_MINUTE: u32 = 6_000;
 /// Identity-provider readiness probes per monotonic minute. They have their own window,
-/// so authenticated traffic cannot make readiness fail (D78).
+/// so authenticated traffic cannot make readiness fail.
 pub const READINESS_PROBES_PER_MINUTE: u32 = 600;
 struct PolicyState {
     document: Option<PolicyDocument>,
@@ -497,7 +497,7 @@ impl AccessControl {
     }
     /// Global bound of 64 operations in flight: every request, preflight, inbound WS
     /// message, WS refresh and readiness probe holds one while it runs. It counts nothing;
-    /// the per-minute windows count only network work toward the identity provider (D78).
+    /// the per-minute windows count only network work toward the identity provider.
     pub fn admit_attempt(&self) -> Result<OwnedSemaphorePermit, AccessError> {
         self.requests
             .clone()

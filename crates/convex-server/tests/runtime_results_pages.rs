@@ -1,8 +1,8 @@
-//! `GET /api/v1/runtime/results` pages by instrument (P17a, D103): at most `limit`
+//! `GET /api/v1/runtime/results` pages by instrument: at most `limit`
 //! results (256 unless asked, at most 1,024) in instrument ID order after `after`, with
 //! `next_after` and `more`. A page read while the runtime ticks holds each instrument
 //! once, and no record older than one read before it. Outside local development a full
-//! page passes the access layer, which does not inspect its output (D103a).
+//! page passes the access layer, which does not inspect its output.
 #[allow(dead_code)] // Only the issuer, the policy and the request helper.
 #[path = "support/access_fixture.rs"]
 mod identity;
@@ -166,7 +166,7 @@ async fn a_page_read_while_the_runtime_ticks_holds_each_instrument_once() {
     server.stop().await;
 }
 
-/// D103a: before P17a the access layer inspected this route's output and refused a
+/// The access layer does not inspect this route's output. Inspection would refuse a
 /// response naming more than 1,024 resources: about 170 records, at six each.
 #[tokio::test]
 async fn a_full_page_passes_an_access_policy() {

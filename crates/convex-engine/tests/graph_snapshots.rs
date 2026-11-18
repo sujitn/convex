@@ -276,7 +276,7 @@ fn partial_invalid_and_failed_snapshot_measures_block_aggregation_and_keep_full_
     }
 }
 
-/// D58: one stale bond leaves a shared curve node Valid, so a valuation that depends on
+/// One stale bond leaves a shared curve node Valid, so a valuation that depends on
 /// the curve is still ready. A curve the snapshot does not hold is Invalid.
 #[test]
 fn a_stale_bond_beside_a_shared_curve_node_leaves_the_curve_valid() {
@@ -323,7 +323,7 @@ fn a_stale_bond_beside_a_shared_curve_node_leaves_the_curve_valid() {
         .unwrap();
 }
 
-/// D55: rebinding a later snapshot resets only the listed nodes with their connected
+/// Rebinding a later snapshot resets only the listed nodes with their connected
 /// components. Every other settled node keeps its committed value, stays readable and is
 /// not calculated again. A ticket from before is discarded, and a refused call changes
 /// nothing.

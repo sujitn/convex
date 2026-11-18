@@ -30,10 +30,10 @@ namespace Convex.Excel.Server
         public string Server { get; set; } = "";
     }
 
-    /// Books (CX.LIMIT, Excel plan X4) on the session that carries the
+    /// Books (CX.LIMIT) on the session that carries the
     /// instruments.
     ///
-    /// - The server streams a limit only when its status changes (DX18), and
+    /// - The server streams a limit only when its status changes, and
     ///   sends nothing on subscribe, so each book is seeded by reading
     ///   `GET .../limits/status` after its subscription is acknowledged: a
     ///   change recorded meanwhile is either in the read or on the stream.
@@ -41,13 +41,13 @@ namespace Convex.Excel.Server
     /// - A change under a newer limit set reads the book again, since a set
     ///   change can drop limits and the stream never says so.
     /// - RESYNC_REQUIRED for the limit stream reads every followed book again.
-    /// - A followed book's FORBIDDEN (a stream event, DX19) refuses it until
-    ///   Reconnect, a sign-in or a new configuration (as DX14).
+    /// - A followed book's FORBIDDEN (a stream event) refuses it until
+    ///   Reconnect, a sign-in or a new configuration, as for a refused instrument.
     /// - At most 64 books (the server's bound); at most 4 status reads run at
     ///   once; a 429 waits for its Retry-After.
     internal sealed partial class ServerSource
     {
-        /// One session follows at most this many books (server D87, D100).
+        /// One session follows at most this many books.
         public const int MaxBooks = 64;
         /// Status reads in flight at once.
         public const int MaxStatusReads = 4;
@@ -278,7 +278,7 @@ namespace Convex.Excel.Server
             }
         }
 
-        /// The open session is gone: limits stay, marked Stale (DX6), and
+        /// The open session is gone: limits stay, marked Stale, and
         /// each book is read again once the next session follows it.
         private void LoseBookSession()
         {
@@ -481,7 +481,7 @@ namespace Convex.Excel.Server
                 }
                 else if (bookIds.Length > 1)
                 {
-                    // A refusal names no book: split until each refused one stands alone (as DX14).
+                    // A refusal names no book: split until each refused one stands alone.
                     int half = bookIds.Length / 2;
                     session.SubscribeLimits(bookIds.Take(half).ToArray());
                     session.SubscribeLimits(bookIds.Skip(half).ToArray());

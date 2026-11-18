@@ -81,7 +81,7 @@ pub struct RepoPeriodRate {
     /// P(start)/P(end), positive even for negative repo rates.
     pub growth: f64,
     /// Exact period-equivalent simple rate; caller may bind this plus the full
-    /// curve provenance into CVX-023 FinancingInput. This is model funding data.
+    /// curve provenance into a futures FinancingInput. This is model funding data.
     pub simple_decimal_rate: f64,
 }
 /// Query a true Repo role for a dated period; discount/government substitution

@@ -120,10 +120,10 @@ pub(super) fn activate(
         .map_err(|_| RuntimeError::Worker)?;
     Ok(built)
 }
-/// Bind a Live tick's snapshot, built once, and reset only the pins it values (D55);
+/// Bind a Live tick's snapshot, built once, and reset only the pins it values;
 /// every other pin keeps its committed result. The callable bound reads only the
 /// reference section, so it is counted again only when the section is not `checked`, the
-/// one last counted within it (P17c-iii).
+/// one last counted within it.
 pub(super) fn rebind(
     graph: &CalculationGraph,
     plan: &RuntimePlan,
@@ -147,8 +147,8 @@ pub(super) fn rebind(
         .map_err(|_| RuntimeError::Worker)?;
     Ok(built)
 }
-/// What a Live tick keeps for the next one (D55): its snapshot, what each pin reads, and
-/// each pin's derived quality with the window it holds in (D81), by plan index.
+/// What a Live tick keeps for the next one: its snapshot, what each pin reads, and
+/// each pin's derived quality with the window it holds in, by plan index.
 #[cfg_attr(test, derive(Clone))]
 pub(super) struct Baseline {
     snapshot: Arc<MarketSnapshot>,
@@ -157,12 +157,12 @@ pub(super) struct Baseline {
     windows: Vec<QualityWindow>,
     /// The windows, by plan index, ordered by the millisecond each ends at and by the
     /// time each was judged at, so a tick finds the pins whose window it left without
-    /// walking every window (P17c-iii).
+    /// walking every window.
     ends: BTreeSet<(i64, usize)>,
     starts: BTreeSet<(UtcTimestamp, usize)>,
 }
-/// What each pin's valuation reads while the frame and the pinned reference section hold
-/// (G31): its curves, by plan index. They follow from the pin's model, the plan's
+/// What each pin's valuation reads while the frame and the pinned reference section hold:
+/// its curves, by plan index. They follow from the pin's model, the plan's
 /// measures and the configured curves. With them, the plan indices sorted by instrument
 /// id, so an instrument whose quotes changed finds its pin, and each pin's dependents:
 /// the pins priced against it as a benchmark, whose inputs hold its quotes. The section
@@ -321,10 +321,10 @@ impl Baseline {
             })
             .collect()
     }
-    /// Move to `snapshot`, which shares this baseline's frame (D55), and select the pins
+    /// Move to `snapshot`, which shares this baseline's frame, and select the pins
     /// it values. With `listed`, the instruments whose quotes changed by
     /// [`MarketSnapshot::changed_quotes`], only their pins and the pins whose quality
-    /// window the snapshot's time has left are judged (D81). Without it, every pin is.
+    /// window the snapshot's time has left are judged. Without it, every pin is.
     /// A judged pin is valued when its inputs or its quality differ, and keeps the new
     /// quality and window. `check` runs on every judged pin first. Returns the pins to
     /// value, by plan index in plan order.
@@ -386,14 +386,14 @@ impl Baseline {
         Ok(valued)
     }
 }
-/// The pins a Live tick values, by plan index, and the baseline for the next tick
-/// (D55). Without a baseline, or when the frame changed, every pin is valued. With one,
+/// The pins a Live tick values, by plan index, and the baseline for the next tick.
+/// Without a baseline, or when the frame changed, every pin is valued. With one,
 /// a pin is valued when its own inputs or its derived quality differ; quality depends on
 /// time, so a quote that ages out counts. Only the pins whose quotes changed, or whose
 /// quality window the snapshot's time has left, are judged, unless something else a
-/// valuation reads changed; then every pin is (D81). `results[i]` must be pin `i`'s
+/// valuation reads changed; then every pin is. `results[i]` must be pin `i`'s
 /// record. The baseline's reads are reused while the frame and the reference section
-/// hold (G31). An error ends the runtime, so the baseline is taken, not borrowed.
+/// hold. An error ends the runtime, so the baseline is taken, not borrowed.
 pub(super) fn changed(
     plan: &RuntimePlan,
     snapshot: &Arc<MarketSnapshot>,
@@ -440,8 +440,8 @@ fn callable_bound(references: &SnapshotReferences) -> Result<(), RuntimeError> {
     }
 }
 /// [`check_callables`] for a Live tick: the bound reads only the reference section, so it
-/// is counted only when `references` is not `checked`, the section it last held for
-/// (P17c-iii). A refused section is not kept.
+/// is counted only when `references` is not `checked`, the section it last held for.
+/// A refused section is not kept.
 fn check_callables_once(
     references: &SnapshotReferences,
     checked: &mut Option<SnapshotReferences>,
@@ -552,7 +552,7 @@ pub(super) fn value(
             "unsupported context/time/model policy",
         ));
     }
-    // Each instrument is judged only on the inputs its own valuation reads (D58).
+    // Each instrument is judged only on the inputs its own valuation reads.
     let quality = crate::snapshot::valuation_quality(snapshot, context.spec())?;
     if !accepted(quality.quality, demo) {
         failed(
@@ -594,7 +594,7 @@ pub(super) fn value(
     }
 }
 /// Value the `selected` pins (plan indices, ascending) and return their records in that
-/// order. A Live tick selects only the pins whose inputs changed (D55).
+/// order. A Live tick selects only the pins whose inputs changed.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn calculate(
     graph: &Arc<CalculationGraph>,
@@ -614,7 +614,7 @@ pub(super) async fn calculate(
     let live = plan.mode == super::RuntimeMode::Live;
     let pins = &plan.assembly.instruments;
     // At most `concurrency` blocking jobs run at once. Each joined job is committed and
-    // the next prepared at once, so no job waits for a slower one (G26). Tickets stay
+    // the next prepared at once, so no job waits for a slower one. Tickets stay
     // here by position in `selected`, so a panicked job's attempt is still cancelled.
     let mut tickets = Vec::with_capacity(selected.len());
     let mut valued = vec![None; selected.len()];
@@ -665,7 +665,7 @@ pub(super) async fn calculate(
                     demo,
                 );
                 crate::telemetry::observe(crate::telemetry::VALUATION_SECONDS, started);
-                // Each Live record expires with its own instrument's inputs (D58).
+                // Each Live record expires with its own instrument's inputs.
                 let result = result.and_then(|result| {
                     let until = if live {
                         let snapshot = built.snapshot();
@@ -695,7 +695,7 @@ pub(super) async fn calculate(
         };
         match result {
             Ok((result, until)) => {
-                // The graph and the published record share one result (G32).
+                // The graph and the published record share one result.
                 let result = Arc::new(result);
                 let committed =
                     graph.commit_result(&ticket, Ok(NodeValue::Valuation(result.clone())));
@@ -787,7 +787,7 @@ pub(super) fn restore_results(
     snapshot: &MarketSnapshot,
     records: &[Arc<PublishedValuation>],
 ) -> Result<(), RuntimeError> {
-    // Indexed once, so a restart is linear in the pins (G34). Each pin owns exactly one
+    // Indexed once, so a restart is linear in the pins. Each pin owns exactly one
     // record: one record per subject, and as many records as pins.
     let index = by_subject(records);
     if records.len() != plan.assembly.instruments.len() || index.len() != records.len() {
@@ -997,7 +997,7 @@ mod tests {
         }
     }
 
-    /// P17c-iii: a Live tick counts the callables again whenever its reference section is
+    /// A Live tick counts the callables again whenever its reference section is
     /// not the one last found within the bound, even an equal copy of it, and a refused
     /// section is never kept as counted.
     #[test]

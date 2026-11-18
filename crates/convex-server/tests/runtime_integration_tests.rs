@@ -16,7 +16,7 @@ use tower::ServiceExt;
 #[tokio::test]
 async fn liveness_is_separate_from_readiness_and_rest_matches_the_actual_runtime_context() {
     let mut s = setup().await;
-    // Curve expiry fails only a context that reads the curve (D58), so the plan asks for
+    // Curve expiry fails only a context that reads the curve, so the plan asks for
     // a spread as well.
     s.plan
         .measures
@@ -277,10 +277,10 @@ async fn subscribe(
     }
 }
 
-/// D99 (Excel X2a): a subscription first receives the current result of each listed instrument
+/// A subscription first receives the current result of each listed instrument
 /// that has one, then the acknowledgement, so a client needs no table read to seed. Listing an
 /// instrument already followed resends its current result, which is how a client resyncs.
-/// The runtime values a second bond, which no subscription lists and none receives (D103).
+/// The runtime values a second bond, which no subscription lists and none receives.
 #[tokio::test]
 async fn a_subscription_receives_each_listed_instruments_current_result_before_its_ack() {
     let s = setup().await;

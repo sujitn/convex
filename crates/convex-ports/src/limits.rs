@@ -1,4 +1,4 @@
-//! Book limits (P14, D82–D85): what a limit bounds, how a book's set of them is changed,
+//! Book limits: what a limit bounds, how a book's set of them is changed,
 //! and what an evaluation reports.
 //!
 //! A limit names one measure of one book, the member it bounds where the measure has
@@ -10,13 +10,13 @@
 //! A book's limits are one versioned [`LimitSetDefinition`] (`MasterKey::LimitSet`) in the
 //! reference repository. One subject proposes a change ([`LimitProposalDefinition`],
 //! `MasterKey::LimitProposal`); a different subject approves it, which commits the set and
-//! closes the proposal in one transaction (D85).
+//! closes the proposal in one transaction.
 //!
 //! A book's acknowledgements of breached or unknown limits are one versioned
-//! [`LimitAcknowledgementsDefinition`] (`MasterKey::LimitAcknowledgements`) per book (P15c,
-//! D94, D95): one subject may make one, and it changes no bound.
+//! [`LimitAcknowledgementsDefinition`] (`MasterKey::LimitAcknowledgements`) per book: one
+//! subject may make one, and it changes no bound.
 //!
-//! A limit may carry a temporary excess ([`LimitExcess`], P15d, D96): wider bounds until a
+//! A limit may carry a temporary excess ([`LimitExcess`]): wider bounds until a
 //! time, changed through the set proposal as any change to a limit is.
 #![forbid(unsafe_code)]
 #![deny(
@@ -147,18 +147,18 @@ pub struct LimitDefinition {
     pub excess: Option<LimitExcess>,
 }
 
-/// Seconds after its proposal that an excess may run: thirty days (D96).
+/// Seconds after its proposal that an excess may run: thirty days.
 pub const MAX_EXCESS_SECONDS: i64 = 30 * 24 * 60 * 60;
 /// Bytes in an excess's reason.
 pub const MAX_EXCESS_REASON_BYTES: usize = 1024;
 
-/// A temporary excess on a limit (P15d, D96): wider bounds until a time.
+/// A temporary excess on a limit: wider bounds until a time.
 ///
 /// Before its expiry the limit is judged against these bounds, with its warning band on
 /// them, and a bound the excess does not name stays the limit's own. From its expiry the
 /// limit is judged against its own bounds again. An expired excess stays in the set,
 /// inert, until a later version removes it. It is changed through the set proposal, so it
-/// takes two subjects (D85).
+/// takes two subjects.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LimitExcess {
@@ -210,7 +210,7 @@ impl LimitExcess {
 }
 
 /// Validate an excess's expiry against the time of its proposal: after it, and at most
-/// thirty days after it (D96).
+/// thirty days after it.
 pub fn excess_expiry(at: UtcTimestamp, expires_at: UtcTimestamp) -> Result<(), ReferenceError> {
     if lasts_at_most(at, expires_at, MAX_EXCESS_SECONDS) {
         Ok(())
@@ -349,7 +349,7 @@ fn subject(text: &str) -> Result<(), ReferenceError> {
     Ok(())
 }
 
-/// A book's approved limits, one versioned record per book (D82). Each version names who
+/// A book's approved limits, one versioned record per book. Each version names who
 /// proposed it and who approved it, as configuration records an actor: `access:` and the
 /// credential digest, or `local-development`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -362,7 +362,7 @@ pub struct LimitSetDefinition {
     /// Who proposed this version.
     pub proposed_by: String,
     /// Who approved it: the proposer only where a change commits in one step (local
-    /// development, D85).
+    /// development).
     pub approved_by: String,
     /// The proposal version approved; absent where a change commits in one step.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -375,8 +375,8 @@ pub struct LimitSetDefinition {
 
 impl LimitSetDefinition {
     /// Validate the set on its own: its limits, its recorded subjects, and who approved
-    /// it. A set approved from a proposal names a different subject from its proposer
-    /// (D85); one committed in one step names the same subject twice.
+    /// it. A set approved from a proposal names a different subject from its proposer;
+    /// one committed in one step names the same subject twice.
     pub fn validate(&self) -> Result<(), ReferenceError> {
         validate_limits(&self.limits)?;
         subject(&self.proposed_by)?;
@@ -417,7 +417,7 @@ pub enum LimitProposalClosure {
     },
 }
 
-/// A proposed change to a book's limit set, one versioned record per book (D85). A new
+/// A proposed change to a book's limit set, one versioned record per book. A new
 /// proposal replaces an open one; the history keeps every version.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -442,7 +442,7 @@ pub struct LimitProposalDefinition {
 
 impl LimitProposalDefinition {
     /// Validate the proposal on its own: its limits, its subjects, that a different
-    /// subject approved it (D85), and that it ends exactly when it is closed.
+    /// subject approved it, and that it ends exactly when it is closed.
     pub fn validate(&self) -> Result<(), ReferenceError> {
         validate_limits(&self.limits)?;
         subject(&self.proposed_by)?;
@@ -471,12 +471,12 @@ impl LimitProposalDefinition {
     }
 }
 
-/// Seconds an acknowledgement may last: seven days (D95).
+/// Seconds an acknowledgement may last: seven days.
 pub const MAX_ACKNOWLEDGEMENT_SECONDS: i64 = 7 * 24 * 60 * 60;
 /// Bytes in an acknowledgement's note.
 pub const MAX_ACKNOWLEDGEMENT_NOTE_BYTES: usize = 1024;
 
-/// One limit's acknowledgement (P15c; D94, D95): someone has seen its breach or unknown
+/// One limit's acknowledgement: someone has seen its breach or unknown
 /// status, until a time. It changes no bound.
 ///
 /// It is in force until it expires, unless it is withdrawn or the book's current set no
@@ -534,7 +534,7 @@ pub fn acknowledgement_note(note: &str) -> Result<(), ReferenceError> {
     Ok(())
 }
 
-/// Validate an expiry: after `at`, and at most seven days after it (D95).
+/// Validate an expiry: after `at`, and at most seven days after it.
 pub fn acknowledgement_expiry(
     at: UtcTimestamp,
     expires_at: UtcTimestamp,
@@ -567,7 +567,7 @@ pub enum LimitAcknowledgementChange {
     },
 }
 
-/// A book's limit acknowledgements, one versioned record per book (D94). Each version
+/// A book's limit acknowledgements, one versioned record per book. Each version
 /// changes one limit's entry; entries no longer in force are dropped at the next
 /// version, and the history keeps them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -728,7 +728,7 @@ pub enum UnknownReason {
     ArithmeticBound {},
 }
 
-/// The temporary excess an evaluation applied (P15d, D96): the limit's status and
+/// The temporary excess an evaluation applied: the limit's status and
 /// utilisation read the excess bounds, and these are what apply again at its expiry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

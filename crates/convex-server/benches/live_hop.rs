@@ -1,4 +1,4 @@
-//! P13a (G37): market data to UI. A `live` profile server over the real composition on a
+//! Market data to UI. A `live` profile server over the real composition on a
 //! loopback listener, with an in-process HTTP and WebSocket client. A case is timed from
 //! `POST /api/v1/market/quotes` until the session holds the `valuation` frame of the tick
 //! that admitted the last posted quote. One `Instant` spans the path, so no wall-clock
@@ -7,26 +7,25 @@
 //!
 //! - `post/256`: one quote until its `202`, the ingress alone.
 //! - `1` and `burst1/256`: one quote until its frame, at 1 and 256 bonds. A tick values
-//!   and publishes only the quoted bond (D55).
+//!   and publishes only the quoted bond.
 //! - `batch256/256`: one `POST` of 256 quotes, one per bond, until the frame of the tick
 //!   that admitted the last; reported as quotes/s.
 //! - `burst1/256/sessions8`: one quote until each of eight sessions holds its frame. Each
-//!   session serializes the record, which the sessions share (P17a).
+//!   session serializes the record, which the sessions share.
 //! - `subscribe/256`: a `subscribe_valuations` of every bond until its `subscribed`
-//!   acknowledgement, which follows the 256 results it seeds (D99). Listing followed bonds
-//!   again resends their results, so one session repeats it (P17a).
+//!   acknowledgement, which follows the 256 results it seeds. Listing followed bonds
+//!   again resends their results, so one session repeats it.
 //! - `benchmark_tick/256`, `/1024` and `/4089`: every bond is quoted as a spread over the
 //!   10-year of a set of seven Treasuries the runtime values beside them. One quote on the
 //!   10-year until the session holds the frame of every bond it reprices and its own.
 //!   4,089 bonds and the seven Treasuries fill a Live runtime.
 //!
-//! An error frame, such as `RESYNC_REQUIRED` after a lagging session (G38), fails the case.
+//! An error frame, such as `RESYNC_REQUIRED` after a lagging session, fails the case.
 //!
 //! The bench spends at most [`ATTEMPTS_PER_SECOND`] requests and WebSocket messages and
 //! waits outside the timer, so each quote reaches a runtime that has finished its previous
-//! tick, as in the engine's `live_throughput/burst1/256`, and the numbers compare with
-//! P13a's. P13a paced because every request then counted against a process window of
-//! 6,000 a minute, in local mode too (G40); local development now counts none (D78).
+//! tick, as in the engine's `live_throughput/burst1/256`, and the numbers compare across
+//! runs. Local development counts no request against the process-wide request window.
 //!
 //! Run with: cargo bench -p convex-server --bench live_hop --profile ci
 //! Report medians only; CI builds it and sets no timing threshold.
@@ -50,16 +49,16 @@ type Socket =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
 
 /// 256 bonds, `MAX_SNAPSHOT_INSTRUMENTS`; also the most events one `POST` carries, and the
-/// most instruments one subscription lists (D104).
+/// most instruments one subscription lists.
 const WIDE: usize = 256;
-/// Live widths past 256, up to `MAX_RUNTIME_INSTRUMENTS` (P17b).
+/// Live widths past 256, up to `MAX_RUNTIME_INSTRUMENTS`.
 const LIVE_WIDTHS: [usize; 2] = [1024, 4096];
 /// Sessions in the fan-out case.
 const SESSIONS: usize = 8;
 /// Bonds quoted over one benchmark in the benchmark tick cases.
 const DEPENDENTS: [usize; 3] = [256, 1024, 4089];
-/// Requests and inbound WebSocket messages per second: P13a's rate, kept so the cases
-/// compare across P13b's steps.
+/// Requests and inbound WebSocket messages per second: a fixed rate, so the cases
+/// compare across runs.
 const ATTEMPTS_PER_SECOND: u32 = 80;
 
 /// Spaces the bench's requests and messages, untimed.
@@ -309,7 +308,7 @@ impl Live {
             .await
             .unwrap();
         until(&mut socket, |f| f.kind == "connected").await;
-        // 256 instruments a message (D104).
+        // 256 instruments a message.
         for ids in self.ids().chunks(WIDE) {
             let subscribe = serde_json::json!({
                 "type": "subscribe_valuations",
@@ -325,7 +324,7 @@ impl Live {
     }
 
     /// Post `count` quotes and return the time until every session holds the frame of
-    /// the tick that admitted the last. A tick of one quote publishes one frame (D55); after
+    /// the tick that admitted the last. A tick of one quote publishes one frame; after
     /// a wider one, `drain` reads each session to its end, untimed.
     async fn hop(&mut self, sockets: &mut [Socket], count: usize, drain_after: bool) -> Duration {
         let pings = if drain_after { sockets.len() as u32 } else { 0 };

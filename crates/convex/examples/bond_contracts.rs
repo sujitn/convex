@@ -1,4 +1,4 @@
-//! Standalone CVX-055 dated fixed/floating cash, model PV and missing-history proof.
+//! Standalone dated fixed/floating cash, model PV and missing-history proof.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,

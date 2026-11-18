@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Drives real Excel against a running convex-server to check CX.LIMIT cells (Excel X4).
+    Drives real Excel against a running convex-server to check CX.LIMIT cells.
 
 .DESCRIPTION
     Starts a private Excel over COM, loads the packed add-in, writes CX.LIMIT cells for one

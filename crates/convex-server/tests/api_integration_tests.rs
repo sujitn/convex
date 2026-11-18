@@ -644,7 +644,7 @@ fn next_test_key() -> String {
 }
 
 // =============================================================================
-// PRODUCTION READINESS REGRESSIONS (CVX-001)
+// PRODUCTION READINESS REGRESSIONS
 // =============================================================================
 // These assert required behavior, not the existing defects. Run all four with:
 // cargo test --locked -p convex-server --test api_integration_tests \
@@ -1560,7 +1560,7 @@ async fn engine_with_pricing_inputs() -> (Arc<convex_engine::PricingEngine>, Con
     (create_test_engine_with_storage(storage), configurations)
 }
 
-/// G14: only an activation approves a configuration. A staged version changes no
+/// Only an activation approves a configuration. A staged version changes no
 /// price; activating it does, and a rollback restores the earlier one. Every
 /// request-time route reports the context it priced under.
 #[tokio::test]
@@ -1742,7 +1742,7 @@ async fn curve_recipes_are_stored_listed_and_read_at_a_cutoff() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
-/// D73: a curve's recording times never decrease as its version rises, and a
+/// A curve's recording times never decrease as its version rises, and a
 /// `recorded_at` leads the server clock by at most 5 s. An identical retry of an older
 /// revision is still `204`.
 #[tokio::test]
@@ -1786,7 +1786,7 @@ async fn curve_writes_keep_recording_order_within_the_clock() {
     assert_eq!(listing["curves"][0]["version"], 2);
 }
 
-/// D73: an identical retry of a stored revision is `204` even when its `recorded_at`
+/// An identical retry of a stored revision is `204` even when its `recorded_at`
 /// is beyond the clock bound, as one loaded offline or before the bound can be. A new
 /// revision at that time is `400`.
 #[tokio::test]

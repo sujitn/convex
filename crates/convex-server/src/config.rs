@@ -25,28 +25,27 @@ pub enum ServerProfile {
     Live,
 }
 
-/// The longest clear hold (D106): five minutes.
+/// The longest clear hold: five minutes.
 pub const MAX_CLEAR_HOLD_SECONDS: u64 = 300;
 
-/// The shortest retention of limit records (D105): longer than an acknowledgement's seven
+/// The shortest retention of limit records: longer than an acknowledgement's seven
 /// days, so the record an acknowledgement names outlives it.
 pub const MIN_RECORD_RETENTION_DAYS: u64 = 8;
 
 /// The longest retention of limit records: about ten years.
 pub const MAX_RECORD_RETENTION_DAYS: u64 = 3650;
 
-/// The limit monitor's settings (P18).
+/// The limit monitor's settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct LimitSettings {
     /// How long, in seconds, a limit must stay less severe than its recorded status before
-    /// the monitor records the change (D106). A more severe status is recorded at once. 0
-    /// records every change at once, as before P18; at most
-    /// [`MAX_CLEAR_HOLD_SECONDS`].
+    /// the monitor records the change. A more severe status is recorded at once. 0
+    /// records every change at once; at most [`MAX_CLEAR_HOLD_SECONDS`].
     pub clear_hold_seconds: u64,
-    /// How many days the monitor keeps limit records (D105): it prunes older ones at
+    /// How many days the monitor keeps limit records: it prunes older ones at
     /// start and then hourly, keeping each watched limit's latest record and every record
-    /// an acknowledgement in force names. Unset keeps every record, as before P18;
+    /// an acknowledgement in force names. Unset keeps every record;
     /// [`MIN_RECORD_RETENTION_DAYS`] to [`MAX_RECORD_RETENTION_DAYS`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub record_retention_days: Option<u64>,
@@ -547,7 +546,7 @@ impl ServerConfig {
         Ok(())
     }
 
-    /// Production runs the Live runtime of a stored activated configuration (D23: live
+    /// Production runs the Live runtime of a stored activated configuration (live
     /// valuations display-only, official results from core-workflow snapshot runs), behind
     /// required access and an external TLS proxy. Each missing condition is its own error.
     fn validate_production(&self) -> Result<(), ConfigError> {
@@ -667,7 +666,7 @@ mod tests {
         ));
     }
 
-    /// P18 (D106): the clear hold is 5 s unless set, 0 to 300, from the file or the
+    /// The clear hold is 5 s unless set, 0 to 300, from the file or the
     /// environment.
     #[test]
     fn the_clear_hold_defaults_to_five_seconds_and_is_bounded() {
@@ -710,7 +709,7 @@ mod tests {
         );
     }
 
-    /// P18b (D105): retention is unset unless set, 8 to 3,650 days, from the file or the
+    /// Retention is unset unless set, 8 to 3,650 days, from the file or the
     /// environment.
     #[test]
     fn record_retention_is_unset_by_default_and_bounded() {

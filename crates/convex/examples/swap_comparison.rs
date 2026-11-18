@@ -1,4 +1,4 @@
-//! Native export of the pinned CVX-019 external-comparison input suite.
+//! Native export of the pinned swap external-comparison input suite.
 //! This command supplies candidate outputs; it never supplies external evidence.
 #![forbid(unsafe_code)]
 #![deny(

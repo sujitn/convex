@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  X0 measurement driver (excel-plan). Drives a private Excel instance over COM.
+  Bench measurement driver. Drives a private Excel instance over COM.
 
 .DESCRIPTION
   Scenarios:

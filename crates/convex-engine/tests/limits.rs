@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-//! P14a (D83, D84): each limit measure against a hand-computed book, each status at its
+//! Each limit measure against a hand-computed book, each status at its
 //! bounds, and each reason a limit is unknown.
 
 use convex_core::contracts::{ExactDecimal, InstrumentId, UtcTimestamp};
@@ -549,7 +549,7 @@ fn stamp(text: &str) -> UtcTimestamp {
     UtcTimestamp::parse(text).unwrap()
 }
 
-/// P15d (D96): before its expiry a limit is judged against the excess and reports it; at
+/// Before its expiry a limit is judged against the excess and reports it; at
 /// and after it, against the limit's own bounds, and nothing of the excess.
 #[test]
 fn an_excess_applies_strictly_before_its_expiry() {
@@ -580,7 +580,7 @@ fn an_excess_applies_strictly_before_its_expiry() {
     }
 }
 
-/// P15d (D96): the warning band and each bound read the excess's bounds where it names
+/// The warning band and each bound read the excess's bounds where it names
 /// one and the limit's own where it does not, and an unknown limit still reports it.
 #[test]
 fn the_warning_band_and_each_side_read_the_bounds_in_force() {

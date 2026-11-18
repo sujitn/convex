@@ -99,7 +99,7 @@ namespace Convex.Excel.Tests
         }
 
         [Theory]
-        [InlineData("price", "z_spread")] // GX16: dropped from CX.PRICE
+        [InlineData("price", "z_spread")] // not a CX.PRICE field
         [InlineData("risk", "nope")]
         [InlineData("yas", "nope")]
         public void Unknown_fields_are_name_errors(string verb, string field) =>

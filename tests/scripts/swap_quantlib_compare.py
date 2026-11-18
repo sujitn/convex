@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pinned CVX-019 swap comparison. Python 3.11+, stdlib; QuantLib only in capture.
+"""Pinned swap comparison. Python 3.11+, stdlib; QuantLib only in capture.
 
 The fixed suite contains inputs, never golden external outputs. `run` builds
 Convex and executes checksum-verified QuantLib in a separate supplied Python.

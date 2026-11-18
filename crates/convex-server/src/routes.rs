@@ -323,7 +323,7 @@ pub fn create_router_with_access(
             "/api/v1/books/:book_id/history",
             get(books::get_book_history),
         )
-        // Book limits: two-subject changes (D85), status on request and the pre-trade check
+        // Book limits: two-subject changes, status on request and the pre-trade check
         .route(
             "/api/v1/books/:book_id/limits",
             get(limits::get_limits).put(limits::put_limits),
@@ -352,7 +352,7 @@ pub fn create_router_with_access(
             "/api/v1/books/:book_id/limits/status",
             get(limits::get_limit_status),
         )
-        // Acknowledgements (P15c): who has seen a breach, until when; no bound changes
+        // Acknowledgements: who has seen a breach, until when; no bound changes
         .route(
             "/api/v1/books/:book_id/limits/acknowledgements",
             get(limit_acknowledgements::get_acknowledgements)
@@ -370,12 +370,12 @@ pub fn create_router_with_access(
             "/api/v1/books/:book_id/limits/acknowledgements/history",
             get(limit_acknowledgements::get_acknowledgements_history),
         )
-        // Recorded status changes (P15b), from the monitor's audit store, by cursor
+        // Recorded status changes, from the monitor's audit store, by cursor
         .route(
             "/api/v1/books/:book_id/limits/records",
             get(limits::get_limit_records),
         )
-        // Pre-trade check (P14d): status as if proposed changes were applied; stores nothing
+        // Pre-trade check: status as if proposed changes were applied; stores nothing
         .route(
             "/api/v1/books/:book_id/limits/check",
             post(limits::check_limits),

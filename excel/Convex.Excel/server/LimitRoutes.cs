@@ -28,7 +28,7 @@ namespace Convex.Excel.Server
         public List<(int Row, string Reason)> Rows { get; } = new();
     }
 
-    /// The book limit routes the add-in reads (server P14b, P14d):
+    /// The book limit routes the add-in reads:
     /// `GET /api/v1/books/{id}/limits/status` and
     /// `POST /api/v1/books/{id}/limits/check`. Neither writes anything.
     internal static class LimitRoutes
@@ -116,7 +116,7 @@ namespace Convex.Excel.Server
 
     /// One row of a pre-trade check: a signed quantity added to the book's
     /// position in an instrument, named by the server's instrument id or by
-    /// a CUSIP or ISIN, which the server resolves (server D89, D91).
+    /// a CUSIP or ISIN, which the server resolves.
     internal sealed class LimitChangeRow
     {
         public string Identifier { get; set; } = "";

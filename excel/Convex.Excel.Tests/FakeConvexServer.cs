@@ -45,7 +45,7 @@ namespace Convex.Excel.Tests
         /// When set, only these bearer tokens may connect.
         public HashSet<string>? AcceptTokens { get; set; }
 
-        // ---- Limits (server P14b-P14d).
+        // ---- Limits.
         /// Each book's status read body; a book missing here answers 404.
         public ConcurrentDictionary<string, JObject> LimitStatus { get; } = new();
         /// Statuses the status route answers first, in order.

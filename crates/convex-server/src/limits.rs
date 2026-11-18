@@ -1,8 +1,8 @@
-//! Book limit sets and their status (P14b; D82, D84, D85, D87).
+//! Book limit sets and their status.
 //!
 //! A book's limits are one `MasterKey::LimitSet` record per book in the reference
 //! repository, as books are: compare-and-set versions, history, idempotency receipts and
-//! backup. Under required access a change needs two subjects (D85): one proposes it
+//! backup. Under required access a change needs two subjects: one proposes it
 //! (`MasterKey::LimitProposal`), and a different one approves it, which commits the set and
 //! closes the proposal in one transaction. Under local development requests carry no
 //! subject, so a change commits in one step, recorded as `local-development`.
@@ -11,10 +11,10 @@
 //! `convex_engine::limits::evaluate_limits`. A position without an accepted result makes
 //! the limits that read market data `unknown`; it never refuses the request.
 //!
-//! A pre-trade check (P14d; D88–D91) evaluates a book with proposed changes applied the
+//! A pre-trade check evaluates a book with proposed changes applied the
 //! same way, and stores nothing.
 //!
-//! A limit may carry a temporary excess (P15d, D96), changed through the same proposal.
+//! A limit may carry a temporary excess, changed through the same proposal.
 //! Its expiry is checked here, against the time of the proposal and of the approval; an
 //! excess a change leaves exactly as the current set holds it is not, because a set is
 //! replaced whole and a change to one limit carries the others.
@@ -62,13 +62,13 @@ use crate::handlers::AppState;
 use crate::limit_monitor::{AcknowledgementInForce, LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
 use crate::reference::{expected_version, key, now, reference_error, with_reference_version};
 
-/// Books with a non-empty limit set: the monitor watches each of them (D87).
+/// Books with a non-empty limit set: the monitor watches each of them.
 pub(crate) const MAX_LIMITED_BOOKS: usize = convex_engine::configuration::MAX_PLAN_BOOKS;
 /// Largest page of limit set or proposal history.
 pub(crate) const MAX_HISTORY_PAGE: usize = 500;
 /// Source recorded on every limit set and proposal.
 const LIMITS_API: &str = "limits-api";
-/// Rows one pre-trade check takes (D88).
+/// Rows one pre-trade check takes.
 pub(crate) const MAX_CHECK_ROWS: usize = 256;
 /// What status and a check read: the book, its results and priced terms, and market values.
 pub(crate) const STATUS_DATA: &[DataScope] = &[
@@ -118,7 +118,7 @@ pub(crate) fn writes_limits(changes: &[MasterChange]) -> bool {
 }
 
 /// The refusal of a generic reference write, or commit read, that names a limit set,
-/// proposal or acknowledgements: D85's two subjects and the limit routes' instrument
+/// proposal or acknowledgements: the two-subject rule and the limit routes' instrument
 /// checks hold only there.
 pub(crate) fn limits_route_required() -> Response {
     typed_error(
@@ -255,7 +255,7 @@ fn new_excesses<'a>(
         .collect())
 }
 
-/// D96: each excess a proposal adds or changes expires after the proposal, and at most
+/// Each excess a proposal adds or changes expires after the proposal, and at most
 /// thirty days after it.
 fn check_new_excesses(
     limits: &[LimitDefinition],
@@ -297,7 +297,7 @@ pub(crate) async fn current(
     repo.get_master(&key).await
 }
 
-/// D87: at most `MAX_LIMITED_BOOKS` books hold a non-empty set. Counted under the limit
+/// At most `MAX_LIMITED_BOOKS` books hold a non-empty set. Counted under the limit
 /// write lock, so two first sets cannot both take the last place.
 async fn within_book_bound(
     repo: &dyn ReferenceRepository,
@@ -477,7 +477,7 @@ pub(crate) struct LimitSetRequest {
 ///
 /// `If-Match` names the limit set version the change replaces; absent proposes the book's
 /// first set. `Idempotency-Key` is required. Each excess the change adds or alters expires
-/// after the proposal and at most thirty days after it (D96). Under required access the change is a
+/// after the proposal and at most thirty days after it. Under required access the change is a
 /// proposal, returned with `202 Accepted`, that a different subject approves. The caller
 /// holds each instrument the new limits and the current set name, since the change drops
 /// any limit it leaves out. A new proposal replaces an open one, which withdraws it, so
@@ -1056,7 +1056,7 @@ struct StatusItem<'a> {
     warning_fraction: Option<convex_core::contracts::ExactDecimal>,
     #[serde(flatten)]
     evaluation: &'a LimitEvaluation,
-    /// The acknowledgement in force, for a `breach` or `unknown` limit (P15c).
+    /// The acknowledgement in force, for a `breach` or `unknown` limit.
     #[serde(skip_serializing_if = "Option::is_none")]
     acknowledgement: Option<AcknowledgementInForce>,
 }
@@ -1079,7 +1079,7 @@ struct StatusView<'a> {
 /// that reads market data `unknown`, and so does one whose result cannot be read as an
 /// analyzer quote or whose priced terms cannot be read. The response carries the book and
 /// set versions, the time and the snapshots read. A `breach` or `unknown` limit carries the
-/// acknowledgement in force for it, if there is one (P15c).
+/// acknowledgement in force for it, if there is one.
 pub(crate) async fn get_limit_status(
     State(state): State<Arc<AppState>>,
     ctx: Option<Extension<AccessContext>>,
@@ -1212,7 +1212,7 @@ async fn evaluated(
 }
 
 // =============================================================================
-// RECORDS (P15b)
+// RECORDS
 // =============================================================================
 
 /// Records a page holds unless the request says otherwise.
@@ -1222,7 +1222,7 @@ const DEFAULT_RECORDS_PAGE: usize = 100;
 /// JSON is at most 128 KiB, so one always fits.
 const MAX_RECORDS_PAGE_BYTES: usize = 3 * 1024 * 1024;
 const MAX_RECORDS_PAGE_VALUES: usize = 60_000;
-/// The most of a book's entries a request by limit reads (D107), in pages of
+/// The most of a book's entries a request by limit reads, in pages of
 /// [`MAX_ENTITY_PAGE`]: a reader following a limit whose records are rare passes a long
 /// stretch of other limits' records over several requests.
 const MAX_RECORDS_READ: usize = 10_000;
@@ -1314,7 +1314,7 @@ fn json_values(value: &serde_json::Value) -> usize {
 /// `limit_status` frame says it (without `type`), and `next_after`, the cursor for the
 /// next page.
 ///
-/// With `limit_id`, only that limit's records, read through the book's index (D107): a
+/// With `limit_id`, only that limit's records, read through the book's index: a
 /// request reads at most [`MAX_RECORDS_READ`] of the book's entries, and `next_after` is
 /// the last one it examined, so a page can be empty with `more` true. Another limit's record
 /// is passed and not counted, as is one whose limit cannot be read.
@@ -1510,7 +1510,7 @@ async fn records(
 }
 
 // =============================================================================
-// PRE-TRADE CHECK (P14d)
+// PRE-TRADE CHECK
 // =============================================================================
 
 /// What a refused check's rows response says.
@@ -1523,15 +1523,15 @@ pub(crate) struct CheckRequest {
 }
 
 /// `POST /api/v1/books/{book_id}/limits/check`: each limit of the current set, evaluated
-/// now against the current Live results as if `changes` were applied to the book (D88).
+/// now against the current Live results as if `changes` were applied to the book.
 ///
 /// Each row is a signed quantity added to the held position, in a book snapshot row's
-/// grammar (D89). A row for a held instrument changes only its quantity: one that states a
+/// grammar. A row for a held instrument changes only its quantity: one that states a
 /// different unit, reference version, sector or rating is refused. A position a row brings
 /// to exactly zero is dropped, and a new instrument follows the held positions, in row
-/// order. The response is the status route's (D90). Nothing is stored, so the route takes
+/// order. The response is the status route's. Nothing is stored, so the route takes
 /// no `Idempotency-Key` or `If-Match`. The caller holds `BookRead` on the book, each
-/// instrument it holds, each one a limit names and each one a row names (D91).
+/// instrument it holds, each one a limit names and each one a row names.
 pub(crate) async fn check_limits(
     State(state): State<Arc<AppState>>,
     ctx: Option<Extension<AccessContext>>,
@@ -1622,7 +1622,7 @@ fn differs(
     None
 }
 
-/// `held` with `rows` applied by D89's rule: each row's quantity is added to the held
+/// `held` with `rows` applied: each row's quantity is added to the held
 /// position, a position a row brings to exactly zero is dropped, and each new instrument
 /// follows the held positions in row order. `units` are the units the rows stated.
 fn applied(

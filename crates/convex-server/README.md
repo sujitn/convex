@@ -473,9 +473,9 @@ refused with 400 if:
 - a rule names a bond that is not stored;
 - a rule names a set that does not exist;
 - a rule quotes a bond other than a fixed bullet by a level, or against a set (floating
-  rate notes and callables follow in P19c);
+  rate notes and callables are not yet supported);
 - a set holds anything but a government fixed bullet in its currency;
-- a set is not in USD: P19 quotes against Treasuries.
+- a set is not in USD: spreads are quoted against Treasuries only.
 
 `GET /api/v1/quotes/:id` takes `level` in place of `market_price` for a bond whose rule
 quotes it by one. The unit is the rule's: a decimal yield (`level=0.0612`), or basis

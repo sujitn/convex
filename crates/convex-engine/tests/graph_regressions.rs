@@ -573,7 +573,7 @@ fn input_and_job_expiry_cannot_publish_or_keep_capacity_claimed_indefinitely() {
     assert_eq!(graph.in_flight_count(), 0);
 }
 
-/// P17c-iii: `maintain` skips its walk only while no deadline it can expire has passed.
+/// `maintain` skips its walk only while no deadline it can expire has passed.
 /// An attempt's job deadline alone, with no input deadline beside it, still expires the
 /// attempt at the next walk.
 #[test]
@@ -598,7 +598,7 @@ fn an_attempt_deadline_alone_is_expired_by_the_next_maintenance() {
     );
 }
 
-/// P17c-iii: a published input's freshness deadline alone, with no attempt in flight,
+/// A published input's freshness deadline alone, with no attempt in flight,
 /// still expires the input and blocks its dependents at the next walk.
 #[test]
 fn an_input_freshness_deadline_alone_is_expired_by_the_next_maintenance() {

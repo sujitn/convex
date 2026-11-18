@@ -391,7 +391,7 @@ pub async fn assemble_from_repository(
                 .collect::<Result<_, _>>()
                 .map_err(|_| ConfigurationError::Invalid("invalid configured curve identity"))?,
             curves: vec![],
-            // Live reads each configured curve's current revision at every snapshot (D50);
+            // Live reads each configured curve's current revision at every snapshot;
             // the resolution above still refuses a curve missing or stale at the cutoff.
             curve_recipes: match selection.mode {
                 RuntimeMode::Live => vec![],

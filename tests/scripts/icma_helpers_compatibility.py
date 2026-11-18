@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 original = (ROOT/'tests/fixtures/library/icma-helpers-original-cash-calibration.rs').read_bytes()
-expected = 'e19956c38196f46b6a69caaafac5dfacdc0113ca164164a91b87dd6dabec0013'
+expected = 'f4032bcb150a58d7648d991e118a8690d0d7764ec4b483724477ddce8496e1aa'
 if hashlib.sha256(original).hexdigest() != expected:
     raise ValueError('Original full cash-calibration financial test changed')
 actual = (ROOT/'crates/convex-analytics/tests/cash_calibration.rs').read_bytes()

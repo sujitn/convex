@@ -1,4 +1,4 @@
-//! CVX-056 lossless economic descriptions and pure composition fixtures.
+//! Lossless economic descriptions and pure composition fixtures.
 use convex_analytics::curve_inputs::*;
 use convex_core::{
     calendars::WeekendCalendar,

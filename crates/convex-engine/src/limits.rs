@@ -1,9 +1,9 @@
-//! Book limit evaluation (P14a; D83, D84).
+//! Book limit evaluation.
 //!
 //! [`evaluate_limits`] is a pure function of one book's positions, each position's
 //! accepted runtime result read as an analyzer quote, the priced bond's classifications,
 //! the book's limit set and the time of the evaluation, which decides whether a temporary
-//! excess applies (P15d, D96). It reads no clock, store or runtime. Each aggregate is
+//! excess applies. It reads no clock, store or runtime. Each aggregate is
 //! computed once per evaluation, however many limits read it.
 //!
 //! Market values are admitted exactly as analytics by book admit them
@@ -333,7 +333,7 @@ fn detail(error: &EngineError) -> String {
     text
 }
 
-/// Admit the book's market values, after the book-level reasons in D84's order.
+/// Admit the book's market values, after checking each book-level `unknown` reason in turn.
 fn admit_market<'a>(
     positions: &'a [LimitPosition<'a>],
     currency: Option<Currency>,

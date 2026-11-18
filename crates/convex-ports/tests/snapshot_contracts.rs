@@ -146,7 +146,7 @@ fn unknown_later_known_resources_and_invalid_curves_are_rejected_before_publicat
     }
 }
 
-/// D68: the identity equals SHA-256 over the content's plain serialization, one quote
+/// The identity equals SHA-256 over the content's plain serialization, one quote
 /// field changes it, and a change to a section whose JSON was written drops that JSON.
 #[test]
 fn identity_is_the_hash_of_the_plain_content_bytes() {
@@ -180,7 +180,7 @@ fn identity_is_the_hash_of_the_plain_content_bytes() {
     assert_ne!(grown.id(), &id);
 }
 
-/// D68: a shared section's checks that read no cutoff run once, each snapshot still
+/// A shared section's checks that read no cutoff run once, each snapshot still
 /// checks it at its own cutoff, and a change drops the checks.
 #[test]
 fn a_checked_reference_section_is_still_checked_at_each_cutoff_and_after_a_change() {
@@ -298,7 +298,7 @@ fn instrument_lookups_find_each_reference_and_every_source_in_canonical_order() 
     }
 }
 
-/// D58: one instrument's quality reads its own quotes, a floating note's fixings and the
+/// One instrument's quality reads its own quotes, a floating note's fixings and the
 /// required curves its valuation reads.
 #[test]
 fn instrument_quality_reads_only_that_instruments_inputs() {
@@ -364,7 +364,7 @@ fn instrument_quality_reads_only_that_instruments_inputs() {
     assert_eq!(snapshot.curve_quality("USD-ABSENT"), DataQuality::Invalid);
 }
 
-/// D55: a later snapshot keeps one instrument's result when its frame, reference, quotes,
+/// A later snapshot keeps one instrument's result when its frame, reference, quotes,
 /// fixings and read curves are those of the snapshot before.
 #[test]
 fn an_instrument_reads_the_same_inputs_until_its_own_change() {
@@ -444,7 +444,7 @@ fn an_instrument_reads_the_same_inputs_until_its_own_change() {
     assert!(!same(configuration, &[]).0);
 }
 
-/// P13b-ii (D79): schema 4's id is the sectioned layout, written independently; a change
+/// Schema 4's id is the sectioned layout, written independently; a change
 /// to the frame, a quote or the references changes it, and so does the schema. A section
 /// changed in place after its digest was computed is hashed again.
 #[test]
@@ -525,7 +525,7 @@ fn with_schema_builds_the_same_content_under_another_schema() {
     assert!(four.with_schema(2).is_err());
 }
 
-/// P13b-ii: snapshots of one content share its quote entries, and so the entries' digests
+/// Snapshots of one content share its quote entries, and so the entries' digests
 /// and checks. A changed entry is checked and hashed again, even when it is changed in
 /// place after both were computed: a change that breaks a check is refused, and one that
 /// does not hashes to the independently written id. Fields supplied out of order are
@@ -614,7 +614,7 @@ fn observe_fields(quote: &mut SnapshotQuote, source_ms: i64, receive_ms: i64) {
     }
 }
 
-/// P13b-iii (D81): the same inputs keep their quality at every snapshot time in the
+/// The same inputs keep their quality at every snapshot time in the
 /// window `judge` returns. The window ends at the first millisecond in which one of
 /// quality's time comparisons can turn: a quote field's source age, its receive age, or
 /// a curve's age, whichever comes first. A time before the window's start is outside it,
@@ -688,7 +688,7 @@ fn a_quality_window_holds_until_one_of_its_time_comparisons_can_turn() {
     assert!(!snapshot.within(&window));
 }
 
-/// P13b-iii (D81): `changed_quotes` names the instruments whose quote entries a later
+/// `changed_quotes` names the instruments whose quote entries a later
 /// snapshot does not share, once each, while everything else a valuation reads is the
 /// same. When anything else differs, the frame included, it names none, so every
 /// instrument is compared.

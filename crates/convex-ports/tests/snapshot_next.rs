@@ -1,4 +1,4 @@
-//! P17c-ii (D108): a snapshot derived from the last one is the snapshot `new` builds.
+//! A snapshot derived from the last one is the snapshot `new` builds.
 #[path = "support/configuration_fixtures.rs"]
 mod configuration;
 
@@ -369,7 +369,7 @@ fn a_checked_section_refuses_the_lookups_its_records_refuse() {
     drop(checked);
 }
 
-/// P17c-iii: a section's floating records, found once, are exactly the records that carry
+/// A section's floating records, found once, are exactly the records that carry
 /// a floating index, in order, and a changed section finds them again.
 #[test]
 fn a_section_lists_its_floating_records_in_order_and_again_after_a_change() {
@@ -415,7 +415,7 @@ fn a_section_lists_its_floating_records_in_order_and_again_after_a_change() {
     assert_eq!(listed(&section).len(), 2);
 }
 
-/// P17c-iv: a derived snapshot reuses its last one's quote digests only under schema 4.
+/// A derived snapshot reuses its last one's quote digests only under schema 4.
 /// Content under another schema that follows it is identified from its whole JSON, as
 /// `new` identifies it.
 #[test]

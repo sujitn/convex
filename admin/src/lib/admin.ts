@@ -2,7 +2,7 @@ import { parse as parseExact, stringify as stringifyExact } from 'lossless-json'
 import type { PublishedValuation, RuntimeResultsPage } from './types'
 
 // Pure helpers shared by the screens. Nothing here validates domain data: the
-// server's strict decoders are the only validators (D40).
+// server's strict decoders are the only validators.
 //
 // The server compares numbers with their written scale, so `1.0` and `1` differ.
 // JSON.parse/JSON.stringify would rewrite one as the other: anything sent back is
@@ -14,7 +14,7 @@ export function readExact(text: string): unknown {
 }
 
 /**
- * Every runtime result, read a page at a time from the start (D103). The cursor only
+ * Every runtime result, read a page at a time from the start. The cursor only
  * moves forward, so each instrument is on one page of the walk and the pages join
  * without duplicates.
  */
@@ -118,7 +118,7 @@ export type RestartState = 'unknown' | 'current' | 'applying' | 'pending_restart
 /**
  * Compare the configuration's active revision with what the runtime accepted. A
  * restart-required activation commits while the runtime runs and applies at the
- * next start (D39), so a mismatch the runtime is not applying is a pending restart.
+ * next start, so a mismatch the runtime is not applying is a pending restart.
  */
 export function restartState(health: RuntimeSelection, active: number | null): RestartState {
   if (active === null) return 'unknown'

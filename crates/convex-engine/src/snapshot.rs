@@ -74,7 +74,7 @@ pub(crate) fn is_runtime_measure(measure: &str) -> bool {
 fn curve_measure(measure: &str) -> bool {
     matches!(measure, "z_spread_mid" | "i_spread_mid" | "asw_mid") || curve_risk_measure(measure)
 }
-/// The configured curves one valuation reads (D58): a callable's discount curve, a
+/// The configured curves one valuation reads: a callable's discount curve, a
 /// floating rate note's discount and reference curves, and another bond's discount and
 /// swap curves when it asks for a spread or curve-risk measure, or its discount curve
 /// when its rule's `method` prices a level over it. No snapshot valuation reads the
@@ -101,7 +101,7 @@ pub(crate) fn read_curve_ids<'c>(
         .map(|id| id.as_str())
         .collect()
 }
-/// The snapshot inputs one valuation context reads (D58).
+/// The snapshot inputs one valuation context reads.
 pub(crate) fn valuation_inputs<'a>(
     snapshot: &'a MarketSnapshot,
     spec: &ValuationContextSpec,
@@ -356,7 +356,7 @@ impl SnapshotAssembler {
         })
     }
     /// Resolve the exact configuration and the pinned references `request` selects, at its
-    /// cutoff, for reuse by later snapshots of the same selection (D56). Only a Live
+    /// cutoff, for reuse by later snapshots of the same selection. Only a Live
     /// runtime pins, so the request is within the Live bounds.
     pub(crate) async fn pin(&self, request: &SnapshotAssembly) -> Result<PinnedInputs, TraitError> {
         validate_request(request, &[], SnapshotBounds::Live)?;
@@ -379,12 +379,12 @@ impl SnapshotAssembler {
     ///
     /// `epoch` names `request`'s selection. The caller changes it whenever the request's
     /// instruments, requirements, configuration or capture may have changed; otherwise
-    /// only the request's cutoffs, generation and curve records change (P17c-i). Within
+    /// only the request's cutoffs, generation and curve records change. Within
     /// one epoch, the instruments the pinned inputs were checked against are not compared
     /// again, and only the quote entries that may have changed are looked at.
     ///
     /// The snapshot is derived from the last one these inputs resolved, which is what
-    /// `MarketSnapshot::new` would return for it (P17c-ii, D108).
+    /// `MarketSnapshot::new` would return for it.
     pub(crate) async fn resolve_ingested(
         &self,
         request: &SnapshotAssembly,
@@ -449,7 +449,7 @@ impl SnapshotAssembler {
             fixings.push(SnapshotFixing { key, fixing });
         }
         Ok(SnapshotContent {
-            // The sectioned identity, whatever the curves (D79).
+            // The sectioned identity, whatever the curves.
             schema_version: SNAPSHOT_SCHEMA,
             as_of: request.as_of,
             known_at: request.known_at,
@@ -486,13 +486,13 @@ pub(crate) struct IngestedQuotes {
     stale_after_ms: i64,
     delivered: HashMap<QuoteKey, QuoteEvent>,
     /// The snapshot entry each selected key last resolved to, shared by every snapshot
-    /// until it changes (P13b-ii). At most one per requirement of the last request.
+    /// until it changes. At most one per requirement of the last request.
     entries: HashMap<QuoteKey, SharedQuote>,
     /// The keys an event changed since the last Live list, while there is one. Live admits
     /// only selected keys, so at most one per requirement.
     changed: HashSet<QuoteKey>,
     /// The last list a Live selection resolved, so the next looks only at what may have
-    /// changed (P17c-i). None before the first, and after a capacity overflow.
+    /// changed. None before the first, and after a capacity overflow.
     last: Option<LiveList>,
 }
 
@@ -503,7 +503,7 @@ struct LiveList {
     capture_ms: i64,
     /// By instrument, then source, as `MarketSnapshot::new` orders them, so the snapshot
     /// keeps each entry at its position and `MarketSnapshot::next` finds the rebuilt ones
-    /// by position (P17c-ii).
+    /// by position.
     quotes: Vec<SharedQuote>,
     /// Each position's index in the request's requirements.
     requirements: Vec<usize>,
@@ -651,7 +651,7 @@ impl IngestedQuotes {
         quotes
     }
     /// What [`IngestedQuotes::quotes`] returns, in snapshot order, for a Live selection
-    /// whose requirements do not change while `epoch` does not (P17c-i). Only the entries
+    /// whose requirements do not change while `epoch` does not. Only the entries
     /// of keys that ingested an event since the last call, and of keys whose state may
     /// have turned with time, are looked at again; `quotes` would keep every other entry,
     /// so it is kept without a look. A new epoch, a capture earlier than the last or a
@@ -754,20 +754,20 @@ fn same_fields(sorted: &[QuoteField], fields: &[QuoteField]) -> bool {
 }
 
 /// The pricing configuration and pinned references of one selection, resolved once at
-/// the cutoff of its first snapshot (D56). Every record is an exact pinned version, so
+/// the cutoff of its first snapshot. Every record is an exact pinned version, so
 /// none changes while the selection holds; each snapshot still checks them at its own
 /// cutoff (`MarketSnapshot::new`). Every snapshot shares the one references section, so
-/// its checks that read no cutoff and its digest are done once (D68).
+/// its checks that read no cutoff and its digest are done once.
 pub(crate) struct PinnedInputs {
     activation: Option<Version>,
     configuration_pin: ConfigurationPin,
     instruments: Vec<InstrumentPin>,
     configuration: convex_ports::storage::BondPricingConfig,
     references: ResolvedReferences,
-    /// The Live selection epoch these inputs last served (P17c-i).
+    /// The Live selection epoch these inputs last served.
     epoch: Option<u64>,
-    /// The last Live snapshot these inputs resolved; the next is derived from it
-    /// (P17c-ii). Any earlier snapshot serves, since `MarketSnapshot::next` compares
+    /// The last Live snapshot these inputs resolved; the next is derived from it.
+    /// Any earlier snapshot serves, since `MarketSnapshot::next` compares
     /// what it shares with it.
     last: Option<Arc<MarketSnapshot>>,
 }
@@ -889,7 +889,7 @@ fn validate_frame(
     Ok(())
 }
 
-/// Checked application result. Canonical numeric envelope remains compatible with CVX-007.
+/// Checked application result. Its numeric envelope is the canonical `ResultEnvelope`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(try_from = "ValuationResultWire", into = "ValuationResultWire")]
 pub struct SnapshotValuationResult(ValuationResultWire);
@@ -1046,8 +1046,8 @@ impl SnapshotValuator {
         let quality = valuation_quality(built.snapshot(), context.spec())?.quality;
         self.value_built_judged(built, context, request_id, calculated_at, quality)
     }
-    /// [`Self::value_built`] for a caller that already derived the instrument's quality
-    /// (D58), so one valuation derives it once.
+    /// [`Self::value_built`] for a caller that already derived the instrument's quality,
+    /// so one valuation derives it once.
     pub(crate) fn value_built_judged(
         &self,
         built: &crate::curve_replay::BuiltSnapshot,
@@ -1426,7 +1426,7 @@ fn rebound(
 type Measures = (BTreeMap<MeasureId, MeasureResult>, Vec<StructuredError>);
 
 /// The plan's explicit fixings plus each floating rate note's observations that are due by
-/// the cutoff, derived from its built contract (D33). A note the adapter cannot build adds
+/// the cutoff, derived from its built contract. A note the adapter cannot build adds
 /// none; its valuation reports why.
 fn required_fixings(
     request: &SnapshotAssembly,
@@ -1447,7 +1447,7 @@ fn required_fixings(
     Ok(keys.into_iter().collect())
 }
 
-/// Floating rate note measures at the observed clean mid, from `convex::library` (D26, D34).
+/// Floating rate note measures at the observed clean mid, from `convex::library`.
 fn floating_measures(
     snapshot: &MarketSnapshot,
     spec: &ValuationContextSpec,
@@ -1606,8 +1606,8 @@ fn floating_measures(
     Ok((results, errors))
 }
 
-/// Callable measures at the observed clean mid, from `convex::library` (D26). A plan measure
-/// the optional model does not publish never reaches this context (D29).
+/// Callable measures at the observed clean mid, from `convex::library`. A plan measure
+/// the optional model does not publish never reaches this context.
 fn callable_measures(
     snapshot: &MarketSnapshot,
     spec: &ValuationContextSpec,
@@ -2083,7 +2083,7 @@ mod tests {
         (quotes, shared)
     }
 
-    /// P13b-ii: a Live tick shares every quote entry that did not change, so its digest
+    /// A Live tick shares every quote entry that did not change, so its digest
     /// and checks are kept. An entry is built again when its key ingests an event that
     /// is not a retry or out of order, its requirement changes, its state at the cutoff
     /// changes, or a full key set's transport gap blocks every key. A requirement whose
@@ -2188,7 +2188,7 @@ mod tests {
         event
     }
 
-    /// P17c-i: a Live selection's list, looking again only at the entries that may have
+    /// A Live selection's list, looking again only at the entries that may have
     /// changed, equals a full walk's at every capture, entry by entry, and shares exactly
     /// the entries the full walk shares, so the snapshots it makes are the same. The
     /// script mixes images, deltas, retries, earlier events, heartbeats, gaps, closures
@@ -2196,7 +2196,7 @@ mod tests {
     /// fall below the latest receipts; a capacity overflow; and a new epoch with another
     /// requirement. The requirements are not in snapshot order, and the list is.
     ///
-    /// P17c-ii: each tick's snapshot of the list, derived from the last one, is the
+    /// Each tick's snapshot of the list, derived from the last one, is the
     /// snapshot `new` builds, value or error.
     #[test]
     fn live_quotes_equal_a_full_walk_at_every_capture() {

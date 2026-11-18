@@ -33,7 +33,7 @@ async fn immutable_publication_retries_concurrent_writers_and_reopen_return_exac
     assert!(reopened.get(&arbitrary).await.is_err());
 }
 
-/// Schema 4 (P13b-ii) publishes and reopens exactly, as schemas 1–3 do.
+/// Schema 4 publishes and reopens exactly, as schemas 1–3 do.
 #[tokio::test]
 async fn sectioned_snapshots_publish_and_reopen_exactly() {
     let directory = tempfile::tempdir().unwrap();

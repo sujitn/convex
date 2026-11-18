@@ -1,4 +1,4 @@
-//! The level stage alone (P19a): one bond priced from its level, for each method, beside
+//! The level stage alone: one bond priced from its level, for each method, beside
 //! the router's price path it feeds. A quote from a level costs the stage plus the router;
 //! from a price, the router alone. `stage` solves each benchmark's yield, as the first
 //! bond a benchmark price reaches does; `stage_shared` and `stage_and_router` reuse the

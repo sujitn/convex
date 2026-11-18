@@ -1,4 +1,4 @@
-//! CVX-057 original-unit mixed-curve, independent cash, rebuild and failure proof.
+//! Original-unit mixed-curve, independent cash, rebuild and failure proof.
 #[path = "../../convex/examples/support/rate_fixture.rs"]
 mod fixture;
 use convex_analytics::{futures::*, rate_calibration::*};

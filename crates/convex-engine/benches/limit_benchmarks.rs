@@ -1,4 +1,4 @@
-//! P14a: one book's limit evaluation at the bounds, which sets P14c's budget per book.
+//! One book's limit evaluation at the bounds, which sets the limit monitor's budget per book.
 //!
 //! - `limits/evaluate`: 1,000 positions (`MAX_BOOK_POSITIONS`), long and short, against 64
 //!   limits (`MAX_BOOK_LIMITS`) over every measure: face, net and gross value, DV01, CS01,
@@ -136,7 +136,7 @@ fn bench_limits(c: &mut Criterion) {
         .cloned()
         .collect();
 
-    // P15d: an excess in force on every limit, so each is judged against the excess bounds
+    // An excess in force on every limit, so each is judged against the excess bounds
     // and reports it.
     let excess: Vec<LimitDefinition> = all
         .iter()

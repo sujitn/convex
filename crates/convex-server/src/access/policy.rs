@@ -27,7 +27,7 @@ pub enum Role {
     BookWriter,
     /// Inspect configuration and operations, and stage, activate and roll back configuration.
     Operator,
-    /// Propose, approve and withdraw changes to scoped books' limits (P14, D85). Reading
+    /// Propose, approve and withdraw changes to scoped books' limits. Reading
     /// limits and their status needs `Reader` or `Analyst`, as other book reads do.
     RiskManager,
 }
@@ -137,7 +137,7 @@ impl Resource {
     }
 }
 /// Topics one WebSocket session can hold: every instrument a runtime values and every book
-/// the limit monitor watches (D100).
+/// the limit monitor watches.
 pub const MAX_SESSION_TOPICS: usize =
     convex_engine::MAX_RUNTIME_INSTRUMENTS + convex_engine::configuration::MAX_PLAN_BOOKS;
 

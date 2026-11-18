@@ -1,4 +1,4 @@
-//! CVX-060 supplied analytic contracts; no live data or model certificate.
+//! Supplied analytic contracts; no live data or model certificate.
 use convex_core::{
     daycounts::DayCountConvention as Dc,
     types::{Compounding as C, Currency, Date},

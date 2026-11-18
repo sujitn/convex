@@ -87,27 +87,27 @@ namespace Convex.Excel.Server
         public string? Problem { get; set; }
     }
 
-    /// The server link: one WebSocket session per Excel process (DX7), the
+    /// The server link: one WebSocket session per Excel process, the
     /// instruments its cells follow, and the newest result of each.
     ///
     /// - Subscriptions change in batches, once per tick (100 ms); an instrument
     ///   stays subscribed for the linger time after its last cell goes.
     /// - A subscription receives each instrument's current result before its
-    ///   acknowledgement (server D99), so the stream alone seeds the cells.
+    ///   acknowledgement, so the stream alone seeds the cells.
     /// - Frames are kept per instrument when newer by (runtime_id, revision);
     ///   a new runtime resubscribes everything to reseed.
     /// - RESYNC_REQUIRED resubscribes what the session follows. A refused batch
-    ///   is split in halves until the refused instruments are found (DX14);
+    ///   is split in halves until the refused instruments are found;
     ///   they stay refused until Reconnect or a new configuration.
-    /// - A lost session keeps every value (quality Stale, DX6) and reconnects
+    /// - A lost session keeps every value (quality Stale) and reconnects
     ///   with jittered backoff. The server's heartbeat drives a watchdog.
     /// - A renewed token opens a second session, which takes over once it has
-    ///   resubscribed everything (make-before-break, DX15): the server reads
+    ///   resubscribed everything (make-before-break): the server reads
     ///   a token only at the upgrade and closes a session when it expires.
     /// - Books (CX.LIMIT) follow on the same session; see ServerSource.Limits.cs.
     internal sealed partial class ServerSource : ISessionEvents, IDisposable
     {
-        /// One session follows at most this many instruments (server D100).
+        /// One session follows at most this many instruments.
         public const int MaxInstruments = 256;
 
         private sealed class Inst
@@ -698,7 +698,7 @@ namespace Convex.Excel.Server
                 if (code == "RESYNC_REQUIRED")
                 {
                     Ops.CxLog.Connection("resync required: " + message);
-                    // Which stream lagged shows only in the text (DX19); an
+                    // Which stream lagged shows only in the text; an
                     // unknown text resyncs both.
                     bool limits = LimitErrors.IsLimitsResync(message);
                     if (limits || !LimitErrors.IsValuationsResync(message)) ResyncBooks();
@@ -795,7 +795,7 @@ namespace Convex.Excel.Server
             UpdateLink(null);
         }
 
-        /// The open session is gone: values stay, quality goes Stale (DX6).
+        /// The open session is gone: values stay, quality goes Stale.
         private void LoseSession()
         {
             foreach (var inst in _instruments.Values)

@@ -1,7 +1,7 @@
 """Independent Decimal-60 swap oracle. No Convex/QuantLib imports or execution.
 
 Literal contractual/accrual/reset/observation dates come from the independently
-reviewed CVX-018 input fixtures. This oracle prices those timelines with actual
+reviewed IRS/OIS input fixtures. This oracle prices those timelines with actual
 dated zero grids, published observations and independent profile integration.
 `check` is read-only. QuantLib comparison remains a separate, explicit gate.
 """

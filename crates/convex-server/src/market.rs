@@ -5,7 +5,7 @@
 //! time and sends under one lock so delivery order matches receipt order, and refuses
 //! a batch rather than let the runtime's queue overflow. Receipt times never step back:
 //! while the wall clock is behind the last stamp by at most [`MAX_CLOCK_STEP_MS`], a
-//! batch is stamped with the last stamp (D70).
+//! batch is stamped with the last stamp.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -34,7 +34,7 @@ const CAPACITY: usize = 1024;
 /// Rejected rows reported per response.
 const MAX_ROW_ERRORS: usize = 64;
 /// A backward wall-clock step the ingress absorbs by repeating its last receipt time.
-/// While the clock is further behind, every batch is refused with 503 (D70).
+/// While the clock is further behind, every batch is refused with 503.
 pub const MAX_CLOCK_STEP_MS: i64 = 5_000;
 
 /// The Live runtime's only quote source, fed by [`QuoteIngress::submit`].

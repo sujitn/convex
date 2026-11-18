@@ -4,10 +4,10 @@
 //! streamed valuations. A client opts in with `subscribe_valuations` and receives a
 //! `valuation` message for each published result of those instruments: first the current
 //! result of each instrument the request lists, then the `subscribed` acknowledgement, then
-//! each later result (D99). A result too large for one 64 KiB message arrives as a
+//! each later result. A result too large for one 64 KiB message arrives as a
 //! `RESULT_TOO_LARGE` error naming its instrument, and the session continues. With
 //! `subscribe_limits` it receives a `limit_status` message for each recorded change of a
-//! book's limit status (P14c), as the limit monitor records it.
+//! book's limit status, as the limit monitor records it.
 //! REST calculators return their results in the response and never broadcast.
 //! Heartbeat and ping/pong keep the connection healthy.
 
@@ -33,12 +33,12 @@ use crate::handlers::AppState;
 use crate::limit_monitor::{LimitFeed, LimitFrame, LimitStatusChange};
 use crate::ServerProfile;
 
-/// Books one session may follow: every book the monitor watches (D87).
+/// Books one session may follow: every book the monitor watches.
 const MAX_LIMIT_SUBSCRIPTIONS: usize = crate::limits::MAX_LIMITED_BOOKS;
-/// Instruments one session may follow: every instrument the runtime values (D100, D104).
+/// Instruments one session may follow: every instrument the runtime values.
 const MAX_VALUATION_SUBSCRIPTIONS: usize = convex_engine::MAX_RUNTIME_INSTRUMENTS;
 /// Instruments one valuation message lists, so it fits one message and its seed is at
-/// most this many results (D104). A session following 4,096 sends 16.
+/// most this many results. A session following 4,096 sends 16.
 const MAX_MESSAGE_INSTRUMENTS: usize = 256;
 /// The largest message the server sends or accepts, in bytes.
 const MAX_MESSAGE_BYTES: usize = 65536;
@@ -490,7 +490,7 @@ fn handle_client_message(
             session
                 .valuation_subscriptions
                 .extend(listed.iter().cloned());
-            // D99: each listed instrument's current result, then the acknowledgement. The
+            // Each listed instrument's current result, then the acknowledgement. The
             // results are read after the subscription is in place, so a result published
             // meanwhile is either in this read or follows on the stream. A frame still
             // queued on the stream can be older than the one sent here; the client keeps

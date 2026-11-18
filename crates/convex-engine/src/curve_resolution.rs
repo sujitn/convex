@@ -108,7 +108,7 @@ pub async fn resolve_curves(
     resolve_held(store, roots, known_at, &mut Vec::new()).await
 }
 
-/// [`resolve_curves`] for one request context (D72). A curve `held` already holds is
+/// [`resolve_curves`] for one request context. A curve `held` already holds is
 /// taken from it, as a root or as a dependency, and each record read from the store is
 /// added to it, a failed resolution's included. So every set the context resolves
 /// prices a curve on the same revision. `held` holds at most `MAX_SNAPSHOT_CURVES`.
@@ -135,7 +135,7 @@ pub(crate) async fn resolve_held(
 }
 
 /// Whether a runtime reads its curves from the curve store at each snapshot's
-/// cutoff (D50): a Live assembly that pins no curve data. An assembly that pins
+/// cutoff: a Live assembly that pins no curve data. An assembly that pins
 /// keeps its pins.
 pub fn reads_stored_curves(mode: RuntimeMode, assembly: &SnapshotAssembly) -> bool {
     mode == RuntimeMode::Live

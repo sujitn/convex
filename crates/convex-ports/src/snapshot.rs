@@ -36,7 +36,7 @@ pub const MAX_SNAPSHOT_BYTES: usize = 16 * 1024 * 1024;
 /// Maximum selected instruments or quote keys in one information set, but a Live one.
 pub const MAX_SNAPSHOT_INSTRUMENTS: usize = 256;
 /// Selected instruments or quote keys in a Live runtime's snapshot, which is never
-/// stored (D101).
+/// stored.
 pub const MAX_LIVE_SNAPSHOT_INSTRUMENTS: usize = 4096;
 /// The JSON a Live snapshot's identity hashes. 4,096 instruments with every text at the
 /// bound its validator sets, each with a pricing rule, and 64 benchmark sets at theirs,
@@ -51,8 +51,8 @@ pub const MAX_SNAPSHOT_FIXINGS: usize = 1024;
 pub const MAX_SNAPSHOT_CURVES: usize = 64;
 /// Maximum total curve pillars, not a separate allowance for each curve.
 pub const MAX_SNAPSHOT_PILLARS: usize = 4096;
-/// The schema assembly writes: the sectioned identity, whatever the curves (P13b-ii,
-/// D79). Schemas 1–3 still verify, so stored snapshots keep their ids.
+/// The schema assembly writes: the sectioned identity, whatever the curves.
+/// Schemas 1–3 still verify, so stored snapshots keep their ids.
 pub const SNAPSHOT_SCHEMA: u32 = 4;
 
 /// What a snapshot may hold.
@@ -62,7 +62,7 @@ pub enum SnapshotBounds {
     /// identified within [`MAX_SNAPSHOT_BYTES`].
     Standard,
     /// A Live runtime's snapshots, never stored: [`MAX_LIVE_SNAPSHOT_INSTRUMENTS`]
-    /// instruments, identified within [`MAX_LIVE_IDENTITY_BYTES`] (D101, D109).
+    /// instruments, identified within [`MAX_LIVE_IDENTITY_BYTES`].
     Live,
 }
 
@@ -317,7 +317,7 @@ pub struct SnapshotQuote {
     pub image: Option<QuoteSnapshot>,
 }
 
-/// One selected quote of a snapshot: a shared, immutable entry (P13b-ii). A Live process
+/// One selected quote of a snapshot: a shared, immutable entry. A Live process
 /// keeps one entry for each selected key, and every tick's snapshot shares it until that
 /// key ingests an event or its state changes, so a tick copies a pointer, not the quote.
 /// The entry keeps its schema-4 digest and the result of its checks that read no cutoff,
@@ -486,7 +486,7 @@ pub struct SnapshotContent {
     pub benchmark_sets: Arc<[ResolvedBenchmarkSet]>,
 }
 
-/// The resolved references of a snapshot: one shared, immutable section (D68). A Live
+/// The resolved references of a snapshot: one shared, immutable section. A Live
 /// selection pins its references once per activation, and every tick's snapshot shares
 /// the section instead of copying it. The checks that read the records alone run once
 /// per section, and its canonical JSON (schemas 1–3) or its digest (schema 4) is
@@ -505,13 +505,13 @@ struct ReferenceSection {
     digest: OnceLock<SectionDigest>,
     /// Set once `records` pass the checks that read no cutoff.
     checked: OnceLock<()>,
-    /// What the cutoff checks of checked `records` compare, computed once (P17c-ii).
+    /// What the cutoff checks of checked `records` compare, computed once.
     bounds: OnceLock<Option<ReferenceBounds>>,
-    /// The positions of the records that carry a floating index, found once (P17c-iii).
+    /// The positions of the records that carry a floating index, found once.
     floating: OnceLock<Box<[usize]>>,
 }
 
-/// The times a checked section's cutoff checks compare (P17c-ii). A record and each of
+/// The times a checked section's cutoff checks compare. A record and each of
 /// its resources must be recorded by the lookup's `known_at` and effective at its
 /// `as_of`, so every one is exactly when the latest recording is by `known_at` and
 /// `as_of` lies from the latest start to before the earliest end. `None` in a field means
@@ -632,7 +632,7 @@ impl SnapshotReferences {
         }
     }
     /// The records that carry a floating index, in order. Their positions are found once
-    /// per section, so a Live tick does not walk every record for them (P17c-iii).
+    /// per section, so a Live tick does not walk every record for them.
     pub fn floating(&self) -> impl Iterator<Item = &ResolvedBondReference> {
         let records = &self.0.records;
         self.0
@@ -663,7 +663,7 @@ impl SnapshotReferences {
     }
     /// Check sorted records at `lookup`. The checks that read the records alone run
     /// once per section. The cutoff checks run at every call, once checked in O(1) from
-    /// the section's bounds (P17c-ii).
+    /// the section's bounds.
     fn validate(&self, lookup: ReferenceLookup) -> Result<(), TraitError> {
         use crate::reference_repository::validate_reference_id;
         let invalid = |_| TraitError::InvalidInput("invalid resolved snapshot reference");
@@ -836,7 +836,7 @@ pub struct SnapshotQuality {
     pub issues: Vec<SnapshotIssue>,
 }
 
-/// The inputs one dependent reads from a snapshot, in snapshot order (D58). Quality over
+/// The inputs one dependent reads from a snapshot, in snapshot order. Quality over
 /// a set judges only these inputs; source skew is measured among its quotes alone, a
 /// level a bond's rule quotes it by left out.
 #[derive(Debug, Clone)]
@@ -885,8 +885,8 @@ impl<'a> InputSet<'a> {
     }
 }
 
-/// The snapshot times over which one input set keeps the quality it was judged to have
-/// (D81): from the time it was judged at, up to but not including the first millisecond
+/// The snapshot times over which one input set keeps the quality it was judged to have:
+/// from the time it was judged at, up to but not including the first millisecond
 /// at which one of quality's time comparisons could turn. Quality reads the time only to
 /// compare a quote field's source and receive times with the snapshot's, and a quote
 /// field's or a curve's age with its maximum. Each comparison turns at most once as time
@@ -914,8 +914,8 @@ impl QualityWindow {
 /// is verified when it is made: [`MarketSnapshot::new`] derives the identity,
 /// [`MarketSnapshot::next`] returns what `new` would, deserialization re-derives the
 /// identity and quality and compares them, and no method mutates one. Holders do not
-/// re-verify it (D67). The whole snapshot's quality is derived from its content when first
-/// read (P17c-ii): by [`MarketSnapshot::quality`], serializing, verifying or comparing.
+/// re-verify it. The whole snapshot's quality is derived from its content when first
+/// read: by [`MarketSnapshot::quality`], serializing, verifying or comparing.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(try_from = "SnapshotWire", into = "SnapshotWire")]
 pub struct MarketSnapshot(Snapshot);
@@ -928,7 +928,7 @@ struct Snapshot {
     /// The whole snapshot's quality, derived from `content` when first read. A
     /// deserialized snapshot holds its wire's, which `verify` compares.
     quality: OnceLock<SnapshotQuality>,
-    /// Schema 4's quote digests in snapshot order, set by `new` and `next` (P17c-iv); a
+    /// Schema 4's quote digests in snapshot order, set by `new` and `next`; a
     /// deserialized snapshot has none, and its next is identified from every entry.
     digests: OnceLock<Arc<QuoteDigests>>,
     /// What it was made within; its next is made within the same.
@@ -1000,7 +1000,7 @@ impl MarketSnapshot {
         self.0.bounds
     }
     /// What [`MarketSnapshot::bounded`] returns for `content` within this snapshot's
-    /// bounds, derived from this snapshot when `content` follows it ([`MarketSnapshot::follows`]; P17c-ii, D108). A Live
+    /// bounds, derived from this snapshot when `content` follows it ([`MarketSnapshot::follows`]). A Live
     /// tick's content is its last snapshot's but for the cutoffs, the generation, the
     /// curve records, the fixings and the entries rebuilt since.
     ///
@@ -1027,7 +1027,7 @@ impl MarketSnapshot {
     }
     /// `content`'s identity, as `new` derives it. Under schema 4 its quote digests are
     /// this snapshot's with the `rebuilt` positions' replaced, so the 32 bytes of each
-    /// shared entry are copied, not read from the entry (P17c-iv). The bytes hashed are
+    /// shared entry are copied, not read from the entry. The bytes hashed are
     /// the same, so the identity is.
     fn derived_identity(
         &self,
@@ -1183,7 +1183,7 @@ impl MarketSnapshot {
     pub fn pricing_rule(&self, instrument_id: &str) -> Option<&ResolvedPricingRule> {
         self.reference(instrument_id)?.pricing_rule.as_ref()
     }
-    /// Whether this snapshot shares every valuation's frame with `previous` (D55): the
+    /// Whether this snapshot shares every valuation's frame with `previous`: the
     /// configuration and its capture, the skew policy, the schema and the valuation
     /// date. A floating note's valuation date and its due fixings follow the date.
     pub fn same_frame(&self, previous: &MarketSnapshot) -> bool {
@@ -1196,8 +1196,8 @@ impl MarketSnapshot {
             && (same_sets(&now.benchmark_sets, &then.benchmark_sets)
                 || now.benchmark_sets == then.benchmark_sets)
     }
-    /// Whether one instrument's valuation reads the same inputs here as in `previous`
-    /// (D55): its reference, its quotes, a floating note's fixings, and each curve in
+    /// Whether one instrument's valuation reads the same inputs here as in `previous`:
+    /// its reference, its quotes, a floating note's fixings, and each curve in
     /// `curves` with its record, recipe or calibration. A recipe pins the versions of
     /// the curves it is built on. The frame is compared once, by `same_frame`. A shared
     /// reference section or quote entry is the same one, so it is not compared.
@@ -1248,7 +1248,7 @@ impl MarketSnapshot {
         derive_quality(&self.0.content, self.quality_time(), inputs).0
     }
     /// [`MarketSnapshot::quality_of`], and the window of snapshot times over which the
-    /// same inputs keep that quality (D81).
+    /// same inputs keep that quality.
     pub fn judge(&self, inputs: &InputSet<'_>) -> (SnapshotQuality, QualityWindow) {
         let judged_at = self.quality_time();
         let (quality, until_ms) = derive_quality(&self.0.content, judged_at, inputs);
@@ -1261,7 +1261,7 @@ impl MarketSnapshot {
         )
     }
     /// Whether this snapshot's time lies in `window`, so inputs this snapshot shares with
-    /// the one judged there keep the quality they were judged to have (D81). A time before
+    /// the one judged there keep the quality they were judged to have. A time before
     /// the window's start is outside it.
     pub fn within(&self, window: &QualityWindow) -> bool {
         let now = self.quality_time();
@@ -1275,7 +1275,7 @@ impl MarketSnapshot {
         self.0.content.as_of.max(self.0.content.known_at)
     }
     /// The instruments whose quote entries are not shared with `previous`'s, in snapshot
-    /// order and each named once (D81). `None` unless everything else a valuation reads is
+    /// order and each named once. `None` unless everything else a valuation reads is
     /// the same in both: the frame ([`MarketSnapshot::same_frame`]), a shared reference
     /// section, equal fixings, required curves, curve records, recipes and calibration,
     /// and the same quote keys in the same order. An instrument it does not list then has
@@ -1388,8 +1388,8 @@ impl MarketSnapshot {
 }
 /// Schemas 1–3: SHA-256 under the schema's domain over the canonical JSON of normalized
 /// content, the bytes `serde_json::to_vec` writes for it. They stream into the hash,
-/// bounded as they go, and the references are written from their section's cached JSON
-/// (D68). Schema 4 hashes by section ([`sectioned_identity`]), and returns its quote
+/// bounded as they go, and the references are written from their section's cached JSON.
+/// Schema 4 hashes by section ([`sectioned_identity`]), and returns its quote
 /// digests for the snapshot to keep.
 fn identity_and_digests(
     content: &SnapshotContent,
@@ -1412,7 +1412,7 @@ fn identity_and_digests(
     ))
 }
 
-/// Schema 4 (P13b-ii, D68 B): SHA-256 under `convex.snapshot.v4\0` over, in order,
+/// Schema 4: SHA-256 under `convex.snapshot.v4\0` over, in order,
 /// 1. the reference section's digest, 32 bytes: SHA-256 under
 ///    `convex.snapshot.v4.references\0` over the records' canonical JSON, computed once
 ///    per section;
@@ -1471,7 +1471,7 @@ fn hash_sections(
 const DIGEST_BYTES: usize = 32;
 
 /// Schema 4's quote digests in snapshot order, one after another, and the summed length
-/// of the JSON they hash (P17c-iv). Identity hashes these exact bytes, so a snapshot
+/// of the JSON they hash. Identity hashes these exact bytes, so a snapshot
 /// derived from another copies them and replaces only its rebuilt entries'.
 #[derive(Debug, PartialEq)]
 struct QuoteDigests {
@@ -2105,7 +2105,7 @@ fn check_quote_at(
 }
 
 /// The quality of `inputs` at `now`, and the first millisecond at which one of its time
-/// comparisons could turn (D81, [`QualityWindow`]). Every time comparison runs, so each
+/// comparisons could turn ([`QualityWindow`]). Every time comparison runs, so each
 /// one's turning point counts, even where another already decides the issue.
 fn derive_quality(
     content: &SnapshotContent,
@@ -2380,7 +2380,7 @@ pub fn snapshot_instrument_id(
 }
 
 /// `now_ms < time_ms`. While it holds, it stops holding at `time_ms`, which `until`
-/// then counts (D81).
+/// then counts.
 fn before(now_ms: i64, time_ms: i64, until: &mut Option<i64>) -> bool {
     let before = now_ms < time_ms;
     if before {
@@ -2390,7 +2390,7 @@ fn before(now_ms: i64, time_ms: i64, until: &mut Option<i64>) -> bool {
 }
 
 /// [`age_exceeded`]. While it does not hold, it may start to hold within the millisecond
-/// the age reaches its maximum, which `until` then counts (D81).
+/// the age reaches its maximum, which `until` then counts.
 fn aged(
     now_ms: i64,
     now_sub_ms: u32,

@@ -8,8 +8,8 @@ using Newtonsoft.Json.Linq;
 namespace Convex.Excel.Server
 {
     /// One limit's evaluation, read from a status item (`GET .../limits/status`)
-    /// or a `limit_status` message. Fields the server adds later (such as an
-    /// acknowledgement, server plan P15c) are ignored.
+    /// or a `limit_status` message. Other fields (such as an
+    /// acknowledgement) are ignored.
     internal sealed class LimitItem
     {
         public string LimitId { get; set; } = "";
@@ -172,7 +172,7 @@ namespace Convex.Excel.Server
     }
 
     /// The limits errors the server tells apart from the valuations ones only
-    /// by their text (Excel plan DX19). A server test pins each opening
+    /// by their text. A server test pins each opening
     /// (`crates/convex-server/src/websocket.rs`,
     /// `the_limit_stream_errors_keep_the_text_the_excel_add_in_reads`).
     internal static class LimitErrors

@@ -95,7 +95,7 @@ pub enum RuntimeMode {
 }
 
 impl RuntimeMode {
-    /// The bounds of this mode's snapshots: Live snapshots are never stored (D101).
+    /// The bounds of this mode's snapshots: Live snapshots are never stored.
     pub const fn snapshot_bounds(self) -> SnapshotBounds {
         match self {
             Self::Live => SnapshotBounds::Live,
@@ -103,7 +103,7 @@ impl RuntimeMode {
         }
     }
     /// The most instruments a runtime of this mode values: 4,096 Live, 256 Captured or
-    /// Replay, whose checkpoints store every result (D101).
+    /// Replay, whose checkpoints store every result.
     pub const fn max_instruments(self) -> usize {
         self.snapshot_bounds().instruments()
     }

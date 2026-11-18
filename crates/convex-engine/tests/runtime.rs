@@ -101,7 +101,7 @@ async fn cvx005_ac1_actual_quote_to_snapshot_graph_and_durable_publication() {
 async fn cvx005_ac2_curve_expiry_and_cleared_mark_retain_original_last_good() {
     for clear in [false, true] {
         let s = setup().await;
-        // A curve expires only for a context that reads it (D58), so this plan asks for a
+        // A curve expires only for a context that reads it, so this plan asks for a
         // spread as well.
         let mut plan = s.plan.clone();
         plan.measures.push(MeasureId::new("z_spread_mid").unwrap());
@@ -290,7 +290,7 @@ async fn publication_failure_is_checkpointed_and_retried_before_restart_readines
         .map(|record| PublishedValuation::clone(record))
         .collect();
     assert_eq!(reopened.runtime_results(), saved_results);
-    // Shared records (G30) are stored as the plain records, and read back equal.
+    // Shared records are stored as the plain records, and read back equal.
     let json = serde_json::to_value(&saved).unwrap();
     assert_eq!(
         json["results"],
@@ -797,10 +797,10 @@ async fn live_ticks_stay_in_memory_and_restart_continues_above_reserved_counters
     restarted.shutdown().await.unwrap();
 }
 
-/// D71: a Live restart is a fresh start. A stored image that holds a delivery loss, as a
+/// A Live restart is a fresh start. A stored image that holds a delivery loss, as a
 /// reservation written during a loss could hold one before, does not make readiness wait
-/// for every key's image: one accepted result is enough (D58a), the quiet bond keeps its
-/// failed record (D58), and the next stored image does not hold the loss. Two bonds,
+/// for every key's image: one accepted result is enough, the quiet bond keeps its
+/// failed record, and the next stored image does not hold the loss. Two bonds,
 /// because one image for a one-bond plan clears the loss anyway.
 #[tokio::test]
 async fn a_live_restart_after_a_delivery_loss_is_ready_after_one_accepted_result() {
@@ -828,7 +828,7 @@ async fn a_live_restart_after_a_delivery_loss_is_ready_after_one_accepted_result
     let mut updates = restarted.subscribe_results();
     let stamp = monotone_stamp();
     source.send(fixture::event(1, stamp, stamp, "99.50"));
-    // Only the quoted bond's inputs changed, so only it is valued and published (D55).
+    // Only the quoted bond's inputs changed, so only it is valued and published.
     let fresh = tokio::time::timeout(Duration::from_secs(5), updates.recv())
         .await
         .unwrap()
@@ -858,9 +858,9 @@ async fn two_bond_tick(
     records.try_into().unwrap()
 }
 
-/// D58: each bond is judged only on its own inputs. Two bonds ticked further apart than
+/// Each bond is judged only on its own inputs. Two bonds ticked further apart than
 /// the skew policy both value. When one bond's quote ages out, only that bond is valued
-/// and fails (D55), and the runtime stays ready (D58a); its past expiry is never armed,
+/// and fails, and the runtime stays ready; its past expiry is never armed,
 /// so the tick does not re-run.
 #[tokio::test]
 async fn live_judges_each_bond_only_on_its_own_inputs() {
@@ -874,7 +874,7 @@ async fn live_judges_each_bond_only_on_its_own_inputs() {
     engine.start().await.unwrap();
     let mut updates = engine.subscribe_results();
     // This current-thread test runs the actor only while it awaits, so both quotes are
-    // valued in one tick (D54).
+    // valued in one tick.
     let stamp = monotone_stamp();
     let mut other = fixture::event(1, stamp - 600, stamp - 600, "99.00");
     other.key.instrument_id = convex_core::ids::InstrumentId::new("BOND-W001");
@@ -894,7 +894,7 @@ async fn live_judges_each_bond_only_on_its_own_inputs() {
     assert!(health.ready && health.failed_instruments == 0, "{health:?}");
 
     // The second bond's quote ages out three seconds after it was observed. Only that
-    // bond is valued and published; the first keeps its record as valued (D60).
+    // bond is valued and published; the first keeps its record as valued.
     let aged = tokio::time::timeout(Duration::from_secs(5), updates.recv())
         .await
         .unwrap()
@@ -939,7 +939,7 @@ fn instruments_of(records: &[Arc<PublishedValuation>]) -> Vec<String> {
     records.iter().map(|record| instrument_of(record)).collect()
 }
 
-/// D103: readers share the runtime's records. A read by instrument returns each listed
+/// Readers share the runtime's records. A read by instrument returns each listed
 /// instrument's current record once, in the plan's order; a page reads in instrument ID
 /// order after a cursor, which need not be an instrument of the plan. Neither has a record
 /// before the runtime starts. The plan here lists its bonds against ID order.
@@ -1002,9 +1002,9 @@ async fn live_results_are_shared_and_read_by_instrument_or_by_page() {
     engine.shutdown().await.unwrap();
 }
 
-/// D55: a tick values only the bonds whose inputs changed. A quote on one of two bonds
+/// A tick values only the bonds whose inputs changed. A quote on one of two bonds
 /// values and publishes that bond alone; the other keeps its record, with the revision,
-/// generation and snapshot it was valued under (D60), and the runtime stays ready.
+/// generation and snapshot it was valued under, and the runtime stays ready.
 #[tokio::test]
 async fn live_values_only_the_bonds_whose_inputs_changed() {
     let s = setup().await;
@@ -1054,7 +1054,7 @@ async fn live_values_only_the_bonds_whose_inputs_changed() {
     engine.shutdown().await.unwrap();
 }
 
-/// D58: a curve counts only for a context that reads curves. A stale curve fails a
+/// A curve counts only for a context that reads curves. A stale curve fails a
 /// spread measure's context and leaves a mid-only context valid.
 #[tokio::test]
 async fn a_stale_curve_fails_only_a_context_that_reads_curves() {
@@ -1099,8 +1099,8 @@ async fn a_stale_curve_fails_only_a_context_that_reads_curves() {
     }
 }
 
-/// G20: every tick is a new snapshot, so a Live runtime values more contexts than its
-/// result cache holds, one an instrument. The cache keeps one snapshot's results (D51).
+/// Every tick is a new snapshot, so a Live runtime values more contexts than its
+/// result cache holds, one an instrument. The cache keeps one snapshot's results.
 #[tokio::test]
 async fn live_ticks_stay_complete_past_the_result_cache_capacity() {
     let s = setup().await;
@@ -1125,7 +1125,7 @@ async fn live_ticks_stay_complete_past_the_result_cache_capacity() {
     engine.shutdown().await.unwrap();
 }
 
-/// D54: quotes queued while the runtime is busy are valued in one tick. Every quote
+/// Quotes queued while the runtime is busy are valued in one tick. Every quote
 /// still advances the generation, and the result reflects the newest.
 #[tokio::test]
 async fn live_quotes_queued_together_are_valued_in_one_tick() {
@@ -1164,7 +1164,7 @@ async fn live_quotes_queued_together_are_valued_in_one_tick() {
     engine.shutdown().await.unwrap();
 }
 
-/// D56: a Live runtime reads its pinned references once per selection, at start, and
+/// A Live runtime reads its pinned references once per selection, at start, and
 /// not at each tick.
 #[tokio::test]
 async fn live_ticks_reuse_the_pinned_references() {
@@ -1286,7 +1286,7 @@ impl convex_ports::reference_repository::ReferenceRepository for CountingReferen
     }
 }
 
-/// D101, G58: a Live runtime values 4,096 instruments. The first tick that sees every
+/// A Live runtime values 4,096 instruments. The first tick that sees every
 /// image values every one, though the result cache once held 256, and then one quote
 /// values and publishes one instrument.
 #[tokio::test]
@@ -1350,7 +1350,7 @@ async fn a_live_runtime_values_4096_instruments_and_one_quote_revalues_one() {
     engine.shutdown().await.unwrap();
 }
 
-/// D101: a Live plan values at most 4,096 instruments, and a Captured or Replay plan at
+/// A Live plan values at most 4,096 instruments, and a Captured or Replay plan at
 /// most 256, each refused past its bound with its own reason. A request snapshot keeps
 /// 256.
 #[tokio::test]

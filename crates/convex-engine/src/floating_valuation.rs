@@ -814,7 +814,7 @@ mod tests {
         );
     }
 
-    /// P17c-ii: a checked section's cutoff checks, read from its bounds, read a floating
+    /// A checked section's cutoff checks, read from its bounds, read a floating
     /// note's rate index and index calendar as a new section's full checks do. The index
     /// is recorded a second after the fixture's cutoff and ends a minute after it.
     #[test]

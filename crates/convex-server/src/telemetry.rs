@@ -53,7 +53,7 @@ pub fn install() -> Option<&'static PrometheusHandle> {
         .as_ref()
 }
 
-/// The limit monitor's metrics (P14c). The gauges are labelled by watched book.
+/// The limit monitor's metrics. The gauges are labelled by watched book.
 fn describe_limit_monitor() {
     use crate::limit_monitor as monitor;
     metrics::describe_histogram!(

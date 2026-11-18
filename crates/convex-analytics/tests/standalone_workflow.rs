@@ -1,4 +1,4 @@
-//! CVX-061 full native workflows, independent inverses and explicit failures.
+//! Full native workflows, independent inverses and explicit failures.
 #[path = "../../convex/examples/support/quote_fixture.rs"]
 mod cash_fixture;
 mod credit_support;

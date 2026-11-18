@@ -29,16 +29,16 @@ pub(crate) use worker::accepted;
 
 pub use convex_ports::configuration::RuntimeMode;
 
-/// Instruments one runtime values at most: a Live one's (D101). A Captured or Replay
+/// Instruments one runtime values at most: a Live one's. A Captured or Replay
 /// runtime values at most 256 ([`RuntimeMode::max_instruments`]). A WebSocket session
 /// can follow at most this many.
 pub const MAX_RUNTIME_INSTRUMENTS: usize = RuntimeMode::Live.max_instruments();
 
 /// Records the results broadcast holds: a tick that publishes every instrument, twice
-/// over, overruns no reader that keeps up (D103).
+/// over, overruns no reader that keeps up.
 const RESULT_BROADCAST: usize = 2 * MAX_RUNTIME_INSTRUMENTS;
 
-/// One page of a runtime's current results, in instrument ID order (D103).
+/// One page of a runtime's current results, in instrument ID order.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RuntimeResultsPage {
     /// The current record of each instrument on the page, shared with the runtime.
@@ -278,7 +278,7 @@ pub struct RuntimeHealth {
     /// Latest frozen snapshot data condition.
     pub quality: DataQuality,
     /// Current results that are not `Complete` with an accepted quality. Readiness needs
-    /// one accepted result, not every one (D58a).
+    /// one accepted result, not every one.
     pub failed_instruments: usize,
     /// Published input identity, when available.
     pub snapshot_id: Option<SnapshotId>,

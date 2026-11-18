@@ -14,7 +14,7 @@ namespace Convex.Excel.Ops
 {
     internal enum UpdateSwitch { On, OffByPolicy, OffByInstaller, OffBySettings }
 
-    /// The update check's settings (DX27), from three places. An administrator's
+    /// The update check's settings, from three places. An administrator's
     /// policy value wins, then the installer's UPDATECHECK=0, then Settings.
     internal sealed class UpdateConfig
     {

@@ -57,7 +57,7 @@ pub(super) struct GraphState {
     pub(super) suspended: bool,
     /// No deadline `maintain` can expire is earlier than this: an attempt's, or the
     /// `valid_until` of a cached value it can expire. `None` when no node holds one. While
-    /// `now` is not past it, `maintain` expires nothing and walks no node (P17c-iii). Only
+    /// `now` is not past it, `maintain` expires nothing and walks no node. Only
     /// [`GraphState::hold_deadline`] lowers it, at each write that gives a node such a
     /// deadline, and each walk sets it again.
     pub(super) deadline_floor: Option<Instant>,

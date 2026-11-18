@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 namespace Convex.Excel.Server
 {
     /// CUSIP and ISIN → server instrument id, through
-    /// POST /api/v1/reference/resolve (DX16), cached for the process.
+    /// POST /api/v1/reference/resolve, cached for the process.
     ///
     /// - At most 8 lookups are in flight, and identical lookups share one call.
     /// - A 429 waits for its Retry-After; a server or network failure retries

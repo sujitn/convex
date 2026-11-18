@@ -265,9 +265,9 @@ async fn test_websocket_unsubscribe_valuations() {
     assert_eq!(msg["subscription_type"], "valuations");
 }
 
-/// D100, D104: a session follows at most as many instruments as a runtime values, 256 a
+/// A session follows at most as many instruments as a runtime values, 256 a
 /// message. Listing an instrument already followed does not count again, so a full session
-/// can resubscribe (D99).
+/// can resubscribe.
 #[tokio::test]
 async fn test_websocket_valuation_cap_counts_only_new_instruments() {
     let (addr, _engine) = start_test_server().await;

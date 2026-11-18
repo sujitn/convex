@@ -1,4 +1,4 @@
-//! CVX-060 synthetic analytic fits, native-unit failures and bounded work.
+//! Synthetic analytic fits, native-unit failures and bounded work.
 use convex_math::optimization::*;
 use proptest::{
     prelude::*,

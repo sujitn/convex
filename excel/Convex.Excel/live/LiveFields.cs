@@ -3,7 +3,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Convex.Excel.Live
 {
-    // Scalar fields a local live cell can show (DX3: RTD carries scalars only).
+    // Scalar fields a local live cell can show (RTD carries scalars only).
     // Aliases canonicalise first, so cells that ask for the same number in two
     // spellings share one topic. Grids stay on the static functions.
     internal static class LiveFields

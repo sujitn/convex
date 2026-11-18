@@ -167,7 +167,7 @@ async fn market_snapshots_retry_exactly_reopen_and_refuse_tampering() {
     assert!(open(&path).snapshots.get(snapshot.id()).await.is_err());
 }
 
-/// Schema 4 (P13b-ii) stores and reopens as schemas 1–3 do. A changed quote and a changed
+/// Schema 4 stores and reopens as schemas 1–3 do. A changed quote and a changed
 /// reference, which it hashes in separate sections, are each refused.
 #[tokio::test]
 async fn sectioned_snapshots_reopen_and_refuse_tampering() {

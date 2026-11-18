@@ -1,4 +1,4 @@
-//! Limit acknowledgements (P15c; D94, D95, D97).
+//! Limit acknowledgements.
 //!
 //! A risk manager acknowledges one limit of a book while it is `breach` or `unknown`: the
 //! acknowledgement records who has seen it, until when (at most seven days ahead) and why,
@@ -12,7 +12,7 @@
 //! set no longer holds the limit exactly as acknowledged. Entries no longer in force are
 //! dropped at the record's next version; the history keeps them. Status, the pre-trade
 //! check, records and `limit_status` frames carry the entry in force for each `breach` or
-//! `unknown` limit; an acknowledgement records and publishes nothing of its own (D97).
+//! `unknown` limit; an acknowledgement records and publishes nothing of its own.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -120,7 +120,7 @@ fn version_response(record: &MasterRecord, status: StatusCode) -> Response {
 // WRITES
 // =============================================================================
 
-/// Whether `status` may be acknowledged (D95).
+/// Whether `status` may be acknowledged.
 fn acknowledgeable(status: LimitStatus) -> bool {
     matches!(status, LimitStatus::Breach | LimitStatus::Unknown)
 }
@@ -174,7 +174,7 @@ pub(crate) struct AcknowledgeRequest {
 }
 
 /// `POST /api/v1/books/{book_id}/limits/acknowledgements`: acknowledge one limit of the
-/// current set while it is `breach` or `unknown` (D95).
+/// current set while it is `breach` or `unknown`.
 ///
 /// `Idempotency-Key` is required; there is no `If-Match`, since each acknowledgement
 /// replaces only its own limit's entry. The caller holds status's read rule on the book
@@ -336,7 +336,7 @@ struct RecordedLimit {
 }
 
 /// `record_id` must be a recorded status change of `book`'s `limit_id`: one read of the
-/// book's index (P15b). Without a monitor there is no store to read.
+/// book's index. Without a monitor there is no store to read.
 async fn recorded_change(
     audit: Option<Extension<Arc<dyn AuditStore>>>,
     book: &BookId,

@@ -1,4 +1,4 @@
-//! P17b (D101, D109): a Live snapshot of 4,096 instruments at the largest content the
+//! A Live snapshot of 4,096 instruments at the largest content the
 //! validators admit fits the Live identity bound.
 #[path = "support/configuration_fixtures.rs"]
 mod configuration;
@@ -372,7 +372,7 @@ fn content(instruments: usize) -> SnapshotContent {
     content
 }
 
-/// D101, D109: a Live snapshot holds 4,096 instruments, whose identity hashes more than a
+/// A Live snapshot holds 4,096 instruments, whose identity hashes more than a
 /// stored snapshot's 16 MiB, and its next is made within the same bounds, as
 /// [`MarketSnapshot::bounded`] makes it. A snapshot made within the standard bounds holds
 /// 256, and a Live one 4,096.

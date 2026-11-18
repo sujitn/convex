@@ -1,4 +1,4 @@
-//! CVX-056 analytic contract fixtures. Synthetic supplied values, no market pack.
+//! Analytic contract fixtures. Synthetic supplied values, no market pack.
 use convex_core::{
     daycounts::DayCountConvention as Dc,
     types::{Compounding, Currency, Date},

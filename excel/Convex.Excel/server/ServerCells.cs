@@ -8,7 +8,7 @@ using Convex.Excel.Live;
 
 namespace Convex.Excel.Server
 {
-    /// The scalars a server cell can show (DX3, DX13), and why it shows #N/A.
+    /// The scalars a server cell can show, and why it shows #N/A.
     internal static class ServerFields
     {
         public static readonly string[] Cell =

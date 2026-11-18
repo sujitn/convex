@@ -1,4 +1,4 @@
-//! CVX-060 standalone negative-rate fit, equivalent views and explicit rolling.
+//! Standalone negative-rate fit, equivalent views and explicit rolling.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,

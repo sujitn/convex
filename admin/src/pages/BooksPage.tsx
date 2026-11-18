@@ -6,7 +6,7 @@ import type { BookPage } from '../lib/types'
 
 const PAGE = 50
 
-/** Books and their ingest history, read-only (D41): the BMS ingest API writes them. */
+/** Books and their ingest history, read-only: the BMS ingest API writes them. */
 export function BooksPage() {
   const { call } = useSession()
   const [after, setAfter] = useState<string | null>(null)
