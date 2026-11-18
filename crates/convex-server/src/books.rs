@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::access::{AccessContext, Action, DataScope, Resource, ResourceKind};
 use crate::handlers::AppState;
-use crate::limits::Accepted;
+use crate::limits::{after, commit_time, Accepted};
 use crate::reference::{
     expected_version, key, now, reference_error, with_consumed_reference_version,
     with_reference_version,
@@ -100,6 +100,40 @@ pub(crate) fn book_of(record: &MasterRecord) -> Result<&BookDefinition, Referenc
         MasterDefinition::Book(book) => Ok(book),
         _ => Err(ReferenceError::Unsupported("not a book resource")),
     }
+}
+
+const RETIRED: &str = "the book is retired; a new snapshot revives it";
+
+/// `409 BOOK_RETIRED`: a retired book is not valued, checked or given limits.
+fn retired() -> Response {
+    typed_error(StatusCode::CONFLICT, "BOOK_RETIRED", RETIRED)
+}
+
+/// The current version of a book that is not retired: `404` when there is none, and
+/// `409 BOOK_RETIRED` when it is retired.
+pub(crate) fn in_force(record: Option<MasterRecord>) -> Result<MasterRecord, Response> {
+    let record = record.ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    if book_of(&record).map_err(reference_error)?.is_retired() {
+        return Err(retired());
+    }
+    Ok(record)
+}
+
+/// Whether a reference transaction writes a book, which only the book routes may: they
+/// start each snapshot at its commit time.
+pub(crate) fn writes_books(changes: &[MasterChange]) -> bool {
+    changes
+        .iter()
+        .any(|change| matches!(change.definition, MasterDefinition::Book(_)))
+}
+
+/// The refusal of a generic reference write that names a book.
+pub(crate) fn books_route_required() -> Response {
+    typed_error(
+        StatusCode::FORBIDDEN,
+        "BOOKS_ROUTE_REQUIRED",
+        "books are written only through /api/v1/books/{book_id}",
+    )
 }
 
 /// If-Match is optional on a snapshot: absent means create-only.
@@ -438,10 +472,26 @@ fn authorize_resolved(
     action: Action,
     rows: &[Resolved],
 ) -> Result<(), Response> {
-    let resources: Vec<Resource> = rows
-        .iter()
-        .filter(|r| r.position.source_identifier.is_some())
-        .map(|r| Resource::new(ResourceKind::Instrument, r.position.instrument_id.as_str()))
+    authorize_positions(
+        state,
+        ctx,
+        action,
+        rows.iter()
+            .filter(|r| r.position.source_identifier.is_some())
+            .map(|r| &r.position),
+    )
+}
+
+/// The caller must hold `action` on each position's instrument.
+fn authorize_positions<'a>(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    action: Action,
+    positions: impl IntoIterator<Item = &'a BookPosition>,
+) -> Result<(), Response> {
+    let resources: Vec<Resource> = positions
+        .into_iter()
+        .map(|p| Resource::new(ResourceKind::Instrument, p.instrument_id.as_str()))
         .collect();
     if resources.is_empty() {
         return Ok(());
@@ -583,6 +633,63 @@ fn ingest_response(record: &MasterRecord, resolved: &[Resolved]) -> Response {
         object.insert("resolutions".into(), serde_json::Value::Array(consumed));
     }
     with_reference_version((status, Json(body)).into_response(), record.version)
+}
+
+/// `POST /api/v1/books/{book_id}/retire`: close the current snapshot's interval at the
+/// commit time, keeping its positions. The book stays readable with its history.
+/// Analytics, the limit status and check, and limit writes refuse it with
+/// `409 BOOK_RETIRED`, the limit monitor stops watching it, and a compile after the
+/// retirement does not find it, until a new snapshot revives it. `Idempotency-Key` and
+/// `If-Match` are required; the reply is `204` with the new version.
+pub(crate) async fn retire_book(
+    State(state): State<Arc<AppState>>,
+    ctx: Option<Extension<AccessContext>>,
+    Path(raw): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    match retire(&state, &ctx, raw, &headers).await {
+        Ok(response) | Err(response) => response,
+    }
+}
+
+async fn retire(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    raw: String,
+    headers: &HeaderMap,
+) -> Result<Response, Response> {
+    let id = book_id(raw).map_err(reference_error)?;
+    let idempotency_key = key(headers).map_err(reference_error)?;
+    let expected = expected_version(headers).map_err(reference_error)?;
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
+    // Limit writes refuse a retired book, so a retirement does not land between one's
+    // check and its commit.
+    let _writes = state.limit_writes.lock().await;
+    // On an exact retry the base is the pre-image, so the retry rebuilds the same command
+    // and gets its receipt rather than `BOOK_RETIRED`.
+    let base = base_for(repo, &idempotency_key, &id)
+        .await
+        .map_err(reference_error)?;
+    let replay_at = base.replay_at;
+    let record = in_force(base.record)?;
+    let mut definition = book_of(&record).map_err(reference_error)?.clone();
+    authorize_positions(state, ctx, Action::BookWrite, &definition.positions)?;
+    // The interval's end follows its start, however the clock moved since the snapshot.
+    let at = match replay_at {
+        Some(at) => at,
+        None => after(definition.effective.from)
+            .and_then(|start| commit_time([start]))
+            .map_err(reference_error)?,
+    };
+    definition.effective.until = Some(at);
+    definition.provenance = evidence(&idempotency_key, &definition.owning_system);
+    let committed = commit_book(state, idempotency_key, Some(expected), definition, at)
+        .await
+        .map_err(reference_error)?;
+    Ok(with_reference_version(
+        StatusCode::NO_CONTENT.into_response(),
+        committed.version,
+    ))
 }
 
 // =============================================================================
@@ -789,9 +896,17 @@ pub(crate) async fn book_analytics(
     version: Option<u64>,
 ) -> Result<PortfolioAnalyticsOutput, BookRefusal> {
     let record = pinned_book(state, book, version).await?;
-    let published = gate_runtime_results(state, ctx, &record)?;
     let definition = book_of(&record).map_err(refused_reference)?;
     let detail = |reason: &str| serde_json::json!({"book_id":book, "book_version":record.version, "reason":reason});
+    // A version before the retirement is still valued when asked for by number.
+    if definition.is_retired() {
+        return Err(refusal(
+            StatusCode::CONFLICT,
+            "BOOK_RETIRED",
+            detail(RETIRED),
+        ));
+    }
+    let published = gate_runtime_results(state, ctx, &record)?;
     let currency = definition
         .currency
         .as_deref()

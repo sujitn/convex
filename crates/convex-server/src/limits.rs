@@ -55,8 +55,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::access::{recorded_subject, AccessContext, Action, DataScope, Resource, ResourceKind};
 use crate::books::{
-    accepted_runtime_results, book_id, book_of, optional_expected, resolve_rows, rows_rejected,
-    too_large, typed_error, Resolved, RowError, RowRequest, MAX_ROW_ERRORS,
+    accepted_runtime_results, book_id, book_of, in_force, optional_expected, resolve_rows,
+    rows_rejected, too_large, typed_error, Resolved, RowError, RowRequest, MAX_ROW_ERRORS,
 };
 use crate::handlers::AppState;
 use crate::limit_monitor::{AcknowledgementInForce, LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
@@ -268,8 +268,8 @@ fn check_new_excesses(
     Ok(())
 }
 
-/// One microsecond after `time`: a closed proposal's end must follow its start.
-fn after(time: UtcTimestamp) -> Result<UtcTimestamp, ReferenceError> {
+/// One microsecond after `time`: a closed interval's end must follow its start.
+pub(crate) fn after(time: UtcTimestamp) -> Result<UtcTimestamp, ReferenceError> {
     UtcTimestamp::from_datetime(time.datetime() + chrono::Duration::microseconds(1))
         .map_err(|_| ReferenceError::Unavailable)
 }
@@ -295,6 +295,24 @@ pub(crate) async fn current(
     key: MasterKey,
 ) -> Result<Option<MasterRecord>, ReferenceError> {
     repo.get_master(&key).await
+}
+
+/// The book a limit write is for: it must exist, and a retired book takes only a set
+/// that clears its limits, which frees its place under `MAX_LIMITED_BOOKS`.
+async fn book_for_limits(
+    repo: &dyn ReferenceRepository,
+    book: &BookId,
+    limits: &[LimitDefinition],
+) -> Result<(), Response> {
+    let record = current(repo, MasterKey::Book(book.clone()))
+        .await
+        .map_err(reference_error)?;
+    if limits.is_empty() {
+        record.ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    } else {
+        in_force(record)?;
+    }
+    Ok(())
 }
 
 /// At most `MAX_LIMITED_BOOKS` books hold a non-empty set. Counted under the limit
@@ -569,13 +587,7 @@ async fn propose(
             proposal_response(&record, StatusCode::ACCEPTED)
         });
     }
-    if current(repo, MasterKey::Book(id.clone()))
-        .await
-        .map_err(reference_error)?
-        .is_none()
-    {
-        return Err(reference_error(ReferenceError::NotFound));
-    }
+    book_for_limits(repo, &id, &limits).await?;
     let set = current(repo, MasterKey::LimitSet(id.clone()))
         .await
         .map_err(reference_error)?;
@@ -739,6 +751,7 @@ async fn approve(
         return Ok(set_response(&record, written(&record)));
     }
     let (record, proposal) = open_proposal(state, ctx, &id, expected).await?;
+    book_for_limits(repo, &id, &proposal.limits).await?;
     if proposal.proposed_by == subject {
         return Err(typed_error(
             StatusCode::FORBIDDEN,
@@ -1098,9 +1111,7 @@ async fn status(
     let id = book_id(raw).map_err(reference_error)?;
     let set_record = read_master(state, &MasterKey::LimitSet(id.clone()), None).await?;
     let set = set_of(&set_record).map_err(reference_error)?;
-    let book_record = authorize_read(state, ctx, STATUS_DATA, &id, &set.limits)
-        .await?
-        .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    let book_record = in_force(authorize_read(state, ctx, STATUS_DATA, &id, &set.limits).await?)?;
     let book = book_of(&book_record).map_err(reference_error)?;
     let acknowledgements = acknowledgements_of(state, &id).await?;
     let evaluated_at = now().map_err(reference_error)?;
@@ -1562,9 +1573,7 @@ async fn check(
     let id = book_id(raw).map_err(reference_error)?;
     let set_record = read_master(state, &MasterKey::LimitSet(id.clone()), None).await?;
     let set = set_of(&set_record).map_err(reference_error)?;
-    let book_record = authorize_read(state, ctx, STATUS_DATA, &id, &set.limits)
-        .await?
-        .ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    let book_record = in_force(authorize_read(state, ctx, STATUS_DATA, &id, &set.limits).await?)?;
     let held = book_of(&book_record).map_err(reference_error)?;
     let units: Vec<Option<QuantityUnit>> = rows.iter().map(RowRequest::unit).collect();
     let evaluated_at = now().map_err(reference_error)?;

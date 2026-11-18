@@ -387,6 +387,118 @@ async fn reads_are_paged_versioned_and_durable_across_restart() {
 }
 
 #[tokio::test]
+async fn retiring_closes_the_snapshot_and_a_new_snapshot_revives_it() {
+    let (_directory, _path, server) = seeded().await;
+    let created = server.put("R1", "r-1", None, json!([row("1000")])).await;
+    assert_eq!(created.0, StatusCode::CREATED, "{}", created.2);
+    let running = &server;
+    let retire = |key: Option<&'static str>, if_match: Option<&'static str>, id: &'static str| {
+        let path = format!("/api/v1/books/{id}/retire");
+        async move { running.send(Method::POST, &path, key, if_match, None).await }
+    };
+
+    // Both headers are required, the version must be current, and the book must exist.
+    assert_eq!(
+        retire(None, Some("1"), "R1").await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        retire(Some("x-1"), None, "R1").await.0,
+        StatusCode::BAD_REQUEST
+    );
+    let (status, _, body) = retire(Some("x-2"), Some("\"7\""), "R1").await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "VERSION_CONFLICT");
+    assert_eq!(
+        retire(Some("x-3"), Some("1"), "NOPE").await.0,
+        StatusCode::NOT_FOUND
+    );
+
+    // Retired: a new version, the positions kept and the interval closed.
+    let (status, etag, _) = retire(Some("retire-1"), Some("\"1\""), "R1").await;
+    assert_eq!(
+        (status, etag.as_deref()),
+        (StatusCode::NO_CONTENT, Some("\"2\""))
+    );
+    let (_, etag, book) = server.get("/api/v1/books/R1").await;
+    assert_eq!(etag.as_deref(), Some("\"2\""));
+    assert_eq!(book["positions"], created.2["positions"]);
+    assert!(book["effective_until"].is_string(), "{book}");
+
+    // An exact retry gets the receipt; any other attempt finds it retired.
+    let (status, etag, _) = retire(Some("retire-1"), Some("\"1\""), "R1").await;
+    assert_eq!(
+        (status, etag.as_deref()),
+        (StatusCode::NO_CONTENT, Some("\"2\""))
+    );
+    let (status, _, body) = retire(Some("retire-2"), Some("\"2\""), "R1").await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "BOOK_RETIRED");
+
+    // Analytics refuse the retired version; the one before it is still valued, and here
+    // fails only for want of runtime results.
+    let analytics = |request: Value| {
+        server.send(
+            Method::POST,
+            "/api/v1/portfolio/analytics",
+            None,
+            None,
+            Some(request),
+        )
+    };
+    let (status, _, body) = analytics(json!({"book_id": "R1"})).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "BOOK_RETIRED");
+    assert_eq!(body["detail"]["book_version"], 2);
+    let (_, _, body) = analytics(json!({"book_id": "R1", "version": 1})).await;
+    assert_eq!(body["code"], "BOOK_RESULTS_UNAVAILABLE", "{body}");
+
+    // A create still finds the book; a snapshot over the retired version revives it.
+    let (status, _, _) = server.put("R1", "r-2", None, json!([row("1000")])).await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, etag, book) = server
+        .put("R1", "r-3", Some("\"2\""), json!([row("2000")]))
+        .await;
+    assert_eq!((status, etag.as_deref()), (StatusCode::OK, Some("\"3\"")));
+    assert!(book.get("effective_until").is_none(), "{book}");
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn books_are_written_only_through_the_book_routes() {
+    let (_directory, _path, server) = seeded().await;
+    let command = json!({
+        "idempotency_key": "generic-book",
+        "changes": [],
+        "master_changes": [{"definition": {"kind": "book", "definition": {
+            "book_id": "GENERIC",
+            "owning_system": "elsewhere",
+            "effective": {"from": "2020-01-01T00:00:00Z", "until": null},
+            "positions": [],
+            "provenance": {"source": "elsewhere", "evidence_reference": "elsewhere"},
+        }}}],
+    });
+    for (path, body) in [
+        ("/api/v1/reference/transactions", command.clone()),
+        (
+            "/api/v1/reference/import",
+            json!({"schema_version": "2.0", "command": command}),
+        ),
+    ] {
+        let (status, _, body) = server
+            .send(Method::POST, path, Some("generic-book"), None, Some(body))
+            .await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{path}: {body}");
+        assert_eq!(body["code"], "BOOKS_ROUTE_REQUIRED", "{path}: {body}");
+    }
+    assert_eq!(
+        server.get("/api/v1/books/GENERIC").await.0,
+        StatusCode::NOT_FOUND
+    );
+    server.stop().await;
+}
+
+#[tokio::test]
 async fn analytics_by_book_refuses_the_whole_request_without_runtime_results() {
     let (_directory, _path, server) = seeded().await;
     server.put("AN-1", "an-1", None, json!([row("1000")])).await;

@@ -1066,6 +1066,58 @@ async fn the_monitor_records_and_publishes_each_status_change_and_restates_them_
     );
 }
 
+/// A retired book is no longer watched: its breach gauge clears though nothing it holds
+/// changed, and a new snapshot is watched again.
+#[tokio::test]
+async fn a_retired_book_is_not_watched_until_a_new_snapshot_revives_it() {
+    let (dir, live, _) = live(1, 0, &[]).await;
+    let server = started(&dir, live).await;
+    let over = json!({"currency": "USD", "positions": [
+        {"instrument_id": "BOND-001", "quantity": "3000000"},
+    ]});
+    put(
+        &server,
+        "/api/v1/books/RETIRING",
+        "book-retiring",
+        over.clone(),
+    )
+    .await;
+    let face = json!({"limits": [
+        {"limit_id": "face", "measure": {"kind": "face", "instrument": {"one": "BOND-001"}},
+         "upper": "2000000"},
+    ]});
+    put(
+        &server,
+        "/api/v1/books/RETIRING/limits",
+        "set-retiring",
+        face,
+    )
+    .await;
+    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 1").await;
+
+    let retired = server
+        .client
+        .post(format!("{}/api/v1/books/RETIRING/retire", server.base))
+        .header("idempotency-key", "retire-retiring")
+        .header("if-match", "1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(retired.status(), StatusCode::NO_CONTENT);
+    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 0").await;
+
+    put_over(
+        &server,
+        "/api/v1/books/RETIRING",
+        "book-retiring-revived",
+        "2",
+        over,
+    )
+    .await;
+    metric(&server, "convex_limit_breaches{book_id=\"RETIRING\"} 1").await;
+    server.stop().await;
+}
+
 /// An image stamped no earlier than any before it. WSL2's clock can step back a second or
 /// more under load; ingestion refuses a quote whose times go backwards, which would value
 /// that bond `unknown` and record changes this measurement does not intend.

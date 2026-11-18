@@ -559,6 +559,7 @@ commits and `convex-redb backup`. No other store exists.
 | `GET /api/v1/books/{book_id}` | Current version, pinned in `ETag` |
 | `GET /api/v1/books/{book_id}/versions/{v}` | One immutable version |
 | `GET /api/v1/books/{book_id}/history?from=&limit=` | Version summaries, oldest first, at most 500 per page |
+| `POST /api/v1/books/{book_id}/retire` | Retire the book: 204 with the new version in `ETag`; 409 `BOOK_RETIRED` if it already is |
 
 `Idempotency-Key` is required on every write. On `PUT`, an absent `If-Match` creates the book
 and conflicts if the ID was ever used; a present `If-Match` replaces exactly that version. A
@@ -574,6 +575,22 @@ mappings at the time of the request; unknown or ambiguous identifiers are reject
 guessed. Every row must resolve or nothing commits, and the 422 body lists each failed row
 as `{index, code, reason}` (the first 100 are reported). The 2xx body adds `resolutions` with
 the instrument and mapping versions consumed. Delta and fill ingest are not supported.
+
+Books are written only through these routes, which start each snapshot at its commit time:
+a reference transaction or import that names a book is refused (403
+`BOOKS_ROUTE_REQUIRED`).
+
+Retiring needs `If-Match` with the current version. It writes a new version that keeps the
+positions and closes the snapshot's interval at the commit time (`effective_until`). The
+book stays readable, listed and in its history. Until a new snapshot revives it (`PUT` with
+`If-Match` naming the retired version), a retired book:
+- is refused by analytics by book, the limit status and the pre-trade check, and by limit
+  proposals, approvals and acknowledgements (409 `BOOK_RETIRED`). Analytics still value a
+  version before the retirement named by `version`. The book's limits and records stay
+  readable; a set that clears its limits is still taken, which frees its place among the
+  64 limited books, and a proposal or an acknowledgement can still be withdrawn;
+- is not watched by the limit monitor;
+- is not found by a configuration compiled at a cutoff after the retirement.
 
 `POST /api/v1/portfolio/analytics` also accepts `{"book_id": "...", "version": n}` instead of
 inline positions. It requires a complete runtime result for every position, `Valid`, or `Demo`

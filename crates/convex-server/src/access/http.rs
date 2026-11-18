@@ -348,6 +348,13 @@ fn requirement(
             req.data = vec![D::Books];
             req.body_required = !read;
         }
+        // Retiring writes the stored positions again; the handler checks each instrument.
+        "/api/v1/books/:book_id/retire" => {
+            exact(R::Book, "book_id")?;
+            req.action = BookWrite;
+            req.data = vec![D::Books];
+            req.body_required = false;
+        }
         // A book's limits: reads need the book (each handler also checks every instrument
         // a set or status names); every write needs `LimitWrite` on the book.
         "/api/v1/books/:book_id/limits"

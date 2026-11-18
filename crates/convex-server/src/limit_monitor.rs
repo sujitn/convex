@@ -350,6 +350,7 @@ impl LimitMonitor {
             halt,
             books: BTreeMap::new(),
             holders: HashMap::new(),
+            retired: BTreeSet::new(),
             terms: PricedTerms::new(),
             reload: Some(Pending::All),
             dirty: Some(Pending::All),
@@ -649,6 +650,9 @@ struct Task {
     books: BTreeMap<BookId, Watched>,
     /// Each instrument a watched book holds, and the books holding it.
     holders: HashMap<String, BTreeSet<BookId>>,
+    /// Retired books that hold limits: not watched, but reread when a snapshot may
+    /// revive one. At most one per limit set.
+    retired: BTreeSet<BookId>,
     terms: PricedTerms,
     reload: Option<Pending>,
     dirty: Option<Pending>,
@@ -859,6 +863,10 @@ impl Task {
         for key in keys {
             match key {
                 MasterKey::LimitSet(id) => Pending::add(&mut self.reload, id.clone()),
+                // A snapshot over a retired book that holds limits revives it.
+                MasterKey::Book(id) if self.retired.contains(id) => {
+                    Pending::add(&mut self.reload, id.clone())
+                }
                 MasterKey::Book(id) | MasterKey::LimitAcknowledgements(id)
                     if self.books.contains_key(id) =>
                 {
@@ -953,18 +961,27 @@ impl Task {
                 Some(record) => Some((record.version, set_of(record)?)),
                 None => None,
             };
+            self.retired.remove(&id);
             let Some((set_version, set)) = set.filter(|(_, set)| !set.limits.is_empty()) else {
                 self.unwatch(&id);
                 continue;
+            };
+            let book = match repo.get_master(&MasterKey::Book(id.clone())).await? {
+                Some(record) => {
+                    let book = book_of(&record)?;
+                    if book.is_retired() {
+                        self.unwatch(&id);
+                        self.retired.insert(id);
+                        continue;
+                    }
+                    Some((record.version, book.clone()))
+                }
+                None => None,
             };
             if !self.books.contains_key(&id) && self.books.len() >= MAX_LIMITED_BOOKS {
                 tracing::error!(book = %id, "limit monitor: more than {MAX_LIMITED_BOOKS} books hold a limit set; this one is not watched");
                 continue;
             }
-            let book = match repo.get_master(&MasterKey::Book(id.clone())).await? {
-                Some(record) => Some((record.version, book_of(&record)?.clone())),
-                None => None,
-            };
             let acknowledgements = match repo
                 .get_master(&MasterKey::LimitAcknowledgements(id.clone()))
                 .await?
@@ -1500,6 +1517,7 @@ mod tests {
             halt,
             books: BTreeMap::new(),
             holders: HashMap::new(),
+            retired: BTreeSet::new(),
             terms: PricedTerms::new(),
             reload: None,
             dirty: None,

@@ -1291,6 +1291,90 @@ async fn dropping_a_limit_needs_write_rights_on_its_instrument() {
 }
 
 #[tokio::test]
+async fn a_retired_book_is_not_evaluated_checked_or_given_limits() {
+    let (_setup, router) = router(AccessControl::local_development()).await;
+    put_book(
+        &router,
+        None,
+        "GONE",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    commit_limits(
+        &router,
+        "GONE",
+        "gone-limits",
+        set(vec![face("face", None, Some("2000000"), None)]),
+    )
+    .await;
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        "/api/v1/books/GONE/retire",
+        None,
+        Some("gone-retire"),
+        Some("1"),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::NO_CONTENT, "{body}");
+
+    let refused = [
+        ("GET", "/api/v1/books/GONE/limits/status", None, None),
+        (
+            "POST",
+            "/api/v1/books/GONE/limits/check",
+            None,
+            Some(json!({"changes": []})),
+        ),
+        (
+            "PUT",
+            "/api/v1/books/GONE/limits",
+            Some("1"),
+            Some(set(vec![face("face", None, Some("3000000"), None)])),
+        ),
+    ];
+    for (method, path, if_match, body) in refused {
+        let (code, _, response) = call(
+            &router,
+            method,
+            path,
+            None,
+            Some("gone-attempt"),
+            if_match,
+            body,
+        )
+        .await;
+        assert_eq!(code, StatusCode::CONFLICT, "{method} {path}: {response}");
+        assert_eq!(response["code"], "BOOK_RETIRED", "{method} {path}");
+    }
+    // The limits stay readable, and a set that clears them is taken, freeing the book's
+    // place among the limited books.
+    let (code, _, response) = call(
+        &router,
+        "GET",
+        "/api/v1/books/GONE/limits",
+        None,
+        None,
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{response}");
+    let (code, _, response) = call(
+        &router,
+        "PUT",
+        "/api/v1/books/GONE/limits",
+        None,
+        Some("gone-clear"),
+        Some("1"),
+        Some(set(vec![])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{response}");
+}
+
+#[tokio::test]
 async fn a_reference_writer_cannot_write_limits_through_the_generic_routes() {
     let (_issuer, _setup, router) = two_subjects().await;
     let command = json!({
@@ -2965,6 +3049,71 @@ async fn approved(router: &Router, key: &str, base: Option<&str>, body: Value) {
     )
     .await;
     assert!(code.is_success(), "{response}");
+}
+
+/// Under required access a retired book takes no approval of a set that keeps limits and
+/// no acknowledgement; an open proposal can still be withdrawn.
+#[tokio::test]
+async fn a_retired_book_takes_no_approval_or_acknowledgement() {
+    let (_issuer, _setup, router) = two_subjects().await;
+    approved(
+        &router,
+        "first",
+        None,
+        set(vec![face("breach", None, Some("500000"), None)]),
+    )
+    .await;
+    let (code, _, proposal) = call(
+        &router,
+        "PUT",
+        "/api/v1/books/BOOK-A/limits",
+        Some(RISK_A),
+        Some("second-propose"),
+        Some("1"),
+        Some(set(vec![face("breach", None, Some("600000"), None)])),
+    )
+    .await;
+    assert_eq!(code, StatusCode::ACCEPTED, "{proposal}");
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BOOK-A/retire",
+        Some(HUMAN_TOKEN),
+        Some("retire-a"),
+        Some("1"),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::NO_CONTENT, "{body}");
+
+    let version = proposal["version"].to_string();
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BOOK-A/limits/proposal/approve",
+        Some(RISK_B),
+        Some("second-approve"),
+        Some(&version),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "BOOK_RETIRED");
+    let seen = acknowledgement("breach", 3600, "seen");
+    let (code, _, body) = acknowledge(&router, Some(RISK_A), "BOOK-A", "ack-retired", &seen).await;
+    assert_eq!(code, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "BOOK_RETIRED");
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BOOK-A/limits/proposal/withdraw",
+        Some(RISK_A),
+        Some("second-withdraw"),
+        Some(&version),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::OK, "{body}");
 }
 
 /// A risk manager with status's read rule acknowledges a limit in breach or

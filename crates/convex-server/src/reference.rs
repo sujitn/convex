@@ -11,7 +11,9 @@ use convex_core::contracts::{RequestId, UtcTimestamp, Version};
 use convex_core::ids::InstrumentId;
 use convex_core::Currency;
 use convex_engine::ports::reference_data::{BondReferenceData, BondType, IssuerType};
-use convex_engine::ports::reference_master::{ExternalIdentifier, MasterKind, ReferenceLookup};
+use convex_engine::ports::reference_master::{
+    ExternalIdentifier, MasterChange, MasterKind, ReferenceLookup,
+};
 use convex_engine::ports::reference_repository::*;
 use convex_engine::ports::storage::{BondFilter, Pagination};
 use convex_ext_file::{parse_reference_import, preflight_reference_import, ReferenceImportError};
@@ -21,6 +23,15 @@ use crate::handlers::AppState;
 
 pub(crate) fn reference_error(error: ReferenceError) -> Response {
     crate::error::ApiError::from(error).into_response()
+}
+
+/// The refusal of a generic reference write naming a resource that only its own routes
+/// write: books, and a book's limits.
+fn own_route_required(changes: &[MasterChange]) -> Option<Response> {
+    if crate::limits::writes_limits(changes) {
+        return Some(crate::limits::limits_route_required());
+    }
+    crate::books::writes_books(changes).then(crate::books::books_route_required)
 }
 
 pub(crate) async fn commit_reference_transaction(
@@ -45,8 +56,8 @@ pub(crate) async fn commit_reference_transaction(
             "header/body idempotency keys differ",
         ));
     }
-    if crate::limits::writes_limits(&command.master_changes) {
-        return crate::limits::limits_route_required();
+    if let Some(refusal) = own_route_required(&command.master_changes) {
+        return refusal;
     }
     let time = match now() {
         Ok(time) => time,
@@ -73,8 +84,8 @@ pub(crate) async fn import_reference(
         Ok(document) => document,
         Err(error) => return refused(error),
     };
-    if crate::limits::writes_limits(&document.command.master_changes) {
-        return crate::limits::limits_route_required();
+    if let Some(refusal) = own_route_required(&document.command.master_changes) {
+        return refusal;
     }
     let repository = state.engine.reference_repository();
     if let Err(error) = preflight_reference_import(repository.as_ref(), &document).await {
