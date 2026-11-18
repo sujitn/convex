@@ -52,6 +52,10 @@ impl EffectiveInterval {
     pub fn contains(self, time: UtcTimestamp) -> bool {
         time >= self.from && self.until.is_none_or(|end| time < end)
     }
+    /// Whether the interval has an end at or before `time`.
+    pub fn has_ended_by(self, time: UtcTimestamp) -> bool {
+        self.until.is_some_and(|end| end <= time)
+    }
 }
 
 /// Permitted evidence reference; no vendor SDK or raw licensed payload is required.
@@ -642,7 +646,41 @@ pub enum MasterKind {
     BenchmarkSet,
 }
 
+/// How a dated read chooses among one resource's versions known at the cutoff. The version
+/// chosen is in force only if its own interval holds the instant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VersionSelection {
+    /// The newest assertion, whatever its interval.
+    NewestKnown,
+    /// The newest version started by the instant. A version replaces every earlier one
+    /// from its start, so one with an end date retires the resource from that end, and one
+    /// recorded later for a past interval ends every version after it.
+    NewestStarted,
+    /// The newest version whose interval holds the instant.
+    NewestHolding,
+}
+
 impl MasterKind {
+    /// How a dated read selects among this kind's versions.
+    pub fn version_selection(self) -> VersionSelection {
+        match self {
+            Self::Identifier => VersionSelection::NewestKnown,
+            Self::Book | Self::PricingRule | Self::BenchmarkSet => VersionSelection::NewestStarted,
+            Self::IssuerScope
+            | Self::Calculation
+            | Self::Entity
+            | Self::Calendar
+            | Self::Convention
+            | Self::Futures
+            | Self::Basket
+            | Self::CashUniverse
+            | Self::RateIndex
+            | Self::LimitSet
+            | Self::LimitProposal
+            | Self::LimitAcknowledgements => VersionSelection::NewestHolding,
+        }
+    }
+
     /// Storage-key prefix shared by every resource of this kind.
     pub fn prefix(self) -> &'static str {
         match self {
@@ -758,6 +796,27 @@ pub enum MasterDefinition {
 }
 
 impl MasterDefinition {
+    /// The resource kind.
+    pub fn kind(&self) -> MasterKind {
+        match self {
+            Self::IssuerScope(_) => MasterKind::IssuerScope,
+            Self::Calculation(_) => MasterKind::Calculation,
+            Self::Entity(_) => MasterKind::Entity,
+            Self::Calendar(_) => MasterKind::Calendar,
+            Self::Convention(_) => MasterKind::Convention,
+            Self::Identifier(_) => MasterKind::Identifier,
+            Self::Futures(_) => MasterKind::Futures,
+            Self::Basket(_) => MasterKind::Basket,
+            Self::CashUniverse(_) => MasterKind::CashUniverse,
+            Self::Book(_) => MasterKind::Book,
+            Self::RateIndex(_) => MasterKind::RateIndex,
+            Self::LimitSet(_) => MasterKind::LimitSet,
+            Self::LimitProposal(_) => MasterKind::LimitProposal,
+            Self::LimitAcknowledgements(_) => MasterKind::LimitAcknowledgements,
+            Self::PricingRule(_) => MasterKind::PricingRule,
+            Self::BenchmarkSet(_) => MasterKind::BenchmarkSet,
+        }
+    }
     /// Typed internal identity.
     pub fn key(&self) -> MasterKey {
         match self {
@@ -1522,11 +1581,7 @@ pub fn validate_reference_links(
             MasterDefinition::Book(book) => {
                 // A book is retired from a commit, never scheduled to retire later, so a
                 // closed interval has ended by the time it is read.
-                if book
-                    .effective
-                    .until
-                    .is_some_and(|end| end > commit.recorded_at)
-                {
+                if book.is_retired() && !book.effective.has_ended_by(commit.recorded_at) {
                     return Err(ReferenceError::InvalidInput(
                         "a book's interval ends no later than the commit that closes it",
                     ));
@@ -1718,10 +1773,8 @@ pub fn select_bond_at(
     Ok(selected.filter(|r| r.bond.is_some()))
 }
 
-/// Select resource history: the newest version known at the cutoff whose interval holds
-/// `as_of`. A mapping assertion replaces the full interval at known_at. A book version
-/// replaces every earlier one from its start, so a version with a bounded end retires the
-/// book from that end.
+/// Select resource history: the newest version known at the cutoff that its kind's
+/// [`VersionSelection`] admits, if that version's interval holds `as_of`.
 pub fn select_master_at(
     records: impl IntoIterator<Item = MasterRecord>,
     lookup: ReferenceLookup,
@@ -1735,10 +1788,10 @@ pub fn select_master_at(
             continue;
         }
         let effective = record.definition.effective();
-        let applicable = match record.definition {
-            MasterDefinition::Identifier(_) => true,
-            MasterDefinition::Book(_) => effective.from <= lookup.as_of,
-            _ => effective.contains(lookup.as_of),
+        let applicable = match record.definition.kind().version_selection() {
+            VersionSelection::NewestKnown => true,
+            VersionSelection::NewestStarted => effective.from <= lookup.as_of,
+            VersionSelection::NewestHolding => effective.contains(lookup.as_of),
         };
         if applicable
             && selected

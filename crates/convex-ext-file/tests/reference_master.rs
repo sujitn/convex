@@ -69,9 +69,16 @@ async fn a_closed_book_version_retires_the_book_from_its_end() {
 }
 
 #[tokio::test]
-#[ignore = "known defect: a newer bounded rule version does not end an older open one in a dated read"]
-async fn a_bounded_pricing_rule_version_ends_the_rule() {
-    conformance::a_bounded_pricing_rule_version_ends_the_rule(Arc::new(
+async fn a_pricing_rule_can_be_ended_after_its_bond_is_deleted() {
+    conformance::a_pricing_rule_can_be_ended_after_its_bond_is_deleted(Arc::new(
+        MemoryReferenceRepository::default(),
+    ))
+    .await;
+}
+
+#[tokio::test]
+async fn a_bounded_pricing_rule_or_benchmark_set_version_ends_it() {
+    conformance::a_bounded_pricing_rule_or_benchmark_set_version_ends_it(Arc::new(
         MemoryReferenceRepository::default(),
     ))
     .await;

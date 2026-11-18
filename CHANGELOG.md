@@ -119,6 +119,18 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **A pricing rule or benchmark set with an end date is not in force after it.** A
+  version with `effective.until`, committed through `POST /api/v1/reference/transactions`
+  or the import, ends the rule or set at that time, which may be later than the commit.
+  After it, a bond whose rule ended is quoted by price; a bond whose rule names an ended
+  set is refused, naming the set, whether asked by level or by price; a compile refuses a
+  rule naming it; and a Live runtime applies the end at its next activation whose cutoff
+  is after the end. A rule version that has ended by its commit is not checked against
+  its bond's current terms, so a rule can be ended after its bond is deleted or changed.
+  `EffectiveInterval::has_ended_by` names the test.
+  **Breaking:** an ended version used to fall back to the version before it, and a
+  version recorded later for a past interval now ends every version after it, so a
+  correction of history restates the current version after it.
 - **`POST /api/v1/quote` and `/batch/price` price under the stored rule.** Each takes
   `level` in place of `market_price`. Inline terms equal to the bond's stored terms at
   `known_at` are priced as `GET /api/v1/quotes/:id` prices the stored bond, with the same
@@ -334,11 +346,13 @@ the changes that matter when you upgrade.
   resolve a bond's rule and a set in force; `MarketSnapshot::pricing_rule`,
   `benchmark_set` and `benchmark_securities` read them back; `PricingMethod::quote_field`
   and `reads_discount_curve` give the quote field and curve a method reads.
-- **A book version with a bounded end retires the book in dated reads.**
-  `select_master_at` takes the newest book version that has started by `as_of`, so a
-  dated read after the end finds no book, where it used to fall back to the version
-  before. Identifier mappings already took the newest known assertion; other kinds
-  keep the newest version whose interval holds `as_of`. A book's interval cannot end
+- **A book, pricing rule or benchmark set version with a bounded end retires it in dated
+  reads.** Each kind declares its `VersionSelection` (`MasterKind::version_selection`),
+  and `select_master_at` applies it. These three take the newest version started by
+  `as_of` (`NewestStarted`), so a dated read after the end finds none, where it used to
+  fall back to the version before. Identifier mappings take the newest known assertion
+  (`NewestKnown`); other kinds keep the newest version whose interval holds `as_of`
+  (`NewestHolding`). `MasterDefinition::kind` gives a definition's kind. A book's interval cannot end
   after the commit that closes it, so `BookDefinition::is_retired` (the interval is
   closed) means it has ended.
 

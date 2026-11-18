@@ -1247,11 +1247,12 @@ async fn store_treasury(setup: &runtime::Setup, id: &str, at: UtcTimestamp) {
 }
 
 /// A Live runtime pins each bond's pricing rule with its references, once per activation.
-/// A rule committed while it runs reaches it at the next activation, not the next quote.
-/// A roll to a Treasury the runtime does not value changes its universe, which only a
-/// restart applies.
+/// A rule committed while it runs reaches it at the next activation, not the next quote,
+/// and so does its end: an activation at a cutoff after the end pins no rule. A roll to a
+/// Treasury the runtime does not value changes its universe, which only a restart applies.
 #[tokio::test]
-async fn a_live_runtime_reads_a_new_rule_at_its_next_activation_and_a_new_benchmark_at_restart() {
+async fn a_live_runtime_reads_a_rule_and_its_end_at_its_next_activation_and_a_new_benchmark_at_restart(
+) {
     use std::sync::Arc;
     let setup = runtime::setup().await;
     let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
@@ -1272,30 +1273,36 @@ async fn a_live_runtime_reads_a_new_rule_at_its_next_activation_and_a_new_benchm
             .iter()
             .any(|version| version.kind.as_str() == "pricing_rule")
     };
-    let rule: convex_ports::reference_master::MasterChange =
-        serde_json::from_value(serde_json::json!({
-            "expected_version": null,
-            "definition": {"kind": "pricing_rule", "definition": {
-                "instrument_id": "BOND-001",
-                "method": {"kind": "price"},
-                "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
-                "provenance": {"source": "desk", "evidence_reference": "activation-test"},
-            }},
-        }))
-        .unwrap();
-    setup
-        .storage
-        .bonds
-        .commit(
-            &convex_ports::reference_repository::ReferenceCommand {
-                idempotency_key: RequestId::new("price-rule").unwrap(),
-                changes: vec![],
-                master_changes: vec![rule],
-            },
-            now,
-        )
-        .await
-        .unwrap();
+    // Commit a `price` rule's version ending at `until`, recorded at its end, or at `now`
+    // when it is open.
+    let commit_rule = |key: &'static str, expected: Option<u64>, until: Option<UtcTimestamp>| {
+        let rule: convex_ports::reference_master::MasterChange =
+            serde_json::from_value(serde_json::json!({
+                "expected_version": expected,
+                "definition": {"kind": "pricing_rule", "definition": {
+                    "instrument_id": "BOND-001",
+                    "method": {"kind": "price"},
+                    "effective": {"from": "2025-01-01T00:00:00Z", "until": until},
+                    "provenance": {"source": "desk", "evidence_reference": "activation-test"},
+                }},
+            }))
+            .unwrap();
+        let bonds = setup.storage.bonds.clone();
+        async move {
+            bonds
+                .commit(
+                    &convex_ports::reference_repository::ReferenceCommand {
+                        idempotency_key: RequestId::new(key).unwrap(),
+                        changes: vec![],
+                        master_changes: vec![rule],
+                    },
+                    until.unwrap_or(now),
+                )
+                .await
+                .unwrap();
+        }
+    };
+    commit_rule("price-rule", None, None).await;
     quote(1, "99.25");
     let held = tokio::time::timeout(Duration::from_secs(5), updates.recv())
         .await
@@ -1323,11 +1330,37 @@ async fn a_live_runtime_reads_a_new_rule_at_its_next_activation_and_a_new_benchm
     assert_eq!(applied.result.status(), ResultStatus::Complete);
     assert!(reads_rule(&applied));
 
+    // The rule's end date, then an activation at a cutoff after it.
+    let later = UtcTimestamp::from_datetime(now.datetime() + chrono::Duration::seconds(1)).unwrap();
+    commit_rule("price-rule-ended", Some(1), Some(later)).await;
+    let mut third = second.clone();
+    third.document.pricing.version = 3;
+    third.document.assembly.configuration.version = fixture::snapshot::version(3);
+    third.document.assembly.as_of = later;
+    third.document.assembly.known_at = later;
+    third.idempotency_key = RequestId::new("live-stage-rule-ended").unwrap();
+    let mut later_cases = fixture_cases.clone();
+    later_cases[0].as_of = later;
+    later_cases[0].known_at = later;
+    service.stage(&third, &later_cases).await.unwrap();
+    let mut command = fixture::activate(3, 2, "live-rule-ended");
+    command.activated_at = later;
+    engine
+        .activate_configuration(&command, &later_cases)
+        .await
+        .unwrap();
+    let after_end = tokio::time::timeout(Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(after_end.result.status(), ResultStatus::Complete);
+    assert!(!reads_rule(&after_end), "the rule ended before the cutoff");
+
     // An on-the-run roll to a Treasury the runtime does not value.
-    store_treasury(&setup, "UST-10Y-NEW", now).await;
-    let mut rolled = second.clone();
-    rolled.document.pricing.version = 3;
-    rolled.document.assembly.configuration.version = fixture::snapshot::version(3);
+    store_treasury(&setup, "UST-10Y-NEW", later).await;
+    let mut rolled = third.clone();
+    rolled.document.pricing.version = 4;
+    rolled.document.assembly.configuration.version = fixture::snapshot::version(4);
     rolled.idempotency_key = RequestId::new("live-stage-roll").unwrap();
     rolled.document.assembly.instruments.push(InstrumentPin {
         instrument_id: InstrumentId::new("UST-10Y-NEW").unwrap(),
@@ -1336,7 +1369,7 @@ async fn a_live_runtime_reads_a_new_rule_at_its_next_activation_and_a_new_benchm
     let mut new_quote = rolled.document.assembly.quotes[0].clone();
     new_quote.key.instrument_id = convex_core::ids::InstrumentId::new("UST-10Y-NEW");
     rolled.document.assembly.quotes.push(new_quote);
-    let mut roll_cases = fixture_cases.clone();
+    let mut roll_cases = later_cases.clone();
     let mut image = roll_cases[0].events[0].clone();
     image.key.instrument_id = convex_core::ids::InstrumentId::new("UST-10Y-NEW");
     roll_cases[0].events.push(image);
@@ -1357,8 +1390,8 @@ async fn a_live_runtime_reads_a_new_rule_at_its_next_activation_and_a_new_benchm
         report.changes
     );
     service.stage(&rolled, &roll_cases).await.unwrap();
-    let mut command = fixture::activate(3, 2, "live-roll");
-    command.activated_at = now;
+    let mut command = fixture::activate(4, 3, "live-roll");
+    command.activated_at = later;
     assert_eq!(
         engine
             .activate_configuration(&command, &roll_cases)
