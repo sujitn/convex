@@ -517,6 +517,12 @@ pub struct BookDefinition {
 }
 
 impl BookDefinition {
+    /// Whether this version retires the book: its interval is closed. A retired book is
+    /// not valued, checked or monitored; a new snapshot revives it.
+    pub fn is_retired(&self) -> bool {
+        self.effective.until.is_some()
+    }
+
     /// Validate bounds and uniqueness independently of backend state.
     pub fn validate(&self) -> Result<(), ReferenceError> {
         if self.positions.len() > MAX_BOOK_POSITIONS {
@@ -1700,7 +1706,10 @@ pub fn select_bond_at(
     Ok(selected.filter(|r| r.bond.is_some()))
 }
 
-/// Select resource history. Mapping assertions replace the full interval at known_at.
+/// Select resource history: the newest version known at the cutoff whose interval holds
+/// `as_of`. A mapping assertion replaces the full interval at known_at. A book version
+/// replaces every earlier one from its start, so a version with a bounded end retires the
+/// book from that end.
 pub fn select_master_at(
     records: impl IntoIterator<Item = MasterRecord>,
     lookup: ReferenceLookup,
@@ -1713,8 +1722,12 @@ pub fn select_master_at(
         if record.recorded_at > lookup.known_at {
             continue;
         }
-        let applicable = matches!(record.definition, MasterDefinition::Identifier(_))
-            || record.definition.effective().contains(lookup.as_of);
+        let effective = record.definition.effective();
+        let applicable = match record.definition {
+            MasterDefinition::Identifier(_) => true,
+            MasterDefinition::Book(_) => effective.from <= lookup.as_of,
+            _ => effective.contains(lookup.as_of),
+        };
         if applicable
             && selected
                 .as_ref()

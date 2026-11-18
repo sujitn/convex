@@ -814,6 +814,84 @@ pub async fn books_page_in_order_and_version_with_compare_and_set(
         .is_none());
 }
 
+/// A book version replaces every earlier one from its start: a version with a bounded end
+/// retires the book from that end, a dated read after it finds no book, and a later
+/// snapshot revives it.
+pub async fn a_closed_book_version_retires_the_book_from_its_end(
+    repository: Arc<dyn ReferenceRepository>,
+) {
+    // Each snapshot commits at its end if it has one, else at its start.
+    let snapshots = [
+        ("2025-01-01T00:00:00Z", None),
+        ("2025-02-01T00:00:00Z", None),
+        ("2025-02-01T00:00:00Z", Some("2025-03-01T00:00:00Z")),
+        ("2025-04-01T00:00:00Z", None),
+    ];
+    for (n, (from, until)) in snapshots.into_iter().enumerate() {
+        let mut change = book("B-R", "I-1", until);
+        change.expected_version = (n > 0).then(|| version(n as u64));
+        if let MasterDefinition::Book(book) = &mut change.definition {
+            book.effective.from = time(from);
+        }
+        let key = format!("retire-v{}", n + 1);
+        repository
+            .commit(
+                &command(&key, vec![], vec![change]),
+                time(until.unwrap_or(from)),
+            )
+            .await
+            .unwrap();
+    }
+    let key = MasterKey::Book(ReferenceDataId::new("B-R").unwrap());
+    let at = async |as_of: &str, known_at: &str| {
+        repository
+            .get_master_at(&key, lookup(as_of, known_at))
+            .await
+            .unwrap()
+            .map(|record| record.version.get())
+    };
+    let now = "2025-12-31T00:00:00Z";
+    assert_eq!(at("2025-01-15T00:00:00Z", now).await, Some(1));
+    assert_eq!(at("2025-02-15T00:00:00Z", now).await, Some(3));
+    assert_eq!(at("2025-03-15T00:00:00Z", now).await, None, "retired");
+    assert_eq!(at("2025-04-15T00:00:00Z", now).await, Some(4), "revived");
+    // Known before the retirement, the open snapshot is still in force.
+    assert_eq!(
+        at("2025-03-15T00:00:00Z", "2025-02-15T00:00:00Z").await,
+        Some(2)
+    );
+}
+
+/// A pricing rule ended by a bounded version is not in force after its end, as the
+/// rule's interval documents.
+pub async fn a_bounded_pricing_rule_version_ends_the_rule(
+    repository: Arc<dyn ReferenceRepository>,
+) {
+    use convex_ports::level_pricing::PricingMethod;
+    seed(&repository, "CORP-1").await;
+    let open = pricing_rule("CORP-1", PricingMethod::Yield {}, None);
+    let mut ended = open.clone();
+    ended.expected_version = Some(version(1));
+    if let MasterDefinition::PricingRule(rule) = &mut ended.definition {
+        rule.effective.until = Some(time("2025-03-01T00:00:00Z"));
+    }
+    for (key, change, at) in [
+        ("rule-open", open, "2025-01-02T00:00:00Z"),
+        ("rule-ended", ended, "2025-02-01T00:00:00Z"),
+    ] {
+        repository
+            .commit(&command(key, vec![], vec![change]), time(at))
+            .await
+            .unwrap();
+    }
+    let key = MasterKey::PricingRule(InstrumentId::new("CORP-1").unwrap());
+    let after_end = repository
+        .get_master_at(&key, lookup("2025-04-01T00:00:00Z", "2025-12-31T00:00:00Z"))
+        .await
+        .unwrap();
+    assert_eq!(after_end.map(|record| record.version.get()), None);
+}
+
 fn limits(upper: &str) -> Vec<convex_ports::limits::LimitDefinition> {
     serde_json::from_value(serde_json::json!([
         {"limit_id": "face", "measure": {"kind": "face", "instrument": "each"}, "upper": upper}

@@ -121,11 +121,15 @@ lifecycles and provider sessions remain separate.
 The closed `book` master definition holds a position snapshot owned by an external
 book management system: an owning system, positions (resolved instrument, exact
 quantity, `face` or `units`, optional pinned instrument version) and an effective
-interval whose bounded end retires the book. At most `MAX_BOOK_POSITIONS` (1,000)
+interval whose bounded end retires the book. A book version replaces every earlier one
+from its start, so a dated read (`get_master_at`) after a retired version's end finds no
+book, and a later snapshot revives it; other kinds take the newest version whose
+interval holds the instant. At most `MAX_BOOK_POSITIONS` (1,000)
 rows fit, because the commit stores a book four times inside one transaction.
 `ReferenceRepository::list_books` pages current books by ID; a backend without it
 returns `Unsupported`. Older binaries reject the new kind. Conformance:
-`books_page_in_order_and_version_with_compare_and_set`. HTTP surface: see the
+`books_page_in_order_and_version_with_compare_and_set` and
+`a_closed_book_version_retires_the_book_from_its_end`. HTTP surface: see the
 server README, "Books and portfolios".
 
 The master also defines closed `futures`, `basket` and `cash_universe` master definitions
