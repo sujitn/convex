@@ -43,19 +43,15 @@ impl RedbReferenceRepository {
             exists(&read, MASTER_CURRENT)?,
             exists(&read, MASTER_HISTORY)?,
         ];
-        let bond_tables = presence[..3].iter().filter(|present| **present).count();
-        let master_tables = presence[3..].iter().filter(|present| **present).count();
-        if (bond_tables != 0 && bond_tables != 3)
-            || master_tables == 1
-            || (bond_tables == 0 && master_tables != 0)
-        {
-            return Err(ReferenceError::Unsupported(
-                "incomplete reference repository schema",
-            ));
-        }
-        if presence.iter().all(|present| *present) {
+        match presence.iter().filter(|present| **present).count() {
             // Inspection/reopen is read-only once the complete schema exists.
-            return Ok(Self { db });
+            5 => return Ok(Self { db }),
+            0 => {}
+            _ => {
+                return Err(ReferenceError::Unsupported(
+                    "incomplete reference repository schema",
+                ))
+            }
         }
         drop(read);
         let mut write = db.begin_write().map_err(|_| ReferenceError::Unavailable)?;

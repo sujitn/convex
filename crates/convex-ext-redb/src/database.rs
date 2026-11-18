@@ -69,12 +69,10 @@ pub(crate) fn schema_version(db: &Database) -> Result<u64, TraitError> {
     }
 }
 
-/// Atomically adopt unversioned configuration storage into application schema 1.
+/// Write the application schema marker into a new database, or verify the current one.
 ///
-/// Only the actually retained current version is imported. Older lost content
-/// remains absent. Invalid records and unsupported newer schemas abort the entire
-/// migration. Back up the closed database before upgrading; rollback restores that
-/// backup into isolation rather than inventing a down-migration.
+/// A database without the marker must hold no configurations and no unversioned bonds:
+/// stored data without the marker is refused, never adopted. A newer schema is refused.
 pub fn migrate_database(db: &Database) -> Result<(), TraitError> {
     let read = db.begin_read().map_err(database_error)?;
     match read.open_table(TableDefinition::<&str, &[u8]>::new("bonds")) {
@@ -112,26 +110,13 @@ pub fn migrate_database(db: &Database) -> Result<(), TraitError> {
             return Ok(());
         }
         let configs = write.open_table(CONFIGS).map_err(database_error)?;
-        let mut history = write.open_table(CONFIG_HISTORY).map_err(database_error)?;
-        if configs.len().map_err(database_error)? > MAX_RECORDS {
-            return Err(TraitError::CapacityExceeded);
-        }
-        if !history.is_empty().map_err(database_error)? {
+        let history = write.open_table(CONFIG_HISTORY).map_err(database_error)?;
+        if !configs.is_empty().map_err(database_error)?
+            || !history.is_empty().map_err(database_error)?
+        {
             return Err(TraitError::Unsupported(
-                "configuration history without a schema marker",
+                "configurations without a schema marker",
             ));
-        }
-        for entry in configs.iter().map_err(database_error)? {
-            let (key, data) = entry.map_err(database_error)?;
-            let config = decode_config(data.value())?;
-            if config.config_id != key.value() {
-                return Err(TraitError::Unsupported(
-                    "configuration key/content mismatch",
-                ));
-            }
-            history
-                .insert((key.value(), config.version), data.value())
-                .map_err(database_error)?;
         }
         schema
             .insert("version", APPLICATION_SCHEMA_VERSION)

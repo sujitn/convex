@@ -834,9 +834,8 @@ reads only that book's records. With 1,000,000 entries in the store (64 books, a
 15,600 records each), a page of 100 from the middle of one book's records took 0.16 ms and
 a page of 1,000 took 1.78 ms; `query` with the same filter, which reads every entry,
 took 1.17 and 1.25 s. Through the route, under local development, the
-pages took 0.74 and 5.5 ms (`ci` profile, WSL2). The first open of a
-store written before the index indexes every entry once, 65,536 a transaction: 5.0 s for a
-full store, in 16 transactions. Later opens find nothing to index.
+pages took 0.74 and 5.5 ms (`ci` profile, WSL2). A log without its index is refused at
+open.
 
 Reading by limit costs what the route reads, not what it returns. The route reads the
 store 1,000 records at a time. Measured on one book of 1,000,000 records, 64 limits in
@@ -974,7 +973,7 @@ including one reached through an identifier (D91; see [access](ACCESS.md)).
 
 ## Reference schema and Rust migration
 
-The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. A complete earlier three-table repository adds the master tables atomically while retaining exact prior content and receipts. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
+The redb reference tables are `reference_current_v2`, `reference_history_v2`, `reference_commits_v2`, `reference_master_current_v2` and `reference_master_history_v2`. Terms without `contractual_terms` require an explicit verified update before valuation. Back up before upgrade and restore into isolation to roll back. A nonempty previous unversioned `bonds` table fails startup with an explicit export/import requirement. Preserve its database and export full terms with a compatible reader before importing them into a new versioned repository; do not erase the existing table to bypass validation. Unversioned data needs explicit export/import; missing prior history is not reconstructed.
 
 Implement `ReferenceRepository` to slot in another backend and run both shared reference conformance suites. Required historical/master methods are described in the [port guide](../convex-ports/REFERENCE_MASTER.md#http-and-embedded-use). Default router helpers deny protected access. Supply `create_router_with_access` with the verified boundary; the access guide describes embedding migration.
 

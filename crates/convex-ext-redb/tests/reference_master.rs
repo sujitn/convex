@@ -118,6 +118,16 @@ async fn older_serialized_versions_remain_exact_and_require_explicit_migration_f
             .unwrap()
             .insert("old-key", entry.as_slice())
             .unwrap();
+        write
+            .open_table(TableDefinition::<&str, &[u8]>::new(
+                "reference_master_current_v2",
+            ))
+            .unwrap();
+        write
+            .open_table(TableDefinition::<(&str, u64), &[u8]>::new(
+                "reference_master_history_v2",
+            ))
+            .unwrap();
     }
     write.commit().unwrap();
     let repository = RedbReferenceRepository::new(db).unwrap();

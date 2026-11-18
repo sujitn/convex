@@ -225,9 +225,8 @@ versions are immutable, so a later commit cannot change an already resolved inpu
 ## Stored data migration and recovery
 
 This extends reference wire schema 2 with optional retained fields and two redb
-tables, `reference_master_current_v2` and `reference_master_history_v2`. Opening a
-complete earlier three-table reference repository adds those tables atomically.
-Partial table sets fail. Existing record bytes, versions and receipts are preserved.
+tables, `reference_master_current_v2` and `reference_master_history_v2`. A new
+repository creates all five tables together, and a partial table set fails. Existing record bytes, versions and receipts are preserved.
 Records without contractual terms remain inspectable; valuation fails with an
 explicit migration error. Previously committed commands can still recover their
 original receipts. Supply verified complete terms and resources in a new expected-
