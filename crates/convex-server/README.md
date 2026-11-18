@@ -559,7 +559,7 @@ commits and `convex-redb backup`. No other store exists.
 | `GET /api/v1/books/{book_id}` | Current version, pinned in `ETag` |
 | `GET /api/v1/books/{book_id}/versions/{v}` | One immutable version |
 | `GET /api/v1/books/{book_id}/history?from=&limit=` | Version summaries, oldest first, at most 500 per page |
-| `POST /api/v1/books/{book_id}/retire` | Retire the book: 204 with the new version in `ETag`; 409 `BOOK_RETIRED` if it already is |
+| `POST /api/v1/books/{book_id}/retire` | Retire the book: 204 with the new version in `ETag`; 409 `BOOK_RETIRED` if it already is, `BOOK_NOT_STARTED` if its snapshot starts later |
 
 `Idempotency-Key` is required on every write. On `PUT`, an absent `If-Match` creates the book
 and conflicts if the ID was ever used; a present `If-Match` replaces exactly that version. A
@@ -578,10 +578,14 @@ the instrument and mapping versions consumed. Delta and fill ingest are not supp
 
 Books are written only through these routes, which start each snapshot at its commit time:
 a reference transaction or import that names a book is refused (403
-`BOOKS_ROUTE_REQUIRED`).
+`BOOKS_ROUTE_REQUIRED`). One that also names a limit set, proposal or acknowledgements gets
+`LIMITS_ROUTE_REQUIRED`, which is checked first.
 
 Retiring needs `If-Match` with the current version. It writes a new version that keeps the
-positions and closes the snapshot's interval at the commit time (`effective_until`). The
+positions and closes the snapshot's interval at the commit time (`effective_until`). A
+retry after a lost response sends the same `Idempotency-Key` and the same `If-Match`, the
+version it retired, and gets the original 204 and `ETag`; a new attempt finds the book
+retired (409 `BOOK_RETIRED`). The
 book stays readable, listed and in its history. Until a new snapshot revives it (`PUT` with
 `If-Match` naming the retired version), a retired book:
 - is refused by analytics by book, the limit status and the pre-trade check, and by limit
@@ -590,7 +594,9 @@ book stays readable, listed and in its history. Until a new snapshot revives it 
   readable; a set that clears its limits is still taken, which frees its place among the
   64 limited books, and a proposal or an acknowledgement can still be withdrawn;
 - is not watched by the limit monitor;
-- is not found by a configuration compiled at a cutoff after the retirement.
+- is not found by a configuration compiled at a cutoff after the retirement: a selection
+  whose `known_at` and `as_of` are both after it. One with an earlier cutoff still finds
+  the snapshot before it.
 
 `POST /api/v1/portfolio/analytics` also accepts `{"book_id": "...", "version": n}` instead of
 inline positions. It requires a complete runtime result for every position, `Valid`, or `Demo`

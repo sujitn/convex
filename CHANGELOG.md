@@ -128,11 +128,14 @@ the changes that matter when you upgrade.
   the commit time. A retired book is refused by analytics by book, the limit
   status and pre-trade check, and limit proposals, approvals and
   acknowledgements (409 `BOOK_RETIRED`); a set that clears its limits is still
-  taken. The limit monitor stops watching it,
-  and a configuration compiled after the retirement does not find it. A
-  snapshot written over the retired version revives it.
+  taken. The limit monitor stops watching it, and a configuration compiled at
+  a cutoff after the retirement (known by its `known_at`, effective at its
+  `as_of`) does not find it. A snapshot written over the retired version
+  revives it. A snapshot that has not started yet cannot be retired
+  (409 `BOOK_NOT_STARTED`).
 - **Breaking:** a reference transaction or import that writes a book is
   refused (403 `BOOKS_ROUTE_REQUIRED`); write books through `/api/v1/books`.
+  One that also writes a limit gets `LIMITS_ROUTE_REQUIRED`, checked first.
 - **Breaking:** the `websocket_port` setting and `CONVEX_WEBSOCKET_PORT` are
   removed. WebSockets share the HTTP listener, and a file or environment that
   still sets either fails at startup as unknown.
@@ -307,8 +310,10 @@ the changes that matter when you upgrade.
 - **A book version with a bounded end retires the book in dated reads.**
   `select_master_at` takes the newest book version that has started by `as_of`, so a
   dated read after the end finds no book, where it used to fall back to the version
-  before. Other kinds keep the newest version whose interval holds `as_of`.
-  `BookDefinition::is_retired` says whether a version is retired.
+  before. Identifier mappings already took the newest known assertion; other kinds
+  keep the newest version whose interval holds `as_of`. A book's interval cannot end
+  after the commit that closes it, so `BookDefinition::is_retired` (the interval is
+  closed) means it has ended.
 
 ### convex-ext-redb
 

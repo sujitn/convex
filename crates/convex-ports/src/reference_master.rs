@@ -517,8 +517,9 @@ pub struct BookDefinition {
 }
 
 impl BookDefinition {
-    /// Whether this version retires the book: its interval is closed. A retired book is
-    /// not valued, checked or monitored; a new snapshot revives it.
+    /// Whether this version retires the book: its interval is closed. A commit never
+    /// closes it later than its own time, so a closed interval has always ended. A retired
+    /// book is not valued, checked or monitored; a new snapshot revives it.
     pub fn is_retired(&self) -> bool {
         self.effective.until.is_some()
     }
@@ -1519,6 +1520,17 @@ pub fn validate_reference_links(
                 }
             }
             MasterDefinition::Book(book) => {
+                // A book is retired from a commit, never scheduled to retire later, so a
+                // closed interval has ended by the time it is read.
+                if book
+                    .effective
+                    .until
+                    .is_some_and(|end| end > commit.recorded_at)
+                {
+                    return Err(ReferenceError::InvalidInput(
+                        "a book's interval ends no later than the commit that closes it",
+                    ));
+                }
                 // Pinned rows must name an instrument version that already exists.
                 for position in &book.positions {
                     let Some(version) = position.reference_version else {

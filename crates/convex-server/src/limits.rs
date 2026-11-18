@@ -268,8 +268,8 @@ fn check_new_excesses(
     Ok(())
 }
 
-/// One microsecond after `time`: a closed interval's end must follow its start.
-pub(crate) fn after(time: UtcTimestamp) -> Result<UtcTimestamp, ReferenceError> {
+/// One microsecond after `time`: a closed proposal's end must follow its start.
+fn after(time: UtcTimestamp) -> Result<UtcTimestamp, ReferenceError> {
     UtcTimestamp::from_datetime(time.datetime() + chrono::Duration::microseconds(1))
         .map_err(|_| ReferenceError::Unavailable)
 }
@@ -313,6 +313,37 @@ async fn book_for_limits(
         in_force(record)?;
     }
     Ok(())
+}
+
+/// A book's current limit set, when it has one, and the book in force, once the caller
+/// may read status for the book and every instrument the set names. A retired book is
+/// refused before a missing set, so it is `409 BOOK_RETIRED` with limits or without.
+async fn limited_book(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    book: &BookId,
+) -> Result<(Option<MasterRecord>, MasterRecord), Response> {
+    let (set_record, book_record) = limited_book_record(state, ctx, book).await?;
+    Ok((set_record, in_force(book_record)?))
+}
+
+/// [`limited_book`] before the retirement check, for a write whose exact retry must still
+/// get its receipt.
+pub(crate) async fn limited_book_record(
+    state: &AppState,
+    ctx: &Option<Extension<AccessContext>>,
+    book: &BookId,
+) -> Result<(Option<MasterRecord>, Option<MasterRecord>), Response> {
+    let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
+    let set_record = current(repo, MasterKey::LimitSet(book.clone()))
+        .await
+        .map_err(reference_error)?;
+    let limits = match &set_record {
+        Some(record) => set_of(record).map_err(reference_error)?.limits.as_slice(),
+        None => &[],
+    };
+    let book_record = authorize_read(state, ctx, STATUS_DATA, book, limits).await?;
+    Ok((set_record, book_record))
 }
 
 /// At most `MAX_LIMITED_BOOKS` books hold a non-empty set. Counted under the limit
@@ -1109,9 +1140,9 @@ async fn status(
     raw: String,
 ) -> Result<Response, Response> {
     let id = book_id(raw).map_err(reference_error)?;
-    let set_record = read_master(state, &MasterKey::LimitSet(id.clone()), None).await?;
+    let (set_record, book_record) = limited_book(state, ctx, &id).await?;
+    let set_record = set_record.ok_or_else(|| reference_error(ReferenceError::NotFound))?;
     let set = set_of(&set_record).map_err(reference_error)?;
-    let book_record = in_force(authorize_read(state, ctx, STATUS_DATA, &id, &set.limits).await?)?;
     let book = book_of(&book_record).map_err(reference_error)?;
     let acknowledgements = acknowledgements_of(state, &id).await?;
     let evaluated_at = now().map_err(reference_error)?;
@@ -1571,9 +1602,9 @@ async fn check(
     rows: Vec<RowRequest>,
 ) -> Result<Response, Response> {
     let id = book_id(raw).map_err(reference_error)?;
-    let set_record = read_master(state, &MasterKey::LimitSet(id.clone()), None).await?;
+    let (set_record, book_record) = limited_book(state, ctx, &id).await?;
+    let set_record = set_record.ok_or_else(|| reference_error(ReferenceError::NotFound))?;
     let set = set_of(&set_record).map_err(reference_error)?;
-    let book_record = in_force(authorize_read(state, ctx, STATUS_DATA, &id, &set.limits).await?)?;
     let held = book_of(&book_record).map_err(reference_error)?;
     let units: Vec<Option<QuantityUnit>> = rows.iter().map(RowRequest::unit).collect();
     let evaluated_at = now().map_err(reference_error)?;

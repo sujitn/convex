@@ -350,7 +350,7 @@ impl LimitMonitor {
             halt,
             books: BTreeMap::new(),
             holders: HashMap::new(),
-            retired: BTreeSet::new(),
+            retired: BTreeMap::new(),
             terms: PricedTerms::new(),
             reload: Some(Pending::All),
             dirty: Some(Pending::All),
@@ -650,9 +650,10 @@ struct Task {
     books: BTreeMap<BookId, Watched>,
     /// Each instrument a watched book holds, and the books holding it.
     holders: HashMap<String, BTreeSet<BookId>>,
-    /// Retired books that hold limits: not watched, but reread when a snapshot may
-    /// revive one. At most one per limit set.
-    retired: BTreeSet<BookId>,
+    /// Retired books that hold limits, with the latest excess expiry the monitor passed
+    /// for each: not watched, but reread when a snapshot may revive one, which keeps the
+    /// latch. At most one per limit set.
+    retired: BTreeMap<BookId, Option<UtcTimestamp>>,
     terms: PricedTerms,
     reload: Option<Pending>,
     dirty: Option<Pending>,
@@ -669,7 +670,7 @@ struct Task {
 
 impl Task {
     fn waiting(&self) -> bool {
-        self.stalled || !self.retry.is_empty()
+        self.stalled || !self.retry.is_empty() || self.reload.is_some()
     }
 
     /// Timer: try failed reads and failed records again.
@@ -864,7 +865,7 @@ impl Task {
             match key {
                 MasterKey::LimitSet(id) => Pending::add(&mut self.reload, id.clone()),
                 // A snapshot over a retired book that holds limits revives it.
-                MasterKey::Book(id) if self.retired.contains(id) => {
+                MasterKey::Book(id) if self.retired.contains_key(id) => {
                     Pending::add(&mut self.reload, id.clone())
                 }
                 MasterKey::Book(id) | MasterKey::LimitAcknowledgements(id)
@@ -952,6 +953,8 @@ impl Task {
             }
             Pending::Some(ids) => ids.into_iter().collect(),
         };
+        // Books skipped at capacity, reread once a later book in this pass frees a place.
+        let mut skipped = Vec::new();
         for id in ids {
             if self.halt.requested() {
                 return Ok(());
@@ -961,7 +964,7 @@ impl Task {
                 Some(record) => Some((record.version, set_of(record)?)),
                 None => None,
             };
-            self.retired.remove(&id);
+            let retired_latch = self.retired.remove(&id);
             let Some((set_version, set)) = set.filter(|(_, set)| !set.limits.is_empty()) else {
                 self.unwatch(&id);
                 continue;
@@ -970,8 +973,14 @@ impl Task {
                 Some(record) => {
                     let book = book_of(&record)?;
                     if book.is_retired() {
+                        let latch = self
+                            .books
+                            .get(&id)
+                            .map(|watched| watched.expired_through)
+                            .or(retired_latch)
+                            .flatten();
                         self.unwatch(&id);
-                        self.retired.insert(id);
+                        self.retired.insert(id, latch);
                         continue;
                     }
                     Some((record.version, book.clone()))
@@ -980,6 +989,10 @@ impl Task {
             };
             if !self.books.contains_key(&id) && self.books.len() >= MAX_LIMITED_BOOKS {
                 tracing::error!(book = %id, "limit monitor: more than {MAX_LIMITED_BOOKS} books hold a limit set; this one is not watched");
+                if let Some(latch) = retired_latch {
+                    self.retired.insert(id.clone(), latch);
+                }
+                skipped.push(id);
                 continue;
             }
             let acknowledgements = match repo
@@ -997,11 +1010,12 @@ impl Task {
                 .map(|p| p.instrument_id.as_str().to_owned())
                 .chain(named_instruments(&set.limits).map(|i| i.as_str().to_owned()))
                 .collect();
+            // A revived book keeps the expiries passed before it was retired.
             let (recorded, expired_through, held) = self
                 .books
                 .remove(&id)
                 .map(|watched| (watched.recorded, watched.expired_through, watched.held))
-                .unwrap_or_default();
+                .unwrap_or_else(|| (HashMap::new(), retired_latch.flatten(), Holds::default()));
             self.books.insert(
                 id.clone(),
                 Watched {
@@ -1018,6 +1032,11 @@ impl Task {
                 },
             );
             Pending::add(&mut self.dirty, id);
+        }
+        if self.books.len() < MAX_LIMITED_BOOKS {
+            for id in skipped {
+                Pending::add(&mut self.reload, id);
+            }
         }
         self.index();
         Ok(())
@@ -1517,7 +1536,7 @@ mod tests {
             halt,
             books: BTreeMap::new(),
             holders: HashMap::new(),
-            retired: BTreeSet::new(),
+            retired: BTreeMap::new(),
             terms: PricedTerms::new(),
             reload: None,
             dirty: None,
@@ -2028,5 +2047,142 @@ mod tests {
         assert_eq!(latch(&plain, &mut none, at), at);
         assert!(none.is_none());
         assert_eq!(next_expiry_of(&plain, none), None);
+    }
+
+    /// A book snapshot from `from`, retired at `until` when given.
+    fn snapshot(id: &str, expected: Option<u64>, from: &str, until: Option<&str>) -> MasterChange {
+        MasterChange {
+            expected_version: expected.map(|v| Version::new(v).unwrap()),
+            definition: MasterDefinition::Book(Box::new(BookDefinition {
+                book_id: BookId::new(id).unwrap(),
+                owning_system: convex_core::contracts::SourceId::new("bms").unwrap(),
+                name: None,
+                currency: Some("USD".into()),
+                description: None,
+                effective: EffectiveInterval {
+                    from: stamp(from),
+                    until: until.map(stamp),
+                },
+                positions: Vec::new(),
+                provenance: ReferenceProvenance {
+                    source: convex_core::contracts::SourceId::new("bms").unwrap(),
+                    evidence_reference: "monitor-test".into(),
+                },
+            })),
+        }
+    }
+
+    /// `id`'s limit set, holding one market value limit unless `cleared`.
+    fn limit_set(id: &str, expected: Option<u64>, from: &str, cleared: bool) -> MasterChange {
+        MasterChange {
+            expected_version: expected.map(|v| Version::new(v).unwrap()),
+            definition: MasterDefinition::LimitSet(Box::new(
+                convex_engine::ports::limits::LimitSetDefinition {
+                    book_id: BookId::new(id).unwrap(),
+                    limits: if cleared {
+                        Vec::new()
+                    } else {
+                        vec![market_value("mv")]
+                    },
+                    proposed_by: "risk-a".into(),
+                    approved_by: "risk-a".into(),
+                    proposal_version: None,
+                    effective: EffectiveInterval {
+                        from: stamp(from),
+                        until: None,
+                    },
+                    provenance: ReferenceProvenance {
+                        source: convex_core::contracts::SourceId::new("limits").unwrap(),
+                        evidence_reference: "monitor-test".into(),
+                    },
+                },
+            )),
+        }
+    }
+
+    async fn commit(task: &Task, key: &str, at: &str, changes: Vec<MasterChange>) {
+        task.engine
+            .reference_repository()
+            .commit(
+                &ReferenceCommand {
+                    idempotency_key: convex_core::contracts::RequestId::new(key).unwrap(),
+                    changes: Vec::new(),
+                    master_changes: changes,
+                },
+                stamp(at),
+            )
+            .await
+            .unwrap();
+    }
+
+    fn books_named(names: &[&str]) -> Pending {
+        Pending::Some(names.iter().map(|n| BookId::new(*n).unwrap()).collect())
+    }
+
+    /// A retired book that holds limits keeps the expiry latch its watch had, and a
+    /// revival skipped because every place was taken is reread once a later book in the
+    /// same pass frees one.
+    #[tokio::test]
+    async fn a_revived_book_keeps_its_latch_and_gets_the_place_a_cleared_book_frees() {
+        let directory = tempfile::tempdir().unwrap();
+        let storage =
+            convex_ext_redb::create_redb_storage(directory.path().join("monitor.redb")).unwrap();
+        let audit = storage.audit.clone();
+        let mut task = pruning_task(storage, audit, true);
+        const T0: &str = "2026-01-01T00:00:00Z";
+        // 62 books, then R and Z: the 64 places all taken.
+        let mut names: Vec<String> = (0..MAX_LIMITED_BOOKS - 2)
+            .map(|n| format!("A-{n:02}"))
+            .collect();
+        names.extend(["R".to_owned(), "Z".to_owned()]);
+        for name in &names {
+            let changes = vec![
+                snapshot(name, None, T0, None),
+                limit_set(name, None, T0, false),
+            ];
+            commit(&task, &format!("{name}-1"), T0, changes).await;
+        }
+        task.reread(Pending::All).await.unwrap();
+        assert_eq!(task.books.len(), MAX_LIMITED_BOOKS);
+        let r = BookId::new("R").unwrap();
+        let passed = stamp("2026-01-01T06:00:00Z");
+        task.books.get_mut(&r).unwrap().expired_through = Some(passed);
+
+        // R is retired: unwatched, with its latch kept.
+        let retired = "2026-01-02T00:00:00Z";
+        commit(
+            &task,
+            "R-retire",
+            retired,
+            vec![snapshot("R", Some(1), T0, Some(retired))],
+        )
+        .await;
+        task.reread(books_named(&["R"])).await.unwrap();
+        assert!(!task.books.contains_key(&r));
+        assert_eq!(task.retired.get(&r), Some(&Some(passed)));
+
+        // In one pass K takes the free place, R is skipped, then Z's cleared set frees one.
+        let later = "2026-01-03T00:00:00Z";
+        commit(
+            &task,
+            "pass",
+            later,
+            vec![
+                snapshot("K", None, later, None),
+                limit_set("K", None, later, false),
+                snapshot("R", Some(2), later, None),
+                limit_set("Z", Some(1), later, true),
+            ],
+        )
+        .await;
+        task.reread(books_named(&["K", "R", "Z"])).await.unwrap();
+        assert!(task.books.contains_key(&BookId::new("K").unwrap()));
+        assert!(!task.books.contains_key(&r), "skipped at capacity");
+        assert!(task.reload.is_some(), "R is reread");
+        let again = task.reload.take().unwrap();
+        task.reread(again).await.unwrap();
+        assert_eq!(task.books.len(), MAX_LIMITED_BOOKS);
+        assert_eq!(task.books[&r].expired_through, Some(passed));
+        assert!(task.retired.is_empty());
     }
 }

@@ -842,6 +842,21 @@ pub async fn a_closed_book_version_retires_the_book_from_its_end(
             .await
             .unwrap();
     }
+    // A book is not scheduled to retire: its end is no later than the commit closing it.
+    let mut scheduled = book("B-R", "I-1", Some("2025-06-01T00:00:00Z"));
+    scheduled.expected_version = Some(version(4));
+    if let MasterDefinition::Book(book) = &mut scheduled.definition {
+        book.effective.from = time("2025-04-01T00:00:00Z");
+    }
+    assert!(matches!(
+        repository
+            .commit(
+                &command("retire-scheduled", vec![], vec![scheduled]),
+                time("2025-05-01T00:00:00Z"),
+            )
+            .await,
+        Err(ReferenceError::InvalidInput(_))
+    ));
     let key = MasterKey::Book(ReferenceDataId::new("B-R").unwrap());
     let at = async |as_of: &str, known_at: &str| {
         repository

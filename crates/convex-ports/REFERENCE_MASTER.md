@@ -123,8 +123,10 @@ book management system: an owning system, positions (resolved instrument, exact
 quantity, `face` or `units`, optional pinned instrument version) and an effective
 interval whose bounded end retires the book. A book version replaces every earlier one
 from its start, so a dated read (`get_master_at`) after a retired version's end finds no
-book, and a later snapshot revives it; other kinds take the newest version whose
-interval holds the instant. At most `MAX_BOOK_POSITIONS` (1,000)
+book, and a later snapshot revives it. A book's interval cannot end after the commit that
+closes it. An identifier mapping is the newest assertion known at the cutoff, whatever its
+interval; other kinds take the newest version whose interval holds the instant. At most
+`MAX_BOOK_POSITIONS` (1,000)
 rows fit, because the commit stores a book four times inside one transaction.
 `ReferenceRepository::list_books` pages current books by ID; a backend without it
 returns `Unsupported`. Older binaries reject the new kind. Conformance:

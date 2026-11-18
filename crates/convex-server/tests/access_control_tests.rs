@@ -245,6 +245,31 @@ async fn actual_introspection_roles_scopes_and_nested_resources_are_fail_closed(
         !stored.is_retired(),
         "a refused retire leaves the book in force"
     );
+    // Retired behind the caller's back, the book's analytics are still refused for the
+    // ungranted instrument before its retirement is told.
+    let mut retired = stored;
+    let at = convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    retired.effective.until = Some(at);
+    let command = convex_engine::ports::reference_repository::ReferenceCommand {
+        idempotency_key: convex_core::contracts::RequestId::new("access-retire-2").unwrap(),
+        changes: Vec::new(),
+        master_changes: vec![convex_engine::ports::reference_master::MasterChange {
+            expected_version: Some(
+                convex_core::contracts::Version::new(planted.version.get() + 1).unwrap(),
+            ),
+            definition: convex_engine::ports::reference_master::MasterDefinition::Book(retired),
+        }],
+    };
+    engine.commit_reference(&command, at).await.unwrap();
+    let (status, _, body) = request(
+        router.clone(),
+        "POST",
+        "/api/v1/portfolio/analytics",
+        Some(HUMAN_TOKEN),
+        Some(json!({"book_id": "BOOK-A"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
     let human = access
         .authenticate(Some(BearerToken::parse(HUMAN_TOKEN).unwrap()))
         .await

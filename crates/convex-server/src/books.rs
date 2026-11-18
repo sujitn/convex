@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::access::{AccessContext, Action, DataScope, Resource, ResourceKind};
 use crate::handlers::AppState;
-use crate::limits::{after, commit_time, Accepted};
+use crate::limits::Accepted;
 use crate::reference::{
     expected_version, key, now, reference_error, with_consumed_reference_version,
     with_reference_version,
@@ -670,17 +670,23 @@ async fn retire(
     let base = base_for(repo, &idempotency_key, &id)
         .await
         .map_err(reference_error)?;
-    let replay_at = base.replay_at;
+    // A key that created the book was not a retirement.
+    if base.replay_at.is_some() && base.record.is_none() {
+        return Err(reference_error(crate::limits::different_payload()));
+    }
+    let at = recorded_at(&base).map_err(reference_error)?;
     let record = in_force(base.record)?;
     let mut definition = book_of(&record).map_err(reference_error)?.clone();
     authorize_positions(state, ctx, Action::BookWrite, &definition.positions)?;
-    // The interval's end follows its start, however the clock moved since the snapshot.
-    let at = match replay_at {
-        Some(at) => at,
-        None => after(definition.effective.from)
-            .and_then(|start| commit_time([start]))
-            .map_err(reference_error)?,
-    };
+    // Retiring ends the snapshot now, so it must have started; a commit at a later time
+    // would hold back every later snapshot.
+    if definition.effective.from >= at {
+        return Err(typed_error(
+            StatusCode::CONFLICT,
+            "BOOK_NOT_STARTED",
+            "the book's snapshot starts after now; retire it once it has started",
+        ));
+    }
     definition.effective.until = Some(at);
     definition.provenance = evidence(&idempotency_key, &definition.owning_system);
     let committed = commit_book(state, idempotency_key, Some(expected), definition, at)
@@ -897,6 +903,7 @@ pub(crate) async fn book_analytics(
 ) -> Result<PortfolioAnalyticsOutput, BookRefusal> {
     let record = pinned_book(state, book, version).await?;
     let definition = book_of(&record).map_err(refused_reference)?;
+    authorize_held(state, ctx, definition)?;
     let detail = |reason: &str| serde_json::json!({"book_id":book, "book_version":record.version, "reason":reason});
     // A version before the retirement is still valued when asked for by number.
     if definition.is_retired() {
@@ -906,7 +913,7 @@ pub(crate) async fn book_analytics(
             detail(RETIRED),
         ));
     }
-    let published = gate_runtime_results(state, ctx, &record)?;
+    let published = gate_runtime_results(state, &record)?;
     let currency = definition
         .currency
         .as_deref()
@@ -1021,19 +1028,18 @@ async fn pinned_book(
         .ok_or_else(|| refused_reference(ReferenceError::NotFound))
 }
 
-/// The accepted runtime result for each position, in book order.
-fn gate_runtime_results(
+/// The caller must be entitled to each instrument the book holds before anything about
+/// it is answered: a refusal names its version and instruments.
+fn authorize_held(
     state: &AppState,
     ctx: &Option<Extension<AccessContext>>,
-    record: &MasterRecord,
-) -> Result<Vec<Arc<PublishedValuation>>, BookRefusal> {
-    let book = book_of(record).map_err(refused_reference)?;
+    book: &BookDefinition,
+) -> Result<(), BookRefusal> {
     let resources: Vec<Resource> = book
         .positions
         .iter()
         .map(|p| Resource::new(ResourceKind::Instrument, p.instrument_id.as_str()))
         .collect();
-    // The refusal names instruments, so the caller must be entitled to each of them.
     let forbidden = || refusal(StatusCode::FORBIDDEN, "FORBIDDEN", serde_json::Value::Null);
     let Some(Extension(ctx)) = ctx else {
         return Err(forbidden());
@@ -1041,7 +1047,15 @@ fn gate_runtime_results(
     state
         .access
         .authorize(ctx, Action::BookRead, &[DataScope::Books], &resources)
-        .map_err(|_| forbidden())?;
+        .map_err(|_| forbidden())
+}
+
+/// The accepted runtime result for each position, in book order.
+fn gate_runtime_results(
+    state: &AppState,
+    record: &MasterRecord,
+) -> Result<Vec<Arc<PublishedValuation>>, BookRefusal> {
+    let book = book_of(record).map_err(refused_reference)?;
     let mut accepted = accepted_runtime_results(state, book);
     let mut found = Vec::with_capacity(book.positions.len());
     let mut missing = Vec::new();

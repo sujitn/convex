@@ -434,6 +434,10 @@ async fn retiring_closes_the_snapshot_and_a_new_snapshot_revives_it() {
     let (status, _, body) = retire(Some("retire-2"), Some("\"2\""), "R1").await;
     assert_eq!(status, StatusCode::CONFLICT, "{body}");
     assert_eq!(body["code"], "BOOK_RETIRED");
+    // The key that created the book is not a retirement: a key conflict, not a 404.
+    let (status, _, body) = retire(Some("r-1"), Some("\"2\""), "R1").await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "VERSION_CONFLICT", "{body}");
 
     // Analytics refuse the retired version; the one before it is still valued, and here
     // fails only for want of runtime results.

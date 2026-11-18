@@ -46,8 +46,8 @@ use crate::handlers::AppState;
 use crate::limit_monitor::{LIMIT_STATUS_ENTITY, LIMIT_STATUS_EVENT};
 use crate::limits::{
     authorize_read, authorize_write, commit, commit_time, conflict, current, different_payload,
-    evaluate_now, evidence, read_master, retained, set_of, HistoryQuery, MAX_HISTORY_PAGE,
-    STATUS_DATA,
+    evaluate_now, evidence, limited_book_record, read_master, retained, set_of, HistoryQuery,
+    MAX_HISTORY_PAGE, STATUS_DATA,
 };
 use crate::reference::{key, now, reference_error, with_reference_version};
 
@@ -222,9 +222,7 @@ async fn acknowledge(
     subject: String,
 ) -> Result<Response, Response> {
     let repo: &dyn ReferenceRepository = state.engine.reference_repository().as_ref();
-    let set_record = read_master(state, &MasterKey::LimitSet(id.clone()), None).await?;
-    let set = set_of(&set_record).map_err(reference_error)?;
-    let book_record = authorize_read(state, ctx, STATUS_DATA, &id, &set.limits).await?;
+    let (set_record, book_record) = limited_book_record(state, ctx, &id).await?;
     let record_key = MasterKey::LimitAcknowledgements(id.clone());
     // Before the set is consulted: it may since have changed or dropped the limit.
     if let Some(record) = retained(repo, &idempotency_key, &record_key)
@@ -233,6 +231,10 @@ async fn acknowledge(
     {
         return retried_acknowledgement(state, ctx, &id, &record, &request, &subject).await;
     }
+    // A retired book is refused before its limits are looked at.
+    let book_record = in_force(book_record)?;
+    let set_record = set_record.ok_or_else(|| reference_error(ReferenceError::NotFound))?;
+    let set = set_of(&set_record).map_err(reference_error)?;
     let Some((index, limit)) = set
         .limits
         .iter()
@@ -249,7 +251,6 @@ async fn acknowledge(
     let existing = current(repo, record_key).await.map_err(reference_error)?;
     let at = commit_time(existing.iter().map(|r| r.recorded_at)).map_err(reference_error)?;
     acknowledgement_expiry(at, request.expires_at).map_err(reference_error)?;
-    let book_record = in_force(book_record)?;
     let book = book_of(&book_record).map_err(reference_error)?;
     let evaluation = evaluate_now(state, book, &set.limits, at).await?;
     let status = evaluation

@@ -1290,6 +1290,85 @@ async fn dropping_a_limit_needs_write_rights_on_its_instrument() {
     assert_eq!(cleared["limits"], json!([]));
 }
 
+/// A retired book is answered as retired by status and the check though it never held a
+/// limit set, and a snapshot that has not started cannot be retired.
+#[tokio::test]
+async fn a_retired_book_without_limits_is_retired_and_a_later_snapshot_cannot_retire() {
+    let (setup, router) = router(AccessControl::local_development()).await;
+    put_book(
+        &router,
+        None,
+        "BARE",
+        json!({"currency": "USD", "positions": [position("1000000")]}),
+    )
+    .await;
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        "/api/v1/books/BARE/retire",
+        None,
+        Some("bare-retire"),
+        Some("1"),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::NO_CONTENT, "{body}");
+    for (method, path, body) in [
+        ("GET", "/api/v1/books/BARE/limits/status", None),
+        (
+            "POST",
+            "/api/v1/books/BARE/limits/check",
+            Some(json!({"changes": []})),
+        ),
+    ] {
+        let (code, _, response) = call(&router, method, path, None, None, None, body).await;
+        assert_eq!(code, StatusCode::CONFLICT, "{path}: {response}");
+        assert_eq!(response["code"], "BOOK_RETIRED", "{path}");
+    }
+
+    // A snapshot written straight to the store, starting an hour from now.
+    let start = chrono::Utc::now() + chrono::Duration::hours(1);
+    let definition: convex_ports::reference_master::BookDefinition =
+        serde_json::from_value(json!({
+            "book_id": "LATER",
+            "owning_system": "bms",
+            "effective": {"from": start.to_rfc3339_opts(chrono::SecondsFormat::Micros, true), "until": null},
+            "positions": [],
+            "provenance": {"source": "bms", "evidence_reference": "later"},
+        }))
+        .unwrap();
+    setup
+        .storage
+        .bonds
+        .commit(
+            &convex_ports::reference_repository::ReferenceCommand {
+                idempotency_key: convex_core::contracts::RequestId::new("later-book").unwrap(),
+                changes: vec![],
+                master_changes: vec![convex_ports::reference_master::MasterChange {
+                    expected_version: None,
+                    definition: convex_ports::reference_master::MasterDefinition::Book(Box::new(
+                        definition,
+                    )),
+                }],
+            },
+            convex_core::contracts::UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap(),
+        )
+        .await
+        .unwrap();
+    let (code, _, body) = call(
+        &router,
+        "POST",
+        "/api/v1/books/LATER/retire",
+        None,
+        Some("later-retire"),
+        Some("1"),
+        None,
+    )
+    .await;
+    assert_eq!(code, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "BOOK_NOT_STARTED", "{body}");
+}
+
 #[tokio::test]
 async fn a_retired_book_is_not_evaluated_checked_or_given_limits() {
     let (_setup, router) = router(AccessControl::local_development()).await;
@@ -3120,10 +3199,13 @@ async fn a_retired_book_takes_no_approval_or_acknowledgement() {
     .await;
     assert_eq!(code, StatusCode::CONFLICT, "{body}");
     assert_eq!(body["code"], "BOOK_RETIRED");
-    let seen = acknowledgement("breach", 3600, "seen");
-    let (code, _, body) = acknowledge(&router, Some(RISK_A), "BOOK-A", "ack-retired", &seen).await;
-    assert_eq!(code, StatusCode::CONFLICT, "{body}");
-    assert_eq!(body["code"], "BOOK_RETIRED");
+    // Retired is answered before a missing limit.
+    for (limit_id, key) in [("breach", "ack-retired"), ("none", "ack-missing")] {
+        let seen = acknowledgement(limit_id, 3600, "seen");
+        let (code, _, body) = acknowledge(&router, Some(RISK_A), "BOOK-A", key, &seen).await;
+        assert_eq!(code, StatusCode::CONFLICT, "{limit_id}: {body}");
+        assert_eq!(body["code"], "BOOK_RETIRED");
+    }
     let (code, _, body) = call(
         &router,
         "POST",
