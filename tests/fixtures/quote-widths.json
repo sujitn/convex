@@ -457,7 +457,7 @@
         "buckets": []
       },
       "face": "1000000",
-      "refused": "bucket_count"
+      "refused": "no_buckets"
     },
     {
       "id": "seventeen-buckets",
@@ -535,7 +535,7 @@
         ]
       },
       "face": "1000000",
-      "refused": "bucket_count"
+      "refused": "too_many_buckets"
     },
     {
       "id": "bounds-descending",
@@ -704,6 +704,20 @@
       },
       "face": "1000000",
       "refused": "bid_price_not_positive"
+    },
+    {
+      "id": "width-finer-than-a-decimal-holds",
+      "mid": "4.65%@SA",
+      "schedule": {
+        "unit": "basis_points",
+        "buckets": [
+          {
+            "width": "0.0000000000000000000000000001"
+          }
+        ]
+      },
+      "face": "1000000",
+      "refused": "unrepresentable"
     }
   ]
 }

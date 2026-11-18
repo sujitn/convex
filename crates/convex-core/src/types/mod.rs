@@ -27,7 +27,7 @@ pub use cashflow::{CashFlow, CashFlowSchedule, CashFlowType};
 pub use currency::Currency;
 pub use date::Date;
 pub use frequency::{Compounding, Frequency};
-pub use mark::{Mark, PriceKind};
+pub use mark::{Mark, PriceKind, QuoteBasis};
 pub use price::Price;
 pub use quote_width::{
     QuoteWidth, QuoteWidthError, SizeBucket, TwoWayMark, WidthSchedule, WidthUnit, MAX_SIZE_BUCKETS,

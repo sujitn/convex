@@ -70,6 +70,56 @@ pub enum Mark {
     },
 }
 
+/// What a mark quotes: a price, a yield or a spread.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum QuoteBasis {
+    /// A price per 100 face.
+    Price,
+    /// A decimal yield.
+    Yield,
+    /// A spread in basis points.
+    Spread,
+}
+
+impl Mark {
+    /// What the mark quotes.
+    pub fn quote_basis(&self) -> QuoteBasis {
+        match self {
+            Mark::Price { .. } => QuoteBasis::Price,
+            Mark::Yield { .. } => QuoteBasis::Yield,
+            Mark::Spread { .. } => QuoteBasis::Spread,
+        }
+    }
+
+    /// The quoted level: a price per 100 face, a decimal yield, or basis points of
+    /// spread.
+    pub fn level(&self) -> Decimal {
+        match self {
+            Mark::Price { value, .. } | Mark::Yield { value, .. } => *value,
+            Mark::Spread { value, .. } => value.as_bps(),
+        }
+    }
+
+    /// The same mark at another level, in the same form: a price keeps its kind, a yield
+    /// its frequency, and a spread its type and benchmark.
+    pub fn at_level(&self, level: Decimal) -> Self {
+        match self {
+            Mark::Price { kind, .. } => Mark::Price {
+                value: level,
+                kind: *kind,
+            },
+            Mark::Yield { frequency, .. } => Mark::Yield {
+                value: level,
+                frequency: *frequency,
+            },
+            Mark::Spread { value, benchmark } => Mark::Spread {
+                value: Spread::new(level, value.spread_type()),
+                benchmark: benchmark.clone(),
+            },
+        }
+    }
+}
+
 impl fmt::Display for Mark {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

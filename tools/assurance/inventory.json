@@ -6550,6 +6550,7 @@
       "failure_contract": "Checked rejection without ignored economic fields, rounded quote digits, nonfinite or nonpositive discount results or erased nonzero Decimal output.",
       "tests": [
         "crates/convex-core/tests/quote_marks.rs",
+        "crates/convex-core/tests/quote_widths.rs",
         "crates/convex-curves/tests/native_discount.rs",
         "crates/convex-analytics/tests/quote_wire.rs",
         "crates/convex-ffi/tests/quote_rpc.rs",
@@ -6600,9 +6601,9 @@
     },
     {
       "path": "crates/convex-core/src/types/quote_width.rs",
-      "invariants": "A two-way quote's width is the bid-to-ask distance in the quoting unit of the level it widens: price points or 32nds for a price, basis points for a yield (0.0001 of a decimal yield) or a spread. Each side lies half the width from the mid; a price falls to its bid, a yield or spread rises to it, and each side keeps the mid's form (price kind, yield frequency, spread type and benchmark). A unit that does not quote the level is refused, never converted. A schedule holds widths in one unit by trade size: positive ascending face bounds, inclusive, only the last unbounded; a trade takes the first bucket holding it, and a quote with no size takes the first bucket. Arithmetic is checked Decimal; nothing is rounded to a tick. On the wire a schedule is exact decimal strings with no unknown fields.",
+      "invariants": "A two-way quote's width is the bid-to-ask distance in the quoting unit of the level it widens: price points or 32nds for a price, basis points for a yield (0.0001 of a decimal yield) or a spread. Each side lies half the width from the mid; a price falls to its bid, a yield or spread rises to it, and each side keeps the mid's form (price kind, yield frequency, spread type and benchmark). A unit that does not quote the level is refused, never converted. The half width and each side are exact through convex-math BoundedDecimal; a side needing more than a Decimal holds is refused. A schedule holds widths in one unit by trade size: positive ascending face bounds, inclusive, only the last unbounded; a trade takes the first bucket holding it, and a quote with no size takes the first bucket. Nothing is rounded to a tick. On the wire a schedule is exact decimal strings with no unknown fields.",
       "bounds": "1 to 16 size buckets (MAX_SIZE_BUCKETS); a width from 0 to 20 price points, 640 32nds or 1,000 basis points (WidthUnit::max_width); native Decimal coefficient 96 bits, scale 28.",
-      "failure_contract": "Typed QuoteWidthError: bucket count and bounds, width out of range, a non-positive or too-large trade size, a unit that does not quote the level, a bid price at or below zero, and Decimal overflow. No default width, unit or bucket is substituted.",
+      "failure_contract": "Typed QuoteWidthError with a fixed reason: no buckets, too many, bounds not positive and ascending, a width out of range, a non-positive or too-large trade size, a unit that does not quote the level (WidthUnit::quotes over QuoteBasis), a bid price at or below zero, and a side a Decimal cannot hold exactly (unrepresentable, never rounded). No default width, unit or bucket is substituted.",
       "tests": [
         "crates/convex-core/tests/quote_widths.rs",
         "crates/convex-analytics/tests/quote_widths.rs",

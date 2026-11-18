@@ -2,7 +2,9 @@
 
 use std::str::FromStr;
 
-use convex_core::types::{Mark, QuoteWidthError, Spread, WidthSchedule, WidthUnit};
+use convex_core::types::{
+    Mark, QuoteBasis, QuoteWidthError, WidthSchedule, WidthUnit, MAX_SIZE_BUCKETS,
+};
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
 
@@ -17,39 +19,23 @@ fn decimal(value: &Value) -> Decimal {
 fn inputs(case: &Value) -> (Mark, WidthSchedule, Option<Decimal>) {
     let mid = Mark::from_str(case["mid"].as_str().unwrap()).unwrap();
     let schedule = serde_json::from_value(case["schedule"].clone()).unwrap();
-    let face = (!case["face"].is_null()).then(|| decimal(&case["face"]));
+    let face = case["face"]
+        .as_str()
+        .map(|face| Decimal::from_str_exact(face).unwrap());
     (mid, schedule, face)
 }
 
-/// `mark` at another level, in the same form: a price's kind, a yield's frequency, a
-/// spread's type and benchmark.
-fn at_level(mark: &Mark, level: Decimal) -> Mark {
-    match mark {
-        Mark::Price { kind, .. } => Mark::Price {
-            value: level,
-            kind: *kind,
-        },
-        Mark::Yield { frequency, .. } => Mark::Yield {
-            value: level,
-            frequency: *frequency,
-        },
-        Mark::Spread { value, benchmark } => Mark::Spread {
-            value: Spread::new(level, value.spread_type()),
-            benchmark: benchmark.clone(),
-        },
-    }
-}
-
-fn refusal_code(error: &QuoteWidthError) -> &'static str {
+fn refusal_code(error: QuoteWidthError) -> &'static str {
     match error {
-        QuoteWidthError::BucketCount => "bucket_count",
+        QuoteWidthError::NoBuckets => "no_buckets",
+        QuoteWidthError::TooManyBuckets => "too_many_buckets",
         QuoteWidthError::BucketBounds => "bucket_bounds",
-        QuoteWidthError::WidthOutOfRange { .. } => "width_out_of_range",
+        QuoteWidthError::WidthOutOfRange => "width_out_of_range",
         QuoteWidthError::FaceNotPositive => "face_not_positive",
         QuoteWidthError::FaceAboveSchedule => "face_above_schedule",
-        QuoteWidthError::UnitMismatch { .. } => "unit_mismatch",
+        QuoteWidthError::UnitMismatch => "unit_mismatch",
         QuoteWidthError::BidPriceNotPositive => "bid_price_not_positive",
-        QuoteWidthError::Overflow => "overflow",
+        QuoteWidthError::Unrepresentable => "unrepresentable",
     }
 }
 
@@ -65,17 +51,16 @@ fn each_case_gives_its_width_bid_and_ask() {
         let width = schedule
             .width_for(face)
             .unwrap_or_else(|e| panic!("{id}: {e}"));
-        assert_eq!(width.unit(), schedule.unit, "{id}: unit");
         assert_eq!(width.value(), decimal(&expected["width"]), "{id}: width");
         let two_way = width.two_way(&mid).unwrap_or_else(|e| panic!("{id}: {e}"));
         assert_eq!(
             two_way.bid,
-            at_level(&mid, decimal(&expected["bid"])),
+            mid.at_level(decimal(&expected["bid"])),
             "{id}: bid"
         );
         assert_eq!(
             two_way.ask,
-            at_level(&mid, decimal(&expected["ask"])),
+            mid.at_level(decimal(&expected["ask"])),
             "{id}: ask"
         );
     }
@@ -85,7 +70,7 @@ fn each_case_gives_its_width_bid_and_ask() {
 fn each_refusal_gives_its_reason() {
     let fixture = fixture();
     let refusals = fixture["refusals"].as_array().unwrap();
-    assert_eq!(refusals.len(), 18);
+    assert_eq!(refusals.len(), 19);
     for case in refusals {
         let id = case["id"].as_str().unwrap();
         let (mid, schedule, face) = inputs(case);
@@ -94,7 +79,7 @@ fn each_refusal_gives_its_reason() {
             .and_then(|width| width.two_way(&mid))
             .expect_err(id);
         assert_eq!(
-            refusal_code(&error),
+            refusal_code(error),
             case["refused"].as_str().unwrap(),
             "{id}: {error}"
         );
@@ -102,30 +87,45 @@ fn each_refusal_gives_its_reason() {
 }
 
 #[test]
-fn a_refusal_names_the_unit_and_its_range() {
-    let schedule: WidthSchedule = serde_json::from_value(json!({
-        "unit": "thirty_seconds",
-        "buckets": [{ "width": "641" }]
-    }))
-    .unwrap();
+fn a_reason_names_the_bounds_it_enforces() {
+    assert!(QuoteWidthError::TooManyBuckets
+        .reason()
+        .contains(&format!("at most {MAX_SIZE_BUCKETS} ")));
+    let reason = QuoteWidthError::WidthOutOfRange.reason();
+    for (unit, max_width, text) in [
+        (WidthUnit::PricePoints, 20, "20 price points"),
+        (WidthUnit::ThirtySeconds, 640, "640 32nds"),
+        (WidthUnit::BasisPoints, 1000, "1,000 basis points"),
+    ] {
+        assert!(reason.contains(text), "{unit:?}");
+        assert_eq!(unit.max_width(), Decimal::from(max_width), "{unit:?}");
+    }
     assert_eq!(
-        schedule.validate().unwrap_err().to_string(),
-        "a width in 32nds is from 0 to 640"
+        QuoteWidthError::UnitMismatch.to_string(),
+        QuoteWidthError::UnitMismatch.reason()
     );
-    let basis_points: WidthSchedule = serde_json::from_value(json!({
-        "unit": "basis_points",
-        "buckets": [{ "width": "2" }]
-    }))
-    .unwrap();
-    assert_eq!(
-        basis_points
-            .width_for(None)
-            .unwrap()
-            .two_way(&Mark::from_str("99.5").unwrap())
-            .unwrap_err()
-            .to_string(),
-        "a width in basis points does not widen a price level"
-    );
+}
+
+#[test]
+fn price_units_quote_a_price_and_basis_points_a_yield_or_spread() {
+    for (unit, price, other) in [
+        (WidthUnit::PricePoints, true, false),
+        (WidthUnit::ThirtySeconds, true, false),
+        (WidthUnit::BasisPoints, false, true),
+    ] {
+        assert_eq!(unit.quotes(QuoteBasis::Price), price, "{unit:?}");
+        assert_eq!(unit.quotes(QuoteBasis::Yield), other, "{unit:?}");
+        assert_eq!(unit.quotes(QuoteBasis::Spread), other, "{unit:?}");
+    }
+    for (text, basis) in [
+        ("99-16+", QuoteBasis::Price),
+        ("4.65%@SA", QuoteBasis::Yield),
+        ("125 G@USD.TSY.10Y", QuoteBasis::Spread),
+    ] {
+        let mark = Mark::from_str(text).unwrap();
+        assert_eq!(mark.quote_basis(), basis, "{text}");
+        assert_eq!(mark.at_level(mark.level()), mark, "{text}");
+    }
 }
 
 #[test]
