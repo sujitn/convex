@@ -70,7 +70,7 @@ pub struct SnapshotAssembly {
     pub required_curves: Vec<CurveId>,
     /// Explicit resolved supplied curve revisions (not current builder pointers).
     pub curves: Vec<SnapshotCurve>,
-    /// Complete schema-2 native curve recipe records; omitted by older requests. A Live
+    /// Complete schema-2 native curve recipe records; may be omitted when empty. A Live
     /// assembly that pins no curve data reads `required_curves` from the curve store at
     /// each snapshot's cutoff instead.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

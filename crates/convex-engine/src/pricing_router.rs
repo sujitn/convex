@@ -81,7 +81,7 @@ impl PricingInput {
         }
     }
 
-    /// Create input with only mid price (for backward compatibility).
+    /// Create input with only a mid price.
     pub fn with_mid_price(
         bond: BondReferenceData,
         settlement_date: Date,

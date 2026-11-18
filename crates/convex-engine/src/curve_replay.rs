@@ -87,8 +87,8 @@ pub fn rebuild_curve_recipes(
 
 /// Check every retained curve record and rebuild every recipe before numerical use.
 /// The content identity is not re-derived: a `MarketSnapshot` is verified when it is
-/// made, by `new` or by deserialization, and nothing mutates one. Legacy zero
-/// records do not substitute for a missing full native dependency.
+/// made, by `new` or by deserialization, and nothing mutates one. Zero records do
+/// not substitute for a missing full native dependency.
 pub fn replay_snapshot_curves(
     snapshot: &MarketSnapshot,
 ) -> Result<CurveBuildOutput, CurveReplayError> {

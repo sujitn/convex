@@ -187,7 +187,7 @@ fn bench_request_time(c: &mut Criterion) {
     group.finish();
 }
 
-/// The Live plan of `tests/runtime.rs`: one bond, one legacy curve record.
+/// The Live plan of `tests/runtime.rs`: one bond, one zero-curve record.
 fn live_plan(s: &Setup) -> RuntimePlan {
     let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
     let mut plan = s.plan.clone();

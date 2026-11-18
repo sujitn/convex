@@ -52,7 +52,8 @@ pub struct RuntimeCheckpoint {
     pub revision: u64,
     /// SHA-256 of the exact configured runtime plan.
     pub plan_digest: String,
-    /// Exact accepted active selection, independent of later activations. Older checkpoints omit it.
+    /// Exact accepted active selection, independent of later activations. Absent until the
+    /// runtime selects an activated configuration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub configuration_activation: Option<crate::configuration::ActivationRecord>,
     /// Input generation; increments before accepted work is acknowledged.
