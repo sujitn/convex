@@ -228,14 +228,18 @@ async fn compiles_the_book_universe_with_exact_pins() {
     assert_eq!(again.digest().unwrap(), document.digest().unwrap());
 }
 
+/// The reason a compile was refused as invalid.
+fn invalid(result: Result<ConfigurationDocument, ConfigurationError>) -> &'static str {
+    match result {
+        Err(ConfigurationError::Invalid(reason)) => reason,
+        other => panic!("expected an invalid selection, got {other:?}"),
+    }
+}
+
 #[tokio::test]
 async fn refuses_inputs_it_cannot_pin() {
     let dir = tempfile::tempdir().unwrap();
     let (storage, instrument) = storage(&dir).await;
-    let invalid = |result: Result<ConfigurationDocument, ConfigurationError>| match result {
-        Err(ConfigurationError::Invalid(reason)) => reason,
-        other => panic!("expected an invalid selection, got {other:?}"),
-    };
 
     // The book was recorded after this cutoff.
     let mut early = selection();
@@ -264,33 +268,12 @@ async fn refuses_inputs_it_cannot_pin() {
         "2026-10-07T12:00:00Z",
     )
     .await;
-    let open = storage
-        .bonds
-        .get_master(&MasterKey::Book(
-            ReferenceDataId::new("RETIRED-BOOK").unwrap(),
-        ))
-        .await
-        .unwrap()
-        .unwrap();
-    let MasterDefinition::Book(mut retired) = open.definition else {
-        panic!("not a book")
-    };
-    retired.effective.until = Some(at("2026-10-07T13:00:00Z"));
-    storage
-        .bonds
-        .commit(
-            &ReferenceCommand {
-                idempotency_key: RequestId::new("book-RETIRED-BOOK-retire").unwrap(),
-                changes: vec![],
-                master_changes: vec![MasterChange {
-                    expected_version: Some(open.version),
-                    definition: MasterDefinition::Book(retired),
-                }],
-            },
-            at("2026-10-07T13:00:00Z"),
-        )
-        .await
-        .unwrap();
+    end_at(
+        &storage,
+        MasterKey::Book(ReferenceDataId::new("RETIRED-BOOK").unwrap()),
+        "2026-10-07T13:00:00Z",
+    )
+    .await;
     let mut gone = selection();
     gone.books = vec![ReferenceDataId::new("RETIRED-BOOK").unwrap()];
     assert_eq!(
@@ -607,10 +590,6 @@ async fn a_level_quoted_universe_is_refused_when_its_benchmarks_cannot_be_priced
         json!({"kind": "benchmark_spread", "tenor": "10Y"}),
     )
     .await;
-    let invalid = |result: Result<ConfigurationDocument, ConfigurationError>| match result {
-        Err(ConfigurationError::Invalid(reason)) => reason,
-        other => panic!("expected an invalid selection, got {other:?}"),
-    };
     let mut yields = selection();
     yields.fields = vec![serde_json::from_value(json!("mid_yield")).unwrap()];
     assert_eq!(
@@ -679,6 +658,77 @@ async fn a_level_quoted_universe_is_refused_when_its_benchmarks_cannot_be_priced
     assert_eq!(
         invalid(compile(&storage, &selection(), "showcase-feed").await),
         "a pricing rule names a benchmark set not in force at the cutoff"
+    );
+}
+
+/// End a book's, rule's or set's current version at `until`, committed at the same time.
+async fn end_at(storage: &StorageAdapter, key: MasterKey, until: &str) {
+    let current = storage.bonds.get_master(&key).await.unwrap().unwrap();
+    let mut definition = current.definition;
+    let effective = match &mut definition {
+        MasterDefinition::Book(book) => &mut book.effective,
+        MasterDefinition::PricingRule(rule) => &mut rule.effective,
+        MasterDefinition::BenchmarkSet(set) => &mut set.effective,
+        _ => unreachable!("a book, a rule or a set"),
+    };
+    effective.until = Some(at(until));
+    storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new(format!("end-{}", key.storage_key())).unwrap(),
+                changes: vec![],
+                master_changes: vec![MasterChange {
+                    expected_version: Some(current.version),
+                    definition,
+                }],
+            },
+            at(until),
+        )
+        .await
+        .unwrap();
+}
+
+/// A set ended before the cutoff is not in force, so a rule naming it is refused; a rule
+/// ended before the cutoff is not in force, so its bond is quoted by price and brings no
+/// benchmarks.
+#[tokio::test]
+async fn a_rule_or_set_ended_before_the_cutoff_is_not_in_force() {
+    let dir = tempfile::tempdir().unwrap();
+    let (storage, instrument) = storage(&dir).await;
+    level_desk(
+        &storage,
+        &instrument,
+        json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+    )
+    .await;
+    end_at(
+        &storage,
+        MasterKey::BenchmarkSet(ReferenceDataId::new("UST-OTR").unwrap()),
+        "2026-10-07T12:40:00Z",
+    )
+    .await;
+    assert_eq!(
+        invalid(compile(&storage, &selection(), "showcase-feed").await),
+        "a pricing rule names a benchmark set not in force at the cutoff"
+    );
+    end_at(
+        &storage,
+        MasterKey::PricingRule(InstrumentId::new(&instrument).unwrap()),
+        "2026-10-07T12:50:00Z",
+    )
+    .await;
+    let document = compile(&storage, &selection(), "showcase-feed")
+        .await
+        .unwrap();
+    assert_eq!(
+        quote_reads(&document),
+        [(
+            instrument.clone(),
+            "showcase-feed".to_owned(),
+            vec!["mid_price".to_owned()],
+            600_000
+        )]
     );
 }
 

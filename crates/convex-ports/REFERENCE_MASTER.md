@@ -124,15 +124,24 @@ quantity, `face` or `units`, optional pinned instrument version) and an effectiv
 interval whose bounded end retires the book. A book version replaces every earlier one
 from its start, so a dated read (`get_master_at`) after a retired version's end finds no
 book, and a later snapshot revives it. A book's interval cannot end after the commit that
-closes it. An identifier mapping is the newest assertion known at the cutoff, whatever its
-interval; other kinds take the newest version whose interval holds the instant. At most
-`MAX_BOOK_POSITIONS` (1,000)
-rows fit, because the commit stores a book four times inside one transaction.
-`ReferenceRepository::list_books` pages current books by ID; a backend without it
-returns `Unsupported`. Older binaries reject the new kind. Conformance:
-`books_page_in_order_and_version_with_compare_and_set` and
-`a_closed_book_version_retires_the_book_from_its_end`. HTTP surface: see the
-server README, "Books and portfolios".
+closes it. At most `MAX_BOOK_POSITIONS` (1,000) rows fit, because the commit stores a
+book four times inside one transaction. `ReferenceRepository::list_books` pages current
+books by ID; a backend without it returns `Unsupported`. Older binaries reject the new
+kind. Conformance: `books_page_in_order_and_version_with_compare_and_set` and
+`a_closed_book_version_retires_the_book_from_its_end`. HTTP surface: see the server
+README, "Books and portfolios".
+
+Each kind declares how a dated read selects among its versions
+(`MasterKind::version_selection`). Books, pricing rules and benchmark sets take the
+newest version started by the instant (`NewestStarted`): a version replaces every
+earlier one from its start, so one with an end date retires the resource from that end,
+and one recorded later for a past interval ends every version after it, so a correction
+of history restates the current version after it. A rule's or set's end may be later
+than its commit; a running Live runtime, which pins rules and sets with the references,
+applies it at its next activation. An identifier mapping is the newest assertion known
+at the cutoff, whatever its interval (`NewestKnown`); other kinds take the newest
+version whose interval holds the instant (`NewestHolding`). Conformance:
+`a_bounded_pricing_rule_or_benchmark_set_version_ends_it`.
 
 The master also defines closed `futures`, `basket` and `cash_universe` master definitions
 and a futures mapping target. Exact reciprocal contract/basket revisions,

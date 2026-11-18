@@ -247,6 +247,14 @@ async fn commit(setup: &Setup, key: &str, at: &str, changes: Vec<MasterChange>) 
         .unwrap();
 }
 
+/// The `UST-OTR` set's securities: the 2- and 10-year Treasuries.
+fn ust_otr_securities() -> Value {
+    json!([
+        {"tenor": "2Y", "instrument_id": "UST-2Y", "version": 1},
+        {"tenor": "10Y", "instrument_id": "UST-10Y", "version": 1},
+    ])
+}
+
 /// The runtime fixture, with a 2-year and a 10-year Treasury valued beside the fixture
 /// corporate (`BOND-001`, maturing 2030) at 99.50 and 98.25, and a 30-year Treasury stored
 /// but not valued. The `UST-OTR` set holds the 2- and 10-year; the configuration is
@@ -320,16 +328,7 @@ async fn desk() -> (Setup, Arc<PricingEngine>, String) {
         "level-desk",
         "2025-06-01T00:00:00Z",
         vec![
-            master(
-                benchmark_set(
-                    "UST-OTR",
-                    json!([
-                        {"tenor": "2Y", "instrument_id": "UST-2Y", "version": 1},
-                        {"tenor": "10Y", "instrument_id": "UST-10Y", "version": 1},
-                    ]),
-                ),
-                None,
-            ),
+            master(benchmark_set("UST-OTR", ust_otr_securities()), None),
             master(
                 benchmark_set(
                     "UST-10",
@@ -764,6 +763,91 @@ async fn a_level_is_refused_by_name_when_its_inputs_are_not_there() {
     .await;
     // By tenor, not instrument: a refusal is not checked against the caller's entitlements.
     assert!(!body.to_string().contains("UST-30Y"), "{body}");
+}
+
+/// A rule or set is ended by a version with an end date, as the reference routes commit
+/// it. After the end the bond has no rule: it is quoted by price with no report, and a
+/// level for it is refused. A later start revives the rule; once its set ends, the bond is
+/// refused, naming the set, whether asked by level or by price.
+#[tokio::test]
+async fn a_rule_or_set_with_an_end_date_is_not_in_force_after_it() {
+    let (setup, engine, cutoff) = desk().await;
+    let app = router(engine);
+    let quote = |input: &str| {
+        format!("/api/v1/quotes/BOND-001?{input}&known_at={cutoff}&settlement_date={SETTLEMENT}")
+    };
+    let interval = |mut change: Value, from: &str, until: Option<&str>| {
+        change["definition"]["definition"]["effective"] = json!({"from": from, "until": until});
+        change
+    };
+    let spread = || {
+        pricing_rule(
+            "BOND-001",
+            json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+            Some("UST-OTR"),
+        )
+    };
+    let ends = "2025-06-04T00:00:00Z";
+    commit(
+        &setup,
+        "rule-ended",
+        ends,
+        vec![master(
+            interval(spread(), "2025-01-01T00:00:00Z", Some(ends)),
+            Some(1),
+        )],
+    )
+    .await;
+    let (status, headers, body) =
+        call_with_headers(&app, "GET", &quote("market_price=99"), None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.get("pricing_rule").is_none(), "{body}");
+    assert!(headers.get("x-convex-pricing-rule-version").is_none());
+    let (status, body) = call(&app, "GET", &quote("level=125"), None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(
+        body["error"].as_str().unwrap().contains("no pricing rule"),
+        "{body}"
+    );
+
+    let revived = "2025-06-05T00:00:00Z";
+    commit(
+        &setup,
+        "rule-revived",
+        revived,
+        vec![master(interval(spread(), revived, None), Some(2))],
+    )
+    .await;
+    let (status, headers, body) = call_with_headers(&app, "GET", &quote("level=125"), None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(headers["x-convex-pricing-rule-version"], "3");
+
+    let set_ends = "2025-06-06T00:00:00Z";
+    commit(
+        &setup,
+        "set-ended",
+        set_ends,
+        vec![master(
+            interval(
+                benchmark_set("UST-OTR", ust_otr_securities()),
+                "2025-01-01T00:00:00Z",
+                Some(set_ends),
+            ),
+            Some(1),
+        )],
+    )
+    .await;
+    for input in ["level=125", "market_price=99"] {
+        let (status, body) = call(&app, "GET", &quote(input), None).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{input}: {body}");
+        assert!(
+            body["error"]
+                .as_str()
+                .unwrap()
+                .contains("benchmark set UST-OTR is not in force"),
+            "{input}: {body}"
+        );
+    }
 }
 
 /// Under real access control the report names each benchmark security, so a caller

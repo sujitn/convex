@@ -229,10 +229,9 @@ async fn a_closed_book_version_retires_the_book_from_its_end() {
 }
 
 #[tokio::test]
-#[ignore = "known defect: a newer bounded rule version does not end an older open one in a dated read"]
-async fn a_bounded_pricing_rule_version_ends_the_rule() {
+async fn a_bounded_pricing_rule_or_benchmark_set_version_ends_it() {
     let (_dir, repo) = repository();
-    conformance::a_bounded_pricing_rule_version_ends_the_rule(repo).await;
+    conformance::a_bounded_pricing_rule_or_benchmark_set_version_ends_it(repo).await;
 }
 
 #[tokio::test]

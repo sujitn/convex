@@ -26,6 +26,12 @@ pub fn bond(id: &str) -> BondReferenceData {
     bond.instrument_id = convex_core::ids::InstrumentId::new(id);
     bond
 }
+/// A sovereign's bond, which a benchmark set may hold.
+fn treasury(id: &str) -> BondReferenceData {
+    let mut bond = bond(id);
+    bond.issuer_type = convex_ports::reference_data::IssuerType::Sovereign;
+    bond
+}
 pub fn command(
     key: &str,
     changes: Vec<ReferenceChange>,
@@ -877,34 +883,88 @@ pub async fn a_closed_book_version_retires_the_book_from_its_end(
     );
 }
 
-/// A pricing rule ended by a bounded version is not in force after its end, as the
-/// rule's interval documents.
-pub async fn a_bounded_pricing_rule_version_ends_the_rule(
+/// A pricing rule's or benchmark set's versions, read at instants and cutoffs around a
+/// scheduled start, a scheduled end, a revival, a past interval recorded later, and the
+/// current version restated after it.
+pub async fn a_bounded_pricing_rule_or_benchmark_set_version_ends_it(
     repository: Arc<dyn ReferenceRepository>,
 ) {
     use convex_ports::level_pricing::PricingMethod;
     seed(&repository, "CORP-1").await;
-    let open = pricing_rule("CORP-1", PricingMethod::Yield {}, None);
-    let mut ended = open.clone();
-    ended.expected_version = Some(version(1));
-    if let MasterDefinition::PricingRule(rule) = &mut ended.definition {
-        rule.effective.until = Some(time("2025-03-01T00:00:00Z"));
-    }
-    for (key, change, at) in [
-        ("rule-open", open, "2025-01-02T00:00:00Z"),
-        ("rule-ended", ended, "2025-02-01T00:00:00Z"),
-    ] {
-        repository
-            .commit(&command(key, vec![], vec![change]), time(at))
-            .await
-            .unwrap();
-    }
-    let key = MasterKey::PricingRule(InstrumentId::new("CORP-1").unwrap());
-    let after_end = repository
-        .get_master_at(&key, lookup("2025-04-01T00:00:00Z", "2025-12-31T00:00:00Z"))
+    repository
+        .commit(
+            &command(
+                "ends-treasury",
+                vec![ReferenceChange::Create {
+                    bond: Box::new(treasury("UST-10Y")),
+                }],
+                vec![],
+            ),
+            time("2025-01-01T00:00:00Z"),
+        )
         .await
         .unwrap();
-    assert_eq!(after_end.map(|record| record.version.get()), None);
+    let day = |date: &str| time(&format!("{date}T00:00:00Z"));
+    // Each version's start, end and recording time.
+    let versions = [
+        ("2025-01-01", None, "2025-01-02"),
+        ("2025-02-01", None, "2025-01-15"),
+        ("2025-02-01", Some("2025-06-01"), "2025-02-15"),
+        ("2025-08-01", None, "2025-07-15"),
+        ("2025-01-01", Some("2025-01-15"), "2025-10-01"),
+        ("2025-08-01", None, "2025-10-02"),
+    ];
+    // Each read's instant, cutoff and the version it finds.
+    let reads = [
+        ("2025-01-20", "2025-09-30", Some(1), "not yet started"),
+        ("2025-03-01", "2025-09-30", Some(3), "before its end"),
+        ("2025-07-01", "2025-09-30", None, "ended"),
+        ("2025-07-01", "2025-02-10", Some(2), "end not known"),
+        ("2025-09-01", "2025-09-30", Some(4), "revived"),
+        ("2025-09-01", "2025-10-01", None, "past recorded later"),
+        ("2025-09-01", "2025-12-31", Some(6), "restated"),
+        ("2025-03-01", "2025-12-31", None, "restated from its start"),
+        ("2025-01-10", "2025-12-31", Some(5), "corrected past"),
+    ];
+    for (kind, template) in [
+        (
+            "rule",
+            pricing_rule("CORP-1", PricingMethod::Yield {}, None),
+        ),
+        ("set", benchmark_set("UST-ENDS", &[("10Y", "UST-10Y", 1)])),
+    ] {
+        let key = template.definition.key();
+        for (n, (from, until, at)) in versions.into_iter().enumerate() {
+            let mut change = template.clone();
+            change.expected_version = (n > 0).then(|| version(n as u64));
+            let effective = match &mut change.definition {
+                MasterDefinition::PricingRule(rule) => &mut rule.effective,
+                MasterDefinition::BenchmarkSet(set) => &mut set.effective,
+                _ => unreachable!("a rule or a set"),
+            };
+            *effective = EffectiveInterval {
+                from: day(from),
+                until: until.map(day),
+            };
+            let idempotency_key = format!("ends-{kind}-v{}", n + 1);
+            repository
+                .commit(&command(&idempotency_key, vec![], vec![change]), day(at))
+                .await
+                .unwrap();
+        }
+        for (as_of, known_at, expected, case) in reads {
+            let lookup = ReferenceLookup {
+                as_of: day(as_of),
+                known_at: day(known_at),
+            };
+            let found = repository
+                .get_master_at(&key, lookup)
+                .await
+                .unwrap()
+                .map(|record| record.version.get());
+            assert_eq!(found, expected, "{kind}: {case}");
+        }
+    }
 }
 
 fn limits(upper: &str) -> Vec<convex_ports::limits::LimitDefinition> {
@@ -1242,13 +1302,8 @@ pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
     repository: Arc<dyn ReferenceRepository>,
 ) {
     use convex_ports::level_pricing::{PricingMethod, MAX_BENCHMARK_SECURITIES};
-    use convex_ports::reference_data::{BondType, IssuerType};
+    use convex_ports::reference_data::BondType;
     seed(&repository, "CORP-1").await;
-    let treasury = |id: &str| {
-        let mut bond = bond(id);
-        bond.issuer_type = IssuerType::Sovereign;
-        bond
-    };
     // A zero is stored and priced, but quoted only by price.
     let mut zero = bond("ZERO-1");
     zero.bond_type = BondType::ZeroCoupon;

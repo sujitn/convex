@@ -130,7 +130,8 @@ pub struct PricingRuleDefinition {
     /// Named by id: the version in force at a valuation's cutoff is read and recorded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub benchmark_set_id: Option<ReferenceDataId>,
-    /// Validity; a bounded end retires the rule, and the bond is quoted by price again.
+    /// Validity; a bounded end retires the rule, and the bond is quoted by price again
+    /// ([`NewestStarted`](crate::reference_master::VersionSelection::NewestStarted)).
     pub effective: EffectiveInterval,
     /// Source evidence.
     pub provenance: ReferenceProvenance,
@@ -175,7 +176,8 @@ pub struct BenchmarkSetDefinition {
     pub currency: Currency,
     /// 1 to [`MAX_BENCHMARK_SECURITIES`] securities, with unique tenors and instruments.
     pub securities: Vec<BenchmarkSecurity>,
-    /// Validity; a bounded end retires the set.
+    /// Validity; a bounded end retires the set
+    /// ([`NewestStarted`](crate::reference_master::VersionSelection::NewestStarted)).
     pub effective: EffectiveInterval,
     /// Source evidence.
     pub provenance: ReferenceProvenance,

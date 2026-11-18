@@ -476,6 +476,14 @@ refused with 400 if:
 - a set holds anything but a government fixed bullet in its currency;
 - a set is not in USD: spreads are quoted against Treasuries only.
 
+A rule or set is ended by committing a version with `effective.until` through the same
+routes; the end may be later than the commit. After it, the version before does not come
+back (see [the reference master](../convex-ports/REFERENCE_MASTER.md) for how versions
+are selected, and how to correct history), and a later version with a new start revives
+the rule or set. A bond whose rule ended is quoted by price. A bond whose rule names an
+ended set is refused, naming the set, whether asked by level or by price, and a compile
+refuses a rule naming it. A running Live runtime applies an end at its next activation.
+
 `GET /api/v1/quotes/:id` takes `level` in place of `market_price` for a bond whose rule
 quotes it by one. The unit is the rule's: a decimal yield (`level=0.0612`), or basis
 points of spread (`level=125`). The engine's level stage turns the level into a clean
