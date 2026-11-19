@@ -665,17 +665,20 @@ impl PricingEngine {
     }
 
     /// A bond's rule at request time, for every route that quotes a stored bond: `rule`
-    /// is the pin read with the bond's reference, and the set it names is read at
-    /// `context`'s cutoff, with each security's pinned terms and Live clean price mid.
-    /// The context keeps each set it read, so a batch reads one set once.
+    /// is the pin read with the reference of `instrument_id`, its width is read at the
+    /// pinned version, and the set it names is read at `context`'s cutoff, with each
+    /// security's pinned terms and Live clean price mid. The context keeps each set it
+    /// read, so a batch reads one set once.
     pub async fn rule_in_force(
         &self,
         context: &mut RequestContext,
+        instrument_id: &convex_core::ids::InstrumentId,
         rule: Option<ports::level_pricing::ResolvedPricingRule>,
     ) -> Result<Option<level_pricing::PricingRuleInForce>, level_pricing::LevelError> {
         let Some(rule) = rule else {
             return Ok(None);
         };
+        let width = self.pricing_rule_width(instrument_id, rule.version).await?;
         let benchmark_set = match &rule.benchmark_set_id {
             None => None,
             Some(id) => Some(match context.benchmark_sets.get(id) {
@@ -688,8 +691,39 @@ impl PricingEngine {
         };
         Ok(Some(level_pricing::PricingRuleInForce {
             rule,
+            width,
             benchmark_set,
         }))
+    }
+
+    /// The width of `instrument_id`'s pricing rule at `version`. The pin a snapshot holds
+    /// leaves it out: Live publishes mid measures only, and the version names it.
+    async fn pricing_rule_width(
+        &self,
+        instrument_id: &convex_core::ids::InstrumentId,
+        version: convex_core::contracts::Version,
+    ) -> Result<
+        Option<convex_core::types::WidthSchedule>,
+        ports::reference_repository::ReferenceError,
+    > {
+        use ports::reference_master::{MasterDefinition, MasterKey};
+        use ports::reference_repository::ReferenceError;
+        let instrument = convex_core::contracts::InstrumentId::new(instrument_id.as_str())
+            .map_err(|_| ReferenceError::InvalidInput("invalid instrument identity"))?;
+        let record = self
+            .storage
+            .bonds
+            .get_master_version(&MasterKey::PricingRule(instrument), version)
+            .await?
+            .ok_or(ReferenceError::InvalidInput(
+                "the pinned pricing rule version is not stored",
+            ))?;
+        match record.definition {
+            MasterDefinition::PricingRule(rule) => Ok(rule.width),
+            _ => Err(ReferenceError::InvalidInput(
+                "a pricing rule pin names a pricing rule",
+            )),
+        }
     }
 
     /// The level stage at request time under `in_force`, from [`Self::rule_in_force`],

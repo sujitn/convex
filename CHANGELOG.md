@@ -149,6 +149,17 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **A pricing rule's width gives the two-way in its quoting unit.** A rule's optional
+  `width` holds widths by trade size in price points or 32nds for a `price` rule, or
+  basis points for a yield or spread. At request time (`GET /api/v1/quotes/:id`,
+  `POST /api/v1/quote` and each batch item) it widens what the rule quotes, at the
+  first size bucket: each side's level is priced as the mid's is, and the router values
+  the bid and ask prices. The `pricing_rule` report adds `two_way` (`unit`, `width`, and
+  the `bid` and `ask` levels). A commit is refused for a width in a unit the method
+  does not quote, an invalid schedule, or a callable or floating rate note, which are
+  quoted mid only. Live runtimes publish mid measures only and do not apply it.
+  **Breaking:** a bond quoted by price whose rule has a width no longer takes the
+  configuration's percent-of-price width.
 - **A pricing rule or benchmark set with an end date is not in force after it.** A
   version with `effective.until`, committed through `POST /api/v1/reference/transactions`
   or the import, ends the rule or set at that time, which may be later than the commit.
@@ -297,6 +308,11 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **The level stage applies a rule's width.** `PricingRuleInForce` gains `width`, read
+  by `rule_in_force` at the rule's pinned version, which now takes the bond's
+  `instrument_id`. **Breaking:** `RulePricing::price_width_applies` is replaced by
+  `bid_ask` (`BidAsk`): the configuration's width, the rule's (`TwoWay`, each side's
+  level and clean price), or mid only.
 - **One request-time stage for every route.** `PricingEngine::rule_in_force` reads the
   set a bond's rule pin names, once per request through `BenchmarkSetReads`, and
   `price_in_force` prices under it with the engine's shared benchmark yields. They
@@ -340,6 +356,12 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **Breaking:** `PricingRuleDefinition` gains `width` (`Option<WidthSchedule>`), so a
+  struct literal needs the new field; stored rules read as before. `validate` checks the
+  schedule and that its unit quotes the method (`PricingMethod::quote_basis`); more than
+  16 buckets is `CapacityExceeded`. A commit refuses a width for a bond that is not
+  quoted two-way (`is_quoted_two_way`, `WIDTH_NEEDS_TWO_WAY`). The pin a snapshot holds,
+  `ResolvedPricingRule`, does not carry it.
 - **A Live snapshot holds up to 4,096 instruments.** `MarketSnapshot::bounded(content,
   SnapshotBounds::Live)` makes one, identified within `MAX_LIVE_IDENTITY_BYTES`
   (128 MiB) rather than `MAX_SNAPSHOT_BYTES` (16 MiB); its `next` keeps its bounds.

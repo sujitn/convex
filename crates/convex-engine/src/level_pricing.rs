@@ -25,7 +25,10 @@ use convex_core::{
         ErrorCode, InstrumentId, MeasureValue, ReferenceDataId, SnapshotId, UtcTimestamp,
         ValuationSubject, Version,
     },
-    types::{Compounding, Mark, Spread, SpreadType, Yield},
+    types::{
+        Compounding, Mark, PriceKind, QuoteWidth, QuoteWidthError, Spread, SpreadType,
+        WidthSchedule, Yield,
+    },
     Currency, Date,
 };
 use rust_decimal::Decimal;
@@ -37,7 +40,8 @@ use std::sync::{Arc, Mutex};
 use crate::curve_builder::BuiltCurve;
 use crate::ports::{
     level_pricing::{
-        is_plain_bullet, tenor_months, BenchmarkSecurity, PricingMethod, ResolvedPricingRule,
+        is_plain_bullet, is_quoted_two_way, tenor_months, BenchmarkSecurity, PricingMethod,
+        ResolvedPricingRule, WIDTH_NEEDS_TWO_WAY,
     },
     quote_event::QuoteField,
     reference_data::BondReferenceData,
@@ -123,12 +127,15 @@ pub struct BenchmarkSetQuotes {
     pub quotes: Vec<BenchmarkQuote>,
 }
 
-/// A bond's pricing rule, as pinned with its reference, and, when it names one, its
-/// benchmark set as read at the same cutoff.
+/// A bond's pricing rule, as pinned with its reference, its width at that version, and,
+/// when it names one, its benchmark set as read at the same cutoff.
 #[derive(Debug, Clone)]
 pub struct PricingRuleInForce {
     /// The rule's pin: its version, method and set.
     pub rule: ResolvedPricingRule,
+    /// The rule's two-way width at the pinned version. It is read at request time and not
+    /// pinned, since Live publishes mid measures only.
+    pub width: Option<WidthSchedule>,
     /// The set the rule names, as read; shared by every bond of one request quoted to it.
     pub benchmark_set: Option<Arc<BenchmarkSetQuotes>>,
 }
@@ -243,14 +250,41 @@ pub struct BenchmarkYield {
     pub ytm: f64,
 }
 
+/// The two-way a quote carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BidAsk {
+    /// The configuration's percent-of-price width: a bond quoted by price whose rule, if
+    /// it has one, sets no width.
+    ConfigurationWidth,
+    /// The rule's width, applied to what the rule quotes.
+    RuleWidth(TwoWay),
+    /// No two-way: a level-quoted bond whose rule sets no width, or one sent a price.
+    MidOnly,
+}
+
+/// A two-way at a rule's width: each side's level in the rule's unit (a clean price, a
+/// decimal yield or basis points of spread) and the clean price it gives.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TwoWay {
+    /// The width applied: the first size bucket's, since a request carries no trade size.
+    pub width: QuoteWidth,
+    /// The bid's level.
+    pub bid_level: Decimal,
+    /// The ask's level.
+    pub ask_level: Decimal,
+    /// The bid's clean price.
+    pub clean_price_bid: Decimal,
+    /// The ask's clean price.
+    pub clean_price_ask: Decimal,
+}
+
 /// The clean price a quoted input gives under the bond's rule, and what the bond's model
 /// reads beside it.
 pub struct RulePricing {
     /// The clean price mid the model values.
     pub clean_price_mid: Decimal,
-    /// Whether the configuration's percent-of-price bid/ask width applies: not to a
-    /// level-quoted bond, whose width is in its quoting unit.
-    pub price_width_applies: bool,
+    /// The two-way the quote carries.
+    pub bid_ask: BidAsk,
     /// The set's securities, for the G-spread, when the rule names a set and the bond
     /// matures within the set's maturities.
     pub government_curve: Option<GovernmentCurve>,
@@ -352,6 +386,7 @@ pub fn price_under_rule(
     price_with_rule(
         bond,
         &in_force.rule.method,
+        in_force.width.as_ref(),
         benchmarks.as_deref(),
         input,
         settlement,
@@ -405,9 +440,11 @@ pub fn price_in_snapshot(
     } else {
         QuotedInput::Price(quoted)
     };
+    // Live publishes mid measures only, so no width is read or applied.
     price_with_rule(
         bond,
         &rule.method,
+        None,
         benchmarks.as_deref(),
         input,
         settlement,
@@ -456,7 +493,7 @@ fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
     match input {
         QuotedInput::Price(price) => Ok(RulePricing {
             clean_price_mid: price,
-            price_width_applies: true,
+            bid_ask: BidAsk::ConfigurationWidth,
             government_curve: None,
             g_spread_refused: None,
             benchmark: None,
@@ -467,11 +504,15 @@ fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
     }
 }
 
-/// The stage under a rule quoting `bond` by `method`, with the securities of the set it
-/// names as read, when it names one.
+/// The stage under a rule quoting `bond` by `method` with `width`, with the securities
+/// of the set it names as read, when it names one. The width widens what the rule
+/// quotes: a level for a level-quoted bond, a price for one quoted by price. A price
+/// sent for a level-quoted bond is quoted mid only.
+#[allow(clippy::too_many_arguments)]
 fn price_with_rule(
     bond: &BondReferenceData,
     method: &PricingMethod,
+    width: Option<&WidthSchedule>,
     benchmarks: Option<&[BenchmarkInput<'_>]>,
     input: QuotedInput,
     settlement: Date,
@@ -481,20 +522,40 @@ fn price_with_rule(
     if method.requires_plain_bullet(benchmarks.is_some()) && !is_plain_bullet(bond) {
         return Err(refused(NOT_A_PLAIN_BULLET));
     }
+    if width.is_some() && !is_quoted_two_way(bond) {
+        return Err(refused(WIDTH_NEEDS_TWO_WAY));
+    }
+    let applied = match width {
+        Some(schedule) if matches!(input, QuotedInput::Level(_)) == method.is_level() => {
+            Some(schedule.width_for(None).map_err(width_refused)?)
+        }
+        _ => None,
+    };
     let benchmarks = match benchmarks {
         Some(set) => Some(price_benchmarks(set, settlement, yields)?),
         None => None,
     };
-    let (clean_price_mid, benchmark) = match input {
-        QuotedInput::Price(price) => (price, None),
+    let (clean_price_mid, benchmark, two_way) = match input {
+        QuotedInput::Price(price) => {
+            let two_way = applied
+                .map(|width| price_two_way(width, price))
+                .transpose()?;
+            (price, None, two_way)
+        }
         QuotedInput::Level(level) => level_to_clean_price(
             bond,
             method,
             level,
+            applied,
             settlement,
             discount,
             benchmarks.as_deref(),
         )?,
+    };
+    let bid_ask = match two_way {
+        Some(two_way) => BidAsk::RuleWidth(two_way),
+        None if width.is_none() && !method.is_level() => BidAsk::ConfigurationWidth,
+        None => BidAsk::MidOnly,
     };
     let (government_curve, g_spread_refused) = match benchmarks {
         Some(all)
@@ -520,22 +581,42 @@ fn price_with_rule(
     };
     Ok(RulePricing {
         clean_price_mid,
-        price_width_applies: !method.is_level(),
+        bid_ask,
         government_curve,
         g_spread_refused,
         benchmark,
     })
 }
 
-/// The clean price a level gives under `method`, and the benchmark a spread named.
+/// A clean price's two-way at `width`, in price points or 32nds.
+fn price_two_way(width: QuoteWidth, clean_price_mid: Decimal) -> Result<TwoWay, LevelError> {
+    let sides = width
+        .two_way(&Mark::Price {
+            value: clean_price_mid,
+            kind: PriceKind::Clean,
+        })
+        .map_err(width_refused)?;
+    let (bid, ask) = (sides.bid.level(), sides.ask.level());
+    Ok(TwoWay {
+        width,
+        bid_level: bid,
+        ask_level: ask,
+        clean_price_bid: bid,
+        clean_price_ask: ask,
+    })
+}
+
+/// The clean price a level gives under `method`, the benchmark a spread named, and, at
+/// `width`, the two-way: each side's level priced as the mid is.
 fn level_to_clean_price(
     bond: &BondReferenceData,
     method: &PricingMethod,
     level: Decimal,
+    width: Option<QuoteWidth>,
     settlement: Date,
     discount: Option<&BuiltCurve>,
     benchmarks: Option<&[PricedBenchmark<'_>]>,
-) -> Result<(Decimal, Option<BenchmarkYield>), LevelError> {
+) -> Result<(Decimal, Option<BenchmarkYield>, Option<TwoWay>), LevelError> {
     // The level is checked before the bond is built.
     let (range, unit) = match method {
         PricingMethod::Price {} => return Err(quoted_by_price()),
@@ -616,11 +697,26 @@ fn level_to_clean_price(
             )
         }
     };
-    let priced =
-        price_from_level(&fixed, settlement, &mark, frequency, &curves).map_err(analytics_error)?;
-    let clean = Decimal::from_f64_retain(priced.clean_price_per_100)
-        .ok_or_else(|| LevelError::Analytics("the level's price is not finite".into()))?;
-    Ok((clean, benchmark))
+    let clean_price = |mark: &Mark| {
+        let priced = price_from_level(&fixed, settlement, mark, frequency, &curves)
+            .map_err(analytics_error)?;
+        Decimal::from_f64_retain(priced.clean_price_per_100)
+            .ok_or_else(|| LevelError::Analytics("the level's price is not finite".into()))
+    };
+    let clean = clean_price(&mark)?;
+    let two_way = width
+        .map(|width| -> Result<TwoWay, LevelError> {
+            let sides = width.two_way(&mark).map_err(width_refused)?;
+            Ok(TwoWay {
+                width,
+                bid_level: sides.bid.level(),
+                ask_level: sides.ask.level(),
+                clean_price_bid: clean_price(&sides.bid)?,
+                clean_price_ask: clean_price(&sides.ask)?,
+            })
+        })
+        .transpose()?;
+    Ok((clean, benchmark, two_way))
 }
 
 /// The bond as the router builds it.
@@ -644,6 +740,10 @@ pub(crate) fn benchmark_unavailable(
         instrument_id: security.instrument_id.clone(),
         reason,
     }
+}
+
+fn width_refused(error: QuoteWidthError) -> LevelError {
+    refused(error.reason())
 }
 
 fn refused(reason: impl Into<String>) -> LevelError {

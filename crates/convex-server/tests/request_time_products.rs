@@ -292,17 +292,38 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
         }},
     }))
     .unwrap();
+    // It is quoted mid only, so its rule takes no width.
+    let mut with_width = rule.clone();
+    if let convex_ports::reference_master::MasterDefinition::PricingRule(definition) =
+        &mut with_width.definition
+    {
+        definition.width = Some(
+            serde_json::from_value(json!({"unit": "price_points", "buckets": [{"width": "0.25"}]}))
+                .unwrap(),
+        );
+    }
+    let commit_rule = |key: &str, rule| ReferenceCommand {
+        idempotency_key: RequestId::new(key).unwrap(),
+        changes: vec![],
+        master_changes: vec![rule],
+    };
+    assert_eq!(
+        setup
+            .storage
+            .bonds
+            .commit(&commit_rule("call-rule-width", with_width), priced[0].0)
+            .await
+            .err(),
+        Some(
+            convex_ports::reference_repository::ReferenceError::InvalidInput(
+                convex_ports::level_pricing::WIDTH_NEEDS_TWO_WAY
+            )
+        )
+    );
     setup
         .storage
         .bonds
-        .commit(
-            &ReferenceCommand {
-                idempotency_key: RequestId::new("call-rule").unwrap(),
-                changes: vec![],
-                master_changes: vec![rule],
-            },
-            priced[0].0,
-        )
+        .commit(&commit_rule("call-rule", rule), priced[0].0)
         .await
         .unwrap();
     let uri = format!(

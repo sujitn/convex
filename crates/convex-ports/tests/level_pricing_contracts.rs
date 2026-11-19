@@ -41,6 +41,69 @@ fn unknown_fields_and_methods_are_refused() {
     }
 }
 
+/// A width is a valid schedule in a unit the method quotes: points or 32nds for a price,
+/// basis points for a yield or a spread. More than 16 buckets is a capacity refusal.
+#[test]
+fn a_width_is_in_a_unit_its_method_quotes() {
+    let with_width = |method: serde_json::Value, unit: &str, buckets: serde_json::Value| {
+        let mut wire = rule(method, Some("UST-OTR"));
+        wire["width"] = json!({"unit": unit, "buckets": buckets});
+        serde_json::from_value::<PricingRuleDefinition>(wire).unwrap()
+    };
+    let one = json!([{"width": "1"}]);
+    let price = || json!({"kind": "price"});
+    let spread = || json!({"kind": "benchmark_spread", "tenor": "10Y"});
+    for (method, unit) in [
+        (price(), "price_points"),
+        (price(), "thirty_seconds"),
+        (json!({"kind": "yield"}), "basis_points"),
+        (json!({"kind": "z_spread"}), "basis_points"),
+        (spread(), "basis_points"),
+    ] {
+        let parsed = with_width(method, unit, one.clone());
+        parsed.validate().unwrap();
+        let wire = serde_json::to_value(&parsed).unwrap();
+        assert_eq!(wire["width"]["buckets"], one);
+    }
+    for (method, unit) in [
+        (price(), "basis_points"),
+        (json!({"kind": "yield"}), "price_points"),
+        (json!({"kind": "z_spread"}), "thirty_seconds"),
+        (spread(), "price_points"),
+    ] {
+        assert!(
+            matches!(
+                with_width(method.clone(), unit, one.clone()).validate(),
+                Err(ReferenceError::InvalidInput(_))
+            ),
+            "{method} {unit}"
+        );
+    }
+    let invalid = [
+        json!([]),
+        json!([{"width": "-1"}]),
+        json!([{"width": "1001"}]),
+        json!([{"width": "1"}, {"max_face": "1000000", "width": "2"}]),
+        json!([{"max_face": "5000000", "width": "1"}, {"max_face": "1000000", "width": "2"}]),
+    ];
+    for buckets in invalid {
+        assert!(
+            matches!(
+                with_width(json!({"kind": "yield"}), "basis_points", buckets.clone()).validate(),
+                Err(ReferenceError::InvalidInput(_))
+            ),
+            "{buckets}"
+        );
+    }
+    let many: Vec<_> = (0..=convex_core::types::MAX_SIZE_BUCKETS)
+        .map(|n| json!({"max_face": format!("{}", n + 1), "width": "1"}))
+        .collect();
+    assert_eq!(
+        with_width(json!({"kind": "yield"}), "basis_points", json!(many)).validate(),
+        Err(ReferenceError::CapacityExceeded)
+    );
+}
+
 #[test]
 fn a_benchmark_spread_names_its_set_and_a_tenor() {
     let spread = |tenor: &str| json!({"kind": "benchmark_spread", "tenor": tenor});

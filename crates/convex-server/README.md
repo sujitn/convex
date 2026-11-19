@@ -473,6 +473,11 @@ refused with 400 if:
 - a rule names a set that does not exist;
 - a rule quotes a bond other than a fixed bullet by a level, or against a set (floating
   rate notes and callables are not yet supported);
+- a rule's `width` is not a valid schedule, or is in a unit its method does not quote
+  (more than 16 buckets is refused as over capacity, as a set of more than 32 securities
+  is);
+- a rule with a `width` names a callable or floating rate note, which are quoted mid
+  only;
 - a set holds anything but a government fixed bullet in its currency;
 - a set is not in USD: spreads are quoted against Treasuries only.
 
@@ -516,13 +521,33 @@ A missing or unusable input is refused by name; nothing is substituted.
   it is not extrapolated: the report carries `g_spread_refused` instead. A
   `market_price` request on such a bond reads the set too, so the G-spread is
   published.
-- **Width.** A level-quoted bond takes no percent-of-price bid/ask width (D114); its
-  width in the quoting unit arrives in P19c.
+- **Width.** A rule may carry a `width`, the two-way's width by trade size in the unit
+  its method quotes: `price_points` or `thirty_seconds` for `price`, `basis_points` (of
+  yield or of spread) for the others. For example
+  `{"unit": "basis_points", "buckets": [{"max_face": "1000000", "width": "4"}, {"width": "6"}]}`:
+  4 bp wide up to 1mm face, 6 bp above. Values are exact decimal strings; a bucket holds
+  trades up to its `max_face`, inclusive, bounds ascend, and only the last has none.
+  - The width is the full bid-to-ask distance, so each side lies half of it from the
+    mid. A price falls to its bid; a yield or spread rises to it.
+  - A request carries no trade size, so it takes the first bucket.
+  - It widens what the rule quotes: the `level` of a level-quoted bond, or the
+    `market_price` of a bond quoted by price. Each side's level is priced as the mid's
+    is, and the router values the bid and ask prices, so `ytm_bid` and `z_spread_ask`
+    are at the sides' levels. A Treasury at 98-08, a 32nd wide, is 98-07+ bid and 98-08+
+    offered, exactly.
+  - A `price` rule's width replaces the configuration's percent-of-price width for that
+    bond. With no width, a bond quoted by price keeps the configuration's, and a
+    level-quoted bond is quoted mid only.
+  - A `market_price` sent for a level-quoted bond is quoted mid only: there is no level
+    to widen.
+  - A Live runtime publishes mid measures only, so it does not apply the width.
 - **The report.** The body adds `pricing_rule`: the stage's `model`
   (`convex-level-price-v1`), the rule's `version` and `method`, the `level`, the
   `clean_price_mid` it gave, the set's `benchmark_set_id`, `version` and each security's
-  `tenor`, Live price and snapshot, and the `benchmark` a spread was quoted to with its
-  `tenor` and `ytm`, the semi-annual yield the spread was added to. Headers carry
+  `tenor`, Live price and snapshot, the `benchmark` a spread was quoted to with its
+  `tenor` and `ytm`, the semi-annual yield the spread was added to, and, when the
+  rule's width applied, `two_way` with its `unit`, `width` and the `bid` and `ask`
+  levels in the rule's unit. Headers carry
   `x-convex-pricing-rule-version` and `x-convex-benchmark-set-version`. Each benchmark's
   `instrument_id` is in the body, so the caller needs entitlement to it. A callable or
   floating rate note may have a `price` rule; its quote carries the same report.
