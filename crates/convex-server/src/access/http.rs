@@ -215,6 +215,14 @@ fn requirement(
             req.resources.push(Resource::new(R::Source, "*"));
             req.resources.push(Resource::new(R::Curve, "*"));
         }
+        // A calculation from one level of a stored bond: it reads what a quote of it reads,
+        // and its reply names each benchmark security it read.
+        "/api/v1/bonds/:instrument_id/calculate" => {
+            exact(R::Instrument, "instrument_id")?;
+            req.data = vec![D::Reference, D::Market, D::Results];
+            req.resources.push(Resource::new(R::Source, "*"));
+            req.resources.push(Resource::new(R::Curve, "*"));
+        }
         // They read the activated configuration's curves unless the request supplies them.
         "/api/v1/quote" | "/api/v1/batch/price" => {
             req.data.push(D::Reference);

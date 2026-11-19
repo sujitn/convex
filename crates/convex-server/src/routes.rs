@@ -151,6 +151,12 @@ pub fn create_router_with_access(
             get(reference::get_bond_version),
         )
         .route(
+            "/api/v1/bonds/:instrument_id/calculate",
+            post(crate::calculator::calculate_bond).layer(axum::extract::DefaultBodyLimit::max(
+                crate::calculator::MAX_CALCULATOR_REQUEST_BYTES,
+            )),
+        )
+        .route(
             "/api/v1/reference/commits/:key",
             get(reference::get_reference_commit),
         )

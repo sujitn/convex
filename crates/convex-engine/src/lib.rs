@@ -736,6 +736,29 @@ impl PricingEngine {
         )
     }
 
+    /// The calculator's stage at request time: `level`, quoted by `method`, priced mid only
+    /// against the set `in_force` names, from [`Self::rule_in_force`], sharing each
+    /// benchmark's solved yield as [`Self::price_in_force`] does.
+    pub fn price_by_method(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+        in_force: Option<&level_pricing::PricingRuleInForce>,
+        method: &ports::level_pricing::PricingMethod,
+        level: rust_decimal::Decimal,
+        settlement: convex_core::Date,
+        discount: Option<&BuiltCurve>,
+    ) -> Result<level_pricing::RulePricing, level_pricing::LevelError> {
+        level_pricing::price_by_method(
+            bond,
+            in_force,
+            method,
+            level,
+            settlement,
+            discount,
+            &self.benchmark_yield_cache,
+        )
+    }
+
     /// The benchmark set `id` in force at `lookup`, each security's pinned terms and its
     /// Live clean price mid. A set not in force, a security not stored at its pinned
     /// version by the cutoff, or one without a usable Live price refuses by name.

@@ -443,6 +443,40 @@ async fn a_server_without_a_runtime_refuses_callables_and_still_prices_bullets()
     );
 }
 
+/// The calculator values only what the router prices: a stored callable and floating rate
+/// note are refused before any context is read, so with no configuration activated, and
+/// the bullet beside them is calculated once one is.
+#[tokio::test]
+async fn the_calculator_refuses_callables_and_notes() {
+    let (setup, _, _) = products_setup().await;
+    let engine = Arc::new(
+        convex_engine::PricingEngineBuilder::new()
+            .with_storage(setup.storage.clone())
+            .build()
+            .unwrap(),
+    );
+    let app = router(engine);
+    let calculation = json!({"method": {"kind": "price"}, "level": "99.25",
+        "settlement_date": SETTLEMENT, "known_at": "2026-10-02T15:00:00Z",
+        "configuration": "CONFIG-RESTORE"});
+    let calculate = |id: &str| {
+        let (app, body) = (app.clone(), calculation.clone());
+        let uri = format!("/api/v1/bonds/{id}/calculate");
+        async move { call(&app, "POST", &uri, Some(body)).await }
+    };
+    for id in ["CALL-001", "FRN-001"] {
+        let (status, _, refused) = calculate(id).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{id}: {refused}");
+        assert_eq!(refused["code"], "UNSUPPORTED_PRODUCT", "{refused}");
+    }
+    let (status, _, refused) = calculate("BOND-001").await;
+    assert_ne!(status, StatusCode::OK, "{refused}");
+    activate(&setup).await;
+    let (status, _, bullet) = calculate("BOND-001").await;
+    assert_eq!(status, StatusCode::OK, "{bullet}");
+    assert_eq!(bullet["clean_price_mid"], json!(99.25), "{bullet}");
+}
+
 /// A request reads only the curves its product reads. Under a configuration whose
 /// swap curve is stale at the cutoff, a bullet is refused, alone or in a batch. A
 /// callable, which reads only the discount curve, prices alone and in the same batch,

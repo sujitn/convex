@@ -262,7 +262,7 @@ fn runtime_composed(engine: &PricingEngine) -> Result<(), crate::error::ApiError
 }
 
 /// Every curve pin a context read, as `id@version`.
-fn context_pins(context: &convex_engine::RequestContext) -> Vec<String> {
+pub(crate) fn context_pins(context: &convex_engine::RequestContext) -> Vec<String> {
     context
         .pins()
         .into_iter()
@@ -272,7 +272,7 @@ fn context_pins(context: &convex_engine::RequestContext) -> Vec<String> {
 
 /// The approved valuation context a price consumed: configuration, activation, the
 /// curve pins it read and the cutoff, as headers.
-fn with_context_headers(
+pub(crate) fn with_context_headers(
     response: axum::response::Response,
     context: &convex_engine::RequestContext,
     pins: &[String],

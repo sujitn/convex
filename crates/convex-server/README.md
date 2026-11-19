@@ -602,6 +602,48 @@ every snapshot.
   reaches a running Live runtime at its next activation. A roll to a Treasury the
   runtime does not value changes the universe, which is restart-required.
 
+### The bond calculator
+
+`POST /api/v1/bonds/:instrument_id/calculate` answers "given this level, what are the
+others" for a stored bond. It is read-only and stores nothing.
+
+```json
+{"method": {"kind": "benchmark_spread", "tenor": "10Y"}, "level": "125",
+ "settlement_date": "2026-10-06", "known_at": "2026-10-06T15:00:00Z"}
+```
+
+- **Any method, whatever the rule quotes.** `method` is a rule's method, and `level` is
+  in its unit: a clean price per 100 for `price`, a decimal yield for `yield`, basis
+  points for `z_spread` and `benchmark_spread`. A spread-quoted bond can be calculated
+  from a yield, and a bond with no rule from a yield or a Z-spread.
+- **The same stage and context as a quote.** The level is priced as
+  `GET /api/v1/quotes/:id` prices it, under the configuration (`configuration`, or the
+  runtime's) and the curves current at `known_at` (now when absent). From the rule's own
+  method and level, the measures are those of `GET /api/v1/quotes/:id?level=`.
+- **Benchmarks are the rule's.** A `benchmark_spread` is to a security of the set the
+  bond's rule names, and `g_spread_mid` is over that set, as for a quote. A bond whose
+  rule names no set is refused a benchmark spread, and so is a tenor the set lacks.
+- **Mid only.** The calculator values the one level it is sent: no bid or ask, from the
+  rule's width or the configuration's.
+- **The reply** is the router's measures at the level's price, with:
+  - `input`: the `method` and `level` sent, and for a benchmark spread the `benchmark`
+    it was quoted to, with the `ytm` it was added to;
+  - `pricing_rule`, when the bond has a rule: its `version` and `method`, and the set as
+    read, with each security's Live price;
+  - `workouts`, each date the bond can be redeemed at with its `yield`, and `worst`, the
+    workout of lowest yield. A fixed bullet or zero is redeemed at maturity only, so its
+    one workout is maturity, at `ytm_mid`.
+  - The headers of `GET /api/v1/quotes/:id`: the reference, configuration, activation,
+    curve, rule and set versions read, and the cutoff.
+- **Which bonds.** Fixed bullets with no embedded terms, by any method; zeros, by price
+  only. A callable, a floating rate note or a bond with other embedded terms is refused
+  with 422 `UNSUPPORTED_PRODUCT`, before anything else is read.
+- **Access.** As `GET /api/v1/quotes/:id`, with the `calculate` action: the reply names
+  each benchmark's `instrument_id`, so the caller needs entitlement to it.
+- **Refusals.** 400 for a malformed body, an unknown field or a level out of its range;
+  404 for a bond not stored at `known_at`; 413 `CAPACITY_EXCEEDED` for a body over 64 KiB;
+  422 for a benchmark without a usable Live price, naming its tenor.
+
 ## Books and portfolios
 
 A book is a durable, versioned position snapshot owned by an external book management
@@ -1088,6 +1130,7 @@ Build `cargo build --locked -p convex-server --bins` to obtain `convex-config` a
 | `convex_publish_seconds` | One result record handed to the publisher |
 | `convex_request_context_seconds` | One request-time valuation context: the activation read. Each product reads its curves later, at first use, and their build is `convex_curve_build_seconds{path="request"}` |
 | `convex_quote_seconds` | One `POST /api/v1/quote` |
+| `convex_bond_calculator_seconds` | One `POST /api/v1/bonds/:instrument_id/calculate` |
 | `convex_limit_monitor_seconds` | One limit monitor pass: evaluating the books a trigger names, then recording and publishing their changes |
 
 The limit monitor also keeps these. The two book gauges are labelled `book_id`, one series

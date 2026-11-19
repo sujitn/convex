@@ -10,7 +10,9 @@
 //! in a snapshot, from its quote in that snapshot ([`price_in_snapshot`]); at request
 //! time, from the Live runtime's record of it, since quotes are not stored
 //! ([`live_clean_price_mid`]). At request time a rule's width widens what it quotes, and
-//! each side is priced as the mid is ([`BidAsk`]); Live publishes mid measures only.
+//! each side is priced as the mid is ([`BidAsk`]); Live publishes mid measures only. The
+//! calculator prices a level by any method, mid only, against the set the rule names
+//! ([`price_by_method`]).
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -395,16 +397,7 @@ pub fn price_under_rule(
     let Some(in_force) = in_force else {
         return price_without_rule(input);
     };
-    let benchmarks = in_force.benchmark_set.as_ref().map(|set| {
-        set.quotes
-            .iter()
-            .map(|quote| BenchmarkInput {
-                security: &quote.security,
-                bond: &quote.bond,
-                clean_price_mid: quote.clean_price_mid,
-            })
-            .collect::<Vec<_>>()
-    });
+    let benchmarks = in_force.benchmark_set.as_deref().map(benchmark_inputs);
     price_with_rule(
         bond,
         &in_force.rule.method,
@@ -415,6 +408,59 @@ pub fn price_under_rule(
         discount,
         yields,
     )
+}
+
+/// Price `level`, quoted by `method` whatever the bond's rule quotes, for the calculator.
+/// A benchmark spread is to a security of the set the bond's rule names, and the G-spread
+/// is over that set, as under the rule; a bond with no rule takes every other method. The
+/// calculator values the one input it is sent, so the pricing is mid only.
+pub fn price_by_method(
+    bond: &BondReferenceData,
+    in_force: Option<&PricingRuleInForce>,
+    method: &PricingMethod,
+    level: Decimal,
+    settlement: Date,
+    discount: Option<&BuiltCurve>,
+    yields: &BenchmarkYieldCache,
+) -> Result<RulePricing, LevelError> {
+    let set = in_force.and_then(|in_force| in_force.benchmark_set.as_deref());
+    if matches!(method, PricingMethod::BenchmarkSpread { .. }) && set.is_none() {
+        return Err(refused(
+            "a benchmark spread is to the benchmark set the bond's pricing rule names, and it names none",
+        ));
+    }
+    let benchmarks = set.map(benchmark_inputs);
+    let input = if method.is_level() {
+        QuotedInput::Level(level)
+    } else {
+        QuotedInput::Price(level)
+    };
+    let pricing = price_with_rule(
+        bond,
+        method,
+        None,
+        benchmarks.as_deref(),
+        input,
+        settlement,
+        discount,
+        yields,
+    )?;
+    Ok(RulePricing {
+        bid_ask: BidAsk::MidOnly,
+        ..pricing
+    })
+}
+
+/// Each security of a set as read, borrowed for the stage.
+fn benchmark_inputs(set: &BenchmarkSetQuotes) -> Vec<BenchmarkInput<'_>> {
+    set.quotes
+        .iter()
+        .map(|quote| BenchmarkInput {
+            security: &quote.security,
+            bond: &quote.bond,
+            clean_price_mid: quote.clean_price_mid,
+        })
+        .collect()
 }
 
 /// [`price_under_rule`] for the bond `reference` resolves in `snapshot`, under the rule the

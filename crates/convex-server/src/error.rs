@@ -49,14 +49,17 @@ impl ApiError {
             message,
         )
     }
-    /// No runtime is composed, and only a runtime values callables and floating rate
-    /// notes.
+    /// The route does not value this product, or no runtime is composed to value it.
     pub(crate) fn unsupported_product(message: impl Into<String>) -> Self {
         Self::new(
             StatusCode::UNPROCESSABLE_ENTITY,
             "UNSUPPORTED_PRODUCT",
             message,
         )
+    }
+    /// The request body is over the route's bound.
+    pub(crate) fn too_large(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::PAYLOAD_TOO_LARGE, "CAPACITY_EXCEEDED", message)
     }
     /// The response could not be produced; safe to retry.
     pub(crate) fn unavailable(message: impl Into<String>) -> Self {

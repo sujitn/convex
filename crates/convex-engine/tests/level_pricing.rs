@@ -242,3 +242,124 @@ fn a_two_way_replaces_the_inputs_bid_ask() {
         );
     }
 }
+
+/// The calculator prices a level by any method, whatever the bond's rule quotes, as a rule
+/// quoting that method would, and mid only although the rule sets a width. A benchmark
+/// spread is to a security of the rule's set, and the G-spread is over that set; a bond
+/// with no rule takes every method but a benchmark spread, and a zero takes a price only.
+#[test]
+fn the_calculator_prices_any_method_mid_only() {
+    use convex_engine::level_pricing::{price_by_method, BidAsk};
+    use convex_engine::ports::level_pricing::PricingMethod;
+    let settlement = Date::parse(SETTLEMENT).unwrap();
+    let discount = curve(settlement);
+    let corporate = corporate("CORP", "2030-01-15", "0.05375");
+    let notes = [
+        (
+            government_note("SOV-2Y", "2028-01-15", "0.035", "91282CAA9"),
+            "2Y",
+        ),
+        (
+            government_note("SOV-10Y", "2035-01-15", "0.04125", "91282CBB6"),
+            "10Y",
+        ),
+    ];
+    let yields = BenchmarkYieldCache::default();
+    let mut by_price_rule = rule_in_force(json!({"kind": "price"}), &notes);
+    by_price_rule.width = Some(
+        serde_json::from_value(json!({"unit": "price_points", "buckets": [{"width": "1"}]}))
+            .unwrap(),
+    );
+    let calculate = |bond: &BondReferenceData, in_force, method: serde_json::Value, level| {
+        let method: PricingMethod = serde_json::from_value(method).unwrap();
+        price_by_method(
+            bond,
+            in_force,
+            &method,
+            level,
+            settlement,
+            Some(&discount),
+            &yields,
+        )
+    };
+    let under_rule = |method: serde_json::Value, level| {
+        price_under_rule(
+            &corporate,
+            Some(&rule_in_force(method, &notes)),
+            QuotedInput::Level(level),
+            settlement,
+            Some(&discount),
+            &yields,
+        )
+        .unwrap()
+    };
+
+    for (method, level) in [
+        (json!({"kind": "yield"}), dec!(0.0612)),
+        (json!({"kind": "z_spread"}), dec!(150)),
+        (
+            json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+            dec!(125),
+        ),
+    ] {
+        let calculated =
+            calculate(&corporate, Some(&by_price_rule), method.clone(), level).unwrap();
+        let quoted = under_rule(method.clone(), level);
+        assert_eq!(
+            calculated.clean_price_mid, quoted.clean_price_mid,
+            "{method}"
+        );
+        assert_eq!(calculated.bid_ask, BidAsk::MidOnly, "{method}");
+        assert!(calculated.government_curve.is_some(), "{method}");
+        assert_eq!(
+            calculated.benchmark.map(|b| b.instrument_id),
+            quoted.benchmark.map(|b| b.instrument_id),
+        );
+    }
+    let by_price = calculate(
+        &corporate,
+        Some(&by_price_rule),
+        json!({"kind": "price"}),
+        dec!(98),
+    )
+    .unwrap();
+    assert_eq!(
+        (by_price.clean_price_mid, by_price.bid_ask),
+        (dec!(98), BidAsk::MidOnly)
+    );
+
+    // With no rule: a yield and a price, mid only, with no set and so no G-spread.
+    let no_rule = calculate(&corporate, None, json!({"kind": "yield"}), dec!(0.0612)).unwrap();
+    assert_eq!(
+        no_rule.clean_price_mid,
+        under_rule(json!({"kind": "yield"}), dec!(0.0612)).clean_price_mid
+    );
+    assert!(no_rule.government_curve.is_none());
+    let by_price = calculate(&corporate, None, json!({"kind": "price"}), dec!(98)).unwrap();
+    assert_eq!(by_price.bid_ask, BidAsk::MidOnly);
+
+    let mut zero = corporate.clone();
+    zero.bond_type = convex_engine::ports::reference_data::BondType::ZeroCoupon;
+    zero.coupon_rate = None;
+    assert_eq!(
+        calculate(&zero, None, json!({"kind": "price"}), dec!(80))
+            .unwrap()
+            .clean_price_mid,
+        dec!(80)
+    );
+    for (bond, method, reason) in [
+        (
+            &corporate,
+            json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+            "a benchmark spread is to the benchmark set the bond's pricing rule names, and it names none",
+        ),
+        (
+            &zero,
+            json!({"kind": "yield"}),
+            "only a fixed bullet is priced from a level or against a benchmark set",
+        ),
+    ] {
+        let refused = calculate(bond, None, method, dec!(0.05)).err();
+        assert_eq!(refused.map(|e| e.to_string()), Some(reason.to_owned()));
+    }
+}
