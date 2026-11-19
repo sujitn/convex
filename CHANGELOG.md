@@ -99,6 +99,36 @@ the changes that matter when you upgrade.
   the feed can point at an internal mirror. `CX.DIAG()` gains an "Update check"
   row at the end.
 
+### convex-core
+
+- **A two-way quote's width, in the quoting unit.** `WidthSchedule` holds
+  widths by trade size in one `WidthUnit`: price points, 32nds or basis
+  points. Each `SizeBucket` holds trades up to its face amount, inclusive, and
+  only the last bucket may have no bound. `width_for` picks a trade's bucket,
+  and a quote with no size takes the first.
+  - The width is the full bid-to-ask distance, so each side lies half of it
+    from the mid. `QuoteWidth::two_way` gives the bid and the ask as `Mark`s in
+    the mid's own form. A price falls to its bid, and a yield or spread rises
+    to its bid, since a higher yield or spread is a lower price.
+  - Each side is exact. Nothing is rounded to a tick, and a side that a
+    `Decimal` cannot hold exactly is refused rather than rounded.
+  - Refused, with a typed `QuoteWidthError` whose `reason()` is a fixed
+    sentence:
+    - a unit that does not quote the level, such as basis points on a price
+      (`WidthUnit::quotes` answers this from a `QuoteBasis` alone);
+    - no buckets, more than 16, or bounds that are not positive and ascending;
+    - a width above 20 points, 640 32nds or 1,000 bp;
+    - a trade size that is not positive, or above the largest bound;
+    - a bid price at or below zero.
+- `Mark::quote_basis` (price, yield or spread), `Mark::level` (the quoted
+  number in the mark's own unit) and `Mark::at_level` (the same mark at another
+  level, keeping its price kind, yield frequency, or spread type and
+  benchmark).
+  - On the wire, a schedule is exact decimal strings with no unknown fields.
+  - Desk fixtures in `tests/fixtures/quote-widths.json`: a Treasury in
+    32nds, investment grade by benchmark spread and size, high yield in
+    points, a yield in basis points, and each refusal.
+
 ### convex-analytics
 
 - **Breaking:** `hedge_cost_bps` is removed, with its re-exports from `risk`,

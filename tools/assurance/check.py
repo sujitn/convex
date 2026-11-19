@@ -1076,6 +1076,7 @@ def inventory_paths(root: Path) -> set[str]:
     paths.add('crates/convex-core/src/types/mark.rs')
     paths.add('crates/convex-core/src/types/price.rs')
     paths.add('crates/convex-core/src/types/spread.rs')
+    paths.add('crates/convex-core/src/types/quote_width.rs')
     paths.add('crates/convex-curves/src/multicurve/index.rs')
     paths.add('crates/convex-curves/src/term_structure.rs')
     paths.add('crates/convex-ffi/src/dispatch.rs')
