@@ -6,7 +6,8 @@
 //! never stored. A rule may name a [`BenchmarkSetDefinition`]
 //! (`MasterKey::BenchmarkSet`) by id, so an on-the-run roll is one commit to the set and
 //! the version a valuation read is recorded with its result. A bond with no rule is
-//! quoted by price.
+//! quoted by price. A rule may carry a two-way width in the unit it quotes, which a
+//! request reads with the rule ([`RequestPricingRule`]) and a snapshot's pin leaves out.
 //!
 //! These are types, bounds and validation only. Turning a level into a price is the
 //! engine's level stage, through the pure crates.

@@ -9,7 +9,8 @@
 //! whole set. A benchmark security's yield is its street yield at its clean price mid:
 //! in a snapshot, from its quote in that snapshot ([`price_in_snapshot`]); at request
 //! time, from the Live runtime's record of it, since quotes are not stored
-//! ([`live_clean_price_mid`]).
+//! ([`live_clean_price_mid`]). At request time a rule's width widens what it quotes, and
+//! each side is priced as the mid is ([`BidAsk`]); Live publishes mid measures only.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 

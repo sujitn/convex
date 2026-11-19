@@ -463,7 +463,7 @@ async fn a_level_prices_from_its_rule_and_comes_back_through_the_router() {
     );
     assert_eq!(headers["x-convex-pricing-rule-version"], "1");
     assert_eq!(headers["x-convex-benchmark-set-version"], "1");
-    // A level-quoted bond has no bid/ask width yet, and none is taken as a percent of price.
+    // Its rule sets no width, so it is quoted mid only: none is taken as a percent of price.
     assert!(spread["clean_price_bid"].is_null());
 
     // Its price quoted back gives the same yield and G-spread.

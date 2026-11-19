@@ -473,13 +473,14 @@ refused with 400 if:
 - a rule names a set that does not exist;
 - a rule quotes a bond other than a fixed bullet by a level, or against a set (floating
   rate notes and callables are not yet supported);
-- a rule's `width` is not a valid schedule, or is in a unit its method does not quote
-  (more than 16 buckets is refused as over capacity, as a set of more than 32 securities
-  is);
+- a rule's `width` is not a valid schedule, or is in a unit its method does not quote;
 - a rule with a `width` names a callable or floating rate note, which are quoted mid
   only;
 - a set holds anything but a government fixed bullet in its currency;
 - a set is not in USD: spreads are quoted against Treasuries only.
+
+A set of more than 32 securities, or a width of more than 16 buckets, is refused as over
+capacity: 503 `UNAVAILABLE`.
 
 A rule or set is ended by committing a version with `effective.until` through the same
 routes; the end may be later than the commit. After it, the version before does not come
