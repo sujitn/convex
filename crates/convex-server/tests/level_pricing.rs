@@ -604,7 +604,7 @@ async fn a_level_prices_from_its_rule_and_comes_back_through_the_router() {
 /// or a tenor the set lacks, is refused.
 #[tokio::test]
 async fn the_calculator_prices_one_level_by_any_method() {
-    let (_setup, engine, cutoff) = desk().await;
+    let (setup, engine, cutoff) = desk().await;
     let app = router(engine);
     let calculate = |id: &str, method: Value, level: &str| {
         let uri = format!("/api/v1/bonds/{id}/calculate");
@@ -719,6 +719,57 @@ async fn the_calculator_prices_one_level_by_any_method() {
     assert!(treasury.get("pricing_rule").is_none());
     assert!(headers.get("x-convex-pricing-rule-version").is_none());
     assert!(treasury["clean_price_bid"].is_null(), "{treasury}");
+
+    // A stored zero is calculated by its price, its one workout at maturity, and is refused
+    // a yield: only a fixed bullet is priced from a level.
+    let mut zero = note("UST-ZERO", "2028-01-15", "0", "912797AA1");
+    zero.bond_type = convex_ports::reference_data::BondType::ZeroCoupon;
+    zero.coupon_rate = None;
+    zero.first_coupon_date = None;
+    zero.day_count = "ACT/360".into();
+    // A bill accrues ACT/360 and its one payment is not adjusted, under a convention pack
+    // of its own.
+    let mut terms = fixture::reference_terms::terms(&zero);
+    terms.settings.business_day_convention =
+        convex_core::calendars::BusinessDayConvention::Unadjusted;
+    terms.convention.id = ReferenceDataId::new("fixture-zero").unwrap();
+    zero.contractual_terms = Some(terms);
+    let convention = fixture::reference_terms::resources(&zero)
+        .into_iter()
+        .filter(|change| matches!(change.definition, MasterDefinition::Convention(_)))
+        .collect();
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("calculator-zero").unwrap(),
+                changes: vec![ReferenceChange::Create {
+                    bond: Box::new(zero),
+                }],
+                master_changes: convention,
+            },
+            fixture::time("2025-06-06T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    let (status, _, by_price) = calculate("UST-ZERO", json!({"kind": "price"}), "92.5").await;
+    assert_eq!(status, StatusCode::OK, "{by_price}");
+    assert_eq!(number(&by_price["clean_price_mid"]), 92.5);
+    // About 6.1% semi-annual for 7.5 points of discount over 466 days.
+    let ytm = number(&by_price["ytm_mid"]);
+    assert!((0.055..0.067).contains(&ytm), "{by_price}");
+    assert_eq!(
+        by_price["workouts"],
+        json!([{"kind": "maturity", "date": "2028-01-15", "yield": by_price["ytm_mid"]}])
+    );
+    let (status, _, refused) = calculate("UST-ZERO", json!({"kind": "yield"}), "0.05").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    assert_eq!(
+        refused["error"],
+        "only a fixed bullet is priced from a level or against a benchmark set"
+    );
+
     for (id, method, level, reason) in [
         (
             "UST-10Y",
@@ -1309,6 +1360,14 @@ async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
             let (status, _, response) =
                 access::request(router.clone(), method, path, Some(HUMAN_TOKEN), body).await;
             assert_eq!(status, expected, "{method} {path}: {response}");
+        }
+        // The access layer reads up to 2 MiB; the calculator's own bound still holds.
+        if expected == StatusCode::OK {
+            let padded = json!({"padding": "x".repeat(64 * 1024)});
+            let (status, _, response) =
+                access::request(router, "POST", calculator, Some(HUMAN_TOKEN), Some(padded)).await;
+            assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{response}");
+            assert_eq!(response["code"], "CAPACITY_EXCEEDED", "{response}");
         }
     }
     issuer.finish().await;

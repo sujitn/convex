@@ -230,6 +230,7 @@ The server is configured to allow all origins. If you see CORS errors:
 | `/api/v1/bonds` | GET/POST | List/create bonds |
 | `/api/v1/quotes/:id` | GET | Get bond quote |
 | `/api/v1/quote` | POST | Price single bond |
+| `/api/v1/bonds/:id/calculate` | POST | Calculate a stored bond from one price, yield or spread |
 | `/api/v1/batch/price` | POST | Batch pricing |
 | `/api/v1/etf/inav` | POST | Calculate ETF iNAV |
 | `/api/v1/portfolio/analytics` | POST | Portfolio analytics |
