@@ -156,6 +156,16 @@ async fn started(setup: &Setup) -> (Arc<PricingEngine>, String) {
     (engine, cutoff(known_at))
 }
 
+/// An engine over the setup's storage with no runtime composed.
+fn without_runtime(setup: &Setup) -> Arc<PricingEngine> {
+    Arc::new(
+        convex_engine::PricingEngineBuilder::new()
+            .with_storage(setup.storage.clone())
+            .build()
+            .unwrap(),
+    )
+}
+
 fn router(engine: Arc<PricingEngine>) -> axum::Router {
     convex_server::routes::create_router_with_access(
         engine,
@@ -405,12 +415,7 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
 async fn a_server_without_a_runtime_refuses_callables_and_still_prices_bullets() {
     let (setup, callable, _) = products_setup().await;
     activate(&setup).await;
-    let engine = Arc::new(
-        convex_engine::PricingEngineBuilder::new()
-            .with_storage(setup.storage.clone())
-            .build()
-            .unwrap(),
-    );
+    let engine = without_runtime(&setup);
     let app = router(engine);
     let known_at = "2026-10-02T15:00:00Z";
     let quote = |bond: &BondReferenceData| {
@@ -449,12 +454,7 @@ async fn a_server_without_a_runtime_refuses_callables_and_still_prices_bullets()
 #[tokio::test]
 async fn the_calculator_refuses_callables_and_notes() {
     let (setup, _, _) = products_setup().await;
-    let engine = Arc::new(
-        convex_engine::PricingEngineBuilder::new()
-            .with_storage(setup.storage.clone())
-            .build()
-            .unwrap(),
-    );
+    let engine = without_runtime(&setup);
     let app = router(engine);
     let calculation = json!({"method": {"kind": "price"}, "level": "99.25",
         "settlement_date": SETTLEMENT, "known_at": "2026-10-02T15:00:00Z",
@@ -470,7 +470,8 @@ async fn the_calculator_refuses_callables_and_notes() {
         assert_eq!(refused["code"], "UNSUPPORTED_PRODUCT", "{refused}");
     }
     let (status, _, refused) = calculate("BOND-001").await;
-    assert_ne!(status, StatusCode::OK, "{refused}");
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(refused["code"], "NO_VALUATION_CONTEXT", "{refused}");
     activate(&setup).await;
     let (status, _, bullet) = calculate("BOND-001").await;
     assert_eq!(status, StatusCode::OK, "{bullet}");

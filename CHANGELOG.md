@@ -321,6 +321,10 @@ the changes that matter when you upgrade.
 
 - **`price_by_method`** (and `PricingEngine::price_by_method`): the calculator's stage.
   It prices a level by any method, against the set the bond's rule names, mid only.
+  `PricingEngine::rule_in_force_mid_only` reads a rule's set from its pin without its
+  width, and `QuotedInput::quoted_by` reads a value as a method quotes it. The stage's
+  own result is mid only when no width applies; `price_under_rule` alone gives a bond
+  quoted by price the configuration's width.
 - **The level stage applies a rule's width.** `PricingRuleInForce` gains `width`.
   **Breaking:**
   - `rule_in_force` takes a `RequestPricingRule` (the pin and the width): from

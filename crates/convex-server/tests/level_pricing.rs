@@ -423,6 +423,21 @@ fn number(value: &Value) -> f64 {
     }
 }
 
+/// A number from a response, written as a query or request sends it.
+fn text(value: &Value) -> String {
+    value.to_string().replace('"', "")
+}
+
+/// `GET /quotes/:id` of `id` with `input`, at the desk's cutoff and settlement.
+fn quote_uri(id: &str, input: &str, cutoff: &str) -> String {
+    format!("/api/v1/quotes/{id}?{input}&known_at={cutoff}&settlement_date={SETTLEMENT}")
+}
+
+/// A calculator request: `level` by `method`, at the desk's settlement and `cutoff`.
+fn calculation(method: Value, level: &str, cutoff: &str) -> Value {
+    json!({"method": method, "level": level, "settlement_date": SETTLEMENT, "known_at": cutoff})
+}
+
 /// A corporate quoted 125 bp over the 10-year prices from the Treasury's Live price: its
 /// yield is the 10-year's street yield plus 125 bp, and its price quoted back gives the
 /// same yield. The G-spread interpolates the 2- and 10-year. Yield and Z-spread rules
@@ -431,9 +446,7 @@ fn number(value: &Value) -> f64 {
 async fn a_level_prices_from_its_rule_and_comes_back_through_the_router() {
     let (setup, engine, cutoff) = desk().await;
     let app = router(engine);
-    let quote = |id: &str, input: &str| {
-        format!("/api/v1/quotes/{id}?{input}&known_at={cutoff}&settlement_date={SETTLEMENT}")
-    };
+    let quote = |id: &str, input: &str| quote_uri(id, input, &cutoff);
     let (status, headers, treasury) =
         call_with_headers(&app, "GET", &quote("UST-10Y", "market_price=98.25"), None).await;
     assert_eq!(status, StatusCode::OK, "{treasury}");
@@ -467,7 +480,7 @@ async fn a_level_prices_from_its_rule_and_comes_back_through_the_router() {
     assert!(spread["clean_price_bid"].is_null());
 
     // Its price quoted back gives the same yield and G-spread.
-    let clean = spread["clean_price_mid"].to_string().replace('"', "");
+    let clean = text(&spread["clean_price_mid"]);
     let (status, back) = call(
         &app,
         "GET",
@@ -595,15 +608,10 @@ async fn the_calculator_prices_one_level_by_any_method() {
     let app = router(engine);
     let calculate = |id: &str, method: Value, level: &str| {
         let uri = format!("/api/v1/bonds/{id}/calculate");
-        let body = json!({"method": method, "level": level,
-            "settlement_date": SETTLEMENT, "known_at": cutoff});
-        let app = app.clone();
+        let (app, body) = (app.clone(), calculation(method, level, &cutoff));
         async move { call_with_headers(&app, "POST", &uri, Some(body)).await }
     };
-    let quote = |id: &str, input: &str| {
-        format!("/api/v1/quotes/{id}?{input}&known_at={cutoff}&settlement_date={SETTLEMENT}")
-    };
-    let text = |value: &Value| value.to_string().replace('"', "");
+    let quote = |id: &str, input: &str| quote_uri(id, input, &cutoff);
     let mid_measures = [
         "clean_price_mid",
         "accrued_interest",
@@ -751,25 +759,10 @@ async fn the_calculator_prices_one_level_by_any_method() {
     }
     let (status, _, missing) = calculate("BOND-404", json!({"kind": "price"}), "99").await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
-    let mut padded = serde_json::to_vec(&json!({"method": {"kind": "price"}, "level": "99",
-        "settlement_date": SETTLEMENT, "known_at": cutoff}))
-    .unwrap();
-    padded.resize(64 * 1024 + 1, b' ');
-    let response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri(uri)
-                .header("content-type", "application/json")
-                .body(Body::from(padded))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let refused: Value = serde_json::from_slice(&bytes).unwrap();
+    // Refused for its size before it is read as a request.
+    let padded = json!({"padding": "x".repeat(64 * 1024)});
+    let (status, refused) = call(&app, "POST", uri, Some(padded)).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{refused}");
     assert_eq!(refused["code"], "CAPACITY_EXCEEDED", "{refused}");
 }
 
@@ -789,9 +782,7 @@ fn with_width(mut rule: Value, width: Value) -> Value {
 async fn a_rule_width_quotes_the_two_way_in_the_rules_unit() {
     let (setup, engine, cutoff) = desk().await;
     let app = router(engine);
-    let quote = |id: &str, input: &str| {
-        format!("/api/v1/quotes/{id}?{input}&known_at={cutoff}&settlement_date={SETTLEMENT}")
-    };
+    let quote = |id: &str, input: &str| quote_uri(id, input, &cutoff);
     let (status, treasury) = call(&app, "GET", &quote("UST-10Y", "market_price=98.25"), None).await;
     assert_eq!(status, StatusCode::OK, "{treasury}");
     let ten_year = number(&treasury["ytm_mid"]);
@@ -857,7 +848,7 @@ async fn a_rule_width_quotes_the_two_way_in_the_rules_unit() {
     assert_eq!(posted["clean_price_bid"], spread["clean_price_bid"]);
 
     // A price sent for it is quoted mid only: there is no level to widen.
-    let clean = spread["clean_price_mid"].to_string().replace('"', "");
+    let clean = text(&spread["clean_price_mid"]);
     let (status, back) = call(
         &app,
         "GET",
@@ -1265,10 +1256,6 @@ async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
     let by_price = format!(
         "/api/v1/quotes/BOND-001?market_price=99.5&known_at={cutoff}&settlement_date={SETTLEMENT}"
     );
-    let calculation = |method: Value, level: &str| {
-        json!({"method": method, "level": level, "settlement_date": SETTLEMENT,
-            "known_at": cutoff})
-    };
     let calculator = "/api/v1/bonds/BOND-001/calculate";
     for (instruments, expected) in [
         (vec!["BOND-001"], StatusCode::FORBIDDEN),
@@ -1310,12 +1297,13 @@ async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
                 Some(calculation(
                     json!({"kind": "benchmark_spread", "tenor": "10Y"}),
                     "125",
+                    &cutoff,
                 )),
             ),
             (
                 "POST",
                 calculator,
-                Some(calculation(json!({"kind": "yield"}), "0.06")),
+                Some(calculation(json!({"kind": "yield"}), "0.06", &cutoff)),
             ),
         ] {
             let (status, _, response) =
@@ -1479,17 +1467,9 @@ async fn request_time_pricing_time_at_the_batch_bound() {
             .extend(mark.as_object().unwrap().clone());
         Some(json!({"bonds": vec![item; 1000], "settlement_date": SETTLEMENT, "known_at": cutoff}))
     };
-    let get = |id: &str, mark: &str| {
-        format!("/api/v1/quotes/{id}?{mark}&known_at={cutoff}&settlement_date={SETTLEMENT}")
-    };
+    let get = |id: &str, mark: &str| quote_uri(id, mark, &cutoff);
     let batch_uri = "/api/v1/batch/price".to_owned();
     let calculator_uri = "/api/v1/bonds/BOND-001/calculate".to_owned();
-    let calculation = |method: Value, level: &str| {
-        Some(
-            json!({"method": method, "level": level, "settlement_date": SETTLEMENT,
-            "known_at": cutoff}),
-        )
-    };
     let cases = [
         (
             "batch, no rule, by price",
@@ -1525,19 +1505,23 @@ async fn request_time_pricing_time_at_the_batch_bound() {
             "calculator, rule, by its level",
             "POST",
             calculator_uri.clone(),
-            calculation(json!({"kind": "benchmark_spread", "tenor": "10Y"}), "125"),
+            Some(calculation(
+                json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+                "125",
+                &cutoff,
+            )),
         ),
         (
             "calculator, rule, by yield",
             "POST",
             calculator_uri.clone(),
-            calculation(json!({"kind": "yield"}), "0.06"),
+            Some(calculation(json!({"kind": "yield"}), "0.06", &cutoff)),
         ),
         (
             "calculator, rule, by price",
             "POST",
             calculator_uri,
-            calculation(json!({"kind": "price"}), "99.5"),
+            Some(calculation(json!({"kind": "price"}), "99.5", &cutoff)),
         ),
     ];
     for (name, method, uri, body) in cases {

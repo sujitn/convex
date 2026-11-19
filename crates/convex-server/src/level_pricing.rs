@@ -45,22 +45,18 @@ pub(crate) fn optional_quoted_input(
     }
 }
 
-/// What the stage read and gave, added to a quote's body as `pricing_rule`.
+/// What the stage read and gave, added to a quote's body as `pricing_rule`: the rule as
+/// read, the price the quote gave, and the benchmark and two-way it was quoted with.
 pub(crate) fn pricing_rule_json(
     in_force: &PricingRuleInForce,
     input: QuotedInput,
     pricing: &RulePricing,
 ) -> Value {
-    let mut body = json!({
-        "model": LEVEL_PRICE_MODEL,
-        "version": in_force.rule.version.get(),
-        "method": in_force.rule.method,
-        "clean_price_mid": pricing.clean_price_mid,
-    });
+    let mut body = rule_read_json(in_force, pricing);
+    body["clean_price_mid"] = json!(pricing.clean_price_mid);
     if let QuotedInput::Level(level) = input {
         body["level"] = json!(level);
     }
-    add_benchmarks_read(&mut body, in_force, pricing);
     if let Some(benchmark) = &pricing.benchmark {
         body["benchmark"] = benchmark_json(benchmark);
     }
@@ -75,13 +71,14 @@ pub(crate) fn pricing_rule_json(
     body
 }
 
-/// Add to a rule's report the set it names as read, each security's Live price, and why
-/// no G-spread is published when it is not.
-pub(crate) fn add_benchmarks_read(
-    body: &mut Value,
-    in_force: &PricingRuleInForce,
-    pricing: &RulePricing,
-) {
+/// The rule as read: the stage's model, the rule's version and method, the set it names
+/// with each security's Live price, and why no G-spread is published when it is not.
+pub(crate) fn rule_read_json(in_force: &PricingRuleInForce, pricing: &RulePricing) -> Value {
+    let mut body = json!({
+        "model": LEVEL_PRICE_MODEL,
+        "version": in_force.rule.version.get(),
+        "method": in_force.rule.method,
+    });
     if let Some(set) = &in_force.benchmark_set {
         body["benchmark_set"] = json!({
             "benchmark_set_id": set.benchmark_set_id,
@@ -98,6 +95,7 @@ pub(crate) fn add_benchmarks_read(
     if let Some(reason) = pricing.g_spread_refused {
         body["g_spread_refused"] = json!(reason);
     }
+    body
 }
 
 /// The benchmark a spread was quoted to, and the yield it was added to.

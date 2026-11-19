@@ -244,9 +244,9 @@ fn a_two_way_replaces_the_inputs_bid_ask() {
 }
 
 /// The calculator prices a level by any method, whatever the bond's rule quotes, as a rule
-/// quoting that method would, and mid only although the rule sets a width. A benchmark
-/// spread is to a security of the rule's set, and the G-spread is over that set; a bond
-/// with no rule takes every method but a benchmark spread, and a zero takes a price only.
+/// quoting that method would, and mid only, a price too. A benchmark spread is to a
+/// security of the rule's set, and the G-spread is over that set; with no set, every
+/// method but a benchmark spread is priced, and a zero takes a price only.
 #[test]
 fn the_calculator_prices_any_method_mid_only() {
     use convex_engine::level_pricing::{price_by_method, BidAsk};
@@ -265,16 +265,13 @@ fn the_calculator_prices_any_method_mid_only() {
         ),
     ];
     let yields = BenchmarkYieldCache::default();
-    let mut by_price_rule = rule_in_force(json!({"kind": "price"}), &notes);
-    by_price_rule.width = Some(
-        serde_json::from_value(json!({"unit": "price_points", "buckets": [{"width": "1"}]}))
-            .unwrap(),
-    );
-    let calculate = |bond: &BondReferenceData, in_force, method: serde_json::Value, level| {
+    let rule = rule_in_force(json!({"kind": "price"}), &notes);
+    let set = rule.benchmark_set.as_deref();
+    let calculate = |bond: &BondReferenceData, set, method: serde_json::Value, level| {
         let method: PricingMethod = serde_json::from_value(method).unwrap();
         price_by_method(
             bond,
-            in_force,
+            set,
             &method,
             level,
             settlement,
@@ -302,8 +299,7 @@ fn the_calculator_prices_any_method_mid_only() {
             dec!(125),
         ),
     ] {
-        let calculated =
-            calculate(&corporate, Some(&by_price_rule), method.clone(), level).unwrap();
+        let calculated = calculate(&corporate, set, method.clone(), level).unwrap();
         let quoted = under_rule(method.clone(), level);
         assert_eq!(
             calculated.clean_price_mid, quoted.clean_price_mid,
@@ -316,19 +312,13 @@ fn the_calculator_prices_any_method_mid_only() {
             quoted.benchmark.map(|b| b.instrument_id),
         );
     }
-    let by_price = calculate(
-        &corporate,
-        Some(&by_price_rule),
-        json!({"kind": "price"}),
-        dec!(98),
-    )
-    .unwrap();
+    let by_price = calculate(&corporate, set, json!({"kind": "price"}), dec!(98)).unwrap();
     assert_eq!(
         (by_price.clean_price_mid, by_price.bid_ask),
         (dec!(98), BidAsk::MidOnly)
     );
 
-    // With no rule: a yield and a price, mid only, with no set and so no G-spread.
+    // With no set: a yield and a price, mid only, and no G-spread.
     let no_rule = calculate(&corporate, None, json!({"kind": "yield"}), dec!(0.0612)).unwrap();
     assert_eq!(
         no_rule.clean_price_mid,

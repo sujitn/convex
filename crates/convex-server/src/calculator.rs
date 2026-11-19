@@ -14,14 +14,13 @@ use std::sync::Arc;
 
 use axum::{
     extract::{rejection::JsonRejection, Path, State},
-    http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use convex_core::contracts::{SourceId, UtcTimestamp};
 use convex_core::ids::InstrumentId;
 use convex_core::Date;
-use convex_engine::level_pricing::{PricingRuleInForce, RulePricing, LEVEL_PRICE_MODEL};
+use convex_engine::level_pricing::RulePricing;
 use convex_engine::ports::{
     level_pricing::{is_quoted_two_way, PricingMethod},
     output::BondQuoteOutput,
@@ -32,10 +31,10 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::curves::{known_at_or_now, with_header};
+use crate::curves::known_at_or_now;
 use crate::error::ApiError;
-use crate::handlers::{bond_quote_json, context_pins, with_context_headers, AppState};
-use crate::level_pricing::{add_benchmarks_read, benchmark_json, with_pricing_rule_headers};
+use crate::handlers::{bond_quote_json, with_stored_quote_headers, AppState};
+use crate::level_pricing::{benchmark_json, rule_read_json};
 
 /// The largest calculator request body, in bytes.
 pub(crate) const MAX_CALCULATOR_REQUEST_BYTES: usize = 64 * 1024;
@@ -81,7 +80,7 @@ async fn calculate(
     instrument_id: &str,
     request: Result<Json<CalculatorRequest>, JsonRejection>,
 ) -> Result<Response, ApiError> {
-    let Json(request) = request.map_err(refused_body)?;
+    let Json(request) = request?;
     let engine = &state.engine;
     let known_at = known_at_or_now(request.known_at)?;
     let not_found = || ApiError::not_found(format!("Bond not found: {instrument_id}"));
@@ -95,7 +94,6 @@ async fn calculate(
         )
         .await?
         .ok_or_else(not_found)?;
-    let reference_version = reference.record.version;
     let bond = reference.record.bond.ok_or_else(not_found)?;
     if !is_quoted_two_way(&bond) {
         return Err(ApiError::unsupported_product(NOT_CALCULATED));
@@ -103,63 +101,50 @@ async fn calculate(
     let mut context = engine
         .request_context(request.configuration.as_ref(), known_at)
         .await?;
-    let rule = engine
-        .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule)
+    let in_force = engine
+        .rule_in_force_mid_only(&mut context, reference.pricing_rule)
         .await?;
-    let in_force = engine.rule_in_force(&mut context, rule).await?;
     let curves = context.curves_for(&bond).await?;
-    let pricing = engine.price_by_method(
+    let mut pricing = engine.price_by_method(
         &bond,
-        in_force.as_ref(),
+        in_force
+            .as_ref()
+            .and_then(|in_force| in_force.benchmark_set.as_deref()),
         &request.method,
         request.level,
         request.settlement_date,
         Some(&curves.discount),
     )?;
-    let input_read = input_json(&request, &pricing);
-    let rule_read = in_force
-        .as_ref()
-        .map(|in_force| rule_json(in_force, &pricing));
-    let maturity_date = bond.maturity_date;
-    // Mid only: the input carries no bid, ask or width.
-    let input = PricingInput::with_mid_price(
+    let mut input = PricingInput::with_mid_price(
         bond,
         request.settlement_date,
         Some(pricing.clean_price_mid),
         Some(curves.discount),
         curves.benchmark,
-        pricing.government_curve,
+        pricing.government_curve.take(),
         None,
     );
+    pricing
+        .bid_ask
+        .apply(&mut input, context.config().bid_ask_spread.as_ref());
     let quote = engine
         .pricing_router()
         .price(&input)
         .map_err(|e| ApiError::calculation(format!("Pricing failed: {e}")))?;
     let mut body =
         bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
-    body["input"] = input_read;
-    if let Some(rule_read) = rule_read {
-        body["pricing_rule"] = rule_read;
+    body["input"] = input_json(&request, &pricing);
+    if let Some(in_force) = &in_force {
+        body["pricing_rule"] = rule_read_json(in_force, &pricing);
     }
-    add_workouts(&mut body, &quote, maturity_date);
-    let response = with_header(
+    add_workouts(&mut body, &quote, input.bond.maturity_date);
+    with_stored_quote_headers(
         Json(body).into_response(),
-        "x-convex-reference-version",
-        &reference_version.get().to_string(),
-    )?;
-    let response = with_context_headers(response, &context, &context_pins(&context), known_at)?;
-    with_pricing_rule_headers(response, in_force.as_ref())
-}
-
-/// A body that is not a calculator request, or is over its bound.
-fn refused_body(rejection: JsonRejection) -> ApiError {
-    if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE {
-        ApiError::too_large(format!(
-            "a calculator request is at most {MAX_CALCULATOR_REQUEST_BYTES} bytes"
-        ))
-    } else {
-        ApiError::invalid(rejection.body_text())
-    }
+        reference.record.version,
+        &context,
+        known_at,
+        in_force.as_ref(),
+    )
 }
 
 /// The level as sent, and the benchmark a spread was quoted to.
@@ -169,17 +154,6 @@ fn input_json(request: &CalculatorRequest, pricing: &RulePricing) -> Value {
         input["benchmark"] = benchmark_json(benchmark);
     }
     input
-}
-
-/// The bond's rule as read: its version and method, and the set it names.
-fn rule_json(in_force: &PricingRuleInForce, pricing: &RulePricing) -> Value {
-    let mut body = json!({
-        "model": LEVEL_PRICE_MODEL,
-        "version": in_force.rule.version.get(),
-        "method": in_force.rule.method,
-    });
-    add_benchmarks_read(&mut body, in_force, pricing);
-    body
 }
 
 /// Each date the bond can be worked out to, with its yield, and the worst of them. A
