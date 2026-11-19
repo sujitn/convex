@@ -728,7 +728,7 @@ fn level_to_clean_price(
     };
     let clean = clean_price(&mark)?;
     let two_way = width
-        .map(|width| two_way_at(width, &mark, &clean_price))
+        .map(|width| two_way_at(width, &mark, clean_price))
         .transpose()?;
     Ok((clean, benchmark, two_way))
 }
