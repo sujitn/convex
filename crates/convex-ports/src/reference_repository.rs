@@ -15,7 +15,7 @@ use convex_core::ids::InstrumentId;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::level_pricing::{ResolvedBenchmarkSet, ResolvedPricingRule};
+use crate::level_pricing::{RequestPricingRule, ResolvedBenchmarkSet, ResolvedPricingRule};
 use crate::reference_data::BondReferenceData;
 use crate::reference_master::*;
 use crate::storage::{BondFilter, Page, Pagination};
@@ -372,12 +372,39 @@ pub trait ReferenceRepository: Send + Sync {
         id: &InstrumentId,
         lookup: ReferenceLookup,
     ) -> Result<Option<ResolvedPricingRule>, ReferenceError> {
-        let instrument = convex_core::contracts::InstrumentId::new(id.as_str())
-            .map_err(|_| ReferenceError::InvalidInput("invalid instrument identity"))?;
-        self.get_master_at(&MasterKey::PricingRule(instrument), lookup)
+        self.get_master_at(&pricing_rule_key(id)?, lookup)
             .await?
             .map(|record| ResolvedPricingRule::try_from(&record))
             .transpose()
+    }
+
+    /// A bond's pricing rule in force at `lookup` as a request reads it: its pin and its
+    /// width, from one read; none for a bond quoted by price.
+    async fn pricing_rule_for_request(
+        &self,
+        id: &InstrumentId,
+        lookup: ReferenceLookup,
+    ) -> Result<Option<RequestPricingRule>, ReferenceError> {
+        self.get_master_at(&pricing_rule_key(id)?, lookup)
+            .await?
+            .map(|record| RequestPricingRule::try_from(&record))
+            .transpose()
+    }
+
+    /// The rule `pin` names, read at its version, as a request reads it: what a request
+    /// adds to the pin a bond's reference was resolved with.
+    async fn pinned_pricing_rule_for_request(
+        &self,
+        id: &InstrumentId,
+        pin: &ResolvedPricingRule,
+    ) -> Result<RequestPricingRule, ReferenceError> {
+        let record = self
+            .get_master_version(&pricing_rule_key(id)?, pin.version)
+            .await?
+            .ok_or(ReferenceError::InvalidInput(
+                "the pinned pricing rule version is not stored",
+            ))?;
+        RequestPricingRule::try_from(&record)
     }
 
     /// The benchmark set `id` in force at `lookup`; none when it is not in force.
@@ -391,6 +418,13 @@ pub trait ReferenceRepository: Send + Sync {
             .map(|record| ResolvedBenchmarkSet::try_from(&record))
             .transpose()
     }
+}
+
+/// The master key of `id`'s pricing rule.
+fn pricing_rule_key(id: &InstrumentId) -> Result<MasterKey, ReferenceError> {
+    convex_core::contracts::InstrumentId::new(id.as_str())
+        .map(MasterKey::PricingRule)
+        .map_err(|_| ReferenceError::InvalidInput("invalid instrument identity"))
 }
 
 /// Validate an existing public identity before accepting it at a repository boundary.

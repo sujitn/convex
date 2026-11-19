@@ -94,6 +94,7 @@ pub fn rule_in_force(
         .collect();
     PricingRuleInForce {
         rule,
+        width: None,
         benchmark_set: Some(std::sync::Arc::new(BenchmarkSetQuotes {
             benchmark_set_id: ReferenceDataId::new("UST-OTR").unwrap(),
             version: Version::new(1).unwrap(),

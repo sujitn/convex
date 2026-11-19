@@ -276,16 +276,16 @@ impl PricingRouter {
     ) -> Result<BondQuoteOutput, EngineError> {
         crate::ports::reference_repository::validate_bond_reference(&input.bond)
             .map_err(pricing_error)?;
-        if !matches!(
-            input.bond.bond_type,
-            BondType::FixedBullet | BondType::ZeroCoupon
-        ) {
-            return Err(EngineError::PricingError("unsupported production bond terms/model: FRNs require published fixings and projection, optional/amortizing products require the completed explicit model contract (CVX-055)".into()));
-        }
-        if input.bond.has_embedded_terms() {
-            return Err(EngineError::PricingError(
-                "unsupported embedded terms on nominal bullet/zero".into(),
-            ));
+        if !crate::ports::level_pricing::is_quoted_two_way(&input.bond) {
+            let reason = if matches!(
+                input.bond.bond_type,
+                BondType::FixedBullet | BondType::ZeroCoupon
+            ) {
+                "unsupported embedded terms on nominal bullet/zero"
+            } else {
+                "unsupported production bond terms/model: FRNs require published fixings and projection, optional/amortizing products require the completed explicit model contract (CVX-055)"
+            };
+            return Err(EngineError::PricingError(reason.into()));
         }
         if let Some(config) = &input.bid_ask_config {
             if [

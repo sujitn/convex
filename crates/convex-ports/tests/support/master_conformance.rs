@@ -1354,6 +1354,7 @@ fn pricing_rule(
                 instrument_id: InstrumentId::new(instrument).unwrap(),
                 method,
                 benchmark_set_id: set.map(|s| ReferenceDataId::new(s).unwrap()),
+                width: None,
                 effective: EffectiveInterval {
                     from: time("2025-01-01T00:00:00Z"),
                     until: None,
@@ -1372,8 +1373,10 @@ fn pricing_rule(
 pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
     repository: Arc<dyn ReferenceRepository>,
 ) {
+    use convex_core::types::{WidthSchedule, MAX_SIZE_BUCKETS};
     use convex_ports::level_pricing::{PricingMethod, MAX_BENCHMARK_SECURITIES};
     use convex_ports::reference_data::BondType;
+    use serde_json::json;
     seed(&repository, "CORP-1").await;
     // A zero is stored and priced, but quoted only by price.
     let mut zero = bond("ZERO-1");
@@ -1515,12 +1518,54 @@ pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
     )
     .await;
     refused("rules-unnamed-set", pricing_rule("UST-10Y", spread(), None)).await;
+
+    // A width is in a unit the method quotes, with at most 16 buckets.
+    let width = |unit: &str, buckets: usize| -> WidthSchedule {
+        let buckets: Vec<_> = (1..buckets)
+            .map(|n| json!({"max_face": format!("{n}000000"), "width": "1"}))
+            .chain([json!({"width": "1"})])
+            .collect();
+        serde_json::from_value(json!({"unit": unit, "buckets": buckets})).unwrap()
+    };
+    let with_width = |mut change: MasterChange, schedule: WidthSchedule| {
+        if let MasterDefinition::PricingRule(rule) = &mut change.definition {
+            rule.width = Some(schedule);
+        }
+        change
+    };
+    let zero_price = || pricing_rule("ZERO-1", PricingMethod::Price {}, None);
+    refused(
+        "rules-width-unit",
+        with_width(zero_price(), width("basis_points", 1)),
+    )
+    .await;
+    assert_eq!(
+        repository
+            .commit(
+                &command(
+                    "rules-width-many",
+                    vec![],
+                    vec![with_width(
+                        zero_price(),
+                        width("thirty_seconds", MAX_SIZE_BUCKETS + 1)
+                    )],
+                ),
+                at
+            )
+            .await
+            .err(),
+        Some(ReferenceError::CapacityExceeded)
+    );
+    // A zero is quoted two-way by price, so it takes a width in 32nds.
     repository
         .commit(
             &command(
                 "rules-zero-price",
                 vec![],
-                vec![pricing_rule("ZERO-1", PricingMethod::Price {}, None)],
+                vec![with_width(
+                    zero_price(),
+                    width("thirty_seconds", MAX_SIZE_BUCKETS),
+                )],
             ),
             at,
         )

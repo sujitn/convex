@@ -548,7 +548,7 @@ impl PricingEngine {
         context: &RequestContext,
         bond: &ports::reference_data::BondReferenceData,
     ) -> Result<
-        Option<ports::level_pricing::ResolvedPricingRule>,
+        Option<ports::level_pricing::RequestPricingRule>,
         ports::reference_repository::ReferenceError,
     > {
         // An id no stored bond can have names no stored rule.
@@ -558,7 +558,7 @@ impl PricingEngine {
         let repository = &self.storage.bonds;
         let lookup = context.lookup();
         let Some(rule) = repository
-            .pricing_rule_for_valuation(&bond.instrument_id, lookup)
+            .pricing_rule_for_request(&bond.instrument_id, lookup)
             .await?
         else {
             return Ok(None);
@@ -664,16 +664,38 @@ impl PricingEngine {
         self.storage.bonds.for_valuation(id, lookup).await
     }
 
+    /// The rule a stored bond's reference was resolved with, `pin`, as a request reads
+    /// it: with its width, read at the pinned version.
+    pub async fn pinned_rule_for_request(
+        &self,
+        instrument_id: &convex_core::ids::InstrumentId,
+        pin: Option<ports::level_pricing::ResolvedPricingRule>,
+    ) -> Result<
+        Option<ports::level_pricing::RequestPricingRule>,
+        ports::reference_repository::ReferenceError,
+    > {
+        match pin {
+            None => Ok(None),
+            Some(pin) => self
+                .storage
+                .bonds
+                .pinned_pricing_rule_for_request(instrument_id, &pin)
+                .await
+                .map(Some),
+        }
+    }
+
     /// A bond's rule at request time, for every route that quotes a stored bond: `rule`
-    /// is the pin read with the bond's reference, and the set it names is read at
-    /// `context`'s cutoff, with each security's pinned terms and Live clean price mid.
-    /// The context keeps each set it read, so a batch reads one set once.
+    /// is its pin and width, from [`Self::pinned_rule_for_request`] or
+    /// [`Self::rule_for_inline_terms`], and the set it names is read at `context`'s
+    /// cutoff, with each security's pinned terms and Live clean price mid. The context
+    /// keeps each set it read, so a batch reads one set once.
     pub async fn rule_in_force(
         &self,
         context: &mut RequestContext,
-        rule: Option<ports::level_pricing::ResolvedPricingRule>,
+        rule: Option<ports::level_pricing::RequestPricingRule>,
     ) -> Result<Option<level_pricing::PricingRuleInForce>, level_pricing::LevelError> {
-        let Some(rule) = rule else {
+        let Some(ports::level_pricing::RequestPricingRule { pin: rule, width }) = rule else {
             return Ok(None);
         };
         let benchmark_set = match &rule.benchmark_set_id {
@@ -688,6 +710,7 @@ impl PricingEngine {
         };
         Ok(Some(level_pricing::PricingRuleInForce {
             rule,
+            width,
             benchmark_set,
         }))
     }

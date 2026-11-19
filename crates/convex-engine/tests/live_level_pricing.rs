@@ -290,6 +290,7 @@ fn staged_clean_price(plan: &RuntimePlan, two_year: Decimal, ten_year: Decimal) 
             method: rule.method,
             benchmark_set_id: rule.benchmark_set_id,
         },
+        width: None,
         benchmark_set: Some(Arc::new(BenchmarkSetQuotes {
             benchmark_set_id: ReferenceDataId::new("UST-OTR").unwrap(),
             version: fixture::version(1),

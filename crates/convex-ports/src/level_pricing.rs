@@ -6,7 +6,8 @@
 //! never stored. A rule may name a [`BenchmarkSetDefinition`]
 //! (`MasterKey::BenchmarkSet`) by id, so an on-the-run roll is one commit to the set and
 //! the version a valuation read is recorded with its result. A bond with no rule is
-//! quoted by price.
+//! quoted by price. A rule may carry a two-way width in the unit it quotes, which a
+//! request reads with the rule ([`RequestPricingRule`]) and a snapshot's pin leaves out.
 //!
 //! These are types, bounds and validation only. Turning a level into a price is the
 //! engine's level stage, through the pure crates.
@@ -22,6 +23,7 @@ use std::collections::BTreeSet;
 
 use convex_core::contracts::{InstrumentId, ReferenceDataId, UtcTimestamp, Version};
 use convex_core::futures::InstrumentPin;
+use convex_core::types::{QuoteBasis, QuoteWidthError, WidthSchedule};
 use convex_core::Currency;
 use serde::{Deserialize, Serialize};
 
@@ -97,6 +99,15 @@ impl PricingMethod {
         self.is_level() || names_benchmark_set
     }
 
+    /// What a bond quoted this way is quoted in: a price, a yield or a spread.
+    pub fn quote_basis(&self) -> QuoteBasis {
+        match self {
+            Self::Price {} => QuoteBasis::Price,
+            Self::Yield {} => QuoteBasis::Yield,
+            Self::BenchmarkSpread { .. } | Self::ZSpread {} => QuoteBasis::Spread,
+        }
+    }
+
     /// Whether pricing a level this way reads the configuration's discount curve.
     pub fn reads_discount_curve(&self) -> bool {
         matches!(self, Self::ZSpread {})
@@ -130,6 +141,12 @@ pub struct PricingRuleDefinition {
     /// Named by id: the version in force at a valuation's cutoff is read and recorded.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub benchmark_set_id: Option<ReferenceDataId>,
+    /// The two-way width by trade size, in the unit the method quotes: price points or
+    /// 32nds for a price, basis points for a yield or a spread. Applied at request time
+    /// to a bond quoted in that unit; with none, a bond quoted by price takes the
+    /// configuration's percent-of-price width and a level-quoted bond is quoted mid only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<WidthSchedule>,
     /// Validity; a bounded end retires the rule, and the bond is quoted by price again
     /// ([`NewestStarted`](crate::reference_master::VersionSelection::NewestStarted)).
     pub effective: EffectiveInterval,
@@ -146,9 +163,25 @@ impl PricingRuleDefinition {
     }
 
     /// Validate the rule on its own: a benchmark spread names its set and a well-formed
-    /// tenor. Whether the bond takes the method is checked against the stored bond.
+    /// tenor, and a width is a valid schedule in a unit the method quotes. Whether the
+    /// bond takes the method and the width is checked against the stored bond.
     pub fn validate(&self) -> Result<(), ReferenceError> {
-        self.method.validate(self.benchmark_set_id.as_ref())
+        self.method.validate(self.benchmark_set_id.as_ref())?;
+        if let Some(width) = &self.width {
+            width.validate().map_err(width_refused)?;
+            if !width.unit.quotes(self.method.quote_basis()) {
+                return Err(width_refused(QuoteWidthError::UnitMismatch));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// A width schedule refused: too many buckets is a capacity, anything else invalid.
+fn width_refused(error: QuoteWidthError) -> ReferenceError {
+    match error {
+        QuoteWidthError::TooManyBuckets => ReferenceError::CapacityExceeded,
+        error => invalid(error.reason()),
     }
 }
 
@@ -242,15 +275,42 @@ impl TryFrom<&MasterRecord> for ResolvedPricingRule {
     type Error = ReferenceError;
     /// What pricing reads of a stored rule record.
     fn try_from(record: &MasterRecord) -> Result<Self, Self::Error> {
-        let MasterDefinition::PricingRule(rule) = &record.definition else {
-            return Err(invalid("a resolved pricing rule is a pricing rule"));
-        };
+        let rule = rule_definition(record)?;
         Ok(Self {
             version: record.version,
             recorded_at: record.recorded_at,
             method: rule.method.clone(),
             benchmark_set_id: rule.benchmark_set_id.clone(),
         })
+    }
+}
+
+/// A stored rule version as a request reads it: the pin a snapshot holds, and the width
+/// the pin leaves out, since Live publishes mid measures only and the version names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequestPricingRule {
+    /// The rule's pin: its version, method and set.
+    pub pin: ResolvedPricingRule,
+    /// Its two-way width at that version.
+    pub width: Option<WidthSchedule>,
+}
+
+impl TryFrom<&MasterRecord> for RequestPricingRule {
+    type Error = ReferenceError;
+    /// What a request reads of a stored rule record.
+    fn try_from(record: &MasterRecord) -> Result<Self, Self::Error> {
+        Ok(Self {
+            pin: ResolvedPricingRule::try_from(record)?,
+            width: rule_definition(record)?.width.clone(),
+        })
+    }
+}
+
+/// The rule a stored record holds.
+fn rule_definition(record: &MasterRecord) -> Result<&PricingRuleDefinition, ReferenceError> {
+    match &record.definition {
+        MasterDefinition::PricingRule(rule) => Ok(rule),
+        _ => Err(invalid("a resolved pricing rule is a pricing rule")),
     }
 }
 
@@ -358,6 +418,9 @@ pub(crate) fn validate_level_pricing_links(
                             "only a fixed bullet is quoted by a level or against a benchmark set",
                         ));
                     }
+                    if rule.width.is_some() && !is_quoted_two_way(&bond) {
+                        return Err(invalid(WIDTH_NEEDS_TWO_WAY));
+                    }
                 }
                 if let Some(set) = &rule.benchmark_set_id {
                     ensure_master_exists(commit, &MasterKey::BenchmarkSet(set.clone()), master)?;
@@ -388,6 +451,18 @@ pub(crate) fn validate_level_pricing_links(
 pub fn is_plain_bullet(bond: &BondReferenceData) -> bool {
     bond.bond_type == BondType::FixedBullet && !bond.has_embedded_terms()
 }
+
+/// A fixed bullet or a zero with no embedded terms: what the pricing router values and
+/// quotes two-way, so what a rule's width applies to. Callables and floating rate notes
+/// are quoted mid only.
+pub fn is_quoted_two_way(bond: &BondReferenceData) -> bool {
+    matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon)
+        && !bond.has_embedded_terms()
+}
+
+/// Why a rule's width is refused for a bond: only a bond quoted two-way takes one.
+pub const WIDTH_NEEDS_TWO_WAY: &str =
+    "a width applies only to a fixed bullet or a zero, the bonds quoted two-way";
 
 /// A security a benchmark set may hold: a sovereign's plain bullet in the set's currency.
 fn is_benchmark_bond(bond: &BondReferenceData, currency: Currency) -> bool {

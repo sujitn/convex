@@ -15,6 +15,7 @@ use convex_analytics::risk::{Duration as AnalyticsDuration, KeyRateDuration, Key
 use convex_bonds::types::BondIdentifiers;
 use convex_core::Currency;
 use convex_core::Date;
+use convex_engine::level_pricing::BidAsk;
 use convex_engine::{Portfolio, Position, PricingEngine};
 
 use crate::level_pricing::{optional_quoted_input, pricing_rule_json, with_pricing_rule_headers};
@@ -474,11 +475,15 @@ pub async fn get_bond_quote(
         .await?;
         return with_pricing_rule_headers(response, mark.in_force.as_ref());
     }
+    let rule = state
+        .engine
+        .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule)
+        .await?;
     let staged = staged_input(
         &state.engine,
         &mut context,
         bond,
-        reference.pricing_rule,
+        rule,
         Some(quoted),
         settlement_date,
     )
@@ -512,13 +517,14 @@ struct StagedInput {
 
 /// Stage a bullet or zero under `context` for every route: read `rule` and its set, then
 /// the bond's curves, then price `quoted` under the rule. Without a mark nothing is read
-/// and the router values the bond as it was. The configuration's percent-of-price width
-/// is not taken by a bond quoted by a level.
+/// and the router values the bond as it was. The rule's width, when it applies, gives the
+/// router each side's clean price; the configuration's percent-of-price width is taken
+/// only by a bond quoted by price whose rule sets no width.
 async fn staged_input(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
     bond: BondReferenceData,
-    rule: Option<convex_engine::ports::level_pricing::ResolvedPricingRule>,
+    rule: Option<convex_engine::ports::level_pricing::RequestPricingRule>,
     quoted: Option<convex_engine::level_pricing::QuotedInput>,
     settlement_date: Date,
 ) -> Result<StagedInput, crate::error::ApiError> {
@@ -545,13 +551,13 @@ async fn staged_input(
         .zip(pricing.as_ref())
         .map(|(in_force, (quoted, pricing))| pricing_rule_json(in_force, *quoted, pricing));
     let pricing = pricing.map(|(_, pricing)| pricing);
-    let (market_price_mid, government_curve, width_applies) = match pricing {
+    let (market_price_mid, government_curve, bid_ask) = match pricing {
         Some(pricing) => (
             Some(pricing.clean_price_mid),
             pricing.government_curve,
-            pricing.price_width_applies,
+            pricing.bid_ask,
         ),
-        None => (None, None, true),
+        None => (None, None, BidAsk::ConfigurationWidth),
     };
     let mut input = convex_engine::pricing_router::PricingInput::with_mid_price(
         bond,
@@ -562,9 +568,7 @@ async fn staged_input(
         government_curve,
         None,
     );
-    if width_applies {
-        input.bid_ask_config = context.config().bid_ask_spread.clone();
-    }
+    bid_ask.apply(&mut input, context.config().bid_ask_spread.as_ref());
     Ok(StagedInput {
         input,
         in_force,
@@ -940,9 +944,10 @@ async fn runtime_mark(
             clean_price_mid: None,
         });
     };
-    let in_force = engine
-        .rule_in_force(context, reference.pricing_rule)
+    let rule = engine
+        .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule)
         .await?;
+    let in_force = engine.rule_in_force(context, rule).await?;
     let pricing = engine.price_in_force(bond, in_force.as_ref(), quoted, settlement_date, None)?;
     Ok(RuntimeMark {
         record: reference.record,

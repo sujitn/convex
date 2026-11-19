@@ -2,13 +2,14 @@
 //!
 //! Transport only: the engine's level stage prices the level. This module maps a request
 //! to the stage's input, and reports what the stage read: the rule and set versions, the
-//! benchmark securities' Live prices, and the benchmark a spread was quoted to. A report
+//! benchmark securities' Live prices, the benchmark a spread was quoted to, and the
+//! rule's width with each side's level when it applies. A report
 //! names each benchmark's `instrument_id`, so the access layer requires the caller's
 //! entitlement to it, as to the bond.
 
 use axum::response::Response;
 use convex_engine::level_pricing::{
-    LevelError, PricingRuleInForce, QuotedInput, RulePricing, LEVEL_PRICE_MODEL,
+    BidAsk, LevelError, PricingRuleInForce, QuotedInput, RulePricing, LEVEL_PRICE_MODEL,
 };
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
@@ -80,6 +81,14 @@ pub(crate) fn pricing_rule_json(
     }
     if let Some(reason) = pricing.g_spread_refused {
         body["g_spread_refused"] = json!(reason);
+    }
+    if let BidAsk::RuleWidth(two_way) = &pricing.bid_ask {
+        body["two_way"] = json!({
+            "unit": two_way.width.unit(),
+            "width": two_way.width.value(),
+            "bid": two_way.bid_level,
+            "ask": two_way.ask_level,
+        });
     }
     body
 }
