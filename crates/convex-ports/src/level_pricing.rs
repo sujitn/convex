@@ -168,20 +168,12 @@ impl PricingRuleDefinition {
     pub fn validate(&self) -> Result<(), ReferenceError> {
         self.method.validate(self.benchmark_set_id.as_ref())?;
         if let Some(width) = &self.width {
-            width.validate().map_err(width_refused)?;
+            width.validate().map_err(|error| invalid(error.reason()))?;
             if !width.unit.quotes(self.method.quote_basis()) {
-                return Err(width_refused(QuoteWidthError::UnitMismatch));
+                return Err(invalid(QuoteWidthError::UnitMismatch.reason()));
             }
         }
         Ok(())
-    }
-}
-
-/// A width schedule refused: too many buckets is a capacity, anything else invalid.
-fn width_refused(error: QuoteWidthError) -> ReferenceError {
-    match error {
-        QuoteWidthError::TooManyBuckets => ReferenceError::CapacityExceeded,
-        error => invalid(error.reason()),
     }
 }
 
@@ -237,7 +229,7 @@ fn validate_securities(securities: &[BenchmarkSecurity]) -> Result<(), Reference
         return Err(invalid("a benchmark set holds at least one security"));
     }
     if securities.len() > MAX_BENCHMARK_SECURITIES {
-        return Err(ReferenceError::CapacityExceeded);
+        return Err(invalid("a benchmark set holds at most 32 securities"));
     }
     let mut tenors = BTreeSet::new();
     let mut instruments = BTreeSet::new();

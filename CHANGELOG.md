@@ -364,8 +364,9 @@ the changes that matter when you upgrade.
 - **Breaking:** `PricingRuleDefinition` gains `width` (`Option<WidthSchedule>`), so a
   struct literal needs the new field; stored rules read as before. `validate` checks the
   schedule and that its unit quotes the method (`PricingMethod::quote_basis`); more than
-  16 buckets is `CapacityExceeded`. A commit refuses a width for a bond that is not
-  quoted two-way (`is_quoted_two_way`, `WIDTH_NEEDS_TWO_WAY`). The pin a snapshot holds,
+  16 buckets, like more than 32 securities in a benchmark set, is `InvalidInput` (400
+  over HTTP). A commit refuses a width for a bond that is not quoted two-way
+  (`is_quoted_two_way`, `WIDTH_NEEDS_TWO_WAY`). The pin a snapshot holds,
   `ResolvedPricingRule`, does not carry it; a request reads it with the pin as a
   `RequestPricingRule`, through `ReferenceRepository::pricing_rule_for_request` (in
   force at a lookup) or `pinned_pricing_rule_for_request` (at a pin's version), both

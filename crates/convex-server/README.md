@@ -479,8 +479,8 @@ refused with 400 if:
 - a set holds anything but a government fixed bullet in its currency;
 - a set is not in USD: spreads are quoted against Treasuries only.
 
-A set of more than 32 securities, or a width of more than 16 buckets, is refused as over
-capacity: 503 `UNAVAILABLE`.
+A set of more than 32 securities, or a width of more than 16 buckets, is refused with 400
+`INVALID_INPUT`.
 
 A rule or set is ended by committing a version with `effective.until` through the same
 routes; the end may be later than the commit. After it, the version before does not come
