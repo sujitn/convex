@@ -9,8 +9,12 @@
 #     Post a synthetic indicative mid for INSTRUMENT once a second, for ever.
 set -eu
 
-# The current UTC instant at millisecond precision.
-stamp() { date -u +%Y-%m-%dT%H:%M:%S.%3NZ; }
+# The current UTC instant at millisecond precision. The milliseconds are cut from %N,
+# since uutils date (Ubuntu 26.04's) drops the leading zeros of %3N.
+stamp() { printf '%.23sZ\n' "$(date -u +%Y-%m-%dT%H:%M:%S.%N)"; }
+
+# The current Unix time in milliseconds.
+millis() { echo $(($(date +%s%N) / 1000000)); }
 
 # One canonical showcase-feed mid image: INSTRUMENT SESSION SEQUENCE MILLIS MID.
 image() {
@@ -63,7 +67,7 @@ EOF
 	printf '%s\n' "$report" >"$work/document.json"
 
 	# The mid market-quote model prices the clean mid at the quoted mid: an exact fixture.
-	event=$(image "$instrument" showcase-fixture 1 "$(date +%s%3N)" 99.5)
+	event=$(image "$instrument" showcase-fixture 1 "$(millis)" 99.5)
 	printf '%s\n' "$event" >"$work/fixture-events.jsonl"
 	at=$(stamp)
 	cat >"$work/fixtures.json" <<EOF
@@ -95,7 +99,7 @@ feed() {
 			srand(s); m += (rand() - 0.5) * 0.04
 			if (m < 98) m = 98; if (m > 101) m = 101
 			printf "%.4f", m }')
-		body="{\"events\":[$(image "$instrument" "$session" "$sequence" "$(date +%s%3N)" "$mid")]}"
+		body="{\"events\":[$(image "$instrument" "$session" "$sequence" "$(millis)" "$mid")]}"
 		curl -fsS -o /dev/null -H 'content-type: application/json' --data-binary "$body" "$url" ||
 			echo "showcase feed: quote post failed" >&2
 		sleep 1
