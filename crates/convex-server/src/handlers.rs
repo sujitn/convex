@@ -475,11 +475,15 @@ pub async fn get_bond_quote(
         .await?;
         return with_pricing_rule_headers(response, mark.in_force.as_ref());
     }
+    let rule = state
+        .engine
+        .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule)
+        .await?;
     let staged = staged_input(
         &state.engine,
         &mut context,
         bond,
-        reference.pricing_rule,
+        rule,
         Some(quoted),
         settlement_date,
     )
@@ -520,16 +524,12 @@ async fn staged_input(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
     bond: BondReferenceData,
-    rule: Option<convex_engine::ports::level_pricing::ResolvedPricingRule>,
+    rule: Option<convex_engine::ports::level_pricing::RequestPricingRule>,
     quoted: Option<convex_engine::level_pricing::QuotedInput>,
     settlement_date: Date,
 ) -> Result<StagedInput, crate::error::ApiError> {
     let in_force = match quoted {
-        Some(_) => {
-            engine
-                .rule_in_force(context, &bond.instrument_id, rule)
-                .await?
-        }
+        Some(_) => engine.rule_in_force(context, rule).await?,
         None => None,
     };
     let curves = context.curves_for(&bond).await?;
@@ -568,16 +568,7 @@ async fn staged_input(
         government_curve,
         None,
     );
-    match bid_ask {
-        BidAsk::ConfigurationWidth => {
-            input.bid_ask_config = context.config().bid_ask_spread.clone();
-        }
-        BidAsk::RuleWidth(two_way) => {
-            input.market_price_bid = Some(two_way.clean_price_bid);
-            input.market_price_ask = Some(two_way.clean_price_ask);
-        }
-        BidAsk::MidOnly => {}
-    }
+    bid_ask.apply(&mut input, context.config().bid_ask_spread.as_ref());
     Ok(StagedInput {
         input,
         in_force,
@@ -953,9 +944,10 @@ async fn runtime_mark(
             clean_price_mid: None,
         });
     };
-    let in_force = engine
-        .rule_in_force(context, &bond.instrument_id, reference.pricing_rule)
+    let rule = engine
+        .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule)
         .await?;
+    let in_force = engine.rule_in_force(context, rule).await?;
     let pricing = engine.price_in_force(bond, in_force.as_ref(), quoted, settlement_date, None)?;
     Ok(RuntimeMark {
         record: reference.record,

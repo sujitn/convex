@@ -48,8 +48,9 @@ use crate::ports::{
     reference_master::ResolvedBondReference,
     runtime::PublishedValuation,
     snapshot::MarketSnapshot,
+    storage::BidAskSpreadConfig,
 };
-use crate::pricing_router::PricingRouter;
+use crate::pricing_router::{PricingInput, PricingRouter};
 use crate::runtime::accepted;
 
 /// Why a rule that quotes a level or names a benchmark set does not price a bond.
@@ -260,6 +261,21 @@ pub enum BidAsk {
     RuleWidth(TwoWay),
     /// No two-way: a level-quoted bond whose rule sets no width, or one sent a price.
     MidOnly,
+}
+
+impl BidAsk {
+    /// Give the router's `input` this two-way: the rule's sides as its bid and ask
+    /// prices, or `configured`, the configuration's percent-of-price width.
+    pub fn apply(self, input: &mut PricingInput, configured: Option<&BidAskSpreadConfig>) {
+        match self {
+            Self::ConfigurationWidth => input.bid_ask_config = configured.cloned(),
+            Self::RuleWidth(two_way) => {
+                input.market_price_bid = Some(two_way.clean_price_bid);
+                input.market_price_ask = Some(two_way.clean_price_ask);
+            }
+            Self::MidOnly => {}
+        }
+    }
 }
 
 /// A two-way at a rule's width: each side's level in the rule's unit (a clean price, a
@@ -525,37 +541,46 @@ fn price_with_rule(
     if width.is_some() && !is_quoted_two_way(bond) {
         return Err(refused(WIDTH_NEEDS_TWO_WAY));
     }
-    let applied = match width {
-        Some(schedule) if matches!(input, QuotedInput::Level(_)) == method.is_level() => {
-            Some(schedule.width_for(None).map_err(width_refused)?)
-        }
-        _ => None,
-    };
+    // A request carries no trade size, so it takes the first bucket.
+    let width = width
+        .map(|schedule| schedule.width_for(None))
+        .transpose()
+        .map_err(width_refused)?;
     let benchmarks = match benchmarks {
         Some(set) => Some(price_benchmarks(set, settlement, yields)?),
         None => None,
     };
-    let (clean_price_mid, benchmark, two_way) = match input {
+    let (clean_price_mid, benchmark, bid_ask) = match input {
+        QuotedInput::Price(price) if method.is_level() => (price, None, BidAsk::MidOnly),
         QuotedInput::Price(price) => {
-            let two_way = applied
-                .map(|width| price_two_way(width, price))
-                .transpose()?;
-            (price, None, two_way)
+            let bid_ask = match width {
+                Some(width) => {
+                    let mid = Mark::Price {
+                        value: price,
+                        kind: PriceKind::Clean,
+                    };
+                    BidAsk::RuleWidth(two_way_at(width, &mid, |side| Ok(side.level()))?)
+                }
+                None => BidAsk::ConfigurationWidth,
+            };
+            (price, None, bid_ask)
         }
-        QuotedInput::Level(level) => level_to_clean_price(
-            bond,
-            method,
-            level,
-            applied,
-            settlement,
-            discount,
-            benchmarks.as_deref(),
-        )?,
-    };
-    let bid_ask = match two_way {
-        Some(two_way) => BidAsk::RuleWidth(two_way),
-        None if width.is_none() && !method.is_level() => BidAsk::ConfigurationWidth,
-        None => BidAsk::MidOnly,
+        QuotedInput::Level(level) => {
+            let (clean, benchmark, two_way) = level_to_clean_price(
+                bond,
+                method,
+                level,
+                width,
+                settlement,
+                discount,
+                benchmarks.as_deref(),
+            )?;
+            (
+                clean,
+                benchmark,
+                two_way.map_or(BidAsk::MidOnly, BidAsk::RuleWidth),
+            )
+        }
     };
     let (government_curve, g_spread_refused) = match benchmarks {
         Some(all)
@@ -588,21 +613,19 @@ fn price_with_rule(
     })
 }
 
-/// A clean price's two-way at `width`, in price points or 32nds.
-fn price_two_way(width: QuoteWidth, clean_price_mid: Decimal) -> Result<TwoWay, LevelError> {
-    let sides = width
-        .two_way(&Mark::Price {
-            value: clean_price_mid,
-            kind: PriceKind::Clean,
-        })
-        .map_err(width_refused)?;
-    let (bid, ask) = (sides.bid.level(), sides.ask.level());
+/// The two-way `width` gives around `mid`, each side's clean price from `clean_price`.
+fn two_way_at(
+    width: QuoteWidth,
+    mid: &Mark,
+    clean_price: impl Fn(&Mark) -> Result<Decimal, LevelError>,
+) -> Result<TwoWay, LevelError> {
+    let sides = width.two_way(mid).map_err(width_refused)?;
     Ok(TwoWay {
         width,
-        bid_level: bid,
-        ask_level: ask,
-        clean_price_bid: bid,
-        clean_price_ask: ask,
+        bid_level: sides.bid.level(),
+        ask_level: sides.ask.level(),
+        clean_price_bid: clean_price(&sides.bid)?,
+        clean_price_ask: clean_price(&sides.ask)?,
     })
 }
 
@@ -705,16 +728,7 @@ fn level_to_clean_price(
     };
     let clean = clean_price(&mark)?;
     let two_way = width
-        .map(|width| -> Result<TwoWay, LevelError> {
-            let sides = width.two_way(&mark).map_err(width_refused)?;
-            Ok(TwoWay {
-                width,
-                bid_level: sides.bid.level(),
-                ask_level: sides.ask.level(),
-                clean_price_bid: clean_price(&sides.bid)?,
-                clean_price_ask: clean_price(&sides.ask)?,
-            })
-        })
+        .map(|width| two_way_at(width, &mark, &clean_price))
         .transpose()?;
     Ok((clean, benchmark, two_way))
 }

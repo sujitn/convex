@@ -611,10 +611,11 @@ async fn a_rule_width_quotes_the_two_way_in_the_rules_unit() {
         (number(&treasury["clean_price_bid"]) - 98.25 * (1.0 - 0.0002)).abs() < 1e-9,
         "{treasury}"
     );
-    let basis_points = |small: &str, large: &str| {
+    // The first bucket's width; the larger trades' is never quoted without a size.
+    let basis_points = |first: &str| {
         json!({"unit": "basis_points", "buckets": [
-            {"max_face": "1000000", "width": small},
-            {"width": large},
+            {"max_face": "1000000", "width": first},
+            {"width": "9"},
         ]})
     };
 
@@ -629,7 +630,7 @@ async fn a_rule_width_quotes_the_two_way_in_the_rules_unit() {
                     json!({"kind": "benchmark_spread", "tenor": "10Y"}),
                     Some("UST-OTR"),
                 ),
-                basis_points("4", "6"),
+                basis_points("4"),
             ),
             Some(1),
         )],
@@ -658,6 +659,13 @@ async fn a_rule_width_quotes_the_two_way_in_the_rules_unit() {
     let [bid, mid, ask] = ["clean_price_bid", "clean_price_mid", "clean_price_ask"]
         .map(|field| number(&spread[field]));
     assert!(bid < mid && mid < ask, "{spread}");
+    // Its inline terms, equal to the stored ones, read the rule's width with the rule.
+    let posted = json!({"bond": stored_terms(&setup, "BOND-001").await,
+        "settlement_date": SETTLEMENT, "known_at": cutoff, "level": 125});
+    let (status, posted) = call(&app, "POST", "/api/v1/quote", Some(posted)).await;
+    assert_eq!(status, StatusCode::OK, "{posted}");
+    assert_eq!(posted["pricing_rule"]["two_way"], *two_way);
+    assert_eq!(posted["clean_price_bid"], spread["clean_price_bid"]);
 
     // A price sent for it is quoted mid only: there is no level to widen.
     let clean = spread["clean_price_mid"].to_string().replace('"', "");
@@ -673,47 +681,52 @@ async fn a_rule_width_quotes_the_two_way_in_the_rules_unit() {
     assert!(back["pricing_rule"].get("two_way").is_none(), "{back}");
 
     // A yield 3 bp wide, and a Z-spread 10 bp wide.
-    commit(
-        &setup,
-        "width-yield",
-        "2025-06-03T00:00:00Z",
-        vec![master(
-            with_width(
-                pricing_rule("BOND-001", json!({"kind": "yield"}), None),
-                basis_points("3", "5"),
-            ),
-            Some(2),
-        )],
-    )
-    .await;
-    let (status, by_yield) = call(&app, "GET", &quote("BOND-001", "level=0.0612"), None).await;
-    assert_eq!(status, StatusCode::OK, "{by_yield}");
-    for (field, expected) in [("ytm_bid", 0.06135), ("ytm_ask", 0.06105)] {
-        assert!(
-            (number(&by_yield[field]) - expected).abs() < 1e-10,
-            "{field}: {by_yield}"
-        );
-    }
-    commit(
-        &setup,
-        "width-z",
-        "2025-06-04T00:00:00Z",
-        vec![master(
-            with_width(
-                pricing_rule("BOND-001", json!({"kind": "z_spread"}), None),
-                basis_points("10", "12"),
-            ),
-            Some(3),
-        )],
-    )
-    .await;
-    let (status, by_z) = call(&app, "GET", &quote("BOND-001", "level=150"), None).await;
-    assert_eq!(status, StatusCode::OK, "{by_z}");
-    for (field, expected) in [("z_spread_bid", 155.0), ("z_spread_ask", 145.0)] {
-        assert!(
-            (number(&by_z[field]) - expected).abs() < 1e-6,
-            "{field}: {by_z}"
-        );
+    let levels = [
+        (
+            "yield",
+            "3",
+            "0.0612",
+            ["ytm_bid", "ytm_ask"],
+            [0.06135, 0.06105],
+            1e-10,
+        ),
+        (
+            "z_spread",
+            "10",
+            "150",
+            ["z_spread_bid", "z_spread_ask"],
+            [155.0, 145.0],
+            1e-6,
+        ),
+    ];
+    for (version, (kind, width, level, fields, expected, tolerance)) in (2..).zip(levels) {
+        commit(
+            &setup,
+            &format!("width-{kind}"),
+            &format!("2025-06-0{}T00:00:00Z", version + 1),
+            vec![master(
+                with_width(
+                    pricing_rule("BOND-001", json!({"kind": kind}), None),
+                    basis_points(width),
+                ),
+                Some(version),
+            )],
+        )
+        .await;
+        let (status, body) = call(
+            &app,
+            "GET",
+            &quote("BOND-001", &format!("level={level}")),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        for (field, expected) in fields.into_iter().zip(expected) {
+            assert!(
+                (number(&body[field]) - expected).abs() < tolerance,
+                "{field}: {body}"
+            );
+        }
     }
 
     // The 10-year quoted by price, one 32nd wide: 98-08 bid at 98-07+, offered at 98-08+.

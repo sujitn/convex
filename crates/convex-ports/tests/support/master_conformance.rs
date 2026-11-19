@@ -1521,12 +1521,10 @@ pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
 
     // A width is in a unit the method quotes, with at most 16 buckets.
     let width = |unit: &str, buckets: usize| -> WidthSchedule {
-        let mut buckets: Vec<_> = (1..=buckets)
+        let buckets: Vec<_> = (1..buckets)
             .map(|n| json!({"max_face": format!("{n}000000"), "width": "1"}))
+            .chain([json!({"width": "1"})])
             .collect();
-        if let Some(last) = buckets.last_mut() {
-            last.as_object_mut().unwrap().remove("max_face");
-        }
         serde_json::from_value(json!({"unit": unit, "buckets": buckets})).unwrap()
     };
     let with_width = |mut change: MasterChange, schedule: WidthSchedule| {

@@ -274,15 +274,42 @@ impl TryFrom<&MasterRecord> for ResolvedPricingRule {
     type Error = ReferenceError;
     /// What pricing reads of a stored rule record.
     fn try_from(record: &MasterRecord) -> Result<Self, Self::Error> {
-        let MasterDefinition::PricingRule(rule) = &record.definition else {
-            return Err(invalid("a resolved pricing rule is a pricing rule"));
-        };
+        let rule = rule_definition(record)?;
         Ok(Self {
             version: record.version,
             recorded_at: record.recorded_at,
             method: rule.method.clone(),
             benchmark_set_id: rule.benchmark_set_id.clone(),
         })
+    }
+}
+
+/// A stored rule version as a request reads it: the pin a snapshot holds, and the width
+/// the pin leaves out, since Live publishes mid measures only and the version names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequestPricingRule {
+    /// The rule's pin: its version, method and set.
+    pub pin: ResolvedPricingRule,
+    /// Its two-way width at that version.
+    pub width: Option<WidthSchedule>,
+}
+
+impl TryFrom<&MasterRecord> for RequestPricingRule {
+    type Error = ReferenceError;
+    /// What a request reads of a stored rule record.
+    fn try_from(record: &MasterRecord) -> Result<Self, Self::Error> {
+        Ok(Self {
+            pin: ResolvedPricingRule::try_from(record)?,
+            width: rule_definition(record)?.width.clone(),
+        })
+    }
+}
+
+/// The rule a stored record holds.
+fn rule_definition(record: &MasterRecord) -> Result<&PricingRuleDefinition, ReferenceError> {
+    match &record.definition {
+        MasterDefinition::PricingRule(rule) => Ok(rule),
+        _ => Err(invalid("a resolved pricing rule is a pricing rule")),
     }
 }
 
@@ -424,8 +451,9 @@ pub fn is_plain_bullet(bond: &BondReferenceData) -> bool {
     bond.bond_type == BondType::FixedBullet && !bond.has_embedded_terms()
 }
 
-/// A fixed bullet or a zero with no embedded terms: what a request quotes two-way, so
-/// what a rule's width applies to. Callables and floating rate notes are quoted mid only.
+/// A fixed bullet or a zero with no embedded terms: what the pricing router values and
+/// quotes two-way, so what a rule's width applies to. Callables and floating rate notes
+/// are quoted mid only.
 pub fn is_quoted_two_way(bond: &BondReferenceData) -> bool {
     matches!(bond.bond_type, BondType::FixedBullet | BondType::ZeroCoupon)
         && !bond.has_embedded_terms()

@@ -282,7 +282,7 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
 
     // A callable's rule can quote it only by price; its quote reports the rule as a
     // bullet's does, in the body and the headers.
-    let rule: convex_ports::reference_master::MasterChange = serde_json::from_value(json!({
+    let rule_wire = json!({
         "expected_version": null,
         "definition": {"kind": "pricing_rule", "definition": {
             "instrument_id": "CALL-001",
@@ -290,23 +290,19 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
             "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
             "provenance": {"source": "desk", "evidence_reference": "request-time-products"},
         }},
-    }))
-    .unwrap();
+    });
     // It is quoted mid only, so its rule takes no width.
-    let mut with_width = rule.clone();
-    if let convex_ports::reference_master::MasterDefinition::PricingRule(definition) =
-        &mut with_width.definition
-    {
-        definition.width = Some(
-            serde_json::from_value(json!({"unit": "price_points", "buckets": [{"width": "0.25"}]}))
-                .unwrap(),
-        );
-    }
-    let commit_rule = |key: &str, rule| ReferenceCommand {
-        idempotency_key: RequestId::new(key).unwrap(),
-        changes: vec![],
-        master_changes: vec![rule],
-    };
+    let mut with_width = rule_wire.clone();
+    with_width["definition"]["definition"]["width"] =
+        json!({"unit": "price_points", "buckets": [{"width": "0.25"}]});
+    let with_width = serde_json::from_value(with_width).unwrap();
+    let rule = serde_json::from_value(rule_wire).unwrap();
+    let commit_rule =
+        |key: &str, rule: convex_ports::reference_master::MasterChange| ReferenceCommand {
+            idempotency_key: RequestId::new(key).unwrap(),
+            changes: vec![],
+            master_changes: vec![rule],
+        };
     assert_eq!(
         setup
             .storage
