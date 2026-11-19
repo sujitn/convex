@@ -265,17 +265,22 @@ pub enum BidAsk {
 }
 
 impl BidAsk {
-    /// Give the router's `input` this two-way: the rule's sides as its bid and ask
-    /// prices, or `configured`, the configuration's percent-of-price width.
+    /// Give the router's `input` this two-way, and only it: the rule's sides as its bid
+    /// and ask prices, `configured` (the configuration's percent-of-price width), or
+    /// neither. Any bid, ask or width the input held is replaced.
     pub fn apply(self, input: &mut PricingInput, configured: Option<&BidAskSpreadConfig>) {
-        match self {
-            Self::ConfigurationWidth => input.bid_ask_config = configured.cloned(),
-            Self::RuleWidth(two_way) => {
-                input.market_price_bid = Some(two_way.clean_price_bid);
-                input.market_price_ask = Some(two_way.clean_price_ask);
-            }
-            Self::MidOnly => {}
-        }
+        let (bid, ask, width) = match self {
+            Self::ConfigurationWidth => (None, None, configured.cloned()),
+            Self::RuleWidth(two_way) => (
+                Some(two_way.clean_price_bid),
+                Some(two_way.clean_price_ask),
+                None,
+            ),
+            Self::MidOnly => (None, None, None),
+        };
+        input.market_price_bid = bid;
+        input.market_price_ask = ask;
+        input.bid_ask_config = width;
     }
 }
 

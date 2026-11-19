@@ -179,3 +179,66 @@ fn a_rule_width_widens_what_the_rule_quotes() {
         Some(convex_engine::ports::level_pricing::WIDTH_NEEDS_TWO_WAY.to_owned())
     );
 }
+
+/// Each two-way replaces whatever bid, ask or width the router's input held, so a rule's
+/// sides are never overridden by a configured width, nor stale sides kept.
+#[test]
+fn a_two_way_replaces_the_inputs_bid_ask() {
+    use convex_core::types::{QuoteWidth, WidthUnit};
+    use convex_engine::level_pricing::{BidAsk, TwoWay};
+    use convex_engine::ports::storage::BidAskSpreadConfig;
+    let settlement = Date::parse(SETTLEMENT).unwrap();
+    let held = || {
+        let mut input = PricingInput::with_mid_price(
+            corporate("CORP", "2030-01-15", "0.05375"),
+            settlement,
+            Some(dec!(98)),
+            None,
+            None,
+            None,
+            None,
+        );
+        input.market_price_bid = Some(dec!(90));
+        input.market_price_ask = Some(dec!(110));
+        input.bid_ask_config = Some(BidAskSpreadConfig {
+            prefer_market_spread: false,
+            ..BidAskSpreadConfig::symmetric(50.0)
+        });
+        input
+    };
+    let configured = BidAskSpreadConfig::symmetric(2.0);
+    let two_way = TwoWay {
+        width: QuoteWidth::new(WidthUnit::PricePoints, dec!(1)).unwrap(),
+        bid_level: dec!(97.5),
+        ask_level: dec!(98.5),
+        clean_price_bid: dec!(97.5),
+        clean_price_ask: dec!(98.5),
+    };
+    for (bid_ask, bid, ask, width) in [
+        (
+            BidAsk::RuleWidth(two_way),
+            Some(dec!(97.5)),
+            Some(dec!(98.5)),
+            None,
+        ),
+        (
+            BidAsk::ConfigurationWidth,
+            None,
+            None,
+            Some(configured.clone()),
+        ),
+        (BidAsk::MidOnly, None, None, None),
+    ] {
+        let mut input = held();
+        bid_ask.apply(&mut input, Some(&configured));
+        assert_eq!(
+            (
+                input.market_price_bid,
+                input.market_price_ask,
+                input.bid_ask_config
+            ),
+            (bid, ask, width),
+            "{bid_ask:?}"
+        );
+    }
+}
