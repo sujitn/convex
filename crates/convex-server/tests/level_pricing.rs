@@ -1256,11 +1256,10 @@ async fn inline_terms_equal_to_the_stored_ones_are_priced_under_the_stored_rule(
 
 /// Measurement: `/batch/price` of 1,000 inline bonds with no rule, and `GET /quotes` of
 /// one bond by price and by level, the medians of 20 rounds. Under a rule the batch is
-/// also timed by level and by price.
+/// also timed by level and by price, and by level again once the rule has a width.
 #[tokio::test]
 #[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
 async fn request_time_pricing_time_at_the_batch_bound() {
-    const ROUNDS: usize = 20;
     let (setup, engine, cutoff) = desk().await;
     let app = router(engine);
     let treasury = stored_terms(&setup, "UST-10Y").await;
@@ -1270,37 +1269,99 @@ async fn request_time_pricing_time_at_the_batch_bound() {
         item.as_object_mut()
             .unwrap()
             .extend(mark.as_object().unwrap().clone());
-        json!({"bonds": vec![item; 1000], "settlement_date": SETTLEMENT, "known_at": cutoff})
+        Some(json!({"bonds": vec![item; 1000], "settlement_date": SETTLEMENT, "known_at": cutoff}))
     };
+    let get = |id: &str, mark: &str| {
+        format!("/api/v1/quotes/{id}?{mark}&known_at={cutoff}&settlement_date={SETTLEMENT}")
+    };
+    let batch_uri = "/api/v1/batch/price".to_owned();
     let cases = [
-        ("batch, no rule, by price", "POST", "/api/v1/batch/price".to_owned(),
-            Some(batch(&treasury, json!({"market_price": 98.25})))),
-        ("batch, rule, by level", "POST", "/api/v1/batch/price".to_owned(),
-            Some(batch(&corporate, json!({"level": 125})))),
-        ("batch, rule, by price", "POST", "/api/v1/batch/price".to_owned(),
-            Some(batch(&corporate, json!({"market_price": 99.5})))),
-        ("GET, no rule, by price", "GET",
-            format!("/api/v1/quotes/UST-10Y?market_price=98.25&known_at={cutoff}&settlement_date={SETTLEMENT}"),
-            None),
-        ("GET, rule, by level", "GET",
-            format!("/api/v1/quotes/BOND-001?level=125&known_at={cutoff}&settlement_date={SETTLEMENT}"),
-            None),
+        (
+            "batch, no rule, by price",
+            "POST",
+            batch_uri.clone(),
+            batch(&treasury, json!({"market_price": 98.25})),
+        ),
+        (
+            "batch, rule, by level",
+            "POST",
+            batch_uri.clone(),
+            batch(&corporate, json!({"level": 125})),
+        ),
+        (
+            "batch, rule, by price",
+            "POST",
+            batch_uri.clone(),
+            batch(&corporate, json!({"market_price": 99.5})),
+        ),
+        (
+            "GET, no rule, by price",
+            "GET",
+            get("UST-10Y", "market_price=98.25"),
+            None,
+        ),
+        (
+            "GET, rule, by level",
+            "GET",
+            get("BOND-001", "level=125"),
+            None,
+        ),
     ];
     for (name, method, uri, body) in cases {
-        let mut times = Vec::with_capacity(ROUNDS);
-        for round in 0..ROUNDS + 3 {
-            let started = std::time::Instant::now();
-            let (status, response) = call(&app, method, &uri, body.clone()).await;
-            let elapsed = started.elapsed();
-            assert_eq!(status, StatusCode::OK, "{name}: {response}");
-            if let Some(errors) = response.get("errors") {
-                assert_eq!(errors, &json!([]), "{name}");
-            }
-            if round >= 3 {
-                times.push(elapsed);
-            }
-        }
-        times.sort();
-        println!("{name}: median {:?}, min {:?}", times[ROUNDS / 2], times[0]);
+        time_rounds(&app, name, method, &uri, body).await;
     }
+    commit(
+        &setup,
+        "timing-width",
+        "2025-06-02T00:00:00Z",
+        vec![master(
+            with_width(
+                pricing_rule(
+                    "BOND-001",
+                    json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+                    Some("UST-OTR"),
+                ),
+                json!({"unit": "basis_points", "buckets": [{"width": "4"}]}),
+            ),
+            Some(1),
+        )],
+    )
+    .await;
+    let width_cases = [
+        (
+            "batch, rule with a width, by level",
+            "POST",
+            batch_uri,
+            batch(&corporate, json!({"level": 125})),
+        ),
+        (
+            "GET, rule with a width, by level",
+            "GET",
+            get("BOND-001", "level=125"),
+            None,
+        ),
+    ];
+    for (name, method, uri, body) in width_cases {
+        time_rounds(&app, name, method, &uri, body).await;
+    }
+}
+
+/// Print the median and fastest of 20 rounds of one request, after 3 to warm up.
+async fn time_rounds(app: &axum::Router, name: &str, method: &str, uri: &str, body: Option<Value>) {
+    const ROUNDS: usize = 20;
+    let mut times = Vec::with_capacity(ROUNDS);
+    for round in 0..ROUNDS + 3 {
+        let started = std::time::Instant::now();
+        let (status, response) = call(app, method, uri, body.clone()).await;
+        let elapsed = started.elapsed();
+        assert_eq!(status, StatusCode::OK, "{name}: {response}");
+        if let Some(errors) = response.get("errors") {
+            assert_eq!(errors, &json!([]), "{name}");
+        }
+        if round >= 3 {
+            times.push(elapsed);
+        }
+    }
+    times.sort();
+    println!("{name}: median {:?}, min {:?}", times[ROUNDS / 2], times[0]);
 }

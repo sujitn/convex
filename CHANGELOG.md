@@ -308,11 +308,16 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
-- **The level stage applies a rule's width.** `PricingRuleInForce` gains `width`, read
-  by `rule_in_force` at the rule's pinned version, which now takes the bond's
-  `instrument_id`. **Breaking:** `RulePricing::price_width_applies` is replaced by
-  `bid_ask` (`BidAsk`): the configuration's width, the rule's (`TwoWay`, each side's
-  level and clean price), or mid only.
+- **The level stage applies a rule's width.** `PricingRuleInForce` gains `width`.
+  **Breaking:**
+  - `rule_in_force` takes a `RequestPricingRule` (the pin and the width): from
+    `rule_for_inline_terms`, which now returns one from its single rule read, or from
+    the new `pinned_rule_for_request`, which reads a stored bond's pin at its version;
+  - `RulePricing::price_width_applies` is replaced by `bid_ask` (`BidAsk`): the
+    configuration's width, the rule's (`TwoWay`, each side's level and clean price), or
+    mid only. `BidAsk::apply` sets the router's `PricingInput` from it.
+- `PricingRouter::price_at` admits what `is_quoted_two_way` admits, with the same
+  refusals as before.
 - **One request-time stage for every route.** `PricingEngine::rule_in_force` reads the
   set a bond's rule pin names, once per request through `BenchmarkSetReads`, and
   `price_in_force` prices under it with the engine's shared benchmark yields. They
@@ -361,7 +366,10 @@ the changes that matter when you upgrade.
   schedule and that its unit quotes the method (`PricingMethod::quote_basis`); more than
   16 buckets is `CapacityExceeded`. A commit refuses a width for a bond that is not
   quoted two-way (`is_quoted_two_way`, `WIDTH_NEEDS_TWO_WAY`). The pin a snapshot holds,
-  `ResolvedPricingRule`, does not carry it.
+  `ResolvedPricingRule`, does not carry it; a request reads it with the pin as a
+  `RequestPricingRule`, through `ReferenceRepository::pricing_rule_for_request` (in
+  force at a lookup) or `pinned_pricing_rule_for_request` (at a pin's version), both
+  provided methods.
 - **A Live snapshot holds up to 4,096 instruments.** `MarketSnapshot::bounded(content,
   SnapshotBounds::Live)` makes one, identified within `MAX_LIVE_IDENTITY_BYTES`
   (128 MiB) rather than `MAX_SNAPSHOT_BYTES` (16 MiB); its `next` keeps its bounds.
