@@ -1491,11 +1491,9 @@ fn workout_measures(
         .bond
         .as_ref()
         .ok_or(TraitError::InvalidInput("tombstone reference"))?;
-    let convex_ports::reference_master::MasterDefinition::Calendar(calendar) =
-        &reference.calendar.definition
-    else {
-        return Err(TraitError::InvalidInput("wrong calendar resource"));
-    };
+    let calendar = reference
+        .calendar_definition()
+        .ok_or(TraitError::InvalidInput("wrong calendar resource"))?;
     let valued = mark
         .ok_or_else(|| {
             failure(
@@ -1504,13 +1502,13 @@ fn workout_measures(
             )
         })
         .and_then(|mark| {
-            let quote = if field == QuoteField::MidYield {
-                crate::level_pricing::check_level(&PricingMethod::Yield {}, mark)
-                    .map_err(|e| failure(e.error_code(), e.to_string()))?;
-                WorkoutQuote::YieldToWorst(mark)
+            let method = if field == QuoteField::MidYield {
+                PricingMethod::Yield {}
             } else {
-                WorkoutQuote::CleanPrice(mark)
+                PricingMethod::Price {}
             };
+            let quote = WorkoutQuote::quoted_by(&method, mark)
+                .map_err(|e| failure(e.error_code(), e.to_string()))?;
             value_on_workouts(bond, calendar, spec.settlement_date.date(), quote)
         });
     let finite = |value: f64| {
@@ -1767,11 +1765,9 @@ fn callable_measures(
             .map(|r| serde_json::from_value(r.recipe.clone()))
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| failure(ErrorCode::InvalidInput, "undecodable curve recipe"))?;
-        let convex_ports::reference_master::MasterDefinition::Calendar(calendar) =
-            &reference.calendar.definition
-        else {
-            return Err(failure(ErrorCode::InvalidInput, "wrong calendar resource"));
-        };
+        let calendar = reference
+            .calendar_definition()
+            .ok_or_else(|| failure(ErrorCode::InvalidInput, "wrong calendar resource"))?;
         optional::value_callable(
             bond,
             calendar,

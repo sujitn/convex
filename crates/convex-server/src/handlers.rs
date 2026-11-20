@@ -368,8 +368,7 @@ async fn value_stored(
     let envelope = valued.result.envelope();
     let quote = convex_engine::request_bond_quote(envelope, settlement_date, bond.currency)
         .map_err(|e| ApiError::calculation(e.to_string()))?;
-    let mut value =
-        bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
+    let mut value = bond_quote_body(&quote)?;
     let pins: Vec<_> = valued
         .curves
         .iter()
@@ -409,6 +408,13 @@ async fn runtime_quote(
         &reference.record.version.get().to_string(),
     )?;
     with_context_headers(response, context, &pins, known_at)
+}
+
+/// A quote as a response body, its serialization failure refused as unavailable.
+pub(crate) fn bond_quote_body(
+    quote: &convex_engine::ports::output::BondQuoteOutput,
+) -> Result<serde_json::Value, crate::error::ApiError> {
+    bond_quote_json(quote).map_err(|_| crate::error::ApiError::unavailable("quote serialization"))
 }
 
 pub(crate) fn bond_quote_json(
@@ -509,8 +515,7 @@ pub async fn get_bond_quote(
         .pricing_router()
         .price(&staged.input)
         .map_err(|e| ApiError::calculation(format!("Pricing failed: {e}")))?;
-    let mut value =
-        bond_quote_json(&quote).map_err(|_| ApiError::unavailable("quote serialization"))?;
+    let mut value = bond_quote_body(&quote)?;
     if let Some(report) = staged.pricing_rule {
         value["pricing_rule"] = report;
     }

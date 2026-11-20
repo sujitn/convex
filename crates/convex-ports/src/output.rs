@@ -143,6 +143,73 @@ pub struct BondQuoteOutput {
 }
 
 impl BondQuoteOutput {
+    /// A fresh quote of `instrument_id` from `source` under `pricing_spec`, calculated at
+    /// `timestamp` (Unix milliseconds), of quality 100, with every measure absent until it
+    /// is set.
+    pub fn without_measures(
+        instrument_id: InstrumentId,
+        currency: Currency,
+        settlement_date: Date,
+        timestamp: i64,
+        pricing_spec: String,
+        source: String,
+    ) -> Self {
+        Self {
+            instrument_id,
+            isin: None,
+            currency,
+            settlement_date,
+            clean_price_bid: None,
+            clean_price_mid: None,
+            clean_price_ask: None,
+            accrued_interest: None,
+            ytm_bid: None,
+            ytm_mid: None,
+            ytm_ask: None,
+            ytw: None,
+            ytc: None,
+            z_spread_bid: None,
+            z_spread_mid: None,
+            z_spread_ask: None,
+            i_spread_bid: None,
+            i_spread_mid: None,
+            i_spread_ask: None,
+            g_spread_bid: None,
+            g_spread_mid: None,
+            g_spread_ask: None,
+            asw_bid: None,
+            asw_mid: None,
+            asw_ask: None,
+            oas_bid: None,
+            oas_mid: None,
+            oas_ask: None,
+            discount_margin_bid: None,
+            discount_margin_mid: None,
+            discount_margin_ask: None,
+            simple_margin_bid: None,
+            simple_margin_mid: None,
+            simple_margin_ask: None,
+            modified_duration: None,
+            macaulay_duration: None,
+            effective_duration: None,
+            spread_duration: None,
+            convexity: None,
+            effective_convexity: None,
+            dv01: None,
+            pv01: None,
+            key_rate_durations: None,
+            cs01: None,
+            zero_pv01_signed: None,
+            z_pv01_signed: None,
+            measure_errors: Vec::new(),
+            timestamp,
+            pricing_spec,
+            source,
+            is_stale: false,
+            quality: 100,
+        }
+    }
+
     /// Expose mid pricing in explicit canonical units without inventing risk lineage.
     /// Missing accrued remains missing; dirty price is unavailable in that case.
     /// Duration-based DV01/PV01 are excluded because their factor and notional bases differ.

@@ -1023,6 +1023,14 @@ impl ResolvedBondReference {
     pub fn pricing_method(&self) -> Option<&crate::level_pricing::PricingMethod> {
         self.pricing_rule.as_ref().map(|rule| &rule.method)
     }
+
+    /// The pinned calendar's definition; none when the pinned resource is not a calendar.
+    pub fn calendar_definition(&self) -> Option<&CalendarDefinition> {
+        match &self.calendar.definition {
+            MasterDefinition::Calendar(calendar) => Some(calendar),
+            _ => None,
+        }
+    }
 }
 
 /// The resources a floating rate note's coupons depend on, beyond its own.

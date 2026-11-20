@@ -85,7 +85,7 @@ pub(crate) fn workout_rule_json(in_force: &PricingRuleInForce, input: QuotedInpu
 }
 
 /// The model that priced the rule's level, and the rule's version and method.
-fn rule_head_json(model: &str, in_force: &PricingRuleInForce) -> Value {
+pub(crate) fn rule_head_json(model: &str, in_force: &PricingRuleInForce) -> Value {
     json!({
         "model": model,
         "version": in_force.rule.version.get(),
@@ -156,6 +156,7 @@ impl From<LevelError> for ApiError {
         match error {
             LevelError::Refused(_) => Self::invalid(message),
             LevelError::BenchmarkUnavailable { .. } => Self::missing_input(message),
+            LevelError::Unsupported(_) => Self::unsupported_product(message),
             LevelError::Analytics(_) => Self::calculation(message),
             LevelError::Reference(error) => error.into(),
         }

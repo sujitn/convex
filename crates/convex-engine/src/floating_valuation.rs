@@ -117,9 +117,9 @@ impl FloatingNote {
         else {
             return Err(invalid("wrong rate index resources".into()));
         };
-        let MasterDefinition::Calendar(bond_calendar) = &reference.calendar.definition else {
-            return Err(invalid("wrong calendar resource".into()));
-        };
+        let bond_calendar = reference
+            .calendar_definition()
+            .ok_or_else(|| invalid("wrong calendar resource".into()))?;
         let own = &mechanics.overrides;
         let declared = &index.conventions;
         let mut native = native_terms(bond, terms, floating.spread, index.calendar_code)?;

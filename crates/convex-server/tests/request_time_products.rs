@@ -471,6 +471,45 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     let (status, _, body) = call(&app, "GET", &uri, None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(number(&body["ytw"]), ytw);
+
+    // The calculator gives the quote's values, by the rule's method or by a price, and
+    // reports the rule it read.
+    let by_level = format!(
+        "/api/v1/quotes/CALL-001?level={ytw}&known_at={known_at}&settlement_date={SETTLEMENT}"
+    );
+    for (method, level, uri) in [
+        (json!({"kind": "yield"}), ytw.to_string(), by_level),
+        (json!({"kind": "price"}), "99.25".to_string(), uri),
+    ] {
+        let (_, _, quoted) = call(&app, "GET", &uri, None).await;
+        let calculation = json!({"method": method, "level": level,
+            "settlement_date": SETTLEMENT, "known_at": known_at});
+        let (status, headers, calculated) = call(
+            &app,
+            "POST",
+            "/api/v1/bonds/CALL-001/calculate",
+            Some(calculation),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{calculated}");
+        for measure in [
+            "clean_price_mid",
+            "accrued_interest",
+            "dirty_price_mid",
+            "ytw",
+        ] {
+            assert_eq!(
+                calculated[measure], quoted[measure],
+                "{measure}: {calculated}"
+            );
+        }
+        assert_eq!(
+            calculated["pricing_rule"],
+            json!({"model": convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL,
+                "version": 2, "method": {"kind": "yield"}})
+        );
+        assert_eq!(headers["x-convex-pricing-rule-version"], "2");
+    }
     engine.shutdown().await.unwrap();
 }
 
@@ -521,34 +560,143 @@ async fn a_server_without_a_runtime_refuses_callables_and_still_prices_bullets()
     );
 }
 
-/// The calculator values only what the router prices: a stored callable and floating rate
-/// note are refused before any context is read, so with no configuration activated, and
-/// the bullet beside them is calculated once one is.
+/// The calculator values a stored callable on its workouts, with no runtime and no curve,
+/// and refuses a floating rate note before any context is read. Without a configuration
+/// activated, the callable and the bullet beside it are refused for want of a context.
 #[tokio::test]
-async fn the_calculator_refuses_callables_and_notes() {
+async fn the_calculator_values_callables_on_their_workouts_and_refuses_notes() {
     let (setup, _, _) = products_setup().await;
+    let american = products::callable(renamed("CALL-AMERICAN"), CallStyle::American);
+    // A dated yield needs a context-free day count, which ACT/ACT ICMA is not.
+    let mut icma = products::callable(renamed("CALL-ICMA"), CallStyle::Bermudan);
+    icma.day_count = "ACT/ACT ICMA".into();
+    let terms = icma.contractual_terms.as_mut().unwrap();
+    terms.settings.day_count = convex_core::daycounts::DayCountConvention::ActActIcma;
+    terms.convention.id = ReferenceDataId::new("fixture-convention-icma").unwrap();
+    let icma_convention = products::convention(&icma);
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("calculator-callables").unwrap(),
+                changes: [american, icma]
+                    .into_iter()
+                    .map(|bond| ReferenceChange::Create {
+                        bond: Box::new(bond),
+                    })
+                    .collect(),
+                master_changes: vec![icma_convention],
+            },
+            fixture::time("2025-06-01T00:00:00Z"),
+        )
+        .await
+        .unwrap();
     let engine = without_runtime(&setup);
     let app = router(engine);
-    let calculation = json!({"method": {"kind": "price"}, "level": "99.25",
-        "settlement_date": SETTLEMENT, "known_at": "2026-10-02T15:00:00Z",
-        "configuration": "CONFIG-RESTORE"});
-    let calculate = |id: &str| {
-        let (app, body) = (app.clone(), calculation.clone());
-        let uri = format!("/api/v1/bonds/{id}/calculate");
+    let calculate = |id: &str, method: Value, level: &str, settlement: &str| {
+        let body = json!({"method": method, "level": level, "settlement_date": settlement,
+            "known_at": "2026-10-02T15:00:00Z", "configuration": "CONFIG-RESTORE"});
+        let (app, uri) = (app.clone(), format!("/api/v1/bonds/{id}/calculate"));
         async move { call(&app, "POST", &uri, Some(body)).await }
     };
-    for id in ["CALL-001", "FRN-001"] {
-        let (status, _, refused) = calculate(id).await;
+    let price = || json!({"kind": "price"});
+    // An American callable is not valued on its workouts, and a note is not calculated.
+    for id in ["CALL-AMERICAN", "FRN-001"] {
+        let (status, _, refused) = calculate(id, price(), "99.25", SETTLEMENT).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{id}: {refused}");
         assert_eq!(refused["code"], "UNSUPPORTED_PRODUCT", "{refused}");
     }
-    let (status, _, refused) = calculate("BOND-001").await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
-    assert_eq!(refused["code"], "NO_VALUATION_CONTEXT", "{refused}");
+    for id in ["CALL-001", "BOND-001"] {
+        let (status, _, refused) = calculate(id, price(), "99.25", SETTLEMENT).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+        assert_eq!(refused["code"], "NO_VALUATION_CONTEXT", "{refused}");
+    }
     activate(&setup).await;
-    let (status, _, bullet) = calculate("BOND-001").await;
+    let (status, _, bullet) = calculate("BOND-001", price(), "99.25", SETTLEMENT).await;
     assert_eq!(status, StatusCode::OK, "{bullet}");
     assert_eq!(bullet["clean_price_mid"], json!(99.25), "{bullet}");
+
+    // From a price: each call at its price, then maturity, each at its yield; the worst
+    // is the lowest, with the years to it. Below every call price, maturity is worst.
+    let (status, headers, by_price) = calculate("CALL-001", price(), "99.25", SETTLEMENT).await;
+    assert_eq!(status, StatusCode::OK, "{by_price}");
+    assert_eq!(by_price["clean_price_mid"], json!(99.25), "{by_price}");
+    assert_eq!(
+        by_price["pricing_spec"],
+        convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL
+    );
+    assert!(by_price["pricing_rule"].is_null(), "{by_price}");
+    assert_eq!(headers["x-convex-curve-versions"], "", "it reads no curve");
+    assert_eq!(headers["x-convex-pricing-config"], "CONFIG-RESTORE@2");
+    let workouts = by_price["workouts"].as_array().unwrap();
+    let table: Vec<_> = workouts
+        .iter()
+        .map(|w| (w["kind"].as_str().unwrap(), w["date"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        table,
+        [
+            ("call", "2027-01-15"),
+            ("call", "2028-01-15"),
+            ("call", "2029-01-15"),
+            ("maturity", "2030-01-15"),
+        ]
+    );
+    let call_prices: Vec<_> = workouts[..3]
+        .iter()
+        .map(|w| number(&w["call_price"]))
+        .collect();
+    assert_eq!(call_prices, [101.0, 100.5, 100.0]);
+    let ytw = number(&by_price["ytw"]);
+    assert!(
+        workouts.iter().all(|w| number(&w["yield"]) >= ytw),
+        "{by_price}"
+    );
+    assert_eq!(by_price["worst"]["kind"], "maturity", "{by_price}");
+    assert_eq!(number(&by_price["worst"]["yield"]), ytw);
+    assert!(number(&by_price["worst"]["years"]) > 3.0, "{by_price}");
+    assert_eq!(
+        by_price["input"],
+        json!({"method": price(), "level": 99.25})
+    );
+
+    // From that yield to worst: the price, and the same table to the solver's tolerance.
+    let level = by_price["ytw"].to_string();
+    let (status, _, by_yield) =
+        calculate("CALL-001", json!({"kind": "yield"}), &level, SETTLEMENT).await;
+    assert_eq!(status, StatusCode::OK, "{by_yield}");
+    assert!(
+        (number(&by_yield["clean_price_mid"]) - 99.25).abs() < 1e-8,
+        "{by_yield}"
+    );
+    assert_eq!(number(&by_yield["ytw"]), ytw);
+    for (from_yield, from_price) in by_yield["workouts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(workouts)
+    {
+        assert_eq!(from_yield["date"], from_price["date"]);
+        assert!((number(&from_yield["yield"]) - number(&from_price["yield"])).abs() < 1e-9);
+    }
+
+    // A callable whose conventions the workout model does not value is unsupported.
+    let (status, _, refused) = calculate("CALL-ICMA", price(), "99.25", SETTLEMENT).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(refused["code"], "UNSUPPORTED_PRODUCT", "{refused}");
+
+    // A spread does not quote a callable on its workouts, a yield out of range is
+    // refused, and nothing settles on a Saturday.
+    for (method, level, settlement) in [
+        (json!({"kind": "z_spread"}), "150", SETTLEMENT),
+        (json!({"kind": "yield"}), "1.5", SETTLEMENT),
+        (price(), "99.25", "2026-10-10"),
+    ] {
+        let (status, _, refused) = calculate("CALL-001", method, level, settlement).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+        assert_eq!(refused["code"], "INVALID_INPUT", "{refused}");
+    }
 }
 
 /// A request reads only the curves its product reads. Under a configuration whose
