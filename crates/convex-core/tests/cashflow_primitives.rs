@@ -1523,6 +1523,57 @@ fn ac1_settlement_requires_an_explicit_nonnegative_lag_and_calendar() {
 }
 
 #[test]
+fn the_latest_trade_date_inverts_settlement_and_none_settles_on_a_closed_day() {
+    let sifma = SIFMACalendar::new();
+    let t2 = DateOffset::BusinessDays(2);
+    let following = BusinessDayConvention::Following;
+    let latest = |settlement| latest_trade_date(d(settlement), t2, following, &sifma).unwrap();
+    // Tuesday settles Friday's trade; Wednesday after Columbus Day settles Friday's too.
+    assert_eq!(latest("2026-10-06"), Some(d("2026-10-02")));
+    assert_eq!(latest("2026-10-14"), Some(d("2026-10-09")));
+    // Nothing settles on a Saturday or on Columbus Day.
+    assert_eq!(latest("2026-10-10"), None);
+    assert_eq!(latest("2026-10-12"), None);
+    // A negative lag is refused, not searched.
+    assert!(latest_trade_date(
+        d("2026-10-06"),
+        DateOffset::BusinessDays(-1),
+        following,
+        &sifma
+    )
+    .is_err());
+    // Every business day's settlement maps back to that day or a later one settling the same.
+    for (lag, convention) in [
+        (DateOffset::BusinessDays(1), following),
+        (t2, following),
+        (
+            DateOffset::CalendarDays(3),
+            BusinessDayConvention::ModifiedFollowing,
+        ),
+        (
+            DateOffset::CalendarDays(0),
+            BusinessDayConvention::Preceding,
+        ),
+    ] {
+        let mut trade = d("2026-01-02");
+        while trade <= d("2027-01-04") {
+            if sifma.is_business_day(trade) {
+                let settlement = settlement_date(trade, lag, convention, &sifma).unwrap();
+                let back = latest_trade_date(settlement, lag, convention, &sifma)
+                    .unwrap()
+                    .unwrap();
+                assert!(back >= trade && sifma.is_business_day(back), "{trade}");
+                assert_eq!(
+                    settlement_date(back, lag, convention, &sifma).unwrap(),
+                    settlement
+                );
+            }
+            trade = trade.add_days(1);
+        }
+    }
+}
+
+#[test]
 fn ac2_fixing_input_and_request_sizes_are_bounded_before_resolution() {
     let value = observation(
         "2025-01-02",

@@ -114,6 +114,42 @@ pub fn settlement_date(
     Ok(settlement)
 }
 
+/// How far a business-day convention moves a date: less than a month.
+const ADJUSTMENT_REACH_DAYS: i64 = 31;
+
+/// The latest business day whose trade settles on `settlement` under the same lag,
+/// convention and calendar: the trade date [`settlement_date`] maps onto `settlement`.
+/// `None` when no trade settles on it, as for a weekend or a holiday.
+pub fn latest_trade_date(
+    settlement: Date,
+    lag: DateOffset,
+    convention: BusinessDayConvention,
+    calendar: &dyn Calendar,
+) -> Result<Option<Date>, CashflowError> {
+    validate_date(settlement)?;
+    let earliest = match lag {
+        DateOffset::CalendarDays(n) | DateOffset::BusinessDays(n) if n < 0 => {
+            return Err(CashflowError::terms(
+                "settlement_lag",
+                "must be nonnegative",
+            ))
+        }
+        DateOffset::CalendarDays(n) => settlement.checked_add_days(-i64::from(n))?,
+        DateOffset::BusinessDays(n) => checked::add_business_days(settlement, -n, calendar)?,
+    }
+    .checked_add_days(-ADJUSTMENT_REACH_DAYS)?;
+    let mut trade = settlement;
+    while trade >= earliest {
+        if calendar.try_is_business_day(trade)?
+            && settlement_date(trade, lag, convention, calendar)? == settlement
+        {
+            return Ok(Some(trade));
+        }
+        trade = trade.checked_add_days(-1)?;
+    }
+    Ok(None)
+}
+
 /// First date on which a settling buyer loses coupon entitlement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]

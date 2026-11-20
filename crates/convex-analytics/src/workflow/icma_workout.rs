@@ -1,6 +1,5 @@
 //! Complete contextual fixed-workout quotations over the original legal paths.
 use super::*;
-use convex_bonds::contracts::ExerciseRight;
 use serde::{Deserialize, Serialize};
 
 /// Explicit whole-request preparation and cash-work ceilings, with no defaults.
@@ -239,11 +238,7 @@ pub fn quote_icma_workout_worst(
             .ok_or(CashflowError::BoundExceeded(
                 "ICMA workout cash evaluations",
             ))?;
-        if (prepared.forced_by_notice
-            || quote
-                .exercise
-                .as_ref()
-                .is_none_or(|exercise| exercise.right == ExerciseRight::Call))
+        if super::workout::is_worst_candidate(prepared.forced_by_notice, quote.exercise.as_ref())
             && inverse.decimal_parameter < selected_yield
         {
             selected_yield = inverse.decimal_parameter;
