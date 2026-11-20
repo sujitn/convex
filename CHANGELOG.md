@@ -133,6 +133,13 @@ the changes that matter when you upgrade.
   calendar. It is `None` when nothing settles on that date, such as a weekend or
   a holiday.
 
+### convex-bonds
+
+- `CalendarId::try_to_calendar` copies the memoised SIFMA, TARGET2, UK and Japan holiday
+  tables instead of rebuilding them from 1970 to 2100 on every call, about 32 µs each.
+  Building a stored bond's contract looks its calendar up several times. Valuing a
+  three-call callable on its workouts falls from about 440 µs to 90 µs.
+
 ### convex-analytics
 
 - **Breaking:** `hedge_cost_bps` is removed, with its re-exports from `risk`,
