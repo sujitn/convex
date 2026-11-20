@@ -2,8 +2,9 @@
 //! government securities a spread is quoted to.
 //!
 //! A bond's [`PricingRuleDefinition`] (`MasterKey::PricingRule`) names its method: a price,
-//! a yield, a spread to one benchmark security, or a Z-spread. A callable quoted by price
-//! or by its yield to worst is valued on its workouts. The level itself is a quote,
+//! a yield, a spread to one benchmark security, a Z-spread, or a floating rate note's
+//! discount margin. A callable quoted by price or by its yield to worst is valued on its
+//! workouts. The level itself is a quote,
 //! never stored. A rule may name a [`BenchmarkSetDefinition`]
 //! (`MasterKey::BenchmarkSet`) by id, so an on-the-run roll is one commit to the set and
 //! the version a valuation read is recorded with its result. A bond with no rule is
@@ -11,7 +12,8 @@
 //! request reads with the rule ([`RequestPricingRule`]) and a snapshot's pin leaves out.
 //!
 //! These are types, bounds and validation only. Turning a level into a price is the
-//! engine's level stage, or its workout model for a callable, through the pure crates.
+//! engine's level stage, or the bond's own model for a callable on its workouts or a
+//! floating rate note, through the pure crates.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -49,7 +51,8 @@ pub const MAX_WORKOUT_CALLS: usize = 128;
 /// How a stored bond is quoted. For a fixed bullet, each method other than `price` is a
 /// level that the level stage turns into a price before the bond's model values it. A
 /// callable quoted by `price` or `yield` is valued on its workouts, from its price or its
-/// yield to worst; with no rule, or any other, it is valued on HW1F trees.
+/// yield to worst; with no rule, or any other, it is valued on HW1F trees. A floating rate
+/// note is valued from its price or its discount margin by its own model.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PricingMethod {
@@ -67,6 +70,10 @@ pub enum PricingMethod {
     },
     /// A constant spread, in basis points, over the configuration's discount curve.
     ZSpread {},
+    /// A floating rate note's discount margin, in basis points: the constant spread over
+    /// the frozen projection of its index (the configuration's `frn_reference_curve`),
+    /// discounted on the configuration's discount curve.
+    DiscountMargin {},
 }
 
 impl PricingMethod {
@@ -82,6 +89,7 @@ impl PricingMethod {
             Self::Yield {} => "yield",
             Self::BenchmarkSpread { .. } => "benchmark_spread",
             Self::ZSpread {} => "z_spread",
+            Self::DiscountMargin {} => "discount_margin",
         }
     }
 
@@ -90,7 +98,9 @@ impl PricingMethod {
         match self {
             Self::Price {} => QuoteField::MidPrice,
             Self::Yield {} => QuoteField::MidYield,
-            Self::BenchmarkSpread { .. } | Self::ZSpread {} => QuoteField::MidSpread,
+            Self::BenchmarkSpread { .. } | Self::ZSpread {} | Self::DiscountMargin {} => {
+                QuoteField::MidSpread
+            }
         }
     }
 
@@ -100,16 +110,19 @@ impl PricingMethod {
     }
 
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
-    /// applies to `bond`: a fixed bullet by every method; any other bond by price with no
-    /// set; and a callable valued on its workouts by its yield to worst too.
+    /// applies to `bond`: a fixed bullet by every method but a discount margin; any other
+    /// bond by price with no set; a callable valued on its workouts by its yield to worst
+    /// too; and a floating rate note by its discount margin, with no set.
     pub fn applies_to(&self, names_benchmark_set: bool, bond: &BondReferenceData) -> bool {
-        is_plain_bullet(bond)
-            || (!names_benchmark_set
-                && match self {
-                    Self::Price {} => true,
-                    Self::Yield {} => is_workout_callable(bond),
-                    Self::BenchmarkSpread { .. } | Self::ZSpread {} => false,
-                })
+        let is_bullet = is_plain_bullet(bond);
+        match self {
+            Self::Price {} => is_bullet || !names_benchmark_set,
+            Self::Yield {} => is_bullet || (!names_benchmark_set && is_workout_callable(bond)),
+            Self::BenchmarkSpread { .. } | Self::ZSpread {} => is_bullet,
+            Self::DiscountMargin {} => {
+                !names_benchmark_set && bond.bond_type == BondType::FloatingRate
+            }
+        }
     }
 
     /// What a bond quoted this way is quoted in: a price, a yield or a spread.
@@ -117,7 +130,9 @@ impl PricingMethod {
         match self {
             Self::Price {} => QuoteBasis::Price,
             Self::Yield {} => QuoteBasis::Yield,
-            Self::BenchmarkSpread { .. } | Self::ZSpread {} => QuoteBasis::Spread,
+            Self::BenchmarkSpread { .. } | Self::ZSpread {} | Self::DiscountMargin {} => {
+                QuoteBasis::Spread
+            }
         }
     }
 
@@ -136,7 +151,7 @@ impl PricingMethod {
                 }
                 tenor_months(tenor).map(|_| ())
             }
-            Self::Price {} | Self::Yield {} | Self::ZSpread {} => Ok(()),
+            Self::Price {} | Self::Yield {} | Self::ZSpread {} | Self::DiscountMargin {} => Ok(()),
         }
     }
 }
@@ -449,7 +464,7 @@ pub(crate) fn validate_level_pricing_links(
 }
 
 /// Why a rule does not apply to a bond ([`PricingMethod::applies_to`]).
-pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, and by a yield only a fixed bullet or a callable valued on its workouts";
+pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, by a yield only a fixed bullet or a callable valued on its workouts, and by a discount margin only a floating rate note";
 
 /// Why a callable is not valued on its workouts ([`is_workout_callable`]).
 pub const NOT_A_WORKOUT_CALLABLE: &str = "a callable is valued on its workouts only with European or Bermudan fixed-price calls, at most 128, and no other embedded terms";

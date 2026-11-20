@@ -66,6 +66,10 @@ pub const LEVEL_PRICE_MODEL: &str = "convex-level-price-v1";
 const YIELD_LEVEL_RANGE: RangeInclusive<Decimal> = dec!(-0.1)..=dec!(1);
 /// A spread level is from -2,000 to 20,000 basis points.
 const SPREAD_LEVEL_RANGE_BPS: RangeInclusive<Decimal> = dec!(-2000)..=dec!(20000);
+/// A discount margin is from -2,000 to 5,000 basis points, within the margin inverse's
+/// ±5,000 bp domain, so the price at a margin solves back to it.
+pub(crate) const DISCOUNT_MARGIN_LEVEL_RANGE_BPS: RangeInclusive<Decimal> =
+    dec!(-2000)..=dec!(5000);
 /// Benchmark yields a [`BenchmarkYieldCache`] keeps; it starts again when full.
 const MAX_SOLVED_YIELDS: usize = 4_096;
 
@@ -709,6 +713,11 @@ fn level_to_clean_price(
     let single_benchmark;
     let (mark, curves, benchmark) = match method {
         PricingMethod::Price {} => return Err(quoted_by_price()),
+        PricingMethod::DiscountMargin {} => {
+            return Err(refused(
+                "a discount margin quotes only a floating rate note",
+            ))
+        }
         PricingMethod::Yield {} => (
             Mark::Yield {
                 value: level,
@@ -782,13 +791,16 @@ fn level_to_clean_price(
 }
 
 /// Refuse a level outside its method's range: a yield sent in percent, or a spread in
-/// decimal, is refused rather than priced.
+/// decimal, is refused rather than priced. A price is not a level, and is refused too.
 pub(crate) fn check_level(method: &PricingMethod, level: Decimal) -> Result<(), LevelError> {
     let (range, unit) = match method {
         PricingMethod::Price {} => return Err(quoted_by_price()),
         PricingMethod::Yield {} => (YIELD_LEVEL_RANGE, "a decimal yield"),
         PricingMethod::ZSpread {} | PricingMethod::BenchmarkSpread { .. } => {
             (SPREAD_LEVEL_RANGE_BPS, "basis points of spread")
+        }
+        PricingMethod::DiscountMargin {} => {
+            (DISCOUNT_MARGIN_LEVEL_RANGE_BPS, "basis points of margin")
         }
     };
     if range.contains(&level) {

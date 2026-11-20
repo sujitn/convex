@@ -112,6 +112,12 @@ pub fn product_model(bond: &BondReferenceData, method: Option<&PricingMethod>) -
         _ => crate::snapshot::BOND_SNAPSHOT_MODEL,
     }
 }
+/// Whether `model` values a bond's level itself, as well as a price, so the level stage
+/// does not price it first: a callable's yield to worst on its workouts, and a floating
+/// rate note's discount margin.
+pub fn values_own_level(model: &str) -> bool {
+    model == WORKOUT_SNAPSHOT_MODEL || model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL
+}
 /// The measures the model publishes; a plan's other measures do not apply to it.
 pub fn product_measures(model: &str) -> &'static [&'static str] {
     match model {
@@ -159,6 +165,16 @@ pub(crate) fn failure(code: ErrorCode, message: impl Into<String>) -> Failure {
         code,
         message: message.into().chars().take(512).collect(),
     }
+}
+/// `value` as a float, refused as invalid input when it has none.
+pub(crate) fn to_f64(value: Decimal, what: &str) -> Result<f64, Failure> {
+    value
+        .to_f64()
+        .ok_or_else(|| failure(ErrorCode::InvalidInput, format!("unrepresentable {what}")))
+}
+/// A level refused for a measure, with its code and reason.
+pub(crate) fn level_failure(error: crate::level_pricing::LevelError) -> Failure {
+    failure(error.error_code(), error.to_string())
 }
 pub(crate) fn library_failure(error: LibraryError) -> Failure {
     let code = match error.code {

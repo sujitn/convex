@@ -1155,16 +1155,22 @@ impl SnapshotValuator {
         // longer applies is refused, saying why.
         let is_rule_misapplied = rule.is_some_and(|rule| !rule.applies_to(bond));
         // A bond is read from the field its rule quotes it by: its level, or a price. A
-        // callable on its workouts values a price natively too, so when its quote declares
-        // no field of its rule's it is read from a price: a request may send one, and a
-        // Live plan compiled before its rule moved to a yield still carries one.
+        // callable on its workouts and a floating rate note value their rule's level
+        // themselves, and a price too, so when their quote declares no field of their
+        // rule's they are read from a price: a request may send one, and a Live plan
+        // compiled before the rule moved to a level still carries one.
         let declared = &selected[0].requirement.fields;
-        let is_workouts =
-            spec.model_id.as_str() == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL;
-        let quoted_field = rule
-            .map(|rule| rule.method.quote_field())
-            .filter(|field| !is_workouts || declared.contains(field))
-            .unwrap_or(QuoteField::MidPrice);
+        let model = spec.model_id.as_str();
+        let is_workouts = model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL;
+        let is_floating = model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL;
+        let price = PricingMethod::Price {};
+        let quoted_method = rule
+            .map(|rule| &rule.method)
+            .filter(|method| {
+                !(is_workouts || is_floating) || declared.contains(&method.quote_field())
+            })
+            .unwrap_or(&price);
+        let quoted_field = quoted_method.quote_field();
         if !is_rule_misapplied && !declared.contains(&quoted_field) {
             return Err(TraitError::InvalidInput(
                 "mid valuation must declare the field the bond is quoted by",
@@ -1191,7 +1197,7 @@ impl SnapshotValuator {
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             (BTreeMap::new(), errors)
-        } else if spec.model_id.as_str() == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL {
+        } else if model == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL {
             callable_measures(
                 snapshot,
                 spec,
@@ -1201,14 +1207,15 @@ impl SnapshotValuator {
                 quality,
             )?
         } else if is_workouts {
-            workout_measures(spec, reference, quoted_field, mark(quoted_field), quality)?
-        } else if spec.model_id.as_str() == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
+            workout_measures(spec, reference, quoted_method, mark(quoted_field), quality)?
+        } else if is_floating {
             floating_measures(
                 snapshot,
                 spec,
                 reference,
                 recipe_curves,
-                mark(QuoteField::MidPrice),
+                quoted_method,
+                mark(quoted_field),
                 quality,
             )?
         } else {
@@ -1474,17 +1481,17 @@ fn model_measures(
     Ok((results, errors))
 }
 
-/// A callable's measures on its workouts, from its quote in `field`: a clean price, or a
-/// yield to worst. A plan measure the workout model does not publish never reaches this
-/// context.
+/// A callable's measures on its workouts, from its `mark` quoted by `method`: a clean
+/// price, or a yield to worst. A plan measure the workout model does not publish never
+/// reaches this context.
 fn workout_measures(
     spec: &ValuationContextSpec,
     reference: &ResolvedBondReference,
-    field: QuoteField,
+    method: &PricingMethod,
     mark: Option<rust_decimal::Decimal>,
     quality: DataQuality,
 ) -> Result<Measures, TraitError> {
-    use crate::optional_valuation::{failure, Failure};
+    use crate::optional_valuation::{failure, level_failure, Failure};
     use crate::workout_valuation::{value_on_workouts, WorkoutQuote};
     let bond = reference
         .record
@@ -1502,13 +1509,7 @@ fn workout_measures(
             )
         })
         .and_then(|mark| {
-            let method = if field == QuoteField::MidYield {
-                PricingMethod::Yield {}
-            } else {
-                PricingMethod::Price {}
-            };
-            let quote = WorkoutQuote::quoted_by(&method, mark)
-                .map_err(|e| failure(e.error_code(), e.to_string()))?;
+            let quote = WorkoutQuote::quoted_by(method, mark).map_err(level_failure)?;
             value_on_workouts(bond, calendar, spec.settlement_date.date(), quote)
         });
     let finite = |value: f64| {
@@ -1565,29 +1566,34 @@ fn required_fixings(
     Ok(keys.into_iter().collect())
 }
 
-/// Floating rate note measures at the observed clean mid, from `convex::library`.
+/// Floating rate note measures from `convex::library`, at its `mark` quoted by `method`:
+/// a clean price, or a discount margin.
+#[allow(clippy::too_many_arguments)]
 fn floating_measures(
     snapshot: &MarketSnapshot,
     spec: &ValuationContextSpec,
     reference: &ResolvedBondReference,
     recipe_curves: &convex_curves::contracts::CurveBuildOutput,
-    clean_mid: Option<rust_decimal::Decimal>,
+    method: &PricingMethod,
+    mark: Option<rust_decimal::Decimal>,
     quality: DataQuality,
 ) -> Result<Measures, TraitError> {
-    use crate::optional_valuation::{failure, Failure};
+    use crate::floating_valuation::FloatingQuote;
+    use crate::optional_valuation::{failure, level_failure, Failure};
     let configuration = &snapshot.content().configuration;
     let bond = reference
         .record
         .bond
         .as_ref()
         .ok_or(TraitError::InvalidInput("tombstone reference"))?;
-    let clean = clean_mid.ok_or_else(|| {
+    let missing = || {
         failure(
             ErrorCode::MissingMarketData,
             "Required mid mark is unavailable",
         )
-    });
-    let quoted = clean.clone().and_then(|clean| {
+    };
+    let valued = mark.ok_or_else(missing).and_then(|mark| {
+        let quote = FloatingQuote::quoted_by(method, mark).map_err(level_failure)?;
         let note = crate::floating_valuation::FloatingNote::new(reference)?;
         // The library builds curves from recipes: the discount role must be a collateral
         // recipe and `frn_reference_curve` a projection recipe of the note's own index.
@@ -1664,7 +1670,7 @@ fn floating_measures(
             convex_core::Date::from(snapshot.content().as_of.datetime().date_naive()),
             snapshot.content().known_at,
             &snapshot.content().fixings,
-            clean,
+            quote,
         )
     });
     let finite = |value: f64| {
@@ -1672,29 +1678,27 @@ fn floating_measures(
             .map_err(|_| failure(ErrorCode::InvalidInput, "nonfinite floating measure"))
     };
     model_measures(spec, quality, |measure| {
-        quoted.as_ref().map_err(Clone::clone).and_then(|quote| {
-            let clean = clean.clone()?;
-            Ok(match measure {
-                "clean_price_mid" => {
-                    MeasureValue::Price(PricePer100::new(ExactDecimal::new(clean)))
-                }
-                "dirty_price_mid" => {
-                    MeasureValue::ModelPrice(ModelPricePer100::new(finite(quote.dirty)?))
-                }
-                "accrued_interest" => {
-                    MeasureValue::ModelPrice(ModelPricePer100::new(finite(quote.accrued)?))
-                }
-                // Over the frozen projection, discounted on the collateral curve.
-                "discount_margin_mid" => MeasureValue::ModelBps(ModelBasisPoints::new(finite(
-                    quote.discount_margin_bps,
-                )?)),
-                _ => {
-                    return Err(failure(
-                        ErrorCode::InvalidInput,
-                        "Requested measure is outside this snapshot valuation slice",
-                    ))
-                }
-            })
+        let valued = valued.as_ref().map_err(Failure::clone)?;
+        Ok(match measure {
+            "clean_price_mid" => {
+                MeasureValue::Price(PricePer100::new(ExactDecimal::new(valued.clean)))
+            }
+            "dirty_price_mid" => {
+                MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.dirty)?))
+            }
+            "accrued_interest" => {
+                MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.accrued)?))
+            }
+            // Over the frozen projection, discounted on the collateral curve.
+            "discount_margin_mid" => {
+                MeasureValue::ModelBps(ModelBasisPoints::new(finite(valued.discount_margin_bps)?))
+            }
+            _ => {
+                return Err(failure(
+                    ErrorCode::InvalidInput,
+                    "Requested measure is outside this snapshot valuation slice",
+                ))
+            }
         })
     })
 }

@@ -20,7 +20,7 @@ use convex_engine::optional_valuation::is_runtime_product;
 use convex_engine::{Portfolio, Position, PricingEngine};
 
 use crate::level_pricing::{
-    optional_quoted_input, pricing_rule_json, with_pricing_rule_headers, workout_rule_json,
+    model_rule_json, optional_quoted_input, pricing_rule_json, with_pricing_rule_headers,
 };
 use convex_portfolio::{
     active_weights,
@@ -249,7 +249,7 @@ pub struct BondQuoteQuery {
 }
 
 /// A server with no runtime refuses callables and floating rate notes.
-fn runtime_composed(engine: &PricingEngine) -> Result<(), crate::error::ApiError> {
+pub(crate) fn runtime_composed(engine: &PricingEngine) -> Result<(), crate::error::ApiError> {
     if engine.values_requests() {
         Ok(())
     } else {
@@ -346,7 +346,7 @@ async fn optional_context(
 /// Value a stored callable or floating rate note at request time and read it as
 /// the bullets' quote. `snapshot` names the unpublished snapshot it read and the
 /// curve pins it consumed, which are also returned.
-async fn value_stored(
+pub(crate) async fn value_stored(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
     reference: &convex_engine::ports::reference_master::ResolvedBondReference,
@@ -943,15 +943,16 @@ struct RuntimeMark {
     in_force: Option<convex_engine::level_pricing::PricingRuleInForce>,
     /// The rule's report.
     pricing_rule: Option<serde_json::Value>,
-    /// What the runtime values: the clean price the stage gave, or a callable's own
-    /// quote when its rule values it on its workouts. None without a mark, and every
+    /// What the runtime values: the clean price the stage gave, or the bond's own quote
+    /// when its model values its rule's level itself. None without a mark, and every
     /// measure then fails `MISSING_MARKET_DATA`.
     mark: Option<convex_engine::level_pricing::QuotedInput>,
 }
 
-/// The mark a stored callable or floating rate note is valued from under its rule: a
-/// callable on its workouts takes its quote as sent, a price or a yield to worst; any
-/// other gets the clean price the level stage gives.
+/// The mark a stored callable or floating rate note is valued from under its rule. A bond
+/// whose model values its rule's level itself takes its quote as sent: a callable on its
+/// workouts a price or a yield to worst, a floating rate note a price or a discount
+/// margin. Any other gets the clean price the level stage gives.
 async fn runtime_mark(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
@@ -973,13 +974,13 @@ async fn runtime_mark(
         .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule.clone())
         .await?;
     let in_force = engine.rule_in_force(context, rule).await?;
-    let on_workouts = |in_force: &convex_engine::level_pricing::PricingRuleInForce| {
-        convex_engine::optional_valuation::product_model(bond, Some(&in_force.rule.method))
-            == convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL
-    };
+    let model = convex_engine::optional_valuation::product_model(
+        bond,
+        in_force.as_ref().map(|in_force| &in_force.rule.method),
+    );
     let (pricing_rule, mark) = match &in_force {
-        Some(in_force) if on_workouts(in_force) => {
-            (Some(workout_rule_json(in_force, quoted)), quoted)
+        Some(in_force) if convex_engine::optional_valuation::values_own_level(model) => {
+            (Some(model_rule_json(model, in_force, quoted)), quoted)
         }
         _ => {
             let pricing =
