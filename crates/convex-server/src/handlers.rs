@@ -16,9 +16,12 @@ use convex_bonds::types::BondIdentifiers;
 use convex_core::Currency;
 use convex_core::Date;
 use convex_engine::level_pricing::BidAsk;
+use convex_engine::optional_valuation::is_runtime_product;
 use convex_engine::{Portfolio, Position, PricingEngine};
 
-use crate::level_pricing::{optional_quoted_input, pricing_rule_json, with_pricing_rule_headers};
+use crate::level_pricing::{
+    optional_quoted_input, pricing_rule_json, with_pricing_rule_headers, workout_rule_json,
+};
 use convex_portfolio::{
     active_weights,
     // Key rate duration
@@ -245,13 +248,6 @@ pub struct BondQuoteQuery {
     pub configuration: Option<convex_core::contracts::SourceId>,
 }
 
-/// Callables and floating rate notes are valued by the runtime at request time;
-/// bullets and zeros by the router.
-fn runtime_product(bond: &BondReferenceData) -> bool {
-    convex_engine::optional_valuation::product_model(bond)
-        != convex_engine::snapshot::BOND_SNAPSHOT_MODEL
-}
-
 /// A server with no runtime refuses callables and floating rate notes.
 fn runtime_composed(engine: &PricingEngine) -> Result<(), crate::error::ApiError> {
     if engine.values_requests() {
@@ -353,13 +349,14 @@ async fn optional_context(
 async fn value_stored(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
-    reference: &convex_engine::ports::reference_repository::ReferenceRecord,
+    reference: &convex_engine::ports::reference_master::ResolvedBondReference,
     settlement_date: Date,
     known_at: convex_core::contracts::UtcTimestamp,
-    mark: Option<Decimal>,
+    mark: Option<convex_engine::level_pricing::QuotedInput>,
 ) -> Result<(serde_json::Value, Vec<String>), crate::error::ApiError> {
     use crate::error::ApiError;
     let bond = reference
+        .record
         .bond
         .as_ref()
         .ok_or_else(|| ApiError::not_found("the stored reference is deleted"))?;
@@ -393,10 +390,10 @@ async fn value_stored(
 async fn runtime_quote(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
-    reference: &convex_engine::ports::reference_repository::ReferenceRecord,
+    reference: &convex_engine::ports::reference_master::ResolvedBondReference,
     settlement_date: Date,
     known_at: convex_core::contracts::UtcTimestamp,
-    mark: Option<Decimal>,
+    mark: Option<convex_engine::level_pricing::QuotedInput>,
     pricing_rule: Option<serde_json::Value>,
 ) -> Result<axum::response::Response, crate::error::ApiError> {
     let (mut value, pins) =
@@ -409,7 +406,7 @@ async fn runtime_quote(
     let response = crate::curves::with_header(
         Json(value).into_response(),
         "x-convex-reference-version",
-        &reference.version.get().to_string(),
+        &reference.record.version.get().to_string(),
     )?;
     with_context_headers(response, context, &pins, known_at)
 }
@@ -464,7 +461,7 @@ pub async fn get_bond_quote(
                 .map_err(|e| ApiError::invalid(e.to_string()))?
         }
     };
-    if runtime_product(&bond) {
+    if is_runtime_product(&bond) {
         runtime_composed(&state.engine)?;
     }
     let mut context = state
@@ -472,7 +469,7 @@ pub async fn get_bond_quote(
         .request_context(query.configuration.as_ref(), known_at)
         .await?;
     let version = reference.record.version;
-    if runtime_product(&bond) {
+    if is_runtime_product(&bond) {
         let mark = runtime_mark(
             &state.engine,
             &mut context,
@@ -485,10 +482,10 @@ pub async fn get_bond_quote(
         let response = runtime_quote(
             &state.engine,
             &mut context,
-            &mark.record,
+            &mark.reference,
             settlement_date,
             known_at,
-            mark.clean_price_mid,
+            mark.mark,
             mark.pricing_rule,
         )
         .await?;
@@ -786,7 +783,7 @@ async fn price_one_bond(
     };
     // Callables and floating rate notes price through the runtime, except in what-if
     // mode.
-    let runtime = !supplied && runtime_product(&request.bond);
+    let runtime = !supplied && is_runtime_product(&request.bond);
     if runtime {
         if let Err(error) = runtime_composed(&state.engine) {
             return error.into_response();
@@ -923,10 +920,10 @@ async fn runtime_request_quote(
     let response = runtime_quote(
         engine,
         context,
-        &mark.record,
+        &mark.reference,
         settlement_date,
         known_at,
-        mark.clean_price_mid,
+        mark.mark,
         mark.pricing_rule,
     )
     .await?;
@@ -935,18 +932,21 @@ async fn runtime_request_quote(
 
 /// What a stored callable or floating rate note is valued from at request time.
 struct RuntimeMark {
-    /// The stored reference valued.
-    record: convex_engine::ports::reference_repository::ReferenceRecord,
+    /// The stored reference valued, with the rule pinned beside it.
+    reference: convex_engine::ports::reference_master::ResolvedBondReference,
     /// Its rule as read.
     in_force: Option<convex_engine::level_pricing::PricingRuleInForce>,
     /// The rule's report.
     pricing_rule: Option<serde_json::Value>,
-    /// The clean price the stage gave; none without a mark, and every measure then fails
-    /// `MISSING_MARKET_DATA`.
-    clean_price_mid: Option<Decimal>,
+    /// What the runtime values: the clean price the stage gave, or a callable's own
+    /// quote when its rule values it on its workouts. None without a mark, and every
+    /// measure then fails `MISSING_MARKET_DATA`.
+    mark: Option<convex_engine::level_pricing::QuotedInput>,
 }
 
-/// The mark the level stage gives a stored callable or floating rate note under its rule.
+/// The mark a stored callable or floating rate note is valued from under its rule: a
+/// callable on its workouts takes its quote as sent, a price or a yield to worst; any
+/// other gets the clean price the level stage gives.
 async fn runtime_mark(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
@@ -955,26 +955,43 @@ async fn runtime_mark(
     quoted: Option<convex_engine::level_pricing::QuotedInput>,
     settlement_date: Date,
 ) -> Result<RuntimeMark, crate::error::ApiError> {
+    use convex_engine::level_pricing::QuotedInput;
     let Some(quoted) = quoted else {
         return Ok(RuntimeMark {
-            record: reference.record,
+            reference,
             in_force: None,
             pricing_rule: None,
-            clean_price_mid: None,
+            mark: None,
         });
     };
     let rule = engine
-        .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule)
+        .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule.clone())
         .await?;
     let in_force = engine.rule_in_force(context, rule).await?;
-    let pricing = engine.price_in_force(bond, in_force.as_ref(), quoted, settlement_date, None)?;
+    let on_workouts = |in_force: &convex_engine::level_pricing::PricingRuleInForce| {
+        convex_engine::optional_valuation::product_model(bond, Some(&in_force.rule.method))
+            == convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL
+    };
+    let (pricing_rule, mark) = match &in_force {
+        Some(in_force) if on_workouts(in_force) => {
+            (Some(workout_rule_json(in_force, quoted)), quoted)
+        }
+        _ => {
+            let pricing =
+                engine.price_in_force(bond, in_force.as_ref(), quoted, settlement_date, None)?;
+            (
+                in_force
+                    .as_ref()
+                    .map(|in_force| pricing_rule_json(in_force, quoted, &pricing)),
+                QuotedInput::Price(pricing.clean_price_mid),
+            )
+        }
+    };
     Ok(RuntimeMark {
-        record: reference.record,
-        pricing_rule: in_force
-            .as_ref()
-            .map(|in_force| pricing_rule_json(in_force, quoted, &pricing)),
+        reference,
+        pricing_rule,
         in_force,
-        clean_price_mid: Some(pricing.clean_price_mid),
+        mark: Some(mark),
     })
 }
 
@@ -1118,7 +1135,7 @@ pub async fn batch_price(
             outcomes[index] = refused(LEVEL_NEEDS_CONFIGURATION.into());
             continue;
         }
-        if runtime_product(&item.bond) {
+        if is_runtime_product(&item.bond) {
             valued.push((index, item.bond, quoted));
             continue;
         }
@@ -1271,10 +1288,10 @@ async fn runtime_item(
     let (mut value, _) = value_stored(
         engine,
         context,
-        &mark.record,
+        &mark.reference,
         settlement_date,
         known_at,
-        mark.clean_price_mid,
+        mark.mark,
     )
     .await?;
     if let Some(report) = mark.pricing_rule {

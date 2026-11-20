@@ -2,7 +2,8 @@
 //! government securities a spread is quoted to.
 //!
 //! A bond's [`PricingRuleDefinition`] (`MasterKey::PricingRule`) names its method: a price,
-//! a yield, a spread to one benchmark security, or a Z-spread. The level itself is a quote,
+//! a yield, a spread to one benchmark security, or a Z-spread. A callable quoted by price
+//! or by its yield to worst is valued on its workouts. The level itself is a quote,
 //! never stored. A rule may name a [`BenchmarkSetDefinition`]
 //! (`MasterKey::BenchmarkSet`) by id, so an on-the-run roll is one commit to the set and
 //! the version a valuation read is recorded with its result. A bond with no rule is
@@ -10,7 +11,7 @@
 //! request reads with the rule ([`RequestPricingRule`]) and a snapshot's pin leaves out.
 //!
 //! These are types, bounds and validation only. Turning a level into a price is the
-//! engine's level stage, through the pure crates.
+//! engine's level stage, or its workout model for a callable, through the pure crates.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -31,8 +32,8 @@ use crate::futures_reference::exact_bond;
 use crate::quote_event::QuoteField;
 use crate::reference_data::{BondReferenceData, BondType, IssuerType};
 use crate::reference_master::{
-    bond_at_commit, ensure_master_exists, EffectiveInterval, MasterDefinition, MasterKey,
-    MasterRecord, ReferenceProvenance,
+    bond_at_commit, ensure_master_exists, CallStyle, EffectiveInterval, MasterDefinition,
+    MasterKey, MasterRecord, ReferenceProvenance,
 };
 use crate::reference_repository::{ReferenceCommit, ReferenceError, ReferenceRecord};
 
@@ -42,15 +43,20 @@ pub const MAX_BENCHMARK_SECURITIES: usize = 32;
 pub const MAX_BENCHMARK_TENOR_MONTHS: u32 = 600;
 /// Benchmark sets one snapshot holds.
 pub const MAX_SNAPSHOT_BENCHMARK_SETS: usize = 64;
+/// Call dates a callable valued on its workouts may have.
+pub const MAX_WORKOUT_CALLS: usize = 128;
 
-/// How a stored bond is quoted. Each method other than `price` is a level that the level
-/// stage turns into a price before the bond's model values it.
+/// How a stored bond is quoted. For a fixed bullet, each method other than `price` is a
+/// level that the level stage turns into a price before the bond's model values it. A
+/// callable quoted by `price` or `yield` is valued on its workouts, from its price or its
+/// yield to worst; with no rule, or any other, it is valued on HW1F trees.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PricingMethod {
     /// A clean price per 100 face, as a bond with no rule is quoted.
     Price {},
-    /// A street yield to maturity, at the bond's coupon frequency.
+    /// A street yield to maturity, at the bond's coupon frequency; for a callable, its
+    /// yield to worst.
     Yield {},
     /// A spread, in basis points, to the yield of one security of the rule's benchmark
     /// set, named by its tenor, both yields compounded semi-annually: for a Treasury, its
@@ -94,9 +100,16 @@ impl PricingMethod {
     }
 
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
-    /// takes only a plain fixed bullet.
-    pub fn requires_plain_bullet(&self, names_benchmark_set: bool) -> bool {
-        self.is_level() || names_benchmark_set
+    /// applies to `bond`: a fixed bullet by every method; any other bond by price with no
+    /// set; and a callable valued on its workouts by its yield to worst too.
+    pub fn applies_to(&self, names_benchmark_set: bool, bond: &BondReferenceData) -> bool {
+        is_plain_bullet(bond)
+            || (!names_benchmark_set
+                && match self {
+                    Self::Price {} => true,
+                    Self::Yield {} => is_workout_callable(bond),
+                    Self::BenchmarkSpread { .. } | Self::ZSpread {} => false,
+                })
     }
 
     /// What a bond quoted this way is quoted in: a price, a yield or a spread.
@@ -155,11 +168,10 @@ pub struct PricingRuleDefinition {
 }
 
 impl PricingRuleDefinition {
-    /// Whether the rule quotes a level or names a benchmark set, either of which only a
-    /// plain fixed bullet takes.
-    pub fn requires_plain_bullet(&self) -> bool {
+    /// Whether the rule applies to `bond` ([`PricingMethod::applies_to`]).
+    pub fn applies_to(&self, bond: &BondReferenceData) -> bool {
         self.method
-            .requires_plain_bullet(self.benchmark_set_id.is_some())
+            .applies_to(self.benchmark_set_id.is_some(), bond)
     }
 
     /// Validate the rule on its own: a benchmark spread names its set and a well-formed
@@ -307,10 +319,10 @@ fn rule_definition(record: &MasterRecord) -> Result<&PricingRuleDefinition, Refe
 }
 
 impl ResolvedPricingRule {
-    /// Whether the rule takes only a plain fixed bullet: it quotes a level or names a set.
-    pub fn requires_plain_bullet(&self) -> bool {
+    /// Whether the rule applies to `bond` ([`PricingMethod::applies_to`]).
+    pub fn applies_to(&self, bond: &BondReferenceData) -> bool {
         self.method
-            .requires_plain_bullet(self.benchmark_set_id.is_some())
+            .applies_to(self.benchmark_set_id.is_some(), bond)
     }
 
     /// Check the rule on its own and against `known_at`, the cutoff it was resolved by.
@@ -369,8 +381,8 @@ impl ResolvedBenchmarkSet {
 }
 
 /// Check a commit's rules and sets against the bonds and sets they name, each as of the
-/// commit: a rule's bond is stored, and quoted by a level only if it is a fixed bullet
-/// (floating rate notes and callables are not yet supported); a named set exists; each
+/// commit: a rule's bond is stored, and the rule applies to it
+/// ([`PricingMethod::applies_to`]); a named set exists; each
 /// security of a set is a stored government fixed bullet in the set's currency. A rule
 /// version that has ended by its commit is checked only for its bond's identity, not its
 /// bond's current terms, so a rule can be ended after its bond is deleted or changed:
@@ -405,10 +417,8 @@ pub(crate) fn validate_level_pricing_links(
                     let id: convex_core::ids::InstrumentId = rule.instrument_id.clone().into();
                     let bond = bond_at_commit(commit, &id, bond_current)?
                         .ok_or(invalid("a pricing rule names a stored bond"))?;
-                    if rule.requires_plain_bullet() && !is_plain_bullet(&bond) {
-                        return Err(invalid(
-                            "only a fixed bullet is quoted by a level or against a benchmark set",
-                        ));
+                    if !rule.applies_to(&bond) {
+                        return Err(invalid(RULE_DOES_NOT_APPLY));
                     }
                     if rule.width.is_some() && !is_quoted_two_way(&bond) {
                         return Err(invalid(WIDTH_NEEDS_TWO_WAY));
@@ -436,6 +446,25 @@ pub(crate) fn validate_level_pricing_links(
         }
     }
     Ok(())
+}
+
+/// Why a rule does not apply to a bond ([`PricingMethod::applies_to`]).
+pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, and by a yield only a fixed bullet or a callable valued on its workouts";
+
+/// A fixed callable the workout model values: European or Bermudan fixed-price calls, at
+/// most [`MAX_WORKOUT_CALLS`], and nothing beyond its calls
+/// ([`BondReferenceData::has_terms_beyond_calls`]).
+pub fn is_workout_callable(bond: &BondReferenceData) -> bool {
+    bond.bond_type == BondType::FixedCallable
+        && bond.is_callable
+        && (1..=MAX_WORKOUT_CALLS).contains(&bond.call_schedule.len())
+        && !bond.call_schedule.iter().any(|call| call.is_make_whole)
+        && !bond.has_terms_beyond_calls()
+        && bond
+            .contractual_terms
+            .as_ref()
+            .and_then(|terms| terms.call_terms.as_ref())
+            .is_some_and(|call| call.style != CallStyle::American)
 }
 
 /// A fixed-coupon bullet with no embedded terms: what the router values and the level

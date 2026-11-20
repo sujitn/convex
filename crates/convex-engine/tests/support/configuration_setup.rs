@@ -77,12 +77,26 @@ pub async fn activate_pricing(setup: &Setup, config: &convex_ports::storage::Bon
         .unwrap();
 }
 /// Value the instrument of a stream result at request time, at its cutoff and
-/// `settlement`, with `mark`, under the runtime's configuration.
+/// `settlement`, with `mark` as a clean price, under the runtime's configuration.
 pub async fn value_at(
     engine: &PricingEngine,
     stream: &ResultEnvelope,
     settlement: BusinessDate,
     mark: Option<&str>,
+) -> Result<
+    convex_engine::request_valuation::RequestValuation,
+    convex_engine::request_valuation::RequestValuationError,
+> {
+    let mark =
+        mark.map(|mid| convex_engine::level_pricing::QuotedInput::Price(mid.parse().unwrap()));
+    value_quoted_at(engine, stream, settlement, mark).await
+}
+/// [`value_at`] with `mark` as quoted: a clean price or a level.
+pub async fn value_quoted_at(
+    engine: &PricingEngine,
+    stream: &ResultEnvelope,
+    settlement: BusinessDate,
+    mark: Option<convex_engine::level_pricing::QuotedInput>,
 ) -> Result<
     convex_engine::request_valuation::RequestValuation,
     convex_engine::request_valuation::RequestValuationError,
@@ -103,9 +117,7 @@ pub async fn value_at(
         )
         .await
         .unwrap()
-        .unwrap()
-        .record;
-    let mark = mark.map(|mid| mid.parse().unwrap());
+        .unwrap();
     engine
         .value_request(&mut context, &reference, settlement, known_at, mark)
         .await

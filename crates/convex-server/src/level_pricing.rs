@@ -71,14 +71,32 @@ pub(crate) fn pricing_rule_json(
     body
 }
 
+/// The rule of a callable valued on its workouts: the workout model prices its level, a
+/// yield to worst, with no stage and no benchmark.
+pub(crate) fn workout_rule_json(in_force: &PricingRuleInForce, input: QuotedInput) -> Value {
+    let mut body = rule_head_json(
+        convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL,
+        in_force,
+    );
+    if let QuotedInput::Level(level) = input {
+        body["level"] = json!(level);
+    }
+    body
+}
+
+/// The model that priced the rule's level, and the rule's version and method.
+fn rule_head_json(model: &str, in_force: &PricingRuleInForce) -> Value {
+    json!({
+        "model": model,
+        "version": in_force.rule.version.get(),
+        "method": in_force.rule.method,
+    })
+}
+
 /// The rule as read: the stage's model, the rule's version and method, the set it names
 /// with each security's Live price, and why no G-spread is published when it is not.
 pub(crate) fn rule_read_json(in_force: &PricingRuleInForce, pricing: &RulePricing) -> Value {
-    let mut body = json!({
-        "model": LEVEL_PRICE_MODEL,
-        "version": in_force.rule.version.get(),
-        "method": in_force.rule.method,
-    });
+    let mut body = rule_head_json(LEVEL_PRICE_MODEL, in_force);
     if let Some(set) = &in_force.benchmark_set {
         body["benchmark_set"] = json!({
             "benchmark_set_id": set.benchmark_set_id,
