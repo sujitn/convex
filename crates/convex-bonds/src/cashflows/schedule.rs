@@ -310,12 +310,15 @@ impl CalendarId {
         }
         let mut calendars: Vec<Box<dyn Calendar>> = Vec::with_capacity(components.len());
         for component in components {
+            // Each holiday table is built once and copied, not rebuilt for every bond.
             let calendar: Box<dyn Calendar> = match component {
                 // Preserve the established bond calendar aliases.
-                "US_GOVERNMENT" | "US-GOV" | "USGov" | "SIFMA" | "US" => Box::new(SIFMACalendar::new()),
-                "TARGET2" | "EUR" => Box::new(Target2Calendar::new()),
-                "UK" | "GBP" => Box::new(UKCalendar::new()),
-                "Japan" | "JPY" => Box::new(JapanCalendar::new()),
+                "US_GOVERNMENT" | "US-GOV" | "USGov" | "SIFMA" | "US" => {
+                    Box::new(SIFMACalendar::global().clone())
+                }
+                "TARGET2" | "EUR" => Box::new(Target2Calendar::global().clone()),
+                "UK" | "GBP" => Box::new(UKCalendar::global().clone()),
+                "Japan" | "JPY" => Box::new(JapanCalendar::global().clone()),
                 "WEEKEND" => Box::new(WeekendCalendar),
                 _ => return Err(BondError::InvalidSchedule { message: format!("Unsupported calendar {component}; supply a calendar with generate_with_calendar") }),
             };
