@@ -149,6 +149,17 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **The bond calculator: `POST /api/v1/bonds/:instrument_id/calculate`.** It takes one
+  level of a stored bond by any method (`price`, `yield`, `z_spread` or
+  `benchmark_spread`, whatever the bond's rule quotes) and a settlement date, prices it
+  as `GET /api/v1/quotes/:id` does under the approved context at `known_at`, and returns
+  the router's mid measures, the G-spread over the set the rule names, `input`,
+  `pricing_rule`, each `workout` with its yield and the `worst`. A fixed bullet's or
+  zero's one workout is maturity. It is read-only, mid only, and reports the versions
+  it read in the same headers as a quote. Fixed bullets take every method and zeros a
+  price; callables and floating rate notes are refused (422 `UNSUPPORTED_PRODUCT`). A
+  body is at most 64 KiB (413 `CAPACITY_EXCEEDED`). New histogram
+  `convex_bond_calculator_seconds`.
 - **A pricing rule's width gives the two-way in its quoting unit.** A rule's optional
   `width` holds widths by trade size in price points or 32nds for a `price` rule, or
   basis points for a yield or spread. At request time (`GET /api/v1/quotes/:id`,
@@ -308,6 +319,12 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **`price_by_method`** (and `PricingEngine::price_by_method`): the calculator's stage.
+  It prices a level by any method, against the set the bond's rule names, mid only.
+  `PricingEngine::rule_in_force_mid_only` reads a rule's set from its pin without its
+  width, and `QuotedInput::quoted_by` reads a value as a method quotes it. The stage's
+  own result is mid only when no width applies; `price_under_rule` alone gives a bond
+  quoted by price the configuration's width.
 - **The level stage applies a rule's width.** `PricingRuleInForce` gains `width`.
   **Breaking:**
   - `rule_in_force` takes a `RequestPricingRule` (the pin and the width): from

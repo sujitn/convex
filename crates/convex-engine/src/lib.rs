@@ -715,6 +715,18 @@ impl PricingEngine {
         }))
     }
 
+    /// [`Self::rule_in_force`] for a route that quotes mid only, such as the calculator:
+    /// from `pin`, the rule a stored bond's reference was resolved with, and the set it
+    /// names. The rule's width is not read.
+    pub async fn rule_in_force_mid_only(
+        &self,
+        context: &mut RequestContext,
+        pin: Option<ports::level_pricing::ResolvedPricingRule>,
+    ) -> Result<Option<level_pricing::PricingRuleInForce>, level_pricing::LevelError> {
+        let rule = pin.map(|pin| ports::level_pricing::RequestPricingRule { pin, width: None });
+        self.rule_in_force(context, rule).await
+    }
+
     /// The level stage at request time under `in_force`, from [`Self::rule_in_force`],
     /// sharing each benchmark's solved yield with every request quoted to it. With no
     /// rule a price is taken as given.
@@ -730,6 +742,29 @@ impl PricingEngine {
             bond,
             in_force,
             input,
+            settlement,
+            discount,
+            &self.benchmark_yield_cache,
+        )
+    }
+
+    /// The calculator's stage at request time: `level`, quoted by `method`, priced mid only
+    /// against `set`, the set the bond's rule names as [`Self::rule_in_force`] read it,
+    /// sharing each benchmark's solved yield as [`Self::price_in_force`] does.
+    pub fn price_by_method(
+        &self,
+        bond: &ports::reference_data::BondReferenceData,
+        set: Option<&level_pricing::BenchmarkSetQuotes>,
+        method: &ports::level_pricing::PricingMethod,
+        level: rust_decimal::Decimal,
+        settlement: convex_core::Date,
+        discount: Option<&BuiltCurve>,
+    ) -> Result<level_pricing::RulePricing, level_pricing::LevelError> {
+        level_pricing::price_by_method(
+            bond,
+            set,
+            method,
+            level,
             settlement,
             discount,
             &self.benchmark_yield_cache,

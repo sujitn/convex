@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use axum::extract::rejection::JsonRejection;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -49,14 +50,17 @@ impl ApiError {
             message,
         )
     }
-    /// No runtime is composed, and only a runtime values callables and floating rate
-    /// notes.
+    /// The route does not value this product, or no runtime is composed to value it.
     pub(crate) fn unsupported_product(message: impl Into<String>) -> Self {
         Self::new(
             StatusCode::UNPROCESSABLE_ENTITY,
             "UNSUPPORTED_PRODUCT",
             message,
         )
+    }
+    /// The request is over a bound.
+    pub(crate) fn too_large(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::PAYLOAD_TOO_LARGE, "CAPACITY_EXCEEDED", message)
     }
     /// The response could not be produced; safe to retry.
     pub(crate) fn unavailable(message: impl Into<String>) -> Self {
@@ -120,15 +124,24 @@ impl IntoResponse for ApiError {
     }
 }
 
+/// A body that is not the route's request: over its bound, or not its JSON.
+impl From<JsonRejection> for ApiError {
+    fn from(rejection: JsonRejection) -> Self {
+        if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE {
+            Self::too_large(rejection.body_text())
+        } else {
+            Self::invalid(rejection.body_text())
+        }
+    }
+}
+
 impl From<TraitError> for ApiError {
     fn from(error: TraitError) -> Self {
         let message = error.to_string();
         match error {
             TraitError::InvalidInput(_) => Self::invalid(message),
             TraitError::Conflict(_) => Self::new(StatusCode::CONFLICT, "CONFLICT", message),
-            TraitError::CapacityExceeded => {
-                Self::new(StatusCode::PAYLOAD_TOO_LARGE, "CAPACITY_EXCEEDED", message)
-            }
+            TraitError::CapacityExceeded => Self::too_large(message),
             TraitError::Unsupported(_) => {
                 Self::new(StatusCode::UNPROCESSABLE_ENTITY, "UNSUPPORTED", message)
             }

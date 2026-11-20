@@ -24,9 +24,11 @@ pub const CURVE_BUILD_SECONDS: &str = "convex_curve_build_seconds";
 pub const REQUEST_CONTEXT_SECONDS: &str = "convex_request_context_seconds";
 /// One `POST /api/v1/quote`, from handler entry to response.
 pub const QUOTE_SECONDS: &str = "convex_quote_seconds";
+/// One `POST /api/v1/bonds/:instrument_id/calculate`, from handler entry to response.
+pub const BOND_CALCULATOR_SECONDS: &str = "convex_bond_calculator_seconds";
 
 /// Every histogram this crate and the server record, with its help text.
-pub const HISTOGRAMS: [(&str, &str); 8] = [
+pub const HISTOGRAMS: [(&str, &str); 9] = [
     (
         INGRESS_SECONDS,
         "Parsed HTTP quote batch through validation and queue admission",
@@ -44,6 +46,10 @@ pub const HISTOGRAMS: [(&str, &str); 8] = [
     (CURVE_BUILD_SECONDS, "One curve graph built from recipes"),
     (REQUEST_CONTEXT_SECONDS, "Request-time valuation context"),
     (QUOTE_SECONDS, "POST /api/v1/quote"),
+    (
+        BOND_CALCULATOR_SECONDS,
+        "POST /api/v1/bonds/:instrument_id/calculate",
+    ),
 ];
 
 /// Where a curve graph was built.

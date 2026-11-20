@@ -294,6 +294,25 @@ fn with_context_headers(
     with_header(response, "x-convex-known-at", &rfc3339(known_at))
 }
 
+/// A stored bond's quote headers, as `GET /quotes/:instrument_id` sends them: the
+/// reference version priced, the context and every curve pin it read, and the rule's and
+/// set's versions when the bond has a rule.
+pub(crate) fn with_stored_quote_headers(
+    response: axum::response::Response,
+    reference_version: convex_core::contracts::Version,
+    context: &convex_engine::RequestContext,
+    known_at: convex_core::contracts::UtcTimestamp,
+    in_force: Option<&convex_engine::level_pricing::PricingRuleInForce>,
+) -> Result<axum::response::Response, crate::error::ApiError> {
+    let response = crate::curves::with_header(
+        response,
+        "x-convex-reference-version",
+        &reference_version.get().to_string(),
+    )?;
+    let response = with_context_headers(response, context, &context_pins(context), known_at)?;
+    with_pricing_rule_headers(response, in_force)
+}
+
 /// The same context as a body field. `None` is a supplied-input or yield-only price.
 fn context_json(
     context: Option<&convex_engine::RequestContext>,
@@ -415,7 +434,7 @@ pub async fn get_bond_quote(
     Path(instrument_id): Path<String>,
     query: Result<axum::extract::Query<BondQuoteQuery>, axum::extract::rejection::QueryRejection>,
 ) -> Result<axum::response::Response, crate::error::ApiError> {
-    use crate::curves::{known_at_or_now, with_header};
+    use crate::curves::known_at_or_now;
     use crate::error::ApiError;
     use crate::level_pricing::quoted_input;
     use convex_engine::ports::reference_master::ReferenceLookup;
@@ -498,13 +517,13 @@ pub async fn get_bond_quote(
     if let Some(report) = staged.pricing_rule {
         value["pricing_rule"] = report;
     }
-    let response = with_header(
+    with_stored_quote_headers(
         Json(value).into_response(),
-        "x-convex-reference-version",
-        &version.get().to_string(),
-    )?;
-    let response = with_context_headers(response, &context, &context_pins(&context), known_at)?;
-    with_pricing_rule_headers(response, staged.in_force.as_ref())
+        version,
+        &context,
+        known_at,
+        staged.in_force.as_ref(),
+    )
 }
 
 /// A bullet or zero ready for the router under a configuration: its rule as read, the

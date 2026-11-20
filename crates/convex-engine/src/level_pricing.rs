@@ -10,7 +10,9 @@
 //! in a snapshot, from its quote in that snapshot ([`price_in_snapshot`]); at request
 //! time, from the Live runtime's record of it, since quotes are not stored
 //! ([`live_clean_price_mid`]). At request time a rule's width widens what it quotes, and
-//! each side is priced as the mid is ([`BidAsk`]); Live publishes mid measures only.
+//! each side is priced as the mid is ([`BidAsk`]); Live publishes mid measures only. The
+//! calculator prices a level by any method, mid only, against the set the rule names
+//! ([`price_by_method`]).
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -136,7 +138,8 @@ pub struct PricingRuleInForce {
     /// The rule's pin: its version, method and set.
     pub rule: ResolvedPricingRule,
     /// The rule's two-way width at the pinned version. It is read at request time and not
-    /// pinned, since Live publishes mid measures only.
+    /// pinned, since Live publishes mid measures only, and not read for a route that
+    /// quotes mid only.
     pub width: Option<WidthSchedule>,
     /// The set the rule names, as read; shared by every bond of one request quoted to it.
     pub benchmark_set: Option<Arc<BenchmarkSetQuotes>>,
@@ -237,6 +240,17 @@ pub enum QuotedInput {
     Price(Decimal),
     /// A level in the rule's unit.
     Level(Decimal),
+}
+
+impl QuotedInput {
+    /// `value` as a bond quoted by `method` quotes it: a level, or a price.
+    pub fn quoted_by(method: &PricingMethod, value: Decimal) -> Self {
+        if method.is_level() {
+            Self::Level(value)
+        } else {
+            Self::Price(value)
+        }
+    }
 }
 
 /// The yield of the benchmark a spread was quoted to: the yield the spread is added to.
@@ -395,26 +409,65 @@ pub fn price_under_rule(
     let Some(in_force) = in_force else {
         return price_without_rule(input);
     };
-    let benchmarks = in_force.benchmark_set.as_ref().map(|set| {
-        set.quotes
-            .iter()
-            .map(|quote| BenchmarkInput {
-                security: &quote.security,
-                bond: &quote.bond,
-                clean_price_mid: quote.clean_price_mid,
-            })
-            .collect::<Vec<_>>()
-    });
-    price_with_rule(
+    let method = &in_force.rule.method;
+    let benchmarks = in_force.benchmark_set.as_deref().map(benchmark_inputs);
+    let pricing = price_with_rule(
         bond,
-        &in_force.rule.method,
+        method,
         in_force.width.as_ref(),
         benchmarks.as_deref(),
         input,
         settlement,
         discount,
         yields,
+    )?;
+    // A bond quoted by price whose rule sets no width takes the configuration's width, as
+    // a bond with no rule does.
+    if !method.is_level() && in_force.width.is_none() {
+        return Ok(RulePricing {
+            bid_ask: BidAsk::ConfigurationWidth,
+            ..pricing
+        });
+    }
+    Ok(pricing)
+}
+
+/// Price `level`, quoted by `method` whatever the bond's rule quotes, for the calculator:
+/// mid only, since no width is applied. `set` is the benchmark set the bond's rule names,
+/// as read: a benchmark spread is to one of its securities, and the G-spread is over it.
+/// With none, every method but a benchmark spread is priced.
+pub fn price_by_method(
+    bond: &BondReferenceData,
+    set: Option<&BenchmarkSetQuotes>,
+    method: &PricingMethod,
+    level: Decimal,
+    settlement: Date,
+    discount: Option<&BuiltCurve>,
+    yields: &BenchmarkYieldCache,
+) -> Result<RulePricing, LevelError> {
+    let benchmarks = set.map(benchmark_inputs);
+    price_with_rule(
+        bond,
+        method,
+        None,
+        benchmarks.as_deref(),
+        QuotedInput::quoted_by(method, level),
+        settlement,
+        discount,
+        yields,
     )
+}
+
+/// Each security of a set as read, borrowed for the stage.
+fn benchmark_inputs(set: &BenchmarkSetQuotes) -> Vec<BenchmarkInput<'_>> {
+    set.quotes
+        .iter()
+        .map(|quote| BenchmarkInput {
+            security: &quote.security,
+            bond: &quote.bond,
+            clean_price_mid: quote.clean_price_mid,
+        })
+        .collect()
 }
 
 /// [`price_under_rule`] for the bond `reference` resolves in `snapshot`, under the rule the
@@ -457,18 +510,13 @@ pub fn price_in_snapshot(
             )
         }
     };
-    let input = if rule.method.is_level() {
-        QuotedInput::Level(quoted)
-    } else {
-        QuotedInput::Price(quoted)
-    };
     // Live publishes mid measures only, so no width is read or applied.
     price_with_rule(
         bond,
         &rule.method,
         None,
         benchmarks.as_deref(),
-        input,
+        QuotedInput::quoted_by(&rule.method, quoted),
         settlement,
         discount,
         yields,
@@ -528,8 +576,8 @@ fn price_without_rule(input: QuotedInput) -> Result<RulePricing, LevelError> {
 
 /// The stage under a rule quoting `bond` by `method` with `width`, with the securities
 /// of the set it names as read, when it names one. The width widens what the rule
-/// quotes: a level for a level-quoted bond, a price for one quoted by price. A price
-/// sent for a level-quoted bond is quoted mid only.
+/// quotes: a level for a level-quoted bond, a price for one quoted by price. With no
+/// width, and for a price sent for a level-quoted bond, the pricing is mid only.
 #[allow(clippy::too_many_arguments)]
 fn price_with_rule(
     bond: &BondReferenceData,
@@ -567,7 +615,7 @@ fn price_with_rule(
                     };
                     BidAsk::RuleWidth(two_way_at(width, &mid, |side| Ok(side.level()))?)
                 }
-                None => BidAsk::ConfigurationWidth,
+                None => BidAsk::MidOnly,
             };
             (price, None, bid_ask)
         }
@@ -696,7 +744,11 @@ fn level_to_clean_price(
             // treats them as one tenor.
             let months = tenor_months(tenor).map_err(|e| refused(e.to_string()))?;
             let quoted_to = benchmarks
-                .ok_or_else(|| refused("a benchmark spread names its benchmark set"))?
+                .ok_or_else(|| {
+                    refused(
+                        "a benchmark spread is to the benchmark set the bond's pricing rule names, and it names none",
+                    )
+                })?
                 .iter()
                 .find(|b| b.months == months)
                 .ok_or_else(|| refused(format!("the benchmark set has no {tenor} security")))?;

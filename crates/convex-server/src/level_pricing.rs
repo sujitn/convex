@@ -9,7 +9,8 @@
 
 use axum::response::Response;
 use convex_engine::level_pricing::{
-    BidAsk, LevelError, PricingRuleInForce, QuotedInput, RulePricing, LEVEL_PRICE_MODEL,
+    BenchmarkYield, BidAsk, LevelError, PricingRuleInForce, QuotedInput, RulePricing,
+    LEVEL_PRICE_MODEL,
 };
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
@@ -44,21 +45,40 @@ pub(crate) fn optional_quoted_input(
     }
 }
 
-/// What the stage read and gave, added to a quote's body as `pricing_rule`.
+/// What the stage read and gave, added to a quote's body as `pricing_rule`: the rule as
+/// read, the price the quote gave, and the benchmark and two-way it was quoted with.
 pub(crate) fn pricing_rule_json(
     in_force: &PricingRuleInForce,
     input: QuotedInput,
     pricing: &RulePricing,
 ) -> Value {
+    let mut body = rule_read_json(in_force, pricing);
+    body["clean_price_mid"] = json!(pricing.clean_price_mid);
+    if let QuotedInput::Level(level) = input {
+        body["level"] = json!(level);
+    }
+    if let Some(benchmark) = &pricing.benchmark {
+        body["benchmark"] = benchmark_json(benchmark);
+    }
+    if let BidAsk::RuleWidth(two_way) = &pricing.bid_ask {
+        body["two_way"] = json!({
+            "unit": two_way.width.unit(),
+            "width": two_way.width.value(),
+            "bid": two_way.bid_level,
+            "ask": two_way.ask_level,
+        });
+    }
+    body
+}
+
+/// The rule as read: the stage's model, the rule's version and method, the set it names
+/// with each security's Live price, and why no G-spread is published when it is not.
+pub(crate) fn rule_read_json(in_force: &PricingRuleInForce, pricing: &RulePricing) -> Value {
     let mut body = json!({
         "model": LEVEL_PRICE_MODEL,
         "version": in_force.rule.version.get(),
         "method": in_force.rule.method,
-        "clean_price_mid": pricing.clean_price_mid,
     });
-    if let QuotedInput::Level(level) = input {
-        body["level"] = json!(level);
-    }
     if let Some(set) = &in_force.benchmark_set {
         body["benchmark_set"] = json!({
             "benchmark_set_id": set.benchmark_set_id,
@@ -72,25 +92,19 @@ pub(crate) fn pricing_rule_json(
             })).collect::<Vec<_>>(),
         });
     }
-    if let Some(benchmark) = &pricing.benchmark {
-        body["benchmark"] = json!({
-            "tenor": benchmark.tenor,
-            "instrument_id": benchmark.instrument_id.as_str(),
-            "ytm": benchmark.ytm,
-        });
-    }
     if let Some(reason) = pricing.g_spread_refused {
         body["g_spread_refused"] = json!(reason);
     }
-    if let BidAsk::RuleWidth(two_way) = &pricing.bid_ask {
-        body["two_way"] = json!({
-            "unit": two_way.width.unit(),
-            "width": two_way.width.value(),
-            "bid": two_way.bid_level,
-            "ask": two_way.ask_level,
-        });
-    }
     body
+}
+
+/// The benchmark a spread was quoted to, and the yield it was added to.
+pub(crate) fn benchmark_json(benchmark: &BenchmarkYield) -> Value {
+    json!({
+        "tenor": benchmark.tenor,
+        "instrument_id": benchmark.instrument_id.as_str(),
+        "ytm": benchmark.ytm,
+    })
 }
 
 /// The rule's and set's versions, as the reference version is reported; none for a bond

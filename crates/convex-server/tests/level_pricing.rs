@@ -423,6 +423,21 @@ fn number(value: &Value) -> f64 {
     }
 }
 
+/// A number from a response, written as a query or request sends it.
+fn text(value: &Value) -> String {
+    value.to_string().replace('"', "")
+}
+
+/// `GET /quotes/:id` of `id` with `input`, at the desk's cutoff and settlement.
+fn quote_uri(id: &str, input: &str, cutoff: &str) -> String {
+    format!("/api/v1/quotes/{id}?{input}&known_at={cutoff}&settlement_date={SETTLEMENT}")
+}
+
+/// A calculator request: `level` by `method`, at the desk's settlement and `cutoff`.
+fn calculation(method: Value, level: &str, cutoff: &str) -> Value {
+    json!({"method": method, "level": level, "settlement_date": SETTLEMENT, "known_at": cutoff})
+}
+
 /// A corporate quoted 125 bp over the 10-year prices from the Treasury's Live price: its
 /// yield is the 10-year's street yield plus 125 bp, and its price quoted back gives the
 /// same yield. The G-spread interpolates the 2- and 10-year. Yield and Z-spread rules
@@ -431,9 +446,7 @@ fn number(value: &Value) -> f64 {
 async fn a_level_prices_from_its_rule_and_comes_back_through_the_router() {
     let (setup, engine, cutoff) = desk().await;
     let app = router(engine);
-    let quote = |id: &str, input: &str| {
-        format!("/api/v1/quotes/{id}?{input}&known_at={cutoff}&settlement_date={SETTLEMENT}")
-    };
+    let quote = |id: &str, input: &str| quote_uri(id, input, &cutoff);
     let (status, headers, treasury) =
         call_with_headers(&app, "GET", &quote("UST-10Y", "market_price=98.25"), None).await;
     assert_eq!(status, StatusCode::OK, "{treasury}");
@@ -467,7 +480,7 @@ async fn a_level_prices_from_its_rule_and_comes_back_through_the_router() {
     assert!(spread["clean_price_bid"].is_null());
 
     // Its price quoted back gives the same yield and G-spread.
-    let clean = spread["clean_price_mid"].to_string().replace('"', "");
+    let clean = text(&spread["clean_price_mid"]);
     let (status, back) = call(
         &app,
         "GET",
@@ -584,6 +597,226 @@ async fn a_level_prices_from_its_rule_and_comes_back_through_the_router() {
     );
 }
 
+/// The calculator prices one level of a stored bond by any method, whatever its rule
+/// quotes, and reports the router's measures at that price, mid only. From the rule's own
+/// level it agrees with `GET /quotes`; from a price, a yield or a Z-spread it gives the
+/// others back. A benchmark spread is to the set the rule names, so a bond with no rule,
+/// or a tenor the set lacks, is refused.
+#[tokio::test]
+async fn the_calculator_prices_one_level_by_any_method() {
+    let (setup, engine, cutoff) = desk().await;
+    let app = router(engine);
+    let calculate = |id: &str, method: Value, level: &str| {
+        let uri = format!("/api/v1/bonds/{id}/calculate");
+        let (app, body) = (app.clone(), calculation(method, level, &cutoff));
+        async move { call_with_headers(&app, "POST", &uri, Some(body)).await }
+    };
+    let quote = |id: &str, input: &str| quote_uri(id, input, &cutoff);
+    let mid_measures = [
+        "clean_price_mid",
+        "accrued_interest",
+        "ytm_mid",
+        "z_spread_mid",
+        "g_spread_mid",
+        "modified_duration",
+        "convexity",
+    ];
+
+    // From the rule's own level, the measures of `GET /quotes` at that level, and the
+    // versions it read.
+    let (status, quoted) = call(&app, "GET", &quote("BOND-001", "level=125"), None).await;
+    assert_eq!(status, StatusCode::OK, "{quoted}");
+    let (status, headers, by_spread) = calculate(
+        "BOND-001",
+        json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+        "125",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{by_spread}");
+    for measure in mid_measures {
+        assert_eq!(
+            by_spread[measure], quoted[measure],
+            "{measure}: {by_spread}"
+        );
+    }
+    let benchmark = &by_spread["input"]["benchmark"];
+    assert_eq!(benchmark["instrument_id"], "UST-10Y");
+    assert!(
+        (number(&by_spread["ytm_mid"]) - (number(&benchmark["ytm"]) + 0.0125)).abs() < 1e-9,
+        "{by_spread}"
+    );
+    assert_eq!(number(&by_spread["input"]["level"]), 125.0);
+    assert_eq!(by_spread["pricing_rule"]["version"], 1);
+    assert_eq!(by_spread["pricing_rule"]["benchmark_set"]["version"], 1);
+    for (name, value) in [
+        ("x-convex-reference-version", "1"),
+        ("x-convex-pricing-rule-version", "1"),
+        ("x-convex-benchmark-set-version", "1"),
+        ("x-convex-pricing-config", "CONFIG-RESTORE@1"),
+    ] {
+        assert_eq!(headers[name], value, "{name}");
+    }
+    assert!(headers.contains_key("x-convex-curve-versions"));
+    // A bullet's one workout is maturity, and it is the worst.
+    let maturity = json!({"kind": "maturity", "date": "2030-01-15", "yield": by_spread["ytm_mid"]});
+    assert_eq!(by_spread["workouts"], json!([maturity]), "{by_spread}");
+    assert_eq!(by_spread["worst"], maturity);
+
+    // From its price, what `GET /quotes` gives at that price, mid only although the
+    // configuration sets a width; and its yield and Z-spread each give the price back.
+    let clean = text(&by_spread["clean_price_mid"]);
+    let (status, quoted) = call(
+        &app,
+        "GET",
+        &quote("BOND-001", &format!("market_price={clean}")),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{quoted}");
+    let (status, _, by_price) = calculate("BOND-001", json!({"kind": "price"}), &clean).await;
+    assert_eq!(status, StatusCode::OK, "{by_price}");
+    for measure in mid_measures {
+        assert_eq!(by_price[measure], quoted[measure], "{measure}: {by_price}");
+    }
+    assert!(by_price["input"].get("benchmark").is_none());
+    for side in ["clean_price_bid", "clean_price_ask", "ytm_bid", "ytm_ask"] {
+        assert!(by_price[side].is_null(), "{side}: {by_price}");
+    }
+    // The Z-spread is reported to 1e-4 bp: half of that, at a spread duration of about 3
+    // and a price near 99, is up to 1.5e-6 of price.
+    for (method, measure, price_tolerance, level_tolerance) in [
+        (json!({"kind": "yield"}), "ytm_mid", 1e-8, 1e-12),
+        (json!({"kind": "z_spread"}), "z_spread_mid", 2e-6, 1e-4),
+    ] {
+        let level = text(&by_price[measure]);
+        let (status, _, back) = calculate("BOND-001", method, &level).await;
+        assert_eq!(status, StatusCode::OK, "{back}");
+        assert!(
+            (number(&back["clean_price_mid"]) - number(&by_price["clean_price_mid"])).abs()
+                < price_tolerance,
+            "{measure}: {} against {}",
+            back["clean_price_mid"],
+            by_price["clean_price_mid"]
+        );
+        assert!(
+            (number(&back[measure]) - number(&by_price[measure])).abs() < level_tolerance,
+            "{measure}: {back}"
+        );
+        assert_eq!(
+            back["g_spread_mid"].is_null(),
+            by_price["g_spread_mid"].is_null()
+        );
+    }
+
+    // A Treasury with no rule is calculated from a yield, reads no rule, and has no
+    // benchmark set to quote a spread to.
+    let (status, headers, treasury) = calculate("UST-10Y", json!({"kind": "yield"}), "0.045").await;
+    assert_eq!(status, StatusCode::OK, "{treasury}");
+    assert!(
+        (number(&treasury["ytm_mid"]) - 0.045).abs() < 1e-10,
+        "{treasury}"
+    );
+    assert!(treasury.get("pricing_rule").is_none());
+    assert!(headers.get("x-convex-pricing-rule-version").is_none());
+    assert!(treasury["clean_price_bid"].is_null(), "{treasury}");
+
+    // A stored zero is calculated by its price, its one workout at maturity, and is refused
+    // a yield: only a fixed bullet is priced from a level.
+    let mut zero = note("UST-ZERO", "2028-01-15", "0", "912797AA1");
+    zero.bond_type = convex_ports::reference_data::BondType::ZeroCoupon;
+    zero.coupon_rate = None;
+    zero.first_coupon_date = None;
+    zero.day_count = "ACT/360".into();
+    // A bill accrues ACT/360 and its one payment is not adjusted, under a convention pack
+    // of its own.
+    let mut terms = fixture::reference_terms::terms(&zero);
+    terms.settings.business_day_convention =
+        convex_core::calendars::BusinessDayConvention::Unadjusted;
+    terms.convention.id = ReferenceDataId::new("fixture-zero").unwrap();
+    zero.contractual_terms = Some(terms);
+    let convention = fixture::reference_terms::resources(&zero)
+        .into_iter()
+        .filter(|change| matches!(change.definition, MasterDefinition::Convention(_)))
+        .collect();
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("calculator-zero").unwrap(),
+                changes: vec![ReferenceChange::Create {
+                    bond: Box::new(zero),
+                }],
+                master_changes: convention,
+            },
+            fixture::time("2025-06-06T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    let (status, _, by_price) = calculate("UST-ZERO", json!({"kind": "price"}), "92.5").await;
+    assert_eq!(status, StatusCode::OK, "{by_price}");
+    assert_eq!(number(&by_price["clean_price_mid"]), 92.5);
+    // About 6.1% semi-annual for 7.5 points of discount over 466 days.
+    let ytm = number(&by_price["ytm_mid"]);
+    assert!((0.055..0.067).contains(&ytm), "{by_price}");
+    assert_eq!(
+        by_price["workouts"],
+        json!([{"kind": "maturity", "date": "2028-01-15", "yield": by_price["ytm_mid"]}])
+    );
+    let (status, _, refused) = calculate("UST-ZERO", json!({"kind": "yield"}), "0.05").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    assert_eq!(
+        refused["error"],
+        "only a fixed bullet is priced from a level or against a benchmark set"
+    );
+
+    for (id, method, level, reason) in [
+        (
+            "UST-10Y",
+            json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+            "50",
+            "a benchmark spread is to the benchmark set the bond's pricing rule names, and it names none",
+        ),
+        (
+            "BOND-001",
+            json!({"kind": "benchmark_spread", "tenor": "30Y"}),
+            "100",
+            "the benchmark set has no 30Y security",
+        ),
+        (
+            "BOND-001",
+            json!({"kind": "yield"}),
+            "6.12",
+            "a yield level is a decimal yield from -0.1 to 1",
+        ),
+    ] {
+        let (status, _, refused) = calculate(id, method, level).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+        assert_eq!(refused["code"], "INVALID_INPUT");
+        assert_eq!(refused["error"], reason);
+    }
+
+    // A malformed request, a bond that is not stored, and a body over 64 KiB.
+    let uri = "/api/v1/bonds/BOND-001/calculate";
+    for body in [
+        json!({"method": {"kind": "price"}, "level": "99", "settlement_date": SETTLEMENT,
+            "known_at": cutoff, "trade_size": "1000000"}),
+        json!({"method": {"kind": "dv01"}, "level": "99", "settlement_date": SETTLEMENT}),
+        json!({"method": {"kind": "price"}, "level": "99"}),
+    ] {
+        let (status, refused) = call(&app, "POST", uri, Some(body)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+        assert_eq!(refused["code"], "INVALID_INPUT");
+    }
+    let (status, _, missing) = calculate("BOND-404", json!({"kind": "price"}), "99").await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{missing}");
+    // Refused for its size before it is read as a request.
+    let padded = json!({"padding": "x".repeat(64 * 1024)});
+    let (status, refused) = call(&app, "POST", uri, Some(padded)).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{refused}");
+    assert_eq!(refused["code"], "CAPACITY_EXCEEDED", "{refused}");
+}
+
 /// `rule` with a two-way width.
 fn with_width(mut rule: Value, width: Value) -> Value {
     rule["definition"]["definition"]["width"] = width;
@@ -600,9 +833,7 @@ fn with_width(mut rule: Value, width: Value) -> Value {
 async fn a_rule_width_quotes_the_two_way_in_the_rules_unit() {
     let (setup, engine, cutoff) = desk().await;
     let app = router(engine);
-    let quote = |id: &str, input: &str| {
-        format!("/api/v1/quotes/{id}?{input}&known_at={cutoff}&settlement_date={SETTLEMENT}")
-    };
+    let quote = |id: &str, input: &str| quote_uri(id, input, &cutoff);
     let (status, treasury) = call(&app, "GET", &quote("UST-10Y", "market_price=98.25"), None).await;
     assert_eq!(status, StatusCode::OK, "{treasury}");
     let ten_year = number(&treasury["ytm_mid"]);
@@ -668,7 +899,7 @@ async fn a_rule_width_quotes_the_two_way_in_the_rules_unit() {
     assert_eq!(posted["clean_price_bid"], spread["clean_price_bid"]);
 
     // A price sent for it is quoted mid only: there is no level to widen.
-    let clean = spread["clean_price_mid"].to_string().replace('"', "");
+    let clean = text(&spread["clean_price_mid"]);
     let (status, back) = call(
         &app,
         "GET",
@@ -1076,6 +1307,7 @@ async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
     let by_price = format!(
         "/api/v1/quotes/BOND-001?market_price=99.5&known_at={cutoff}&settlement_date={SETTLEMENT}"
     );
+    let calculator = "/api/v1/bonds/BOND-001/calculate";
     for (instruments, expected) in [
         (vec!["BOND-001"], StatusCode::FORBIDDEN),
         (vec!["BOND-001", "UST-2Y", "UST-10Y"], StatusCode::OK),
@@ -1110,10 +1342,32 @@ async fn a_level_quote_needs_entitlement_to_its_benchmarks() {
                 "/api/v1/batch/price",
                 Some(batch(json!({"market_price": 99.5}))),
             ),
+            (
+                "POST",
+                calculator,
+                Some(calculation(
+                    json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+                    "125",
+                    &cutoff,
+                )),
+            ),
+            (
+                "POST",
+                calculator,
+                Some(calculation(json!({"kind": "yield"}), "0.06", &cutoff)),
+            ),
         ] {
             let (status, _, response) =
                 access::request(router.clone(), method, path, Some(HUMAN_TOKEN), body).await;
             assert_eq!(status, expected, "{method} {path}: {response}");
+        }
+        // The access layer reads up to 2 MiB; the calculator's own bound still holds.
+        if expected == StatusCode::OK {
+            let padded = json!({"padding": "x".repeat(64 * 1024)});
+            let (status, _, response) =
+                access::request(router, "POST", calculator, Some(HUMAN_TOKEN), Some(padded)).await;
+            assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{response}");
+            assert_eq!(response["code"], "CAPACITY_EXCEEDED", "{response}");
         }
     }
     issuer.finish().await;
@@ -1256,7 +1510,8 @@ async fn inline_terms_equal_to_the_stored_ones_are_priced_under_the_stored_rule(
 
 /// Measurement: `/batch/price` of 1,000 inline bonds with no rule, and `GET /quotes` of
 /// one bond by price and by level, the medians of 20 rounds. Under a rule the batch is
-/// also timed by level and by price, and by level again once the rule has a width.
+/// also timed by level and by price, and by level again once the rule has a width. The
+/// calculator is timed on the same bond, by the rule's level, by a yield and by a price.
 #[tokio::test]
 #[ignore = "measurement; run with --ignored --nocapture under the ci profile"]
 async fn request_time_pricing_time_at_the_batch_bound() {
@@ -1271,10 +1526,9 @@ async fn request_time_pricing_time_at_the_batch_bound() {
             .extend(mark.as_object().unwrap().clone());
         Some(json!({"bonds": vec![item; 1000], "settlement_date": SETTLEMENT, "known_at": cutoff}))
     };
-    let get = |id: &str, mark: &str| {
-        format!("/api/v1/quotes/{id}?{mark}&known_at={cutoff}&settlement_date={SETTLEMENT}")
-    };
+    let get = |id: &str, mark: &str| quote_uri(id, mark, &cutoff);
     let batch_uri = "/api/v1/batch/price".to_owned();
+    let calculator_uri = "/api/v1/bonds/BOND-001/calculate".to_owned();
     let cases = [
         (
             "batch, no rule, by price",
@@ -1305,6 +1559,28 @@ async fn request_time_pricing_time_at_the_batch_bound() {
             "GET",
             get("BOND-001", "level=125"),
             None,
+        ),
+        (
+            "calculator, rule, by its level",
+            "POST",
+            calculator_uri.clone(),
+            Some(calculation(
+                json!({"kind": "benchmark_spread", "tenor": "10Y"}),
+                "125",
+                &cutoff,
+            )),
+        ),
+        (
+            "calculator, rule, by yield",
+            "POST",
+            calculator_uri.clone(),
+            Some(calculation(json!({"kind": "yield"}), "0.06", &cutoff)),
+        ),
+        (
+            "calculator, rule, by price",
+            "POST",
+            calculator_uri,
+            Some(calculation(json!({"kind": "price"}), "99.5", &cutoff)),
         ),
     ];
     for (name, method, uri, body) in cases {
