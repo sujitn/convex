@@ -88,6 +88,9 @@ pub enum LevelError {
         /// Why its Live record cannot be read.
         reason: &'static str,
     },
+    /// The bond's terms or conventions are ones the model does not value.
+    #[error("{0}")]
+    Unsupported(String),
     /// The pure crates could not price the level.
     #[error("the level could not be priced: {0}")]
     Analytics(String),
@@ -102,6 +105,7 @@ impl LevelError {
         match self {
             Self::Refused(_) | Self::Reference(_) => ErrorCode::InvalidInput,
             Self::BenchmarkUnavailable { .. } => ErrorCode::MissingMarketData,
+            Self::Unsupported(_) => ErrorCode::UnsupportedConvention,
             Self::Analytics(_) => ErrorCode::SolverLimit,
         }
     }

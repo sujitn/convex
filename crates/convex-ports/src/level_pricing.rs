@@ -451,6 +451,9 @@ pub(crate) fn validate_level_pricing_links(
 /// Why a rule does not apply to a bond ([`PricingMethod::applies_to`]).
 pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, and by a yield only a fixed bullet or a callable valued on its workouts";
 
+/// Why a callable is not valued on its workouts ([`is_workout_callable`]).
+pub const NOT_A_WORKOUT_CALLABLE: &str = "a callable is valued on its workouts only with European or Bermudan fixed-price calls, at most 128, and no other embedded terms";
+
 /// A fixed callable the workout model values: European or Bermudan fixed-price calls, at
 /// most [`MAX_WORKOUT_CALLS`], and nothing beyond its calls
 /// ([`BondReferenceData::has_terms_beyond_calls`]).

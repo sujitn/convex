@@ -654,24 +654,43 @@ others" for a stored bond. It is read-only and stores nothing.
   rule names no set is refused a benchmark spread, and so is a tenor the set lacks.
 - **Mid only.** The calculator values the one level it is sent: no bid or ask, from the
   rule's width or the configuration's.
-- **The reply** is the router's measures at the level's price, with:
+- **Callables on their workouts.** A callable is calculated from a `price` or a `yield`
+  to worst, whatever its rule quotes, with the workout model of
+  `GET /api/v1/quotes/:id`. It needs no runtime and reads no curve, and a spread method
+  is refused. From the rule's own method and level, or from a price, its measures are
+  those of `GET /api/v1/quotes/:id`.
+- **The reply** is the bond's model's measures at the level: the router's for a bullet
+  or zero, and for a callable its clean price, accrued, dirty price and `ytw`. It adds:
   - `input`: the `method` and `level` sent, and for a benchmark spread the `benchmark`
     it was quoted to, with the `ytm` it was added to;
   - `pricing_rule`, when the bond has a rule: its `version` and `method`, and the set as
     read, with each security's Live price;
   - `workouts`, each date the bond can be redeemed at with its `yield`, and `worst`, the
-    workout of lowest yield. A fixed bullet or zero is redeemed at maturity only, so its
-    one workout is maturity, at `ytm_mid`.
+    workout of lowest yield.
+    - A fixed bullet or zero is redeemed at maturity only, so its one workout is
+      maturity, at `ytm_mid`.
+    - A callable lists each call whose notice can still be given, with its
+      `call_price`, then maturity, in date order. Each yield is at the clean price, so
+      from a yield to worst the worst's yield returns the level to the solver's
+      tolerance. Its `worst` adds the `years` to it, under the bond's day count.
   - The headers of `GET /api/v1/quotes/:id`: the reference, configuration, activation,
     curve, rule and set versions read, and the cutoff.
-- **Which bonds.** Fixed bullets with no embedded terms, by any method; zeros, by price
-  only. A callable, a floating rate note or a bond with other embedded terms is refused
-  with 422 `UNSUPPORTED_PRODUCT`, before anything else is read.
+- **Which bonds.**
+  - Fixed bullets with no embedded terms, by any method, and zeros by price only.
+  - Callables with European or Bermudan fixed-price calls, at most 128, and no other
+    embedded terms.
+  - Any other bond, such as an American callable or a floating rate note, is refused
+    with 422 `UNSUPPORTED_PRODUCT` before anything else is read.
 - **Access.** As `GET /api/v1/quotes/:id`, with the `calculate` action: the reply names
   each benchmark's `instrument_id`, so the caller needs entitlement to it.
-- **Refusals.** 400 for a malformed body, an unknown field or a level out of its range;
-  404 for a bond not stored at `known_at`; 413 `CAPACITY_EXCEEDED` for a body over 64 KiB;
-  422 for a benchmark without a usable Live price, naming its tenor.
+- **Refusals.**
+  - 400 for a malformed body, an unknown field, a level out of its range, a method the
+    bond is not calculated by, or a callable's settlement on a day nothing settles on.
+  - 404 for a bond not stored at `known_at`.
+  - 413 `CAPACITY_EXCEEDED` for a body over 64 KiB.
+  - 422 for a benchmark without a usable Live price, naming its tenor, a callable whose
+    conventions the workout model does not value (`UNSUPPORTED_PRODUCT`, such as
+    ACT/ACT ICMA), or one whose workouts cannot be solved.
 
 ## Books and portfolios
 

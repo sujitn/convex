@@ -3,17 +3,21 @@
 //! option model and no curve. From a clean price the model solves the yield to worst;
 //! from a yield to worst it prices to worst. The yields are dated yields under the bond's
 //! own day count, compounded at its coupon frequency, which for a 30/360 or ACT/ACT ISDA
-//! bond is its street yield. Every formula is the pure crates'
-//! (`convex_analytics::workflow`): the engine builds the contract and its context only.
+//! bond is its street yield. The calculator also reports each workout's yield. Every
+//! formula is the pure crates' (`convex_analytics::workflow`): the engine builds the
+//! contract and its context only.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use convex_analytics::workflow::{
     quote_workout_price_to_worst, quote_workout_worst, BondInverseSettings, BondPriceTarget,
     DatedYieldConvention, WorkflowError, WorkoutContext, WorkoutInputs, WorkoutNotice,
-    WorkoutSelection, WorkoutSolveSettings, MAX_WORKOUT_CASH_EVALUATIONS,
+    WorkoutPriceToWorst, WorkoutSelection, WorkoutSolveSettings, WorkoutWorstQuotation,
+    MAX_WORKOUT_CASH_EVALUATIONS,
 };
+use convex_bonds::contracts::BondContract;
 use convex_core::{
+    calendars::Calendar,
     cashflows::{latest_trade_date, PaymentDateEntitlement},
     contracts::ErrorCode,
     types::Compounding,
@@ -21,13 +25,17 @@ use convex_core::{
 };
 use rust_decimal::{prelude::ToPrimitive, Decimal};
 
+use crate::level_pricing::{check_level, LevelError};
 use crate::optional_valuation::{
     calendar_window, callable_terms, failure, library_failure, stored_call_terms, Failure,
 };
 use crate::ports::{
-    level_pricing::{is_workout_callable, MAX_WORKOUT_CALLS},
+    level_pricing::{
+        is_workout_callable, PricingMethod, MAX_WORKOUT_CALLS, NOT_A_WORKOUT_CALLABLE,
+    },
+    output::BondQuoteOutput,
     reference_data::BondReferenceData,
-    reference_master::CalendarDefinition,
+    reference_master::{CalendarDefinition, ResolvedBondReference},
 };
 use crate::pricing_router::PricingRouter;
 
@@ -66,9 +74,29 @@ pub(crate) enum WorkoutQuote {
     YieldToWorst(Decimal),
 }
 
+impl WorkoutQuote {
+    /// `level` as `method` quotes a callable on its workouts: a clean price, or a yield to
+    /// worst within the range a rule's yield level takes. A spread does not quote one.
+    pub(crate) fn quoted_by(method: &PricingMethod, level: Decimal) -> Result<Self, LevelError> {
+        match method {
+            PricingMethod::Price {} => Ok(Self::CleanPrice(level)),
+            PricingMethod::Yield {} => {
+                check_level(method, level)?;
+                Ok(Self::YieldToWorst(level))
+            }
+            PricingMethod::ZSpread {} | PricingMethod::BenchmarkSpread { .. } => {
+                Err(LevelError::Refused(format!(
+                    "a callable is valued on its workouts from a price or a yield to worst, not a {}",
+                    method.name()
+                )))
+            }
+        }
+    }
+}
+
 /// A callable valued on its workouts.
 #[derive(Debug, Clone)]
-pub(crate) struct WorkoutValuation {
+pub struct WorkoutValuation {
     /// Clean price per 100 face: the quoted price, or the price to worst.
     pub clean_price: Decimal,
     /// Dirty price per 100 face on the worst path.
@@ -81,6 +109,128 @@ pub(crate) struct WorkoutValuation {
     pub years_to_worst: f64,
 }
 
+/// How a callable is redeemed on a workout.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Redemption {
+    /// At maturity.
+    Maturity,
+    /// At an issuer call.
+    Call {
+        /// The call price per 100 face.
+        call_price: Decimal,
+    },
+}
+
+/// One date a callable can be worked out to, with its yield at the calculated price.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Workout {
+    /// Maturity, or a call at its price.
+    pub redemption: Redemption,
+    /// The maturity date, or the call's contractual exercise date.
+    pub date: Date,
+    /// The yield to this date at the calculated clean price, as a decimal.
+    pub decimal_yield: f64,
+}
+
+/// A callable calculated on its workouts: its valuation and each workout's yield.
+#[derive(Debug, Clone)]
+pub struct WorkoutCalculation {
+    /// The valuation, as Live and request-time quotes value the callable.
+    pub valuation: WorkoutValuation,
+    /// Each call whose notice can still be given, then maturity, in date order.
+    pub workouts: Vec<Workout>,
+    /// The workout of lowest yield, on which the callable is valued.
+    pub worst: Workout,
+}
+
+impl WorkoutCalculation {
+    /// The calculation as a quote of `bond` at `settlement`: the clean price, accrued and
+    /// yield to worst, as a request-time quote reads them from the workout model.
+    pub fn bond_quote(&self, bond: &BondReferenceData, settlement: Date) -> BondQuoteOutput {
+        let valuation = &self.valuation;
+        BondQuoteOutput {
+            isin: bond.isin.clone(),
+            clean_price_mid: Some(valuation.clean_price),
+            accrued_interest: Decimal::from_f64_retain(valuation.accrued),
+            ytw: Decimal::from_f64_retain(valuation.yield_to_worst),
+            ..BondQuoteOutput::without_measures(
+                bond.instrument_id.clone(),
+                bond.currency,
+                settlement,
+                chrono::Utc::now().timestamp_millis(),
+                WORKOUT_SNAPSHOT_MODEL.into(),
+                "convex-library".into(),
+            )
+        }
+    }
+}
+
+/// Calculate a stored callable on its workouts from `level`, quoted by `method` whatever
+/// its rule quotes: its valuation, as Live and request-time quotes give it, and each
+/// workout's yield at its clean price. From a yield to worst, the yields are solved at the
+/// price to worst, so the worst's yield is the level to the solver's tolerance.
+pub fn calculate_on_workouts(
+    reference: &ResolvedBondReference,
+    method: &PricingMethod,
+    level: Decimal,
+    settlement: Date,
+) -> Result<WorkoutCalculation, LevelError> {
+    let quote = WorkoutQuote::quoted_by(method, level)?;
+    let refused = |reason: &str| LevelError::Refused(reason.into());
+    let bond = reference
+        .record
+        .bond
+        .as_ref()
+        .ok_or_else(|| refused("the stored reference is deleted"))?;
+    let calendar = reference
+        .calendar_definition()
+        .ok_or_else(|| refused("the pinned calendar resource is not a calendar"))?;
+    calculate(bond, calendar, settlement, quote).map_err(|failure| match failure.code {
+        ErrorCode::InvalidInput => LevelError::Refused(failure.message),
+        ErrorCode::UnsupportedConvention => LevelError::Unsupported(failure.message),
+        _ => LevelError::Analytics(failure.message),
+    })
+}
+
+fn calculate(
+    bond: &BondReferenceData,
+    calendar: &CalendarDefinition,
+    settlement: Date,
+    quote: WorkoutQuote,
+) -> Result<WorkoutCalculation, Failure> {
+    let workouts = StoredWorkouts::new(bond, calendar, settlement)?;
+    let (valuation, yields, worst_index) = match quote {
+        WorkoutQuote::CleanPrice(clean) => {
+            let yields = workouts.yields_at_price(clean)?;
+            let valuation = workouts.valuation_from_price(clean, &yields)?;
+            let worst_index = yields.selected_index;
+            (valuation, yields, worst_index)
+        }
+        WorkoutQuote::YieldToWorst(level) => {
+            let prices = workouts.prices_at_yield(level)?;
+            let valuation = workouts.valuation_from_yield(&prices)?;
+            // The same paths in the same order, so the worst is the path priced to.
+            let yields = workouts.yields_at_price(valuation.clean_price)?;
+            (valuation, yields, prices.selected_index)
+        }
+    };
+    let mut table = yields
+        .quotes
+        .iter()
+        .map(|path| workouts.workout(&path.selection, path.decimal_yield))
+        .collect::<Result<Vec<_>, _>>()?;
+    let worst = *table
+        .get(worst_index)
+        .ok_or_else(|| invalid("the worst is not among the workouts".into()))?;
+    // Maturity is quoted first and falls after every call.
+    table.sort_by_key(|workout| workout.date);
+    Ok(WorkoutCalculation {
+        valuation,
+        workouts: table,
+        worst,
+    })
+}
+
 /// Value a stored callable on its workouts at `settlement`. The calls considered are the
 /// ones whose notice can still be given on or after the trade date that settles then: no
 /// notice is stored, so no call is taken as already noticed.
@@ -90,104 +240,204 @@ pub(crate) fn value_on_workouts(
     settlement: Date,
     quote: WorkoutQuote,
 ) -> Result<WorkoutValuation, Failure> {
-    let invalid = |reason: String| failure(ErrorCode::InvalidInput, reason);
-    if !is_workout_callable(bond) {
-        return Err(failure(
-            ErrorCode::UnsupportedConvention,
-            "a callable is valued on its workouts with European or Bermudan fixed-price calls, at most 128, and no other embedded terms",
-        ));
-    }
-    let (terms, call) = stored_call_terms(bond)?;
-    calendar_window(bond, terms, calendar)?;
-    let base = PricingRouter { bump_bps: 1.0 }
-        .to_fixed_rate_bond(bond)
-        .map_err(|e| invalid(e.to_string()))?;
-    let contract = callable_terms(base, bond, call)?
-        .build()
-        .map_err(|e| invalid(e.to_string()))?;
-    let source = contract.terms();
-    // The router builds a stored bond on one calendar for payment, reset, observation and
-    // exercise.
-    let calendar = source
-        .calendars
-        .payment
-        .try_to_calendar()
-        .map_err(|e| invalid(e.to_string()))?;
-    let trade = latest_trade_date(
-        settlement,
-        source.settlement_lag,
-        source.settlement_adjustment,
-        calendar.as_ref(),
-    )
-    .map_err(|e| invalid(e.to_string()))?
-    .ok_or_else(|| {
-        invalid(format!(
-            "no trade settles on {settlement} under the bond's settlement lag and calendar"
-        ))
-    })?;
-    let context = WorkoutContext {
-        reference_date: trade,
-        trade_date: trade,
-        settlement,
-        on_payment: PaymentDateEntitlement::Exclude,
-        notice: WorkoutNotice::Unnotified {
-            earliest_notice: trade,
-        },
-    };
-    let inputs = WorkoutInputs {
-        contract: &contract,
-        context: &context,
-        exercise_calendar: (&source.calendars.exercise, calendar.as_ref()),
-        purchase_calendar: (&source.calendars.payment, calendar.as_ref()),
-    };
-    let convention = DatedYieldConvention {
-        day_count: source.day_count,
-        compounding: Compounding::from(source.schedule.frequency),
-    };
-    let number = |value: Decimal, what: &str| {
-        value
-            .to_f64()
-            .ok_or_else(|| invalid(format!("unrepresentable {what}")))
-    };
-    let years_to = |selection: &WorkoutSelection| {
-        let date = match selection {
-            WorkoutSelection::Maturity {} => source.schedule.end_date,
-            WorkoutSelection::Exercise { date, .. } => *date,
-        };
-        convex_curves::contracts::year_fraction(settlement, date, source.day_count)
-            .map_err(|e| invalid(e.to_string()))
-    };
-    let solved = |error: WorkflowError| library_failure(error.into());
+    let workouts = StoredWorkouts::new(bond, calendar, settlement)?;
     match quote {
         WorkoutQuote::CleanPrice(clean) => {
-            let target = BondPriceTarget::Clean(number(clean, "clean price")?);
-            let worst =
-                quote_workout_worst(&inputs, convention, target, WORST_SOLVE).map_err(solved)?;
-            let path = &worst.quotes[worst.selected_index];
-            Ok(WorkoutValuation {
-                clean_price: clean,
-                dirty_price: path.dirty_per100,
-                accrued: path.accrued_per100,
-                yield_to_worst: path.decimal_yield,
-                years_to_worst: years_to(&path.selection)?,
-            })
+            workouts.valuation_from_price(clean, &workouts.yields_at_price(clean)?)
         }
         WorkoutQuote::YieldToWorst(level) => {
-            let level = number(level, "yield")?;
-            let priced =
-                quote_workout_price_to_worst(&inputs, convention, level, WORST_SOLVE.max_dates)
-                    .map_err(solved)?;
-            let path = &priced.quotes[priced.selected_index];
-            Ok(WorkoutValuation {
-                clean_price: Decimal::from_f64_retain(path.clean_per100)
-                    .ok_or_else(|| invalid("the price to worst is not finite".into()))?,
-                dirty_price: path.dirty_per100,
-                accrued: path.accrued_per100,
-                yield_to_worst: level,
-                years_to_worst: years_to(&path.selection)?,
-            })
+            workouts.valuation_from_yield(&workouts.prices_at_yield(level)?)
         }
     }
+}
+
+/// A stored callable's contract, bought at one settlement, as the workout operations take
+/// it.
+struct StoredWorkouts {
+    contract: BondContract,
+    /// The router builds a stored bond on one calendar for payment, reset, observation and
+    /// exercise.
+    calendar: Box<dyn Calendar>,
+    context: WorkoutContext,
+    convention: DatedYieldConvention,
+}
+
+impl StoredWorkouts {
+    fn new(
+        bond: &BondReferenceData,
+        calendar: &CalendarDefinition,
+        settlement: Date,
+    ) -> Result<Self, Failure> {
+        if !is_workout_callable(bond) {
+            return Err(failure(
+                ErrorCode::UnsupportedConvention,
+                NOT_A_WORKOUT_CALLABLE,
+            ));
+        }
+        let (terms, call) = stored_call_terms(bond)?;
+        calendar_window(bond, terms, calendar)?;
+        let base = PricingRouter { bump_bps: 1.0 }
+            .to_fixed_rate_bond(bond)
+            .map_err(|e| invalid(e.to_string()))?;
+        let contract = callable_terms(base, bond, call)?
+            .build()
+            .map_err(|e| invalid(e.to_string()))?;
+        let source = contract.terms();
+        let calendar = source
+            .calendars
+            .payment
+            .try_to_calendar()
+            .map_err(|e| invalid(e.to_string()))?;
+        let trade = latest_trade_date(
+            settlement,
+            source.settlement_lag,
+            source.settlement_adjustment,
+            calendar.as_ref(),
+        )
+        .map_err(|e| invalid(e.to_string()))?
+        .ok_or_else(|| {
+            invalid(format!(
+                "no trade settles on {settlement} under the bond's settlement lag and calendar"
+            ))
+        })?;
+        let context = WorkoutContext {
+            reference_date: trade,
+            trade_date: trade,
+            settlement,
+            on_payment: PaymentDateEntitlement::Exclude,
+            notice: WorkoutNotice::Unnotified {
+                earliest_notice: trade,
+            },
+        };
+        let convention = DatedYieldConvention {
+            day_count: source.day_count,
+            compounding: Compounding::from(source.schedule.frequency),
+        };
+        Ok(Self {
+            contract,
+            calendar,
+            context,
+            convention,
+        })
+    }
+
+    fn inputs(&self) -> WorkoutInputs<'_> {
+        let calendars = &self.contract.terms().calendars;
+        WorkoutInputs {
+            contract: &self.contract,
+            context: &self.context,
+            exercise_calendar: (&calendars.exercise, self.calendar.as_ref()),
+            purchase_calendar: (&calendars.payment, self.calendar.as_ref()),
+        }
+    }
+
+    /// Every workout's yield at `clean`, and the worst.
+    fn yields_at_price(&self, clean: Decimal) -> Result<WorkoutWorstQuotation, Failure> {
+        let target = BondPriceTarget::Clean(to_f64(clean, "clean price")?);
+        quote_workout_worst(&self.inputs(), self.convention, target, WORST_SOLVE)
+            .map_err(workflow_failure)
+    }
+
+    /// Every workout's price at `yield_to_worst`, and the lowest.
+    fn prices_at_yield(&self, yield_to_worst: Decimal) -> Result<WorkoutPriceToWorst, Failure> {
+        let level = to_f64(yield_to_worst, "yield")?;
+        quote_workout_price_to_worst(
+            &self.inputs(),
+            self.convention,
+            level,
+            WORST_SOLVE.max_dates,
+        )
+        .map_err(workflow_failure)
+    }
+
+    /// The valuation at a quoted clean price, from its workouts' yields.
+    fn valuation_from_price(
+        &self,
+        clean: Decimal,
+        yields: &WorkoutWorstQuotation,
+    ) -> Result<WorkoutValuation, Failure> {
+        let path = &yields.quotes[yields.selected_index];
+        Ok(WorkoutValuation {
+            clean_price: clean,
+            dirty_price: path.dirty_per100,
+            accrued: path.accrued_per100,
+            yield_to_worst: path.decimal_yield,
+            years_to_worst: self.years_to(&path.selection)?,
+        })
+    }
+
+    /// The valuation at a quoted yield to worst, from its workouts' prices.
+    fn valuation_from_yield(
+        &self,
+        prices: &WorkoutPriceToWorst,
+    ) -> Result<WorkoutValuation, Failure> {
+        let path = &prices.quotes[prices.selected_index];
+        Ok(WorkoutValuation {
+            clean_price: Decimal::from_f64_retain(path.clean_per100)
+                .ok_or_else(|| invalid("the price to worst is not finite".into()))?,
+            dirty_price: path.dirty_per100,
+            accrued: path.accrued_per100,
+            yield_to_worst: prices.decimal_yield,
+            years_to_worst: self.years_to(&path.selection)?,
+        })
+    }
+
+    /// The date a workout redeems the bond on.
+    fn date_of(&self, selection: &WorkoutSelection) -> Date {
+        match selection {
+            WorkoutSelection::Maturity {} => self.contract.terms().schedule.end_date,
+            WorkoutSelection::Exercise { date, .. } => *date,
+        }
+    }
+
+    /// Years from settlement to a workout, under the bond's day count.
+    fn years_to(&self, selection: &WorkoutSelection) -> Result<f64, Failure> {
+        convex_curves::contracts::year_fraction(
+            self.context.settlement,
+            self.date_of(selection),
+            self.contract.terms().day_count,
+        )
+        .map_err(|e| invalid(e.to_string()))
+    }
+
+    /// A workout of the table: its redemption, its date and its yield.
+    fn workout(
+        &self,
+        selection: &WorkoutSelection,
+        decimal_yield: f64,
+    ) -> Result<Workout, Failure> {
+        let redemption = match selection {
+            WorkoutSelection::Maturity {} => Redemption::Maturity,
+            WorkoutSelection::Exercise { provision, .. } => Redemption::Call {
+                call_price: self
+                    .contract
+                    .terms()
+                    .exercise
+                    .get(*provision as usize)
+                    .ok_or_else(|| invalid("a workout names no call of the bond".into()))?
+                    .price_per_100,
+            },
+        };
+        Ok(Workout {
+            redemption,
+            date: self.date_of(selection),
+            decimal_yield,
+        })
+    }
+}
+
+fn invalid(reason: String) -> Failure {
+    failure(ErrorCode::InvalidInput, reason)
+}
+
+fn to_f64(value: Decimal, what: &str) -> Result<f64, Failure> {
+    value
+        .to_f64()
+        .ok_or_else(|| invalid(format!("unrepresentable {what}")))
+}
+
+fn workflow_failure(error: WorkflowError) -> Failure {
+    library_failure(error.into())
 }
 
 #[cfg(test)]
@@ -221,16 +471,27 @@ mod tests {
             style,
         )
     }
+    /// The calendar the fixture bond's reference pins.
+    fn fixture_calendar(bond: &BondReferenceData) -> CalendarDefinition {
+        let resources = crate::reference_terms::resources(bond);
+        let MasterDefinition::Calendar(calendar) = &resources[1].definition else {
+            panic!("fixture calendar resource")
+        };
+        (**calendar).clone()
+    }
     fn value(
         bond: &BondReferenceData,
         settlement: &str,
         quote: WorkoutQuote,
     ) -> Result<WorkoutValuation, Failure> {
-        let resources = crate::reference_terms::resources(bond);
-        let MasterDefinition::Calendar(calendar) = &resources[1].definition else {
-            panic!("fixture calendar resource")
-        };
-        value_on_workouts(bond, calendar, date(settlement), quote)
+        value_on_workouts(bond, &fixture_calendar(bond), date(settlement), quote)
+    }
+    fn calculated(
+        bond: &BondReferenceData,
+        settlement: &str,
+        quote: WorkoutQuote,
+    ) -> WorkoutCalculation {
+        calculate(bond, &fixture_calendar(bond), date(settlement), quote).unwrap()
     }
 
     #[test]
@@ -313,6 +574,53 @@ mod tests {
         assert_eq!(ours.clean_price, decimal("101.25"));
         // ACT/ACT ISDA from 6 October 2026 to 15 January 2027.
         assert!((ours.years_to_worst - 101.0 / 365.0).abs() < 1e-12);
+
+        // The calculator's table is the library's paths, each at its own yield, in date
+        // order: the three calls at their prices, then maturity.
+        let table = calculated(
+            &bond,
+            SETTLEMENT,
+            WorkoutQuote::CleanPrice(decimal("101.25")),
+        );
+        let library = |path: &convex_analytics::workflow::WorkoutYieldSummary| Workout {
+            redemption: match path.selection {
+                WorkoutSelection::Maturity {} => Redemption::Maturity,
+                WorkoutSelection::Exercise { provision, .. } => Redemption::Call {
+                    call_price: bond.call_schedule[provision as usize].call_price,
+                },
+            },
+            date: match path.selection {
+                WorkoutSelection::Maturity {} => bond.maturity_date,
+                WorkoutSelection::Exercise { date, .. } => date,
+            },
+            decimal_yield: path.decimal_yield,
+        };
+        let mut expected = worst.quotes.iter().map(library).collect::<Vec<_>>();
+        expected.rotate_left(1);
+        assert_eq!(table.workouts, expected);
+        assert_eq!(
+            table
+                .workouts
+                .iter()
+                .map(|w| w.redemption)
+                .collect::<Vec<_>>(),
+            [
+                Redemption::Call {
+                    call_price: decimal("101")
+                },
+                Redemption::Call {
+                    call_price: decimal("100.5")
+                },
+                Redemption::Call {
+                    call_price: decimal("100")
+                },
+                Redemption::Maturity,
+            ]
+        );
+        assert_eq!(table.worst, library(&worst.quotes[worst.selected_index]));
+        assert_eq!(table.worst.decimal_yield, ours.yield_to_worst);
+        assert_eq!(table.valuation.years_to_worst, ours.years_to_worst);
+        assert_eq!(table.valuation.clean_price, ours.clean_price);
     }
 
     #[test]
@@ -360,6 +668,80 @@ mod tests {
     }
 
     #[test]
+    fn from_a_yield_to_worst_the_table_is_solved_at_the_price_to_worst() {
+        let bond = callable(CallStyle::Bermudan);
+        // At a discount the worst is maturity, at a premium the first call, and between
+        // them the last call.
+        for clean in ["95", "100.25", "101.25", "104"] {
+            let by_price = calculated(&bond, SETTLEMENT, WorkoutQuote::CleanPrice(decimal(clean)));
+            let level = Decimal::from_f64_retain(by_price.valuation.yield_to_worst).unwrap();
+            let by_yield = calculated(&bond, SETTLEMENT, WorkoutQuote::YieldToWorst(level));
+            let valuation = &by_yield.valuation;
+            assert!(
+                (valuation.clean_price - decimal(clean)).abs() < decimal("0.00000001"),
+                "{clean}: {}",
+                valuation.clean_price
+            );
+            assert_eq!(valuation.yield_to_worst, by_price.valuation.yield_to_worst);
+            assert_eq!(by_yield.worst.date, by_price.worst.date, "{clean}");
+            assert!((by_yield.worst.decimal_yield - valuation.yield_to_worst).abs() < 1e-9);
+            assert_eq!(by_yield.workouts.len(), by_price.workouts.len());
+            for (from_yield, from_price) in by_yield.workouts.iter().zip(&by_price.workouts) {
+                assert_eq!(from_yield.date, from_price.date);
+                assert_eq!(from_yield.redemption, from_price.redemption);
+                assert!(
+                    (from_yield.decimal_yield - from_price.decimal_yield).abs() < 1e-9,
+                    "{clean}: {from_yield:?} against {from_price:?}"
+                );
+            }
+            // The valuation is the one Live and request-time quotes give.
+            let quoted = value(&bond, SETTLEMENT, WorkoutQuote::YieldToWorst(level)).unwrap();
+            assert_eq!(valuation.clean_price, quoted.clean_price);
+            assert_eq!(valuation.years_to_worst, quoted.years_to_worst);
+        }
+        let worst = |clean: &str| {
+            calculated(&bond, SETTLEMENT, WorkoutQuote::CleanPrice(decimal(clean)))
+                .worst
+                .redemption
+        };
+        assert_eq!(worst("95"), Redemption::Maturity);
+        assert_eq!(
+            worst("100.25"),
+            Redemption::Call {
+                call_price: decimal("100")
+            }
+        );
+        assert_eq!(
+            worst("104"),
+            Redemption::Call {
+                call_price: decimal("101")
+            }
+        );
+    }
+
+    #[test]
+    fn a_callable_is_quoted_by_a_price_or_a_yield_to_worst_in_range() {
+        assert!(matches!(
+            WorkoutQuote::quoted_by(&PricingMethod::Price {}, decimal("99")),
+            Ok(WorkoutQuote::CleanPrice(_))
+        ));
+        assert!(matches!(
+            WorkoutQuote::quoted_by(&PricingMethod::Yield {}, decimal("0.07")),
+            Ok(WorkoutQuote::YieldToWorst(_))
+        ));
+        assert!(matches!(
+            WorkoutQuote::quoted_by(&PricingMethod::Yield {}, decimal("1.5")),
+            Err(LevelError::Refused(_))
+        ));
+        let Err(LevelError::Refused(spread)) =
+            WorkoutQuote::quoted_by(&PricingMethod::ZSpread {}, decimal("150"))
+        else {
+            panic!("a spread does not quote a callable on its workouts")
+        };
+        assert!(spread.contains("price or a yield to worst"), "{spread}");
+    }
+
+    #[test]
     fn a_call_whose_notice_has_passed_is_not_a_workout() {
         let bond = callable(CallStyle::Bermudan);
         // Settling 28 December, the trade is on the 23rd: past the January call's notice
@@ -378,6 +760,22 @@ mod tests {
         .unwrap();
         assert!(late.years_to_worst > 1.0, "{}", late.years_to_worst);
         assert!(early.years_to_worst < 0.2, "{}", early.years_to_worst);
+        let dates = |settlement: &str| {
+            calculated(
+                &bond,
+                settlement,
+                WorkoutQuote::CleanPrice(decimal("101.25")),
+            )
+            .workouts
+            .iter()
+            .map(|workout| workout.date)
+            .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            dates("2026-12-28"),
+            ["2028-01-15", "2029-01-15", "2030-01-15"].map(date)
+        );
+        assert_eq!(dates("2026-12-04").len(), 4);
     }
 
     #[test]

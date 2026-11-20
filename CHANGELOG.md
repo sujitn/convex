@@ -169,6 +169,17 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **The calculator takes callables.** `POST /api/v1/bonds/:instrument_id/calculate`
+  values a callable with European or Bermudan calls, at most 128, on its workouts, from a
+  `price` or a `yield` to worst, whatever its rule quotes. It needs no runtime and reads
+  no curve.
+  - The reply has the workout model's clean price, accrued, dirty price and `ytw`, as
+    `GET /api/v1/quotes/:id` gives them.
+  - `workouts` lists each call whose notice can still be given, with its `call_price`
+    and yield at the clean price, then maturity. `worst` adds the `years` to it.
+  - A spread method or a settlement on a closed day is 400. An American callable, an
+    ACT/ACT ICMA one, a floating rate note or another bond is 422
+    `UNSUPPORTED_PRODUCT`.
 - **Callables on their workouts.** A callable whose pricing rule quotes it by `price` or
   `yield` (its yield to worst) is valued on each call date and maturity: model
   `convex-callable-workout-v1`, in Live and at request time, with no option model and
@@ -190,7 +201,7 @@ the changes that matter when you upgrade.
   `pricing_rule`, each `workout` with its yield and the `worst`. A fixed bullet's or
   zero's one workout is maturity. It is read-only, mid only, and reports the versions
   it read in the same headers as a quote. Fixed bullets take every method and zeros a
-  price; callables and floating rate notes are refused (422 `UNSUPPORTED_PRODUCT`). A
+  price; floating rate notes are refused (422 `UNSUPPORTED_PRODUCT`). A
   body is at most 64 KiB (413 `CAPACITY_EXCEEDED`). New histogram
   `convex_bond_calculator_seconds`.
 - **A pricing rule's width gives the two-way in its quoting unit.** A rule's optional
@@ -352,6 +363,13 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **`workout_valuation::calculate_on_workouts`**: the calculator's callables. From a
+  level by `price` or `yield`, it gives the `WorkoutValuation` Live and request-time
+  quotes give, and each `Workout` (maturity, or a call at its price) with its yield at
+  the clean price, in date order, and the `worst`. `WorkoutCalculation::bond_quote`
+  reads it as a `BondQuoteOutput`. New `LevelError::Unsupported`, for terms or
+  conventions the model does not value (`UnsupportedConvention`; 422
+  `UNSUPPORTED_PRODUCT` over HTTP).
 - **`workout_valuation`**: model `convex-callable-workout-v1`, which values a callable
   quoted by price or yield to worst on its workouts (`WORKOUT_SNAPSHOT_MODEL`,
   `WORKOUT_MEASURES`).
@@ -421,6 +439,10 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- `BondQuoteOutput::without_measures`: a fresh quote with every measure absent, for a
+  caller to set the measures it has.
+- `ResolvedBondReference::calendar_definition`: the pinned calendar's definition.
+  `NOT_A_WORKOUT_CALLABLE` says why `is_workout_callable` refuses a bond.
 - **Breaking:** `PricingMethod::requires_plain_bullet`,
   `PricingRuleDefinition::requires_plain_bullet` and
   `ResolvedPricingRule::requires_plain_bullet` are replaced by `applies_to(bond)`.
