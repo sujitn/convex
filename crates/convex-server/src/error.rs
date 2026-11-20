@@ -187,6 +187,7 @@ impl From<RequestValuationError> for ApiError {
                 "INVALID_REFERENCE",
                 message,
             ),
+            RequestValuationError::Level(error) => error.into(),
             RequestValuationError::Reference(error) => error.into(),
             RequestValuationError::Curves(error) => error.into(),
             // Every interactive slot is taken; another request frees one.

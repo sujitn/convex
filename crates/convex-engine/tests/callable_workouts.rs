@@ -13,8 +13,8 @@ use convex_engine::{
     RuntimeInput,
 };
 use convex_ports::{
-    quote_event::{FieldUpdate, QuoteEventKind, QuoteField},
-    reference_master::{CallStyle, MasterChange},
+    quote_event::QuoteField,
+    reference_master::CallStyle,
     reference_repository::{ReferenceChange, ReferenceCommand},
 };
 use rust_decimal::Decimal;
@@ -26,16 +26,6 @@ use serde_json::{json, Value};
 /// Configuration version 1 has no option model.
 async fn workout_setup(method: Value, field: QuoteField, mark: Decimal) -> Setup {
     let mut setup = setup().await;
-    let rule: MasterChange = serde_json::from_value(json!({
-        "expected_version": null,
-        "definition": {"kind": "pricing_rule", "definition": {
-            "instrument_id": "BOND-001",
-            "method": method,
-            "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
-            "provenance": {"source": "desk", "evidence_reference": "workout-test"},
-        }},
-    }))
-    .unwrap();
     setup
         .storage
         .bonds
@@ -46,7 +36,7 @@ async fn workout_setup(method: Value, field: QuoteField, mark: Decimal) -> Setup
                     bond: Box::new(products::callable(fixture::bond(), CallStyle::Bermudan)),
                     expected_version: fixture::version(1),
                 }],
-                master_changes: vec![rule],
+                master_changes: vec![products::pricing_rule(method)],
             },
             fixture::time("2025-06-01T00:00:00Z"),
         )
@@ -54,16 +44,12 @@ async fn workout_setup(method: Value, field: QuoteField, mark: Decimal) -> Setup
         .unwrap();
     let plan = &mut setup.plan;
     plan.assembly.instruments[0].version = fixture::version(2);
-    plan.assembly.quotes[0].fields = vec![field];
-    let QuoteEventKind::Image { fields } = &mut plan.seed_events[0].event else {
-        panic!("an image seed")
-    };
-    fields[0].field = field;
-    let FieldUpdate::Set(value) = &mut fields[0].update else {
-        panic!("a set field")
-    };
-    value.value = mark;
-    value.unit = field.unit();
+    products::quote_in(
+        &mut plan.assembly.quotes[0],
+        &mut plan.seed_events[0],
+        field,
+        mark,
+    );
     plan.measures = WORKOUT_MEASURES
         .iter()
         .map(|m| MeasureId::new(*m).unwrap())

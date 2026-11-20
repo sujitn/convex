@@ -510,6 +510,113 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
         );
         assert_eq!(headers["x-convex-pricing-rule-version"], "2");
     }
+
+    // The calculator values a note by price as the quote route does, with no rule and no
+    // workout table, over the note's discount and projection curves.
+    let note_curves = "USD-FIXTURE@7,USD-SOFR-PROJECTION@7";
+    let calculate_note = |method: Value, level: String| {
+        let body = json!({"method": method, "level": level, "settlement_date": SETTLEMENT,
+            "known_at": known_at});
+        let app = app.clone();
+        async move { call(&app, "POST", "/api/v1/bonds/FRN-001/calculate", Some(body)).await }
+    };
+    let margin = || json!({"kind": "discount_margin"});
+    let (status, headers, by_price) =
+        calculate_note(json!({"kind": "price"}), "99.25".into()).await;
+    assert_eq!(status, StatusCode::OK, "{by_price}");
+    for measure in convex_engine::floating_valuation::FLOATING_MEASURES {
+        assert_eq!(
+            by_price[measure], priced[1].1[measure],
+            "{measure}: {by_price}"
+        );
+    }
+    assert!(by_price["pricing_rule"].is_null(), "{by_price}");
+    assert!(by_price.get("workouts").is_none(), "{by_price}");
+    assert_eq!(headers["x-convex-curve-versions"], note_curves);
+    // Its margin is read in its rule's field, so with no margin rule a margin is refused.
+    let dm = number(&by_price["discount_margin_mid"]);
+    let (status, _, refused) = calculate_note(margin(), dm.to_string()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap()
+            .contains("discount_margin pricing rule"),
+        "{refused}"
+    );
+
+    // Quoted by its discount margin, the note is priced at it by the quote route and the
+    // calculator alike, and still takes a price.
+    let mut by_margin = rule_wire.clone();
+    by_margin["definition"]["definition"]["instrument_id"] = json!("FRN-001");
+    by_margin["definition"]["definition"]["method"] = margin();
+    setup
+        .storage
+        .bonds
+        .commit(
+            &commit_rule(
+                "note-rule-margin",
+                serde_json::from_value(by_margin).unwrap(),
+            ),
+            priced[1].0,
+        )
+        .await
+        .unwrap();
+    let uri = format!(
+        "/api/v1/quotes/FRN-001?level={dm}&known_at={known_at}&settlement_date={SETTLEMENT}"
+    );
+    let (status, headers, quoted) = call(&app, "GET", &uri, None).await;
+    assert_eq!(status, StatusCode::OK, "{quoted}");
+    assert!(
+        (number(&quoted["clean_price_mid"]) - 99.25).abs() < 1e-9,
+        "{quoted}"
+    );
+    assert_eq!(number(&quoted["discount_margin_mid"]), dm);
+    assert_eq!(quoted["accrued_interest"], priced[1].1["accrued_interest"]);
+    assert_eq!(
+        quoted["pricing_rule"],
+        json!({"model": convex_engine::floating_valuation::FLOATING_SNAPSHOT_MODEL,
+            "version": 1, "method": margin(), "level": dm})
+    );
+    assert_eq!(headers["x-convex-pricing-rule-version"], "1");
+    assert_eq!(headers["x-convex-curve-versions"], note_curves);
+    let (status, _, calculated) = calculate_note(margin(), dm.to_string()).await;
+    assert_eq!(status, StatusCode::OK, "{calculated}");
+    for measure in convex_engine::floating_valuation::FLOATING_MEASURES {
+        assert_eq!(
+            calculated[measure], quoted[measure],
+            "{measure}: {calculated}"
+        );
+    }
+    assert_eq!(
+        calculated["pricing_rule"],
+        json!({"model": convex_engine::floating_valuation::FLOATING_SNAPSHOT_MODEL,
+            "version": 1, "method": margin()})
+    );
+    assert_eq!(
+        calculated["input"],
+        json!({"method": margin(), "level": dm})
+    );
+    let uri = format!(
+        "/api/v1/quotes/FRN-001?market_price=99.25&known_at={known_at}&settlement_date={SETTLEMENT}"
+    );
+    let (status, _, quoted) = call(&app, "GET", &uri, None).await;
+    assert_eq!(status, StatusCode::OK, "{quoted}");
+    assert_eq!(
+        quoted["discount_margin_mid"],
+        priced[1].1["discount_margin_mid"]
+    );
+    // A margin out of range, or a method the note is not quoted by, is refused.
+    let uri = format!(
+        "/api/v1/quotes/FRN-001?level=6000&known_at={known_at}&settlement_date={SETTLEMENT}"
+    );
+    let (status, _, refused) = call(&app, "GET", &uri, None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    for (method, level) in [(margin(), "6000"), (json!({"kind": "yield"}), "0.05")] {
+        let (status, _, refused) = calculate_note(method, level.into()).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+        assert_eq!(refused["code"], "INVALID_INPUT", "{refused}");
+    }
     engine.shutdown().await.unwrap();
 }
 
@@ -560,11 +667,12 @@ async fn a_server_without_a_runtime_refuses_callables_and_still_prices_bullets()
     );
 }
 
-/// The calculator values a stored callable on its workouts, with no runtime and no curve,
-/// and refuses a floating rate note before any context is read. Without a configuration
-/// activated, the callable and the bullet beside it are refused for want of a context.
+/// The calculator values a stored callable on its workouts, with no runtime and no curve.
+/// It refuses an American callable before any context is read, and a floating rate note,
+/// which the runtime values, on a server without one. Without a configuration activated,
+/// the callable and the bullet beside it are refused for want of a context.
 #[tokio::test]
-async fn the_calculator_values_callables_on_their_workouts_and_refuses_notes() {
+async fn the_calculator_values_callables_on_their_workouts_without_a_runtime() {
     let (setup, _, _) = products_setup().await;
     let american = products::callable(renamed("CALL-AMERICAN"), CallStyle::American);
     // A dated yield needs a context-free day count, which ACT/ACT ICMA is not.
@@ -601,11 +709,18 @@ async fn the_calculator_values_callables_on_their_workouts_and_refuses_notes() {
         async move { call(&app, "POST", &uri, Some(body)).await }
     };
     let price = || json!({"kind": "price"});
-    // An American callable is not valued on its workouts, and a note is not calculated.
-    for id in ["CALL-AMERICAN", "FRN-001"] {
+    // An American callable is not valued on its workouts, and a note needs the runtime.
+    for (id, reason) in [
+        ("CALL-AMERICAN", "callables on their workouts"),
+        ("FRN-001", "runtime"),
+    ] {
         let (status, _, refused) = calculate(id, price(), "99.25", SETTLEMENT).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{id}: {refused}");
         assert_eq!(refused["code"], "UNSUPPORTED_PRODUCT", "{refused}");
+        assert!(
+            refused["error"].as_str().unwrap().contains(reason),
+            "{id}: {refused}"
+        );
     }
     for id in ["CALL-001", "BOND-001"] {
         let (status, _, refused) = calculate(id, price(), "99.25", SETTLEMENT).await;

@@ -26,6 +26,82 @@ fn a_rule_round_trips_and_omits_an_absent_set() {
     assert_eq!(parsed.method.name(), "z_spread");
 }
 
+/// Each method applies to the bonds it quotes: every method but a discount margin to a
+/// fixed bullet, a price to any bond with no set, a yield to worst to a callable valued on
+/// its workouts, and a discount margin only to a floating rate note, with no set.
+#[test]
+fn each_method_applies_to_the_bonds_it_quotes() {
+    use convex_ports::reference_data::{BondReferenceData, BondType, CallScheduleEntry};
+    let bullet: BondReferenceData =
+        serde_json::from_str(include_str!("fixtures/reference_bond.json")).unwrap();
+    let mut note = bullet.clone();
+    note.bond_type = BondType::FloatingRate;
+    note.coupon_rate = None;
+    let mut callable = bullet.clone();
+    callable.bond_type = BondType::FixedCallable;
+    callable.is_callable = true;
+    callable.call_schedule = vec![CallScheduleEntry {
+        call_date: convex_core::Date::parse("2028-01-15").unwrap(),
+        call_price: callable.face_value,
+        is_make_whole: false,
+    }];
+    callable.contractual_terms.as_mut().unwrap().call_terms =
+        Some(convex_ports::reference_master::CallTerms {
+            style: convex_ports::reference_master::CallStyle::Bermudan,
+            notice_days: 30,
+        });
+    let mut zero = bullet.clone();
+    zero.bond_type = BondType::ZeroCoupon;
+    zero.coupon_rate = None;
+    let methods = [
+        PricingMethod::Price {},
+        PricingMethod::Yield {},
+        PricingMethod::ZSpread {},
+        PricingMethod::BenchmarkSpread {
+            tenor: "10Y".into(),
+        },
+        PricingMethod::DiscountMargin {},
+    ];
+    // Per method, in the order above: whether it applies with no set, then with one.
+    for (bond, without_set, with_set) in [
+        (
+            &bullet,
+            [true, true, true, true, false],
+            [true, true, true, true, false],
+        ),
+        (&note, [true, false, false, false, true], [false; 5]),
+        (&callable, [true, true, false, false, false], [false; 5]),
+        (&zero, [true, false, false, false, false], [false; 5]),
+    ] {
+        for (index, method) in methods.iter().enumerate() {
+            assert_eq!(
+                method.applies_to(false, bond),
+                without_set[index],
+                "{:?} {}",
+                bond.bond_type,
+                method.name()
+            );
+            assert_eq!(
+                method.applies_to(true, bond),
+                with_set[index],
+                "{:?} {} with a set",
+                bond.bond_type,
+                method.name()
+            );
+        }
+    }
+    let margin = PricingMethod::DiscountMargin {};
+    assert_eq!(margin.name(), "discount_margin");
+    assert_eq!(
+        margin.level_field(),
+        Some(convex_ports::quote_event::QuoteField::MidSpread)
+    );
+    let wire = rule(json!({"kind": "discount_margin"}), None);
+    let parsed: PricingRuleDefinition = serde_json::from_value(wire.clone()).unwrap();
+    parsed.validate().unwrap();
+    assert_eq!(serde_json::to_value(&parsed).unwrap(), wire);
+}
+
 #[test]
 fn unknown_fields_and_methods_are_refused() {
     for wire in [

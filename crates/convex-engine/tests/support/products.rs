@@ -9,17 +9,52 @@ use convex_core::{
 };
 use convex_ports::{
     fixing::{FixingKey, PublishedFixing},
+    quote_event::{FieldUpdate, QuoteEvent, QuoteEventKind, QuoteField},
     reference_data::{BondReferenceData, BondType, CallScheduleEntry, FloatingRateTerms},
     reference_master::{
         CallStyle, CallTerms, ConventionDefinition, FloatingConventions, FloatingMechanics,
         MasterChange, MasterDefinition, RateIndexDefinition, RateIndexKind, ReferencePin,
     },
+    snapshot::QuoteRequirement,
 };
 use rust_decimal::Decimal;
 use std::str::FromStr;
 
 fn version(value: u64) -> Version {
     Version::new(value).unwrap()
+}
+
+/// A pricing rule quoting BOND-001 by `method`, in force from 2025.
+pub fn pricing_rule(method: serde_json::Value) -> MasterChange {
+    serde_json::from_value(serde_json::json!({
+        "expected_version": null,
+        "definition": {"kind": "pricing_rule", "definition": {
+            "instrument_id": "BOND-001",
+            "method": method,
+            "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
+            "provenance": {"source": "desk", "evidence_reference": "product-test"},
+        }},
+    }))
+    .unwrap()
+}
+
+/// A quote `requirement` reading `field` only, and its `seed` image holding `mark` in it.
+pub fn quote_in(
+    requirement: &mut QuoteRequirement,
+    seed: &mut QuoteEvent,
+    field: QuoteField,
+    mark: Decimal,
+) {
+    requirement.fields = vec![field];
+    let QuoteEventKind::Image { fields } = &mut seed.event else {
+        panic!("an image seed")
+    };
+    fields[0].field = field;
+    let FieldUpdate::Set(value) = &mut fields[0].update else {
+        panic!("a set field")
+    };
+    value.value = mark;
+    value.unit = field.unit();
 }
 
 /// `bond` with explicit annual calls from 2027, under call `style`.

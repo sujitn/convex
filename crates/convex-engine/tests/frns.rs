@@ -1,6 +1,7 @@
 //! Floating rate notes through the runtime: stored terms pinning a rate-index resource, its
 //! published fixings in the durable store, and stored discount and projection recipes,
-//! valued by `convex::library` at the observed clean mid.
+//! valued by `convex::library` at the observed clean mid, or at the discount margin a
+//! note's rule quotes it by.
 #[path = "support/configuration_setup.rs"]
 mod configuration;
 #[path = "support/products.rs"]
@@ -9,9 +10,12 @@ mod products;
 mod recipes;
 use configuration::runtime::*;
 use convex_core::{contracts::*, Date};
-use convex_engine::{floating_valuation::*, snapshot::RUNTIME_MEASURES, RuntimeInput};
+use convex_engine::{
+    floating_valuation::*, level_pricing::QuotedInput, snapshot::RUNTIME_MEASURES, RuntimeInput,
+};
 use convex_ports::{
     fixing::{FixingRepository, PublishedFixing},
+    quote_event::QuoteField,
     reference_repository::{ReferenceChange, ReferenceCommand},
     snapshot::SnapshotRepository,
 };
@@ -74,6 +78,76 @@ async fn frn_setup_from(
         .collect();
     setup
 }
+/// [`frn_setup`] with every fixing, the note quoted by its discount margin: a
+/// `discount_margin` rule, and the plan reading the rule's field, `mid_spread`, holding
+/// `margin`.
+async fn margin_setup(margin: Decimal) -> Setup {
+    let mut setup = frn_setup(published(), true).await;
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("frn-margin-rule").unwrap(),
+                changes: vec![],
+                master_changes: vec![products::pricing_rule(
+                    serde_json::json!({"kind": "discount_margin"}),
+                )],
+            },
+            fixture::time("2025-06-02T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    let plan = &mut setup.plan;
+    products::quote_in(
+        &mut plan.assembly.quotes[0],
+        &mut plan.seed_events[0],
+        QuoteField::MidSpread,
+        margin,
+    );
+    setup
+}
+
+/// A started captured runtime over `setup`'s plan, with its recipes stored and
+/// configuration version 2 activated, so it also values requests.
+async fn request_runtime(setup: &Setup) -> std::sync::Arc<convex_engine::PricingEngine> {
+    for recipe in [recipes::recipe(), products::projection(recipes::recipe())] {
+        setup
+            .storage
+            .curves
+            .save_recipe(&recipes::record(recipe))
+            .await
+            .unwrap();
+    }
+    let config = setup
+        .storage
+        .configs
+        .get_version("CONFIG-RESTORE", 2)
+        .await
+        .unwrap()
+        .unwrap();
+    let engine = make_engine(
+        setup,
+        archive(setup),
+        setup.plan.clone(),
+        setup.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    // A runtime without configuration use cases starts only with nothing activated.
+    configuration::activate_pricing(setup, &config).await;
+    engine
+}
+
+fn measure(result: &ResultEnvelope, name: &str) -> f64 {
+    match &result.results()[&MeasureId::new(name).unwrap()].value {
+        MeasureValue::ModelPrice(v) => v.value().get(),
+        MeasureValue::ModelBps(v) => v.value().get(),
+        MeasureValue::Price(v) => v.value().decimal().try_into().unwrap(),
+        other => panic!("{name}: {other:?}"),
+    }
+}
+
 async fn run(setup: &Setup) -> Vec<convex_ports::runtime::PublishedValuation> {
     let engine = make_engine(
         setup,
@@ -118,11 +192,7 @@ async fn a_stored_sofr_note_publishes_its_discount_margin_from_derived_fixings()
         panic!("observed clean mid")
     };
     assert_eq!(clean.value().decimal(), Decimal::from_str("99.25").unwrap());
-    let model = |name: &str| match value(name) {
-        MeasureValue::ModelPrice(v) => v.value().get(),
-        MeasureValue::ModelBps(v) => v.value().get(),
-        other => panic!("{name}: {other:?}"),
-    };
+    let model = |name: &str| measure(result, name);
     assert!(matches!(
         value("discount_margin_mid"),
         MeasureValue::ModelBps(_)
@@ -238,31 +308,7 @@ async fn a_request_time_note_valuation_matches_the_stream_and_fails_as_it_does()
     missing.retain(|f| f.key.observation_date.date() != Date::parse("2026-09-15").unwrap());
     for (fixings, complete) in [(published(), true), (missing, false)] {
         let setup = frn_setup(fixings, true).await;
-        let config = setup
-            .storage
-            .configs
-            .get_version("CONFIG-RESTORE", 2)
-            .await
-            .unwrap()
-            .unwrap();
-        for recipe in [recipes::recipe(), products::projection(recipes::recipe())] {
-            setup
-                .storage
-                .curves
-                .save_recipe(&recipes::record(recipe))
-                .await
-                .unwrap();
-        }
-        let engine = make_engine(
-            &setup,
-            archive(&setup),
-            setup.plan.clone(),
-            setup.store.clone(),
-            RuntimeInput::Captured,
-        );
-        engine.start().await.unwrap();
-        // A runtime without configuration use cases starts only with nothing activated.
-        configuration::activate_pricing(&setup, &config).await;
+        let engine = request_runtime(&setup).await;
         let stream = engine.runtime_results()[0].result.clone();
         let valued =
             configuration::value_at(&engine, &stream, setup.plan.settlement_date, Some("99.25"))
@@ -276,6 +322,93 @@ async fn a_request_time_note_valuation_matches_the_stream_and_fails_as_it_does()
         assert_eq!(result.errors(), stream.errors());
         assert_eq!(valued.curves.len(), 2, "{:?}", valued.curves);
     }
+}
+
+/// A note quoted by its discount margin is priced at it in Live: the margin solved from a
+/// clean mid gives that mid back, with the same accrued and dirty price, and the margin
+/// as quoted. A request at the stream's cutoff gives the stream's values from the margin,
+/// and the margin back from the price. A margin out of range is refused by a request and
+/// fails every measure in Live.
+#[tokio::test]
+async fn a_note_quoted_by_its_discount_margin_is_priced_at_it_in_live_and_at_request_time() {
+    let by_price = run(&frn_setup(published(), true).await).await[0]
+        .result
+        .clone();
+    let solved = measure(&by_price, "discount_margin_mid");
+    let level = Decimal::from_f64_retain(solved).unwrap();
+    let setup = margin_setup(level).await;
+    let engine = request_runtime(&setup).await;
+    let stream = engine.runtime_results()[0].result.clone();
+    assert_eq!(
+        stream.status(),
+        ResultStatus::Complete,
+        "{:?}",
+        stream.errors()
+    );
+    assert_eq!(
+        stream.provenance().model_version.as_str(),
+        FLOATING_SNAPSHOT_MODEL
+    );
+    assert!((measure(&stream, "clean_price_mid") - 99.25).abs() < 1e-9);
+    for name in ["dirty_price_mid", "accrued_interest"] {
+        assert!(
+            (measure(&stream, name) - measure(&by_price, name)).abs() < 1e-9,
+            "{name}"
+        );
+    }
+    assert_eq!(measure(&stream, "discount_margin_mid"), solved);
+
+    let settlement = setup.plan.settlement_date;
+    let at = |mark| configuration::value_quoted_at(&engine, &stream, settlement, Some(mark));
+    let by_margin = at(QuotedInput::Level(level)).await.unwrap();
+    assert_eq!(by_margin.result.envelope().results(), stream.results());
+    let priced = at(QuotedInput::Price(Decimal::from_str("99.25").unwrap()))
+        .await
+        .unwrap();
+    let priced = priced.result.envelope();
+    assert!((measure(priced, "discount_margin_mid") - solved).abs() < 1e-9);
+    // A request's margin out of range is refused before anything is valued.
+    let refused = at(QuotedInput::Level(Decimal::from(6000)))
+        .await
+        .err()
+        .unwrap();
+    assert!(
+        refused.to_string().contains("basis points of margin"),
+        "{refused}"
+    );
+    engine.shutdown().await.unwrap();
+
+    // A Live margin out of range fails every measure, saying why.
+    let outcome = run(&margin_setup(Decimal::from(6000)).await).await;
+    let result = &outcome[0].result;
+    assert_eq!(result.status(), ResultStatus::Failed);
+    assert_eq!(result.errors().len(), FLOATING_MEASURES.len());
+    assert!(result.errors().iter().all(|error| {
+        error.code() == ErrorCode::InvalidInput
+            && error.message().contains("basis points of margin")
+    }));
+}
+
+/// A note with no rule is quoted by price: a quote holding only a spread is not read as
+/// its margin, and the note is not valued.
+#[tokio::test]
+async fn a_note_with_no_rule_is_not_valued_from_a_spread() {
+    let mut setup = frn_setup(published(), true).await;
+    let plan = &mut setup.plan;
+    products::quote_in(
+        &mut plan.assembly.quotes[0],
+        &mut plan.seed_events[0],
+        QuoteField::MidSpread,
+        Decimal::from(51),
+    );
+    let outcome = run(&setup).await;
+    let result = &outcome[0].result;
+    assert_eq!(result.status(), ResultStatus::Failed);
+    assert_eq!(result.errors().len(), FLOATING_MEASURES.len());
+    assert!(result
+        .errors()
+        .iter()
+        .all(|error| error.code() == ErrorCode::InvalidInput));
 }
 
 /// A rule committed while BOND-001 was a fixed bullet, naming a benchmark set, does not

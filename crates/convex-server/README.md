@@ -454,7 +454,10 @@ names the bond and its method:
 - `benchmark_spread`, basis points over the yield of one security of a benchmark set,
   named by its tenor (`{"kind": "benchmark_spread", "tenor": "10Y"}`). Both yields are
   compounded semi-annually, so a Treasury's is its street yield;
-- `z_spread`, basis points over the configuration's discount curve.
+- `z_spread`, basis points over the configuration's discount curve;
+- `discount_margin`, for a floating rate note only: basis points over the frozen
+  projection of its index (the configuration's `frn_reference_curve`), discounted on the
+  configuration's discount curve.
 
 A rule may also name a benchmark set by `benchmark_set_id`. A spread is quoted to that set, and the
 bond's G-spread is computed over it. The set's version in force at a valuation's cutoff
@@ -471,7 +474,9 @@ Both kinds are committed through `POST /api/v1/reference/transactions` and liste
 refused with 400 if:
 - a rule names a bond that is not stored;
 - a rule names a set that does not exist;
-- a rule quotes a bond other than a fixed bullet by a spread, or against a set;
+- a rule quotes a bond other than a fixed bullet by `z_spread` or `benchmark_spread`, or
+  against a set;
+- a rule quotes a bond other than a floating rate note by `discount_margin`;
 - a rule quotes by a yield a bond that is neither a fixed bullet nor a callable valued on
   its workouts (below);
 - a rule's `width` is not a valid schedule, or is in a unit its method does not quote;
@@ -510,6 +515,25 @@ request time, with no option model and no curve.
   A callable with no rule, or one quoted otherwise, stays on HW1F, so committing a
   `price` rule on a callable moves it off HW1F: it no longer publishes OAS, effective
   duration and convexity, or PV01.
+
+A floating rate note whose rule quotes it by `discount_margin` is valued from its margin
+by its own model, `convex-floating-dm-v1`, in Live and at request time.
+- From a margin it prices the note at that margin over the frozen projection, through
+  `convex::library` (`Bond` `Price` with a discount spread); from a clean price it solves
+  the margin, as for a note with no rule. Each inverts the other.
+- It publishes `clean_price_mid`, `dirty_price_mid`, `accrued_interest` and
+  `discount_margin_mid`, which is the margin as quoted. It reads the discount and
+  projection curves and the note's fixings, as from a price.
+- A margin is from -2,000 to 5,000 basis points, inside the margin solver's domain, so
+  the price at any margin solves back to it.
+- `GET /api/v1/quotes/:id` takes `level` (basis points of margin) or `market_price`. Its
+  `pricing_rule` report names the note's model and the level.
+- A note with no rule, or a `price` rule, is quoted by price: its quote's spread is never
+  read as its margin.
+
+At request time, a level for a callable on its workouts or a note quoted by its margin is
+checked against its method's range before it is valued, and refused with 400 outside it,
+as a bullet's level is.
 
 A rule or set is ended by committing a version with `effective.until` through the same
 routes; the end may be later than the commit. After it, the version before does not come
@@ -643,8 +667,8 @@ others" for a stored bond. It is read-only and stores nothing.
 
 - **Any method, whatever the rule quotes.** `method` is a rule's method, and `level` is
   in its unit: a clean price per 100 for `price`, a decimal yield for `yield`, basis
-  points for `z_spread` and `benchmark_spread`. A spread-quoted bond can be calculated
-  from a yield, and a bond with no rule from a yield or a Z-spread.
+  points for `z_spread`, `benchmark_spread` and `discount_margin`. A spread-quoted bond
+  can be calculated from a yield, and a bond with no rule from a yield or a Z-spread.
 - **The same stage and context as a quote.** The level is priced as
   `GET /api/v1/quotes/:id` prices it, under the configuration (`configuration`, or the
   runtime's) and the curves current at `known_at` (now when absent). From the rule's own
@@ -654,6 +678,13 @@ others" for a stored bond. It is read-only and stores nothing.
   rule names no set is refused a benchmark spread, and so is a tenor the set lacks.
 - **Mid only.** The calculator values the one level it is sent: no bid or ask, from the
   rule's width or the configuration's.
+- **Floating rate notes.** A note is calculated from a `price`, or from a
+  `discount_margin` when its rule quotes it by one, since the runtime reads a note's
+  margin in its rule's field. It is valued as `GET /api/v1/quotes/:id` values it, by the
+  runtime's request valuation over the configuration's discount and projection curves and
+  the note's fixings, so a server without a runtime refuses it (422
+  `UNSUPPORTED_PRODUCT`). A measure the note's model cannot give is reported in
+  `measure_errors`, as the quote route reports it.
 - **Callables on their workouts.** A callable is calculated from a `price` or a `yield`
   to worst, whatever its rule quotes, with the workout model of
   `GET /api/v1/quotes/:id`. It needs no runtime and reads no curve, and a spread method
@@ -663,13 +694,16 @@ others" for a stored bond. It is read-only and stores nothing.
   distressed callable whose near call yields more is refused (422) here though the
   quote prices it.
 - **The reply** is the bond's model's measures at the level: the router's for a bullet
-  or zero, and for a callable its clean price, accrued, dirty price and `ytw`. It adds:
+  or zero, for a callable its clean price, accrued, dirty price and `ytw`, and for a note
+  its clean price, accrued, dirty price and `discount_margin_mid`, with the unpublished
+  `snapshot` it was valued from. It adds:
   - `input`: the `method` and `level` sent, and for a benchmark spread the `benchmark`
     it was quoted to, with the `ytm` it was added to;
   - `pricing_rule`, when the bond has a rule: its `version` and `method`, and the set as
     read, with each security's Live price;
-  - `workouts`, each date the bond can be redeemed at with its `yield`, and `worst`, the
-    workout of lowest yield.
+  - for a bullet, zero or callable, `workouts`, each date the bond can be redeemed at
+    with its `yield`, and `worst`, the workout of lowest yield. A note has no yield to a
+    redemption date, so neither.
     - A fixed bullet or zero is redeemed at maturity only, so its one workout is
       maturity, at `ytm_mid`.
     - A callable lists each call whose notice can still be given, with its
@@ -682,13 +716,15 @@ others" for a stored bond. It is read-only and stores nothing.
   - Fixed bullets with no embedded terms, by any method, and zeros by price only.
   - Callables with European or Bermudan fixed-price calls, at most 128, and no other
     embedded terms.
-  - Any other bond, such as an American callable or a floating rate note, is refused
-    with 422 `UNSUPPORTED_PRODUCT` before anything else is read.
+  - Floating rate notes, by price or by their rule's margin.
+  - Any other bond, such as an American callable, is refused with 422
+    `UNSUPPORTED_PRODUCT` before anything else is read.
 - **Access.** As `GET /api/v1/quotes/:id`, with the `calculate` action: the reply names
   each benchmark's `instrument_id`, so the caller needs entitlement to it.
 - **Refusals.**
   - 400 for a malformed body, an unknown field, a level out of its range, a method the
-    bond is not calculated by, or a callable's settlement on a day nothing settles on.
+    bond is not calculated by (such as a margin for a note its rule quotes by price), or
+    a callable's settlement on a day nothing settles on.
   - 404 for a bond not stored at `known_at`.
   - 413 `CAPACITY_EXCEEDED` for a body over 64 KiB.
   - 422 for a benchmark without a usable Live price, naming its tenor, a callable whose

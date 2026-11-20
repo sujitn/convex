@@ -169,6 +169,21 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **Floating rate notes by discount margin.** A `pricing_rule` may quote a floating rate
+  note by `discount_margin` (basis points over the frozen projection of its index,
+  discounted on the discount curve). Live and request-time quotes value it from its
+  margin under `convex-floating-dm-v1`, publishing the margin as quoted and the price at
+  it; `GET /api/v1/quotes/:id` takes it as `level`. A margin is from -2,000 to 5,000 bp.
+  The rule is refused at commit for any other bond, and `z_spread` and
+  `benchmark_spread` stay fixed-bullet only.
+- **The calculator takes floating rate notes**, by `price`, or by `discount_margin` under
+  a margin rule, valued by the runtime as `GET /api/v1/quotes/:id` values them. The reply
+  has the note's measures, the unpublished `snapshot`, `input` and `pricing_rule`; a
+  note has no `workouts`. A server without a runtime refuses notes (422
+  `UNSUPPORTED_PRODUCT`), and a margin for a note quoted by price is 400.
+- A request-time level for a callable on its workouts, or a note quoted by its margin,
+  outside its method's range is 400 before it is valued; it was a 200 whose every
+  measure failed.
 - **The calculator takes callables.** `POST /api/v1/bonds/:instrument_id/calculate`
   values a callable with European or Bermudan calls, at most 128, on its workouts, from a
   `price` or a `yield` to worst, whatever its rule quotes. It needs no runtime and reads
@@ -363,6 +378,13 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Floating rate notes by discount margin.** The floating model reads a note's rule's
+  field, as the workout model does, and prices a margin through the library's `Bond`
+  `Price` with a discount spread; a margin out of range fails each measure.
+  `optional_valuation::values_own_level` names the models that value their own level.
+  New `RequestValuationError::Level`: a request's level out of its method's range, or
+  for a bond its rule quotes by price, is refused before anything is valued (400 over
+  HTTP).
 - **`workout_valuation::calculate_on_workouts`**: the calculator's callables. From a
   level by `price` or `yield`, it gives the `WorkoutValuation` Live and request-time
   quotes give, and each `Workout` (maturity, or a call at its price) with its yield at
@@ -439,6 +461,8 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **`PricingMethod::DiscountMargin`** (`discount_margin`): applies only to a floating rate
+  note, with no benchmark set, and reads `mid_spread`. `RULE_DOES_NOT_APPLY` names it.
 - `BondQuoteOutput::without_measures`: a fresh quote with every measure absent, for a
   caller to set the measures it has.
 - `ResolvedBondReference::calendar_definition`: the pinned calendar's definition.

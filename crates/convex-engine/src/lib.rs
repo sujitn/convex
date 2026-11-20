@@ -577,8 +577,9 @@ impl PricingEngine {
     /// Value a stored callable or floating rate note at request time: an
     /// unpublished one-instrument snapshot under `context` at `known_at`, with `mark` as
     /// a labelled `request` quote, valued through [`Self::evaluate_context`] as the stream
-    /// values a bond. The mark is a clean price, or the yield to worst of a callable its
-    /// rule values on its workouts. Without a mark every measure fails
+    /// values a bond. The mark is a clean price, or the level of a bond whose model values
+    /// its rule's level itself: a callable's yield to worst on its workouts, or a floating
+    /// rate note's discount margin. Without a mark every measure fails
     /// `MISSING_MARKET_DATA`. Nothing is stored.
     pub async fn value_request(
         &self,

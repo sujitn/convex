@@ -71,13 +71,15 @@ pub(crate) fn pricing_rule_json(
     body
 }
 
-/// The rule of a callable valued on its workouts: the workout model prices its level, a
-/// yield to worst, with no stage and no benchmark.
-pub(crate) fn workout_rule_json(in_force: &PricingRuleInForce, input: QuotedInput) -> Value {
-    let mut body = rule_head_json(
-        convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL,
-        in_force,
-    );
+/// The rule of a bond whose `model` values its level itself, a callable's yield to worst
+/// on its workouts or a floating rate note's discount margin, with no stage and no
+/// benchmark.
+pub(crate) fn model_rule_json(
+    model: &str,
+    in_force: &PricingRuleInForce,
+    input: QuotedInput,
+) -> Value {
+    let mut body = rule_head_json(model, in_force);
     if let QuotedInput::Level(level) = input {
         body["level"] = json!(level);
     }

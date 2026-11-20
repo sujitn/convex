@@ -1,13 +1,16 @@
 //! Floating rate notes through `convex::library::execute`: the frozen-projection discount
-//! margin at the observed clean mid. Each coupon mechanic comes from the bond's explicit
+//! margin at a clean price, or the price at a discount margin. Each coupon mechanic comes
+//! from the bond's explicit
 //! terms, then its rate index's declared conventions, then the bond's own fields; a value
 //! none of them supplies is refused with the field's name. Nothing is defaulted in code.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use crate::optional_valuation::{failure, holiday_table, library_failure, Failure};
+use crate::level_pricing::{check_level, LevelError};
+use crate::optional_valuation::{failure, holiday_table, library_failure, to_f64, Failure};
 use crate::ports::{
     fixing::FixingKey,
+    level_pricing::PricingMethod,
     reference_data::{BondReferenceData, BondType},
     reference_master::{
         BondContractTerms, CalendarDefinition, MasterDefinition, RateIndexKind,
@@ -17,8 +20,8 @@ use crate::ports::{
 };
 use crate::pricing_router::{calendar_id, PricingRouter};
 use convex::library::{
-    execute, BondCalendarPins, BondInput, BondOperation, BondReferenceRole, CalendarInput,
-    LibraryInputs, LibraryOperation, LibraryRequest, LIBRARY_SCHEMA_VERSION,
+    execute, BondCalendarPins, BondInput, BondMethod, BondOperation, BondReferenceRole,
+    CalendarInput, LibraryInputs, LibraryOperation, LibraryRequest, LIBRARY_SCHEMA_VERSION,
 };
 use convex_analytics::workflow::{BondInverseSettings, BondPriceTarget};
 use convex_bonds::contracts::{
@@ -33,7 +36,7 @@ use convex_core::{
     Date,
 };
 use convex_curves::contracts::{CurveKey, CurveRecipe};
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::Decimal;
 use serde_json::Value;
 
 /// Quantitative model for floating rate notes: the library's frozen-projection DM inverse.
@@ -71,9 +74,40 @@ pub(crate) struct FloatingNote {
     publication_seconds: u32,
 }
 
-/// One floating rate note at its observed clean mid.
-pub(crate) struct FloatingQuote {
-    /// Model dirty price per 100 face at the solved margin.
+/// What a floating rate note is valued from.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum FloatingQuote {
+    /// A clean price per 100 face.
+    CleanPrice(Decimal),
+    /// A discount margin, in basis points.
+    DiscountMarginBps(Decimal),
+}
+
+impl FloatingQuote {
+    /// `level` as `method` quotes a floating rate note: a clean price, or a discount
+    /// margin within the range a rule's margin takes.
+    pub(crate) fn quoted_by(method: &PricingMethod, level: Decimal) -> Result<Self, LevelError> {
+        match method {
+            PricingMethod::Price {} => Ok(Self::CleanPrice(level)),
+            PricingMethod::DiscountMargin {} => {
+                check_level(method, level)?;
+                Ok(Self::DiscountMarginBps(level))
+            }
+            PricingMethod::Yield {}
+            | PricingMethod::ZSpread {}
+            | PricingMethod::BenchmarkSpread { .. } => Err(LevelError::Refused(format!(
+                "a floating rate note is valued from a price or a discount margin, not a {}",
+                method.name()
+            ))),
+        }
+    }
+}
+
+/// One floating rate note valued at its quote.
+pub(crate) struct FloatingValuation {
+    /// Clean price per 100 face: the quoted price, or the model's at the quoted margin.
+    pub clean: Decimal,
+    /// Model dirty price per 100 face at the margin.
     pub dirty: f64,
     /// Model accrued per 100 face, from the known and forecast fixings.
     pub accrued: f64,
@@ -361,8 +395,9 @@ fn calendars(
     ))
 }
 
-/// Value one floating rate note: the discount margin over `projection`, discounted on the
-/// collateral curve `discount`, that reprices its observed clean mid.
+/// Value one floating rate note at `quote`: from a clean price, the discount margin over
+/// `projection`, discounted on the collateral curve `discount`, that reprices it; from a
+/// discount margin, the price at that margin over the same curves.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn value_floating(
     note: &FloatingNote,
@@ -373,9 +408,24 @@ pub(crate) fn value_floating(
     valuation_date: Date,
     known_at: UtcTimestamp,
     fixings: &[SnapshotFixing],
-    clean_mid: Decimal,
-) -> Result<FloatingQuote, Failure> {
+    quote: FloatingQuote,
+) -> Result<FloatingValuation, Failure> {
     let invalid = |reason: &str| failure(ErrorCode::InvalidInput, reason);
+    let action = match quote {
+        FloatingQuote::CleanPrice(clean) => BondOperation::SpreadInverse {
+            target: BondPriceTarget::Clean(to_f64(clean, "clean price")?),
+            curve: discount.clone(),
+            role: BondReferenceRole::Collateral {},
+            settings: DM_SOLVE,
+        },
+        FloatingQuote::DiscountMarginBps(margin) => BondOperation::Price {
+            method: BondMethod::DiscountSpread {
+                curve: discount.clone(),
+                role: BondReferenceRole::Collateral {},
+                decimal_spread: to_f64(margin, "discount margin")? * 1e-4,
+            },
+        },
+    };
     let observations = fixings
         .iter()
         .filter_map(|selected| selected.fixing.as_ref())
@@ -413,16 +463,7 @@ pub(crate) fn value_floating(
                 overnight_accrual_cutoffs: vec![],
             },
             projection: Some(projection.clone()),
-            action: BondOperation::SpreadInverse {
-                target: BondPriceTarget::Clean(
-                    clean_mid
-                        .to_f64()
-                        .ok_or_else(|| invalid("unrepresentable clean mid"))?,
-                ),
-                curve: discount.clone(),
-                role: BondReferenceRole::Collateral {},
-                settings: DM_SOLVE,
-            },
+            action,
         },
     };
     let solved = execute(&request).map_err(library_failure)?;
@@ -433,10 +474,20 @@ pub(crate) fn value_floating(
             .filter(|v| v.is_finite())
             .ok_or_else(|| invalid("incomplete library response"))
     };
-    Ok(FloatingQuote {
-        dirty: number(&["data", "valuation", "dirty_per100"])?,
-        accrued: number(&["data", "valuation", "accrued_per100"])?,
-        discount_margin_bps: number(&["data", "decimal_parameter"])? * 1e4,
+    Ok(match quote {
+        FloatingQuote::CleanPrice(clean) => FloatingValuation {
+            clean,
+            dirty: number(&["data", "valuation", "dirty_per100"])?,
+            accrued: number(&["data", "valuation", "accrued_per100"])?,
+            discount_margin_bps: number(&["data", "decimal_parameter"])? * 1e4,
+        },
+        FloatingQuote::DiscountMarginBps(margin) => FloatingValuation {
+            clean: Decimal::from_f64_retain(number(&["data", "clean_per100"])?)
+                .ok_or_else(|| invalid("the price at the margin is not finite"))?,
+            dirty: number(&["data", "dirty_per100"])?,
+            accrued: number(&["data", "accrued_per100"])?,
+            discount_margin_bps: to_f64(margin, "discount margin")?,
+        },
     })
 }
 
@@ -473,6 +524,7 @@ mod tests {
         ids::FloatingRateIndex,
     };
     use convex_curves::contracts::{build_curve_set, CurveSet};
+    use rust_decimal::prelude::ToPrimitive;
     use std::str::FromStr;
 
     const AS_OF: &str = "2026-10-02";
@@ -628,11 +680,11 @@ mod tests {
             })
             .collect()
     }
-    fn quote(
+    fn value(
         note: &FloatingNote,
         fixings: &[SnapshotFixing],
-        clean: &str,
-    ) -> Result<FloatingQuote, Failure> {
+        quote: FloatingQuote,
+    ) -> Result<FloatingValuation, Failure> {
         let recipes = curves();
         value_floating(
             note,
@@ -643,8 +695,93 @@ mod tests {
             date(AS_OF),
             UtcTimestamp::parse(KNOWN_AT).unwrap(),
             fixings,
-            Decimal::from_str(clean).unwrap(),
+            quote,
         )
+    }
+    fn quote(
+        note: &FloatingNote,
+        fixings: &[SnapshotFixing],
+        clean: &str,
+    ) -> Result<FloatingValuation, Failure> {
+        value(
+            note,
+            fixings,
+            FloatingQuote::CleanPrice(Decimal::from_str(clean).unwrap()),
+        )
+    }
+    fn at_margin(
+        note: &FloatingNote,
+        fixings: &[SnapshotFixing],
+        bps: Decimal,
+    ) -> FloatingValuation {
+        value(note, fixings, FloatingQuote::DiscountMarginBps(bps)).unwrap()
+    }
+
+    /// The price at a note's margin is the price the margin was solved from, with the same
+    /// accrued and dirty price, and the margin is published as quoted.
+    #[test]
+    fn a_note_priced_at_its_discount_margin_returns_the_price_it_was_solved_from() {
+        let note = FloatingNote::new(&reference(frn(), index(sofr()))).unwrap();
+        let fixings = fixings(&note);
+        for clean in ["98.00", "100.10", "101.50"] {
+            let solved = quote(&note, &fixings, clean).unwrap();
+            let level = Decimal::from_f64_retain(solved.discount_margin_bps).unwrap();
+            let priced = at_margin(&note, &fixings, level);
+            let clean = Decimal::from_str(clean).unwrap();
+            assert!(
+                (priced.clean - clean).abs() < Decimal::new(1, 9),
+                "{}",
+                priced.clean
+            );
+            assert!((priced.dirty - solved.dirty).abs() < 1e-9);
+            assert_eq!(priced.accrued, solved.accrued);
+            assert_eq!(priced.discount_margin_bps, solved.discount_margin_bps);
+        }
+        // A wider margin is a lower price.
+        let wide = at_margin(&note, &fixings, Decimal::from(150));
+        let tight = at_margin(&note, &fixings, Decimal::from(25));
+        assert!(wide.clean < tight.clean);
+    }
+
+    /// A note is quoted by a price or by a margin in range; the range lies inside the
+    /// margin inverse's domain, so a priced margin always solves back.
+    #[test]
+    fn a_note_is_quoted_by_a_price_or_a_discount_margin_in_range() {
+        use crate::level_pricing::DISCOUNT_MARGIN_LEVEL_RANGE_BPS as RANGE;
+        let margin = PricingMethod::DiscountMargin {};
+        assert!(matches!(
+            FloatingQuote::quoted_by(&PricingMethod::Price {}, Decimal::from(99)),
+            Ok(FloatingQuote::CleanPrice(_))
+        ));
+        for level in [*RANGE.start(), Decimal::from(51), *RANGE.end()] {
+            assert!(matches!(
+                FloatingQuote::quoted_by(&margin, level),
+                Ok(FloatingQuote::DiscountMarginBps(quoted)) if quoted == level
+            ));
+        }
+        for level in [RANGE.start() - Decimal::ONE, RANGE.end() + Decimal::ONE] {
+            let refused = FloatingQuote::quoted_by(&margin, level).unwrap_err();
+            assert!(
+                refused.to_string().contains("basis points of margin"),
+                "{refused}"
+            );
+        }
+        for method in [PricingMethod::Yield {}, PricingMethod::ZSpread {}] {
+            let refused = FloatingQuote::quoted_by(&method, Decimal::from(51)).unwrap_err();
+            assert!(matches!(refused, LevelError::Refused(_)), "{refused}");
+        }
+        // At either end of the range, the price at the margin solves back to it.
+        let note = FloatingNote::new(&reference(frn(), index(sofr()))).unwrap();
+        let fixings = fixings(&note);
+        for level in [*RANGE.start(), *RANGE.end()] {
+            let priced = at_margin(&note, &fixings, level);
+            let solved = quote(&note, &fixings, &priced.clean.to_string()).unwrap();
+            assert!(
+                (solved.discount_margin_bps - level.to_f64().unwrap()).abs() < 1e-6,
+                "{level}: {}",
+                solved.discount_margin_bps
+            );
+        }
     }
 
     #[test]

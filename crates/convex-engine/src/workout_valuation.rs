@@ -23,11 +23,11 @@ use convex_core::{
     types::Compounding,
     Date,
 };
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::Decimal;
 
 use crate::level_pricing::{check_level, LevelError};
 use crate::optional_valuation::{
-    calendar_window, callable_terms, failure, library_failure, stored_call_terms, Failure,
+    calendar_window, callable_terms, failure, library_failure, stored_call_terms, to_f64, Failure,
 };
 use crate::ports::{
     level_pricing::{
@@ -84,12 +84,12 @@ impl WorkoutQuote {
                 check_level(method, level)?;
                 Ok(Self::YieldToWorst(level))
             }
-            PricingMethod::ZSpread {} | PricingMethod::BenchmarkSpread { .. } => {
-                Err(LevelError::Refused(format!(
-                    "a callable is valued on its workouts from a price or a yield to worst, not a {}",
-                    method.name()
-                )))
-            }
+            PricingMethod::ZSpread {}
+            | PricingMethod::BenchmarkSpread { .. }
+            | PricingMethod::DiscountMargin {} => Err(LevelError::Refused(format!(
+                "a callable is valued on its workouts from a price or a yield to worst, not a {}",
+                method.name()
+            ))),
         }
     }
 }
@@ -430,12 +430,6 @@ fn invalid(reason: String) -> Failure {
     failure(ErrorCode::InvalidInput, reason)
 }
 
-fn to_f64(value: Decimal, what: &str) -> Result<f64, Failure> {
-    value
-        .to_f64()
-        .ok_or_else(|| invalid(format!("unrepresentable {what}")))
-}
-
 fn workflow_failure(error: WorkflowError) -> Failure {
     library_failure(error.into())
 }
@@ -450,6 +444,7 @@ mod tests {
     };
     use convex_analytics::{bond_quote::price_from_level, workflow::WorkoutValue};
     use convex_core::types::{Frequency, Mark, PriceKind};
+    use rust_decimal::prelude::ToPrimitive;
     use std::str::FromStr;
 
     const SETTLEMENT: &str = "2026-10-06";

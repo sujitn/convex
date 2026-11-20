@@ -1,7 +1,8 @@
 //! Request-time valuation of callables and floating rate notes: one
 //! unpublished snapshot of one stored instrument, with the request's mark as a labelled
 //! `request` quote, valued by the runtime as the stream values a bond. The mark is a
-//! clean price, or a callable's yield to worst when its rule quotes it by one.
+//! clean price, or the level the bond's rule quotes when its model values it: a
+//! callable's yield to worst on its workouts, or a floating rate note's discount margin.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -12,7 +13,6 @@ use convex_core::contracts::{
 use convex_ports::{
     configuration::{ConfigurationPin, InstrumentPin, NumericalSettings, SnapshotAssembly},
     fixing::FixingKey,
-    level_pricing::PricingMethod,
     quote_event::{
         FieldUpdate, QuoteChange, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
         QuoteValue,
@@ -26,8 +26,8 @@ use convex_ports::{
 
 use crate::context::{ValuationContext, ValuationContextSpec, ValuationScenario};
 use crate::curve_resolution::CurveResolutionError;
-use crate::level_pricing::QuotedInput;
-use crate::optional_valuation::{product_measures, product_model};
+use crate::level_pricing::{check_level, LevelError, QuotedInput};
+use crate::optional_valuation::{product_measures, product_model, values_own_level};
 use crate::runtime::RuntimeServices;
 use crate::snapshot::{read_curve_ids, SnapshotAssembler, SnapshotValuationResult};
 use crate::RequestContext;
@@ -66,6 +66,9 @@ pub enum RequestValuationError {
     /// Inline terms that are not the stored terms at the cutoff.
     #[error("callables and floating rate notes price stored terms: store these terms, or send the ones stored at the cutoff")]
     UnstoredTerms,
+    /// A level out of its method's range, or for a bond its rule quotes by price.
+    #[error(transparent)]
+    Level(#[from] LevelError),
     /// The stored reference could not be read.
     #[error(transparent)]
     Reference(#[from] ReferenceError),
@@ -99,8 +102,10 @@ impl RequestValuer {
     /// The one-instrument snapshot of `reference` at `known_at` and its context. The
     /// curves are the ones the product's valuation reads, read through `context` at its
     /// cutoff. A missing or stale one refuses the request as it does for bullets; a
-    /// curve the product does not read refuses nothing. A level `mark` is a callable's
-    /// yield to worst, and only a callable its rule values on its workouts takes one.
+    /// curve the product does not read refuses nothing. A level `mark` is in the field of
+    /// the bond's rule, and only a bond whose model values its own level takes one: a
+    /// callable's yield to worst on its workouts, or a floating rate note's discount
+    /// margin.
     pub(crate) async fn prepare(
         &self,
         context: &mut RequestContext,
@@ -127,13 +132,18 @@ impl RequestValuer {
             return Err(CurveResolutionError::NotCovered(context.id.clone()).into());
         }
         let model = product_model(bond, method);
+        // A level out of its method's range is refused here, as the level stage
+        // refuses a bullet's, not valued into a result whose every measure fails.
         let field = match mark {
-            Some(QuotedInput::Level(_)) => method
-                .filter(|_| model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL)
-                .and_then(PricingMethod::level_field)
-                .ok_or(TraitError::InvalidInput(
-                    "a level is valued at request time only as a callable's yield to worst",
-                ))?,
+            Some(QuotedInput::Level(level)) => {
+                let method = method.filter(|_| values_own_level(model)).ok_or(
+                    TraitError::InvalidInput(
+                        "a level is valued at request time only as a callable's yield to worst or a floating rate note's discount margin",
+                    ),
+                )?;
+                check_level(method, level)?;
+                method.quote_field()
+            }
             _ => QuoteField::MidPrice,
         };
         // The runtime measure set for the product, as `worker::context` selects it.
@@ -149,8 +159,9 @@ impl RequestValuer {
             )
             .into());
         }
-        // No product this path values reads a curve for its rule's level: a bullet's level
-        // is priced before the router, and a callable's yield to worst reads no curve.
+        // No product this path values reads a curve for its rule's level beyond those its
+        // model reads: a bullet's level is priced before the router, a callable's yield to
+        // worst reads no curve, and a note's margin reads the curves its price does.
         let roots: Vec<_> = read_curve_ids(model, &measures, None, &config.analytics_curves)
             .into_iter()
             .map(convex_core::ids::CurveId::new)
