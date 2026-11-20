@@ -57,7 +57,7 @@ use crate::pricing_router::{PricingInput, PricingRouter};
 use crate::runtime::accepted;
 
 /// Why a rule that quotes a level or names a benchmark set does not price a bond.
-pub(crate) const NOT_A_PLAIN_BULLET: &str =
+const NOT_A_PLAIN_BULLET: &str =
     "only a fixed bullet is priced from a level or against a benchmark set";
 /// The stage's model id, recorded beside a level-priced result.
 pub const LEVEL_PRICE_MODEL: &str = "convex-level-price-v1";
@@ -589,7 +589,7 @@ fn price_with_rule(
     discount: Option<&BuiltCurve>,
     yields: &BenchmarkYieldCache,
 ) -> Result<RulePricing, LevelError> {
-    if method.requires_plain_bullet(benchmarks.is_some()) && !is_plain_bullet(bond) {
+    if (method.is_level() || benchmarks.is_some()) && !is_plain_bullet(bond) {
         return Err(refused(NOT_A_PLAIN_BULLET));
     }
     if width.is_some() && !is_quoted_two_way(bond) {
@@ -695,21 +695,7 @@ fn level_to_clean_price(
     benchmarks: Option<&[PricedBenchmark<'_>]>,
 ) -> Result<(Decimal, Option<BenchmarkYield>, Option<TwoWay>), LevelError> {
     // The level is checked before the bond is built.
-    let (range, unit) = match method {
-        PricingMethod::Price {} => return Err(quoted_by_price()),
-        PricingMethod::Yield {} => (YIELD_LEVEL_RANGE, "a decimal yield"),
-        PricingMethod::ZSpread {} | PricingMethod::BenchmarkSpread { .. } => {
-            (SPREAD_LEVEL_RANGE_BPS, "basis points of spread")
-        }
-    };
-    if !range.contains(&level) {
-        return Err(refused(format!(
-            "a {} level is {unit} from {} to {}",
-            method.name(),
-            range.start(),
-            range.end()
-        )));
-    }
+    check_level(method, level)?;
     let fixed = fixed_rate_bond(bond)?;
     let frequency = fixed.frequency();
     let spread = |kind| Mark::Spread {
@@ -789,6 +775,28 @@ fn level_to_clean_price(
         .map(|width| two_way_at(width, &mark, clean_price))
         .transpose()?;
     Ok((clean, benchmark, two_way))
+}
+
+/// Refuse a level outside its method's range: a yield sent in percent, or a spread in
+/// decimal, is refused rather than priced.
+pub(crate) fn check_level(method: &PricingMethod, level: Decimal) -> Result<(), LevelError> {
+    let (range, unit) = match method {
+        PricingMethod::Price {} => return Err(quoted_by_price()),
+        PricingMethod::Yield {} => (YIELD_LEVEL_RANGE, "a decimal yield"),
+        PricingMethod::ZSpread {} | PricingMethod::BenchmarkSpread { .. } => {
+            (SPREAD_LEVEL_RANGE_BPS, "basis points of spread")
+        }
+    };
+    if range.contains(&level) {
+        Ok(())
+    } else {
+        Err(refused(format!(
+            "a {} level is {unit} from {} to {}",
+            method.name(),
+            range.start(),
+            range.end()
+        )))
+    }
 }
 
 /// The bond as the router builds it.

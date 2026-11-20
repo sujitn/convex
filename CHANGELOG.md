@@ -169,6 +169,19 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **Callables on their workouts.** A callable whose pricing rule quotes it by `price` or
+  `yield` (its yield to worst) is valued on each call date and maturity: model
+  `convex-callable-workout-v1`, in Live and at request time, with no option model and
+  no curve.
+  - From a price, it gives the yield to worst. From a yield to worst, it gives the price
+    to worst.
+  - It publishes `clean_price_mid`, `dirty_price_mid`, `accrued_interest`, `ytw_mid` and
+    `years_to_worst_mid`. A request-time quote carries `ytw`.
+  - European or Bermudan calls only, at most 128. A `yield` rule is now accepted at
+    commit for such a callable.
+  - These callables do not count against the cap of 8 callables valued on HW1F trees.
+  - **Behaviour change:** a callable that already has a `price` rule moves off HW1F.
+    It no longer publishes `oas_mid`, effective duration or convexity, or `pv01_mid`.
 - **The bond calculator: `POST /api/v1/bonds/:instrument_id/calculate`.** It takes one
   level of a stored bond by any method (`price`, `yield`, `z_spread` or
   `benchmark_spread`, whatever the bond's rule quotes) and a settlement date, prices it
@@ -339,6 +352,16 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **`workout_valuation`**: model `convex-callable-workout-v1`, which values a callable
+  quoted by price or yield to worst on its workouts (`WORKOUT_SNAPSHOT_MODEL`,
+  `WORKOUT_MEASURES`).
+  - **Breaking:** `optional_valuation::product_model` takes the bond's pricing method
+    beside the bond.
+  - **Breaking:** `PricingEngine::value_request` takes the `ResolvedBondReference` and a
+    `QuotedInput` mark, a price or a callable's yield to worst.
+  - `optional_valuation::is_runtime_product` says whether the runtime, not the router,
+    values a bond at request time.
+  - The HW1F cap of 8 counts only callables valued on HW1F trees.
 - **`price_by_method`** (and `PricingEngine::price_by_method`): the calculator's stage.
   It prices a level by any method, against the set the bond's rule names, mid only.
   `PricingEngine::rule_in_force_mid_only` reads a rule's set from its pin without its
@@ -398,6 +421,17 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **Breaking:** `PricingMethod::requires_plain_bullet`,
+  `PricingRuleDefinition::requires_plain_bullet` and
+  `ResolvedPricingRule::requires_plain_bullet` are replaced by `applies_to(bond)`.
+  - A fixed bullet takes every method. Any other bond takes `price` with no set.
+  - A callable valued on its workouts (`is_workout_callable`: European or Bermudan
+    fixed-price calls, at most `MAX_WORKOUT_CALLS` (128), nothing beyond its calls) also
+    takes `yield`, its yield to worst.
+  - A commit refuses any other rule with `RULE_DOES_NOT_APPLY`.
+- `BondReferenceData::has_terms_beyond_calls` (a put, sinking fund, or floating or
+  inflation terms), which `has_embedded_terms` now uses, and
+  `ResolvedBondReference::pricing_method`.
 - **Breaking:** `PricingRuleDefinition` gains `width` (`Option<WidthSchedule>`), so a
   struct literal needs the new field; stored rules read as before. `validate` checks the
   schedule and that its unit quotes the method (`PricingMethod::quote_basis`); more than

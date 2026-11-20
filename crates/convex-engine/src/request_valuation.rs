@@ -1,6 +1,7 @@
 //! Request-time valuation of callables and floating rate notes: one
 //! unpublished snapshot of one stored instrument, with the request's mark as a labelled
-//! `request` quote, valued by the runtime as the stream values a bond.
+//! `request` quote, valued by the runtime as the stream values a bond. The mark is a
+//! clean price, or a callable's yield to worst when its rule quotes it by one.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -11,23 +12,26 @@ use convex_core::contracts::{
 use convex_ports::{
     configuration::{ConfigurationPin, InstrumentPin, NumericalSettings, SnapshotAssembly},
     fixing::FixingKey,
+    level_pricing::PricingMethod,
     quote_event::{
         FieldUpdate, QuoteChange, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
-        QuoteUnit, QuoteValue,
+        QuoteValue,
     },
-    reference_repository::{ReferenceError, ReferenceRecord},
+    reference_master::ResolvedBondReference,
+    reference_repository::ReferenceError,
     snapshot::{MarketSnapshot, QuoteRequirement},
     storage::StorageAdapter,
     TraitError,
 };
-use rust_decimal::Decimal;
 
 use crate::context::{ValuationContext, ValuationContextSpec, ValuationScenario};
 use crate::curve_resolution::CurveResolutionError;
+use crate::level_pricing::QuotedInput;
 use crate::optional_valuation::{product_measures, product_model};
 use crate::runtime::RuntimeServices;
 use crate::snapshot::{read_curve_ids, SnapshotAssembler, SnapshotValuationResult};
 use crate::RequestContext;
+use rust_decimal::Decimal;
 
 /// Quote source and session of a request's mark.
 pub const REQUEST_SOURCE: &str = "request";
@@ -95,16 +99,19 @@ impl RequestValuer {
     /// The one-instrument snapshot of `reference` at `known_at` and its context. The
     /// curves are the ones the product's valuation reads, read through `context` at its
     /// cutoff. A missing or stale one refuses the request as it does for bullets; a
-    /// curve the product does not read refuses nothing.
+    /// curve the product does not read refuses nothing. A level `mark` is a callable's
+    /// yield to worst, and only a callable its rule values on its workouts takes one.
     pub(crate) async fn prepare(
         &self,
         context: &mut RequestContext,
-        reference: &ReferenceRecord,
+        reference: &ResolvedBondReference,
         settlement_date: BusinessDate,
         known_at: UtcTimestamp,
-        mark: Option<Decimal>,
+        mark: Option<QuotedInput>,
     ) -> Result<(MarketSnapshot, ValuationContext, Vec<(String, Version)>), RequestValuationError>
     {
+        let method = reference.pricing_method();
+        let reference = &reference.record;
         let bond = reference
             .bond
             .as_ref()
@@ -119,7 +126,16 @@ impl RequestValuer {
         if !config.applies_to.matches(bond) {
             return Err(CurveResolutionError::NotCovered(context.id.clone()).into());
         }
-        let model = product_model(bond);
+        let model = product_model(bond, method);
+        let field = match mark {
+            Some(QuotedInput::Level(_)) => method
+                .filter(|_| model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL)
+                .and_then(PricingMethod::level_field)
+                .ok_or(TraitError::InvalidInput(
+                    "a level is valued at request time only as a callable's yield to worst",
+                ))?,
+            _ => QuoteField::MidPrice,
+        };
         // The runtime measure set for the product, as `worker::context` selects it.
         let measures: Vec<_> = self
             .measures
@@ -133,8 +149,8 @@ impl RequestValuer {
             )
             .into());
         }
-        // A request values a price: a level was priced before the snapshot, and only a
-        // fixed bullet, which this path does not value, is quoted by one.
+        // No product this path values reads a curve for its rule's level: a bullet's level
+        // is priced before the router, and a callable's yield to worst reads no curve.
         let roots: Vec<_> = read_curve_ids(model, &measures, None, &config.analytics_curves)
             .into_iter()
             .map(convex_core::ids::CurveId::new)
@@ -165,7 +181,7 @@ impl RequestValuer {
             // The mark is stamped at the cutoff, so it is never older than one millisecond.
             quotes: vec![QuoteRequirement {
                 key: key.clone(),
-                fields: vec![QuoteField::MidPrice],
+                fields: vec![field],
                 max_age_ms: 1,
             }],
             fixings: self.fixings.clone(),
@@ -180,7 +196,10 @@ impl RequestValuer {
             max_source_skew_ms: self.max_source_skew_ms,
         };
         let events: Vec<_> = mark
-            .map(|mid| request_mark(key, mid, known_at))
+            .map(|mark| {
+                let (QuotedInput::Price(value) | QuotedInput::Level(value)) = mark;
+                request_mark(key, field, value, known_at)
+            })
             .into_iter()
             .collect();
         let snapshot = self.assembler.resolve(&assembly, &events).await?;
@@ -211,10 +230,15 @@ impl RequestValuer {
     }
 }
 
-/// The request's mark as one image observed at the cutoff. It is classed live: the
-/// runtime values only valid inputs, and a manual observation classes as indicative.
-/// Its source and session name it a request mark.
-fn request_mark(key: QuoteKey, mid: Decimal, known_at: UtcTimestamp) -> QuoteEvent {
+/// The request's mark as one image of `field` observed at the cutoff. It is classed
+/// live: the runtime values only valid inputs, and a manual observation classes as
+/// indicative. Its source and session name it a request mark.
+fn request_mark(
+    key: QuoteKey,
+    field: QuoteField,
+    value: Decimal,
+    known_at: UtcTimestamp,
+) -> QuoteEvent {
     let at = known_at.datetime().timestamp_millis();
     QuoteEvent {
         schema_version: 1,
@@ -229,10 +253,10 @@ fn request_mark(key: QuoteKey, mid: Decimal, known_at: UtcTimestamp) -> QuoteEve
         evidence_reference: None,
         event: QuoteEventKind::Image {
             fields: vec![QuoteChange {
-                field: QuoteField::MidPrice,
+                field,
                 update: FieldUpdate::Set(QuoteValue {
-                    value: mid,
-                    unit: QuoteUnit::PricePer100,
+                    value,
+                    unit: field.unit(),
                 }),
             }],
         },

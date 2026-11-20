@@ -221,7 +221,9 @@ measures publish.
 
 ### Callables
 
-A fixed callable is valued under model `convex-optional-hw1f-v1` through
+A fixed callable whose pricing rule quotes it by price or yield to worst is valued on
+its workouts (below). Any other fixed callable is valued under model
+`convex-optional-hw1f-v1` through
 `convex::library::execute`: the optional-bond OAS inverse at the observed clean mid
 plus the bond schedule's accrued, then effective risk at that OAS. Each instrument
 requests only the plan measures its own model publishes, so one plan can mix
@@ -253,8 +255,43 @@ refinement tolerances of 0.02/0.01 and 0.25/0.01. Missing `option_model` or
 `call_terms`, make-whole calls and American (continuous) exercise fail every measure
 with `UnsupportedConvention` and the library's or the adapter's reason; the native
 model has no validated continuous-exercise discretization. A plan values at most 8
-callables: each reprices on every generation, about 0.8 s in a release build for a
-ten-year Bermudan (OAS solve 0.46 s, risk 0.21 s).
+callables on HW1F trees: each reprices on every generation, about 0.8 s in a release
+build for a ten-year Bermudan (OAS solve 0.46 s, risk 0.21 s).
+
+### Callables on their workouts
+
+A fixed callable whose rule quotes it by `price` or `yield` is valued under model
+`convex-callable-workout-v1`, on each call date and maturity, with no option model and no
+curve. The engine builds the stored contract and its purchase context, and every
+formula is `convex_analytics::workflow`'s: from a clean price `quote_workout_worst`,
+from a yield to worst `quote_workout_price_to_worst`. A snapshot reads the rule's field
+(`mid_price` or `mid_yield`), or a price when the bond's quote declares no field of its
+rule's: a request may send a price for a callable quoted by yield, and a Live plan
+compiled before its rule moved to a yield still carries one.
+
+| Measure | Canonical quantity |
+|---|---|
+| `clean_price_mid` | Exact price per 100: the observed price, or the price to worst |
+| `dirty_price_mid`, `accrued_interest` | Finite model price per 100, on the worst path |
+| `ytw_mid` | Finite model decimal rate: the lowest yield among the calls and maturity |
+| `years_to_worst_mid` | Finite model years in the bond's day count, from settlement to the worst call or maturity |
+
+- **Yield convention.** Dated yields in the bond's own day count, compounded at its
+  coupon frequency. For 30/360 and ACT/ACT ISDA that is the street yield (the maturity
+  path agrees with the router's `ytm_mid` to 1e-10). ACT/ACT ICMA needs a reference
+  mesh and is refused.
+- **Purchase.** The trade date is the latest business day that settles on the plan's
+  settlement date under the bond's lag and calendar (`latest_trade_date`). A settlement
+  nothing settles on, a weekend or holiday, fails the bond.
+- **Notice.** No notice is stored, so a call is a workout only if its notice can still be
+  given on or after that trade date.
+- **Bounds and refusals.** At most 128 calls; American calls, make-whole calls and
+  other embedded terms are refused with `UnsupportedConvention`. The yield inverse runs
+  over −90%..500% to a 1e-9 price residual, and any path that does not solve fails the
+  bond with `SolverLimit`.
+- **Cost** (release, a bond each valuation, contract built from its stored terms each
+  time): about 90 µs from a price and 26 µs from a yield with three calls; 2.7 ms and
+  0.55 ms with 128. These callables are not counted against the HW1F cap.
 
 ### Floating rate notes
 

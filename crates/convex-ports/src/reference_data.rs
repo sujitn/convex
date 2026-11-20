@@ -219,10 +219,14 @@ impl BondReferenceData {
     /// Whether the bond has an embedded call or put, a sinking fund, a call schedule, or
     /// floating or inflation terms: anything beyond a nominal bullet's or zero's cash flows.
     pub fn has_embedded_terms(&self) -> bool {
-        self.is_callable
-            || self.is_putable
+        self.is_callable || !self.call_schedule.is_empty() || self.has_terms_beyond_calls()
+    }
+
+    /// Whether the bond has a put, a sinking fund, or floating or inflation terms: anything
+    /// beyond a fixed bond's cash flows and its calls.
+    pub fn has_terms_beyond_calls(&self) -> bool {
+        self.is_putable
             || self.is_sinkable
-            || !self.call_schedule.is_empty()
             || self.floating_terms.is_some()
             || self.inflation_index.is_some()
             || self.inflation_base_index.is_some()

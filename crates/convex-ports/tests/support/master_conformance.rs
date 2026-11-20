@@ -26,6 +26,28 @@ pub fn bond(id: &str) -> BondReferenceData {
     bond.instrument_id = convex_core::ids::InstrumentId::new(id);
     bond
 }
+/// The fixture bond callable at par on 15 January 2027, 2028 and 2029, on 30 days'
+/// notice, under `style`.
+fn callable(id: &str, style: CallStyle) -> BondReferenceData {
+    let mut bond = bond(id);
+    bond.bond_type = convex_ports::reference_data::BondType::FixedCallable;
+    bond.is_callable = true;
+    // The fixture's face is 100.
+    let par = bond.face_value;
+    bond.call_schedule = ["2027-01-15", "2028-01-15", "2029-01-15"]
+        .into_iter()
+        .map(|date| convex_ports::reference_data::CallScheduleEntry {
+            call_date: convex_core::Date::parse(date).unwrap(),
+            call_price: par,
+            is_make_whole: false,
+        })
+        .collect();
+    bond.contractual_terms.as_mut().unwrap().call_terms = Some(CallTerms {
+        style,
+        notice_days: 30,
+    });
+    bond
+}
 /// A sovereign's bond, which a benchmark set may hold.
 fn treasury(id: &str) -> BondReferenceData {
     let mut bond = bond(id);
@@ -1386,12 +1408,19 @@ pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
     let mut bund = treasury("BUND-10Y");
     bund.currency = convex_core::Currency::EUR;
     let at = time("2025-01-02T00:00:00Z");
-    let creates = [treasury("UST-10Y"), treasury("UST-10Y-NEW"), zero, bund]
-        .into_iter()
-        .map(|bond| ReferenceChange::Create {
-            bond: Box::new(bond),
-        })
-        .collect();
+    let creates = [
+        treasury("UST-10Y"),
+        treasury("UST-10Y-NEW"),
+        zero,
+        bund,
+        callable("CALL-1", CallStyle::Bermudan),
+        callable("CALL-AM", CallStyle::American),
+    ]
+    .into_iter()
+    .map(|bond| ReferenceChange::Create {
+        bond: Box::new(bond),
+    })
+    .collect();
     repository
         .commit(&command("rules-bonds", creates, vec![]), at)
         .await
@@ -1520,6 +1549,36 @@ pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
     )
     .await;
     refused("rules-unnamed-set", pricing_rule("UST-10Y", spread(), None)).await;
+
+    // A callable valued on its workouts is quoted by price or by its yield to worst, never
+    // by a spread or against a set; an American callable only by price.
+    refused(
+        "rules-callable-spread",
+        pricing_rule("CALL-1", PricingMethod::ZSpread {}, None),
+    )
+    .await;
+    refused(
+        "rules-callable-set",
+        pricing_rule("CALL-1", PricingMethod::Yield {}, Some("UST-OTR")),
+    )
+    .await;
+    refused(
+        "rules-american-yield",
+        pricing_rule("CALL-AM", PricingMethod::Yield {}, None),
+    )
+    .await;
+    for (key, instrument, method) in [
+        ("rules-callable-yield", "CALL-1", PricingMethod::Yield {}),
+        ("rules-american-price", "CALL-AM", PricingMethod::Price {}),
+    ] {
+        repository
+            .commit(
+                &command(key, vec![], vec![pricing_rule(instrument, method, None)]),
+                at,
+            )
+            .await
+            .unwrap();
+    }
 
     // A width is in a unit the method quotes, with at most 16 buckets.
     let width = |unit: &str, buckets: usize| -> WidthSchedule {

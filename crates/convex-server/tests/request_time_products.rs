@@ -103,7 +103,15 @@ async fn products_setup() -> (Setup, BondReferenceData, BondReferenceData) {
     }
     plan.measures = RUNTIME_MEASURES
         .iter()
-        .chain(["oas_mid", "discount_margin_mid"].iter())
+        .chain(
+            [
+                "oas_mid",
+                "discount_margin_mid",
+                "ytw_mid",
+                "years_to_worst_mid",
+            ]
+            .iter(),
+        )
         .map(|m| MeasureId::new(*m).unwrap())
         .collect();
     (setup, callable, note)
@@ -290,8 +298,8 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     }
     let known_at = cutoff(priced[0].0);
 
-    // A callable's rule can quote it only by price; its quote reports the rule as a
-    // bullet's does, in the body and the headers.
+    // A callable quoted by price is valued on its workouts, with no option model; its
+    // quote reports the rule as a bullet's does, in the body and the headers.
     let rule_wire = json!({
         "expected_version": null,
         "definition": {"kind": "pricing_rule", "definition": {
@@ -306,7 +314,7 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     with_width["definition"]["definition"]["width"] =
         json!({"unit": "price_points", "buckets": [{"width": "0.25"}]});
     let with_width = serde_json::from_value(with_width).unwrap();
-    let rule = serde_json::from_value(rule_wire).unwrap();
+    let rule = serde_json::from_value(rule_wire.clone()).unwrap();
     let commit_rule =
         |key: &str, rule: convex_ports::reference_master::MasterChange| ReferenceCommand {
             idempotency_key: RequestId::new(key).unwrap(),
@@ -340,7 +348,30 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     assert_eq!(body["clean_price_mid"], priced[0].1["clean_price_mid"]);
     assert_eq!(body["pricing_rule"]["method"]["kind"], "price", "{body}");
     assert_eq!(body["pricing_rule"]["version"], 1);
+    assert_eq!(
+        body["pricing_rule"]["model"],
+        convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL
+    );
     assert_eq!(headers["x-convex-pricing-rule-version"], "1");
+    assert!(body["oas_mid"].is_null(), "{body}");
+    // It reads no curve.
+    assert_eq!(body["snapshot"]["curves"], json!([]), "{body}");
+    // Below its call prices its worst is maturity, so its yield to worst is the yield of
+    // the bullet with its terms at the same price.
+    let ytw = number(&body["ytw"]);
+    let bullet = published
+        .iter()
+        .find(|p| {
+            matches!(&p.result.provenance().subject,
+                ValuationSubject::InstrumentVersion { instrument_id, .. } if instrument_id.as_str() == "BOND-001")
+        })
+        .unwrap();
+    let MeasureValue::ModelRate(ytm) =
+        &bullet.result.results()[&MeasureId::new("ytm_mid").unwrap()].value
+    else {
+        panic!("the bullet's yield")
+    };
+    assert!((ytw - ytm.value().get()).abs() < 1e-10, "{body}");
     // Its inline terms, equal to the stored ones, get the same quote and report on POST.
     let by_price = json!({"bond": callable, "settlement_date": SETTLEMENT, "known_at": known_at,
         "market_price": "99.25"});
@@ -357,7 +388,7 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     let errors = body["measure_errors"].as_array().unwrap();
     assert_eq!(
         errors.len(),
-        convex_engine::optional_valuation::OPTIONAL_MEASURES.len()
+        convex_engine::workout_valuation::WORKOUT_MEASURES.len()
     );
     assert!(
         errors.iter().all(|e| e["code"] == "MISSING_MARKET_DATA"),
@@ -397,7 +428,7 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     }
     assert_eq!(quotes[0]["instrument_id"], "BOND-001");
     assert!(quotes[0].get("snapshot").is_none());
-    assert_eq!(quotes[1]["oas_mid"], priced[0].1["oas_mid"]);
+    assert_eq!(number(&quotes[1]["ytw"]), ytw);
     assert_eq!(
         quotes[1]["pricing_rule"]["method"]["kind"], "price",
         "{body}"
@@ -406,7 +437,49 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
         quotes[2]["discount_margin_mid"],
         priced[1].1["discount_margin_mid"]
     );
+
+    // Quoted by its yield to worst, the callable is priced to worst from its level, and
+    // still takes a price.
+    let mut by_yield = rule_wire.clone();
+    by_yield["expected_version"] = json!(1);
+    by_yield["definition"]["definition"]["method"] = json!({"kind": "yield"});
+    setup
+        .storage
+        .bonds
+        .commit(
+            &commit_rule("call-rule-yield", serde_json::from_value(by_yield).unwrap()),
+            priced[0].0,
+        )
+        .await
+        .unwrap();
+    let uri = format!(
+        "/api/v1/quotes/CALL-001?level={ytw}&known_at={known_at}&settlement_date={SETTLEMENT}"
+    );
+    let (status, headers, body) = call(&app, "GET", &uri, None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(
+        (number(&body["clean_price_mid"]) - 99.25).abs() < 1e-8,
+        "{body}"
+    );
+    assert_eq!(number(&body["ytw"]), ytw);
+    assert_eq!(body["pricing_rule"]["method"]["kind"], "yield", "{body}");
+    assert_eq!(number(&body["pricing_rule"]["level"]), ytw);
+    assert_eq!(headers["x-convex-pricing-rule-version"], "2");
+    let uri = format!(
+        "/api/v1/quotes/CALL-001?market_price=99.25&known_at={known_at}&settlement_date={SETTLEMENT}"
+    );
+    let (status, _, body) = call(&app, "GET", &uri, None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(number(&body["ytw"]), ytw);
     engine.shutdown().await.unwrap();
+}
+
+/// A JSON number or numeric string.
+fn number(value: &Value) -> f64 {
+    value
+        .as_f64()
+        .or_else(|| value.as_str().and_then(|text| text.parse().ok()))
+        .unwrap_or_else(|| panic!("a number: {value}"))
 }
 
 /// A server with no runtime refuses callables and notes, named configuration or

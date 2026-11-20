@@ -5,11 +5,13 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crate::ports::{
+    level_pricing::PricingMethod,
     reference_data::{BondReferenceData, BondType},
-    reference_master::{CalendarDefinition, CallStyle},
+    reference_master::{BondContractTerms, CalendarDefinition, CallStyle, CallTerms},
     storage::BondPricingConfig,
 };
 use crate::pricing_router::PricingRouter;
+use crate::workout_valuation::{WORKOUT_MEASURES, WORKOUT_SNAPSHOT_MODEL};
 use convex::library::{
     execute, BondCalendarPins, BondInput, CalendarInput, LibraryError, LibraryErrorCode,
     LibraryInputs, LibraryOperation, LibraryRequest, OptionalInput, OptionalModelInput,
@@ -77,15 +79,34 @@ const RISK_BUMP: f64 = 0.01;
 /// Holiday tables cover the bond's life plus this margin on each side.
 const CALENDAR_MARGIN_DAYS: i64 = 31;
 
+/// Whether the runtime, not the router, values `bond` at request time: a callable or a
+/// floating rate note, whatever its rule. A rule chooses only among runtime models.
+pub fn is_runtime_product(bond: &BondReferenceData) -> bool {
+    matches!(
+        bond.bond_type,
+        BondType::FixedCallable | BondType::FloatingRate
+    )
+}
 /// Every model a runtime plan's instruments are valued under.
-pub const PRODUCT_MODELS: [&str; 3] = [
+pub const PRODUCT_MODELS: [&str; 4] = [
     crate::snapshot::BOND_SNAPSHOT_MODEL,
     OPTIONAL_SNAPSHOT_MODEL,
+    WORKOUT_SNAPSHOT_MODEL,
     crate::floating_valuation::FLOATING_SNAPSHOT_MODEL,
 ];
-/// The model a pinned bond is valued under.
-pub fn product_model(bond: &BondReferenceData) -> &'static str {
+/// The model a pinned bond is valued under, quoted by `method` when it has a pricing rule:
+/// a callable quoted by price or yield to worst on its workouts, any other callable on
+/// HW1F trees.
+pub fn product_model(bond: &BondReferenceData, method: Option<&PricingMethod>) -> &'static str {
     match bond.bond_type {
+        BondType::FixedCallable
+            if matches!(
+                method,
+                Some(PricingMethod::Price {} | PricingMethod::Yield {})
+            ) =>
+        {
+            WORKOUT_SNAPSHOT_MODEL
+        }
         BondType::FixedCallable => OPTIONAL_SNAPSHOT_MODEL,
         BondType::FloatingRate => crate::floating_valuation::FLOATING_SNAPSHOT_MODEL,
         _ => crate::snapshot::BOND_SNAPSHOT_MODEL,
@@ -95,6 +116,7 @@ pub fn product_model(bond: &BondReferenceData) -> &'static str {
 pub fn product_measures(model: &str) -> &'static [&'static str] {
     match model {
         OPTIONAL_SNAPSHOT_MODEL => &OPTIONAL_MEASURES,
+        WORKOUT_SNAPSHOT_MODEL => &WORKOUT_MEASURES,
         crate::floating_valuation::FLOATING_SNAPSHOT_MODEL => {
             &crate::floating_valuation::FLOATING_MEASURES
         }
@@ -103,6 +125,7 @@ pub fn product_measures(model: &str) -> &'static [&'static str] {
 }
 
 /// Every generation reprices each callable on HW1F trees, so their number stays bounded.
+/// Callables on their workouts are not counted.
 pub fn within_callable_bound(snapshot: &convex_ports::snapshot::MarketSnapshot) -> bool {
     references_within_callable_bound(&snapshot.content().references)
 }
@@ -110,11 +133,17 @@ pub fn within_callable_bound(snapshot: &convex_ports::snapshot::MarketSnapshot) 
 pub(crate) fn references_within_callable_bound(
     references: &convex_ports::snapshot::SnapshotReferences,
 ) -> bool {
-    within_bound(references.iter().filter_map(|r| r.record.bond.as_ref()))
+    within_bound(
+        references
+            .iter()
+            .filter_map(|r| Some((r.record.bond.as_ref()?, r.pricing_method()))),
+    )
 }
-fn within_bound<'a>(bonds: impl Iterator<Item = &'a BondReferenceData>) -> bool {
+fn within_bound<'a>(
+    bonds: impl Iterator<Item = (&'a BondReferenceData, Option<&'a PricingMethod>)>,
+) -> bool {
     bonds
-        .filter(|bond| product_model(bond) == OPTIONAL_SNAPSHOT_MODEL)
+        .filter(|(bond, method)| product_model(bond, *method) == OPTIONAL_SNAPSHOT_MODEL)
         .count()
         <= MAX_RUNTIME_CALLABLES
 }
@@ -183,20 +212,10 @@ pub(crate) fn value_callable(
         .option_model
         .as_ref()
         .ok_or_else(|| unsupported("callable valuation needs the configuration's option_model"))?;
-    let terms = bond
-        .contractual_terms
-        .as_ref()
-        .ok_or_else(|| unsupported("callable needs complete contractual terms"))?;
-    let call = terms
-        .call_terms
-        .as_ref()
-        .ok_or_else(|| unsupported("callable needs explicit call style and notice terms"))?;
+    let (terms, call) = stored_call_terms(bond)?;
     if bond.bond_type != BondType::FixedCallable
         || !bond.is_callable
-        || bond.is_putable
-        || bond.is_sinkable
-        || bond.floating_terms.is_some()
-        || bond.inflation_index.is_some()
+        || bond.has_terms_beyond_calls()
         || bond.call_schedule.is_empty()
         || bond.call_schedule.iter().any(|entry| entry.is_make_whole)
     {
@@ -225,33 +244,7 @@ pub(crate) fn value_callable(
     )
     .map_err(|e| invalid(e.to_string()))?
     .accrued_per_100;
-    let schedule = CallSchedule {
-        call_type: match call.style {
-            CallStyle::American => CallType::American,
-            CallStyle::European => CallType::European,
-            CallStyle::Bermudan => CallType::Bermudan,
-        },
-        entries: bond
-            .call_schedule
-            .iter()
-            .map(|entry| {
-                Ok(CallEntry {
-                    start_date: entry.call_date,
-                    end_date: None,
-                    call_price: entry
-                        .call_price
-                        .to_f64()
-                        .ok_or_else(|| invalid("unrepresentable call price".into()))?,
-                    notice_days: Some(call.notice_days),
-                })
-            })
-            .collect::<Result<_, Failure>>()?,
-        protection_end: None,
-        make_whole_spread: None,
-    };
-    let contract = CallableBond::new(base, schedule)
-        .contract_terms()
-        .map_err(|e| invalid(e.to_string()))?;
+    let contract = callable_terms(base, bond, call)?;
     let pin = |id: &convex_bonds::types::CalendarId| {
         Ok(convex::rates::ReferencePin {
             id: ReferenceDataId::new(id.as_str())
@@ -266,13 +259,7 @@ pub(crate) fn value_callable(
         observation: pin(&ids.observation)?,
         exercise: pin(&ids.exercise)?,
     };
-    let start = terms.dated_date.date().add_days(-CALENDAR_MARGIN_DAYS);
-    let end = bond.maturity_date.add_days(CALENDAR_MARGIN_DAYS);
-    if start < calendar.coverage_from.date() || end > calendar.coverage_until.date() {
-        return Err(unsupported(
-            "the pinned calendar's coverage does not span the bond's life",
-        ));
-    }
+    let (start, end) = calendar_window(bond, terms, calendar)?;
     let mut calendars = Vec::new();
     let mut seen = BTreeSet::new();
     for (id, pin) in [
@@ -393,6 +380,77 @@ pub(crate) fn value_callable(
     })
 }
 
+/// A stored callable's contractual terms and its call mechanics, which a callable is valued
+/// only with.
+pub(crate) fn stored_call_terms(
+    bond: &BondReferenceData,
+) -> Result<(&BondContractTerms, &CallTerms), Failure> {
+    let unsupported = |reason: &str| failure(ErrorCode::UnsupportedConvention, reason);
+    let terms = bond
+        .contractual_terms
+        .as_ref()
+        .ok_or_else(|| unsupported("callable needs complete contractual terms"))?;
+    let call = terms
+        .call_terms
+        .as_ref()
+        .ok_or_else(|| unsupported("callable needs explicit call style and notice terms"))?;
+    Ok((terms, call))
+}
+
+/// A stored callable's native contract terms: the router's bullet with its call schedule,
+/// each call at its date and price under the bond's call style and notice.
+pub(crate) fn callable_terms(
+    base: convex_bonds::prelude::FixedRateBond,
+    bond: &BondReferenceData,
+    call: &CallTerms,
+) -> Result<convex_bonds::contracts::BondTerms, Failure> {
+    let invalid = |reason: String| failure(ErrorCode::InvalidInput, reason);
+    let schedule = CallSchedule {
+        call_type: match call.style {
+            CallStyle::American => CallType::American,
+            CallStyle::European => CallType::European,
+            CallStyle::Bermudan => CallType::Bermudan,
+        },
+        entries: bond
+            .call_schedule
+            .iter()
+            .map(|entry| {
+                Ok(CallEntry {
+                    start_date: entry.call_date,
+                    end_date: None,
+                    call_price: entry
+                        .call_price
+                        .to_f64()
+                        .ok_or_else(|| invalid("unrepresentable call price".into()))?,
+                    notice_days: Some(call.notice_days),
+                })
+            })
+            .collect::<Result<_, Failure>>()?,
+        protection_end: None,
+        make_whole_spread: None,
+    };
+    CallableBond::new(base, schedule)
+        .contract_terms()
+        .map_err(|e| invalid(e.to_string()))
+}
+
+/// The bond's life plus a margin each side, which the pinned calendar must cover.
+pub(crate) fn calendar_window(
+    bond: &BondReferenceData,
+    terms: &BondContractTerms,
+    calendar: &CalendarDefinition,
+) -> Result<(Date, Date), Failure> {
+    let start = terms.dated_date.date().add_days(-CALENDAR_MARGIN_DAYS);
+    let end = bond.maturity_date.add_days(CALENDAR_MARGIN_DAYS);
+    if start < calendar.coverage_from.date() || end > calendar.coverage_until.date() {
+        return Err(failure(
+            ErrorCode::UnsupportedConvention,
+            "the pinned calendar's coverage does not span the bond's life",
+        ));
+    }
+    Ok((start, end))
+}
+
 /// The library takes explicit holiday tables, never a calendar code: list the pinned
 /// calendar's non-weekend closures over the window. Its weekends must be Saturday and Sunday.
 pub(crate) fn holiday_table(
@@ -427,38 +485,18 @@ pub(crate) fn holiday_table(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::ports::{
-        reference_data::CallScheduleEntry,
-        reference_master::{CallTerms, MasterDefinition},
-        storage::OptionModelAssumption,
-    };
+    use crate::ports::{reference_master::MasterDefinition, storage::OptionModelAssumption};
     use convex_curves::contracts::{build_curve_set, CurveSet};
     use std::str::FromStr;
 
     fn callable(style: CallStyle) -> BondReferenceData {
-        let mut bond: BondReferenceData = serde_json::from_str(include_str!(
-            "../../convex-ports/tests/fixtures/reference_bond.json"
-        ))
-        .unwrap();
-        bond.bond_type = BondType::FixedCallable;
-        bond.is_callable = true;
-        bond.call_schedule = [
-            ("2027-01-15", "101"),
-            ("2028-01-15", "100.5"),
-            ("2029-01-15", "100"),
-        ]
-        .iter()
-        .map(|(date, price)| CallScheduleEntry {
-            call_date: Date::parse(date).unwrap(),
-            call_price: Decimal::from_str(price).unwrap(),
-            is_make_whole: false,
-        })
-        .collect();
-        bond.contractual_terms.as_mut().unwrap().call_terms = Some(CallTerms {
+        crate::products::callable(
+            serde_json::from_str(include_str!(
+                "../../convex-ports/tests/fixtures/reference_bond.json"
+            ))
+            .unwrap(),
             style,
-            notice_days: 30,
-        });
-        bond
+        )
     }
     fn config() -> BondPricingConfig {
         let mut config: BondPricingConfig = serde_json::from_str(include_str!(
@@ -642,15 +680,22 @@ mod tests {
     }
 
     #[test]
-    fn a_plan_values_at_most_8_callables() {
+    fn a_plan_values_at_most_8_callables_on_trees_and_any_number_on_workouts() {
         let bullet: BondReferenceData = serde_json::from_str(include_str!(
             "../../convex-ports/tests/fixtures/reference_bond.json"
         ))
         .unwrap();
+        let on_trees = |bonds: &[BondReferenceData], method: Option<&PricingMethod>| {
+            within_bound(bonds.iter().map(|bond| (bond, method)))
+        };
         let mut bonds = vec![callable(CallStyle::Bermudan); MAX_RUNTIME_CALLABLES];
         bonds.push(bullet);
-        assert!(within_bound(bonds.iter()));
+        assert!(on_trees(&bonds, None));
         bonds.push(callable(CallStyle::European));
-        assert!(!within_bound(bonds.iter()));
+        assert!(!on_trees(&bonds, None));
+        // Quoted by price or yield to worst, each is valued on its workouts instead.
+        assert!(on_trees(&bonds, Some(&PricingMethod::Price {})));
+        assert!(on_trees(&bonds, Some(&PricingMethod::Yield {})));
+        assert!(!on_trees(&bonds, Some(&PricingMethod::ZSpread {})));
     }
 }

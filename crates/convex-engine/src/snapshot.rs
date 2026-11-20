@@ -5,7 +5,7 @@ use convex_core::contracts::*;
 use convex_ports::{
     configuration::ConfigurationPin,
     fixing::FixingRepository,
-    level_pricing::{is_plain_bullet, PricingMethod, MAX_SNAPSHOT_BENCHMARK_SETS},
+    level_pricing::{PricingMethod, MAX_SNAPSHOT_BENCHMARK_SETS, RULE_DOES_NOT_APPLY},
     quote_event::{QuoteEvent, QuoteField, QuoteKey},
     reference_master::{ReferenceLookup, ResolvedBondReference},
     reference_repository::ReferenceRepository,
@@ -74,11 +74,12 @@ pub(crate) fn is_runtime_measure(measure: &str) -> bool {
 fn curve_measure(measure: &str) -> bool {
     matches!(measure, "z_spread_mid" | "i_spread_mid" | "asw_mid") || curve_risk_measure(measure)
 }
-/// The configured curves one valuation reads: a callable's discount curve, a
-/// floating rate note's discount and reference curves, and another bond's discount and
+/// The configured curves one valuation reads: a callable's discount curve on HW1F trees,
+/// a floating rate note's discount and reference curves, and another bond's discount and
 /// swap curves when it asks for a spread or curve-risk measure, or its discount curve
-/// when its rule's `method` prices a level over it. No snapshot valuation reads the
-/// government curve: a G-spread reads the benchmark set's quotes.
+/// when its rule's `method` prices a level over it. A callable on its workouts reads
+/// none. No snapshot valuation reads the government curve: a G-spread reads the
+/// benchmark set's quotes.
 pub(crate) fn read_curve_ids<'c>(
     model: &str,
     measures: &[MeasureId],
@@ -1125,7 +1126,10 @@ impl SnapshotValuator {
                 "configuration does not apply to pinned instrument",
             ));
         }
-        if crate::optional_valuation::product_model(bond) != spec.model_id.as_str() {
+        let rule = reference.pricing_rule.as_ref();
+        if crate::optional_valuation::product_model(bond, reference.pricing_method())
+            != spec.model_id.as_str()
+        {
             return Err(TraitError::Unsupported(
                 "context model does not value the pinned product",
             ));
@@ -1147,14 +1151,21 @@ impl SnapshotValuator {
                 "pricing requires one explicitly selected quote source",
             ));
         }
-        // A rule that quotes a level or names a benchmark set prices only a plain bullet. A
-        // bond whose terms changed since its rule was committed is refused, saying why.
-        let rule = reference.pricing_rule.as_ref();
-        let is_rule_misapplied =
-            rule.is_some_and(|rule| rule.requires_plain_bullet() && !is_plain_bullet(bond));
-        // A bond is read from the field its rule quotes it by: its level, or a price.
-        let quoted_field = rule.map_or(QuoteField::MidPrice, |rule| rule.method.quote_field());
-        if !is_rule_misapplied && !selected[0].requirement.fields.contains(&quoted_field) {
+        // A bond whose terms changed since its rule was committed so that the rule no
+        // longer applies is refused, saying why.
+        let is_rule_misapplied = rule.is_some_and(|rule| !rule.applies_to(bond));
+        // A bond is read from the field its rule quotes it by: its level, or a price. A
+        // callable on its workouts values a price natively too, so when its quote declares
+        // no field of its rule's it is read from a price: a request may send one, and a
+        // Live plan compiled before its rule moved to a yield still carries one.
+        let declared = &selected[0].requirement.fields;
+        let is_workouts =
+            spec.model_id.as_str() == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL;
+        let quoted_field = rule
+            .map(|rule| rule.method.quote_field())
+            .filter(|field| !is_workouts || declared.contains(field))
+            .unwrap_or(QuoteField::MidPrice);
+        if !is_rule_misapplied && !declared.contains(&quoted_field) {
             return Err(TraitError::InvalidInput(
                 "mid valuation must declare the field the bond is quoted by",
             ));
@@ -1173,7 +1184,7 @@ impl SnapshotValuator {
                     StructuredError::new(
                         ErrorCode::InvalidInput,
                         Some(measure.as_str().into()),
-                        crate::level_pricing::NOT_A_PLAIN_BULLET,
+                        RULE_DOES_NOT_APPLY,
                         false,
                     )
                     .map_err(contract_error)
@@ -1189,6 +1200,8 @@ impl SnapshotValuator {
                 mark(QuoteField::MidPrice),
                 quality,
             )?
+        } else if is_workouts {
+            workout_measures(spec, reference, quoted_field, mark(quoted_field), quality)?
         } else if spec.model_id.as_str() == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
             floating_measures(
                 snapshot,
@@ -1425,6 +1438,113 @@ fn rebound(
 
 type Measures = (BTreeMap<MeasureId, MeasureResult>, Vec<StructuredError>);
 
+/// Each requested measure from `value`, under the context's model and `quality`; a
+/// measure `value` cannot give is reported with its code and reason.
+fn model_measures(
+    spec: &ValuationContextSpec,
+    quality: DataQuality,
+    value: impl Fn(&str) -> Result<MeasureValue, crate::optional_valuation::Failure>,
+) -> Result<Measures, TraitError> {
+    let mut results = BTreeMap::new();
+    let mut errors = Vec::new();
+    for measure in &spec.measures {
+        match value(measure.as_str()) {
+            Ok(value) => {
+                results.insert(
+                    measure.clone(),
+                    MeasureResult {
+                        value,
+                        quality,
+                        method: spec.model_id.clone(),
+                        source_observation_id: None,
+                    },
+                );
+            }
+            Err(error) => errors.push(
+                StructuredError::new(
+                    error.code,
+                    Some(measure.as_str().into()),
+                    error.message,
+                    false,
+                )
+                .map_err(contract_error)?,
+            ),
+        }
+    }
+    Ok((results, errors))
+}
+
+/// A callable's measures on its workouts, from its quote in `field`: a clean price, or a
+/// yield to worst. A plan measure the workout model does not publish never reaches this
+/// context.
+fn workout_measures(
+    spec: &ValuationContextSpec,
+    reference: &ResolvedBondReference,
+    field: QuoteField,
+    mark: Option<rust_decimal::Decimal>,
+    quality: DataQuality,
+) -> Result<Measures, TraitError> {
+    use crate::optional_valuation::{failure, Failure};
+    use crate::workout_valuation::{value_on_workouts, WorkoutQuote};
+    let bond = reference
+        .record
+        .bond
+        .as_ref()
+        .ok_or(TraitError::InvalidInput("tombstone reference"))?;
+    let convex_ports::reference_master::MasterDefinition::Calendar(calendar) =
+        &reference.calendar.definition
+    else {
+        return Err(TraitError::InvalidInput("wrong calendar resource"));
+    };
+    let valued = mark
+        .ok_or_else(|| {
+            failure(
+                ErrorCode::MissingMarketData,
+                "Required mid mark is unavailable",
+            )
+        })
+        .and_then(|mark| {
+            let quote = if field == QuoteField::MidYield {
+                crate::level_pricing::check_level(&PricingMethod::Yield {}, mark)
+                    .map_err(|e| failure(e.error_code(), e.to_string()))?;
+                WorkoutQuote::YieldToWorst(mark)
+            } else {
+                WorkoutQuote::CleanPrice(mark)
+            };
+            value_on_workouts(bond, calendar, spec.settlement_date.date(), quote)
+        });
+    let finite = |value: f64| {
+        FiniteF64::new(value)
+            .map_err(|_| failure(ErrorCode::InvalidInput, "nonfinite workout measure"))
+    };
+    model_measures(spec, quality, |measure| {
+        let valued = valued.as_ref().map_err(Failure::clone)?;
+        Ok(match measure {
+            "clean_price_mid" => {
+                MeasureValue::Price(PricePer100::new(ExactDecimal::new(valued.clean_price)))
+            }
+            "dirty_price_mid" => {
+                MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.dirty_price)?))
+            }
+            "accrued_interest" => {
+                MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.accrued)?))
+            }
+            "ytw_mid" => {
+                MeasureValue::ModelRate(ModelDecimalRate::new(finite(valued.yield_to_worst)?))
+            }
+            "years_to_worst_mid" => {
+                MeasureValue::ModelYears(ModelYears::new(finite(valued.years_to_worst)?))
+            }
+            _ => {
+                return Err(failure(
+                    ErrorCode::InvalidInput,
+                    "Requested measure is outside this snapshot valuation slice",
+                ))
+            }
+        })
+    })
+}
+
 /// The plan's explicit fixings plus each floating rate note's observations that are due by
 /// the cutoff, derived from its built contract. A note the adapter cannot build adds
 /// none; its valuation reports why.
@@ -1553,12 +1673,10 @@ fn floating_measures(
         FiniteF64::new(value)
             .map_err(|_| failure(ErrorCode::InvalidInput, "nonfinite floating measure"))
     };
-    let mut results = BTreeMap::new();
-    let mut errors = Vec::new();
-    for measure in &spec.measures {
-        let value = quoted.as_ref().map_err(Clone::clone).and_then(|quote| {
+    model_measures(spec, quality, |measure| {
+        quoted.as_ref().map_err(Clone::clone).and_then(|quote| {
             let clean = clean.clone()?;
-            Ok(match measure.as_str() {
+            Ok(match measure {
                 "clean_price_mid" => {
                     MeasureValue::Price(PricePer100::new(ExactDecimal::new(clean)))
                 }
@@ -1579,31 +1697,8 @@ fn floating_measures(
                     ))
                 }
             })
-        });
-        match value {
-            Ok(value) => {
-                results.insert(
-                    measure.clone(),
-                    MeasureResult {
-                        value,
-                        quality,
-                        method: spec.model_id.clone(),
-                        source_observation_id: None,
-                    },
-                );
-            }
-            Err(error) => errors.push(
-                StructuredError::new(
-                    error.code,
-                    Some(measure.as_str().into()),
-                    error.message,
-                    false,
-                )
-                .map_err(contract_error)?,
-            ),
-        }
-    }
-    Ok((results, errors))
+        })
+    })
 }
 
 /// Callable measures at the observed clean mid, from `convex::library`. A plan measure
@@ -1693,16 +1788,14 @@ fn callable_measures(
         FiniteF64::new(value)
             .map_err(|_| failure(ErrorCode::InvalidInput, "nonfinite callable measure"))
     };
-    let mut results = BTreeMap::new();
-    let mut errors = Vec::new();
-    for measure in &spec.measures {
-        let value = quoted.as_ref().map_err(Clone::clone).and_then(|quote| {
+    model_measures(spec, quality, |measure| {
+        quoted.as_ref().map_err(Clone::clone).and_then(|quote| {
             let clean = clean.clone()?;
             let risk = || quote.risk.as_ref().map_err(Clone::clone);
             let model = ExactDecimal::new(clean)
                 .to_model()
                 .map_err(|_| failure(ErrorCode::InvalidInput, "unrepresentable clean mid"))?;
-            Ok(match measure.as_str() {
+            Ok(match measure {
                 "clean_price_mid" => {
                     MeasureValue::Price(PricePer100::new(ExactDecimal::new(clean)))
                 }
@@ -1731,31 +1824,8 @@ fn callable_measures(
                     ))
                 }
             })
-        });
-        match value {
-            Ok(value) => {
-                results.insert(
-                    measure.clone(),
-                    MeasureResult {
-                        value,
-                        quality,
-                        method: spec.model_id.clone(),
-                        source_observation_id: None,
-                    },
-                );
-            }
-            Err(error) => errors.push(
-                StructuredError::new(
-                    error.code,
-                    Some(measure.as_str().into()),
-                    error.message,
-                    false,
-                )
-                .map_err(contract_error)?,
-            ),
-        }
-    }
-    Ok((results, errors))
+        })
+    })
 }
 
 pub(crate) fn consumed_versions(

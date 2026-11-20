@@ -349,9 +349,9 @@ is `422 NOT_COVERED` before any curve is read.
 Callables and FRNs are valued by the runtime, through the code the stream runs, so
 the numbers match the stream's for the same mark, cutoff and settlement. Each request
 builds a one-instrument snapshot that is never stored: the stored terms at `known_at`,
-the configuration's curves that product reads (a callable's discount curve; a note's
-discount and `frn_reference_curve`), the note's due fixings, and the mark as one quote
-from source `request`. The runtime values it on one of its interactive slots, with the
+the configuration's curves that product reads (a callable's discount curve, or none for
+a callable on its workouts; a note's discount and `frn_reference_curve`), the note's due
+fixings, and the mark as one quote from source `request`. The runtime values it on one of its interactive slots, with the
 runtime's measures for the product. The response has the bullets' shape, with:
 - `source: "request"`;
 - `measure_errors` for each measure the valuation could not produce, with the
@@ -450,7 +450,7 @@ The initial adapters bound retained identities including tombstones to 100,000, 
 A bond is quoted by price unless it has a `pricing_rule` master resource (P19). A rule
 names the bond and its method:
 - `price`;
-- `yield`, a street yield to maturity;
+- `yield`, a street yield to maturity; for a callable, its yield to worst;
 - `benchmark_spread`, basis points over the yield of one security of a benchmark set,
   named by its tenor (`{"kind": "benchmark_spread", "tenor": "10Y"}`). Both yields are
   compounded semi-annually, so a Treasury's is its street yield;
@@ -471,8 +471,9 @@ Both kinds are committed through `POST /api/v1/reference/transactions` and liste
 refused with 400 if:
 - a rule names a bond that is not stored;
 - a rule names a set that does not exist;
-- a rule quotes a bond other than a fixed bullet by a level, or against a set (floating
-  rate notes and callables are not yet supported);
+- a rule quotes a bond other than a fixed bullet by a spread, or against a set;
+- a rule quotes by a yield a bond that is neither a fixed bullet nor a callable valued on
+  its workouts (below);
 - a rule's `width` is not a valid schedule, or is in a unit its method does not quote;
 - a rule with a `width` names a callable or floating rate note, which are quoted mid
   only;
@@ -481,6 +482,34 @@ refused with 400 if:
 
 A set of more than 32 securities, or a width of more than 16 buckets, is refused with 400
 `INVALID_INPUT`.
+
+A callable whose rule quotes it by `price` or `yield` is valued on its workouts, as
+high-yield callables are quoted: model `convex-callable-workout-v1`, in Live and at
+request time, with no option model and no curve.
+- It takes European or Bermudan fixed-price calls, at most 128, and no put, sinking
+  fund, floating or inflation terms. An American callable is refused, and a `yield`
+  rule on one is refused at commit.
+- From a clean price it solves the yield to each call date and to maturity and reports
+  the lowest, the yield to worst. From a yield to worst it prices every path at that
+  yield and reports the lowest price, the price to worst. Both come from
+  `convex_analytics::workflow`, and each inverts the other on the same path.
+- The yields are dated yields in the bond's own day count, compounded at its coupon
+  frequency. For 30/360 and ACT/ACT ISDA bonds that is the street yield; ACT/ACT ICMA
+  is refused.
+- A call is a workout only if its notice can still be given on or after the trade date
+  that settles on the valuation's settlement date. No notice is stored, so none is
+  taken as given. A settlement date nothing settles on, a weekend or holiday, fails
+  the bond.
+- It publishes `clean_price_mid`, `dirty_price_mid`, `accrued_interest`, `ytw_mid` and
+  `years_to_worst_mid` (years in the bond's day count from settlement to the worst call
+  or maturity). It publishes no OAS and no DV01, so a book's DV01 limit on it reads
+  `unknown`. A request-time quote carries `ytw`.
+- `GET /api/v1/quotes/:id` takes `level` (a decimal yield to worst) or `market_price`.
+  Its `pricing_rule` report names the workout model and the level.
+- These callables are not counted against the cap of 8 callables valued on HW1F trees.
+  A callable with no rule, or one quoted otherwise, stays on HW1F, so committing a
+  `price` rule on a callable moves it off HW1F: it no longer publishes OAS, effective
+  duration and convexity, or PV01.
 
 A rule or set is ended by committing a version with `effective.until` through the same
 routes; the end may be later than the commit. After it, the version before does not come

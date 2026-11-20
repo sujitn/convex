@@ -46,6 +46,10 @@
 #[path = "../../convex-ports/tests/support/reference_terms.rs"]
 mod reference_terms;
 
+#[cfg(test)]
+#[path = "../tests/support/products.rs"]
+mod products;
+
 pub mod builder;
 pub mod calc_graph;
 pub mod calibration_replay;
@@ -66,6 +70,7 @@ pub mod request_valuation;
 pub mod runtime;
 pub mod snapshot;
 pub mod telemetry;
+pub mod workout_valuation;
 
 pub mod cache;
 pub mod configuration;
@@ -572,15 +577,16 @@ impl PricingEngine {
     /// Value a stored callable or floating rate note at request time: an
     /// unpublished one-instrument snapshot under `context` at `known_at`, with `mark` as
     /// a labelled `request` quote, valued through [`Self::evaluate_context`] as the stream
-    /// values a bond. Without a mark every measure fails `MISSING_MARKET_DATA`. Nothing
-    /// is stored.
+    /// values a bond. The mark is a clean price, or the yield to worst of a callable its
+    /// rule values on its workouts. Without a mark every measure fails
+    /// `MISSING_MARKET_DATA`. Nothing is stored.
     pub async fn value_request(
         &self,
         context: &mut RequestContext,
-        reference: &ports::reference_repository::ReferenceRecord,
+        reference: &ports::reference_master::ResolvedBondReference,
         settlement_date: convex_core::contracts::BusinessDate,
         known_at: convex_core::contracts::UtcTimestamp,
-        mark: Option<rust_decimal::Decimal>,
+        mark: Option<level_pricing::QuotedInput>,
     ) -> Result<request_valuation::RequestValuation, request_valuation::RequestValuationError> {
         use request_valuation::RequestValuationError;
         let valuer = self

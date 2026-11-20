@@ -151,7 +151,7 @@ fn envelope_quote(
                 "accrued_interest" | "dv01_mid" | "pv01_mid" | "cs01_mid",
                 MeasureValue::ModelPrice(p),
             ) => model(p.value().get()),
-            ("ytm_mid", MeasureValue::ModelRate(p)) => model(p.value().get()),
+            ("ytm_mid" | "ytw_mid", MeasureValue::ModelRate(p)) => model(p.value().get()),
             (
                 "modified_duration_mid"
                 | "macaulay_duration_mid"
@@ -201,7 +201,7 @@ fn envelope_quote(
         ytm_bid: None,
         ytm_mid: ytm,
         ytm_ask: None,
-        ytw: None,
+        ytw: read("ytw_mid")?,
         ytc: None,
         z_spread_bid: None,
         z_spread_mid: z_spread,

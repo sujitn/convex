@@ -1018,6 +1018,13 @@ pub struct ResolvedBondReference {
     pub pricing_rule: Option<crate::level_pricing::ResolvedPricingRule>,
 }
 
+impl ResolvedBondReference {
+    /// How the bond is quoted under its pinned rule; none when it has no rule.
+    pub fn pricing_method(&self) -> Option<&crate::level_pricing::PricingMethod> {
+        self.pricing_rule.as_ref().map(|rule| &rule.method)
+    }
+}
+
 /// The resources a floating rate note's coupons depend on, beyond its own.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -291,8 +291,7 @@ async fn a_request_context_prices_each_curve_on_one_revision() {
         )
         .await
         .unwrap()
-        .unwrap()
-        .record;
+        .unwrap();
 
     let mut context = engine.request_context(None, known_at).await.unwrap();
     context.curves_for(&fixture::bond()).await.unwrap();
@@ -300,7 +299,9 @@ async fn a_request_context_prices_each_curve_on_one_revision() {
     newer.version = fixture::version(8);
     newer.recipe["key"]["version"] = "supplied.recipe.v8".into();
     setup.storage.curves.save_recipe(&newer).await.unwrap();
-    let mark = Some(Decimal::from_str("99.25").unwrap());
+    let mark = Some(convex_engine::level_pricing::QuotedInput::Price(
+        Decimal::from_str("99.25").unwrap(),
+    ));
     let valued = engine
         .value_request(
             &mut context,

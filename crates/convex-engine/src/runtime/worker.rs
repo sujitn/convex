@@ -40,7 +40,7 @@ pub(super) fn context(
         .ok_or(RuntimeError::RecoveryConflict)?;
     // Each instrument requests only the plan measures its own model publishes, and a
     // G-spread only when it is priced against a benchmark set it matures within.
-    let model = product_model(bond);
+    let model = product_model(bond, reference.pricing_method());
     let measures: Vec<_> = plan
         .measures
         .iter()
@@ -1031,6 +1031,22 @@ mod tests {
         // A section within the bound after one over it is counted, and kept.
         check_callables_once(&within, &mut checked).unwrap();
         assert!(checked.as_ref().is_some_and(|s| s.ptr_eq(&within)));
+        // Quoted by price, each callable is valued on its workouts and not counted.
+        let priced = SnapshotReferences::new(
+            over.iter()
+                .cloned()
+                .map(|mut reference| {
+                    reference.pricing_rule =
+                        Some(convex_ports::level_pricing::ResolvedPricingRule {
+                            method: convex_ports::level_pricing::PricingMethod::Price {},
+                            benchmark_set_id: None,
+                            ..spread_rule()
+                        });
+                    reference
+                })
+                .collect(),
+        );
+        check_callables_once(&priced, &mut checked).unwrap();
     }
 
     /// A rule quoting its bond as a spread over the 2-year of the `UST-OTR` set.
