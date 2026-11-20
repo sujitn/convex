@@ -658,7 +658,10 @@ others" for a stored bond. It is read-only and stores nothing.
   to worst, whatever its rule quotes, with the workout model of
   `GET /api/v1/quotes/:id`. It needs no runtime and reads no curve, and a spread method
   is refused. From the rule's own method and level, or from a price, its measures are
-  those of `GET /api/v1/quotes/:id`.
+  those of `GET /api/v1/quotes/:id`. Every workout's yield must lie between -90% and
+  500%. From a yield to worst that is checked at the price to worst, so a deeply
+  distressed callable whose near call yields more is refused (422) here though the
+  quote prices it.
 - **The reply** is the bond's model's measures at the level: the router's for a bullet
   or zero, and for a callable its clean price, accrued, dirty price and `ytw`. It adds:
   - `input`: the `method` and `level` sent, and for a benchmark spread the `benchmark`

@@ -720,6 +720,38 @@ mod tests {
     }
 
     #[test]
+    fn a_table_with_a_yield_beyond_the_solver_domain_is_refused() {
+        // At a 40% yield to worst the price to worst is near 40, at which the January
+        // 2027 call at 101 yields more than 500%: Live values the bond from that yield,
+        // and the calculator's table cannot be solved.
+        let bond = callable(CallStyle::Bermudan);
+        let distressed = WorkoutQuote::YieldToWorst(decimal("0.4"));
+        let live = value(&bond, SETTLEMENT, distressed).unwrap();
+        assert!(live.clean_price < decimal("40"), "{}", live.clean_price);
+        let refused = calculate(
+            &bond,
+            &fixture_calendar(&bond),
+            date(SETTLEMENT),
+            distressed,
+        )
+        .err()
+        .unwrap();
+        assert_eq!(refused.code, ErrorCode::SolverLimit, "{}", refused.message);
+        // At 30% every workout's yield is inside it.
+        let table = calculated(
+            &bond,
+            SETTLEMENT,
+            WorkoutQuote::YieldToWorst(decimal("0.3")),
+        );
+        assert!(
+            table.workouts[0].decimal_yield > 4.0,
+            "{:?}",
+            table.workouts[0]
+        );
+        assert_eq!(table.worst.redemption, Redemption::Maturity);
+    }
+
+    #[test]
     fn a_callable_is_quoted_by_a_price_or_a_yield_to_worst_in_range() {
         assert!(matches!(
             WorkoutQuote::quoted_by(&PricingMethod::Price {}, decimal("99")),
