@@ -19,9 +19,11 @@ use axum::{
 };
 use configuration::runtime::*;
 use convex_core::contracts::*;
+use convex_core::types::MAX_SIZE_BUCKETS;
 use convex_engine::{PricingEngine, RuntimeInput};
 use convex_ports::{
     configuration::InstrumentPin,
+    level_pricing::MAX_BENCHMARK_SECURITIES,
     quote_event::{FieldUpdate, QuoteChange, QuoteEventKind, QuoteField, QuoteValue},
     reference_data::{BondReferenceData, IssuerType},
     reference_master::{MasterChange, MasterDefinition},
@@ -176,6 +178,13 @@ async fn rules_and_benchmark_sets_commit_and_list_through_the_reference_routes()
     assert_eq!(rule["method"], spread, "{rules}");
     assert_eq!(rule["benchmark_set_id"], "UST-OTR");
 
+    let many_buckets: Vec<_> = (1..=MAX_SIZE_BUCKETS)
+        .map(|n| json!({"max_face": format!("{n}000000"), "width": "1"}))
+        .chain([json!({"width": "1"})])
+        .collect();
+    let many_securities: Vec<_> = (1..=MAX_BENCHMARK_SECURITIES + 1)
+        .map(|n| json!({"tenor": format!("{n}M"), "instrument_id": format!("UST-{n}"), "version": 1}))
+        .collect();
     let refusals = [
         (
             "level-corporate-set",
@@ -219,6 +228,18 @@ async fn rules_and_benchmark_sets_commit_and_list_through_the_reference_routes()
                 pricing_rule(&corporate, json!({"kind": "yield"}), None),
                 json!({"unit": "basis_points", "buckets": [{"width": 4}]}),
             ),
+        ),
+        // A schedule or a set over its bound is the caller's to fix, not a retry.
+        (
+            "level-width-many",
+            with_width(
+                pricing_rule(&corporate, json!({"kind": "yield"}), None),
+                json!({"unit": "basis_points", "buckets": many_buckets}),
+            ),
+        ),
+        (
+            "level-set-many",
+            benchmark_set("UST-ALL", Value::Array(many_securities)),
         ),
     ];
     for (key, change) in refusals {

@@ -100,7 +100,9 @@ fn a_width_is_in_a_unit_its_method_quotes() {
         .collect();
     assert_eq!(
         with_width(json!({"kind": "yield"}), "basis_points", json!(many)).validate(),
-        Err(ReferenceError::CapacityExceeded)
+        Err(ReferenceError::InvalidInput(
+            "a width schedule holds at most 16 size buckets"
+        ))
     );
 }
 
@@ -165,8 +167,12 @@ fn a_usd_set_holds_one_to_32_securities_with_unique_tenors_and_instruments() {
     let many: Vec<_> = (1..=MAX_BENCHMARK_SECURITIES + 1)
         .map(|n| security(&format!("{n}M"), &format!("UST-{n}")))
         .collect();
-    assert_eq!(
-        set(json!(many)).validate(),
-        Err(ReferenceError::CapacityExceeded)
+    // The refusal is the caller's to fix, and names the bound it enforces.
+    let Err(ReferenceError::InvalidInput(reason)) = set(json!(many)).validate() else {
+        panic!("a set over its bound is invalid input");
+    };
+    assert!(
+        reason.contains(&format!("at most {MAX_BENCHMARK_SECURITIES} securities")),
+        "{reason}"
     );
 }

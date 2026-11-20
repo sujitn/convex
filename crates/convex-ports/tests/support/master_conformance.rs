@@ -1498,7 +1498,9 @@ pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
             )
             .await
             .err(),
-        Some(ReferenceError::CapacityExceeded)
+        Some(ReferenceError::InvalidInput(
+            "a benchmark set holds at most 32 securities"
+        ))
     );
 
     // A rule names a stored bond, and a level only on a fixed bullet.
@@ -1554,7 +1556,9 @@ pub async fn pricing_rules_and_benchmark_sets_link_to_stored_bonds(
             )
             .await
             .err(),
-        Some(ReferenceError::CapacityExceeded)
+        Some(ReferenceError::InvalidInput(
+            "a width schedule holds at most 16 size buckets"
+        ))
     );
     // A zero is quoted two-way by price, so it takes a width in 32nds.
     repository
