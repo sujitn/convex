@@ -1542,18 +1542,43 @@ fn the_latest_trade_date_inverts_settlement_and_none_settles_on_a_closed_day() {
         &sifma
     )
     .is_err());
+    // At the end of the calendar's coverage, the trade is found without looking past it.
+    assert_eq!(latest("2100-12-30"), Some(d("2100-12-28")));
+    // A calendar-day lag finds a trade however long the closure its settlement is moved
+    // across: closed from 3 January to 2 April, 2 January's T+1 settles on 3 April.
+    struct Closed;
+    impl Calendar for Closed {
+        fn name(&self) -> &'static str {
+            "ClosedFirstQuarter"
+        }
+        fn is_business_day(&self, date: Date) -> bool {
+            WeekendCalendar.is_business_day(date)
+                && !(d("2025-01-03")..=d("2025-04-02")).contains(&date)
+        }
+    }
+    assert_eq!(
+        latest_trade_date(
+            d("2025-04-03"),
+            DateOffset::CalendarDays(1),
+            following,
+            &Closed
+        )
+        .unwrap(),
+        Some(d("2025-01-02"))
+    );
     // Every business day's settlement maps back to that day or a later one settling the same.
+    use BusinessDayConvention as C;
     for (lag, convention) in [
         (DateOffset::BusinessDays(1), following),
         (t2, following),
-        (
-            DateOffset::CalendarDays(3),
-            BusinessDayConvention::ModifiedFollowing,
-        ),
-        (
-            DateOffset::CalendarDays(0),
-            BusinessDayConvention::Preceding,
-        ),
+        (t2, C::EndOfMonth),
+        (DateOffset::CalendarDays(3), C::ModifiedFollowing),
+        (DateOffset::CalendarDays(2), C::ModifiedPreceding),
+        (DateOffset::CalendarDays(2), C::Nearest),
+        (DateOffset::CalendarDays(2), C::EndOfMonth),
+        (DateOffset::CalendarDays(1), C::Unadjusted),
+        (DateOffset::CalendarDays(0), C::Preceding),
+        (DateOffset::CalendarDays(2), C::Preceding),
     ] {
         let mut trade = d("2026-01-02");
         while trade <= d("2027-01-04") {

@@ -509,7 +509,7 @@ pub struct WorkoutPriceSummary {
     pub accrued_per100: f64,
 }
 /// Every eligible path priced at one yield: the price to worst, which
-/// [`quote_workout_worst`] inverts.
+/// [`quote_workout_worst`] inverts wherever it solves every path.
 #[derive(Debug, Clone, Serialize)]
 pub struct WorkoutPriceToWorst {
     /// Full original contracts/profiles/legal terms and the selected path's cash.
@@ -529,10 +529,11 @@ pub struct WorkoutPriceToWorst {
     pub examined_dates: u32,
 }
 /// Price every eligible path at one dated yield and select the lowest issuer-call or
-/// maturity price, the paths and order [`quote_workout_worst`] uses. Since each path's
-/// price falls as its yield rises, the price selected here quotes back through
-/// [`quote_workout_worst`] at this yield, on the same path. Any path failure returns
-/// no partial result.
+/// maturity price, the paths and order [`quote_workout_worst`] uses. Where that function
+/// solves every path (each path's cash is one its inverse admits and its yield lies in the
+/// inverse domain), each path's price falls as its yield rises, so the price selected here
+/// quotes back through it at this yield, on the same path. Cash its inverse refuses, such
+/// as signed coupons, is still priced here. Any path failure returns no partial result.
 pub fn quote_workout_price_to_worst(
     input: &WorkoutInputs<'_>,
     convention: DatedYieldConvention,
