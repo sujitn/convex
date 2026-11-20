@@ -48,6 +48,22 @@ choices and cannot reduce this worst-call measure. Equal numerical yields keep
 the first candidate in that stated order. Supplied notice instead forces its one
 path, identified by `forced_by_notice`.
 
+`quote_workout_price_to_worst` goes the other way: from one dated yield it
+prices every path that `worst` would quote, in the same order and under the same
+`max_dates` budget. It selects the lowest dirty price among issuer calls and
+maturity, keeping the first on a tie. Where `worst` solves every path (cash its
+inverse admits, yields inside its domain), each path's price falls as its yield
+rises, so `worst` at the selected price returns the given yield on the same
+path. Cash that inverse refuses, such as signed coupons, is still priced. Puts are
+priced and reported but never selected, and supplied notice forces its path. It is a Rust function only; the shared `workout` request does
+not carry it yet.
+
+The purchase context needs a trade date that the contract's lag and calendar
+map onto the settlement. `convex_core::cashflows::latest_trade_date` gives the
+latest such business day, or `None` when nothing settles on that date, such as
+a weekend or holiday. A business-day lag is inverted exactly; a calendar-day lag
+tries only the settlement and the closed days the convention moves onto it.
+
 Early exercise retires outstanding principal **after** same-day scheduled
 reductions, matching the lifecycle ordering. Every completed unpaid coupon and
 effective principal repayment remains a claim on its original payment date,

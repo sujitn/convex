@@ -114,6 +114,79 @@ pub fn settlement_date(
     Ok(settlement)
 }
 
+/// The latest business day whose trade settles on `settlement` under the same lag,
+/// convention and calendar: the trade date [`settlement_date`] maps onto `settlement`.
+/// `None` when no trade settles on it, as for a weekend or a holiday.
+///
+/// A business-day lag lands on a business day, so the trade is the settlement less the
+/// lag in business days, if that settles back on it. A calendar-day lag lands on a date
+/// the convention then moves: only the settlement itself or a run of closed days next to
+/// it can be moved onto it, so only those, less the lag, are tried.
+pub fn latest_trade_date(
+    settlement: Date,
+    lag: DateOffset,
+    convention: BusinessDayConvention,
+    calendar: &dyn Calendar,
+) -> Result<Option<Date>, CashflowError> {
+    validate_date(settlement)?;
+    let settles = |trade: Date| -> Result<bool, CashflowError> {
+        Ok(calendar.try_is_business_day(trade)?
+            && settlement_date(trade, lag, convention, calendar)? == settlement)
+    };
+    let days = match lag {
+        DateOffset::CalendarDays(n) | DateOffset::BusinessDays(n) => n,
+    };
+    if days < 0 {
+        return Err(CashflowError::terms(
+            "settlement_lag",
+            "must be nonnegative",
+        ));
+    }
+    if let DateOffset::BusinessDays(n) = lag {
+        let trade = checked::add_business_days(settlement, -n, calendar)?;
+        return Ok(settles(trade)?.then_some(trade));
+    }
+    // The dates a convention can move onto the settlement: closed days before it (moved
+    // forward) and after it (moved back), as far as each run of closed days goes, or the
+    // whole month for end of month.
+    use BusinessDayConvention as C;
+    let closed_run = |step: i64| -> Result<i64, CashflowError> {
+        let mut length = 0;
+        let mut date = settlement.checked_add_days(step)?;
+        while !calendar.try_is_business_day(date)? {
+            length += 1;
+            if length > checked::MAX_CALENDAR_SEARCH_DAYS as i64 {
+                return Err(CashflowError::BoundExceeded("closed calendar run"));
+            }
+            date = date.checked_add_days(step)?;
+        }
+        Ok(length)
+    };
+    let (before, after) = match convention {
+        C::Unadjusted => (0, 0),
+        C::Following => (closed_run(-1)?, 0),
+        C::Preceding => (0, closed_run(1)?),
+        C::ModifiedFollowing | C::ModifiedPreceding | C::Nearest => {
+            (closed_run(-1)?, closed_run(1)?)
+        }
+        // Any day of the month moves to its last business day.
+        C::EndOfMonth => (
+            i64::from(settlement.day()) - 1,
+            settlement.days_between(&settlement.end_of_month()),
+        ),
+    };
+    let mut lagged = settlement.checked_add_days(after)?;
+    let first = settlement.checked_add_days(-before)?;
+    while lagged >= first {
+        let trade = lagged.checked_add_days(-i64::from(days))?;
+        if trade <= settlement && settles(trade)? {
+            return Ok(Some(trade));
+        }
+        lagged = lagged.checked_add_days(-1)?;
+    }
+    Ok(None)
+}
+
 /// First date on which a settling buyer loses coupon entitlement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]

@@ -271,6 +271,88 @@ fn every_actual_continuous_date_survives_and_put_cannot_lower_call_worst() {
     }
 }
 #[test]
+fn price_to_worst_inverts_the_worst_yield_on_the_same_path_and_puts_never_lower_it() {
+    let r = reference();
+    let c = &r["all_dates"];
+    let cal = calendar(&r);
+    let bond = contract(c, &cal);
+    let context = input_context(c);
+    let convention = serde_json::from_value(c["convention"].clone()).unwrap();
+    let input = WorkoutInputs {
+        contract: &bond,
+        context: &context,
+        exercise_calendar: (&bond.terms().calendars.exercise, &cal),
+        purchase_calendar: (&bond.terms().calendars.payment, &cal),
+    };
+    let dirty = numeric(&c["dirty_per100"]);
+    let worst = quote_workout_worst(
+        &input,
+        convention,
+        BondPriceTarget::Dirty(dirty),
+        controls(),
+    )
+    .unwrap();
+    let ytw = worst.quotes[worst.selected_index].decimal_yield;
+    let priced =
+        quote_workout_price_to_worst(&input, convention, ytw, controls().max_dates).unwrap();
+    assert_eq!(priced.selected_index, worst.selected_index);
+    assert_eq!(priced.selected.selection, worst.selected.selection);
+    assert_eq!(priced.quotes.len(), worst.quotes.len());
+    assert_eq!(priced.examined_dates, worst.examined_dates);
+    assert!(!priced.forced_by_notice);
+    close(
+        priced.quotes[priced.selected_index].dirty_per100,
+        dirty,
+        1e-8,
+        "price to worst at the worst yield",
+    );
+    // A path that yields more than the worst at the observed price is dearer at the worst
+    // yield, and one that yields less is cheaper: only a holder put can.
+    for (path, quote) in priced.quotes.iter().zip(&worst.quotes) {
+        assert_eq!(path.selection, quote.selection);
+        if quote.decimal_yield > ytw + 1e-9 {
+            assert!(path.dirty_per100 > dirty, "{:?}", path.selection);
+        } else if quote.decimal_yield < ytw - 1e-9 {
+            assert!(path.dirty_per100 < dirty, "{:?}", path.selection);
+            assert_eq!(
+                path.exercise.as_ref().map(|e| e.right),
+                Some(convex_bonds::contracts::ExerciseRight::Put)
+            );
+        }
+    }
+    // The cheaper holder put is reported and not selected.
+    assert!(priced.quotes[2].dirty_per100 < dirty);
+    // The round trip returns the yield on the same path, for yields that keep every
+    // path, puts included, inside the inverse domain.
+    for step in 0..15 {
+        let level = 0.02 + 0.01 * f64::from(step);
+        let priced =
+            quote_workout_price_to_worst(&input, convention, level, controls().max_dates).unwrap();
+        let back = quote_workout_worst(
+            &input,
+            convention,
+            BondPriceTarget::Dirty(priced.quotes[priced.selected_index].dirty_per100),
+            controls(),
+        )
+        .unwrap();
+        assert_eq!(back.selected_index, priced.selected_index, "{level}");
+        close(
+            back.quotes[back.selected_index].decimal_yield,
+            level,
+            1e-9,
+            "yield to worst at the price to worst",
+        );
+    }
+    // The date budget is the one the worst yield enforces.
+    assert!(matches!(
+        quote_workout_price_to_worst(&input, convention, ytw, 13),
+        Err(WorkflowError::Cashflow(
+            convex_core::cashflows::CashflowError::BoundExceeded(_)
+        ))
+    ));
+    assert!(quote_workout_price_to_worst(&input, convention, ytw, 0).is_err());
+}
+#[test]
 fn supplied_notice_forces_exact_path_and_failures_return_no_partial_quotes() {
     let r = reference();
     let c = &r["all_dates"];
@@ -297,6 +379,11 @@ fn supplied_notice_forces_exact_path_and_failures_return_no_partial_quotes() {
     assert!(q.forced_by_notice);
     assert_eq!(q.quotes.len(), 1);
     assert_eq!(q.selected_index, 0);
+    let priced =
+        quote_workout_price_to_worst(&input, convention, 0.04, controls().max_dates).unwrap();
+    assert!(priced.forced_by_notice);
+    assert_eq!(priced.quotes.len(), 1);
+    assert_eq!(priced.selected.selection, q.selected.selection);
     assert!(quote_workout_price(&input, &WorkoutSelection::Maturity {}, convention, 0.04).is_err());
     let q = quote_workout_yield(
         &input,

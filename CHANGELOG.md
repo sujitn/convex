@@ -128,6 +128,19 @@ the changes that matter when you upgrade.
   - Desk fixtures in `tests/fixtures/quote-widths.json`: a Treasury in
     32nds, investment grade by benchmark spread and size, high yield in
     points, a yield in basis points, and each refusal.
+- `cashflows::latest_trade_date` inverts `settlement_date`: the latest business
+  day whose trade settles on a given date under the same lag, convention and
+  calendar. It is `None` when nothing settles on that date, such as a weekend or
+  a holiday. A business-day lag is inverted exactly, with no search past the
+  calendar's coverage. A calendar-day lag tries the settlement and the closed days
+  the convention moves onto it, however long the closure.
+
+### convex-bonds
+
+- `CalendarId::try_to_calendar` copies the memoised SIFMA, TARGET2, UK and Japan holiday
+  tables instead of rebuilding them from 1970 to 2100 on every call, about 32 µs each.
+  Building a stored bond's contract looks its calendar up several times. Valuing a
+  three-call callable on its workouts falls from about 440 µs to 90 µs.
 
 ### convex-analytics
 
@@ -137,6 +150,13 @@ the changes that matter when you upgrade.
   `StubType`. The `cashflows::irregular` and `cashflows::schedule` modules, which
   only re-exported `convex_bonds` types, are removed too; the types stay at
   `cashflows::`.
+- **Price to worst.** `workflow::quote_workout_price_to_worst` prices every
+  eligible workout at one dated yield. It selects the lowest price among issuer
+  calls and maturity. It enumerates the same paths, in the same order, with
+  the same date budget as `quote_workout_worst`. Wherever that function solves
+  every path, it inverts it: the yield to worst at the selected price is the
+  given yield, on the same path. Holder puts are reported but never selected, and
+  a supplied notice forces its path.
 
 ### convex-portfolio
 

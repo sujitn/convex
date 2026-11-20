@@ -7,7 +7,10 @@ use convex_bonds::{
     },
     types::CalendarId,
 };
-use convex_core::{calendars::Calendar, cashflows::PaymentDateEntitlement};
+use convex_core::{
+    calendars::Calendar,
+    cashflows::{settlement_date, PaymentDateEntitlement},
+};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -153,13 +156,12 @@ pub(super) fn purchase(input: &WorkoutInputs<'_>) -> WorkflowResult<()> {
             "original purchase calendar and valid trade-to-settlement ordering required",
         ));
     }
-    let cal = input.purchase_calendar.1;
-    let expected = cal
-        .adjust(
-            t.settlement_lag.apply(c.trade_date, cal)?,
-            t.settlement_adjustment,
-        )
-        .map_err(|e| invalid("workout.purchase", e.to_string()))?;
+    let expected = settlement_date(
+        c.trade_date,
+        t.settlement_lag,
+        t.settlement_adjustment,
+        input.purchase_calendar.1,
+    )?;
     if expected != c.settlement {
         return Err(invalid(
             "workout.purchase",
@@ -461,10 +463,7 @@ pub fn quote_workout_worst(
             iterations: inverse.iterations,
             price_evaluations: inverse.price_evaluations,
         });
-        if (forced
-            || q.exercise
-                .as_ref()
-                .is_none_or(|e| e.right == ExerciseRight::Call))
+        if is_worst_candidate(forced, q.exercise.as_ref())
             && inverse.decimal_parameter < selected_yield
         {
             selected_yield = inverse.decimal_parameter;
@@ -493,6 +492,106 @@ pub fn quote_workout_worst(
         cash_discount_evaluations: cash_evaluations,
         reserved_cash_evaluations: reserved,
     })
+}
+
+/// One eligible path's price at the common yield.
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkoutPriceSummary {
+    /// Exact source provision/date or conditional maturity.
+    pub selection: WorkoutSelection,
+    /// Actual early exercise cash and legal dates.
+    pub exercise: Option<WorkoutCashDetails>,
+    /// Original-face clean price, after original purchase accrual/rebate.
+    pub clean_per100: f64,
+    /// Original-face dirty price.
+    pub dirty_per100: f64,
+    /// Original purchase accrued/rebate, in original-face units.
+    pub accrued_per100: f64,
+}
+/// Every eligible path priced at one yield: the price to worst, which
+/// [`quote_workout_worst`] inverts wherever it solves every path.
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkoutPriceToWorst {
+    /// Full original contracts/profiles/legal terms and the selected path's cash.
+    pub selected: WorkoutQuotation,
+    /// Declared common annualized dated-cash convention.
+    pub convention: DatedYieldConvention,
+    /// The common annualized decimal yield every path is priced at.
+    pub decimal_yield: f64,
+    /// Maturity first, then original provision order and actual date order.
+    pub quotes: Vec<WorkoutPriceSummary>,
+    /// Lowest price among issuer calls and maturity, or the forced supplied notice
+    /// path. Holder puts are reported in quotes and never lower this price.
+    pub selected_index: usize,
+    /// True only when an already supplied timely notice forced one path.
+    pub forced_by_notice: bool,
+    /// Actual future contractual dates inspected, including notice exclusions.
+    pub examined_dates: u32,
+}
+/// Price every eligible path at one dated yield and select the lowest issuer-call or
+/// maturity price, the paths and order [`quote_workout_worst`] uses. Where that function
+/// solves every path (each path's cash is one its inverse admits and its yield lies in the
+/// inverse domain), each path's price falls as its yield rises, so the price selected here
+/// quotes back through it at this yield, on the same path. Cash its inverse refuses, such
+/// as signed coupons, is still priced here. Any path failure returns no partial result.
+pub fn quote_workout_price_to_worst(
+    input: &WorkoutInputs<'_>,
+    convention: DatedYieldConvention,
+    decimal_yield: f64,
+    max_dates: u32,
+) -> WorkflowResult<WorkoutPriceToWorst> {
+    let (choices, examined, forced) = eligible_workout_paths(input, max_dates)?;
+    let (calendar_id, calendar) = input.exercise_calendar;
+    let mut quotes = Vec::with_capacity(choices.len());
+    let mut selected = None;
+    let mut selected_price = f64::INFINITY;
+    // Each path is priced alone; only the selected one becomes a full quotation.
+    for (i, choice) in choices.iter().enumerate() {
+        let path = prepare(input.contract, input.context, choice, calendar_id, calendar)?;
+        let value = path.cash.price_yield(decimal_yield, convention)?;
+        quotes.push(WorkoutPriceSummary {
+            selection: choice.clone(),
+            exercise: path.exercise.clone(),
+            clean_per100: value.clean_per100,
+            dirty_per100: value.dirty_per100,
+            accrued_per100: value.accrued_per100,
+        });
+        if is_worst_candidate(forced, path.exercise.as_ref()) && value.dirty_per100 < selected_price
+        {
+            selected_price = value.dirty_per100;
+            selected = Some((i, path, value));
+        }
+    }
+    let (selected_index, path, value) = selected.ok_or_else(|| {
+        invalid(
+            "workout.selection",
+            "no complete eligible call or maturity quotation",
+        )
+    })?;
+    Ok(WorkoutPriceToWorst {
+        selected: output(
+            input.contract,
+            input.context,
+            &choices[selected_index],
+            path,
+            WorkoutValue::Price(Box::new(value)),
+        ),
+        convention,
+        decimal_yield,
+        quotes,
+        selected_index,
+        forced_by_notice: forced,
+        examined_dates: examined,
+    })
+}
+
+/// Whether a path may set the worst: an issuer call or maturity, or any path a
+/// supplied notice forces. A holder put is reported but never sets it.
+pub(super) fn is_worst_candidate(
+    forced_by_notice: bool,
+    exercise: Option<&WorkoutCashDetails>,
+) -> bool {
+    forced_by_notice || exercise.is_none_or(|e| e.right == ExerciseRight::Call)
 }
 
 // Shared original all-date legal-path enumeration, without choosing a market
