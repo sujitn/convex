@@ -127,6 +127,31 @@ pub(crate) fn valuation_quality(
 ) -> Result<convex_ports::snapshot::SnapshotQuality, TraitError> {
     Ok(snapshot.quality_of(&valuation_inputs(snapshot, spec)?))
 }
+/// Why each measure of one valuation context fails whatever its market data: the bond's
+/// terms changed since its rule was committed so that the rule no longer applies, or it is
+/// a callable beyond the plan's bound on HW1F trees.
+pub(crate) fn valuation_refusal(
+    snapshot: &MarketSnapshot,
+    spec: &ValuationContextSpec,
+) -> Option<(ErrorCode, &'static str)> {
+    let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
+        return None;
+    };
+    let instrument_id = instrument_id.as_str();
+    if snapshot.reference(instrument_id)?.is_rule_misapplied() {
+        Some((ErrorCode::InvalidInput, RULE_DOES_NOT_APPLY))
+    } else if spec.model_id.as_str() == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
+        && crate::optional_valuation::callables_beyond_bound(&snapshot.content().references)
+            .any(|beyond| beyond == instrument_id)
+    {
+        Some((
+            ErrorCode::SolverLimit,
+            crate::optional_valuation::BEYOND_CALLABLE_BOUND,
+        ))
+    } else {
+        None
+    }
+}
 /// Measures read from the router's frozen-Z curve risk, which fails as one `curve_risk` field.
 fn curve_risk_measure(measure: &str) -> bool {
     matches!(
@@ -1151,10 +1176,11 @@ impl SnapshotValuator {
                 "pricing requires one explicitly selected quote source",
             ));
         }
-        // A bond whose terms changed since its rule was committed so that the rule no
-        // longer applies fails each measure, saying why; a request is refused before it is
-        // valued.
-        let is_rule_misapplied = reference.is_rule_misapplied();
+        let model = spec.model_id.as_str();
+        // A bond refused whatever its market data fails each measure, saying why; the
+        // runtime reports it ahead of the inputs' quality, and a request is refused before
+        // it is valued.
+        let refusal = valuation_refusal(snapshot, spec);
         // A bond is read from the field its rule quotes it by: its level, or a price. A
         // callable and a floating rate note value their rule's level themselves, and a
         // price too, so when their quote declares no field of their rule's they are read
@@ -1163,7 +1189,6 @@ impl SnapshotValuator {
         // is not read beside a declared price, so a Live plan is read by price whenever
         // it was compiled ([`PricingMethod::declared_level_field`]).
         let declared = &selected[0].requirement.fields;
-        let model = spec.model_id.as_str();
         let price = PricingMethod::Price {};
         let quoted_method = rule
             .map(|rule| &rule.method)
@@ -1173,7 +1198,7 @@ impl SnapshotValuator {
             })
             .unwrap_or(&price);
         let quoted_field = quoted_method.quote_field();
-        if !is_rule_misapplied && !declared.contains(&quoted_field) {
+        if refusal.is_none() && !declared.contains(&quoted_field) {
             return Err(TraitError::InvalidInput(
                 "mid valuation must declare the field the bond is quoted by",
             ));
@@ -1184,18 +1209,13 @@ impl SnapshotValuator {
                 .and_then(|q| q.fields.get(&field))
                 .map(|value| value.value.value)
         };
-        let (results, errors) = if is_rule_misapplied {
+        let (results, errors) = if let Some((code, reason)) = refusal {
             let errors = spec
                 .measures
                 .iter()
                 .map(|measure| {
-                    StructuredError::new(
-                        ErrorCode::InvalidInput,
-                        Some(measure.as_str().into()),
-                        RULE_DOES_NOT_APPLY,
-                        false,
-                    )
-                    .map_err(contract_error)
+                    StructuredError::new(code, Some(measure.as_str().into()), reason, false)
+                        .map_err(contract_error)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             (BTreeMap::new(), errors)

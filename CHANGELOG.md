@@ -169,6 +169,19 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **A ninth callable on HW1F trees no longer stops the runtime.** A runtime plan still
+  values at most 8 callables on HW1F trees, and a configuration holding more is still
+  refused at validation (`TOO_MANY_CALLABLES`). But a rule, its end, or a bond revision
+  committed after the configuration was checked can put more there, and the runtime
+  picks that up at its next activation. Before, that stopped the whole runtime
+  (`Failed`), and a restart from the checkpoint the activation saved failed the same
+  way. Now the first 8 by instrument id are valued and each callable beyond them fails
+  every measure with `SOLVER_LIMIT`, saying why, whatever its quote. A callable whose
+  rule no longer applies is not counted, since it fails before a tree runs. In Live a
+  callable that crosses the bound because another callable's rule changed is valued
+  again at that tick.
+  `POST /api/v1/runtime/valuation` refuses the same callables in a supplied snapshot, so
+  it reproduces what the runtime published.
 - **Callables by OAS, at request time.** A `pricing_rule` may quote a callable by `oas`
   (basis points over the discount curve at which its HW1F trees price it). At request
   time `GET /api/v1/quotes/:id` takes it as `level` and prices the callable at it under
@@ -183,7 +196,8 @@ the changes that matter when you upgrade.
   400 `INVALID_INPUT` (`RULE_DOES_NOT_APPLY`) by a level or a price, on the quote routes,
   alone and in a batch, and in the calculator by every method, before anything is valued.
   A callable or note was a 200 whose every measure failed, and a bullet by price was
-  priced as if it had no rule. In Live each measure still fails, saying why.
+  priced as if it had no rule. In Live each measure still fails, saying why, whatever its
+  quote.
 - **The calculator takes a callable's OAS** under an `oas` rule, valued by the runtime as
   `GET /api/v1/quotes/:id` values it: the HW1F measures, the unpublished `snapshot`,
   `input` and `pricing_rule`, and no `workouts`. An OAS with no `oas` rule is 400, and a
@@ -398,6 +412,13 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **The HW1F callable bound is per callable.** A runtime no longer fails with
+  `RuntimeError::Configuration` when a snapshot holds more than `MAX_RUNTIME_CALLABLES`
+  callables on trees. The snapshot valuation fails each measure of a callable after the
+  first 8 by instrument id (`ErrorCode::SolverLimit`,
+  `optional_valuation::BEYOND_CALLABLE_BOUND`) before a tree runs. The runtime reports
+  it, as it does a rule that no longer applies, ahead of the inputs' quality. A Live tick
+  under a new reference section values each callable that moved across the bound.
 - **Callables by OAS.** The HW1F model reads a callable's rule's field when its quote
   declares it, as the workout and floating models do, and prices an OAS through the
   library's `OptionalBond` `Price`, then its risk at it; `values_own_level` counts it. Its

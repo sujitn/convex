@@ -517,6 +517,12 @@ request time, with no option model and no curve.
 - `GET /api/v1/quotes/:id` takes `level` (a decimal yield to worst) or `market_price`.
   Its `pricing_rule` report names the workout model and the level.
 - These callables are not counted against the cap of 8 callables valued on HW1F trees.
+  A configuration holding more on trees is refused at validation. A rule, its end, or a
+  revision committed later can still put more there. Then the first 8 by instrument id
+  are valued, and each callable beyond them fails every measure with `SOLVER_LIMIT`,
+  saying why, whatever its quote. The runtime keeps running. A callable whose rule no
+  longer applies is not counted, and `POST /api/v1/runtime/valuation` refuses the same
+  callables in a supplied snapshot.
   A callable with no rule, or one quoted otherwise, stays on HW1F, so committing a
   `price` rule on a callable moves it off HW1F: it no longer publishes OAS, effective
   duration and convexity, or PV01.
@@ -559,8 +565,8 @@ A bond revised after its rule was committed, so that the rule no longer applies 
 (for example, a callable under an `oas` rule revised to American calls or to a bullet),
 is refused at request time with 400 `INVALID_INPUT`, by a level or a price, on the quote
 routes, alone and in a batch, and in the calculator by every method, before anything is
-valued. In Live each of its measures fails, saying why. A commit of a bond's terms does not
-check the rule in force for it.
+valued. In Live each of its measures fails, saying why, whatever its quote. A commit of a
+bond's terms does not check the rule in force for it.
 
 A rule or set is ended by committing a version with `effective.until` through the same
 routes; the end may be later than the commit. After it, the version before does not come
