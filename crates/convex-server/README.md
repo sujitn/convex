@@ -546,8 +546,8 @@ and is priced from its OAS at request time only.
 - `GET /api/v1/quotes/:id` takes `level` (basis points of OAS) or `market_price`. Its
   `pricing_rule` report names the HW1F model and the level.
 - In Live it is valued from its price, exactly as with no rule: its plan reads the
-  selection's fields, and a quote that declares a price is read by its price, even if it
-  also holds a spread. It counts against the cap of 8 callables on HW1F trees.
+  selection's fields, and a quote that declares a price is read and judged by its price,
+  even if it also holds a spread. It counts against the cap of 8 callables on HW1F trees.
 
 At request time, a level for a callable or a note quoted by its own model's level is
 checked against its method's range before it is valued, and refused with 400 outside it,

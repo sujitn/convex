@@ -1159,8 +1159,8 @@ impl SnapshotValuator {
         // price too, so when their quote declares no field of their rule's they are read
         // from a price: a request may send one, and a Live plan compiled before the rule
         // moved to a level still carries one. A level read at request time only, an OAS,
-        // is read only from a quote declaring no price, as a request's declares one field,
-        // so a Live plan is read by price whenever it was compiled.
+        // is not read beside a declared price, so a Live plan is read by price whenever
+        // it was compiled ([`PricingMethod::declared_level_field`]).
         let declared = &selected[0].requirement.fields;
         let model = spec.model_id.as_str();
         let price = PricingMethod::Price {};
@@ -1168,9 +1168,7 @@ impl SnapshotValuator {
             .map(|rule| &rule.method)
             .filter(|method| {
                 !crate::optional_valuation::values_own_level(model)
-                    || (declared.contains(&method.quote_field())
-                        && !(method.is_request_time_only()
-                            && declared.contains(&QuoteField::MidPrice)))
+                    || method.declared_level_field(declared).is_some()
             })
             .unwrap_or(&price);
         let quoted_field = quoted_method.quote_field();

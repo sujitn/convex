@@ -133,6 +133,17 @@ impl PricingMethod {
         self.level_field().filter(|_| !self.is_request_time_only())
     }
 
+    /// The level field a quote declaring `fields` is read by, for a bond quoted this way:
+    /// the method's level field when the quote declares it, except a level read at request
+    /// time only beside a declared price, which is read by its price. A request's quote
+    /// declares one field, so it is read by the level or the price it sent.
+    pub fn declared_level_field(&self, fields: &[QuoteField]) -> Option<QuoteField> {
+        self.level_field().filter(|field| {
+            fields.contains(field)
+                && !(self.is_request_time_only() && fields.contains(&QuoteField::MidPrice))
+        })
+    }
+
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
     /// applies to `bond`: a fixed bullet by every method but a discount margin or an OAS;
     /// any other bond by price with no set; a callable valued on its workouts by its yield

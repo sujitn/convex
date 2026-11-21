@@ -397,7 +397,8 @@ the changes that matter when you upgrade.
   `CallableValuation`, as the other models'. At an OAS, risk is run first and its base
   price read, so the price is run alone only when risk fails. Live values a callable
   under an `oas` rule from its price: a Live compile reads no OAS for it, and a quote that
-  declares a price is read by its price, so a plan compiled before the rule is too.
+  declares a price is read by its price (`PricingMethod::declared_level_field`), so a plan
+  compiled before the rule is too.
 - **Floating rate notes by discount margin.** The floating model reads a note's rule's
   field, as the workout model does, and prices a margin through the library's `Bond`
   `Price` with a discount spread; a margin out of range fails each measure.
@@ -484,7 +485,10 @@ the changes that matter when you upgrade.
 - **`PricingMethod::Oas`** (`oas`): applies only to a callable, with no benchmark set, and
   reads `mid_spread` at request time. `PricingMethod::is_request_time_only` is true for
   it alone, and `PricingMethod::live_level_field` is the level a Live plan reads, none for
-  an OAS. `RULE_DOES_NOT_APPLY` names it.
+  an OAS. `PricingMethod::declared_level_field` is the level a quote is read by, given the
+  fields it declares: not an OAS beside a price. The snapshot's valuation and its quality
+  both use it, so such a quote is judged as a price quote is (a manual one is
+  indicative, and its skew counts). `RULE_DOES_NOT_APPLY` names it.
 - **`PricingMethod::DiscountMargin`** (`discount_margin`): applies only to a floating rate
   note, with no benchmark set, and reads `mid_spread`. `RULE_DOES_NOT_APPLY` names it.
 - `BondQuoteOutput::without_measures`: a fresh quote with every measure absent, for a

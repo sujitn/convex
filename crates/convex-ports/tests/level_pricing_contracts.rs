@@ -137,6 +137,15 @@ fn an_oas_is_a_level_at_request_time_only() {
         Some(QuoteField::MidYield)
     );
     assert_eq!(PricingMethod::Price {}.live_level_field(), None);
+    // A quote is read by an OAS only when it declares no price, as a request's quote does;
+    // a margin is read beside a price.
+    let (price, spread) = (QuoteField::MidPrice, QuoteField::MidSpread);
+    assert_eq!(oas.declared_level_field(&[spread]), Some(spread));
+    assert_eq!(oas.declared_level_field(&[price, spread]), None);
+    assert_eq!(oas.declared_level_field(&[price]), None);
+    let margin = PricingMethod::DiscountMargin {};
+    assert_eq!(margin.declared_level_field(&[price, spread]), Some(spread));
+    assert_eq!(PricingMethod::Price {}.declared_level_field(&[price]), None);
     let wire = rule(json!({"kind": "oas"}), None);
     let parsed: PricingRuleDefinition = serde_json::from_value(wire.clone()).unwrap();
     parsed.validate().unwrap();

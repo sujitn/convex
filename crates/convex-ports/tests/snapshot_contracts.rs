@@ -842,39 +842,46 @@ fn a_snapshot_holds_each_benchmark_set_once_in_order() {
 
 /// A manual quote of the level a bond's rule quotes it by is the desk's mark in the whole
 /// snapshot's quality too, which configuration fixtures and the hedge gate read. A manual
-/// quote of another field, or of a bond quoted by price, is indicative.
+/// quote of another field, or of a bond quoted by price, is indicative, and so is one
+/// beside a price under an `oas` rule, which is read by its price.
 #[test]
 fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
     use convex_ports::level_pricing::{PricingMethod, ResolvedPricingRule};
     use convex_ports::quote_event::{DataState, QuoteField};
-    let quality = |rule: Option<ResolvedPricingRule>, field: QuoteField| {
+    let quality = |method: Option<PricingMethod>, fields: &[QuoteField]| {
         let mut content = fixture::content();
         let quote = content.quotes[0].make_mut();
-        quote.requirement.fields = vec![field];
+        quote.requirement.fields = fields.to_vec();
         let image = quote.image.as_mut().unwrap();
         image.state = DataState::Manual;
-        let mut observation = image.fields.remove(&QuoteField::MidPrice).unwrap();
-        if field == QuoteField::MidYield {
-            observation.value.value = "0.0512".parse().unwrap();
-            observation.value.unit = field.unit();
+        let price = image.fields.remove(&QuoteField::MidPrice).unwrap();
+        for field in fields {
+            let mut observation = price.clone();
+            if *field != QuoteField::MidPrice {
+                observation.value.value = "0.0512".parse().unwrap();
+                observation.value.unit = field.unit();
+            }
+            image.fields.insert(*field, observation);
         }
-        image.fields.insert(field, observation);
-        content.references.make_mut()[0].pricing_rule = rule;
+        content.references.make_mut()[0].pricing_rule = method.map(|method| ResolvedPricingRule {
+            version: fixture::version(1),
+            recorded_at: fixture::time("2025-01-01T00:00:00Z"),
+            method,
+            benchmark_set_id: None,
+        });
         MarketSnapshot::new(content).unwrap().quality().quality
     };
-    let yield_rule = ResolvedPricingRule {
-        version: fixture::version(1),
-        recorded_at: fixture::time("2025-01-01T00:00:00Z"),
-        method: PricingMethod::Yield {},
-        benchmark_set_id: None,
-    };
-    assert_eq!(quality(None, QuoteField::MidPrice), DataQuality::Indicative);
-    assert_eq!(
-        quality(Some(yield_rule.clone()), QuoteField::MidYield),
-        DataQuality::Valid
+    let by_yield = || Some(PricingMethod::Yield {});
+    let by_oas = || Some(PricingMethod::Oas {});
+    let (price, mid_yield, spread) = (
+        QuoteField::MidPrice,
+        QuoteField::MidYield,
+        QuoteField::MidSpread,
     );
-    assert_eq!(
-        quality(Some(yield_rule), QuoteField::MidPrice),
-        DataQuality::Indicative
-    );
+    assert_eq!(quality(None, &[price]), DataQuality::Indicative);
+    assert_eq!(quality(by_yield(), &[mid_yield]), DataQuality::Valid);
+    assert_eq!(quality(by_yield(), &[price]), DataQuality::Indicative);
+    assert_eq!(quality(by_oas(), &[spread]), DataQuality::Valid);
+    assert_eq!(quality(by_oas(), &[price, spread]), DataQuality::Indicative);
+    assert_eq!(quality(by_yield(), &[price, mid_yield]), DataQuality::Valid);
 }

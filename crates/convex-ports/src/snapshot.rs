@@ -842,20 +842,20 @@ pub struct SnapshotQuality {
 #[derive(Debug, Clone)]
 pub struct InputSet<'a> {
     own_quotes: &'a [SharedQuote],
-    /// The field of the level its rule quotes it by, if any.
-    own_level: OwnLevel,
+    /// The method its rule quotes it by, if any.
+    own_level: OwnLevel<'a>,
     /// The quotes of the benchmark securities its pricing rule's set names, in set order;
     /// empty for a bond whose rule names no set.
     benchmark_quotes: Vec<&'a [SharedQuote]>,
     fixings: Vec<&'a SnapshotFixing>,
     curves: Vec<&'a CurveId>,
 }
-/// The quote field of the level a set's own quotes are quoted by: one bond's, or each
-/// quote's instrument's for a whole snapshot. A quote is a level only when it carries
-/// that field.
+/// The method a set's own quotes are quoted by: one bond's rule's, or each quote's
+/// instrument's for a whole snapshot. A quote is a level only when it is read by one
+/// ([`PricingMethod::declared_level_field`]).
 #[derive(Debug, Clone, Copy)]
-enum OwnLevel {
-    Field(Option<QuoteField>),
+enum OwnLevel<'a> {
+    Rule(Option<&'a crate::level_pricing::PricingMethod>),
     ByRule,
 }
 
@@ -1139,7 +1139,7 @@ impl MarketSnapshot {
         let rule = reference.and_then(|reference| reference.pricing_rule.as_ref());
         InputSet {
             own_quotes: self.quotes_for(instrument_id),
-            own_level: OwnLevel::Field(rule.and_then(|rule| rule.method.level_field())),
+            own_level: OwnLevel::Rule(rule.map(|rule| &rule.method)),
             benchmark_quotes: rule.map_or_else(Vec::new, |rule| {
                 self.benchmark_securities(rule)
                     .unwrap_or_default()
@@ -1318,7 +1318,7 @@ impl MarketSnapshot {
             Some(id) => {
                 self.quality_of(&InputSet {
                     own_quotes: &[],
-                    own_level: OwnLevel::Field(None),
+                    own_level: OwnLevel::Rule(None),
                     benchmark_quotes: Vec::new(),
                     fixings: Vec::new(),
                     curves: vec![id],
@@ -2124,15 +2124,17 @@ fn derive_quality(
     // manual one is the desk's mark, and only its age is judged, not its skew. A bond's
     // benchmark quotes are judged as quotes of their own.
     let is_level = |quote: &SharedQuote| {
-        let field = match inputs.own_level {
-            OwnLevel::Field(field) => field,
+        let method = match inputs.own_level {
+            OwnLevel::Rule(method) => method,
             OwnLevel::ByRule => content
                 .references
                 .find(quote.requirement.key.instrument_id.as_str())
                 .and_then(|reference| reference.pricing_rule.as_ref())
-                .and_then(|rule| rule.method.level_field()),
+                .map(|rule| &rule.method),
         };
-        field.is_some_and(|field| quote.requirement.fields.contains(&field))
+        method
+            .and_then(|method| method.declared_level_field(&quote.requirement.fields))
+            .is_some()
     };
     let own = inputs
         .own_quotes

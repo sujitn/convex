@@ -627,7 +627,7 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
 #[tokio::test]
 async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_and_the_calculator() {
     use convex_engine::optional_valuation::{OPTIONAL_MEASURES, OPTIONAL_SNAPSHOT_MODEL};
-    let (setup, _, _) = products_setup().await;
+    let (setup, callable, _) = products_setup().await;
     let (engine, known_at) = started(&setup).await;
     activate(&setup).await;
     let app = router(engine.clone());
@@ -686,6 +686,19 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
     );
     assert_eq!(headers["x-convex-pricing-rule-version"], "1");
     assert_eq!(headers["x-convex-curve-versions"], "USD-FIXTURE@7");
+    // Inline terms equal to the stored ones, alone or in a batch, take the OAS too.
+    let posted = json!({"bond": callable, "settlement_date": SETTLEMENT, "known_at": known_at,
+        "level": oas});
+    let (status, _, posted) = call(&app, "POST", "/api/v1/quote", Some(posted)).await;
+    assert_eq!(status, StatusCode::OK, "{posted}");
+    assert_eq!(posted["clean_price_mid"], quoted["clean_price_mid"]);
+    assert_eq!(posted["pricing_rule"], quoted["pricing_rule"]);
+    let batch = json!({"bonds": [{"bond": callable, "level": oas}],
+        "settlement_date": SETTLEMENT, "known_at": known_at});
+    let (status, _, batch) = call(&app, "POST", "/api/v1/batch/price", Some(batch)).await;
+    assert_eq!(status, StatusCode::OK, "{batch}");
+    assert_eq!(batch["errors"], json!([]), "{batch}");
+    assert_eq!(batch["quotes"][0]["oas_mid"], quoted["oas_mid"]);
     let (status, _, calculated) = calculate(app.clone(), oas_method(), oas.to_string()).await;
     assert_eq!(status, StatusCode::OK, "{calculated}");
     // The model's measures, as the quote body names them.
