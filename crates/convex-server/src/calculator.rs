@@ -148,7 +148,9 @@ async fn calculate(
     } else {
         reference.pricing_rule.take()
     };
-    let in_force = engine.rule_in_force_mid_only(&mut context, pin).await?;
+    let in_force = engine
+        .rule_in_force_mid_only(&mut context, bond, pin)
+        .await?;
     let body = if is_by_runtime {
         calculate_by_runtime(
             engine,

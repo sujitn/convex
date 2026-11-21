@@ -38,6 +38,23 @@ fn renamed(id: &str) -> BondReferenceData {
     bond
 }
 
+/// Commit `changes` and `master_changes` as one reference command under `key`, known at
+/// `at`.
+async fn commit(
+    setup: &Setup,
+    key: &str,
+    at: UtcTimestamp,
+    changes: Vec<ReferenceChange>,
+    master_changes: Vec<convex_ports::reference_master::MasterChange>,
+) {
+    let command = ReferenceCommand {
+        idempotency_key: RequestId::new(key).unwrap(),
+        changes,
+        master_changes,
+    };
+    setup.storage.bonds.commit(&command, at).await.unwrap();
+}
+
 /// The runtime fixture with a stored callable (`CALL-001`) and floating rate note
 /// (`FRN-001`) beside the bullet `BOND-001`. Configuration version 2 carries the callable
 /// model assumption and the projection curve; both recipes are in the curve store and the
@@ -658,19 +675,9 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
         "{refused}"
     );
 
-    setup
-        .storage
-        .bonds
-        .commit(
-            &ReferenceCommand {
-                idempotency_key: RequestId::new("call-rule-oas").unwrap(),
-                changes: vec![],
-                master_changes: vec![products::pricing_rule("CALL-001", oas_method())],
-            },
-            engine.runtime_results()[0].result.provenance().known_at,
-        )
-        .await
-        .unwrap();
+    let rule = products::pricing_rule("CALL-001", oas_method());
+    let committed_at = engine.runtime_results()[0].result.provenance().known_at;
+    commit(&setup, "call-rule-oas", committed_at, vec![], vec![rule]).await;
     let (status, headers, quoted) = quote(&format!("level={oas}")).await;
     assert_eq!(status, StatusCode::OK, "{quoted}");
     assert!(
@@ -763,11 +770,12 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
     );
 }
 
-/// A callable revised to American calls after its `oas` rule was committed, so that the
-/// rule no longer applies, is refused at request time before anything is valued: by its
-/// OAS or a price, on the quote route and in the calculator.
+/// A callable revised after its `oas` rule was committed, to American calls and then to a
+/// bullet, so that the rule no longer applies, is refused at request time before anything
+/// is valued: by its OAS or a price, on the quote routes, alone and in a batch, and in the
+/// calculator.
 #[tokio::test]
-async fn a_callable_whose_rule_no_longer_applies_is_refused_at_request_time() {
+async fn a_bond_whose_rule_no_longer_applies_is_refused_at_request_time() {
     use convex_ports::level_pricing::RULE_DOES_NOT_APPLY;
     let (setup, _, _) = products_setup().await;
     let (engine, known_at) = started(&setup).await;
@@ -775,56 +783,53 @@ async fn a_callable_whose_rule_no_longer_applies_is_refused_at_request_time() {
     let app = router(engine.clone());
     let committed_at = engine.runtime_results()[0].result.provenance().known_at;
     let oas_method = || json!({"kind": "oas"});
-    let american = products::callable(renamed("CALL-001"), CallStyle::American);
-    for (key, changes, master_changes) in [
-        (
-            "call-rule-oas",
-            vec![],
-            vec![products::pricing_rule("CALL-001", oas_method())],
-        ),
-        (
-            "call-american",
-            vec![ReferenceChange::Update {
-                bond: Box::new(american),
-                expected_version: Version::new(1).unwrap(),
-            }],
-            vec![],
-        ),
-    ] {
-        let command = ReferenceCommand {
-            idempotency_key: RequestId::new(key).unwrap(),
-            changes,
-            master_changes,
-        };
-        setup
-            .storage
-            .bonds
-            .commit(&command, committed_at)
-            .await
-            .unwrap();
-    }
+    let rule = products::pricing_rule("CALL-001", oas_method());
+    commit(&setup, "call-rule-oas", committed_at, vec![], vec![rule]).await;
+    let is_rule_refusal = |message: &str| message.contains(RULE_DOES_NOT_APPLY);
     let refuses = |(status, _, refused): (StatusCode, HeaderMap, Value)| {
         assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
         assert_eq!(refused["code"], "INVALID_INPUT", "{refused}");
         assert!(
-            refused["error"]
-                .as_str()
-                .unwrap()
-                .contains(RULE_DOES_NOT_APPLY),
+            is_rule_refusal(refused["error"].as_str().unwrap()),
             "{refused}"
         );
     };
-    for query in ["level=50", "market_price=99.25"] {
-        let uri = format!(
-            "/api/v1/quotes/CALL-001?{query}&known_at={known_at}&settlement_date={SETTLEMENT}"
-        );
-        refuses(call(&app, "GET", &uri, None).await);
-    }
-    // In the calculator by either method, ahead of its refusal of American calls.
-    for (method, level) in [(oas_method(), "50"), (json!({"kind": "price"}), "99.25")] {
-        let body = json!({"method": method, "level": level, "settlement_date": SETTLEMENT,
-            "known_at": known_at});
-        refuses(call(&app, "POST", "/api/v1/bonds/CALL-001/calculate", Some(body)).await);
+    let revisions = [
+        products::callable(renamed("CALL-001"), CallStyle::American),
+        renamed("CALL-001"),
+    ];
+    for (version, revision) in (1..).zip(revisions) {
+        let update = ReferenceChange::Update {
+            bond: Box::new(revision.clone()),
+            expected_version: Version::new(version).unwrap(),
+        };
+        let key = format!("call-revision-{version}");
+        commit(&setup, &key, committed_at, vec![update], vec![]).await;
+        for (field, value, method) in [
+            ("level", "50", oas_method()),
+            ("market_price", "99.25", json!({"kind": "price"})),
+        ] {
+            let uri = format!(
+                "/api/v1/quotes/CALL-001?{field}={value}&known_at={known_at}&settlement_date={SETTLEMENT}"
+            );
+            refuses(call(&app, "GET", &uri, None).await);
+            // Inline terms equal to the stored ones, alone or in a batch.
+            let posted = json!({"bond": revision, field: value, "settlement_date": SETTLEMENT,
+                "known_at": known_at});
+            refuses(call(&app, "POST", "/api/v1/quote", Some(posted)).await);
+            let batch = json!({"bonds": [{"bond": revision, field: value}],
+                "settlement_date": SETTLEMENT, "known_at": known_at});
+            let (status, _, batch) = call(&app, "POST", "/api/v1/batch/price", Some(batch)).await;
+            assert_eq!(status, StatusCode::OK, "{batch}");
+            assert!(
+                is_rule_refusal(batch["errors"][0]["error"].as_str().unwrap()),
+                "{batch}"
+            );
+            // The calculator by the rule's method or by price, ahead of any refusal by method.
+            let body = json!({"method": method, "level": value, "settlement_date": SETTLEMENT,
+                "known_at": known_at});
+            refuses(call(&app, "POST", "/api/v1/bonds/CALL-001/calculate", Some(body)).await);
+        }
     }
     engine.shutdown().await.unwrap();
 }

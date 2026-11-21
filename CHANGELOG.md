@@ -177,13 +177,13 @@ the changes that matter when you upgrade.
   Live the callable is valued from its price, exactly as with no rule. The rule is
   refused at commit for any bond but a callable the HW1F model values: European or
   Bermudan fixed-price calls, none make-whole, and no other embedded terms.
-- **A bond whose rule no longer applies is refused at request time.** A callable or
-  floating rate note revised after its rule was committed, so that the rule no longer
-  applies to its terms, is refused with 400 `INVALID_INPUT` (`RULE_DOES_NOT_APPLY`) by a
-  level or a price, on the quote routes and in the calculator, before anything is valued.
-  It was a 200 whose every measure failed. The calculator refuses any bond so revised, by
-  every method. In Live each measure still fails, saying why
-  (`ResolvedBondReference::is_rule_misapplied`, shared by both).
+- **A bond whose rule no longer applies is refused at request time.** A bond revised
+  after its rule was committed, so that the rule no longer applies to its terms (a
+  callable under an `oas` rule revised to American calls or to a bullet), is refused with
+  400 `INVALID_INPUT` (`RULE_DOES_NOT_APPLY`) by a level or a price, on the quote routes,
+  alone and in a batch, and in the calculator by every method, before anything is valued.
+  A callable or note was a 200 whose every measure failed, and a bullet by price was
+  priced as if it had no rule. In Live each measure still fails, saying why.
 - **The calculator takes a callable's OAS** under an `oas` rule, valued by the runtime as
   `GET /api/v1/quotes/:id` values it: the HW1F measures, the unpublished `snapshot`,
   `input` and `pricing_rule`, and no `workouts`. An OAS with no `oas` rule is 400, and a

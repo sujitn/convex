@@ -555,11 +555,11 @@ At request time, a level for a callable or a note quoted by its own model's leve
 checked against its method's range before it is valued, and refused with 400 outside it,
 as a bullet's level is.
 
-A callable or floating rate note revised after its rule was committed, so that the rule
-no longer applies to it (for example, a callable under an `oas` rule revised to American
-calls), is refused at request time with 400 `INVALID_INPUT`, by a level or a price,
-before anything is valued; the calculator refuses any bond so revised, by every method.
-In Live each of its measures fails, saying why. A commit of a bond's terms does not
+A bond revised after its rule was committed, so that the rule no longer applies to it
+(for example, a callable under an `oas` rule revised to American calls or to a bullet),
+is refused at request time with 400 `INVALID_INPUT`, by a level or a price, on the quote
+routes, alone and in a batch, and in the calculator by every method, before anything is
+valued. In Live each of its measures fails, saying why. A commit of a bond's terms does not
 check the rule in force for it.
 
 A rule or set is ended by committing a version with `effective.until` through the same
