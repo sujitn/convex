@@ -380,6 +380,22 @@ pub(crate) async fn value_stored(
         "published": false,
         "curves": pins,
     });
+    // An OAS means something only under the model it was taken on: the configuration's
+    // HW1F parameters over its discount curve.
+    let model = envelope.provenance().model_version.as_str();
+    if let Some(option_model) = context
+        .config()
+        .option_model
+        .as_ref()
+        .filter(|_| model == convex_engine::optional_valuation::OPTIONAL_SNAPSHOT_MODEL)
+    {
+        value["option_model"] = serde_json::json!({
+            "mean_reversion": option_model.mean_reversion,
+            "volatility": option_model.volatility,
+            "reason": option_model.reason,
+            "discount_curve": context.config().analytics_curves.discount_curve,
+        });
+    }
     Ok((value, pins))
 }
 

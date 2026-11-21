@@ -182,6 +182,10 @@ the changes that matter when you upgrade.
   again at that tick.
   `POST /api/v1/runtime/valuation` refuses the same callables in a supplied snapshot, so
   it reproduces what the runtime published.
+- **A reply on HW1F trees names its model.** A request-time reply for a callable on
+  HW1F trees (the quote routes, the batch and the calculator) carries `option_model`: the
+  configuration's `mean_reversion`, `volatility` and `reason`, and its `discount_curve`,
+  the model an OAS is taken on.
 - **A callable priced beyond its OAS bracket keeps its price measures, and the bracket
   is wider.** The OAS solver brackets -500 to 5,000 bp (was 1,000 bp), the range an
   `oas` level takes. A price whose OAS is beyond it, such as a distressed callable's,

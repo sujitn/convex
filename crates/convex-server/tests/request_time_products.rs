@@ -307,6 +307,12 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
         assert_eq!(headers["x-convex-reference-version"], "1");
         assert_eq!(headers["x-convex-pricing-config"], "CONFIG-RESTORE@2");
         assert_eq!(headers["x-convex-activation"], "1");
+        // Only a reply on HW1F trees names an option model.
+        assert_eq!(
+            body.get("option_model").is_some(),
+            id == "CALL-001",
+            "{body}"
+        );
         assert_eq!(
             body["context"]["curves"].as_array().unwrap().len(),
             curves.split(',').count()
@@ -664,6 +670,10 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
     let (status, _, by_price) = quote("market_price=99.25").await;
     assert_eq!(status, StatusCode::OK, "{by_price}");
     let oas = number(&by_price["oas_mid"]);
+    // A reply on HW1F trees names the model its OAS was taken on.
+    let option_model = json!({"mean_reversion": 0.03, "volatility": 0.01,
+        "reason": "fictional fixture assumption", "discount_curve": "USD-FIXTURE"});
+    assert_eq!(by_price["option_model"], option_model, "{by_price}");
     // An OAS is read in its rule's field, so with no `oas` rule it is refused.
     let (status, _, refused) = calculate(app.clone(), oas_method(), oas.to_string()).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
@@ -693,6 +703,7 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
     );
     assert_eq!(headers["x-convex-pricing-rule-version"], "1");
     assert_eq!(headers["x-convex-curve-versions"], "USD-FIXTURE@7");
+    assert_eq!(quoted["option_model"], option_model, "{quoted}");
     // Inline terms equal to the stored ones, alone or in a batch, take the OAS too.
     let posted = json!({"bond": callable, "settlement_date": SETTLEMENT, "known_at": known_at,
         "level": oas});
@@ -706,6 +717,7 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
     assert_eq!(status, StatusCode::OK, "{batch}");
     assert_eq!(batch["errors"], json!([]), "{batch}");
     assert_eq!(batch["quotes"][0]["oas_mid"], quoted["oas_mid"]);
+    assert_eq!(batch["quotes"][0]["option_model"], option_model, "{batch}");
     let (status, _, calculated) = calculate(app.clone(), oas_method(), oas.to_string()).await;
     assert_eq!(status, StatusCode::OK, "{calculated}");
     // The model's measures, as the quote body names them.
@@ -735,6 +747,7 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
         json!({"method": oas_method(), "level": oas})
     );
     assert!(calculated.get("workouts").is_none(), "{calculated}");
+    assert_eq!(calculated["option_model"], option_model, "{calculated}");
     // By a price, the quote route values it on its trees, and the calculator on its
     // workouts.
     let (status, _, quoted) = quote("market_price=99.25").await;
@@ -744,6 +757,7 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
         calculate(app.clone(), json!({"kind": "price"}), "99.25".into()).await;
     assert_eq!(status, StatusCode::OK, "{on_workouts}");
     assert!(on_workouts["workouts"].is_array(), "{on_workouts}");
+    assert!(on_workouts.get("option_model").is_none(), "{on_workouts}");
     assert_eq!(
         on_workouts["pricing_rule"]["model"],
         convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL

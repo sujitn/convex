@@ -357,7 +357,10 @@ runtime's measures for the product. The response has the bullets' shape, with:
 - `measure_errors` for each measure the valuation could not produce, with the
   runtime's code;
 - `snapshot`: `{"id", "published": false, "curves"}`. The id names the content but
-  cannot be fetched.
+  cannot be fetched;
+- for a callable on HW1F trees, `option_model`: the configuration's `mean_reversion`,
+  `volatility` and `reason`, and its `discount_curve`. An OAS means something only under
+  that model, and a change to it reprices every callable quoted by OAS.
 `x-convex-curve-versions` lists the curves that valuation read. A server without a
 runtime refuses callables and FRNs with `422 UNSUPPORTED_PRODUCT`. A runtime that is
 not ready returns `503 UNAVAILABLE`, and `429 CAPACITY_EXCEEDED` when every slot is
@@ -742,7 +745,8 @@ others" for a stored bond. It is read-only and stores nothing.
   `ytw`, for a callable by OAS its HW1F measures (clean price, accrued, dirty price,
   `oas_mid`, effective duration and convexity, PV01), and for a note its clean price,
   accrued, dirty price and `discount_margin_mid`; a callable by OAS and a note come with
-  the unpublished `snapshot` they were valued from. It adds:
+  the unpublished `snapshot` they were valued from, and a callable by OAS with its
+  `option_model`. It adds:
   - `input`: the `method` and `level` sent, and for a benchmark spread the `benchmark`
     it was quoted to, with the `ytm` it was added to;
   - `pricing_rule`, when the bond has a rule: its `version` and `method`, and the set as
