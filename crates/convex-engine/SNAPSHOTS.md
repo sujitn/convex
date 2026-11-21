@@ -260,7 +260,9 @@ refinement tolerances of 0.02/0.01 and 0.25/0.01. Missing `option_model` or
 with `UnsupportedConvention` and the library's or the adapter's reason; the native
 model has no validated continuous-exercise discretization. A plan values at most 8
 callables on HW1F trees: each reprices on every generation, about 0.8 s in a release
-build for a ten-year Bermudan (OAS solve 0.46 s, risk 0.21 s).
+build for a ten-year Bermudan from a price (OAS solve 0.46 s, risk 0.21 s, measured on
+the −5%..10% bracket; the −5%..50% bracket adds about 5–11% to a solve from a price).
+From an OAS it runs risk alone, about a fifth of the cost from a price.
 
 ### Callables on their workouts
 

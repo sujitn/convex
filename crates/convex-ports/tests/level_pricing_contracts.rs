@@ -146,11 +146,11 @@ fn an_oas_is_a_spread_level_read_beside_a_price() {
     assert_eq!(oas.level_field(), Some(spread));
     assert_eq!(PricingMethod::Price {}.level_field(), None);
     for method in [oas.clone(), PricingMethod::DiscountMargin {}] {
-        assert_eq!(method.declared_level_field(&[spread]), Some(spread));
-        assert_eq!(method.declared_level_field(&[price, spread]), Some(spread));
-        assert_eq!(method.declared_level_field(&[price]), None);
+        assert!(method.is_level_declared(&[spread]));
+        assert!(method.is_level_declared(&[price, spread]));
+        assert!(!method.is_level_declared(&[price]));
     }
-    assert_eq!(PricingMethod::Price {}.declared_level_field(&[price]), None);
+    assert!(!PricingMethod::Price {}.is_level_declared(&[price]));
     let wire = rule(json!({"kind": "oas"}), None);
     let parsed: PricingRuleDefinition = serde_json::from_value(wire.clone()).unwrap();
     parsed.validate().unwrap();

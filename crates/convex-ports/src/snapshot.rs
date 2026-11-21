@@ -852,7 +852,7 @@ pub struct InputSet<'a> {
 }
 /// The method a set's own quotes are quoted by: one bond's rule's, or each quote's
 /// instrument's for a whole snapshot. A quote is a level only when it is read by one
-/// ([`PricingMethod::declared_level_field`]).
+/// ([`PricingMethod::is_level_declared`]).
 #[derive(Debug, Clone, Copy)]
 enum OwnLevel<'a> {
     Rule(Option<&'a crate::level_pricing::PricingMethod>),
@@ -2132,9 +2132,7 @@ fn derive_quality(
                 .and_then(|reference| reference.pricing_rule.as_ref())
                 .map(|rule| &rule.method),
         };
-        method
-            .and_then(|method| method.declared_level_field(&quote.requirement.fields))
-            .is_some()
+        method.is_some_and(|method| method.is_level_declared(&quote.requirement.fields))
     };
     let own = inputs
         .own_quotes

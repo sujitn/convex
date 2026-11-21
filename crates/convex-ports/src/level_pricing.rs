@@ -113,11 +113,11 @@ impl PricingMethod {
         self.is_level().then(|| self.quote_field())
     }
 
-    /// The level field a quote declaring `fields` is read by, for a bond quoted this way:
-    /// the method's level field when the quote declares it, even beside a price. A
-    /// request's quote declares one field, so it is read by the level or the price it sent.
-    pub fn declared_level_field(&self, fields: &[QuoteField]) -> Option<QuoteField> {
-        self.level_field().filter(|field| fields.contains(field))
+    /// Whether a quote declaring `fields` declares this method's level, so a bond quoted
+    /// this way is read and judged by it.
+    pub fn is_level_declared(&self, fields: &[QuoteField]) -> bool {
+        self.level_field()
+            .is_some_and(|field| fields.contains(&field))
     }
 
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,

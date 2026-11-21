@@ -70,7 +70,7 @@ const SPREAD_LEVEL_RANGE_BPS: RangeInclusive<Decimal> = dec!(-2000)..=dec!(20000
 /// ±5,000 bp domain, so the price at a margin solves back to it.
 pub(crate) const DISCOUNT_MARGIN_LEVEL_RANGE_BPS: RangeInclusive<Decimal> =
     dec!(-2000)..=dec!(5000);
-/// An OAS is from -500 to 1,000 basis points, the bracket of the OAS inverse
+/// An OAS is from -500 to 5,000 basis points, the bracket of the OAS inverse
 /// (`optional_valuation`'s `OAS_SOLVE`), so the price at an OAS solves back to it.
 pub(crate) const OAS_LEVEL_RANGE_BPS: RangeInclusive<Decimal> = dec!(-500)..=dec!(5000);
 /// Benchmark yields a [`BenchmarkYieldCache`] keeps; it starts again when full.

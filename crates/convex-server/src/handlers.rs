@@ -389,12 +389,10 @@ pub(crate) async fn value_stored(
         .as_ref()
         .filter(|_| model == convex_engine::optional_valuation::OPTIONAL_SNAPSHOT_MODEL)
     {
-        value["option_model"] = serde_json::json!({
-            "mean_reversion": option_model.mean_reversion,
-            "volatility": option_model.volatility,
-            "reason": option_model.reason,
-            "discount_curve": context.config().analytics_curves.discount_curve,
-        });
+        value["option_model"] =
+            serde_json::to_value(option_model).map_err(|e| ApiError::calculation(e.to_string()))?;
+        value["option_model"]["discount_curve"] =
+            serde_json::json!(context.config().analytics_curves.discount_curve);
     }
     Ok((value, pins))
 }

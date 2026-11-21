@@ -199,7 +199,7 @@ the changes that matter when you upgrade.
   read, even beside a price, and a curve revision values it again; a callable under the
   rule whose feed sends only a price fails each measure for its missing OAS. At request
   time `GET /api/v1/quotes/:id` takes it as `level`, and still takes `market_price`. An
-  OAS is from -500 to 5,000 bp. The rule is refused at commit for any bond but a
+  OAS takes the solver's bracket (below). The rule is refused at commit for any bond but a
   callable the HW1F model values: European or Bermudan fixed-price calls, none
   make-whole, and no other embedded terms.
 - **A bond whose rule no longer applies is refused at request time.** A bond revised
@@ -438,7 +438,7 @@ the changes that matter when you upgrade.
   `CallableValuation`, as the other models'. At an OAS, risk is run first and its base
   price read, so the price is run alone only when risk fails. Live reads a callable's
   OAS as it reads a note's margin: a Live compile reads its rule's field, and a quote
-  declaring it is read by it, even beside a price (`PricingMethod::declared_level_field`).
+  declaring it is read by it, even beside a price (`PricingMethod::is_level_declared`).
 - **Floating rate notes by discount margin.** The floating model reads a note's rule's
   field, as the workout model does, and prices a margin through the library's `Bond`
   `Price` with a discount spread; a margin out of range fails each measure.
@@ -524,9 +524,9 @@ the changes that matter when you upgrade.
 
 - **`PricingMethod::Oas`** (`oas`): applies only to a callable the HW1F model values
   (`is_oas_callable`, which `is_workout_callable` now builds on), with no benchmark set, and
-  reads `mid_spread`. `PricingMethod::declared_level_field` is the level a quote is read
-  by, given the fields it declares: the rule's level whenever the quote declares it, even
-  beside a price. The snapshot's valuation and its quality both use it.
+  reads `mid_spread`. `PricingMethod::is_level_declared` says whether a quote is read by
+  the rule's level, given the fields it declares: whenever it declares it, even beside a
+  price. The snapshot's valuation and its quality both use it.
   `RULE_DOES_NOT_APPLY` names it.
 - **`PricingMethod::DiscountMargin`** (`discount_margin`): applies only to a floating rate
   note, with no benchmark set, and reads `mid_spread`. `RULE_DOES_NOT_APPLY` names it.

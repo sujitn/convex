@@ -3,9 +3,9 @@
 //! Replay and Captured documents pin the recipes; Live documents name the curves only.
 //! The result goes through the normal validate → stage → activate use cases.
 //!
-//! A book bond with a pricing rule is quoted by its rule's field, except a callable under
-//! an `oas` rule, which Live reads by price, and each security of the benchmark set its
-//! rule names joins the universe at the version the set pins, quoted by price.
+//! A book bond with a pricing rule is quoted by its rule's field, and each security of the
+//! benchmark set its rule names joins the universe at the version the set pins, quoted by
+//! price.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use convex_core::contracts::*;
 use convex_ports::{
     configuration::*,
-    level_pricing::{ResolvedBenchmarkSet, ResolvedPricingRule, MAX_SNAPSHOT_BENCHMARK_SETS},
+    level_pricing::{ResolvedBenchmarkSet, MAX_SNAPSHOT_BENCHMARK_SETS},
     quote_event::{QuoteField, QuoteKey},
     reference_master::{BookId, MasterDefinition, MasterKey, ReferenceLookup},
     reference_repository::{ReferenceError, ReferenceRepository},
@@ -229,7 +229,7 @@ pub async fn assemble_from_repository(
                     instrument_id,
                     version,
                 },
-                level_field: level_field(rule.as_ref()),
+                level_field: rule.as_ref().and_then(|rule| rule.method.level_field()),
             },
         );
     }
@@ -268,7 +268,7 @@ pub async fn assemble_from_repository(
                     .pricing_rule_for_valuation(&key, lookup)
                     .await
                     .map_err(reference_error)?;
-                let is_level_quoted = level_field(rule.as_ref()).is_some();
+                let is_level_quoted = rule.as_ref().is_some_and(|rule| rule.method.is_level());
                 if !is_level_quoted {
                     pins.insert(
                         id,
@@ -407,11 +407,6 @@ pub async fn assemble_from_repository(
     Ok(document)
 }
 
-/// The quote field of the level Live reads a rule's bond by: none for a price.
-fn level_field(rule: Option<&ResolvedPricingRule>) -> Option<QuoteField> {
-    rule.and_then(|rule| rule.method.level_field())
-}
-
 fn reference_error(error: ReferenceError) -> ConfigurationError {
     match error {
         ReferenceError::CapacityExceeded => ConfigurationError::CapacityExceeded,
@@ -426,31 +421,5 @@ fn curve_error(error: CurveResolutionError) -> ConfigurationError {
         _ => ConfigurationError::Invalid(
             "a configured curve has no fresh recipe of its role at the cutoff",
         ),
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod tests {
-    use super::*;
-    use convex_ports::level_pricing::PricingMethod;
-
-    /// Live reads the level a rule quotes: an OAS as a discount margin.
-    #[test]
-    fn live_reads_the_level_a_rule_quotes() {
-        let rule = |method| ResolvedPricingRule {
-            version: Version::new(1).unwrap(),
-            recorded_at: UtcTimestamp::parse("2026-10-02T15:00:00Z").unwrap(),
-            method,
-            benchmark_set_id: None,
-        };
-        assert_eq!(level_field(None), None);
-        assert_eq!(level_field(Some(&rule(PricingMethod::Price {}))), None);
-        for method in [PricingMethod::Oas {}, PricingMethod::DiscountMargin {}] {
-            assert_eq!(
-                level_field(Some(&rule(method))),
-                Some(QuoteField::MidSpread)
-            );
-        }
     }
 }

@@ -1185,14 +1185,14 @@ impl SnapshotValuator {
         // callable and a floating rate note value their rule's level themselves, and a
         // price too, so when their quote declares no field of their rule's they are read
         // from a price: a request may send one, and a Live plan compiled before the rule
-        // moved to a level still carries one ([`PricingMethod::declared_level_field`]).
+        // moved to a level still carries one ([`PricingMethod::is_level_declared`]).
         let declared = &selected[0].requirement.fields;
         let price = PricingMethod::Price {};
         let quoted_method = rule
             .map(|rule| &rule.method)
             .filter(|method| {
                 !crate::optional_valuation::values_own_level(model)
-                    || method.declared_level_field(declared).is_some()
+                    || method.is_level_declared(declared)
             })
             .unwrap_or(&price);
         let quoted_field = quoted_method.quote_field();

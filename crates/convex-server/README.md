@@ -551,7 +551,8 @@ and is priced from its OAS, in Live and at request time.
   `convex::library` (`OptionalBond` `Price`), then its effective risk at it; from a clean
   price it solves the OAS, as for a callable with no rule. Each inverts the other.
 - It publishes what a callable with no rule publishes, and `oas_mid` is the OAS as
-  quoted. It reads the discount curve, as from a price.
+  quoted. It reads the discount curve, as from a price, so in Live a curve revision
+  values it again.
 - An OAS is from -500 to 5,000 basis points, the OAS solver's bracket, so the price at
   any OAS solves back to it. A price whose OAS is beyond the bracket, as a distressed
   callable's is, with a rule or none, still publishes its clean and dirty price and
@@ -560,7 +561,7 @@ and is priced from its OAS, in Live and at request time.
   `pricing_rule` report names the HW1F model and the level.
 - In Live its plan reads `mid_spread` from the levels' source, as a note's margin is
   read, and a quote that declares it is read and judged by it, even beside a price. A
-  curve revision values it again. A callable under the rule whose feed sends only a price
+  callable under the rule whose feed sends only a price
   fails each measure for its missing OAS. It counts against the cap of 8 callables on
   HW1F trees.
 
