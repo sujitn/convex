@@ -842,8 +842,8 @@ fn a_snapshot_holds_each_benchmark_set_once_in_order() {
 
 /// A manual quote of the level a bond's rule quotes it by is the desk's mark in the whole
 /// snapshot's quality too, which configuration fixtures and the hedge gate read. A manual
-/// quote of another field, or of a bond quoted by price, is indicative, and so is one
-/// beside a price under an `oas` rule, which is read by its price.
+/// quote of another field, or of a bond quoted by price, is indicative. A quote declaring
+/// a price beside its rule's level is read, and judged, by the level.
 #[test]
 fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
     use convex_ports::level_pricing::{PricingMethod, ResolvedPricingRule};
@@ -882,6 +882,6 @@ fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
     assert_eq!(quality(by_yield(), &[mid_yield]), DataQuality::Valid);
     assert_eq!(quality(by_yield(), &[price]), DataQuality::Indicative);
     assert_eq!(quality(by_oas(), &[spread]), DataQuality::Valid);
-    assert_eq!(quality(by_oas(), &[price, spread]), DataQuality::Indicative);
+    assert_eq!(quality(by_oas(), &[price, spread]), DataQuality::Valid);
     assert_eq!(quality(by_yield(), &[price, mid_yield]), DataQuality::Valid);
 }

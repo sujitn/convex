@@ -74,8 +74,7 @@ pub enum PricingMethod {
     /// discounted on the configuration's discount curve.
     DiscountMargin {},
     /// A callable's option-adjusted spread, in basis points: the constant spread over the
-    /// configuration's discount curve at which its HW1F trees price it. A level at request
-    /// time only: in Live the callable is valued from its price, as with no rule.
+    /// configuration's discount curve at which its HW1F trees price it.
     Oas {},
 }
 
@@ -114,34 +113,11 @@ impl PricingMethod {
         self.is_level().then(|| self.quote_field())
     }
 
-    /// Whether the method is a level read at request time only: an OAS. In Live a bond
-    /// quoted this way is valued from its price, as with no rule.
-    pub fn is_request_time_only(&self) -> bool {
-        match self {
-            Self::Oas {} => true,
-            Self::Price {}
-            | Self::Yield {}
-            | Self::BenchmarkSpread { .. }
-            | Self::ZSpread {}
-            | Self::DiscountMargin {} => false,
-        }
-    }
-
-    /// The quote field of the level a Live plan reads a bond quoted this way from: none
-    /// for a price, or a level read at request time only.
-    pub fn live_level_field(&self) -> Option<QuoteField> {
-        self.level_field().filter(|_| !self.is_request_time_only())
-    }
-
     /// The level field a quote declaring `fields` is read by, for a bond quoted this way:
-    /// the method's level field when the quote declares it, except a level read at request
-    /// time only beside a declared price, which is read by its price. A request's quote
-    /// declares one field, so it is read by the level or the price it sent.
+    /// the method's level field when the quote declares it, even beside a price. A
+    /// request's quote declares one field, so it is read by the level or the price it sent.
     pub fn declared_level_field(&self, fields: &[QuoteField]) -> Option<QuoteField> {
-        self.level_field().filter(|field| {
-            fields.contains(field)
-                && !(self.is_request_time_only() && fields.contains(&QuoteField::MidPrice))
-        })
+        self.level_field().filter(|field| fields.contains(field))
     }
 
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,

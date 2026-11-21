@@ -1185,9 +1185,7 @@ impl SnapshotValuator {
         // callable and a floating rate note value their rule's level themselves, and a
         // price too, so when their quote declares no field of their rule's they are read
         // from a price: a request may send one, and a Live plan compiled before the rule
-        // moved to a level still carries one. A level read at request time only, an OAS,
-        // is not read beside a declared price, so a Live plan is read by price whenever
-        // it was compiled ([`PricingMethod::declared_level_field`]).
+        // moved to a level still carries one ([`PricingMethod::declared_level_field`]).
         let declared = &selected[0].requirement.fields;
         let price = PricingMethod::Price {};
         let quoted_method = rule
@@ -2103,6 +2101,20 @@ mod tests {
 
     const START_MS: i64 = 1_790_000_000_000;
     const DAY_MS: i64 = 86_400_000;
+
+    /// A callable on HW1F trees reads the discount curve whatever it is quoted by, so in
+    /// Live a curve revision values it again from an OAS as from a price.
+    #[test]
+    fn a_callable_on_trees_reads_the_discount_curve_by_price_or_oas() {
+        let curves = convex_ports::storage::AnalyticsCurves::default();
+        let model = crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL;
+        for method in [None, Some(PricingMethod::Oas {})] {
+            assert_eq!(
+                read_curve_ids(model, &[], method.as_ref(), &curves),
+                [curves.discount_curve.as_str()]
+            );
+        }
+    }
 
     fn key(instrument: &str) -> QuoteKey {
         QuoteKey {

@@ -458,9 +458,9 @@ names the bond and its method:
 - `discount_margin`, for a floating rate note only: basis points over the frozen
   projection of its index (the configuration's `frn_reference_curve`), discounted on the
   configuration's discount curve;
-- `oas`, at request time only, for a callable the HW1F model values: European or
-  Bermudan fixed-price calls, none make-whole, and no other embedded terms. Basis points
-  over the configuration's discount curve at which its HW1F trees price it.
+- `oas`, for a callable the HW1F model values: European or Bermudan fixed-price calls,
+  none make-whole, and no other embedded terms. Basis points over the configuration's
+  discount curve at which its HW1F trees price it.
 
 A rule may also name a benchmark set by `benchmark_set_id`. A spread is quoted to that set, and the
 bond's G-spread is computed over it. The set's version in force at a valuation's cutoff
@@ -543,7 +543,7 @@ by its own model, `convex-floating-dm-v1`, in Live and at request time.
   read as its margin.
 
 A callable whose rule quotes it by `oas` stays on HW1F trees, `convex-optional-hw1f-v1`,
-and is priced from its OAS at request time only.
+and is priced from its OAS, in Live and at request time.
 - From an OAS it prices the callable at that spread over the discount curve, through
   `convex::library` (`OptionalBond` `Price`), then its effective risk at it; from a clean
   price it solves the OAS, as for a callable with no rule. Each inverts the other.
@@ -553,9 +553,11 @@ and is priced from its OAS at request time only.
   any OAS solves back to it.
 - `GET /api/v1/quotes/:id` takes `level` (basis points of OAS) or `market_price`. Its
   `pricing_rule` report names the HW1F model and the level.
-- In Live it is valued from its price, exactly as with no rule: its plan reads the
-  selection's fields, and a quote that declares a price is read and judged by its price,
-  even if it also holds a spread. It counts against the cap of 8 callables on HW1F trees.
+- In Live its plan reads `mid_spread` from the levels' source, as a note's margin is
+  read, and a quote that declares it is read and judged by it, even beside a price. A
+  curve revision values it again. A callable under the rule whose feed sends only a price
+  fails each measure for its missing OAS. It counts against the cap of 8 callables on
+  HW1F trees.
 
 At request time, a level for a callable or a note quoted by its own model's level is
 checked against its method's range before it is valued, and refused with 400 outside it,

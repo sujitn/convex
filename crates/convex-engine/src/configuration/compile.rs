@@ -407,10 +407,9 @@ pub async fn assemble_from_repository(
     Ok(document)
 }
 
-/// The quote field of the level Live reads a rule's bond by: none for a price, or an OAS,
-/// which is a level at request time only.
+/// The quote field of the level Live reads a rule's bond by: none for a price.
 fn level_field(rule: Option<&ResolvedPricingRule>) -> Option<QuoteField> {
-    rule.and_then(|rule| rule.method.live_level_field())
+    rule.and_then(|rule| rule.method.level_field())
 }
 
 fn reference_error(error: ReferenceError) -> ConfigurationError {
@@ -436,9 +435,9 @@ mod tests {
     use super::*;
     use convex_ports::level_pricing::PricingMethod;
 
-    /// Live reads the level a rule quotes, but never an OAS.
+    /// Live reads the level a rule quotes: an OAS as a discount margin.
     #[test]
-    fn live_reads_a_rule_level_except_an_oas() {
+    fn live_reads_the_level_a_rule_quotes() {
         let rule = |method| ResolvedPricingRule {
             version: Version::new(1).unwrap(),
             recorded_at: UtcTimestamp::parse("2026-10-02T15:00:00Z").unwrap(),
@@ -447,10 +446,11 @@ mod tests {
         };
         assert_eq!(level_field(None), None);
         assert_eq!(level_field(Some(&rule(PricingMethod::Price {}))), None);
-        assert_eq!(level_field(Some(&rule(PricingMethod::Oas {}))), None);
-        assert_eq!(
-            level_field(Some(&rule(PricingMethod::DiscountMargin {}))),
-            Some(QuoteField::MidSpread)
-        );
+        for method in [PricingMethod::Oas {}, PricingMethod::DiscountMargin {}] {
+            assert_eq!(
+                level_field(Some(&rule(method))),
+                Some(QuoteField::MidSpread)
+            );
+        }
     }
 }
