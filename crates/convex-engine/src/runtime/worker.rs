@@ -3,7 +3,7 @@ use super::{RuntimeError, RuntimePlan, NO_APPLICABLE_MEASURE};
 use crate::{
     context::*,
     curve_replay::BuiltSnapshot,
-    optional_valuation::{product_measures, product_model},
+    optional_valuation::{callables_beyond_bound, product_measures, product_model},
     snapshot::{SnapshotValuationResult, SnapshotValuator},
     CalculationGraph, CommitOutcome, NodeId, NodeSpec, NodeValue,
 };
@@ -99,7 +99,6 @@ pub(super) fn activate(
     plan: &RuntimePlan,
     snapshot: Arc<MarketSnapshot>,
 ) -> Result<Arc<BuiltSnapshot>, RuntimeError> {
-    check_callables(&snapshot)?;
     // Each context contains the complete validated manifest. No mutable compatibility roots are admitted.
     let nodes = plan
         .assembly
@@ -121,17 +120,13 @@ pub(super) fn activate(
     Ok(built)
 }
 /// Bind a Live tick's snapshot, built once, and reset only the pins it values;
-/// every other pin keeps its committed result. The callable bound reads only the
-/// reference section, so it is counted again only when the section is not `checked`, the
-/// one last counted within it.
+/// every other pin keeps its committed result.
 pub(super) fn rebind(
     graph: &CalculationGraph,
     plan: &RuntimePlan,
     snapshot: Arc<MarketSnapshot>,
     selected: &[usize],
-    checked: &mut Option<SnapshotReferences>,
 ) -> Result<Arc<BuiltSnapshot>, RuntimeError> {
-    check_callables_once(&snapshot.content().references, checked)?;
     let revalue: Vec<_> = selected
         .iter()
         .map(|&index| NodeId::BondPrice {
@@ -325,9 +320,11 @@ impl Baseline {
     /// it values. With `listed`, the instruments whose quotes changed by
     /// [`MarketSnapshot::changed_quotes`], only their pins and the pins whose quality
     /// window the snapshot's time has left are judged. Without it, every pin is.
-    /// A judged pin is valued when its inputs or its quality differ, and keeps the new
-    /// quality and window. `check` runs on every judged pin first. Returns the pins to
-    /// value, by plan index in plan order.
+    /// A new reference section judges every pin. A judged pin is valued when its inputs or
+    /// its quality differ, or it is a callable that moved across the HW1F bound
+    /// ([`moved_across_callable_bound`]), and keeps the new quality and window. `check`
+    /// runs on every judged pin first. Returns the pins to value, by plan index in plan
+    /// order.
     fn advance(
         &mut self,
         snapshot: &Arc<MarketSnapshot>,
@@ -342,8 +339,18 @@ impl Baseline {
         {
             return Err(RuntimeError::RecoveryConflict);
         }
+        let (previous, now) = (
+            &self.snapshot.content().references,
+            &snapshot.content().references,
+        );
+        let same_section = previous.ptr_eq(now);
+        let moved = if same_section {
+            BTreeSet::new()
+        } else {
+            moved_across_callable_bound(pins, previous, now)
+        };
         // In plan order: every pin, or the listed ones and those whose window was left.
-        let judged: Vec<usize> = match listed {
+        let judged: Vec<usize> = match listed.filter(|_| same_section) {
             None => (0..count).collect(),
             Some(instruments) => {
                 let mut judge = self.left(snapshot);
@@ -375,6 +382,7 @@ impl Baseline {
             let curves = self.reads.curves(index);
             let (quality, window) = snapshot.judge(&snapshot.inputs(instrument, &curves));
             if self.qualities[index] != quality
+                || moved.contains(&index)
                 || !snapshot.same_inputs(&self.snapshot, instrument, &curves)
             {
                 valued.push(index);
@@ -426,36 +434,25 @@ pub(super) fn changed(
     })?;
     Ok((selected, baseline))
 }
-/// The plan pins only identities; product types are known once references resolve.
-pub(super) fn check_callables(snapshot: &MarketSnapshot) -> Result<(), RuntimeError> {
-    callable_bound(&snapshot.content().references)
-}
-fn callable_bound(references: &SnapshotReferences) -> Result<(), RuntimeError> {
-    if crate::optional_valuation::references_within_callable_bound(references) {
-        Ok(())
-    } else {
-        Err(RuntimeError::Configuration(
-            "a runtime plan values at most 8 callables",
-        ))
-    }
-}
-/// [`check_callables`] for a Live tick: the bound reads only the reference section, so it
-/// is counted only when `references` is not `checked`, the section it last held for.
-/// A refused section is not kept.
-fn check_callables_once(
-    references: &SnapshotReferences,
-    checked: &mut Option<SnapshotReferences>,
-) -> Result<(), RuntimeError> {
-    if checked
-        .as_ref()
-        .is_some_and(|section| section.ptr_eq(references))
-    {
-        return Ok(());
-    }
-    *checked = None;
-    callable_bound(references)?;
-    *checked = Some(references.clone());
-    Ok(())
+/// The pins, by plan index, of the callables that moved across the HW1F bound from the
+/// `previous` reference section to `now`. Whether a callable is beyond the bound turns on
+/// the other callables' terms and rules too, so one that moved is valued though its own
+/// inputs held.
+fn moved_across_callable_bound(
+    pins: &[InstrumentPin],
+    previous: &SnapshotReferences,
+    now: &SnapshotReferences,
+) -> BTreeSet<usize> {
+    let before: BTreeSet<&str> = callables_beyond_bound(previous).collect();
+    let after: BTreeSet<&str> = callables_beyond_bound(now).collect();
+    pins.iter()
+        .enumerate()
+        .filter(|(_, pin)| {
+            let id = pin.instrument_id.as_str();
+            before.contains(id) != after.contains(id)
+        })
+        .map(|(index, _)| index)
+        .collect()
 }
 fn failed(
     context: &ValuationContext,
@@ -997,56 +994,93 @@ mod tests {
         }
     }
 
-    /// A Live tick counts the callables again whenever its reference section is
-    /// not the one last found within the bound, even an equal copy of it, and a refused
-    /// section is never kept as counted.
+    /// Under a new reference section a Live tick values each callable that moved across
+    /// the HW1F bound, the ninth on trees by instrument id, as well as each pin whose own
+    /// inputs changed: a callable moves when its own rule ends, and when another's does.
+    /// A callable quoted by price is on its workouts and not counted, nor is one whose rule
+    /// no longer applies. The plan's order is not the snapshot's.
     #[test]
-    fn the_callable_bound_is_counted_for_every_section_but_the_one_last_found_within_it() {
-        let bullet = fixture::content().references[0].clone();
-        let callable = |index: usize| {
-            let mut reference = bullet.clone();
-            reference.record.instrument_id =
-                convex_core::ids::InstrumentId::new(format!("CALLABLE-{index}"));
-            let bond = reference.record.bond.as_mut().unwrap();
-            bond.instrument_id = reference.record.instrument_id.clone();
-            bond.bond_type = convex_ports::reference_data::BondType::FixedCallable;
-            reference
-        };
+    fn a_callable_that_moves_across_the_bound_is_valued_though_its_own_inputs_held() {
         let bound = crate::optional_valuation::MAX_RUNTIME_CALLABLES;
-        let within = SnapshotReferences::new((0..bound).map(callable).collect());
-        let over = SnapshotReferences::new((0..=bound).map(callable).collect());
-        let mut checked = None;
+        let mut content = fixture::content();
+        for index in 0..=bound {
+            fixture::add_bond(&mut content, &format!("CALLABLE-{index}"), 0);
+        }
+        for reference in content.references.make_mut().iter_mut().skip(1) {
+            reference.record.bond = reference.record.bond.take().map(|bond| {
+                crate::products::callable(bond, convex_ports::reference_master::CallStyle::Bermudan)
+            });
+        }
+        let pins = reversed_pins(&content);
+        // The section with the listed callables, after BOND-001, quoted by price.
+        let priced = |content: &SnapshotContent, callables: &[usize]| {
+            let mut content = content.clone();
+            let references = content.references.make_mut().iter_mut().skip(1);
+            for (index, reference) in references.enumerate() {
+                reference.pricing_rule = callables.contains(&index).then(|| {
+                    convex_ports::level_pricing::ResolvedPricingRule {
+                        method: convex_ports::level_pricing::PricingMethod::Price {},
+                        benchmark_set_id: None,
+                        ..spread_rule()
+                    }
+                });
+            }
+            Arc::new(MarketSnapshot::new(content).unwrap())
+        };
+        let first = priced(&content, &[bound]);
+        let reads = Reads::with_curves(&pins, vec![vec![]; pins.len()]);
+        let mut baseline = Baseline::first(&first, &pins, reads).unwrap();
+        let mut tick = |callables: &[usize]| {
+            let snapshot = priced(baseline.snapshot.content(), callables);
+            let listed = snapshot.changed_quotes(&baseline.snapshot);
+            baseline
+                .advance(&snapshot, &pins, listed, |_| Ok(()))
+                .unwrap()
+                .iter()
+                .map(|&index| pins[index].instrument_id.as_str().to_owned())
+                .collect::<Vec<_>>()
+        };
+        let ninth = format!("CALLABLE-{bound}");
+        // Its price rule ended, the ninth is on trees, beyond the bound.
+        assert_eq!(tick(&[]), [ninth.as_str()]);
+        // Quoted by price again, the ninth is on its workouts.
+        assert_eq!(tick(&[bound]), [ninth.as_str()]);
+        // CALLABLE-2's rule starts and the ninth's ends: both are valued for their own
+        // rules, and nothing is beyond the bound.
+        assert_eq!(tick(&[2]), [ninth.as_str(), "CALLABLE-2"]);
+        // CALLABLE-2's rule ends: the ninth moves beyond the bound, though its own
+        // reference is the same.
+        assert_eq!(tick(&[]), [ninth.as_str(), "CALLABLE-2"]);
+        // A copy of the same section moves nothing.
+        assert!(tick(&[]).is_empty());
+        // A callable whose rule no longer applies fails before a tree runs, so it is not
+        // counted: with all nine on trees, CALLABLE-2 under a Z-spread rule leaves the ninth
+        // within the bound.
+        let mut misapplied = priced(&content, &[]).content().clone();
+        misapplied.references.make_mut()[3].pricing_rule =
+            Some(convex_ports::level_pricing::ResolvedPricingRule {
+                method: convex_ports::level_pricing::PricingMethod::ZSpread {},
+                benchmark_set_id: None,
+                ..spread_rule()
+            });
+        let misapplied = MarketSnapshot::new(misapplied).unwrap();
+        let references = &misapplied.content().references;
+        assert!(references[3].is_rule_misapplied());
+        assert!(callables_beyond_bound(references).next().is_none());
+    }
 
-        check_callables_once(&within, &mut checked).unwrap();
-        assert!(checked.as_ref().is_some_and(|s| s.ptr_eq(&within)));
-        check_callables_once(&within, &mut checked).unwrap();
-        // Another section is counted, and refused; it is not kept.
-        assert!(check_callables_once(&over, &mut checked).is_err());
-        assert!(checked.is_none());
-        assert!(check_callables_once(&over, &mut checked).is_err());
-        // An equal copy of the section within the bound is counted again.
-        check_callables_once(&within, &mut checked).unwrap();
-        let copy = SnapshotReferences::new(over.to_vec());
-        assert!(check_callables_once(&copy, &mut checked).is_err());
-        // A section within the bound after one over it is counted, and kept.
-        check_callables_once(&within, &mut checked).unwrap();
-        assert!(checked.as_ref().is_some_and(|s| s.ptr_eq(&within)));
-        // Quoted by price, each callable is valued on its workouts and not counted.
-        let priced = SnapshotReferences::new(
-            over.iter()
-                .cloned()
-                .map(|mut reference| {
-                    reference.pricing_rule =
-                        Some(convex_ports::level_pricing::ResolvedPricingRule {
-                            method: convex_ports::level_pricing::PricingMethod::Price {},
-                            benchmark_set_id: None,
-                            ..spread_rule()
-                        });
-                    reference
-                })
-                .collect(),
-        );
-        check_callables_once(&priced, &mut checked).unwrap();
+    /// A pin for each of `content`'s references, in the reverse of the snapshot's order.
+    fn reversed_pins(content: &SnapshotContent) -> Vec<InstrumentPin> {
+        let mut pins: Vec<InstrumentPin> = content
+            .references
+            .iter()
+            .map(|reference| InstrumentPin {
+                instrument_id: InstrumentId::new(reference.record.instrument_id.as_str()).unwrap(),
+                version: reference.record.version,
+            })
+            .collect();
+        pins.reverse();
+        pins
     }
 
     /// A rule quoting its bond as a spread over the 2-year of the `UST-OTR` set.
@@ -1090,15 +1124,7 @@ mod tests {
         let curve_time = fixture::time("2026-10-02T14:59:55Z");
         content.curves[0].source_time = curve_time;
         content.curves[0].recorded_at = curve_time;
-        let mut pins: Vec<InstrumentPin> = content
-            .references
-            .iter()
-            .map(|reference| InstrumentPin {
-                instrument_id: InstrumentId::new(reference.record.instrument_id.as_str()).unwrap(),
-                version: reference.record.version,
-            })
-            .collect();
-        pins.reverse();
+        let pins = reversed_pins(&content);
         let curves = pins
             .iter()
             .map(|pin| match pin.instrument_id.as_str() {

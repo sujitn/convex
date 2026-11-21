@@ -6,6 +6,8 @@ mod configuration;
 mod products;
 #[path = "support/curve_replay.rs"]
 mod recipes;
+#[path = "support/subscription_source.rs"]
+mod subscription_source;
 use configuration::{measure, runtime::*};
 use convex_core::contracts::*;
 use convex_engine::{
@@ -407,4 +409,194 @@ async fn a_request_context_prices_each_curve_on_one_revision() {
     fresh.curves_for(&fixture::bond()).await.unwrap();
     assert_eq!(fresh.pins()[0], ("USD-FIXTURE", fixture::version(8)));
     engine.shutdown().await.unwrap();
+}
+
+/// [`callable_setup`] for nine Bermudans under the HW1F assumption: BOND-001 and eight
+/// copies, `BOND-W001` to `BOND-W008`, with `rules` committed. Only BOND-001, BOND-W007
+/// and BOND-W008 are quoted.
+async fn nine_callables(rules: Vec<convex_ports::reference_master::MasterChange>) -> Setup {
+    let mut setup = callable_setup(CallStyle::Bermudan, true).await;
+    let mut plan = setup.plan.clone();
+    widen(&setup, &mut plan, 9).await;
+    let mut copies = Vec::new();
+    for pin in &mut plan.assembly.instruments[1..] {
+        let id = pin.instrument_id.clone().into();
+        let stored = setup.storage.bonds.get(&id).await.unwrap().unwrap();
+        copies.push(ReferenceChange::Update {
+            bond: Box::new(products::callable(
+                stored.bond.unwrap(),
+                CallStyle::Bermudan,
+            )),
+            expected_version: stored.version,
+        });
+        pin.version = fixture::version(2);
+    }
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("nine-callables").unwrap(),
+                changes: copies,
+                master_changes: rules,
+            },
+            fixture::time("2025-06-01T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    for id in ["BOND-W007", "BOND-W008"] {
+        let mut quoted = plan.seed_events[0].clone();
+        quoted.key.instrument_id = convex_core::ids::InstrumentId::new(id);
+        plan.seed_events.push(quoted);
+    }
+    setup.plan = plan;
+    setup
+}
+
+/// A plan that holds more callables on HW1F trees than the bound, as a rule or revision
+/// committed after its configuration was checked can make it, values the first eight by
+/// instrument id. The eighth is valued, the ninth fails each measure, saying why, without
+/// a tree, and the runtime runs.
+#[tokio::test]
+async fn a_ninth_callable_on_hw1f_trees_fails_each_measure_and_the_eighth_is_valued() {
+    let setup = nine_callables(vec![]).await;
+    let engine = make_engine(
+        &setup,
+        archive(&setup),
+        setup.plan.clone(),
+        setup.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    let published = engine.runtime_results();
+    engine.shutdown().await.unwrap();
+    assert_eq!(published.len(), 9);
+    let beyond = |error: &StructuredError| error.message() == BEYOND_CALLABLE_BOUND;
+    for record in &published {
+        let result = &record.result;
+        let ValuationSubject::InstrumentVersion { instrument_id, .. } =
+            &result.provenance().subject
+        else {
+            panic!("instrument valuation")
+        };
+        match instrument_id.as_str() {
+            "BOND-001" | "BOND-W007" => assert_eq!(
+                result.status(),
+                ResultStatus::Complete,
+                "{:?}",
+                result.errors()
+            ),
+            "BOND-W008" => {
+                assert_eq!(result.status(), ResultStatus::Failed);
+                assert_eq!(result.errors().len(), OPTIONAL_MEASURES.len());
+                assert!(result
+                    .errors()
+                    .iter()
+                    .all(|error| beyond(error) && error.code() == ErrorCode::SolverLimit));
+            }
+            // Unquoted, so failed, but not for the bound.
+            _ => assert!(
+                !result.errors().is_empty() && !result.errors().iter().any(beyond),
+                "{instrument_id:?}: {:?}",
+                result.errors()
+            ),
+        }
+    }
+}
+
+/// A Live runtime restarted from the checkpoint an activation saves, pending at a cutoff
+/// after BOND-W008's price rule ended, so with nine callables on HW1F trees, starts. A
+/// quote on BOND-W008 then publishes its refusal through a Live tick.
+#[tokio::test]
+async fn a_live_restart_after_a_ninth_callable_moved_onto_hw1f_trees_runs() {
+    let rule = products::pricing_rule("BOND-W008", serde_json::json!({"kind": "price"}));
+    let setup = nine_callables(vec![rule.clone()]).await;
+    let now = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    let mut plan = setup.plan.clone();
+    plan.mode = convex_engine::RuntimeMode::Live;
+    plan.seed_events.clear();
+    plan.assembly.as_of = now;
+    plan.assembly.known_at = now;
+    for quote in &mut plan.assembly.quotes {
+        quote.max_age_ms = 600_000;
+    }
+    for recipe in &mut plan.assembly.curve_recipes {
+        recipe.source_time = now;
+        recipe.recorded_at = now;
+        recipe.max_age_ms = 600_000;
+    }
+    let live_engine = |source| {
+        make_engine(
+            &setup,
+            display_only(),
+            plan.clone(),
+            setup.store.clone(),
+            RuntimeInput::Live(source),
+        )
+    };
+    let engine = live_engine(std::sync::Arc::new(
+        subscription_source::SubscriptionSource::new(),
+    ));
+    engine.start().await.unwrap();
+    engine.shutdown().await.unwrap();
+
+    let ended = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    let mut end = rule;
+    end.expected_version = Some(fixture::version(1));
+    let convex_ports::reference_master::MasterDefinition::PricingRule(definition) =
+        &mut end.definition
+    else {
+        panic!("a pricing rule")
+    };
+    definition.effective.until = Some(ended);
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("end-price-rule").unwrap(),
+                changes: vec![],
+                master_changes: vec![end],
+            },
+            ended,
+        )
+        .await
+        .unwrap();
+    use convex_ports::runtime::RuntimeStore;
+    let mut saved = setup.store.load(&plan.runtime_id).await.unwrap().unwrap();
+    let expected = saved.revision;
+    let after = UtcTimestamp::from_datetime(chrono::Utc::now()).unwrap();
+    saved.revision += 1;
+    saved.as_of = after;
+    saved.known_at = after;
+    saved.pending = true;
+    setup.store.checkpoint(expected, &saved).await.unwrap();
+
+    let source = std::sync::Arc::new(subscription_source::SubscriptionSource::new());
+    let restarted = live_engine(source.clone());
+    restarted.start().await.unwrap();
+    let mut updates = restarted.subscribe_results();
+    let stamp = subscription_source::monotone_stamp();
+    let mut quote = fixture::event(1, stamp, stamp, "99.25");
+    quote.key.instrument_id = convex_core::ids::InstrumentId::new("BOND-W008");
+    source.send(quote);
+    let refused = tokio::time::timeout(std::time::Duration::from_secs(5), updates.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    restarted.shutdown().await.unwrap();
+    assert_eq!(
+        refused.result.provenance().model_version.as_str(),
+        OPTIONAL_SNAPSHOT_MODEL
+    );
+    assert_eq!(refused.result.errors().len(), OPTIONAL_MEASURES.len());
+    assert!(
+        refused
+            .result
+            .errors()
+            .iter()
+            .all(|error| error.message() == BEYOND_CALLABLE_BOUND),
+        "{:?}",
+        refused.result.errors()
+    );
 }

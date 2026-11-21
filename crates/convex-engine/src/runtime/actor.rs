@@ -61,8 +61,6 @@ pub(super) struct Actor {
     /// What the deadline and health read from the results, kept up by the ticks that
     /// change them. It applies only while it describes the checkpoint's results.
     summary: Option<super::summary::ResultSummary>,
-    /// The reference section a Live tick last found within the callable bound.
-    callables_checked: Option<convex_ports::snapshot::SnapshotReferences>,
     /// A Live plan that pins no curve data reads its curves here at each snapshot's
     /// cutoff: the store request-time pricing reads.
     stored_curves: Option<Arc<dyn convex_ports::storage::CurveStore>>,
@@ -277,7 +275,6 @@ impl Actor {
             live_state,
             baseline: None,
             summary: None,
-            callables_checked: None,
             stored_curves,
         };
         // Reopen replay from the beginning, verify its accepted prefix, and only then continue.
@@ -685,13 +682,7 @@ impl Actor {
         let (selected, baseline) =
             worker::changed(plan, &snapshot, previous, &self.checkpoint.results)?;
         let built = if rebinding {
-            worker::rebind(
-                &self.graph,
-                plan,
-                snapshot,
-                &selected,
-                &mut self.callables_checked,
-            )?
+            worker::rebind(&self.graph, plan, snapshot, &selected)?
         } else {
             worker::activate(&self.graph, plan, snapshot)?
         };

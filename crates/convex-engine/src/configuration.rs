@@ -334,7 +334,7 @@ impl ConfigurationUseCases {
                     &mut report,
                     "assembly.instruments",
                     "TOO_MANY_CALLABLES",
-                    "A runtime plan values at most 8 callables",
+                    "A runtime plan values at most 8 callables on HW1F trees",
                 );
                 continue;
             }

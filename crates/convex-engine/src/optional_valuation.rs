@@ -48,9 +48,13 @@ pub const OPTIONAL_MEASURES: [&str; 7] = [
     "effective_convexity_mid",
     "pv01_mid",
 ];
-/// Callables per runtime plan. Each one reprices on HW1F trees on every generation, about
-/// 0.8 s in a release build for a ten-year Bermudan (OAS solve 0.46 s, risk 0.21 s).
+/// Callables per runtime plan valued on HW1F trees. Each one reprices on every generation,
+/// about 0.8 s in a release build for a ten-year Bermudan (OAS solve 0.46 s, risk 0.21 s).
+/// A callable on trees after the first 8 by instrument id fails each measure instead
+/// ([`BEYOND_CALLABLE_BOUND`]).
 pub const MAX_RUNTIME_CALLABLES: usize = 8;
+/// Why a callable beyond [`MAX_RUNTIME_CALLABLES`] fails each measure.
+pub const BEYOND_CALLABLE_BOUND: &str = "a runtime plan values at most 8 callables on HW1F trees, the first by instrument id, and this callable is beyond them";
 
 // The compiled numerical policy of this model: the repository's validated optional-bond
 // settings (`convex/examples/optional_bonds.rs`, `convex-analytics/tests/optional_bonds.rs`).
@@ -133,28 +137,40 @@ pub fn product_measures(model: &str) -> &'static [&'static str] {
     }
 }
 
-/// Every generation reprices each callable on HW1F trees, so their number stays bounded.
-/// Callables on their workouts are not counted.
+/// Whether a configuration's plan values every callable it holds on HW1F trees: at most
+/// [`MAX_RUNTIME_CALLABLES`]. Callables on their workouts are not counted.
 pub fn within_callable_bound(snapshot: &convex_ports::snapshot::MarketSnapshot) -> bool {
-    references_within_callable_bound(&snapshot.content().references)
+    callables_beyond_bound(&snapshot.content().references)
+        .next()
+        .is_none()
 }
-/// [`within_callable_bound`] for one reference section, which is all it reads.
-pub(crate) fn references_within_callable_bound(
+/// The callables `references` would value on HW1F trees beyond the first
+/// [`MAX_RUNTIME_CALLABLES`] by instrument id; each fails its measures instead. A rule, its
+/// end, or a revision committed after a configuration was checked can put one there.
+/// Callables on their workouts are not counted, nor is one whose rule no longer applies,
+/// which fails its measures before a tree runs.
+pub(crate) fn callables_beyond_bound(
     references: &convex_ports::snapshot::SnapshotReferences,
-) -> bool {
-    within_bound(
-        references
-            .iter()
-            .filter_map(|r| Some((r.record.bond.as_ref()?, r.pricing_method()))),
-    )
+) -> impl Iterator<Item = &str> {
+    beyond_bound(references.iter().filter_map(|r| {
+        if r.is_rule_misapplied() {
+            return None;
+        }
+        Some((
+            r.record.instrument_id.as_str(),
+            r.record.bond.as_ref()?,
+            r.pricing_method(),
+        ))
+    }))
 }
-fn within_bound<'a>(
-    bonds: impl Iterator<Item = (&'a BondReferenceData, Option<&'a PricingMethod>)>,
-) -> bool {
+/// [`callables_beyond_bound`] over bonds in instrument id order.
+fn beyond_bound<'a>(
+    bonds: impl Iterator<Item = (&'a str, &'a BondReferenceData, Option<&'a PricingMethod>)>,
+) -> impl Iterator<Item = &'a str> {
     bonds
-        .filter(|(bond, method)| product_model(bond, *method) == OPTIONAL_SNAPSHOT_MODEL)
-        .count()
-        <= MAX_RUNTIME_CALLABLES
+        .filter(|(_, bond, method)| product_model(bond, *method) == OPTIONAL_SNAPSHOT_MODEL)
+        .skip(MAX_RUNTIME_CALLABLES)
+        .map(|(instrument_id, _, _)| instrument_id)
 }
 
 /// A failed step, with the canonical code and the library's own reason.
@@ -831,23 +847,37 @@ mod tests {
         }
     }
 
+    /// The callables beyond the bound are those after the first eight on HW1F trees, in
+    /// instrument id order; a bullet or a callable on its workouts is not counted.
     #[test]
     fn a_plan_values_at_most_8_callables_on_trees_and_any_number_on_workouts() {
         let bullet: BondReferenceData = serde_json::from_str(include_str!(
             "../../convex-ports/tests/fixtures/reference_bond.json"
         ))
         .unwrap();
-        let on_trees = |bonds: &[BondReferenceData], method: Option<&PricingMethod>| {
-            within_bound(bonds.iter().map(|bond| (bond, method)))
+        let ids: Vec<String> = (0..=MAX_RUNTIME_CALLABLES + 1)
+            .map(|index| format!("BOND-{index:03}"))
+            .collect();
+        let beyond = |bonds: &[BondReferenceData], method: Option<&PricingMethod>| {
+            beyond_bound(
+                ids.iter()
+                    .zip(bonds)
+                    .map(|(id, bond)| (id.as_str(), bond, method)),
+            )
+            .map(str::to_owned)
+            .collect::<Vec<_>>()
         };
         let mut bonds = vec![callable(CallStyle::Bermudan); MAX_RUNTIME_CALLABLES];
-        bonds.push(bullet);
-        assert!(on_trees(&bonds, None));
+        bonds.insert(3, bullet);
+        assert!(beyond(&bonds, None).is_empty());
         bonds.push(callable(CallStyle::European));
-        assert!(!on_trees(&bonds, None));
+        assert_eq!(beyond(&bonds, None), ["BOND-009"]);
         // Quoted by price or yield to worst, each is valued on its workouts instead.
-        assert!(on_trees(&bonds, Some(&PricingMethod::Price {})));
-        assert!(on_trees(&bonds, Some(&PricingMethod::Yield {})));
-        assert!(!on_trees(&bonds, Some(&PricingMethod::ZSpread {})));
+        assert!(beyond(&bonds, Some(&PricingMethod::Price {})).is_empty());
+        assert!(beyond(&bonds, Some(&PricingMethod::Yield {})).is_empty());
+        assert_eq!(
+            beyond(&bonds, Some(&PricingMethod::ZSpread {})),
+            ["BOND-009"]
+        );
     }
 }

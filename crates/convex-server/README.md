@@ -517,6 +517,12 @@ request time, with no option model and no curve.
 - `GET /api/v1/quotes/:id` takes `level` (a decimal yield to worst) or `market_price`.
   Its `pricing_rule` report names the workout model and the level.
 - These callables are not counted against the cap of 8 callables valued on HW1F trees.
+  A configuration holding more on trees is refused at validation. A rule, its end, or a
+  revision committed later can still put more there. Then the first 8 by instrument id
+  are valued, and each callable beyond them fails every measure with `SOLVER_LIMIT`,
+  saying why. The runtime keeps running. A callable whose rule no longer applies is not
+  counted, and `POST /api/v1/runtime/valuation` refuses the same callables in a supplied
+  snapshot.
   A callable with no rule, or one quoted otherwise, stays on HW1F, so committing a
   `price` rule on a callable moves it off HW1F: it no longer publishes OAS, effective
   duration and convexity, or PV01.
