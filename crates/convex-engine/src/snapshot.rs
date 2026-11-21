@@ -1152,8 +1152,9 @@ impl SnapshotValuator {
             ));
         }
         // A bond whose terms changed since its rule was committed so that the rule no
-        // longer applies is refused, saying why.
-        let is_rule_misapplied = rule.is_some_and(|rule| !rule.applies_to(bond));
+        // longer applies fails each measure, saying why; a request is refused before it is
+        // valued.
+        let is_rule_misapplied = reference.is_rule_misapplied();
         // A bond is read from the field its rule quotes it by: its level, or a price. A
         // callable and a floating rate note value their rule's level themselves, and a
         // price too, so when their quote declares no field of their rule's they are read

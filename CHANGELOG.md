@@ -175,7 +175,15 @@ the changes that matter when you upgrade.
   `convex-optional-hw1f-v1`, publishing the OAS as quoted, the price at it and the
   effective risk; it still takes `market_price`. An OAS is from -500 to 1,000 bp. In
   Live the callable is valued from its price, exactly as with no rule. The rule is
-  refused at commit for any bond but a callable.
+  refused at commit for any bond but a callable the HW1F model values: European or
+  Bermudan fixed-price calls, none make-whole, and no other embedded terms.
+- **A bond whose rule no longer applies is refused at request time.** A callable or
+  floating rate note revised after its rule was committed, so that the rule no longer
+  applies to its terms, is refused with 400 `INVALID_INPUT` (`RULE_DOES_NOT_APPLY`) by a
+  level or a price, on the quote routes and in the calculator, before anything is valued.
+  It was a 200 whose every measure failed. The calculator refuses any bond so revised, by
+  every method. In Live each measure still fails, saying why
+  (`ResolvedBondReference::is_rule_misapplied`, shared by both).
 - **The calculator takes a callable's OAS** under an `oas` rule, valued by the runtime as
   `GET /api/v1/quotes/:id` values it: the HW1F measures, the unpublished `snapshot`,
   `input` and `pricing_rule`, and no `workouts`. An OAS with no `oas` rule is 400, and a
@@ -482,7 +490,8 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
-- **`PricingMethod::Oas`** (`oas`): applies only to a callable, with no benchmark set, and
+- **`PricingMethod::Oas`** (`oas`): applies only to a callable the HW1F model values
+  (`is_oas_callable`, which `is_workout_callable` now builds on), with no benchmark set, and
   reads `mid_spread` at request time. `PricingMethod::is_request_time_only` is true for
   it alone, and `PricingMethod::live_level_field` is the level a Live plan reads, none for
   an OAS. `PricingMethod::declared_level_field` is the level a quote is read by, given the

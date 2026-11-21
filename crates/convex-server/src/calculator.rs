@@ -29,6 +29,7 @@ use convex_engine::optional_valuation::product_model;
 use convex_engine::ports::{
     level_pricing::{
         is_quoted_two_way, is_workout_callable, PricingMethod, NOT_A_WORKOUT_CALLABLE,
+        RULE_DOES_NOT_APPLY,
     },
     reference_data::{BondReferenceData, BondType},
     reference_master::{ReferenceLookup, ResolvedBondReference},
@@ -109,6 +110,11 @@ async fn calculate(
         .await?
         .ok_or_else(not_found)?;
     let bond = reference.record.bond.as_ref().ok_or_else(not_found)?;
+    // A bond revised since its rule was committed so that the rule no longer applies is
+    // refused, whatever the method.
+    if reference.is_rule_misapplied() {
+        return Err(ApiError::invalid(RULE_DOES_NOT_APPLY));
+    }
     let is_floating = bond.bond_type == BondType::FloatingRate;
     // A note, and a callable's OAS on HW1F trees, are valued by the runtime.
     let is_by_runtime = is_floating

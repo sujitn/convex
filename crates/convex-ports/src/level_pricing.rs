@@ -147,9 +147,8 @@ impl PricingMethod {
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
     /// applies to `bond`: a fixed bullet by every method but a discount margin or an OAS;
     /// any other bond by price with no set; a callable valued on its workouts by its yield
-    /// to worst too; a floating rate note by its discount margin, and a callable by its
-    /// OAS, each with no set. The callable's model refuses terms it does not value, as it
-    /// does with no rule.
+    /// to worst too; a floating rate note by its discount margin, and a callable the HW1F
+    /// model values ([`is_oas_callable`]) by its OAS, each with no set.
     pub fn applies_to(&self, names_benchmark_set: bool, bond: &BondReferenceData) -> bool {
         let is_bullet = is_plain_bullet(bond);
         match self {
@@ -159,7 +158,7 @@ impl PricingMethod {
             Self::DiscountMargin {} => {
                 !names_benchmark_set && bond.bond_type == BondType::FloatingRate
             }
-            Self::Oas {} => !names_benchmark_set && bond.bond_type == BondType::FixedCallable,
+            Self::Oas {} => !names_benchmark_set && is_oas_callable(bond),
         }
     }
 
@@ -507,18 +506,18 @@ pub(crate) fn validate_level_pricing_links(
 }
 
 /// Why a rule does not apply to a bond ([`PricingMethod::applies_to`]).
-pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, by a yield only a fixed bullet or a callable valued on its workouts, by a discount margin only a floating rate note, and by an OAS only a callable";
+pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, by a yield only a fixed bullet or a callable valued on its workouts, by a discount margin only a floating rate note, and by an OAS only a callable with European or Bermudan fixed-price calls and no other embedded terms";
 
 /// Why a callable is not valued on its workouts ([`is_workout_callable`]).
 pub const NOT_A_WORKOUT_CALLABLE: &str = "a callable is valued on its workouts only with European or Bermudan fixed-price calls, at most 128, and no other embedded terms";
 
-/// A fixed callable the workout model values: European or Bermudan fixed-price calls, at
-/// most [`MAX_WORKOUT_CALLS`], and nothing beyond its calls
+/// A fixed callable the HW1F model values by its OAS: European or Bermudan fixed-price
+/// calls, none make-whole, and nothing beyond its calls
 /// ([`BondReferenceData::has_terms_beyond_calls`]).
-pub fn is_workout_callable(bond: &BondReferenceData) -> bool {
+pub fn is_oas_callable(bond: &BondReferenceData) -> bool {
     bond.bond_type == BondType::FixedCallable
         && bond.is_callable
-        && (1..=MAX_WORKOUT_CALLS).contains(&bond.call_schedule.len())
+        && !bond.call_schedule.is_empty()
         && !bond.call_schedule.iter().any(|call| call.is_make_whole)
         && !bond.has_terms_beyond_calls()
         && bond
@@ -526,6 +525,12 @@ pub fn is_workout_callable(bond: &BondReferenceData) -> bool {
             .as_ref()
             .and_then(|terms| terms.call_terms.as_ref())
             .is_some_and(|call| call.style != CallStyle::American)
+}
+
+/// A fixed callable the workout model values: one the HW1F model values
+/// ([`is_oas_callable`]), with at most [`MAX_WORKOUT_CALLS`] calls.
+pub fn is_workout_callable(bond: &BondReferenceData) -> bool {
+    bond.call_schedule.len() <= MAX_WORKOUT_CALLS && is_oas_callable(bond)
 }
 
 /// A fixed-coupon bullet with no embedded terms: what the router values and the level

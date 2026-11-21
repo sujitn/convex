@@ -29,7 +29,8 @@ fn a_rule_round_trips_and_omits_an_absent_set() {
 /// Each method applies to the bonds it quotes: every method but a discount margin or an
 /// OAS to a fixed bullet, a price to any bond with no set, a yield to worst to a callable
 /// valued on its workouts, a discount margin only to a floating rate note and an OAS only
-/// to a callable, on its workouts or not, each with no set.
+/// to a callable the HW1F model values, on its workouts or not, each with no set. An
+/// American, make-whole or puttable callable is quoted by price only.
 #[test]
 fn each_method_applies_to_the_bonds_it_quotes() {
     use convex_ports::reference_data::{BondReferenceData, BondType, CallScheduleEntry};
@@ -57,6 +58,18 @@ fn each_method_applies_to_the_bonds_it_quotes() {
             style: convex_ports::reference_master::CallStyle::American,
             notice_days: 30,
         });
+    let mut make_whole = callable.clone();
+    make_whole.call_schedule[0].is_make_whole = true;
+    let mut puttable = callable.clone();
+    puttable.is_putable = true;
+    // More calls than the workout model takes, which the HW1F model still values.
+    let mut called_often = callable.clone();
+    called_often.call_schedule = (0..=MAX_WORKOUT_CALLS as i64)
+        .map(|day| CallScheduleEntry {
+            call_date: callable.call_schedule[0].call_date.add_days(day),
+            ..callable.call_schedule[0].clone()
+        })
+        .collect();
     let mut zero = bullet.clone();
     zero.bond_type = BondType::ZeroCoupon;
     zero.coupon_rate = None;
@@ -70,8 +83,9 @@ fn each_method_applies_to_the_bonds_it_quotes() {
         PricingMethod::DiscountMargin {},
         PricingMethod::Oas {},
     ];
+    let by_price_only = [true, false, false, false, false, false];
     // Per method, in the order above: whether it applies with no set, then with one.
-    for (bond, without_set, with_set) in [
+    let rows = [
         (
             &bullet,
             [true, true, true, true, false, false],
@@ -84,12 +98,14 @@ fn each_method_applies_to_the_bonds_it_quotes() {
             [false; 6],
         ),
         (
-            &american,
+            &called_often,
             [true, false, false, false, false, true],
             [false; 6],
         ),
-        (&zero, [true, false, false, false, false, false], [false; 6]),
-    ] {
+    ];
+    let priced_only =
+        [&american, &make_whole, &puttable, &zero].map(|bond| (bond, by_price_only, [false; 6]));
+    for (bond, without_set, with_set) in rows.into_iter().chain(priced_only) {
         for (index, method) in methods.iter().enumerate() {
             assert_eq!(
                 method.applies_to(false, bond),

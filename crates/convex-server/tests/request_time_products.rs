@@ -763,6 +763,72 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
     );
 }
 
+/// A callable revised to American calls after its `oas` rule was committed, so that the
+/// rule no longer applies, is refused at request time before anything is valued: by its
+/// OAS or a price, on the quote route and in the calculator.
+#[tokio::test]
+async fn a_callable_whose_rule_no_longer_applies_is_refused_at_request_time() {
+    use convex_ports::level_pricing::RULE_DOES_NOT_APPLY;
+    let (setup, _, _) = products_setup().await;
+    let (engine, known_at) = started(&setup).await;
+    activate(&setup).await;
+    let app = router(engine.clone());
+    let committed_at = engine.runtime_results()[0].result.provenance().known_at;
+    let oas_method = || json!({"kind": "oas"});
+    let american = products::callable(renamed("CALL-001"), CallStyle::American);
+    for (key, changes, master_changes) in [
+        (
+            "call-rule-oas",
+            vec![],
+            vec![products::pricing_rule("CALL-001", oas_method())],
+        ),
+        (
+            "call-american",
+            vec![ReferenceChange::Update {
+                bond: Box::new(american),
+                expected_version: Version::new(1).unwrap(),
+            }],
+            vec![],
+        ),
+    ] {
+        let command = ReferenceCommand {
+            idempotency_key: RequestId::new(key).unwrap(),
+            changes,
+            master_changes,
+        };
+        setup
+            .storage
+            .bonds
+            .commit(&command, committed_at)
+            .await
+            .unwrap();
+    }
+    let refuses = |(status, _, refused): (StatusCode, HeaderMap, Value)| {
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+        assert_eq!(refused["code"], "INVALID_INPUT", "{refused}");
+        assert!(
+            refused["error"]
+                .as_str()
+                .unwrap()
+                .contains(RULE_DOES_NOT_APPLY),
+            "{refused}"
+        );
+    };
+    for query in ["level=50", "market_price=99.25"] {
+        let uri = format!(
+            "/api/v1/quotes/CALL-001?{query}&known_at={known_at}&settlement_date={SETTLEMENT}"
+        );
+        refuses(call(&app, "GET", &uri, None).await);
+    }
+    // In the calculator by either method, ahead of its refusal of American calls.
+    for (method, level) in [(oas_method(), "50"), (json!({"kind": "price"}), "99.25")] {
+        let body = json!({"method": method, "level": level, "settlement_date": SETTLEMENT,
+            "known_at": known_at});
+        refuses(call(&app, "POST", "/api/v1/bonds/CALL-001/calculate", Some(body)).await);
+    }
+    engine.shutdown().await.unwrap();
+}
+
 /// A JSON number or numeric string.
 fn number(value: &Value) -> f64 {
     value

@@ -458,8 +458,9 @@ names the bond and its method:
 - `discount_margin`, for a floating rate note only: basis points over the frozen
   projection of its index (the configuration's `frn_reference_curve`), discounted on the
   configuration's discount curve;
-- `oas`, for a callable only, at request time only: basis points over the configuration's
-  discount curve at which its HW1F trees price it.
+- `oas`, at request time only, for a callable the HW1F model values: European or
+  Bermudan fixed-price calls, none make-whole, and no other embedded terms. Basis points
+  over the configuration's discount curve at which its HW1F trees price it.
 
 A rule may also name a benchmark set by `benchmark_set_id`. A spread is quoted to that set, and the
 bond's G-spread is computed over it. The set's version in force at a valuation's cutoff
@@ -478,8 +479,9 @@ refused with 400 if:
 - a rule names a set that does not exist;
 - a rule quotes a bond other than a fixed bullet by `z_spread` or `benchmark_spread`, or
   against a set;
-- a rule quotes a bond other than a floating rate note by `discount_margin`, or other
-  than a callable by `oas`;
+- a rule quotes a bond other than a floating rate note by `discount_margin`, or by `oas`
+  a bond other than a callable with European or Bermudan fixed-price calls, none
+  make-whole, and no other embedded terms;
 - a rule quotes by a yield a bond that is neither a fixed bullet nor a callable valued on
   its workouts (below);
 - a rule's `width` is not a valid schedule, or is in a unit its method does not quote;
@@ -552,6 +554,13 @@ and is priced from its OAS at request time only.
 At request time, a level for a callable or a note quoted by its own model's level is
 checked against its method's range before it is valued, and refused with 400 outside it,
 as a bullet's level is.
+
+A callable or floating rate note revised after its rule was committed, so that the rule
+no longer applies to it (for example, a callable under an `oas` rule revised to American
+calls), is refused at request time with 400 `INVALID_INPUT`, by a level or a price,
+before anything is valued; the calculator refuses any bond so revised, by every method.
+In Live each of its measures fails, saying why. A commit of a bond's terms does not
+check the rule in force for it.
 
 A rule or set is ended by committing a version with `effective.until` through the same
 routes; the end may be later than the commit. After it, the version before does not come

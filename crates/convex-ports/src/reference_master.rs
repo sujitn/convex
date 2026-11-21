@@ -1024,6 +1024,16 @@ impl ResolvedBondReference {
         self.pricing_rule.as_ref().map(|rule| &rule.method)
     }
 
+    /// Whether its pinned rule no longer applies to its terms
+    /// ([`crate::level_pricing::ResolvedPricingRule::applies_to`]): a bond revised after its
+    /// rule was committed, since a revision does not check the rule in force.
+    pub fn is_rule_misapplied(&self) -> bool {
+        match (&self.pricing_rule, &self.record.bond) {
+            (Some(rule), Some(bond)) => !rule.applies_to(bond),
+            _ => false,
+        }
+    }
+
     /// The pinned calendar's definition; none when the pinned resource is not a calendar.
     pub fn calendar_definition(&self) -> Option<&CalendarDefinition> {
         match &self.calendar.definition {

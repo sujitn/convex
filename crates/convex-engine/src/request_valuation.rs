@@ -2,7 +2,8 @@
 //! unpublished snapshot of one stored instrument, with the request's mark as a labelled
 //! `request` quote, valued by the runtime as the stream values a bond. The mark is a
 //! clean price, or the level the bond's rule quotes when its model values it: a
-//! callable's yield to worst on its workouts, or a floating rate note's discount margin.
+//! callable's yield to worst on its workouts or its OAS on HW1F trees, or a floating rate
+//! note's discount margin. A bond whose rule no longer applies to its terms is refused.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -13,6 +14,7 @@ use convex_core::contracts::{
 use convex_ports::{
     configuration::{ConfigurationPin, InstrumentPin, NumericalSettings, SnapshotAssembly},
     fixing::FixingKey,
+    level_pricing::RULE_DOES_NOT_APPLY,
     quote_event::{
         FieldUpdate, QuoteChange, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
         QuoteValue,
@@ -115,6 +117,11 @@ impl RequestValuer {
         mark: Option<QuotedInput>,
     ) -> Result<(MarketSnapshot, ValuationContext, Vec<(String, Version)>), RequestValuationError>
     {
+        // A bond revised since its rule was committed so that the rule no longer applies is
+        // refused before anything is valued; Live fails each of its measures instead.
+        if reference.is_rule_misapplied() {
+            return Err(TraitError::InvalidInput(RULE_DOES_NOT_APPLY).into());
+        }
         let method = reference.pricing_method();
         let reference = &reference.record;
         let bond = reference
