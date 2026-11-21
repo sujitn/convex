@@ -16,7 +16,8 @@ use std::sync::{Arc, OnceLock};
 use crate::calibration::SnapshotCalibration;
 use crate::fixing::{FixingKey, PublishedFixing};
 use crate::level_pricing::{
-    BenchmarkSecurity, ResolvedBenchmarkSet, ResolvedPricingRule, MAX_SNAPSHOT_BENCHMARK_SETS,
+    BenchmarkSecurity, PricingMethod, ResolvedBenchmarkSet, ResolvedPricingRule,
+    MAX_SNAPSHOT_BENCHMARK_SETS,
 };
 use crate::quote_event::{
     DataState, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality, QuoteSnapshot,
@@ -303,6 +304,22 @@ pub struct QuoteRequirement {
     pub fields: Vec<QuoteField>,
     /// Maximum source/receipt age, 1..=86,400,000 UTC milliseconds.
     pub max_age_ms: i64,
+    /// The method a request quotes this quote by when its bond's rule quotes it otherwise:
+    /// a callable's OAS, in the quote's one field. A runtime plan never sets it; each of
+    /// its quotes is read by its bond's rule. Omitted when absent, so a snapshot without
+    /// it keeps its id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quoted_by: Option<PricingMethod>,
+}
+
+impl QuoteRequirement {
+    /// The method this quote is read by: the request's, else `rule`'s, its bond's rule.
+    pub fn quoted_method<'a>(
+        &'a self,
+        rule: Option<&'a PricingMethod>,
+    ) -> Option<&'a PricingMethod> {
+        self.quoted_by.as_ref().or(rule)
+    }
 }
 
 /// Selected feed state and latest delivery watermark, including explicit loss/closure controls.
@@ -2010,6 +2027,13 @@ fn check_quote(quote: &SnapshotQuote) -> Result<(), TraitError> {
             "invalid/duplicate quote requirement",
         ));
     }
+    if requirement.quoted_by.as_ref().is_some_and(|method| {
+        *method != PricingMethod::Oas {} || requirement.fields != [method.quote_field()]
+    }) {
+        return Err(TraitError::InvalidInput(
+            "a request quotes a quote by a method of its own only as a callable's OAS, in its one field",
+        ));
+    }
     let selected = |event: &QuoteEvent| -> Result<(), TraitError> {
         event.validate()?;
         if event.key != requirement.key {
@@ -2132,7 +2156,10 @@ fn derive_quality(
                 .and_then(|reference| reference.pricing_rule.as_ref())
                 .map(|rule| &rule.method),
         };
-        method.is_some_and(|method| method.is_level_declared(&quote.requirement.fields))
+        quote
+            .requirement
+            .quoted_method(method)
+            .is_some_and(|method| method.is_level_declared(&quote.requirement.fields))
     };
     let own = inputs
         .own_quotes

@@ -117,6 +117,17 @@ impl RuntimePlan {
                 .or_insert(0usize);
             *count = count.saturating_add(1);
         }
+        // Each quote is read by its bond's rule; a quoting method of its own is a request's.
+        if self
+            .assembly
+            .quotes
+            .iter()
+            .any(|quote| quote.quoted_by.is_some())
+        {
+            return Err(RuntimeError::Configuration(
+                "a runtime plan reads each quote by its bond's rule, never a quoting method of its own",
+            ));
+        }
         let mut ids = std::collections::BTreeSet::new();
         for pin in &self.assembly.instruments {
             if !ids.insert(&pin.instrument_id) || quotes.get(pin.instrument_id.as_str()) != Some(&1)

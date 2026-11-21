@@ -78,23 +78,20 @@ async fn oas_setup() -> Setup {
         convex_ports::quote_event::QuoteField::MidSpread,
         Decimal::from(50),
     );
-    commit_oas_rule(&setup).await;
+    commit_rule(&setup, serde_json::json!({"kind": "oas"})).await;
     setup
 }
 
-/// BOND-001 quoted by its OAS from 2025-06-02.
-async fn commit_oas_rule(setup: &Setup) {
+/// BOND-001 quoted by `method` from 2025-06-02.
+async fn commit_rule(setup: &Setup, method: serde_json::Value) {
     setup
         .storage
         .bonds
         .commit(
             &ReferenceCommand {
-                idempotency_key: RequestId::new("callable-oas-rule").unwrap(),
+                idempotency_key: RequestId::new("callable-rule").unwrap(),
                 changes: vec![],
-                master_changes: vec![products::pricing_rule(
-                    "BOND-001",
-                    serde_json::json!({"kind": "oas"}),
-                )],
+                master_changes: vec![products::pricing_rule("BOND-001", method)],
             },
             fixture::time("2025-06-02T00:00:00Z"),
         )
@@ -330,7 +327,7 @@ async fn a_callable_under_an_oas_rule_is_valued_from_its_oas_in_live_and_at_requ
 #[tokio::test]
 async fn a_callable_under_an_oas_rule_whose_feed_sends_only_a_price_fails_for_its_oas() {
     let mut setup = callable_setup(CallStyle::Bermudan, true).await;
-    commit_oas_rule(&setup).await;
+    commit_rule(&setup, serde_json::json!({"kind": "oas"})).await;
     setup.plan.assembly.quotes[0].fields = vec![convex_ports::quote_event::QuoteField::MidSpread];
     let published = captured_results(&setup).await;
     let result = &published[0].result;
@@ -390,6 +387,176 @@ async fn a_callable_priced_beyond_the_oas_bracket_keeps_its_price_measures() {
             .all(|error| error.code() == ErrorCode::SolverLimit
                 && error.message().contains("bracket"))
     );
+}
+
+/// A request may quote a callable the HW1F model values by an OAS whatever its rule: with
+/// none, or under a `price` rule that values it on its workouts, it is valued on its trees
+/// at that OAS, alike. Under an `oas` rule the OAS is the rule's level, and the snapshot is
+/// the one a level makes. A callable the model does not value is refused.
+#[tokio::test]
+async fn a_request_values_a_callable_at_an_oas_whatever_its_rule() {
+    use convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL;
+    let at_oas = |setup: Setup, mark: fn(Decimal) -> QuotedInput| async move {
+        let engine = request_runtime(&setup).await;
+        let stream = engine.runtime_results()[0].result.clone();
+        let valued = configuration::value_quoted_at(
+            &engine,
+            &stream,
+            setup.plan.settlement_date,
+            Some(mark(Decimal::from(50))),
+        )
+        .await;
+        engine.shutdown().await.unwrap();
+        (stream, valued)
+    };
+    let (_, unruled) = at_oas(
+        callable_setup(CallStyle::Bermudan, true).await,
+        QuotedInput::Oas,
+    )
+    .await;
+    let unruled = unruled.unwrap().result;
+    let unruled = unruled.envelope();
+    assert_eq!(
+        unruled.status(),
+        ResultStatus::Complete,
+        "{:?}",
+        unruled.errors()
+    );
+    assert_eq!(
+        unruled.provenance().model_version.as_str(),
+        OPTIONAL_SNAPSHOT_MODEL
+    );
+    assert_eq!(measure(unruled, "oas_mid"), 50.0);
+
+    let priced = callable_setup(CallStyle::Bermudan, true).await;
+    commit_rule(&priced, serde_json::json!({"kind": "price"})).await;
+    let (stream, on_trees) = at_oas(priced, QuotedInput::Oas).await;
+    assert_eq!(
+        stream.provenance().model_version.as_str(),
+        WORKOUT_SNAPSHOT_MODEL
+    );
+    let on_trees = on_trees.unwrap().result;
+    assert_eq!(
+        on_trees.envelope().provenance().model_version.as_str(),
+        OPTIONAL_SNAPSHOT_MODEL
+    );
+    assert_eq!(on_trees.envelope().results(), unruled.results());
+
+    let (_, by_rule) = at_oas(oas_setup().await, QuotedInput::Level).await;
+    let (_, by_request) = at_oas(oas_setup().await, QuotedInput::Oas).await;
+    let (by_rule, by_request) = (by_rule.unwrap().result, by_request.unwrap().result);
+    assert_eq!(
+        by_request.envelope().provenance().snapshot_id,
+        by_rule.envelope().provenance().snapshot_id
+    );
+    assert_eq!(by_request.envelope().results(), unruled.results());
+
+    let (_, refused) = at_oas(
+        callable_setup(CallStyle::American, true).await,
+        QuotedInput::Oas,
+    )
+    .await;
+    let refused = refused.err().unwrap();
+    assert!(
+        refused
+            .to_string()
+            .contains("an OAS quotes only a callable"),
+        "{refused}"
+    );
+}
+
+/// A runtime reads each quote by its bond's rule. A callable with no rule whose quote holds
+/// only a spread is not valued from it as an OAS, and a plan naming a quoting method of its
+/// own is refused, as every runtime validates its plan before it starts.
+#[tokio::test]
+async fn a_runtime_never_reads_a_spread_as_an_oas_without_an_oas_rule() {
+    use convex_ports::{level_pricing::PricingMethod, quote_event::QuoteField};
+    let mut setup = callable_setup(CallStyle::Bermudan, true).await;
+    let plan = &mut setup.plan;
+    products::quote_in(
+        &mut plan.assembly.quotes[0],
+        &mut plan.seed_events[0],
+        QuoteField::MidSpread,
+        Decimal::from(50),
+    );
+    let published = captured_results(&setup).await;
+    let result = &published[0].result;
+    assert_eq!(result.status(), ResultStatus::Failed);
+    assert!(
+        result
+            .errors()
+            .iter()
+            .all(|error| error.code() == ErrorCode::InvalidInput),
+        "{:?}",
+        result.errors()
+    );
+    setup.plan.assembly.quotes[0].quoted_by = Some(PricingMethod::Oas {});
+    let refused = setup.plan.validate().err().unwrap();
+    assert!(refused.to_string().contains("quoting method"), "{refused}");
+}
+
+/// A supplied snapshot's quoting method is checked where it is valued: an OAS for a callable
+/// the HW1F model values is read from its quote, and one for any other callable is refused.
+#[tokio::test]
+async fn a_supplied_snapshot_quoted_by_oas_is_valued_only_for_a_callable_the_model_values() {
+    use convex_engine::context::{ValuationContext, ValuationContextSpec};
+    use convex_ports::{level_pricing::PricingMethod, quote_event::QuoteField, snapshot::*};
+    let mut setup = callable_setup(CallStyle::Bermudan, true).await;
+    let plan = &mut setup.plan;
+    products::quote_in(
+        &mut plan.assembly.quotes[0],
+        &mut plan.seed_events[0],
+        QuoteField::MidSpread,
+        Decimal::from(50),
+    );
+    let published = captured_results(&setup).await;
+    let provenance = published[0].result.provenance();
+    let stored = setup
+        .snapshots
+        .get(&provenance.snapshot_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let context = setup
+        .plan
+        .context(&stored, &InstrumentId::new("BOND-001").unwrap())
+        .unwrap();
+    let value = |content: SnapshotContent| {
+        let snapshot = MarketSnapshot::new(content).unwrap();
+        let context = ValuationContext::new(ValuationContextSpec {
+            snapshot_id: snapshot.id().clone(),
+            ..context.spec().clone()
+        })
+        .unwrap();
+        SnapshotValuator::new(context.spec().build_id.clone(), 1)
+            .unwrap()
+            .value(
+                &snapshot,
+                &context,
+                RequestId::new("supplied").unwrap(),
+                provenance.calculated_at,
+            )
+    };
+    let mut content = stored.content().clone();
+    content.quotes[0].make_mut().requirement.quoted_by = Some(PricingMethod::Oas {});
+    let by_oas = value(content.clone()).unwrap();
+    let by_oas = by_oas.envelope();
+    assert_eq!(
+        by_oas.status(),
+        ResultStatus::Complete,
+        "{:?}",
+        by_oas.errors()
+    );
+    assert_eq!(measure(by_oas, "oas_mid"), 50.0);
+    let bond = content.references.make_mut()[0]
+        .record
+        .bond
+        .as_mut()
+        .unwrap();
+    let terms = bond.contractual_terms.as_mut().unwrap();
+    terms.call_terms.as_mut().unwrap().style = CallStyle::American;
+    let refused = value(content).err().unwrap();
+    assert!(refused.to_string().contains("quoting method"), "{refused}");
 }
 
 /// One request context prices each curve on one revision. A bullet's read takes the

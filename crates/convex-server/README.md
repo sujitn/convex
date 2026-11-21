@@ -727,12 +727,13 @@ others" for a stored bond. It is read-only and stores nothing.
   the note's fixings, so a server without a runtime refuses it (422
   `UNSUPPORTED_PRODUCT`). A measure the note's model cannot give is reported in
   `measure_errors`, as the quote route reports it.
-- **Callables by OAS.** A callable whose rule quotes it by `oas` is calculated from an
-  `oas` on its HW1F trees, as `GET /api/v1/quotes/:id` values it, by the runtime's
-  request valuation over the configuration's discount curve; a server without a runtime
-  refuses it (422 `UNSUPPORTED_PRODUCT`). With no `oas` rule an OAS is refused (400),
-  since the runtime reads a callable's OAS in its rule's field. By a `price` or a
-  `yield` it is still calculated on its workouts.
+- **Callables by OAS.** A callable the HW1F model values is calculated from an `oas` on
+  its HW1F trees, whatever its rule, as `GET /api/v1/quotes/:id` values it, by the
+  runtime's request valuation over the configuration's discount curve; a server without a
+  runtime refuses it (422 `UNSUPPORTED_PRODUCT`). Under a `price` or `yield` rule, or
+  none, the request's snapshot records the OAS as its own quoting method (`quoted_by`),
+  which no Live plan may carry, and the reply's `pricing_rule` names the HW1F model it was
+  valued on. By a `price` or a `yield` it is still calculated on its workouts.
 - **Callables on their workouts.** A callable is calculated from a `price` or a `yield`
   to worst, whatever its rule quotes, with the workout model of
   `GET /api/v1/quotes/:id`. It needs no runtime and reads no curve, and a spread method
@@ -778,7 +779,7 @@ others" for a stored bond. It is read-only and stores nothing.
 - **Refusals.**
   - 400 for a malformed body, an unknown field, a level out of its range, a method the
     bond is not calculated by (such as a margin for a note its rule quotes by price, or
-    an OAS for a callable with no `oas` rule), or a callable's settlement on a day
+    an OAS for a callable the HW1F model does not value), or a callable's settlement on a day
     nothing settles on.
   - 404 for a bond not stored at `known_at`.
   - 413 `CAPACITY_EXCEEDED` for a body over 64 KiB.

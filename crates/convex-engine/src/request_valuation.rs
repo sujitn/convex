@@ -14,7 +14,7 @@ use convex_core::contracts::{
 use convex_ports::{
     configuration::{ConfigurationPin, InstrumentPin, NumericalSettings, SnapshotAssembly},
     fixing::FixingKey,
-    level_pricing::RULE_DOES_NOT_APPLY,
+    level_pricing::{PricingMethod, RULE_DOES_NOT_APPLY},
     quote_event::{
         FieldUpdate, QuoteChange, QuoteEvent, QuoteEventKind, QuoteField, QuoteKey, QuoteQuality,
         QuoteValue,
@@ -28,7 +28,7 @@ use convex_ports::{
 
 use crate::context::{ValuationContext, ValuationContextSpec, ValuationScenario};
 use crate::curve_resolution::CurveResolutionError;
-use crate::level_pricing::{check_level, LevelError, QuotedInput};
+use crate::level_pricing::{check_level, LevelError, QuotedInput, NOT_AN_OAS_CALLABLE};
 use crate::optional_valuation::{product_measures, product_model, values_own_level};
 use crate::runtime::RuntimeServices;
 use crate::snapshot::{read_curve_ids, SnapshotAssembler, SnapshotValuationResult};
@@ -122,12 +122,22 @@ impl RequestValuer {
         if reference.is_rule_misapplied() {
             return Err(TraitError::InvalidInput(RULE_DOES_NOT_APPLY).into());
         }
-        let method = reference.pricing_method();
+        let rule_method = reference.pricing_method();
         let reference = &reference.record;
         let bond = reference
             .bond
             .as_ref()
             .ok_or(TraitError::InvalidInput("the stored reference is deleted"))?;
+        // An OAS for a callable its rule quotes otherwise is the request's own method,
+        // which its quote records; under an `oas` rule it is the rule's level.
+        let oas = PricingMethod::Oas {};
+        let quoted_by = matches!(mark, Some(QuotedInput::Oas(_)))
+            .then_some(&oas)
+            .filter(|method| rule_method != Some(*method));
+        if quoted_by.is_some_and(|method| !method.applies_to(false, bond)) {
+            return Err(LevelError::Refused(NOT_AN_OAS_CALLABLE.into()).into());
+        }
+        let method = quoted_by.or(rule_method);
         // The context reads its curves at its own cutoff, so the snapshot must share it.
         if known_at != context.known_at {
             return Err(
@@ -142,7 +152,7 @@ impl RequestValuer {
         // A level out of its method's range is refused here, as the level stage
         // refuses a bullet's, not valued into a result whose every measure fails.
         let field = match mark {
-            Some(QuotedInput::Level(level)) => {
+            Some(QuotedInput::Level(level) | QuotedInput::Oas(level)) => {
                 let method = method.filter(|_| values_own_level(model)).ok_or(
                     TraitError::InvalidInput(
                         "a level is valued at request time only as a callable's yield to worst or OAS, or a floating rate note's discount margin",
@@ -202,6 +212,7 @@ impl RequestValuer {
                 key: key.clone(),
                 fields: vec![field],
                 max_age_ms: 1,
+                quoted_by: quoted_by.cloned(),
             }],
             fixings: self.fixings.clone(),
             required_curves: roots
@@ -216,7 +227,9 @@ impl RequestValuer {
         };
         let events: Vec<_> = mark
             .map(|mark| {
-                let (QuotedInput::Price(value) | QuotedInput::Level(value)) = mark;
+                let (QuotedInput::Price(value)
+                | QuotedInput::Level(value)
+                | QuotedInput::Oas(value)) = mark;
                 request_mark(key, field, value, known_at)
             })
             .into_iter()

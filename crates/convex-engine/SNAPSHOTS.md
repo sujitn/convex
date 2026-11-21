@@ -227,7 +227,9 @@ its workouts (below). Any other fixed callable is valued under model
 `convex::library::execute`: the optional-bond OAS inverse at the observed clean mid
 plus the bond schedule's accrued, then effective risk at that OAS. A callable whose rule
 quotes it by `oas` is read from its `mid_spread` instead: effective risk at that OAS,
-whose base case is its price. A price whose OAS is beyond the bracket keeps its price,
+whose base case is its price. A request may quote any callable the model values by an
+OAS, whatever its rule: its snapshot's quote names that method (`quoted_by`), which the
+valuation reads ahead of the rule and a runtime plan never carries. A price whose OAS is beyond the bracket keeps its price,
 dirty price and accrued (the bond schedule's), and `oas_mid` and the risk fail with
 `SolverLimit`. Each instrument
 requests only the plan measures its own model publishes, so one plan can mix

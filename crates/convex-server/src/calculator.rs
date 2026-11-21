@@ -128,14 +128,16 @@ async fn calculate(
         )));
     }
     if is_by_runtime {
-        // The runtime reads a level in the bond's rule's field, so it takes a level only by
-        // the method the rule quotes; the level's range is checked as for a quote.
-        if request.method.is_level() && reference.pricing_method() != Some(&request.method) {
-            return Err(ApiError::invalid(if is_floating {
-                "a floating rate note is calculated from its price, or from a discount margin under a discount_margin pricing rule"
-            } else {
-                "a callable is calculated from an OAS only under an oas pricing rule"
-            }));
+        // The runtime reads a note's margin in its rule's field, so it takes one only under
+        // a margin rule; a callable takes an OAS whatever its rule. A level's range is
+        // checked as for a quote.
+        if is_floating
+            && request.method.is_level()
+            && reference.pricing_method() != Some(&request.method)
+        {
+            return Err(ApiError::invalid(
+                "a floating rate note is calculated from its price, or from a discount margin under a discount_margin pricing rule",
+            ));
         }
         runtime_composed(engine)?;
     }
@@ -257,9 +259,9 @@ fn calculate_callable(
     Ok(body)
 }
 
-/// A floating rate note from a price or its rule's discount margin, or a callable from its
-/// rule's OAS, valued as `GET /quotes/:id` values it: an unpublished snapshot of the
-/// curves its model reads and a note's fixings, valued by the runtime.
+/// A floating rate note from a price or its rule's discount margin, or a callable from an
+/// OAS whatever its rule, valued as `GET /quotes/:id` values it: an unpublished snapshot of
+/// the curves its model reads and a note's fixings, valued by the runtime.
 async fn calculate_by_runtime(
     engine: &PricingEngine,
     context: &mut RequestContext,
@@ -269,7 +271,11 @@ async fn calculate_by_runtime(
     known_at: UtcTimestamp,
     in_force: Option<&PricingRuleInForce>,
 ) -> Result<Value, ApiError> {
-    let quoted = QuotedInput::quoted_by(&request.method, request.level);
+    let quoted = if request.method == (PricingMethod::Oas {}) {
+        QuotedInput::Oas(request.level)
+    } else {
+        QuotedInput::quoted_by(&request.method, request.level)
+    };
     let (mut body, _) = value_stored(
         engine,
         context,
@@ -281,7 +287,9 @@ async fn calculate_by_runtime(
     .await?;
     body["input"] = input_json(request, None);
     if let Some(in_force) = in_force {
-        let model = product_model(bond, Some(&in_force.rule.method));
+        // The model the request was valued on: an OAS puts a callable on HW1F trees
+        // whatever its rule.
+        let model = product_model(bond, Some(&request.method));
         body["pricing_rule"] = rule_head_json(model, in_force);
     }
     Ok(body)

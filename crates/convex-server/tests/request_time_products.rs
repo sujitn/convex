@@ -377,6 +377,25 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     );
     assert_eq!(headers["x-convex-pricing-rule-version"], "1");
     assert!(body["oas_mid"].is_null(), "{body}");
+    // The calculator takes an OAS for it all the same, on its HW1F trees, and reports the
+    // rule as read with the model it was valued on.
+    let at_oas = json!({"method": {"kind": "oas"}, "level": "50", "settlement_date": SETTLEMENT,
+        "known_at": known_at});
+    let (status, _, by_oas) = call(
+        &app,
+        "POST",
+        "/api/v1/bonds/CALL-001/calculate",
+        Some(at_oas),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{by_oas}");
+    assert_eq!(number(&by_oas["oas_mid"]), 50.0, "{by_oas}");
+    assert_eq!(
+        by_oas["pricing_rule"],
+        json!({"model": convex_engine::optional_valuation::OPTIONAL_SNAPSHOT_MODEL,
+            "version": 1, "method": {"kind": "price"}})
+    );
+    assert!(by_oas.get("workouts").is_none(), "{by_oas}");
     // It reads no curve.
     assert_eq!(body["snapshot"]["curves"], json!([]), "{body}");
     // Below its call prices its worst is maturity, so its yield to worst is the yield of
@@ -645,8 +664,8 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
 
 /// Quoted by its OAS, a callable is priced at it on HW1F trees by the quote route and the
 /// calculator alike, and still takes a price; by a price the calculator still values it on
-/// its workouts. With no `oas` rule, or on a server without a runtime, the calculator
-/// refuses an OAS, and an OAS out of range is refused on both routes.
+/// its workouts. The calculator takes an OAS with no `oas` rule too. A server without a
+/// runtime refuses an OAS, and an OAS out of range is refused on both routes.
 #[tokio::test]
 async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_and_the_calculator() {
     use convex_engine::optional_valuation::{OPTIONAL_MEASURES, OPTIONAL_SNAPSHOT_MODEL};
@@ -674,16 +693,16 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
     let option_model = json!({"mean_reversion": 0.03, "volatility": 0.01,
         "reason": "fictional fixture assumption", "discount_curve": "USD-FIXTURE"});
     assert_eq!(by_price["option_model"], option_model, "{by_price}");
-    // An OAS is read in its rule's field, so with no `oas` rule it is refused.
-    let (status, _, refused) = calculate(app.clone(), oas_method(), oas.to_string()).await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    // With no rule the calculator takes the OAS on the callable's trees: the stream's OAS
+    // gives its price back.
+    let (status, _, unruled) = calculate(app.clone(), oas_method(), oas.to_string()).await;
+    assert_eq!(status, StatusCode::OK, "{unruled}");
     assert!(
-        refused["error"]
-            .as_str()
-            .unwrap()
-            .contains("oas pricing rule"),
-        "{refused}"
+        (number(&unruled["clean_price_mid"]) - 99.25).abs() < 1e-6,
+        "{unruled}"
     );
+    assert_eq!(unruled["option_model"], option_model, "{unruled}");
+    assert!(unruled.get("pricing_rule").is_none(), "{unruled}");
 
     let rule = products::pricing_rule("CALL-001", oas_method());
     let committed_at = engine.runtime_results()[0].result.provenance().known_at;

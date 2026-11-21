@@ -113,12 +113,23 @@ pub(crate) fn valuation_inputs<'a>(
     let curves = read_curve_ids(
         spec.model_id.as_str(),
         &spec.measures,
-        snapshot
-            .pricing_rule(instrument_id.as_str())
-            .map(|rule| &rule.method),
+        quoted_method(snapshot, instrument_id.as_str()),
         &snapshot.content().configuration.analytics_curves,
     );
     Ok(snapshot.inputs(instrument_id.as_str(), &curves))
+}
+/// The method `instrument_id`'s quote is read by: a request's own, else its bond's rule's.
+fn quoted_method<'a>(
+    snapshot: &'a MarketSnapshot,
+    instrument_id: &str,
+) -> Option<&'a PricingMethod> {
+    let rule = snapshot
+        .pricing_rule(instrument_id)
+        .map(|rule| &rule.method);
+    match snapshot.quotes_for(instrument_id).first() {
+        Some(quote) => quote.requirement.quoted_method(rule),
+        None => rule,
+    }
 }
 /// Quality of the inputs one valuation context reads, never the whole snapshot's.
 pub(crate) fn valuation_quality(
@@ -1151,10 +1162,26 @@ impl SnapshotValuator {
                 "configuration does not apply to pinned instrument",
             ));
         }
-        let rule = reference.pricing_rule.as_ref();
-        if crate::optional_valuation::product_model(bond, reference.pricing_method())
-            != spec.model_id.as_str()
+        let selected = snapshot.quotes_for(instrument_id.as_str());
+        if selected.len() != 1 {
+            return Err(TraitError::InvalidInput(
+                "pricing requires one explicitly selected quote source",
+            ));
+        }
+        let requirement = &selected[0].requirement;
+        // A request may quote the bond by a method of its own, which must quote its terms.
+        if requirement
+            .quoted_by
+            .as_ref()
+            .is_some_and(|method| !method.applies_to(false, bond))
         {
+            return Err(TraitError::InvalidInput(
+                "the request's quoting method does not quote the pinned bond",
+            ));
+        }
+        let rule = reference.pricing_rule.as_ref();
+        let method = requirement.quoted_method(reference.pricing_method());
+        if crate::optional_valuation::product_model(bond, method) != spec.model_id.as_str() {
             return Err(TraitError::Unsupported(
                 "context model does not value the pinned product",
             ));
@@ -1170,26 +1197,20 @@ impl SnapshotValuator {
                 "snapshot pricing currently requires observed clean marks",
             ));
         }
-        let selected = snapshot.quotes_for(instrument_id.as_str());
-        if selected.len() != 1 {
-            return Err(TraitError::InvalidInput(
-                "pricing requires one explicitly selected quote source",
-            ));
-        }
         let model = spec.model_id.as_str();
         // A bond refused whatever its market data fails each measure, saying why; the
         // runtime reports it ahead of the inputs' quality, and a request is refused before
         // it is valued.
         let refusal = valuation_refusal(snapshot, spec);
-        // A bond is read from the field its rule quotes it by: its level, or a price. A
-        // callable and a floating rate note value their rule's level themselves, and a
-        // price too, so when their quote declares no field of their rule's they are read
-        // from a price: a request may send one, and a Live plan compiled before the rule
-        // moved to a level still carries one ([`PricingMethod::is_level_declared`]).
-        let declared = &selected[0].requirement.fields;
+        // A bond is read from the field its rule quotes it by, or the request's method:
+        // its level, or a price. A callable and a floating rate note value their level
+        // themselves, and a price too, so when their quote declares no field of their
+        // method's they are read from a price: a request may send one, and a Live plan
+        // compiled before the rule moved to a level still carries one
+        // ([`PricingMethod::is_level_declared`]).
+        let declared = &requirement.fields;
         let price = PricingMethod::Price {};
-        let quoted_method = rule
-            .map(|rule| &rule.method)
+        let quoted_method = method
             .filter(|method| {
                 !crate::optional_valuation::values_own_level(model)
                     || method.is_level_declared(declared)
@@ -2131,6 +2152,7 @@ mod tests {
             key: key(instrument),
             fields: vec![QuoteField::MidPrice],
             max_age_ms: 60_000,
+            quoted_by: None,
         }
     }
 

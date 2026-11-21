@@ -885,3 +885,41 @@ fn a_manual_level_is_the_desks_mark_in_the_whole_snapshot() {
     assert_eq!(quality(by_oas(), &[price, spread]), DataQuality::Valid);
     assert_eq!(quality(by_yield(), &[price, mid_yield]), DataQuality::Valid);
 }
+
+/// A request's own quoting method is part of the snapshot's identity, and a snapshot
+/// without one keeps the bytes it had before the field existed. Only a callable's OAS, in
+/// the quote's one field, is taken.
+#[test]
+fn a_requests_own_quoting_method_is_named_by_the_snapshot_and_only_an_oas() {
+    use convex_ports::level_pricing::PricingMethod;
+    use convex_ports::quote_event::QuoteField;
+    let snapshot = |fields: &[QuoteField], quoted_by: Option<PricingMethod>| {
+        let mut content = fixture::content();
+        let requirement = &mut content.quotes[0].make_mut().requirement;
+        requirement.fields = fields.to_vec();
+        requirement.quoted_by = quoted_by;
+        MarketSnapshot::new(content)
+    };
+    let spread = [QuoteField::MidSpread];
+    let unnamed = snapshot(&spread, None).unwrap();
+    let by_oas = snapshot(&spread, Some(PricingMethod::Oas {})).unwrap();
+    assert_ne!(by_oas.id(), unnamed.id());
+    let bytes =
+        |snapshot: &MarketSnapshot| String::from_utf8(snapshot.canonical_bytes().unwrap()).unwrap();
+    assert!(!bytes(&unnamed).contains("quoted_by"));
+    assert!(bytes(&by_oas).contains("quoted_by"));
+    assert_eq!(
+        fixture::snapshot().id(),
+        MarketSnapshot::new(fixture::content()).unwrap().id()
+    );
+    for (fields, method) in [
+        (&[QuoteField::MidPrice][..], PricingMethod::Price {}),
+        (&spread[..], PricingMethod::DiscountMargin {}),
+        (
+            &[QuoteField::MidPrice, QuoteField::MidSpread][..],
+            PricingMethod::Oas {},
+        ),
+    ] {
+        assert!(snapshot(fields, Some(method)).is_err());
+    }
+}
