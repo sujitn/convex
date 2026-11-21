@@ -461,18 +461,14 @@ fn failed(
     calculated: UtcTimestamp,
     quality: DataQuality,
     code: ErrorCode,
+    reason: &'static str,
 ) -> Result<SnapshotValuationResult, RuntimeError> {
     let spec = context.spec();
     let errors = spec
         .measures
         .iter()
         .map(|measure| {
-            StructuredError::new(
-                code,
-                Some(measure.as_str().to_string()),
-                "Required runtime inputs or valuation are unavailable; no value substituted",
-                false,
-            )
+            StructuredError::new(code, Some(measure.as_str().to_string()), reason, false)
         })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| RuntimeError::Worker)?;
@@ -504,6 +500,8 @@ fn failed(
     .map_err(|_| RuntimeError::Worker)?;
     Ok(SnapshotValuationResult::new(context.clone(), envelope)?)
 }
+const UNAVAILABLE: &str =
+    "Required runtime inputs or valuation are unavailable; no value substituted";
 fn quality_error(quality: &SnapshotQuality) -> ErrorCode {
     use SnapshotIssueKind as K;
     match quality.issues.first().map(|i| i.reason) {
@@ -549,16 +547,29 @@ pub(super) fn value(
             "unsupported context/time/model policy",
         ));
     }
-    // Each instrument is judged only on the inputs its own valuation reads.
+    // Each instrument is judged only on the inputs its own valuation reads. A refusal that
+    // holds whatever the market data is reported ahead of them.
     let quality = crate::snapshot::valuation_quality(snapshot, context.spec())?;
-    if !accepted(quality.quality, demo) {
+    if let Some((code, reason)) = crate::snapshot::valuation_refusal(snapshot, context.spec()) {
         failed(
             context,
             snapshot,
             request,
             calculated,
             quality.quality,
-            quality_error(&quality),
+            code,
+            reason,
+        )
+    } else if !accepted(quality.quality, demo) {
+        let code = quality_error(&quality);
+        failed(
+            context,
+            snapshot,
+            request,
+            calculated,
+            quality.quality,
+            code,
+            UNAVAILABLE,
         )
     } else {
         let valued = match input {
@@ -586,6 +597,7 @@ pub(super) fn value(
                     convex_ports::TraitError::Conflict(_) => ErrorCode::VersionConflict,
                     _ => ErrorCode::InvalidInput,
                 },
+                UNAVAILABLE,
             ),
         }
     }

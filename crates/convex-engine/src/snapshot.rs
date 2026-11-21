@@ -127,6 +127,31 @@ pub(crate) fn valuation_quality(
 ) -> Result<convex_ports::snapshot::SnapshotQuality, TraitError> {
     Ok(snapshot.quality_of(&valuation_inputs(snapshot, spec)?))
 }
+/// Why each measure of one valuation context fails whatever its market data: the bond's
+/// terms changed since its rule was committed so that the rule no longer applies, or it is
+/// a callable beyond the plan's bound on HW1F trees.
+pub(crate) fn valuation_refusal(
+    snapshot: &MarketSnapshot,
+    spec: &ValuationContextSpec,
+) -> Option<(ErrorCode, &'static str)> {
+    let ValuationSubject::InstrumentVersion { instrument_id, .. } = &spec.subject else {
+        return None;
+    };
+    let instrument_id = instrument_id.as_str();
+    if snapshot.reference(instrument_id)?.is_rule_misapplied() {
+        Some((ErrorCode::InvalidInput, RULE_DOES_NOT_APPLY))
+    } else if spec.model_id.as_str() == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
+        && crate::optional_valuation::callables_beyond_bound(&snapshot.content().references)
+            .any(|beyond| beyond == instrument_id)
+    {
+        Some((
+            ErrorCode::SolverLimit,
+            crate::optional_valuation::BEYOND_CALLABLE_BOUND,
+        ))
+    } else {
+        None
+    }
+}
 /// Measures read from the router's frozen-Z curve risk, which fails as one `curve_risk` field.
 fn curve_risk_measure(measure: &str) -> bool {
     matches!(
@@ -1151,23 +1176,11 @@ impl SnapshotValuator {
                 "pricing requires one explicitly selected quote source",
             ));
         }
-        // A bond whose terms changed since its rule was committed so that the rule no
-        // longer applies fails each measure, saying why; a request is refused before it is
-        // valued. So does a callable beyond the plan's bound on HW1F trees.
         let model = spec.model_id.as_str();
-        let refusal = if reference.is_rule_misapplied() {
-            Some((ErrorCode::InvalidInput, RULE_DOES_NOT_APPLY))
-        } else if model == crate::optional_valuation::OPTIONAL_SNAPSHOT_MODEL
-            && crate::optional_valuation::callables_beyond_bound(&snapshot.content().references)
-                .any(|beyond| beyond == instrument_id.as_str())
-        {
-            Some((
-                ErrorCode::SolverLimit,
-                crate::optional_valuation::BEYOND_CALLABLE_BOUND,
-            ))
-        } else {
-            None
-        };
+        // A bond refused whatever its market data fails each measure, saying why; the
+        // runtime reports it ahead of the inputs' quality, and a request is refused before
+        // it is valued.
+        let refusal = valuation_refusal(snapshot, spec);
         // A bond is read from the field its rule quotes it by: its level, or a price. A
         // callable and a floating rate note value their rule's level themselves, and a
         // price too, so when their quote declares no field of their rule's they are read

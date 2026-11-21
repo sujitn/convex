@@ -11,7 +11,10 @@ mod subscription_source;
 use configuration::{measure, runtime::*};
 use convex_core::contracts::*;
 use convex_engine::{
-    level_pricing::QuotedInput, optional_valuation::*, snapshot::RUNTIME_MEASURES, RuntimeInput,
+    level_pricing::QuotedInput,
+    optional_valuation::*,
+    snapshot::{SnapshotValuator, RUNTIME_MEASURES},
+    RuntimeInput,
 };
 use convex_ports::{
     reference_master::CallStyle,
@@ -444,19 +447,18 @@ async fn nine_callables(rules: Vec<convex_ports::reference_master::MasterChange>
         )
         .await
         .unwrap();
-    for id in ["BOND-W007", "BOND-W008"] {
-        let mut quoted = plan.seed_events[0].clone();
-        quoted.key.instrument_id = convex_core::ids::InstrumentId::new(id);
-        plan.seed_events.push(quoted);
-    }
+    let mut quoted = plan.seed_events[0].clone();
+    quoted.key.instrument_id = convex_core::ids::InstrumentId::new("BOND-W007");
+    plan.seed_events.push(quoted);
     setup.plan = plan;
     setup
 }
 
 /// A plan that holds more callables on HW1F trees than the bound, as a rule or revision
 /// committed after its configuration was checked can make it, values the first eight by
-/// instrument id. The eighth is valued, the ninth fails each measure, saying why, without
-/// a tree, and the runtime runs.
+/// instrument id. The eighth is valued, and the ninth fails each measure, saying why,
+/// though it has no quote, and so does the snapshot valuation of it alone. The runtime
+/// runs.
 #[tokio::test]
 async fn a_ninth_callable_on_hw1f_trees_fails_each_measure_and_the_eighth_is_valued() {
     let setup = nine_callables(vec![]).await;
@@ -472,6 +474,12 @@ async fn a_ninth_callable_on_hw1f_trees_fails_each_measure_and_the_eighth_is_val
     engine.shutdown().await.unwrap();
     assert_eq!(published.len(), 9);
     let beyond = |error: &StructuredError| error.message() == BEYOND_CALLABLE_BOUND;
+    let refused = |errors: &[StructuredError]| {
+        errors.len() == OPTIONAL_MEASURES.len()
+            && errors
+                .iter()
+                .all(|error| beyond(error) && error.code() == ErrorCode::SolverLimit)
+    };
     for record in &published {
         let result = &record.result;
         let ValuationSubject::InstrumentVersion { instrument_id, .. } =
@@ -488,11 +496,25 @@ async fn a_ninth_callable_on_hw1f_trees_fails_each_measure_and_the_eighth_is_val
             ),
             "BOND-W008" => {
                 assert_eq!(result.status(), ResultStatus::Failed);
-                assert_eq!(result.errors().len(), OPTIONAL_MEASURES.len());
-                assert!(result
-                    .errors()
-                    .iter()
-                    .all(|error| beyond(error) && error.code() == ErrorCode::SolverLimit));
+                assert_ne!(result.quality(), DataQuality::Valid);
+                assert!(refused(result.errors()), "{:?}", result.errors());
+                let snapshot = setup
+                    .snapshots
+                    .get(&result.provenance().snapshot_id)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let context = setup.plan.context(&snapshot, instrument_id).unwrap();
+                let alone = SnapshotValuator::new(context.spec().build_id.clone(), 1)
+                    .unwrap()
+                    .value(
+                        &snapshot,
+                        &context,
+                        RequestId::new("ninth-alone").unwrap(),
+                        result.provenance().calculated_at,
+                    )
+                    .unwrap();
+                assert!(refused(alone.envelope().errors()));
             }
             // Unquoted, so failed, but not for the bound.
             _ => assert!(
