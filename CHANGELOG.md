@@ -169,6 +169,26 @@ the changes that matter when you upgrade.
 
 ### convex-server
 
+- **Callables by OAS, at request time.** A `pricing_rule` may quote a callable by `oas`
+  (basis points over the discount curve at which its HW1F trees price it). At request
+  time `GET /api/v1/quotes/:id` takes it as `level` and prices the callable at it under
+  `convex-optional-hw1f-v1`, publishing the OAS as quoted, the price at it and the
+  effective risk; it still takes `market_price`. An OAS is from -500 to 1,000 bp. In
+  Live the callable is valued from its price, exactly as with no rule. The rule is
+  refused at commit for any bond but a callable the HW1F model values: European or
+  Bermudan fixed-price calls, none make-whole, and no other embedded terms.
+- **A bond whose rule no longer applies is refused at request time.** A bond revised
+  after its rule was committed, so that the rule no longer applies to its terms (a
+  callable under an `oas` rule revised to American calls or to a bullet), is refused with
+  400 `INVALID_INPUT` (`RULE_DOES_NOT_APPLY`) by a level or a price, on the quote routes,
+  alone and in a batch, and in the calculator by every method, before anything is valued.
+  A callable or note was a 200 whose every measure failed, and a bullet by price was
+  priced as if it had no rule. In Live each measure still fails, saying why.
+- **The calculator takes a callable's OAS** under an `oas` rule, valued by the runtime as
+  `GET /api/v1/quotes/:id` values it: the HW1F measures, the unpublished `snapshot`,
+  `input` and `pricing_rule`, and no `workouts`. An OAS with no `oas` rule is 400, and a
+  server without a runtime refuses it (422 `UNSUPPORTED_PRODUCT`). By `price` or `yield`
+  a callable is still calculated on its workouts.
 - **Floating rate notes by discount margin.** A `pricing_rule` may quote a floating rate
   note by `discount_margin` (basis points over the frozen projection of its index,
   discounted on the discount curve). Live and request-time quotes value it from its
@@ -378,6 +398,15 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **Callables by OAS.** The HW1F model reads a callable's rule's field when its quote
+  declares it, as the workout and floating models do, and prices an OAS through the
+  library's `OptionalBond` `Price`, then its risk at it; `values_own_level` counts it. Its
+  input and output are `CallableQuote` (a clean price or an OAS) and
+  `CallableValuation`, as the other models'. At an OAS, risk is run first and its base
+  price read, so the price is run alone only when risk fails. Live values a callable
+  under an `oas` rule from its price: a Live compile reads no OAS for it, and a quote that
+  declares a price is read by its price (`PricingMethod::declared_level_field`), so a plan
+  compiled before the rule is too.
 - **Floating rate notes by discount margin.** The floating model reads a note's rule's
   field, as the workout model does, and prices a margin through the library's `Bond`
   `Price` with a discount spread; a margin out of range fails each measure.
@@ -461,6 +490,14 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **`PricingMethod::Oas`** (`oas`): applies only to a callable the HW1F model values
+  (`is_oas_callable`, which `is_workout_callable` now builds on), with no benchmark set, and
+  reads `mid_spread` at request time. `PricingMethod::is_request_time_only` is true for
+  it alone, and `PricingMethod::live_level_field` is the level a Live plan reads, none for
+  an OAS. `PricingMethod::declared_level_field` is the level a quote is read by, given the
+  fields it declares: not an OAS beside a price. The snapshot's valuation and its quality
+  both use it, so such a quote is judged as a price quote is (a manual one is
+  indicative, and its skew counts). `RULE_DOES_NOT_APPLY` names it.
 - **`PricingMethod::DiscountMargin`** (`discount_margin`): applies only to a floating rate
   note, with no benchmark set, and reads `mid_spread`. `RULE_DOES_NOT_APPLY` names it.
 - `BondQuoteOutput::without_measures`: a fresh quote with every measure absent, for a

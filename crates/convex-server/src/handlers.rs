@@ -550,7 +550,7 @@ async fn staged_input(
     settlement_date: Date,
 ) -> Result<StagedInput, crate::error::ApiError> {
     let in_force = match quoted {
-        Some(_) => engine.rule_in_force(context, rule).await?,
+        Some(_) => engine.rule_in_force(context, &bond, rule).await?,
         None => None,
     };
     let curves = context.curves_for(&bond).await?;
@@ -951,8 +951,9 @@ struct RuntimeMark {
 
 /// The mark a stored callable or floating rate note is valued from under its rule. A bond
 /// whose model values its rule's level itself takes its quote as sent: a callable on its
-/// workouts a price or a yield to worst, a floating rate note a price or a discount
-/// margin. Any other gets the clean price the level stage gives.
+/// workouts a price or a yield to worst, a callable on HW1F trees a price or an OAS, a
+/// floating rate note a price or a discount margin. Any other gets the clean price the
+/// level stage gives.
 async fn runtime_mark(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,
@@ -973,7 +974,7 @@ async fn runtime_mark(
     let rule = engine
         .pinned_rule_for_request(&bond.instrument_id, reference.pricing_rule.clone())
         .await?;
-    let in_force = engine.rule_in_force(context, rule).await?;
+    let in_force = engine.rule_in_force(context, bond, rule).await?;
     let model = convex_engine::optional_valuation::product_model(
         bond,
         in_force.as_ref().map(|in_force| &in_force.rule.method),

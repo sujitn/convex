@@ -62,6 +62,46 @@ pub fn engine(setup: &Setup, cases: Arc<ConfigurationUseCases>) -> Arc<PricingEn
             .unwrap(),
     )
 }
+/// A started captured runtime over `setup`'s plan, with `recipes` stored and
+/// configuration version 2 activated, so it also values requests.
+pub async fn request_runtime(
+    setup: &Setup,
+    recipes: Vec<convex_ports::snapshot::SnapshotCurveRecipe>,
+) -> Arc<PricingEngine> {
+    for recipe in &recipes {
+        setup.storage.curves.save_recipe(recipe).await.unwrap();
+    }
+    let config = setup
+        .storage
+        .configs
+        .get_version("CONFIG-RESTORE", 2)
+        .await
+        .unwrap()
+        .unwrap();
+    let engine = runtime::make_engine(
+        setup,
+        runtime::archive(setup),
+        setup.plan.clone(),
+        setup.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    // A runtime without configuration use cases starts only with nothing activated.
+    activate_pricing(setup, &config).await;
+    engine
+}
+/// A published measure's value as a float.
+pub fn measure(result: &ResultEnvelope, name: &str) -> f64 {
+    match &result.results()[&MeasureId::new(name).unwrap()].value {
+        MeasureValue::Price(v) => v.value().decimal().try_into().unwrap(),
+        MeasureValue::ModelPrice(v) => v.value().get(),
+        MeasureValue::ModelBps(v) => v.value().get(),
+        MeasureValue::ModelRate(v) => v.value().get(),
+        MeasureValue::ModelYears(v) => v.value().get(),
+        MeasureValue::ModelYearsSquared(v) => v.value().get(),
+        other => panic!("{name}: {other:?}"),
+    }
+}
 /// Stage `config` in a fixture document and activate it, as an operator approves a
 /// configuration, so request-time pricing resolves it.
 pub async fn activate_pricing(setup: &Setup, config: &convex_ports::storage::BondPricingConfig) {

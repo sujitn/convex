@@ -7,9 +7,10 @@
 //! The router then values that price under the approved context at `known_at`, mid only,
 //! with the G-spread over the set the bond's rule names. A callable is calculated on its
 //! workouts, from a price or a yield to worst, with each workout's yield; it reads no
-//! curve. A floating rate note is valued from a price, or from the discount margin its
-//! rule quotes, as `GET /quotes/:instrument_id` values it: by the runtime's request
-//! valuation. The calculator is read-only and stores nothing; it reports the reference,
+//! curve. A floating rate note from a price or the discount margin its rule quotes, and a
+//! callable from the OAS its rule quotes, are valued as `GET /quotes/:instrument_id`
+//! values them: by the runtime's request valuation, a callable's OAS on HW1F trees. The
+//! calculator is read-only and stores nothing; it reports the reference,
 //! configuration, activation, curve, rule and set versions it read in headers, as
 //! `GET /quotes/:instrument_id` does.
 
@@ -23,11 +24,12 @@ use axum::{
 use convex_core::contracts::{SourceId, UtcTimestamp};
 use convex_core::ids::InstrumentId;
 use convex_core::Date;
-use convex_engine::floating_valuation::FLOATING_SNAPSHOT_MODEL;
 use convex_engine::level_pricing::{BenchmarkYield, PricingRuleInForce, QuotedInput};
+use convex_engine::optional_valuation::product_model;
 use convex_engine::ports::{
     level_pricing::{
         is_quoted_two_way, is_workout_callable, PricingMethod, NOT_A_WORKOUT_CALLABLE,
+        RULE_DOES_NOT_APPLY,
     },
     reference_data::{BondReferenceData, BondType},
     reference_master::{ReferenceLookup, ResolvedBondReference},
@@ -58,8 +60,8 @@ pub struct CalculatorRequest {
     /// What `level` is quoted by. It need not be the method the bond's rule quotes.
     pub method: PricingMethod,
     /// The level, in the method's unit: a clean price per 100 face for `price`, a decimal
-    /// yield for `yield`, and basis points for `z_spread`, `benchmark_spread` and
-    /// `discount_margin`.
+    /// yield for `yield`, and basis points for `z_spread`, `benchmark_spread`,
+    /// `discount_margin` and `oas`.
     pub level: Decimal,
     /// The settlement date the level is quoted for.
     pub settlement_date: Date,
@@ -73,9 +75,10 @@ pub struct CalculatorRequest {
 
 /// Calculate a stored bond from one level under its approved valuation context, mid only.
 /// The reply is the bond's model's measures at the level: the router's for a bullet or
-/// zero, the workout model's for a callable, the floating model's for a note. It adds the
-/// `input` as priced and the bond's `pricing_rule` as read when it has one; for a bullet,
-/// zero or callable, each `workout` with the `worst`.
+/// zero, the workout model's for a callable by price or yield, the HW1F model's for a
+/// callable by OAS, the floating model's for a note. It adds the `input` as priced and the
+/// bond's `pricing_rule` as read when it has one; for a bullet, zero or callable on its
+/// workouts, each `workout` with the `worst`.
 pub async fn calculate_bond(
     State(state): State<Arc<AppState>>,
     Path(instrument_id): Path<String>,
@@ -107,47 +110,60 @@ async fn calculate(
         .await?
         .ok_or_else(not_found)?;
     let bond = reference.record.bond.as_ref().ok_or_else(not_found)?;
-    let is_on_workouts = is_workout_callable(bond);
+    // A bond revised since its rule was committed so that the rule no longer applies is
+    // refused, whatever the method.
+    if reference.is_rule_misapplied() {
+        return Err(ApiError::invalid(RULE_DOES_NOT_APPLY));
+    }
     let is_floating = bond.bond_type == BondType::FloatingRate;
-    if !is_on_workouts && !is_floating && !is_quoted_two_way(bond) {
-        // Only the bonds the router, the workout model or the floating model values are
-        // calculated.
+    // A note, and a callable's OAS on HW1F trees, are valued by the runtime.
+    let is_by_runtime = is_floating
+        || (bond.bond_type == BondType::FixedCallable && request.method == PricingMethod::Oas {});
+    let is_on_workouts = is_workout_callable(bond);
+    if !is_by_runtime && !is_on_workouts && !is_quoted_two_way(bond) {
+        // Only the bonds the router, the workout model, the HW1F model or the floating
+        // model values are calculated.
         return Err(ApiError::unsupported_product(format!(
-            "the calculator values fixed bullets and zeros with no embedded terms, floating rate notes, and callables on their workouts: {NOT_A_WORKOUT_CALLABLE}"
+            "the calculator values fixed bullets and zeros with no embedded terms, floating rate notes, callables on their workouts, and callables by OAS: {NOT_A_WORKOUT_CALLABLE}"
         )));
     }
-    if is_floating {
-        // The runtime reads a note's level in its rule's field, so it takes a level only by
-        // the method the note's rule quotes; the level's range is checked as for a quote.
+    if is_by_runtime {
+        // The runtime reads a level in the bond's rule's field, so it takes a level only by
+        // the method the rule quotes; the level's range is checked as for a quote.
         if request.method.is_level() && reference.pricing_method() != Some(&request.method) {
-            return Err(ApiError::invalid(
-                "a floating rate note is calculated from its price, or from a discount margin under a discount_margin pricing rule",
-            ));
+            return Err(ApiError::invalid(if is_floating {
+                "a floating rate note is calculated from its price, or from a discount margin under a discount_margin pricing rule"
+            } else {
+                "a callable is calculated from an OAS only under an oas pricing rule"
+            }));
         }
         runtime_composed(engine)?;
     }
     let mut context = engine
         .request_context(request.configuration.as_ref(), known_at)
         .await?;
-    // A note's valuation reads its rule's pin from the reference again.
-    let pin = if is_floating {
+    // The runtime's valuation reads the rule's pin from the reference again.
+    let pin = if is_by_runtime {
         reference.pricing_rule.clone()
     } else {
         reference.pricing_rule.take()
     };
-    let in_force = engine.rule_in_force_mid_only(&mut context, pin).await?;
-    let body = if is_on_workouts {
-        calculate_callable(&request, &reference, bond, in_force.as_ref())?
-    } else if is_floating {
-        calculate_floating(
+    let in_force = engine
+        .rule_in_force_mid_only(&mut context, bond, pin)
+        .await?;
+    let body = if is_by_runtime {
+        calculate_by_runtime(
             engine,
             &mut context,
             &request,
             &reference,
+            bond,
             known_at,
             in_force.as_ref(),
         )
         .await?
+    } else if is_on_workouts {
+        calculate_callable(&request, &reference, bond, in_force.as_ref())?
     } else {
         let bond = reference.record.bond.take().ok_or_else(not_found)?;
         calculate_by_router(engine, &mut context, &request, bond, in_force.as_ref()).await?
@@ -241,14 +257,15 @@ fn calculate_callable(
     Ok(body)
 }
 
-/// A floating rate note from a price or its rule's discount margin, valued as
-/// `GET /quotes/:id` values it: an unpublished snapshot of the context's discount and
-/// projection curves and the note's fixings, valued by the runtime.
-async fn calculate_floating(
+/// A floating rate note from a price or its rule's discount margin, or a callable from its
+/// rule's OAS, valued as `GET /quotes/:id` values it: an unpublished snapshot of the
+/// curves its model reads and a note's fixings, valued by the runtime.
+async fn calculate_by_runtime(
     engine: &PricingEngine,
     context: &mut RequestContext,
     request: &CalculatorRequest,
     reference: &ResolvedBondReference,
+    bond: &BondReferenceData,
     known_at: UtcTimestamp,
     in_force: Option<&PricingRuleInForce>,
 ) -> Result<Value, ApiError> {
@@ -264,7 +281,8 @@ async fn calculate_floating(
     .await?;
     body["input"] = input_json(request, None);
     if let Some(in_force) = in_force {
-        body["pricing_rule"] = rule_head_json(FLOATING_SNAPSHOT_MODEL, in_force);
+        let model = product_model(bond, Some(&in_force.rule.method));
+        body["pricing_rule"] = rule_head_json(model, in_force);
     }
     Ok(body)
 }

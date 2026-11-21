@@ -24,12 +24,12 @@ fn version(value: u64) -> Version {
     Version::new(value).unwrap()
 }
 
-/// A pricing rule quoting BOND-001 by `method`, in force from 2025.
-pub fn pricing_rule(method: serde_json::Value) -> MasterChange {
+/// A pricing rule quoting `instrument_id` by `method`, in force from 2025.
+pub fn pricing_rule(instrument_id: &str, method: serde_json::Value) -> MasterChange {
     serde_json::from_value(serde_json::json!({
         "expected_version": null,
         "definition": {"kind": "pricing_rule", "definition": {
-            "instrument_id": "BOND-001",
+            "instrument_id": instrument_id,
             "method": method,
             "effective": {"from": "2025-01-01T00:00:00Z", "until": null},
             "provenance": {"source": "desk", "evidence_reference": "product-test"},
@@ -55,6 +55,28 @@ pub fn quote_in(
     };
     value.value = mark;
     value.unit = field.unit();
+}
+
+/// A quote `requirement` also reading `field`, and its `seed` image also holding `mark`
+/// in it.
+pub fn also_quote_in(
+    requirement: &mut QuoteRequirement,
+    seed: &mut QuoteEvent,
+    field: QuoteField,
+    mark: Decimal,
+) {
+    requirement.fields.push(field);
+    let QuoteEventKind::Image { fields } = &mut seed.event else {
+        panic!("an image seed")
+    };
+    let mut added = fields[0].clone();
+    added.field = field;
+    let FieldUpdate::Set(value) = &mut added.update else {
+        panic!("a set field")
+    };
+    value.value = mark;
+    value.unit = field.unit();
+    fields.push(added);
 }
 
 /// `bond` with explicit annual calls from 2027, under call `style`.

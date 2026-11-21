@@ -696,15 +696,23 @@ impl PricingEngine {
     /// is its pin and width, from [`Self::pinned_rule_for_request`] or
     /// [`Self::rule_for_inline_terms`], and the set it names is read at `context`'s
     /// cutoff, with each security's pinned terms and Live clean price mid. The context
-    /// keeps each set it read, so a batch reads one set once.
+    /// keeps each set it read, so a batch reads one set once. A rule that no longer
+    /// applies to `bond`, one revised since the rule was committed, is refused before
+    /// anything is read.
     pub async fn rule_in_force(
         &self,
         context: &mut RequestContext,
+        bond: &ports::reference_data::BondReferenceData,
         rule: Option<ports::level_pricing::RequestPricingRule>,
     ) -> Result<Option<level_pricing::PricingRuleInForce>, level_pricing::LevelError> {
         let Some(ports::level_pricing::RequestPricingRule { pin: rule, width }) = rule else {
             return Ok(None);
         };
+        if !rule.applies_to(bond) {
+            return Err(level_pricing::LevelError::Refused(
+                ports::level_pricing::RULE_DOES_NOT_APPLY.into(),
+            ));
+        }
         let benchmark_set = match &rule.benchmark_set_id {
             None => None,
             Some(id) => Some(match context.benchmark_sets.get(id) {
@@ -728,10 +736,11 @@ impl PricingEngine {
     pub async fn rule_in_force_mid_only(
         &self,
         context: &mut RequestContext,
+        bond: &ports::reference_data::BondReferenceData,
         pin: Option<ports::level_pricing::ResolvedPricingRule>,
     ) -> Result<Option<level_pricing::PricingRuleInForce>, level_pricing::LevelError> {
         let rule = pin.map(|pin| ports::level_pricing::RequestPricingRule { pin, width: None });
-        self.rule_in_force(context, rule).await
+        self.rule_in_force(context, bond, rule).await
     }
 
     /// The level stage at request time under `in_force`, from [`Self::rule_in_force`],

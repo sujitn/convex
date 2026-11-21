@@ -1,9 +1,11 @@
-//! Callable valuation through `convex::library::execute`: OAS from the observed clean mid,
-//! then effective discount-curve risk at that OAS. Terms, calendars, curves and the model
-//! assumption come only from the pinned snapshot; nothing is defaulted or looked up.
+//! Callable valuation through `convex::library::execute`: the OAS at a clean price, or the
+//! price at an OAS, then effective discount-curve risk at that OAS. Terms, calendars,
+//! curves and the model assumption come only from the pinned snapshot; nothing is
+//! defaulted or looked up.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+use crate::level_pricing::{check_level, LevelError};
 use crate::ports::{
     level_pricing::PricingMethod,
     reference_data::{BondReferenceData, BondType},
@@ -27,7 +29,6 @@ use convex_core::{
     cashflows::PaymentDateEntitlement,
     contracts::{ErrorCode, ReferenceDataId, UtcTimestamp, Version},
     fixings::{FixingContext, UnpublishedFixingPolicy},
-    types::{Mark, PriceKind},
     Date,
 };
 use convex_curves::contracts::{CurveKey, CurveRecipe};
@@ -37,7 +38,7 @@ use std::collections::BTreeSet;
 
 /// Quantitative model for callables: HW1F trees under the configuration's explicit assumption.
 pub const OPTIONAL_SNAPSHOT_MODEL: &str = "convex-optional-hw1f-v1";
-/// Measures a callable publishes, each from the library at the solved OAS.
+/// Measures a callable publishes, each from the library at its OAS.
 pub const OPTIONAL_MEASURES: [&str; 7] = [
     "clean_price_mid",
     "dirty_price_mid",
@@ -113,10 +114,12 @@ pub fn product_model(bond: &BondReferenceData, method: Option<&PricingMethod>) -
     }
 }
 /// Whether `model` values a bond's level itself, as well as a price, so the level stage
-/// does not price it first: a callable's yield to worst on its workouts, and a floating
-/// rate note's discount margin.
+/// does not price it first: a callable's yield to worst on its workouts or its OAS on
+/// HW1F trees, and a floating rate note's discount margin.
 pub fn values_own_level(model: &str) -> bool {
-    model == WORKOUT_SNAPSHOT_MODEL || model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL
+    model == WORKOUT_SNAPSHOT_MODEL
+        || model == OPTIONAL_SNAPSHOT_MODEL
+        || model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL
 }
 /// The measures the model publishes; a plan's other measures do not apply to it.
 pub fn product_measures(model: &str) -> &'static [&'static str] {
@@ -200,17 +203,54 @@ pub(crate) struct CallableRisk {
     /// Loss per 100 face for +1 bp, scaled from the central difference.
     pub pv01: f64,
 }
-/// One callable at its observed clean mid.
-pub(crate) struct CallableQuote {
-    /// Accrued per 100 face from the bond's own schedule.
+/// What a callable on HW1F trees is valued from.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum CallableQuote {
+    /// A clean price per 100 face.
+    CleanPrice(Decimal),
+    /// An OAS over the discount curve, in basis points.
+    OasBps(Decimal),
+}
+
+impl CallableQuote {
+    /// `level` as `method` quotes a callable on HW1F trees: a clean price, or an OAS
+    /// within the range a rule's OAS takes.
+    pub(crate) fn quoted_by(method: &PricingMethod, level: Decimal) -> Result<Self, LevelError> {
+        match method {
+            PricingMethod::Price {} => Ok(Self::CleanPrice(level)),
+            PricingMethod::Oas {} => {
+                check_level(method, level)?;
+                Ok(Self::OasBps(level))
+            }
+            PricingMethod::Yield {}
+            | PricingMethod::ZSpread {}
+            | PricingMethod::BenchmarkSpread { .. }
+            | PricingMethod::DiscountMargin {} => Err(LevelError::Refused(format!(
+                "a callable is valued on HW1F trees from a price or an OAS, not a {}",
+                method.name()
+            ))),
+        }
+    }
+}
+
+/// One callable valued at its quote.
+pub(crate) struct CallableValuation {
+    /// Clean price per 100 face: the quoted price, or the model's at the quoted OAS.
+    pub clean: Decimal,
+    /// Dirty price per 100 face.
+    pub dirty: f64,
+    /// Accrued per 100 face from the bond's own schedule, which the model's agrees with.
     pub accrued: f64,
-    /// Unrounded basis points over the discount curve.
+    /// Unrounded basis points over the discount curve: the solved OAS, or the OAS as
+    /// quoted.
     pub oas_bps: f64,
     /// Risk is refined independently of price and may fail on its own.
     pub risk: Result<CallableRisk, Failure>,
 }
 
-/// Value one callable. `discount` is the exact stored recipe key the configuration selects.
+/// Value one callable at `quote`: from a clean price, the OAS that reprices it; from an
+/// OAS, the price at it. `discount` is the exact stored recipe key the configuration
+/// selects.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn value_callable(
     bond: &BondReferenceData,
@@ -221,8 +261,8 @@ pub(crate) fn value_callable(
     configuration: &BondPricingConfig,
     settlement: Date,
     known_at: UtcTimestamp,
-    clean_mid: Decimal,
-) -> Result<CallableQuote, Failure> {
+    quote: CallableQuote,
+) -> Result<CallableValuation, Failure> {
     let unsupported = |reason: &str| failure(ErrorCode::UnsupportedConvention, reason);
     let model = configuration
         .option_model
@@ -244,22 +284,12 @@ pub(crate) fn value_callable(
     let base = router
         .to_fixed_rate_bond(bond)
         .map_err(|e| invalid(e.to_string()))?;
-    let frequency = router
-        .get_frequency(bond)
-        .map_err(|e| invalid(e.to_string()))?;
     // Accrued from the same schedule the bullet path uses; the model's must agree.
-    let accrued = convex_analytics::pricing::price_from_mark(
-        &base,
-        settlement,
-        &Mark::Price {
-            value: clean_mid,
-            kind: PriceKind::Clean,
-        },
-        None,
-        frequency,
-    )
-    .map_err(|e| invalid(e.to_string()))?
-    .accrued_per_100;
+    let accrued = to_f64(
+        base.try_accrued_interest(settlement)
+            .map_err(|e| invalid(e.to_string()))?,
+        "accrued",
+    )?;
     let contract = callable_terms(base, bond, call)?;
     let pin = |id: &convex_bonds::types::CalendarId| {
         Ok(convex::rates::ReferencePin {
@@ -344,13 +374,6 @@ pub(crate) fn value_callable(
         })
         .map_err(library_failure)
     };
-    let clean = clean_mid
-        .to_f64()
-        .ok_or_else(|| invalid("unrepresentable clean mid".into()))?;
-    let solved = run(OptionalOperation::Oas {
-        dirty_price: clean + accrued,
-        settings: OAS_SOLVE,
-    })?;
     let number = |value: &Value, path: &[&str]| {
         path.iter()
             .try_fold(value, |node, key| node.get(key))
@@ -358,42 +381,84 @@ pub(crate) fn value_callable(
             .filter(|v| v.is_finite())
             .ok_or_else(|| failure(ErrorCode::InvalidInput, "incomplete library response"))
     };
-    let oas_decimal = number(&solved, &["data", "oas_decimal"])?;
-    let oas_bps = number(&solved, &["data", "oas_bps"])?;
-    if (number(&solved, &["data", "price", "accrued"])? - accrued).abs() > 1e-9 {
-        return Err(invalid(
-            "the optional model's accrued differs from the bond schedule's".into(),
-        ));
-    }
-    let risk = run(OptionalOperation::Risk {
-        oas_decimal,
-        axis: o::RiskAxis::Discount,
-        bump: RISK_BUMP,
-        settings: RISK,
-    })
-    .and_then(|risk| {
-        Ok(CallableRisk {
-            duration: number(&risk, &["data", "duration"])?,
-            convexity: number(&risk, &["data", "convexity"])?,
-            pv01: (number(&risk, &["data", "down", "dirty_price"])?
-                - number(&risk, &["data", "up", "dirty_price"])?)
-                / (2.0 * RISK_BUMP)
-                * 1e-4,
+    let agrees_with_schedule = |model_accrued: f64| {
+        if (model_accrued - accrued).abs() > 1e-9 {
+            return Err(invalid(
+                "the optional model's accrued differs from the bond schedule's".into(),
+            ));
+        }
+        Ok(())
+    };
+    let risk_at = |oas_decimal| {
+        run(OptionalOperation::Risk {
+            oas_decimal,
+            axis: o::RiskAxis::Discount,
+            bump: RISK_BUMP,
+            settings: RISK,
         })
-    })
-    .map_err(|error| Failure {
-        code: if error.code == ErrorCode::SolverLimit {
-            ErrorCode::IncompleteRisk
-        } else {
-            error.code
-        },
-        ..error
-    });
-    Ok(CallableQuote {
-        accrued,
-        oas_bps,
-        risk,
-    })
+    };
+    let callable_risk = |risk: Result<Value, Failure>| {
+        risk.and_then(|risk| {
+            Ok(CallableRisk {
+                duration: number(&risk, &["data", "duration"])?,
+                convexity: number(&risk, &["data", "convexity"])?,
+                pv01: (number(&risk, &["data", "down", "dirty_price"])?
+                    - number(&risk, &["data", "up", "dirty_price"])?)
+                    / (2.0 * RISK_BUMP)
+                    * 1e-4,
+            })
+        })
+        .map_err(|error| Failure {
+            code: if error.code == ErrorCode::SolverLimit {
+                ErrorCode::IncompleteRisk
+            } else {
+                error.code
+            },
+            ..error
+        })
+    };
+    match quote {
+        CallableQuote::CleanPrice(clean) => {
+            let dirty = to_f64(clean, "clean mid")? + accrued;
+            let solved = run(OptionalOperation::Oas {
+                dirty_price: dirty,
+                settings: OAS_SOLVE,
+            })?;
+            agrees_with_schedule(number(&solved, &["data", "price", "accrued"])?)?;
+            let risk = risk_at(number(&solved, &["data", "oas_decimal"])?);
+            Ok(CallableValuation {
+                clean,
+                dirty,
+                accrued,
+                oas_bps: number(&solved, &["data", "oas_bps"])?,
+                risk: callable_risk(risk),
+            })
+        }
+        CallableQuote::OasBps(oas) => {
+            let oas_bps = to_f64(oas, "OAS")?;
+            let oas_decimal = oas_bps * 1e-4;
+            // Risk reports the price at the OAS it bumps from, so the price is run alone only
+            // when risk fails.
+            let risk = risk_at(oas_decimal);
+            let priced_alone;
+            let price = match &risk {
+                Ok(risk) => &risk["data"]["base"],
+                Err(_) => {
+                    priced_alone = run(OptionalOperation::Price { oas_decimal })?;
+                    &priced_alone["data"]
+                }
+            };
+            agrees_with_schedule(number(price, &["accrued"])?)?;
+            Ok(CallableValuation {
+                clean: Decimal::from_f64_retain(number(price, &["clean_price"])?)
+                    .ok_or_else(|| invalid("the price at the OAS is not finite".into()))?,
+                dirty: number(price, &["dirty_price"])?,
+                accrued,
+                oas_bps,
+                risk: callable_risk(risk),
+            })
+        }
+    }
 }
 
 /// A stored callable's contractual terms and its call mechanics, which a callable is valued
@@ -540,7 +605,13 @@ mod tests {
         }))
         .unwrap()
     }
-    fn quote(bond: &BondReferenceData, clean: &str) -> Result<CallableQuote, Failure> {
+    fn quote(bond: &BondReferenceData, clean: &str) -> Result<CallableValuation, Failure> {
+        value(
+            bond,
+            CallableQuote::CleanPrice(Decimal::from_str(clean).unwrap()),
+        )
+    }
+    fn value(bond: &BondReferenceData, quote: CallableQuote) -> Result<CallableValuation, Failure> {
         let resources = crate::reference_terms::resources(bond);
         let MasterDefinition::Calendar(calendar) = &resources[1].definition else {
             panic!("fixture calendar resource")
@@ -555,7 +626,7 @@ mod tests {
             &config(),
             Date::parse("2026-10-06").unwrap(),
             UtcTimestamp::parse("2026-10-02T15:00:00Z").unwrap(),
-            Decimal::from_str(clean).unwrap(),
+            quote,
         )
     }
 
@@ -634,6 +705,71 @@ mod tests {
             ours.pv01
         );
         assert!(ours.duration > 0.0 && ours.pv01 > 0.0);
+    }
+
+    #[test]
+    fn the_price_at_the_solved_oas_is_the_price() {
+        let bond = callable(CallStyle::Bermudan);
+        let mut wider = f64::INFINITY;
+        for clean in ["97", "99.50", "101.25"] {
+            let solved = quote(&bond, clean).unwrap();
+            // A higher price is a tighter OAS.
+            assert!(solved.oas_bps < wider);
+            wider = solved.oas_bps;
+            let oas = Decimal::from_f64_retain(solved.oas_bps).unwrap();
+            let priced = value(&bond, CallableQuote::OasBps(oas)).unwrap();
+            let clean = Decimal::from_str(clean).unwrap();
+            assert!(
+                (priced.clean - clean).abs() < Decimal::new(1, 6),
+                "{}",
+                priced.clean
+            );
+            assert!((priced.dirty - solved.dirty).abs() < 1e-6);
+            assert_eq!(priced.accrued, solved.accrued);
+            assert_eq!(priced.oas_bps, solved.oas_bps);
+            // Risk at one OAS is the same either way, or fails the same way.
+            match (solved.risk, priced.risk) {
+                (Ok(solved), Ok(priced)) => {
+                    assert!((priced.duration - solved.duration).abs() < 1e-9);
+                    assert!((priced.pv01 - solved.pv01).abs() < 1e-9);
+                }
+                (Err(solved), Err(priced)) => assert_eq!(priced.code, solved.code),
+                _ => panic!("risk differs at {clean}"),
+            }
+        }
+    }
+
+    #[test]
+    fn an_oas_in_range_prices_and_solves_back_and_any_other_level_is_refused() {
+        use crate::level_pricing::OAS_LEVEL_RANGE_BPS as RANGE;
+        // The range is the OAS solve's bracket.
+        let decimal = |bps: &Decimal| bps.to_f64().unwrap() / 1e4;
+        assert_eq!(decimal(RANGE.start()), OAS_SOLVE.lower);
+        assert_eq!(decimal(RANGE.end()), OAS_SOLVE.upper);
+        let bond = callable(CallStyle::Bermudan);
+        let oas = PricingMethod::Oas {};
+        for end in [*RANGE.start(), *RANGE.end()] {
+            let priced = value(&bond, CallableQuote::quoted_by(&oas, end).unwrap()).unwrap();
+            let solved = quote(&bond, &priced.clean.to_string()).unwrap();
+            assert!(
+                (solved.oas_bps - priced.oas_bps).abs() < 1e-3,
+                "{end}: {}",
+                solved.oas_bps
+            );
+        }
+        for outside in [*RANGE.start() - Decimal::ONE, *RANGE.end() + Decimal::ONE] {
+            assert!(
+                CallableQuote::quoted_by(&oas, outside).is_err(),
+                "{outside}"
+            );
+        }
+        for method in [PricingMethod::Yield {}, PricingMethod::ZSpread {}] {
+            assert!(CallableQuote::quoted_by(&method, Decimal::ONE).is_err());
+        }
+        assert!(matches!(
+            CallableQuote::quoted_by(&PricingMethod::Price {}, Decimal::ONE_HUNDRED),
+            Ok(CallableQuote::CleanPrice(price)) if price == Decimal::ONE_HUNDRED
+        ));
     }
 
     #[test]

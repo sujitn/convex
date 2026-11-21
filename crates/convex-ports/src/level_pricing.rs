@@ -2,18 +2,17 @@
 //! government securities a spread is quoted to.
 //!
 //! A bond's [`PricingRuleDefinition`] (`MasterKey::PricingRule`) names its method: a price,
-//! a yield, a spread to one benchmark security, a Z-spread, or a floating rate note's
-//! discount margin. A callable quoted by price or by its yield to worst is valued on its
-//! workouts. The level itself is a quote,
-//! never stored. A rule may name a [`BenchmarkSetDefinition`]
+//! a yield, a spread to one benchmark security, a Z-spread, a floating rate note's
+//! discount margin, or a callable's OAS. A callable quoted by price or by its yield to
+//! worst is valued on its workouts. The level itself is a quote, never stored. A rule may name a [`BenchmarkSetDefinition`]
 //! (`MasterKey::BenchmarkSet`) by id, so an on-the-run roll is one commit to the set and
 //! the version a valuation read is recorded with its result. A bond with no rule is
 //! quoted by price. A rule may carry a two-way width in the unit it quotes, which a
 //! request reads with the rule ([`RequestPricingRule`]) and a snapshot's pin leaves out.
 //!
 //! These are types, bounds and validation only. Turning a level into a price is the
-//! engine's level stage, or the bond's own model for a callable on its workouts or a
-//! floating rate note, through the pure crates.
+//! engine's level stage, or the bond's own model for a callable or a floating rate note,
+//! through the pure crates.
 #![forbid(unsafe_code)]
 #![deny(
     unused_must_use,
@@ -51,8 +50,8 @@ pub const MAX_WORKOUT_CALLS: usize = 128;
 /// How a stored bond is quoted. For a fixed bullet, each method other than `price` is a
 /// level that the level stage turns into a price before the bond's model values it. A
 /// callable quoted by `price` or `yield` is valued on its workouts, from its price or its
-/// yield to worst; with no rule, or any other, it is valued on HW1F trees. A floating rate
-/// note is valued from its price or its discount margin by its own model.
+/// yield to worst; with no rule, or an `oas` rule, it is valued on HW1F trees. A floating
+/// rate note is valued from its price or its discount margin by its own model.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PricingMethod {
@@ -74,6 +73,10 @@ pub enum PricingMethod {
     /// the frozen projection of its index (the configuration's `frn_reference_curve`),
     /// discounted on the configuration's discount curve.
     DiscountMargin {},
+    /// A callable's option-adjusted spread, in basis points: the constant spread over the
+    /// configuration's discount curve at which its HW1F trees price it. A level at request
+    /// time only: in Live the callable is valued from its price, as with no rule.
+    Oas {},
 }
 
 impl PricingMethod {
@@ -90,6 +93,7 @@ impl PricingMethod {
             Self::BenchmarkSpread { .. } => "benchmark_spread",
             Self::ZSpread {} => "z_spread",
             Self::DiscountMargin {} => "discount_margin",
+            Self::Oas {} => "oas",
         }
     }
 
@@ -98,9 +102,10 @@ impl PricingMethod {
         match self {
             Self::Price {} => QuoteField::MidPrice,
             Self::Yield {} => QuoteField::MidYield,
-            Self::BenchmarkSpread { .. } | Self::ZSpread {} | Self::DiscountMargin {} => {
-                QuoteField::MidSpread
-            }
+            Self::BenchmarkSpread { .. }
+            | Self::ZSpread {}
+            | Self::DiscountMargin {}
+            | Self::Oas {} => QuoteField::MidSpread,
         }
     }
 
@@ -109,10 +114,41 @@ impl PricingMethod {
         self.is_level().then(|| self.quote_field())
     }
 
+    /// Whether the method is a level read at request time only: an OAS. In Live a bond
+    /// quoted this way is valued from its price, as with no rule.
+    pub fn is_request_time_only(&self) -> bool {
+        match self {
+            Self::Oas {} => true,
+            Self::Price {}
+            | Self::Yield {}
+            | Self::BenchmarkSpread { .. }
+            | Self::ZSpread {}
+            | Self::DiscountMargin {} => false,
+        }
+    }
+
+    /// The quote field of the level a Live plan reads a bond quoted this way from: none
+    /// for a price, or a level read at request time only.
+    pub fn live_level_field(&self) -> Option<QuoteField> {
+        self.level_field().filter(|_| !self.is_request_time_only())
+    }
+
+    /// The level field a quote declaring `fields` is read by, for a bond quoted this way:
+    /// the method's level field when the quote declares it, except a level read at request
+    /// time only beside a declared price, which is read by its price. A request's quote
+    /// declares one field, so it is read by the level or the price it sent.
+    pub fn declared_level_field(&self, fields: &[QuoteField]) -> Option<QuoteField> {
+        self.level_field().filter(|field| {
+            fields.contains(field)
+                && !(self.is_request_time_only() && fields.contains(&QuoteField::MidPrice))
+        })
+    }
+
     /// Whether a rule quoting this way, against a benchmark set when `names_benchmark_set`,
-    /// applies to `bond`: a fixed bullet by every method but a discount margin; any other
-    /// bond by price with no set; a callable valued on its workouts by its yield to worst
-    /// too; and a floating rate note by its discount margin, with no set.
+    /// applies to `bond`: a fixed bullet by every method but a discount margin or an OAS;
+    /// any other bond by price with no set; a callable valued on its workouts by its yield
+    /// to worst too; a floating rate note by its discount margin, and a callable the HW1F
+    /// model values ([`is_oas_callable`]) by its OAS, each with no set.
     pub fn applies_to(&self, names_benchmark_set: bool, bond: &BondReferenceData) -> bool {
         let is_bullet = is_plain_bullet(bond);
         match self {
@@ -122,6 +158,7 @@ impl PricingMethod {
             Self::DiscountMargin {} => {
                 !names_benchmark_set && bond.bond_type == BondType::FloatingRate
             }
+            Self::Oas {} => !names_benchmark_set && is_oas_callable(bond),
         }
     }
 
@@ -130,9 +167,10 @@ impl PricingMethod {
         match self {
             Self::Price {} => QuoteBasis::Price,
             Self::Yield {} => QuoteBasis::Yield,
-            Self::BenchmarkSpread { .. } | Self::ZSpread {} | Self::DiscountMargin {} => {
-                QuoteBasis::Spread
-            }
+            Self::BenchmarkSpread { .. }
+            | Self::ZSpread {}
+            | Self::DiscountMargin {}
+            | Self::Oas {} => QuoteBasis::Spread,
         }
     }
 
@@ -151,7 +189,11 @@ impl PricingMethod {
                 }
                 tenor_months(tenor).map(|_| ())
             }
-            Self::Price {} | Self::Yield {} | Self::ZSpread {} | Self::DiscountMargin {} => Ok(()),
+            Self::Price {}
+            | Self::Yield {}
+            | Self::ZSpread {}
+            | Self::DiscountMargin {}
+            | Self::Oas {} => Ok(()),
         }
     }
 }
@@ -464,18 +506,18 @@ pub(crate) fn validate_level_pricing_links(
 }
 
 /// Why a rule does not apply to a bond ([`PricingMethod::applies_to`]).
-pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, by a yield only a fixed bullet or a callable valued on its workouts, and by a discount margin only a floating rate note";
+pub const RULE_DOES_NOT_APPLY: &str = "only a fixed bullet is quoted by a spread or against a benchmark set, by a yield only a fixed bullet or a callable valued on its workouts, by a discount margin only a floating rate note, and by an OAS only a callable with European or Bermudan fixed-price calls and no other embedded terms";
 
 /// Why a callable is not valued on its workouts ([`is_workout_callable`]).
 pub const NOT_A_WORKOUT_CALLABLE: &str = "a callable is valued on its workouts only with European or Bermudan fixed-price calls, at most 128, and no other embedded terms";
 
-/// A fixed callable the workout model values: European or Bermudan fixed-price calls, at
-/// most [`MAX_WORKOUT_CALLS`], and nothing beyond its calls
+/// A fixed callable the HW1F model values by its OAS: European or Bermudan fixed-price
+/// calls, none make-whole, and nothing beyond its calls
 /// ([`BondReferenceData::has_terms_beyond_calls`]).
-pub fn is_workout_callable(bond: &BondReferenceData) -> bool {
+pub fn is_oas_callable(bond: &BondReferenceData) -> bool {
     bond.bond_type == BondType::FixedCallable
         && bond.is_callable
-        && (1..=MAX_WORKOUT_CALLS).contains(&bond.call_schedule.len())
+        && !bond.call_schedule.is_empty()
         && !bond.call_schedule.iter().any(|call| call.is_make_whole)
         && !bond.has_terms_beyond_calls()
         && bond
@@ -483,6 +525,12 @@ pub fn is_workout_callable(bond: &BondReferenceData) -> bool {
             .as_ref()
             .and_then(|terms| terms.call_terms.as_ref())
             .is_some_and(|call| call.style != CallStyle::American)
+}
+
+/// A fixed callable the workout model values: one the HW1F model values
+/// ([`is_oas_callable`]), with at most [`MAX_WORKOUT_CALLS`] calls.
+pub fn is_workout_callable(bond: &BondReferenceData) -> bool {
+    bond.call_schedule.len() <= MAX_WORKOUT_CALLS && is_oas_callable(bond)
 }
 
 /// A fixed-coupon bullet with no embedded terms: what the router values and the level

@@ -269,6 +269,25 @@ fn note(id: &str, maturity: &str, coupon: &str, cusip: &str) -> BondReferenceDat
     bond
 }
 
+/// `bond` as a zero, with the convention pack its commit carries: a bill accrues ACT/360
+/// and its one payment is not adjusted, under a pack of its own.
+fn zero(mut bond: BondReferenceData) -> (BondReferenceData, Vec<MasterChange>) {
+    bond.bond_type = convex_ports::reference_data::BondType::ZeroCoupon;
+    bond.coupon_rate = None;
+    bond.first_coupon_date = None;
+    bond.day_count = "ACT/360".into();
+    let mut terms = fixture::reference_terms::terms(&bond);
+    terms.settings.business_day_convention =
+        convex_core::calendars::BusinessDayConvention::Unadjusted;
+    terms.convention.id = ReferenceDataId::new("fixture-zero").unwrap();
+    bond.contractual_terms = Some(terms);
+    let convention = fixture::reference_terms::resources(&bond)
+        .into_iter()
+        .filter(|change| matches!(change.definition, MasterDefinition::Convention(_)))
+        .collect();
+    (bond, convention)
+}
+
 fn master(definition: Value, expected: Option<u64>) -> MasterChange {
     let mut change = definition;
     change["expected_version"] = expected.into();
@@ -743,22 +762,7 @@ async fn the_calculator_prices_one_level_by_any_method() {
 
     // A stored zero is calculated by its price, its one workout at maturity, and is refused
     // a yield: only a fixed bullet is priced from a level.
-    let mut zero = note("UST-ZERO", "2028-01-15", "0", "912797AA1");
-    zero.bond_type = convex_ports::reference_data::BondType::ZeroCoupon;
-    zero.coupon_rate = None;
-    zero.first_coupon_date = None;
-    zero.day_count = "ACT/360".into();
-    // A bill accrues ACT/360 and its one payment is not adjusted, under a convention pack
-    // of its own.
-    let mut terms = fixture::reference_terms::terms(&zero);
-    terms.settings.business_day_convention =
-        convex_core::calendars::BusinessDayConvention::Unadjusted;
-    terms.convention.id = ReferenceDataId::new("fixture-zero").unwrap();
-    zero.contractual_terms = Some(terms);
-    let convention = fixture::reference_terms::resources(&zero)
-        .into_iter()
-        .filter(|change| matches!(change.definition, MasterDefinition::Convention(_)))
-        .collect();
+    let (zero, convention) = zero(note("UST-ZERO", "2028-01-15", "0", "912797AA1"));
     setup
         .storage
         .bonds
@@ -1115,7 +1119,8 @@ async fn a_benchmark_live_record_is_read_only_when_current_and_exact() {
 
 /// Each refusal names what is missing, and nothing is substituted: two inputs, a level on
 /// a bond with no rule, no input, a benchmark the set does not hold, a benchmark the Live
-/// runtime does not value, and a cutoff before the Live price.
+/// runtime does not value, and a cutoff before the Live price. A bond revised so that its
+/// rule no longer applies is refused for that before its set is read.
 #[tokio::test]
 async fn a_level_is_refused_by_name_when_its_inputs_are_not_there() {
     let (setup, engine, cutoff) = desk().await;
@@ -1211,6 +1216,33 @@ async fn a_level_is_refused_by_name_when_its_inputs_are_not_there() {
     .await;
     // By tenor, not instrument: a refusal is not checked against the caller's entitlements.
     assert!(!body.to_string().contains("UST-30Y"), "{body}");
+    // Revised to a zero, the bond no longer takes its spread rule, so neither the set nor
+    // its 30Y benchmark is read, by a level or a price.
+    let (revised, convention) = zero(fixture::bond());
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("level-zero").unwrap(),
+                changes: vec![ReferenceChange::Update {
+                    bond: Box::new(revised),
+                    expected_version: Version::new(1).unwrap(),
+                }],
+                master_changes: convention,
+            },
+            fixture::time("2025-06-04T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    for input in ["level=125", "market_price=92.5"] {
+        refused(
+            at(input, &cutoff),
+            StatusCode::BAD_REQUEST,
+            convex_ports::level_pricing::RULE_DOES_NOT_APPLY,
+        )
+        .await;
+    }
 }
 
 /// A rule or set is ended by a version with an end date, as the reference routes commit

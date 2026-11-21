@@ -72,8 +72,8 @@ pub(crate) fn pricing_rule_json(
 }
 
 /// The rule of a bond whose `model` values its level itself, a callable's yield to worst
-/// on its workouts or a floating rate note's discount margin, with no stage and no
-/// benchmark.
+/// on its workouts or OAS on HW1F trees, or a floating rate note's discount margin, with
+/// no stage and no benchmark.
 pub(crate) fn model_rule_json(
     model: &str,
     in_force: &PricingRuleInForce,

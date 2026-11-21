@@ -36,7 +36,7 @@ async fn workout_setup(method: Value, field: QuoteField, mark: Decimal) -> Setup
                     bond: Box::new(products::callable(fixture::bond(), CallStyle::Bermudan)),
                     expected_version: fixture::version(1),
                 }],
-                master_changes: vec![products::pricing_rule(method)],
+                master_changes: vec![products::pricing_rule("BOND-001", method)],
             },
             fixture::time("2025-06-01T00:00:00Z"),
         )
