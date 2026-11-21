@@ -95,7 +95,8 @@ impl FloatingQuote {
             }
             PricingMethod::Yield {}
             | PricingMethod::ZSpread {}
-            | PricingMethod::BenchmarkSpread { .. } => Err(LevelError::Refused(format!(
+            | PricingMethod::BenchmarkSpread { .. }
+            | PricingMethod::Oas {} => Err(LevelError::Refused(format!(
                 "a floating rate note is valued from a price or a discount margin, not a {}",
                 method.name()
             ))),

@@ -457,7 +457,9 @@ names the bond and its method:
 - `z_spread`, basis points over the configuration's discount curve;
 - `discount_margin`, for a floating rate note only: basis points over the frozen
   projection of its index (the configuration's `frn_reference_curve`), discounted on the
-  configuration's discount curve.
+  configuration's discount curve;
+- `oas`, for a callable only, at request time only: basis points over the configuration's
+  discount curve at which its HW1F trees price it.
 
 A rule may also name a benchmark set by `benchmark_set_id`. A spread is quoted to that set, and the
 bond's G-spread is computed over it. The set's version in force at a valuation's cutoff
@@ -476,7 +478,8 @@ refused with 400 if:
 - a rule names a set that does not exist;
 - a rule quotes a bond other than a fixed bullet by `z_spread` or `benchmark_spread`, or
   against a set;
-- a rule quotes a bond other than a floating rate note by `discount_margin`;
+- a rule quotes a bond other than a floating rate note by `discount_margin`, or other
+  than a callable by `oas`;
 - a rule quotes by a yield a bond that is neither a fixed bullet nor a callable valued on
   its workouts (below);
 - a rule's `width` is not a valid schedule, or is in a unit its method does not quote;
@@ -531,7 +534,22 @@ by its own model, `convex-floating-dm-v1`, in Live and at request time.
 - A note with no rule, or a `price` rule, is quoted by price: its quote's spread is never
   read as its margin.
 
-At request time, a level for a callable on its workouts or a note quoted by its margin is
+A callable whose rule quotes it by `oas` stays on HW1F trees, `convex-optional-hw1f-v1`,
+and is priced from its OAS at request time only.
+- From an OAS it prices the callable at that spread over the discount curve, through
+  `convex::library` (`OptionalBond` `Price`), then its effective risk at it; from a clean
+  price it solves the OAS, as for a callable with no rule. Each inverts the other.
+- It publishes what a callable with no rule publishes, and `oas_mid` is the OAS as
+  quoted. It reads the discount curve, as from a price.
+- An OAS is from -500 to 1,000 basis points, the OAS solver's bracket, so the price at
+  any OAS solves back to it.
+- `GET /api/v1/quotes/:id` takes `level` (basis points of OAS) or `market_price`. Its
+  `pricing_rule` report names the HW1F model and the level.
+- In Live it is valued from its price, exactly as with no rule: its plan reads the
+  selection's fields, and a quote that declares a price is read by its price, even if it
+  also holds a spread. It counts against the cap of 8 callables on HW1F trees.
+
+At request time, a level for a callable or a note quoted by its own model's level is
 checked against its method's range before it is valued, and refused with 400 outside it,
 as a bullet's level is.
 
@@ -667,8 +685,9 @@ others" for a stored bond. It is read-only and stores nothing.
 
 - **Any method, whatever the rule quotes.** `method` is a rule's method, and `level` is
   in its unit: a clean price per 100 for `price`, a decimal yield for `yield`, basis
-  points for `z_spread`, `benchmark_spread` and `discount_margin`. A spread-quoted bond
-  can be calculated from a yield, and a bond with no rule from a yield or a Z-spread.
+  points for `z_spread`, `benchmark_spread`, `discount_margin` and `oas`. A spread-quoted
+  bond can be calculated from a yield, and a bond with no rule from a yield or a
+  Z-spread.
 - **The same stage and context as a quote.** The level is priced as
   `GET /api/v1/quotes/:id` prices it, under the configuration (`configuration`, or the
   runtime's) and the curves current at `known_at` (now when absent). From the rule's own
@@ -685,6 +704,12 @@ others" for a stored bond. It is read-only and stores nothing.
   the note's fixings, so a server without a runtime refuses it (422
   `UNSUPPORTED_PRODUCT`). A measure the note's model cannot give is reported in
   `measure_errors`, as the quote route reports it.
+- **Callables by OAS.** A callable whose rule quotes it by `oas` is calculated from an
+  `oas` on its HW1F trees, as `GET /api/v1/quotes/:id` values it, by the runtime's
+  request valuation over the configuration's discount curve; a server without a runtime
+  refuses it (422 `UNSUPPORTED_PRODUCT`). With no `oas` rule an OAS is refused (400),
+  since the runtime reads a callable's OAS in its rule's field. By a `price` or a
+  `yield` it is still calculated on its workouts.
 - **Callables on their workouts.** A callable is calculated from a `price` or a `yield`
   to worst, whatever its rule quotes, with the workout model of
   `GET /api/v1/quotes/:id`. It needs no runtime and reads no curve, and a spread method
@@ -694,16 +719,19 @@ others" for a stored bond. It is read-only and stores nothing.
   distressed callable whose near call yields more is refused (422) here though the
   quote prices it.
 - **The reply** is the bond's model's measures at the level: the router's for a bullet
-  or zero, for a callable its clean price, accrued, dirty price and `ytw`, and for a note
-  its clean price, accrued, dirty price and `discount_margin_mid`, with the unpublished
-  `snapshot` it was valued from. It adds:
+  or zero, for a callable on its workouts its clean price, accrued, dirty price and
+  `ytw`, for a callable by OAS its HW1F measures (clean price, accrued, dirty price,
+  `oas_mid`, effective duration and convexity, PV01), and for a note its clean price,
+  accrued, dirty price and `discount_margin_mid`; a callable by OAS and a note come with
+  the unpublished `snapshot` they were valued from. It adds:
   - `input`: the `method` and `level` sent, and for a benchmark spread the `benchmark`
     it was quoted to, with the `ytm` it was added to;
   - `pricing_rule`, when the bond has a rule: its `version` and `method`, and the set as
     read, with each security's Live price;
-  - for a bullet, zero or callable, `workouts`, each date the bond can be redeemed at
-    with its `yield`, and `worst`, the workout of lowest yield. A note has no yield to a
-    redemption date, so neither.
+  - for a bullet, zero or callable on its workouts, `workouts`, each date the bond can be
+    redeemed at with its `yield`, and `worst`, the workout of lowest yield. A note has no
+    yield to a redemption date, and a callable by OAS is valued on its trees, so neither
+    has them.
     - A fixed bullet or zero is redeemed at maturity only, so its one workout is
       maturity, at `ytm_mid`.
     - A callable lists each call whose notice can still be given, with its
@@ -717,14 +745,17 @@ others" for a stored bond. It is read-only and stores nothing.
   - Callables with European or Bermudan fixed-price calls, at most 128, and no other
     embedded terms.
   - Floating rate notes, by price or by their rule's margin.
-  - Any other bond, such as an American callable, is refused with 422
+  - Callables by their rule's OAS. Terms the HW1F model does not value, such as American
+    or make-whole calls, are reported per measure in `measure_errors`.
+  - Any other bond, such as an American callable by price, is refused with 422
     `UNSUPPORTED_PRODUCT` before anything else is read.
 - **Access.** As `GET /api/v1/quotes/:id`, with the `calculate` action: the reply names
   each benchmark's `instrument_id`, so the caller needs entitlement to it.
 - **Refusals.**
   - 400 for a malformed body, an unknown field, a level out of its range, a method the
-    bond is not calculated by (such as a margin for a note its rule quotes by price), or
-    a callable's settlement on a day nothing settles on.
+    bond is not calculated by (such as a margin for a note its rule quotes by price, or
+    an OAS for a callable with no `oas` rule), or a callable's settlement on a day
+    nothing settles on.
   - 404 for a bond not stored at `known_at`.
   - 413 `CAPACITY_EXCEEDED` for a body over 64 KiB.
   - 422 for a benchmark without a usable Live price, naming its tenor, a callable whose

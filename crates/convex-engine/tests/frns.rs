@@ -8,7 +8,7 @@ mod configuration;
 mod products;
 #[path = "support/curve_replay.rs"]
 mod recipes;
-use configuration::runtime::*;
+use configuration::{measure, runtime::*};
 use convex_core::{contracts::*, Date};
 use convex_engine::{
     floating_valuation::*, level_pricing::QuotedInput, snapshot::RUNTIME_MEASURES, RuntimeInput,
@@ -91,6 +91,7 @@ async fn margin_setup(margin: Decimal) -> Setup {
                 idempotency_key: RequestId::new("frn-margin-rule").unwrap(),
                 changes: vec![],
                 master_changes: vec![products::pricing_rule(
+                    "BOND-001",
                     serde_json::json!({"kind": "discount_margin"}),
                 )],
             },
@@ -108,44 +109,11 @@ async fn margin_setup(margin: Decimal) -> Setup {
     setup
 }
 
-/// A started captured runtime over `setup`'s plan, with its recipes stored and
-/// configuration version 2 activated, so it also values requests.
+/// A started captured runtime over `setup`'s plan, with its discount and projection
+/// recipes stored and configuration version 2 activated.
 async fn request_runtime(setup: &Setup) -> std::sync::Arc<convex_engine::PricingEngine> {
-    for recipe in [recipes::recipe(), products::projection(recipes::recipe())] {
-        setup
-            .storage
-            .curves
-            .save_recipe(&recipes::record(recipe))
-            .await
-            .unwrap();
-    }
-    let config = setup
-        .storage
-        .configs
-        .get_version("CONFIG-RESTORE", 2)
-        .await
-        .unwrap()
-        .unwrap();
-    let engine = make_engine(
-        setup,
-        archive(setup),
-        setup.plan.clone(),
-        setup.store.clone(),
-        RuntimeInput::Captured,
-    );
-    engine.start().await.unwrap();
-    // A runtime without configuration use cases starts only with nothing activated.
-    configuration::activate_pricing(setup, &config).await;
-    engine
-}
-
-fn measure(result: &ResultEnvelope, name: &str) -> f64 {
-    match &result.results()[&MeasureId::new(name).unwrap()].value {
-        MeasureValue::ModelPrice(v) => v.value().get(),
-        MeasureValue::ModelBps(v) => v.value().get(),
-        MeasureValue::Price(v) => v.value().decimal().try_into().unwrap(),
-        other => panic!("{name}: {other:?}"),
-    }
+    let recipes = [recipes::recipe(), products::projection(recipes::recipe())];
+    configuration::request_runtime(setup, recipes.map(recipes::record).to_vec()).await
 }
 
 async fn run(setup: &Setup) -> Vec<convex_ports::runtime::PublishedValuation> {

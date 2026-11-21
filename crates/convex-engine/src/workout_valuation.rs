@@ -86,7 +86,8 @@ impl WorkoutQuote {
             }
             PricingMethod::ZSpread {}
             | PricingMethod::BenchmarkSpread { .. }
-            | PricingMethod::DiscountMargin {} => Err(LevelError::Refused(format!(
+            | PricingMethod::DiscountMargin {}
+            | PricingMethod::Oas {} => Err(LevelError::Refused(format!(
                 "a callable is valued on its workouts from a price or a yield to worst, not a {}",
                 method.name()
             ))),

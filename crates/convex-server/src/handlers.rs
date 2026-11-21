@@ -951,8 +951,9 @@ struct RuntimeMark {
 
 /// The mark a stored callable or floating rate note is valued from under its rule. A bond
 /// whose model values its rule's level itself takes its quote as sent: a callable on its
-/// workouts a price or a yield to worst, a floating rate note a price or a discount
-/// margin. Any other gets the clean price the level stage gives.
+/// workouts a price or a yield to worst, a callable on HW1F trees a price or an OAS, a
+/// floating rate note a price or a discount margin. Any other gets the clean price the
+/// level stage gives.
 async fn runtime_mark(
     engine: &PricingEngine,
     context: &mut convex_engine::RequestContext,

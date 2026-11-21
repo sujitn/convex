@@ -620,6 +620,136 @@ async fn stored_callables_and_notes_price_at_request_time_as_the_stream_values_t
     engine.shutdown().await.unwrap();
 }
 
+/// Quoted by its OAS, a callable is priced at it on HW1F trees by the quote route and the
+/// calculator alike, and still takes a price; by a price the calculator still values it on
+/// its workouts. With no `oas` rule, or on a server without a runtime, the calculator
+/// refuses an OAS, and an OAS out of range is refused on both routes.
+#[tokio::test]
+async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_and_the_calculator() {
+    use convex_engine::optional_valuation::{OPTIONAL_MEASURES, OPTIONAL_SNAPSHOT_MODEL};
+    let (setup, _, _) = products_setup().await;
+    let (engine, known_at) = started(&setup).await;
+    activate(&setup).await;
+    let app = router(engine.clone());
+    let quote = |query: &str| {
+        let uri = format!(
+            "/api/v1/quotes/CALL-001?{query}&known_at={known_at}&settlement_date={SETTLEMENT}"
+        );
+        let app = app.clone();
+        async move { call(&app, "GET", &uri, None).await }
+    };
+    let calculate = |app: axum::Router, method: Value, level: String| {
+        let body = json!({"method": method, "level": level, "settlement_date": SETTLEMENT,
+            "known_at": known_at});
+        async move { call(&app, "POST", "/api/v1/bonds/CALL-001/calculate", Some(body)).await }
+    };
+    let oas_method = || json!({"kind": "oas"});
+    let (status, _, by_price) = quote("market_price=99.25").await;
+    assert_eq!(status, StatusCode::OK, "{by_price}");
+    let oas = number(&by_price["oas_mid"]);
+    // An OAS is read in its rule's field, so with no `oas` rule it is refused.
+    let (status, _, refused) = calculate(app.clone(), oas_method(), oas.to_string()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap()
+            .contains("oas pricing rule"),
+        "{refused}"
+    );
+
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("call-rule-oas").unwrap(),
+                changes: vec![],
+                master_changes: vec![products::pricing_rule("CALL-001", oas_method())],
+            },
+            engine.runtime_results()[0].result.provenance().known_at,
+        )
+        .await
+        .unwrap();
+    let (status, headers, quoted) = quote(&format!("level={oas}")).await;
+    assert_eq!(status, StatusCode::OK, "{quoted}");
+    assert!(
+        (number(&quoted["clean_price_mid"]) - 99.25).abs() < 1e-6,
+        "{quoted}"
+    );
+    assert_eq!(number(&quoted["oas_mid"]), oas);
+    assert_eq!(quoted["accrued_interest"], by_price["accrued_interest"]);
+    assert_eq!(
+        quoted["pricing_rule"],
+        json!({"model": OPTIONAL_SNAPSHOT_MODEL, "version": 1, "method": oas_method(),
+            "level": oas})
+    );
+    assert_eq!(headers["x-convex-pricing-rule-version"], "1");
+    assert_eq!(headers["x-convex-curve-versions"], "USD-FIXTURE@7");
+    let (status, _, calculated) = calculate(app.clone(), oas_method(), oas.to_string()).await;
+    assert_eq!(status, StatusCode::OK, "{calculated}");
+    // The model's measures, as the quote body names them.
+    let measures = [
+        "clean_price_mid",
+        "dirty_price_mid",
+        "accrued_interest",
+        "oas_mid",
+        "effective_duration",
+        "effective_convexity",
+        "pv01",
+    ];
+    assert_eq!(measures.len(), OPTIONAL_MEASURES.len());
+    for measure in measures {
+        assert!(!quoted[measure].is_null(), "{measure}: {quoted}");
+        assert_eq!(
+            calculated[measure], quoted[measure],
+            "{measure}: {calculated}"
+        );
+    }
+    assert_eq!(
+        calculated["pricing_rule"],
+        json!({"model": OPTIONAL_SNAPSHOT_MODEL, "version": 1, "method": oas_method()})
+    );
+    assert_eq!(
+        calculated["input"],
+        json!({"method": oas_method(), "level": oas})
+    );
+    assert!(calculated.get("workouts").is_none(), "{calculated}");
+    // By a price, the quote route values it on its trees, and the calculator on its
+    // workouts.
+    let (status, _, quoted) = quote("market_price=99.25").await;
+    assert_eq!(status, StatusCode::OK, "{quoted}");
+    assert_eq!(quoted["oas_mid"], by_price["oas_mid"]);
+    let (status, _, on_workouts) =
+        calculate(app.clone(), json!({"kind": "price"}), "99.25".into()).await;
+    assert_eq!(status, StatusCode::OK, "{on_workouts}");
+    assert!(on_workouts["workouts"].is_array(), "{on_workouts}");
+    assert_eq!(
+        on_workouts["pricing_rule"]["model"],
+        convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL
+    );
+    // An OAS out of range is refused on both routes.
+    let (status, _, refused) = quote("level=1001").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    let (status, _, refused) = calculate(app.clone(), oas_method(), "1001".into()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+    assert_eq!(refused["code"], "INVALID_INPUT", "{refused}");
+    engine.shutdown().await.unwrap();
+    // A server without a runtime refuses an OAS, naming the runtime.
+    let (status, _, refused) = calculate(
+        router(without_runtime(&setup)),
+        oas_method(),
+        oas.to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(refused["code"], "UNSUPPORTED_PRODUCT", "{refused}");
+    assert!(
+        refused["error"].as_str().unwrap().contains("runtime"),
+        "{refused}"
+    );
+}
+
 /// A JSON number or numeric string.
 fn number(value: &Value) -> f64 {
     value

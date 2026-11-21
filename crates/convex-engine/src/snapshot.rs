@@ -1155,19 +1155,22 @@ impl SnapshotValuator {
         // longer applies is refused, saying why.
         let is_rule_misapplied = rule.is_some_and(|rule| !rule.applies_to(bond));
         // A bond is read from the field its rule quotes it by: its level, or a price. A
-        // callable on its workouts and a floating rate note value their rule's level
-        // themselves, and a price too, so when their quote declares no field of their
-        // rule's they are read from a price: a request may send one, and a Live plan
-        // compiled before the rule moved to a level still carries one.
+        // callable and a floating rate note value their rule's level themselves, and a
+        // price too, so when their quote declares no field of their rule's they are read
+        // from a price: a request may send one, and a Live plan compiled before the rule
+        // moved to a level still carries one. A level read at request time only, an OAS,
+        // is read only from a quote declaring no price, as a request's declares one field,
+        // so a Live plan is read by price whenever it was compiled.
         let declared = &selected[0].requirement.fields;
         let model = spec.model_id.as_str();
-        let is_workouts = model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL;
-        let is_floating = model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL;
         let price = PricingMethod::Price {};
         let quoted_method = rule
             .map(|rule| &rule.method)
             .filter(|method| {
-                !(is_workouts || is_floating) || declared.contains(&method.quote_field())
+                !crate::optional_valuation::values_own_level(model)
+                    || (declared.contains(&method.quote_field())
+                        && !(method.is_request_time_only()
+                            && declared.contains(&QuoteField::MidPrice)))
             })
             .unwrap_or(&price);
         let quoted_field = quoted_method.quote_field();
@@ -1203,12 +1206,13 @@ impl SnapshotValuator {
                 spec,
                 reference,
                 recipe_curves,
-                mark(QuoteField::MidPrice),
+                quoted_method,
+                mark(quoted_field),
                 quality,
             )?
-        } else if is_workouts {
+        } else if model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL {
             workout_measures(spec, reference, quoted_method, mark(quoted_field), quality)?
-        } else if is_floating {
+        } else if model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
             floating_measures(
                 snapshot,
                 spec,
@@ -1703,20 +1707,20 @@ fn floating_measures(
     })
 }
 
-/// Callable measures at the observed clean mid, from `convex::library`. A plan measure
-/// the optional model does not publish never reaches this context.
+/// Callable measures on HW1F trees from `convex::library`, at its `mark` quoted by
+/// `method`: a clean price, or an OAS. A plan measure the optional model does not publish
+/// never reaches this context.
 fn callable_measures(
     snapshot: &MarketSnapshot,
     spec: &ValuationContextSpec,
     reference: &ResolvedBondReference,
     recipe_curves: &convex_curves::contracts::CurveBuildOutput,
-    clean_mid: Option<rust_decimal::Decimal>,
+    method: &PricingMethod,
+    mark: Option<rust_decimal::Decimal>,
     quality: DataQuality,
 ) -> Result<Measures, TraitError> {
-    use crate::optional_valuation::{self as optional, Failure};
-    let failure = |code, message: &str| Failure {
-        code,
-        message: message.into(),
+    use crate::optional_valuation::{
+        self as optional, failure, level_failure, CallableQuote, Failure,
     };
     let configuration = &snapshot.content().configuration;
     let bond = reference
@@ -1724,13 +1728,14 @@ fn callable_measures(
         .bond
         .as_ref()
         .ok_or(TraitError::InvalidInput("tombstone reference"))?;
-    let clean = clean_mid.ok_or_else(|| {
+    let missing = || {
         failure(
             ErrorCode::MissingMarketData,
             "Required mid mark is unavailable",
         )
-    });
-    let quoted = clean.clone().and_then(|clean| {
+    };
+    let valued = mark.ok_or_else(missing).and_then(|mark| {
+        let quote = CallableQuote::quoted_by(method, mark).map_err(level_failure)?;
         // The library builds curves from recipes, so the discount curve must be a stored recipe.
         let id = configuration.analytics_curves.discount_curve.as_str();
         let unsupported = || {
@@ -1781,7 +1786,7 @@ fn callable_measures(
             configuration,
             spec.settlement_date.date(),
             snapshot.content().known_at,
-            clean,
+            quote,
         )
     });
     let finite = |value: f64| {
@@ -1789,41 +1794,34 @@ fn callable_measures(
             .map_err(|_| failure(ErrorCode::InvalidInput, "nonfinite callable measure"))
     };
     model_measures(spec, quality, |measure| {
-        quoted.as_ref().map_err(Clone::clone).and_then(|quote| {
-            let clean = clean.clone()?;
-            let risk = || quote.risk.as_ref().map_err(Clone::clone);
-            let model = ExactDecimal::new(clean)
-                .to_model()
-                .map_err(|_| failure(ErrorCode::InvalidInput, "unrepresentable clean mid"))?;
-            Ok(match measure {
-                "clean_price_mid" => {
-                    MeasureValue::Price(PricePer100::new(ExactDecimal::new(clean)))
-                }
-                "dirty_price_mid" => MeasureValue::ModelPrice(ModelPricePer100::new(finite(
-                    model.get() + quote.accrued,
-                )?)),
-                "accrued_interest" => {
-                    MeasureValue::ModelPrice(ModelPricePer100::new(finite(quote.accrued)?))
-                }
-                "oas_mid" => MeasureValue::ModelBps(ModelBasisPoints::new(finite(quote.oas_bps)?)),
-                // Parallel discount shift with the OAS frozen.
-                "effective_duration_mid" => {
-                    MeasureValue::ModelYears(ModelYears::new(finite(risk()?.duration)?))
-                }
-                "effective_convexity_mid" => MeasureValue::ModelYearsSquared(
-                    ModelYearsSquared::new(finite(risk()?.convexity)?),
-                ),
-                // Loss per 100 face for +1 bp of the discount curve.
-                "pv01_mid" => {
-                    MeasureValue::ModelPrice(ModelPricePer100::new(finite(risk()?.pv01)?))
-                }
-                _ => {
-                    return Err(failure(
-                        ErrorCode::InvalidInput,
-                        "Requested measure is outside this snapshot valuation slice",
-                    ))
-                }
-            })
+        let valued = valued.as_ref().map_err(Failure::clone)?;
+        let risk = || valued.risk.as_ref().map_err(Failure::clone);
+        Ok(match measure {
+            "clean_price_mid" => {
+                MeasureValue::Price(PricePer100::new(ExactDecimal::new(valued.clean)))
+            }
+            "dirty_price_mid" => {
+                MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.dirty)?))
+            }
+            "accrued_interest" => {
+                MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.accrued)?))
+            }
+            "oas_mid" => MeasureValue::ModelBps(ModelBasisPoints::new(finite(valued.oas_bps)?)),
+            // Parallel discount shift with the OAS frozen.
+            "effective_duration_mid" => {
+                MeasureValue::ModelYears(ModelYears::new(finite(risk()?.duration)?))
+            }
+            "effective_convexity_mid" => {
+                MeasureValue::ModelYearsSquared(ModelYearsSquared::new(finite(risk()?.convexity)?))
+            }
+            // Loss per 100 face for +1 bp of the discount curve.
+            "pv01_mid" => MeasureValue::ModelPrice(ModelPricePer100::new(finite(risk()?.pv01)?)),
+            _ => {
+                return Err(failure(
+                    ErrorCode::InvalidInput,
+                    "Requested measure is outside this snapshot valuation slice",
+                ))
+            }
         })
     })
 }

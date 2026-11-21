@@ -6,9 +6,11 @@ mod configuration;
 mod products;
 #[path = "support/curve_replay.rs"]
 mod recipes;
-use configuration::runtime::*;
+use configuration::{measure, runtime::*};
 use convex_core::contracts::*;
-use convex_engine::{optional_valuation::*, snapshot::RUNTIME_MEASURES, RuntimeInput};
+use convex_engine::{
+    level_pricing::QuotedInput, optional_valuation::*, snapshot::RUNTIME_MEASURES, RuntimeInput,
+};
 use convex_ports::{
     reference_master::CallStyle,
     reference_repository::{ReferenceChange, ReferenceCommand},
@@ -59,6 +61,43 @@ async fn callable_setup(style: CallStyle, assumption: bool) -> Setup {
     setup
 }
 
+/// [`callable_setup`] for a Bermudan under the HW1F assumption, quoted by an `oas` rule,
+/// with the plan's quote also holding 50 bp in the rule's field, `mid_spread`, as a plan
+/// compiled before the rule may.
+async fn oas_setup() -> Setup {
+    let mut setup = callable_setup(CallStyle::Bermudan, true).await;
+    let plan = &mut setup.plan;
+    products::also_quote_in(
+        &mut plan.assembly.quotes[0],
+        &mut plan.seed_events[0],
+        convex_ports::quote_event::QuoteField::MidSpread,
+        Decimal::from(50),
+    );
+    setup
+        .storage
+        .bonds
+        .commit(
+            &ReferenceCommand {
+                idempotency_key: RequestId::new("callable-oas-rule").unwrap(),
+                changes: vec![],
+                master_changes: vec![products::pricing_rule(
+                    "BOND-001",
+                    serde_json::json!({"kind": "oas"}),
+                )],
+            },
+            fixture::time("2025-06-02T00:00:00Z"),
+        )
+        .await
+        .unwrap();
+    setup
+}
+
+/// A started captured runtime over `setup`'s plan, with its discount recipe stored and
+/// configuration version 2 activated.
+async fn request_runtime(setup: &Setup) -> std::sync::Arc<convex_engine::PricingEngine> {
+    configuration::request_runtime(setup, vec![recipes::record(recipes::recipe())]).await
+}
+
 #[tokio::test]
 async fn a_stored_bermudan_callable_publishes_its_oas_and_effective_risk() {
     let setup = callable_setup(CallStyle::Bermudan, true).await;
@@ -98,13 +137,7 @@ async fn a_stored_bermudan_callable_publishes_its_oas_and_effective_risk() {
         panic!("observed clean mid")
     };
     assert_eq!(clean.value().decimal(), Decimal::from_str("99.25").unwrap());
-    let model = |name: &str| match value(name) {
-        MeasureValue::ModelPrice(v) => v.value().get(),
-        MeasureValue::ModelBps(v) => v.value().get(),
-        MeasureValue::ModelYears(v) => v.value().get(),
-        MeasureValue::ModelYearsSquared(v) => v.value().get(),
-        other => panic!("{name}: {other:?}"),
-    };
+    let model = |name: &str| measure(result, name);
     assert!(matches!(value("oas_mid"), MeasureValue::ModelBps(_)));
     assert!(model("oas_mid").is_finite());
     assert!(model("effective_duration_mid") > 0.0 && model("pv01_mid") > 0.0);
@@ -195,29 +228,7 @@ async fn plans_accept_oas_and_still_refuse_measures_no_model_publishes() {
 #[tokio::test]
 async fn a_request_time_callable_valuation_matches_the_stream() {
     let setup = callable_setup(CallStyle::Bermudan, true).await;
-    let config = setup
-        .storage
-        .configs
-        .get_version("CONFIG-RESTORE", 2)
-        .await
-        .unwrap()
-        .unwrap();
-    setup
-        .storage
-        .curves
-        .save_recipe(&recipes::record(recipes::recipe()))
-        .await
-        .unwrap();
-    let engine = make_engine(
-        &setup,
-        archive(&setup),
-        setup.plan.clone(),
-        setup.store.clone(),
-        RuntimeInput::Captured,
-    );
-    engine.start().await.unwrap();
-    // A runtime without configuration use cases starts only with nothing activated.
-    configuration::activate_pricing(&setup, &config).await;
+    let engine = request_runtime(&setup).await;
     let stream = engine.runtime_results()[0].result.clone();
     let valued =
         configuration::value_at(&engine, &stream, setup.plan.settlement_date, Some("99.25"))
@@ -242,6 +253,74 @@ async fn a_request_time_callable_valuation_matches_the_stream() {
         .await
         .unwrap()
         .is_none());
+}
+
+/// A callable under an `oas` rule is valued from its price in Live, exactly as with no
+/// rule, though its quote also holds a spread in the rule's field. At request time it is priced at an OAS: the stream's OAS gives the stream's
+/// price back, with the same accrued, dirty price and risk, and the OAS as quoted; a
+/// price gives the stream's values. An OAS out of range is refused before anything is
+/// valued.
+#[tokio::test]
+async fn a_callable_under_an_oas_rule_is_valued_from_its_price_in_live_and_its_oas_at_request_time()
+{
+    let unruled = request_runtime(&callable_setup(CallStyle::Bermudan, true).await).await;
+    let by_price = unruled.runtime_results()[0].result.clone();
+    unruled.shutdown().await.unwrap();
+    let setup = oas_setup().await;
+    let engine = request_runtime(&setup).await;
+    let stream = engine.runtime_results()[0].result.clone();
+    assert_eq!(
+        stream.status(),
+        ResultStatus::Complete,
+        "{:?}",
+        stream.errors()
+    );
+    assert_eq!(
+        stream.provenance().model_version.as_str(),
+        OPTIONAL_SNAPSHOT_MODEL
+    );
+    assert_eq!(stream.results(), by_price.results());
+
+    let settlement = setup.plan.settlement_date;
+    let at = |mark| configuration::value_quoted_at(&engine, &stream, settlement, Some(mark));
+    let oas = measure(&stream, "oas_mid");
+    let by_oas = at(QuotedInput::Level(Decimal::from_f64_retain(oas).unwrap()))
+        .await
+        .unwrap();
+    let by_oas = by_oas.result.envelope();
+    assert_eq!(
+        by_oas.status(),
+        ResultStatus::Complete,
+        "{:?}",
+        by_oas.errors()
+    );
+    assert_eq!(measure(by_oas, "oas_mid"), oas);
+    assert!((measure(by_oas, "clean_price_mid") - 99.25).abs() < 1e-6);
+    for name in [
+        "dirty_price_mid",
+        "accrued_interest",
+        "effective_duration_mid",
+        "effective_convexity_mid",
+        "pv01_mid",
+    ] {
+        assert!(
+            (measure(by_oas, name) - measure(&stream, name)).abs() < 1e-6,
+            "{name}"
+        );
+    }
+    let priced = at(QuotedInput::Price(Decimal::from_str("99.25").unwrap()))
+        .await
+        .unwrap();
+    assert_eq!(priced.result.envelope().results(), stream.results());
+    let refused = at(QuotedInput::Level(Decimal::from(1001)))
+        .await
+        .err()
+        .unwrap();
+    assert!(
+        refused.to_string().contains("basis points of OAS"),
+        "{refused}"
+    );
+    engine.shutdown().await.unwrap();
 }
 
 /// One request context prices each curve on one revision. A bullet's read takes the

@@ -104,8 +104,8 @@ impl RequestValuer {
     /// cutoff. A missing or stale one refuses the request as it does for bullets; a
     /// curve the product does not read refuses nothing. A level `mark` is in the field of
     /// the bond's rule, and only a bond whose model values its own level takes one: a
-    /// callable's yield to worst on its workouts, or a floating rate note's discount
-    /// margin.
+    /// callable's yield to worst on its workouts or its OAS on HW1F trees, or a floating
+    /// rate note's discount margin.
     pub(crate) async fn prepare(
         &self,
         context: &mut RequestContext,
@@ -138,7 +138,7 @@ impl RequestValuer {
             Some(QuotedInput::Level(level)) => {
                 let method = method.filter(|_| values_own_level(model)).ok_or(
                     TraitError::InvalidInput(
-                        "a level is valued at request time only as a callable's yield to worst or a floating rate note's discount margin",
+                        "a level is valued at request time only as a callable's yield to worst or OAS, or a floating rate note's discount margin",
                     ),
                 )?;
                 check_level(method, level)?;
@@ -161,7 +161,8 @@ impl RequestValuer {
         }
         // No product this path values reads a curve for its rule's level beyond those its
         // model reads: a bullet's level is priced before the router, a callable's yield to
-        // worst reads no curve, and a note's margin reads the curves its price does.
+        // worst reads no curve, and a callable's OAS and a note's margin read the curves
+        // their price does.
         let roots: Vec<_> = read_curve_ids(model, &measures, None, &config.analytics_curves)
             .into_iter()
             .map(convex_core::ids::CurveId::new)
