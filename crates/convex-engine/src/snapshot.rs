@@ -1823,7 +1823,10 @@ fn callable_measures(
             "accrued_interest" => {
                 MeasureValue::ModelPrice(ModelPricePer100::new(finite(valued.accrued)?))
             }
-            "oas_mid" => MeasureValue::ModelBps(ModelBasisPoints::new(finite(valued.oas_bps)?)),
+            "oas_mid" => {
+                let oas_bps = valued.oas_bps.as_ref().map_err(Failure::clone)?;
+                MeasureValue::ModelBps(ModelBasisPoints::new(finite(*oas_bps)?))
+            }
             // Parallel discount shift with the OAS frozen.
             "effective_duration_mid" => {
                 MeasureValue::ModelYears(ModelYears::new(finite(risk()?.duration)?))

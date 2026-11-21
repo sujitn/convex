@@ -182,6 +182,12 @@ the changes that matter when you upgrade.
   again at that tick.
   `POST /api/v1/runtime/valuation` refuses the same callables in a supplied snapshot, so
   it reproduces what the runtime published.
+- **A callable priced beyond its OAS bracket keeps its price measures, and the bracket
+  is wider.** The OAS solver brackets -500 to 5,000 bp (was 1,000 bp), the range an
+  `oas` level takes. A price whose OAS is beyond it, such as a distressed callable's,
+  publishes its clean and dirty price and accrued, and `oas_mid` and the effective risk
+  fail with `SOLVER_LIMIT`, saying why; every measure failed before. A solve from a price
+  takes about 5–11% longer.
 - **Callables by OAS.** A `pricing_rule` may quote a callable by `oas` (basis points
   over the discount curve at which its HW1F trees price it). The callable is priced at
   its OAS under `convex-optional-hw1f-v1`, publishing the OAS as quoted, the price at it
@@ -189,7 +195,7 @@ the changes that matter when you upgrade.
   read, even beside a price, and a curve revision values it again; a callable under the
   rule whose feed sends only a price fails each measure for its missing OAS. At request
   time `GET /api/v1/quotes/:id` takes it as `level`, and still takes `market_price`. An
-  OAS is from -500 to 1,000 bp. The rule is refused at commit for any bond but a
+  OAS is from -500 to 5,000 bp. The rule is refused at commit for any bond but a
   callable the HW1F model values: European or Bermudan fixed-price calls, none
   make-whole, and no other embedded terms.
 - **A bond whose rule no longer applies is refused at request time.** A bond revised

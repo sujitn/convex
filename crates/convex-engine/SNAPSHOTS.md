@@ -225,15 +225,19 @@ A fixed callable whose pricing rule quotes it by price or yield to worst is valu
 its workouts (below). Any other fixed callable is valued under model
 `convex-optional-hw1f-v1` through
 `convex::library::execute`: the optional-bond OAS inverse at the observed clean mid
-plus the bond schedule's accrued, then effective risk at that OAS. Each instrument
+plus the bond schedule's accrued, then effective risk at that OAS. A callable whose rule
+quotes it by `oas` is read from its `mid_spread` instead: effective risk at that OAS,
+whose base case is its price. A price whose OAS is beyond the bracket keeps its price,
+dirty price and accrued (the bond schedule's), and `oas_mid` and the risk fail with
+`SolverLimit`. Each instrument
 requests only the plan measures its own model publishes, so one plan can mix
 bullets, zeros and callables and every result keeps its own `Complete` meaning.
 
 | Measure | Canonical quantity |
 |---|---|
-| `clean_price_mid` | Exact observed price per 100 |
+| `clean_price_mid` | Exact price per 100: the observed price, or the model's at the OAS |
 | `dirty_price_mid`, `accrued_interest` | Finite model price per 100 |
-| `oas_mid` | Finite model basis points over the configuration's discount curve |
+| `oas_mid` | Finite model basis points over the configuration's discount curve: the solved OAS, or the OAS as quoted |
 | `effective_duration_mid` | Finite model years: ±100 bp parallel discount shift, OAS frozen |
 | `effective_convexity_mid` | Finite model years squared, from the same shift |
 | `pv01_mid` | Finite model price per 100: the loss for +1 bp, from the same central difference |
@@ -250,7 +254,7 @@ The inputs are exactly the pinned ones:
 
 The numerical policy is the repository's validated optional-bond settings: grids of
 128 steps with three doublings and 0.004 price tolerance, issuer-last exercise
-priority, OAS bracket −5%..10% to a 1e-9 price residual, and duration/convexity
+priority, OAS bracket −5%..50% to a 1e-9 price residual, and duration/convexity
 refinement tolerances of 0.02/0.01 and 0.25/0.01. Missing `option_model` or
 `call_terms`, make-whole calls and American (continuous) exercise fail every measure
 with `UnsupportedConvention` and the library's or the adapter's reason; the native

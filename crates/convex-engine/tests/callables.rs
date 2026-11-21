@@ -311,7 +311,7 @@ async fn a_callable_under_an_oas_rule_is_valued_from_its_oas_in_live_and_at_requ
             "{name}"
         );
     }
-    let refused = at(QuotedInput::Level(Decimal::from(1001)))
+    let refused = at(QuotedInput::Level(Decimal::from(5001)))
         .await
         .err()
         .unwrap();
@@ -354,6 +354,61 @@ async fn a_callable_under_an_oas_rule_whose_feed_sends_only_a_price_fails_for_it
             .all(|error| error.code() == ErrorCode::MissingMarketData),
         "{:?}",
         result.errors()
+    );
+}
+
+/// A callable priced beyond the OAS solver's bracket, as a distressed one is, publishes
+/// its price, dirty price and accrued, and its OAS and effective risk fail, saying why.
+#[tokio::test]
+async fn a_callable_priced_beyond_the_oas_bracket_keeps_its_price_measures() {
+    let mut setup = callable_setup(CallStyle::Bermudan, true).await;
+    let plan = &mut setup.plan;
+    products::quote_in(
+        &mut plan.assembly.quotes[0],
+        &mut plan.seed_events[0],
+        convex_ports::quote_event::QuoteField::MidPrice,
+        Decimal::from(15),
+    );
+    let engine = make_engine(
+        &setup,
+        archive(&setup),
+        setup.plan.clone(),
+        setup.store.clone(),
+        RuntimeInput::Captured,
+    );
+    engine.start().await.unwrap();
+    let published = engine.runtime_results();
+    engine.shutdown().await.unwrap();
+    let result = &published[0].result;
+    assert_eq!(
+        result.status(),
+        ResultStatus::Partial,
+        "{:?}",
+        result.errors()
+    );
+    assert_eq!(measure(result, "clean_price_mid"), 15.0);
+    let accrued = measure(result, "accrued_interest");
+    assert!((measure(result, "dirty_price_mid") - 15.0 - accrued).abs() < 1e-12);
+    let failed: Vec<_> = result
+        .errors()
+        .iter()
+        .map(|error| error.field().unwrap())
+        .collect();
+    assert_eq!(
+        failed,
+        [
+            "effective_convexity_mid",
+            "effective_duration_mid",
+            "oas_mid",
+            "pv01_mid"
+        ]
+    );
+    assert!(
+        result
+            .errors()
+            .iter()
+            .all(|error| error.code() == ErrorCode::SolverLimit
+                && error.message().contains("bracket"))
     );
 }
 

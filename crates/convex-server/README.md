@@ -549,8 +549,10 @@ and is priced from its OAS, in Live and at request time.
   price it solves the OAS, as for a callable with no rule. Each inverts the other.
 - It publishes what a callable with no rule publishes, and `oas_mid` is the OAS as
   quoted. It reads the discount curve, as from a price.
-- An OAS is from -500 to 1,000 basis points, the OAS solver's bracket, so the price at
-  any OAS solves back to it.
+- An OAS is from -500 to 5,000 basis points, the OAS solver's bracket, so the price at
+  any OAS solves back to it. A price whose OAS is beyond the bracket, as a distressed
+  callable's is, with a rule or none, still publishes its clean and dirty price and
+  accrued; `oas_mid` and the effective risk fail with `SOLVER_LIMIT`, saying why.
 - `GET /api/v1/quotes/:id` takes `level` (basis points of OAS) or `market_price`. Its
   `pricing_rule` report names the HW1F model and the level.
 - In Live its plan reads `mid_spread` from the levels' source, as a note's margin is

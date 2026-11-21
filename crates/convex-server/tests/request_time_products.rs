@@ -749,9 +749,9 @@ async fn a_callable_under_an_oas_rule_is_priced_at_its_oas_by_the_quote_route_an
         convex_engine::workout_valuation::WORKOUT_SNAPSHOT_MODEL
     );
     // An OAS out of range is refused on both routes.
-    let (status, _, refused) = quote("level=1001").await;
+    let (status, _, refused) = quote("level=5001").await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
-    let (status, _, refused) = calculate(app.clone(), oas_method(), "1001".into()).await;
+    let (status, _, refused) = calculate(app.clone(), oas_method(), "5001".into()).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
     assert_eq!(refused["code"], "INVALID_INPUT", "{refused}");
     engine.shutdown().await.unwrap();

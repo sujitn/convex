@@ -69,7 +69,7 @@ const SETTINGS: o::OptionalBondSettings = o::OptionalBondSettings {
 };
 const OAS_SOLVE: o::OasSolveSettings = o::OasSolveSettings {
     lower: -0.05,
-    upper: 0.10,
+    upper: 0.50,
     price_tolerance: 1e-9,
     max_iterations: 128,
 };
@@ -258,8 +258,8 @@ pub(crate) struct CallableValuation {
     /// Accrued per 100 face from the bond's own schedule, which the model's agrees with.
     pub accrued: f64,
     /// Unrounded basis points over the discount curve: the solved OAS, or the OAS as
-    /// quoted.
-    pub oas_bps: f64,
+    /// quoted. A price whose OAS is beyond the solver's bracket has none.
+    pub oas_bps: Result<f64, Failure>,
     /// Risk is refined independently of price and may fail on its own.
     pub risk: Result<CallableRisk, Failure>,
 }
@@ -436,17 +436,32 @@ pub(crate) fn value_callable(
     match quote {
         CallableQuote::CleanPrice(clean) => {
             let dirty = to_f64(clean, "clean mid")? + accrued;
-            let solved = run(OptionalOperation::Oas {
+            // A price whose OAS the solver cannot bracket keeps its price, dirty price and
+            // accrued, all the bond schedule's; its OAS and risk fail with the solver's
+            // reason. Any other failure fails every measure.
+            let solved = match run(OptionalOperation::Oas {
                 dirty_price: dirty,
                 settings: OAS_SOLVE,
-            })?;
+            }) {
+                Ok(solved) => solved,
+                Err(unsolved) if unsolved.code == ErrorCode::SolverLimit => {
+                    return Ok(CallableValuation {
+                        clean,
+                        dirty,
+                        accrued,
+                        oas_bps: Err(unsolved.clone()),
+                        risk: Err(unsolved),
+                    });
+                }
+                Err(failed) => return Err(failed),
+            };
             agrees_with_schedule(number(&solved, &["data", "price", "accrued"])?)?;
             let risk = risk_at(number(&solved, &["data", "oas_decimal"])?);
             Ok(CallableValuation {
                 clean,
                 dirty,
                 accrued,
-                oas_bps: number(&solved, &["data", "oas_bps"])?,
+                oas_bps: Ok(number(&solved, &["data", "oas_bps"])?),
                 risk: callable_risk(risk),
             })
         }
@@ -470,7 +485,7 @@ pub(crate) fn value_callable(
                     .ok_or_else(|| invalid("the price at the OAS is not finite".into()))?,
                 dirty: number(price, &["dirty_price"])?,
                 accrued,
-                oas_bps,
+                oas_bps: Ok(oas_bps),
                 risk: callable_risk(risk),
             })
         }
@@ -621,6 +636,9 @@ mod tests {
         }))
         .unwrap()
     }
+    fn solved_oas(valued: &CallableValuation) -> f64 {
+        *valued.oas_bps.as_ref().unwrap()
+    }
     fn quote(bond: &BondReferenceData, clean: &str) -> Result<CallableValuation, Failure> {
         value(
             bond,
@@ -705,7 +723,7 @@ mod tests {
         let oas = prepared
             .solve_oas(101.25 + ours.accrued, OAS_SOLVE)
             .unwrap();
-        assert!((oas.oas_bps - ours.oas_bps).abs() < 1e-9, "{oas:?}");
+        assert!((oas.oas_bps - solved_oas(&ours)).abs() < 1e-9, "{oas:?}");
         assert!((oas.price.accrued - ours.accrued).abs() < 1e-12);
         let risk = prepared
             .risk(oas.oas_decimal, o::RiskAxis::Discount, RISK_BUMP, RISK)
@@ -730,9 +748,9 @@ mod tests {
         for clean in ["97", "99.50", "101.25"] {
             let solved = quote(&bond, clean).unwrap();
             // A higher price is a tighter OAS.
-            assert!(solved.oas_bps < wider);
-            wider = solved.oas_bps;
-            let oas = Decimal::from_f64_retain(solved.oas_bps).unwrap();
+            assert!(solved_oas(&solved) < wider);
+            wider = solved_oas(&solved);
+            let oas = Decimal::from_f64_retain(wider).unwrap();
             let priced = value(&bond, CallableQuote::OasBps(oas)).unwrap();
             let clean = Decimal::from_str(clean).unwrap();
             assert!(
@@ -742,7 +760,7 @@ mod tests {
             );
             assert!((priced.dirty - solved.dirty).abs() < 1e-6);
             assert_eq!(priced.accrued, solved.accrued);
-            assert_eq!(priced.oas_bps, solved.oas_bps);
+            assert_eq!(solved_oas(&priced), solved_oas(&solved));
             // Risk at one OAS is the same either way, or fails the same way.
             match (solved.risk, priced.risk) {
                 (Ok(solved), Ok(priced)) => {
@@ -753,6 +771,29 @@ mod tests {
                 _ => panic!("risk differs at {clean}"),
             }
         }
+    }
+
+    /// A price whose OAS is beyond the solver's bracket, as a distressed callable's is,
+    /// keeps its price, dirty price and accrued; its OAS and risk fail with the solver's
+    /// reason.
+    #[test]
+    fn a_price_beyond_the_oas_bracket_keeps_its_price_measures() {
+        let bond = callable(CallStyle::Bermudan);
+        let within = quote(&bond, "101.25").unwrap();
+        let beyond = quote(&bond, "15").unwrap();
+        assert_eq!(beyond.clean, Decimal::from(15));
+        assert_eq!(beyond.accrued, within.accrued);
+        assert!((beyond.dirty - 15.0 - beyond.accrued).abs() < 1e-12);
+        let unsolved = beyond.oas_bps.unwrap_err();
+        assert_eq!(unsolved.code, ErrorCode::SolverLimit);
+        assert!(unsolved.message.contains("bracket"), "{}", unsolved.message);
+        assert!(matches!(
+            beyond.risk,
+            Err(Failure {
+                code: ErrorCode::SolverLimit,
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -768,9 +809,9 @@ mod tests {
             let priced = value(&bond, CallableQuote::quoted_by(&oas, end).unwrap()).unwrap();
             let solved = quote(&bond, &priced.clean.to_string()).unwrap();
             assert!(
-                (solved.oas_bps - priced.oas_bps).abs() < 1e-3,
+                (solved_oas(&solved) - solved_oas(&priced)).abs() < 1e-3,
                 "{end}: {}",
-                solved.oas_bps
+                solved_oas(&solved)
             );
         }
         for outside in [*RANGE.start() - Decimal::ONE, *RANGE.end() + Decimal::ONE] {
@@ -795,7 +836,7 @@ mod tests {
         first.call_schedule.truncate(1);
         let first = quote(&first, "101.25").unwrap();
         // More exercise dates give the issuer more option value, so less spread at one price.
-        assert!(all.oas_bps < first.oas_bps);
+        assert!(solved_oas(&all) < solved_oas(&first));
         // The native model has no validated continuous-exercise discretization.
         let american = quote(&callable(CallStyle::American), "101.25")
             .err()
