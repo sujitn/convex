@@ -25,16 +25,16 @@ async fn desk_server() -> (
     let (dir, _, mut config, keys) = level_live_setup_from(2, Some(DESK)).await;
     config.desk_level_source = Some(DESK.into());
     let server = Running::start(config.clone()).await;
-    price_treasuries(&server, &keys, 1).await;
+    price_treasuries(&server, &keys, 1, "99.25").await;
     (dir, config, server, keys)
 }
 
-async fn price_treasuries(server: &Running, keys: &LevelKeys, sequence: u64) {
+async fn price_treasuries(server: &Running, keys: &LevelKeys, sequence: u64, price: &str) {
     let prices = keys
         .treasuries
         .iter()
         .map(|key| {
-            let mut event = image(sequence, "99.25");
+            let mut event = image(sequence, price);
             event.key = key.clone();
             event
         })
@@ -60,9 +60,17 @@ async fn marks(server: &Running) -> Value {
         .1
 }
 
-/// The bond's Live clean price mid once its record is newer than `after`, with that
-/// record's revision.
-async fn clean_price_after(server: &Running, instrument_id: &str, after: u64) -> (u64, String) {
+/// A Live record's clean price mid, when it carries one.
+fn clean_price(record: &Value) -> Option<&str> {
+    record["result"]["results"]["clean_price_mid"]["value"]["value"].as_str()
+}
+
+fn revision(record: &Value) -> u64 {
+    record["revision"].as_u64().unwrap()
+}
+
+/// The bond's Live record once it is newer than `after` and carries a clean price.
+async fn record_after(server: &Running, instrument_id: &str, after: u64) -> Value {
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             let (_, page) = server
@@ -71,14 +79,10 @@ async fn clean_price_after(server: &Running, instrument_id: &str, after: u64) ->
             let record = page["results"].as_array().unwrap().iter().find(|record| {
                 record["result"]["provenance"]["subject"]["instrument_id"] == instrument_id
             });
-            if let Some(record) = record {
-                let revision = record["revision"].as_u64().unwrap();
-                let clean = &record["result"]["results"]["clean_price_mid"]["value"]["value"];
-                if revision > after {
-                    if let Some(clean) = clean.as_str() {
-                        return (revision, clean.to_owned());
-                    }
-                }
+            if let Some(record) =
+                record.filter(|record| revision(record) > after && clean_price(record).is_some())
+            {
+                return record.clone();
             }
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
@@ -105,7 +109,22 @@ async fn a_desk_mark_prices_its_bond_and_a_nudge_reprices_it() {
     .await;
     assert_eq!(status, StatusCode::ACCEPTED, "{receipt}");
     assert_eq!(receipt["accepted"], 1);
-    let (revision, at_125) = clean_price_after(&server, BOND, 0).await;
+    let record = record_after(&server, BOND, 0).await;
+    let at_125 = clean_price(&record).unwrap().to_owned();
+    // The result carries the mark it was priced from, exactly as the desk sent it.
+    assert_eq!(
+        record["quote_input"],
+        json!({
+            "field": "mid_spread",
+            "observation": {
+                "value": {"value": "125", "unit": "spread_basis_points"},
+                "source_time_ms": receipt["receive_time_ms"],
+                "receive_time_ms": receipt["receive_time_ms"],
+                "sequence": 1,
+            },
+        }),
+        "{record}"
+    );
 
     // A level is absolute: a wider spread prices lower, and the mark reads back as sent.
     let (status, _) = mark(
@@ -114,9 +133,23 @@ async fn a_desk_mark_prices_its_bond_and_a_nudge_reprices_it() {
     )
     .await;
     assert_eq!(status, StatusCode::ACCEPTED);
-    let (_, at_126) = clean_price_after(&server, BOND, revision).await;
+    let nudged = record_after(&server, BOND, revision(&record)).await;
+    let at_126 = clean_price(&nudged).unwrap().to_owned();
     let price = |text: &str| text.parse::<f64>().unwrap();
     assert!(price(&at_126) < price(&at_125), "{at_126} after {at_125}");
+
+    // A benchmark tick reprices the bond from the same mark.
+    price_treasuries(&server, &keys, 2, "99.5").await;
+    let ticked = record_after(&server, BOND, revision(&nudged)).await;
+    assert_ne!(clean_price(&ticked), Some(at_126.as_str()), "{ticked}");
+    assert_eq!(
+        ticked["quote_input"]["observation"]["sequence"], 2,
+        "{ticked}"
+    );
+    assert_eq!(
+        ticked["quote_input"]["observation"]["value"]["value"],
+        "126.5"
+    );
     let after = marks(&server).await;
     let marked = after["levels"]
         .as_array()
@@ -135,15 +168,16 @@ async fn a_desk_mark_prices_its_bond_and_a_nudge_reprices_it() {
         .unwrap()
         .iter()
         .all(|level| level["mark"].is_null()));
-    price_treasuries(&server, &keys, 2).await;
+    price_treasuries(&server, &keys, 3, "99.25").await;
     let (status, _) = mark(
         &server,
         json!({"source": DESK, "levels": [spread(BOND, "126.5")]}),
     )
     .await;
     assert_eq!(status, StatusCode::ACCEPTED);
-    let (_, restarted) = clean_price_after(&server, BOND, 0).await;
-    assert_eq!(restarted, at_126);
+    let restarted = record_after(&server, BOND, 0).await;
+    assert_eq!(clean_price(&restarted), Some(at_126.as_str()));
+    assert_eq!(restarted["quote_input"]["observation"]["sequence"], 1);
     server.stop().await;
     drop(dir);
 }

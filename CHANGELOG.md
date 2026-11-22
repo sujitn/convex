@@ -103,7 +103,9 @@ the changes that matter when you upgrade.
 
 - **The desk app, `desk/`:** the pricing sheet (every bond with a pricing rule, repriced
   from the stream, Treasuries in 32nds, tick colours, each row's state as the server
-  judged it, and keyboard nudges of a desk level) and the bond calculator.
+  judged it, and keyboard nudges of a desk level) and the bond calculator. A bond the
+  desk does not mark shows the level, or price, its Live result was priced from, a
+  benchmark spread included.
 - **One npm workspace at the repository root** over `api-client/`, `admin/` and
   `desk/`, with one lockfile. The admin app's API client, session and exact-number
   helpers moved into `api-client`, which both apps use. Build an app with
@@ -456,6 +458,12 @@ the changes that matter when you upgrade.
 
 ### convex-engine
 
+- **A Live result carries the quote it was valued from.** The snapshot valuation records
+  the field of the bond's quote it read, the level under a rule that quotes the bond by
+  one and otherwise its price, with its exact observation. It is carried through the
+  valuation cache to `SnapshotValuationResult::quote_input` (a new argument of `new`) and
+  `PublishedValuation::quote_input`. A refused bond reads none, and
+  neither does a record whose delivery continuity was lost.
 - **A request's OAS for any callable on HW1F trees.** `QuotedInput::Oas` is an OAS a
   request names whatever the bond's rule quotes. The request valuation values the callable
   on its trees and records the method on its quote (`QuoteRequirement::quoted_by`) when
@@ -559,6 +567,9 @@ the changes that matter when you upgrade.
 
 ### convex-ports
 
+- **`QuoteInput`**: the field of its quote a valuation read the bond's mark from, with its
+  `FieldObservation`. `PublishedValuation::quote_input` carries it, and is omitted when the
+  attempt read no quote.
 - **`QuoteRequirement::quoted_by`**: the method a request quotes a quote by when its bond's
   rule quotes it otherwise. A snapshot takes it only as an OAS in the quote's one field,
   for the one callable it values, which the HW1F model must value (`NOT_AN_OAS_CALLABLE`).

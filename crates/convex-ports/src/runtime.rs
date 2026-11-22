@@ -1,7 +1,10 @@
 //! Single-owner pricing recovery and publication contracts. No broker or database handles.
 #![forbid(unsafe_code)]
 
-use crate::{quote_event::QuoteEvent, TraitError};
+use crate::{
+    quote_event::{QuoteEvent, QuoteInput},
+    TraitError,
+};
 use async_trait::async_trait;
 use convex_core::contracts::{
     DataQuality, ResultEnvelope, SnapshotId, SourceId, UtcTimestamp, Version,
@@ -34,6 +37,9 @@ pub struct PublishedValuation {
     pub live_valid_until: Option<UtcTimestamp>,
     /// Current attempt, including explicit errors and input quality.
     pub result: ResultEnvelope,
+    /// The quote field the current attempt was valued from; none when it read no quote.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quote_input: Option<QuoteInput>,
     /// Original valid complete valuation, for display only after a failed refresh.
     pub last_good: Option<ResultEnvelope>,
     /// Stale when last_good belongs to a prior generation; never modifies its timestamp.

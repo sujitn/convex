@@ -122,6 +122,7 @@ fn valuation(revision: u64, message: &str) -> PublishedValuation {
         context_key: "context".into(),
         live_valid_until: None,
         result,
+        quote_input: None,
         last_good: None,
         retained_quality: None,
     }

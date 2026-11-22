@@ -6,7 +6,7 @@ use convex_ports::{
     configuration::ConfigurationPin,
     fixing::FixingRepository,
     level_pricing::{PricingMethod, MAX_SNAPSHOT_BENCHMARK_SETS, RULE_DOES_NOT_APPLY},
-    quote_event::{QuoteEvent, QuoteField, QuoteKey},
+    quote_event::{QuoteEvent, QuoteField, QuoteInput, QuoteKey},
     reference_master::{ReferenceLookup, ResolvedBondReference},
     reference_repository::ReferenceRepository,
     snapshot::*,
@@ -925,17 +925,29 @@ struct ValuationResultWire {
     cache_key: String,
     context: ValuationContext,
     envelope: ResultEnvelope,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    quote_input: Option<QuoteInput>,
 }
 impl SnapshotValuationResult {
-    /// Validate exact context/provenance and complete requested coverage, including explicit failures.
-    pub fn new(context: ValuationContext, envelope: ResultEnvelope) -> Result<Self, TraitError> {
+    /// Validate exact context/provenance and complete requested coverage, including explicit
+    /// failures. `quote_input` is the field of the bond's quote the result was valued from.
+    pub fn new(
+        context: ValuationContext,
+        envelope: ResultEnvelope,
+        quote_input: Option<QuoteInput>,
+    ) -> Result<Self, TraitError> {
         let result = Self(ValuationResultWire {
             cache_key: context.cache_key().to_owned(),
             context,
             envelope,
+            quote_input,
         });
         result.validate()?;
         Ok(result)
+    }
+    /// The quote field the result was valued from; none when it read no quote.
+    pub fn quote_input(&self) -> Option<&QuoteInput> {
+        self.0.quote_input.as_ref()
     }
     /// Full consumed context, including captured generation.
     pub fn context(&self) -> &ValuationContext {
@@ -1203,12 +1215,19 @@ impl SnapshotValuator {
                 "mid valuation must declare the field the bond is quoted by",
             ));
         }
-        let quote = selected[0].image.as_ref();
-        let mark = |field| {
-            quote
-                .and_then(|q| q.fields.get(&field))
-                .map(|value| value.value.value)
-        };
+        // A refused bond reads no quote; any other reads its mark from this one field.
+        let quote_input = selected[0]
+            .image
+            .as_ref()
+            .filter(|_| refusal.is_none())
+            .and_then(|quote| quote.fields.get(&quoted_field))
+            .map(|observation| QuoteInput {
+                field: quoted_field,
+                observation: observation.clone(),
+            });
+        let mark = quote_input
+            .as_ref()
+            .map(|input| input.observation.value.value);
         let (results, errors) = if let Some((code, reason)) = refusal {
             let errors = spec
                 .measures
@@ -1226,11 +1245,11 @@ impl SnapshotValuator {
                 reference,
                 recipe_curves,
                 read_by,
-                mark(quoted_field),
+                mark,
                 quality,
             )?
         } else if model == crate::workout_valuation::WORKOUT_SNAPSHOT_MODEL {
-            workout_measures(spec, reference, read_by, mark(quoted_field), quality)?
+            workout_measures(spec, reference, read_by, mark, quality)?
         } else if model == crate::floating_valuation::FLOATING_SNAPSHOT_MODEL {
             floating_measures(
                 snapshot,
@@ -1238,7 +1257,7 @@ impl SnapshotValuator {
                 reference,
                 recipe_curves,
                 read_by,
-                mark(quoted_field),
+                mark,
                 quality,
             )?
         } else {
@@ -1303,7 +1322,7 @@ impl SnapshotValuator {
             let curves = spec.measures.iter().any(|m| curve_measure(m.as_str()));
             // Under a rule, the level stage turns the quote into the clean price the
             // router values, and gives the set's securities for a G-spread asked of it.
-            let quoted = mark(quoted_field);
+            let quoted = mark;
             let staged = rule.zip(quoted).map(|(_, quoted)| {
                 crate::level_pricing::price_in_snapshot(
                     snapshot,
@@ -1439,7 +1458,7 @@ impl SnapshotValuator {
             },
         )
         .map_err(contract_error)?;
-        let result = SnapshotValuationResult::new(context.clone(), envelope)?;
+        let result = SnapshotValuationResult::new(context.clone(), envelope, quote_input)?;
         let retained = self.cache.insert(result)?;
         rebound(context, &retained, request_id)
     }
@@ -1463,6 +1482,7 @@ fn rebound(
             envelope.provenance().clone(),
         )
         .map_err(contract_error)?,
+        retained.quote_input().cloned(),
     )
 }
 

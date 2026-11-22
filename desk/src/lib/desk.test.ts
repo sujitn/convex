@@ -24,7 +24,13 @@ import { streamProtocols, subscriptionMessages } from './stream'
 function valuation(
   revision: number,
   clean: string,
-  overrides: { runtime?: string; status?: string; quality?: string; validUntil?: string | null } = {},
+  overrides: {
+    runtime?: string
+    status?: string
+    quality?: string
+    validUntil?: string | null
+    quoted?: { field: string; value: string; unit: string }
+  } = {},
 ): PublishedValuation {
   return {
     runtime_id: overrides.runtime ?? 'R1',
@@ -42,6 +48,15 @@ function valuation(
       },
       errors: [],
       provenance: { subject: { instrument_id: 'BOND-001', version: 1 } },
+    },
+    quote_input: overrides.quoted && {
+      field: overrides.quoted.field,
+      observation: {
+        value: { value: overrides.quoted.value, unit: overrides.quoted.unit },
+        source_time_ms: 0,
+        receive_time_ms: 0,
+        sequence: revision,
+      },
     },
   }
 }
@@ -183,11 +198,13 @@ describe('rows', () => {
     expect(rows[1]!.bond).toBeNull()
     expect(rows[1]!.deskField).toBeNull()
   })
-  it('show a level the desk does not mark from the measure that equals it', () => {
+  it('show a level the desk does not mark from the quote its result was priced from', () => {
     const [spreadRow, yieldRow] = sheetRows(rules, [], null)
     expect(shownLevel(yieldRow!)).toBeNull()
-    expect(shownLevel(withValuation(yieldRow!, valuation(1, '99'), 0))).toEqual({ value: 0.0525, unit: 'decimal_rate' })
-    // A benchmark spread is published by no measure.
+    const byYield = valuation(1, '99', { quoted: { field: 'mid_yield', value: '0.0525', unit: 'yield_decimal' } })
+    expect(shownLevel(withValuation(yieldRow!, byYield, 0))).toEqual({ value: '0.0525', unit: 'decimal_rate' })
+    const bySpread = valuation(1, '99', { quoted: { field: 'mid_spread', value: '125.25', unit: 'spread_basis_points' } })
+    expect(shownLevel(withValuation(spreadRow!, bySpread, 0))).toEqual({ value: '125.25', unit: 'bp' })
     expect(shownLevel(withValuation(spreadRow!, valuation(1, '99'), 0))).toBeNull()
   })
 })

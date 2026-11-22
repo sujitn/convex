@@ -8,6 +8,17 @@ export interface Measure {
   method: string
 }
 
+/** The field of its quote a result was valued from, as observed: its value is exact. */
+export interface QuoteInput {
+  field: string
+  observation: {
+    value: { value: string; unit: string }
+    source_time_ms: number
+    receive_time_ms: number
+    sequence: number
+  }
+}
+
 export interface PublishedValuation {
   runtime_id: string
   revision: number
@@ -22,6 +33,7 @@ export interface PublishedValuation {
     errors: unknown[]
     provenance: { subject: { instrument_id?: string; version?: number } }
   }
+  quote_input?: QuoteInput
 }
 
 /** One page of `GET /api/v1/runtime/results`, in instrument ID order. */

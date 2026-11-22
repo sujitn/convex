@@ -307,6 +307,7 @@ fn a_result_for_another_snapshot_releases_the_retained_snapshot() {
                 provenance,
             )
             .unwrap(),
+            result.quote_input().cloned(),
         )
         .unwrap();
         cache.insert(moved.clone()).unwrap();
@@ -630,7 +631,12 @@ fn results_account_for_each_measure_and_cannot_claim_another_context_or_generati
     spec.measures
         .push(MeasureId::new("unsupported_risk").unwrap());
     let extended = ValuationContext::new(spec).unwrap();
-    assert!(SnapshotValuationResult::new(extended.clone(), result.envelope().clone()).is_err());
+    assert!(SnapshotValuationResult::new(
+        extended.clone(),
+        result.envelope().clone(),
+        result.quote_input().cloned()
+    )
+    .is_err());
     let partial = calculate(&snapshot, &extended);
     assert_eq!(partial.envelope().status(), ResultStatus::Partial);
     assert!(partial

@@ -498,7 +498,11 @@ fn failed(
         },
     )
     .map_err(|_| RuntimeError::Worker)?;
-    Ok(SnapshotValuationResult::new(context.clone(), envelope)?)
+    Ok(SnapshotValuationResult::new(
+        context.clone(),
+        envelope,
+        None,
+    )?)
 }
 const UNAVAILABLE: &str =
     "Required runtime inputs or valuation are unavailable; no value substituted";
@@ -765,6 +769,7 @@ pub(super) async fn calculate(
             context_key: result.cache_key().into(),
             live_valid_until,
             result: result.envelope().clone(),
+            quote_input: result.quote_input().cloned(),
             last_good,
             retained_quality,
         }));
@@ -812,7 +817,11 @@ pub(super) fn restore_results(
         {
             return Err(RuntimeError::RecoveryConflict);
         }
-        let result = SnapshotValuationResult::new(ctx.clone(), record.result.clone())?;
+        let result = SnapshotValuationResult::new(
+            ctx.clone(),
+            record.result.clone(),
+            record.quote_input.clone(),
+        )?;
         let node = NodeId::BondPrice {
             instrument_id: pin.instrument_id.clone().into(),
         };
@@ -902,7 +911,8 @@ pub(super) fn restore_good(
     let node = NodeId::BondPrice {
         instrument_id: instrument_id.clone().into(),
     };
-    let result = SnapshotValuationResult::new(ctx.clone(), envelope.clone())?;
+    // The last good result is kept as an envelope alone, so it carries no quote.
+    let result = SnapshotValuationResult::new(ctx.clone(), envelope.clone(), None)?;
     if envelope.status() != ResultStatus::Complete || envelope.quality() != DataQuality::Valid {
         return Err(RuntimeError::RecoveryConflict);
     }
@@ -959,6 +969,7 @@ pub(super) fn lost_record(
     Ok(PublishedValuation {
         revision,
         result,
+        quote_input: None,
         retained_quality: prior.last_good.as_ref().map(|_| DataQuality::Stale),
         ..prior.clone()
     })
