@@ -1,9 +1,11 @@
-//! Two-way quotes from width schedules, checked exactly against the shared fixture.
+//! Two-way quotes from width schedules and client tier factors, checked exactly against
+//! the shared fixture.
 
 use std::str::FromStr;
 
 use convex_core::types::{
-    Mark, QuoteBasis, QuoteWidthError, WidthSchedule, WidthUnit, MAX_SIZE_BUCKETS,
+    Mark, QuoteBasis, QuoteWidth, QuoteWidthError, WidthFactor, WidthSchedule, WidthUnit,
+    MAX_SIZE_BUCKETS, MAX_WIDTH_FACTOR,
 };
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
@@ -25,6 +27,19 @@ fn inputs(case: &Value) -> (Mark, WidthSchedule, Option<Decimal>) {
     (mid, schedule, face)
 }
 
+/// The case's width for its trade's size, scaled by its client tier's factor when it has one.
+fn width(
+    case: &Value,
+    schedule: &WidthSchedule,
+    face: Option<Decimal>,
+) -> Result<QuoteWidth, QuoteWidthError> {
+    let width = schedule.width_for(face)?;
+    match case.get("factor").and_then(Value::as_str) {
+        Some(factor) => width.scaled(WidthFactor::new(Decimal::from_str_exact(factor).unwrap())?),
+        None => Ok(width),
+    }
+}
+
 fn refusal_code(error: QuoteWidthError) -> &'static str {
     match error {
         QuoteWidthError::NoBuckets => "no_buckets",
@@ -36,6 +51,7 @@ fn refusal_code(error: QuoteWidthError) -> &'static str {
         QuoteWidthError::UnitMismatch => "unit_mismatch",
         QuoteWidthError::BidPriceNotPositive => "bid_price_not_positive",
         QuoteWidthError::Unrepresentable => "unrepresentable",
+        QuoteWidthError::FactorOutOfRange => "factor_out_of_range",
     }
 }
 
@@ -43,14 +59,13 @@ fn refusal_code(error: QuoteWidthError) -> &'static str {
 fn each_case_gives_its_width_bid_and_ask() {
     let fixture = fixture();
     let cases = fixture["cases"].as_array().unwrap();
-    assert_eq!(cases.len(), 15);
+    assert_eq!(cases.len(), 22);
     for case in cases {
         let id = case["id"].as_str().unwrap();
         let (mid, schedule, face) = inputs(case);
         let expected = &case["expected"];
-        let width = schedule
-            .width_for(face)
-            .unwrap_or_else(|e| panic!("{id}: {e}"));
+        let width = width(case, &schedule, face).unwrap_or_else(|e| panic!("{id}: {e}"));
+        assert_eq!(width.unit(), schedule.unit, "{id}: a factor keeps the unit");
         assert_eq!(width.value(), decimal(&expected["width"]), "{id}: width");
         let two_way = width.two_way(&mid).unwrap_or_else(|e| panic!("{id}: {e}"));
         assert_eq!(
@@ -70,12 +85,11 @@ fn each_case_gives_its_width_bid_and_ask() {
 fn each_refusal_gives_its_reason() {
     let fixture = fixture();
     let refusals = fixture["refusals"].as_array().unwrap();
-    assert_eq!(refusals.len(), 19);
+    assert_eq!(refusals.len(), 23);
     for case in refusals {
         let id = case["id"].as_str().unwrap();
         let (mid, schedule, face) = inputs(case);
-        let error = schedule
-            .width_for(face)
+        let error = width(case, &schedule, face)
             .and_then(|width| width.two_way(&mid))
             .expect_err(id);
         assert_eq!(
@@ -125,6 +139,23 @@ fn price_units_quote_a_price_and_basis_points_a_yield_or_spread() {
         let mark = Mark::from_str(text).unwrap();
         assert_eq!(mark.quote_basis(), basis, "{text}");
         assert_eq!(mark.at_level(mark.level()), mark, "{text}");
+    }
+}
+
+#[test]
+fn a_width_factor_is_from_zero_to_ten_and_an_exact_decimal_string_on_the_wire() {
+    assert_eq!(MAX_WIDTH_FACTOR, Decimal::TEN);
+    assert!(QuoteWidthError::FactorOutOfRange
+        .reason()
+        .contains("from 0 to 10"));
+    let factor: WidthFactor = serde_json::from_value(json!("1.25")).unwrap();
+    assert_eq!(factor.value(), Decimal::from_str_exact("1.25").unwrap());
+    assert_eq!(serde_json::to_value(factor).unwrap(), json!("1.25"));
+    for refused in [json!(1.25), json!("10.01"), json!("-0.5"), json!("one")] {
+        assert!(
+            serde_json::from_value::<WidthFactor>(refused.clone()).is_err(),
+            "{refused}"
+        );
     }
 }
 

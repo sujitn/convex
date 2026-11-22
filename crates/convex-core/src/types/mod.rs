@@ -30,7 +30,8 @@ pub use frequency::{Compounding, Frequency};
 pub use mark::{Mark, PriceKind, QuoteBasis};
 pub use price::Price;
 pub use quote_width::{
-    QuoteWidth, QuoteWidthError, SizeBucket, TwoWayMark, WidthSchedule, WidthUnit, MAX_SIZE_BUCKETS,
+    QuoteWidth, QuoteWidthError, SizeBucket, TwoWayMark, WidthFactor, WidthSchedule, WidthUnit,
+    MAX_SIZE_BUCKETS, MAX_WIDTH_FACTOR,
 };
 pub use spread::{Spread, SpreadType};
 pub use yield_type::Yield;

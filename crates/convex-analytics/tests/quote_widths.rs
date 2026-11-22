@@ -1,5 +1,6 @@
 //! A two-way quote priced through `price_from_level`: the bid is the lower price and the
-//! ask the higher, whether the level is a price, a yield or a Z-spread.
+//! ask the higher, whether the level is a price, a yield or a Z-spread, a client tier's
+//! factor applied.
 
 use std::str::FromStr;
 
@@ -7,7 +8,7 @@ use convex_analytics::bond_quote::{price_from_level, BondCurves};
 use convex_bonds::instruments::FixedRateBond;
 use convex_core::{
     daycounts::DayCountConvention,
-    types::{Date, Frequency, Mark, SpreadType, WidthSchedule},
+    types::{Date, Frequency, Mark, SpreadType, WidthFactor, WidthSchedule},
 };
 use convex_curves::{DiscreteCurve, InterpolationMethod, RateCurve, ValueType};
 use rust_decimal::Decimal;
@@ -65,7 +66,11 @@ fn a_bid_prices_below_its_mid_and_an_ask_above() {
         let face = case["face"]
             .as_str()
             .map(|face| Decimal::from_str_exact(face).unwrap());
-        let width = schedule.width_for(face).unwrap();
+        let mut width = schedule.width_for(face).unwrap();
+        if let Some(factor) = case.get("factor").and_then(Value::as_str) {
+            let factor = WidthFactor::new(Decimal::from_str_exact(factor).unwrap()).unwrap();
+            width = width.scaled(factor).unwrap();
+        }
         let two_way = width.two_way(&mid).unwrap();
         let (bid, mid, ask) = (clean(&two_way.bid), clean(&mid), clean(&two_way.ask));
         if width.value().is_zero() {
@@ -75,5 +80,5 @@ fn a_bid_prices_below_its_mid_and_an_ask_above() {
         }
         priced += 1;
     }
-    assert_eq!(priced, 11);
+    assert_eq!(priced, 16);
 }

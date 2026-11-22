@@ -113,6 +113,14 @@ the changes that matter when you upgrade.
 
 ### convex-core
 
+- **A client tier's factor on a two-way quote's width.** `WidthFactor` is a unit-free
+  factor from 0 to 10 (`MAX_WIDTH_FACTOR`), an exact decimal string on the wire.
+  `QuoteWidth::scaled` multiplies a width by it exactly and keeps its unit: one keeps it,
+  below one tightens it for a better client, and zero quotes the mid both ways. A scaled
+  width past the unit's widest is refused (`WidthOutOfRange`), never capped, and one a
+  decimal cannot hold is `Unrepresentable`; a factor out of range is `FactorOutOfRange`.
+  The shared fixture gains seven cases and four refusals.
+
 - **A two-way quote's width, in the quoting unit.** `WidthSchedule` holds
   widths by trade size in one `WidthUnit`: price points, 32nds or basis
   points. Each `SizeBucket` holds trades up to its face amount, inclusive, and

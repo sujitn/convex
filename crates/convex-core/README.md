@@ -26,8 +26,8 @@ rust_decimal_macros = "1.40"
 - `types`: `Date`, `Price`, `Yield`, `Spread`, `Currency`, `Frequency`,
   `Compounding`, `CashFlow` and `CashFlowSchedule`, and the `Mark` quote type.
   `WidthSchedule` holds a two-way quote's width by trade size, in the unit the
-  level is quoted in, and `QuoteWidth::two_way` turns a mid `Mark` into a bid
-  and an ask.
+  level is quoted in, `QuoteWidth::scaled` applies a client tier's `WidthFactor`
+  to it, and `QuoteWidth::two_way` turns a mid `Mark` into a bid and an ask.
 - `daycounts`: the `DayCount` trait with Act/360, Act/365 Fixed and Leap,
   Act/Act ISDA, ICMA and AFB, and the 30/360 US, E, E ISDA and German
   conventions. `DayCountConvention` selects one at runtime.
